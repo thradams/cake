@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 #pragma once
 #include "ownership.h"
 
@@ -134,22 +139,22 @@ struct parser_ctx
 void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx);
 
 
-struct token* parser_look_ahead(struct parser_ctx* ctx);
+struct token* _Opt parser_look_ahead(struct parser_ctx* ctx);
 
 void parser_match(struct parser_ctx* ctx);
 NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
-struct token* parser_look_ahead(struct parser_ctx* ctx);
-struct token* previous_parser_token(struct token* token);
-struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
-struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
-struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
-struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
+struct token* _Opt previous_parser_token(struct token* token);
+struct declarator* _Opt find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+
+struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
 bool first_is(struct parser_ctx* ctx, enum token_type type);
 void print_scope(struct scope_list* e);
 
-char* CompileText(const char* options, const char* content);
+char* _Opt _Owner CompileText(const char* options, const char* content);
 
 
 
@@ -165,7 +170,7 @@ int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 
-enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flags_opt);
+enum token_type parse_number(const char* lexeme, enum type_specifier_flags* _Opt flags_opt);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -205,7 +210,7 @@ struct declaration_specifiers
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
 
-    struct attribute_specifier_sequence* _Owner p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
 
     /*shortcuts*/
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -222,7 +227,7 @@ struct declaration_specifiers
 
 void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p);
 struct declaration_specifiers* _Owner declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
-void declaration_specifiers_delete(struct declaration_specifiers* _Owner p);
+void declaration_specifiers_delete(struct declaration_specifiers* _Owner _Opt p);
 void declaration_specifiers_add(struct declaration_specifiers* p, struct declaration_specifier* _Owner item);
 
 struct static_assert_declaration
@@ -297,10 +302,10 @@ struct attribute_specifier
     struct attribute_specifier* _Owner _Opt  next;
 };
 
-struct attribute_specifier* _Owner attribute_specifier(struct parser_ctx* ctx);
+struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* ctx);
 void attribute_specifier_delete(struct attribute_specifier* _Owner _Opt p);
 
-struct attribute* _Owner attribute(struct parser_ctx* ctx);
+struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx);
 
 
 struct storage_class_specifier
@@ -319,7 +324,7 @@ struct storage_class_specifier
     struct token* token;
 };
 
-struct storage_class_specifier* _Owner storage_class_specifier(struct parser_ctx* ctx);
+struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parser_ctx* ctx);
 void storage_class_specifier_delete(struct storage_class_specifier* _Owner _Opt p);
 
 struct function_specifier
@@ -390,7 +395,7 @@ struct type_specifier
     struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier;
     struct typeof_specifier* _Owner _Opt  typeof_specifier;
     struct enum_specifier* _Owner _Opt enum_specifier;
-    struct declarator* _View _Opt typedef_declarator;
+    struct declarator* _Opt typedef_declarator;
     struct atomic_type_specifier* _Owner _Opt  atomic_type_specifier;
 };
 
@@ -438,7 +443,7 @@ struct declaration
     struct token* first_token;
     struct token* last_token;
 
-    struct declaration* _Owner next;
+    struct declaration* _Owner _Opt next;
 };
 void declaration_delete(struct declaration* _Owner _Opt p);
 struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx);
@@ -490,7 +495,7 @@ struct condition {
 };
 
 void condition_delete(struct condition* _Owner _Opt p);
-struct condition* _Owner condition(struct parser_ctx* ctx);
+struct condition* _Owner _Opt condition(struct parser_ctx* ctx);
 
 struct init_statement
 {
@@ -518,7 +523,7 @@ struct atomic_type_specifier
     struct type_name* _Owner type_name;
 };
 
-struct atomic_type_specifier* _Owner atomic_type_specifier(struct parser_ctx* ctx);
+struct atomic_type_specifier* _Owner _Opt atomic_type_specifier(struct parser_ctx* ctx);
 void atomic_type_specifier_delete(struct atomic_type_specifier* _Owner _Opt  p);
 
 struct enumerator_list
@@ -565,9 +570,9 @@ struct enum_specifier
 
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx*);
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
-const struct enum_specifier* get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
+const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 
-const struct enumerator* find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value);
+const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value);
 
 
 
@@ -632,7 +637,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt  p);
 
 bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
-struct struct_or_union_specifier* _View get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
+struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
 
 struct init_declarator
 {
@@ -692,12 +697,12 @@ struct declarator
     struct direct_declarator* _Owner _Opt direct_declarator;
 
 
-    struct declaration_specifiers* _View declaration_specifiers;
-    const struct specifier_qualifier_list* _View specifier_qualifier_list;
+    struct declaration_specifiers* declaration_specifiers;
+    const struct specifier_qualifier_list* specifier_qualifier_list;
 
     struct token* _Opt name_opt; //shortcut , null for abstract declarator
 
-    struct compound_statement* _View _Opt function_body;
+    struct compound_statement* _Opt function_body;
 
     int num_uses; /*used to show not used warnings*/
 
@@ -864,6 +869,7 @@ struct argument_expression
 {
     struct expression* _Owner expression;
     struct argument_expression* _Owner _Opt next;
+    bool set_unkown; //used in flow analysis need to be removed..
 };
 
 void argument_expression_delete(struct argument_expression* _Owner _Opt  p);
@@ -914,10 +920,10 @@ struct specifier_qualifier_list
     enum type_qualifier_flags type_qualifier_flags;
 
     /*shortcuts*/
-    struct struct_or_union_specifier* _View _Opt struct_or_union_specifier;
-    struct enum_specifier* _View _Opt enum_specifier;
-    struct typeof_specifier* _View _Opt typeof_specifier;
-    struct declarator* _View _Opt typedef_declarator;
+    struct struct_or_union_specifier* _Opt struct_or_union_specifier;
+    struct enum_specifier* _Opt enum_specifier;
+    struct typeof_specifier* _Opt typeof_specifier;
+    struct declarator* _Opt typedef_declarator;
 
     struct type_specifier_qualifier* _Owner _Opt head;
     struct type_specifier_qualifier* _Opt tail;
@@ -1261,8 +1267,8 @@ struct secondary_block
      secondary-block:
        statement
     */
-    struct token* _View first_token;
-    struct token* _View last_token;
+    struct token* first_token;
+    struct token* last_token;
     struct statement* _Owner statement;
 };
 
@@ -1378,7 +1384,7 @@ struct attribute_list
 };
 struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx);
 void attribute_list_destroy(struct attribute_list* _Obj_owner p);
-void attribute_list_delete(struct attribute_list* _Owner p);
+void attribute_list_delete(struct attribute_list* _Owner _Opt p);
 
 void attribute_list_add(struct attribute_list* list, struct attribute* _Owner p_item);
 
@@ -1401,7 +1407,7 @@ struct enumerator
     /*
       having the enum specifier we have better information about the type
     */
-    const struct enum_specifier* _View enum_specifier;
+    const struct enum_specifier* enum_specifier;
 
     struct enumerator* _Owner _Opt next;
     long long value;
@@ -1482,4 +1488,4 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
 
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror);
-const char* _Owner compile_source(const char* pszoptions, const char* content, struct report* report);
+const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);

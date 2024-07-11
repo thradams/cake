@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 #include "ownership.h"
@@ -351,6 +356,7 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
         list->tail->next = pnew;
         list->tail = pnew;
     }
+    assert(list->tail != NULL);
     assert(list->tail->next == NULL);
     return list->tail;
 
@@ -694,7 +700,7 @@ void print_token(struct token* p_token)
     COLOR_ESC_PRINT(printf(RESET));
 }
 
-void print_tokens(struct token* p_token)
+void print_tokens(struct token* _Opt p_token)
 {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
     struct token* current = p_token;

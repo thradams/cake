@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 #pragma once
 #include "parser.h"
 #include "flow_object.h"
@@ -24,7 +29,7 @@ struct flow_visit_ctx
     struct parser_ctx *ctx;
     _View struct ast ast;    
     struct flow_defer_scope* _Owner tail_block;
-    struct type* _View _Opt p_return_type;
+    struct type* _Opt p_return_type;
     int parameter_list;
     
     int state_number_generator;

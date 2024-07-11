@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 #pragma once
 #include <stdbool.h>
 
@@ -75,7 +80,6 @@ enum diagnostic_id {
     W_SWITCH,
     W_UNSUAL_NULL_POINTER_CONSTANT,
     W_SIZEOF_ARRAY_ARGUMENT,
-    W_NOT_DEFINED44,
     W_NOT_DEFINED45,
     W_NOT_DEFINED46,
     W_NOT_DEFINED47,
@@ -101,6 +105,7 @@ enum diagnostic_id {
     ////////////////////////////////////////
 
     //constraints violations are errors
+    C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
     C_ERROR_UNEXPECTED,
     //TODO ERROR MESSAGE MUST BE BASED ON CONSTRAINS
     // 
@@ -192,6 +197,8 @@ enum diagnostic_id {
     C_PRE_DIVISION_BY_ZERO,
     C_ERROR_INT_TO_POINTER
 };
+
+_Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");
 
 /*
 * These warnings are removed when "nullable=disable"

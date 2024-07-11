@@ -1,4 +1,9 @@
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 
@@ -32,7 +37,7 @@ int snprintf(_Out char* const _Buffer,
              ...);
 
 typedef struct _iobuf FILE;
-FILE* _Owner fopen(char const* _FileName, char const* _Mode);
+FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* _Owner _Stream);
 
 size_t fread(
@@ -79,6 +84,11 @@ long long strtoll(
 #include <stdlib.h>
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -168,6 +178,11 @@ void c_clrscr();
 
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma once
 
 
@@ -192,8 +207,18 @@ void ss_swap(struct osstream* a, struct osstream* b);
 
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma once
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 /*
@@ -255,6 +280,11 @@ void* _Owner _Opt owner_hashmap_set(struct owner_hash_map* map, const char* key,
 
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -519,7 +549,7 @@ void print_tokens_html(struct token* p_token);
 
 struct marker {    
     
-    const char* file;
+    const char* _Opt file;
     int line;
     int col;
 
@@ -542,7 +572,7 @@ struct stream
     int line;
     int col;
     int line_continuation_count;
-    const char* _View path;
+    const char* path;
 };
 
 int is_digit(struct stream* p);
@@ -555,6 +585,11 @@ bool style_has_one_space(const struct token*  token);
 
 struct token make_simple_token(char ch);
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -571,6 +606,11 @@ int windows_error_to_posix(int i);
 
 void throw_break_point();
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -648,7 +688,6 @@ enum diagnostic_id {
     W_SWITCH,
     W_UNSUAL_NULL_POINTER_CONSTANT,
     W_SIZEOF_ARRAY_ARGUMENT,
-    W_NOT_DEFINED44,
     W_NOT_DEFINED45,
     W_NOT_DEFINED46,
     W_NOT_DEFINED47,
@@ -674,6 +713,7 @@ enum diagnostic_id {
     ////////////////////////////////////////
 
     //constraints violations are errors
+    C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
     C_ERROR_UNEXPECTED,
     //TODO ERROR MESSAGE MUST BE BASED ON CONSTRAINS
     // 
@@ -765,6 +805,8 @@ enum diagnostic_id {
     C_PRE_DIVISION_BY_ZERO,
     C_ERROR_INT_TO_POINTER
 };
+
+_Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");
 
 /*
 * These warnings are removed when "nullable=disable"
@@ -1030,7 +1072,7 @@ const char* _Owner get_code_as_compiler_see(struct token_list* list);
 const char* _Owner get_code_as_we_see_plus_macros(struct token_list* list);
 const char* _Owner get_code_as_we_see(struct token_list* list, bool remove_comments);
 
-void print_tokens(struct token* p_token);
+void print_tokens(struct token* _Opt p_token);
 void print_preprocessed(struct token* p_token);
 const char* _Owner print_preprocessed_to_string(struct token* p_token);
 const char* _Owner print_preprocessed_to_string2(struct token* _Opt p_token);
@@ -1391,6 +1433,7 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
         list->tail->next = pnew;
         list->tail = pnew;
     }
+    assert(list->tail != NULL);
     assert(list->tail->next == NULL);
     return list->tail;
 
@@ -1734,7 +1777,7 @@ void print_token(struct token* p_token)
     COLOR_ESC_PRINT(printf(RESET));
 }
 
-void print_tokens(struct token* p_token)
+void print_tokens(struct token* _Opt p_token)
 {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
     struct token* current = p_token;
@@ -1955,11 +1998,21 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
 
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 
 #pragma safety enable
 
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 
 //#pragma once
@@ -1984,6 +2037,11 @@ unsigned int string_hash(const char* key)
     return (hash_val);
 }
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma safety enable
 
@@ -2046,7 +2104,7 @@ struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
 }
 
 
-void* _View _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt)
+void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt)
 {
     if (map->table != NULL)
     {
@@ -2063,7 +2121,7 @@ void* _View _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag*
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* _View p = p_entry->p;
+                void* p = p_entry->p;
                 free((void* _Owner)p_entry->key);
                 free((void* _Owner)p_entry);
 
@@ -2077,7 +2135,7 @@ void* _View _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag*
 }
 
 
-int hashmap_set(struct hash_map* map, const char* key, const void* _View p, enum tag type)
+int hashmap_set(struct hash_map* map, const char* key, const void* p, enum tag type)
 {
     int result = 0;
 
@@ -2294,6 +2352,11 @@ void* _Owner _Opt owner_hashmap_set(struct owner_hash_map* map, const char* key,
 
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 #pragma safety enable
 
 
@@ -2408,6 +2471,11 @@ void c_clrscr()
 }
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 /*
@@ -2458,6 +2526,11 @@ void c_clrscr()
 
 #include <time.h>
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -2562,6 +2635,11 @@ bool path_is_relative(const char* path);
 bool path_is_absolute(const char* path);
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -3122,6 +3200,7 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = pnew;
         list->tail = pnew;
@@ -9047,6 +9126,11 @@ int stringify_test()
 #endif
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 
@@ -9161,6 +9245,11 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 }
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma safety enable
 
@@ -10202,6 +10291,11 @@ char* _Owner read_file(const char* path)
 
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 
@@ -10749,16 +10843,31 @@ void test_get_warning_name()
 #endif
 
 
-//#pragma safety enable
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
+#pragma safety enable
 
 
 
 #include <limits.h>
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma once
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -11299,9 +11408,9 @@ bool expression_is_calloc(const struct expression* p);
 
 void expression_delete(struct expression* _Owner _Opt p);
 
-struct expression* _Owner assignment_expression(struct parser_ctx* ctx);
-struct expression* _Owner expression(struct parser_ctx* ctx);
-struct expression* _Owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
+struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx);
+struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
+struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 bool expression_is_zero(const struct expression*);
 bool expression_is_lvalue(const struct expression* expr);
@@ -11327,9 +11436,19 @@ void check_assigment(struct parser_ctx* ctx,
 
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma once
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 
 /*
@@ -11499,7 +11618,8 @@ void flow_check_assignment(struct flow_visit_ctx* ctx,
     bool a_type_is_view,
     bool a_type_is_nullable,
     struct type* p_a_type, struct flow_object* p_a_object,
-    struct type* p_b_type, struct flow_object* p_b_object);
+    struct type* p_b_type, struct flow_object* p_b_object,
+    bool * _Opt set_argument_to_unkown);
 
 
 void object_set_zero(struct type* p_type, struct flow_object* p_object);
@@ -11654,22 +11774,22 @@ struct parser_ctx
 void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx);
 
 
-struct token* parser_look_ahead(struct parser_ctx* ctx);
+struct token* _Opt parser_look_ahead(struct parser_ctx* ctx);
 
 void parser_match(struct parser_ctx* ctx);
 NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
-struct token* parser_look_ahead(struct parser_ctx* ctx);
-struct token* previous_parser_token(struct token* token);
-struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
-struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
-struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
-struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
+struct token* _Opt previous_parser_token(struct token* token);
+struct declarator* _Opt find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+
+struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
 bool first_is(struct parser_ctx* ctx, enum token_type type);
 void print_scope(struct scope_list* e);
 
-char* CompileText(const char* options, const char* content);
+char* _Opt _Owner CompileText(const char* options, const char* content);
 
 
 
@@ -11685,7 +11805,7 @@ int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 
-enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flags_opt);
+enum token_type parse_number(const char* lexeme, enum type_specifier_flags* _Opt flags_opt);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -11725,7 +11845,7 @@ struct declaration_specifiers
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
 
-    struct attribute_specifier_sequence* _Owner p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
 
     /*shortcuts*/
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -11742,7 +11862,7 @@ struct declaration_specifiers
 
 void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p);
 struct declaration_specifiers* _Owner declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
-void declaration_specifiers_delete(struct declaration_specifiers* _Owner p);
+void declaration_specifiers_delete(struct declaration_specifiers* _Owner _Opt p);
 void declaration_specifiers_add(struct declaration_specifiers* p, struct declaration_specifier* _Owner item);
 
 struct static_assert_declaration
@@ -11817,10 +11937,10 @@ struct attribute_specifier
     struct attribute_specifier* _Owner _Opt  next;
 };
 
-struct attribute_specifier* _Owner attribute_specifier(struct parser_ctx* ctx);
+struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* ctx);
 void attribute_specifier_delete(struct attribute_specifier* _Owner _Opt p);
 
-struct attribute* _Owner attribute(struct parser_ctx* ctx);
+struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx);
 
 
 struct storage_class_specifier
@@ -11839,7 +11959,7 @@ struct storage_class_specifier
     struct token* token;
 };
 
-struct storage_class_specifier* _Owner storage_class_specifier(struct parser_ctx* ctx);
+struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parser_ctx* ctx);
 void storage_class_specifier_delete(struct storage_class_specifier* _Owner _Opt p);
 
 struct function_specifier
@@ -11910,7 +12030,7 @@ struct type_specifier
     struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier;
     struct typeof_specifier* _Owner _Opt  typeof_specifier;
     struct enum_specifier* _Owner _Opt enum_specifier;
-    struct declarator* _View _Opt typedef_declarator;
+    struct declarator* _Opt typedef_declarator;
     struct atomic_type_specifier* _Owner _Opt  atomic_type_specifier;
 };
 
@@ -11958,7 +12078,7 @@ struct declaration
     struct token* first_token;
     struct token* last_token;
 
-    struct declaration* _Owner next;
+    struct declaration* _Owner _Opt next;
 };
 void declaration_delete(struct declaration* _Owner _Opt p);
 struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx);
@@ -12010,7 +12130,7 @@ struct condition {
 };
 
 void condition_delete(struct condition* _Owner _Opt p);
-struct condition* _Owner condition(struct parser_ctx* ctx);
+struct condition* _Owner _Opt condition(struct parser_ctx* ctx);
 
 struct init_statement
 {
@@ -12038,7 +12158,7 @@ struct atomic_type_specifier
     struct type_name* _Owner type_name;
 };
 
-struct atomic_type_specifier* _Owner atomic_type_specifier(struct parser_ctx* ctx);
+struct atomic_type_specifier* _Owner _Opt atomic_type_specifier(struct parser_ctx* ctx);
 void atomic_type_specifier_delete(struct atomic_type_specifier* _Owner _Opt  p);
 
 struct enumerator_list
@@ -12085,9 +12205,9 @@ struct enum_specifier
 
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx*);
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
-const struct enum_specifier* get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
+const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 
-const struct enumerator* find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value);
+const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value);
 
 
 
@@ -12152,7 +12272,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt  p);
 
 bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
-struct struct_or_union_specifier* _View get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
+struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
 
 struct init_declarator
 {
@@ -12212,12 +12332,12 @@ struct declarator
     struct direct_declarator* _Owner _Opt direct_declarator;
 
 
-    struct declaration_specifiers* _View declaration_specifiers;
-    const struct specifier_qualifier_list* _View specifier_qualifier_list;
+    struct declaration_specifiers* declaration_specifiers;
+    const struct specifier_qualifier_list* specifier_qualifier_list;
 
     struct token* _Opt name_opt; //shortcut , null for abstract declarator
 
-    struct compound_statement* _View _Opt function_body;
+    struct compound_statement* _Opt function_body;
 
     int num_uses; /*used to show not used warnings*/
 
@@ -12384,6 +12504,7 @@ struct argument_expression
 {
     struct expression* _Owner expression;
     struct argument_expression* _Owner _Opt next;
+    bool set_unkown; //used in flow analysis need to be removed..
 };
 
 void argument_expression_delete(struct argument_expression* _Owner _Opt  p);
@@ -12434,10 +12555,10 @@ struct specifier_qualifier_list
     enum type_qualifier_flags type_qualifier_flags;
 
     /*shortcuts*/
-    struct struct_or_union_specifier* _View _Opt struct_or_union_specifier;
-    struct enum_specifier* _View _Opt enum_specifier;
-    struct typeof_specifier* _View _Opt typeof_specifier;
-    struct declarator* _View _Opt typedef_declarator;
+    struct struct_or_union_specifier* _Opt struct_or_union_specifier;
+    struct enum_specifier* _Opt enum_specifier;
+    struct typeof_specifier* _Opt typeof_specifier;
+    struct declarator* _Opt typedef_declarator;
 
     struct type_specifier_qualifier* _Owner _Opt head;
     struct type_specifier_qualifier* _Opt tail;
@@ -12781,8 +12902,8 @@ struct secondary_block
      secondary-block:
        statement
     */
-    struct token* _View first_token;
-    struct token* _View last_token;
+    struct token* first_token;
+    struct token* last_token;
     struct statement* _Owner statement;
 };
 
@@ -12898,7 +13019,7 @@ struct attribute_list
 };
 struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx);
 void attribute_list_destroy(struct attribute_list* _Obj_owner p);
-void attribute_list_delete(struct attribute_list* _Owner p);
+void attribute_list_delete(struct attribute_list* _Owner _Opt p);
 
 void attribute_list_add(struct attribute_list* list, struct attribute* _Owner p_item);
 
@@ -12921,7 +13042,7 @@ struct enumerator
     /*
       having the enum specifier we have better information about the type
     */
-    const struct enum_specifier* _View enum_specifier;
+    const struct enum_specifier* enum_specifier;
 
     struct enumerator* _Owner _Opt next;
     long long value;
@@ -13002,7 +13123,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
 
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror);
-const char* _Owner compile_source(const char* pszoptions, const char* content, struct report* report);
+const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
 
 
 #ifdef _WIN32
@@ -14929,7 +15050,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (p_expression_node_new->left->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
-                    struct struct_or_union_specifier* p =
+                    struct struct_or_union_specifier* _Opt p =
                         find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
                     p = get_complete_struct_or_union_specifier(p);
                     if (p)
@@ -15647,17 +15768,20 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 if (check_sizeof_argument(ctx, new_expression, &new_expression->type_name->type) != 0)
                 {
-                    expression_delete(new_expression);
-                    throw;
-                }
-
-                if (type_is_vla(&new_expression->type_name->declarator->type))
-                {
-                    //not constant
+                    //not fatal error
+                    //fatal will be if someone need the sizeof at compile time
+                    //but we don't have the constant_value set here
                 }
                 else
                 {
-                    new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
+                    if (type_is_vla(&new_expression->type_name->declarator->type))
+                    {
+                        //not constant
+                    }
+                    else
+                    {
+                        new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
+                    }
                 }
             }
             else
@@ -17870,6 +17994,11 @@ void check_assigment(struct parser_ctx* ctx,
 }
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 /*
@@ -18649,6 +18778,11 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
     return ctx->n_errors > 0;
 }
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma safety enable
 
@@ -20665,7 +20799,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
     {
         struct osstream ss = { 0 };
 
-        const struct enum_specifier* p_complete =
+        const struct enum_specifier* _Opt p_complete =
             get_complete_enum_specifier(p_type->enum_specifier);
 
 
@@ -21588,12 +21722,22 @@ const struct type* type_get_specifer_part(const struct type* p_type)
 }
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 
 
 #include <stdint.h>
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -21619,7 +21763,7 @@ struct flow_visit_ctx
     struct parser_ctx *ctx;
     _View struct ast ast;    
     struct flow_defer_scope* _Owner tail_block;
-    struct type* _View _Opt p_return_type;
+    struct type* _Opt p_return_type;
     int parameter_list;
     
     int state_number_generator;
@@ -22543,10 +22687,10 @@ void print_object_core(int ident,
                 visitor.p_object = p_visitor->p_object->current.ref.data[i];
                 print_object_core(ident + 1, &visitor, buffer, is_pointer, short_version, visit_number);
             }
-    }
+        }
 #endif
         type_destroy(&t2);
-}
+    }
     else
     {
         printf("%*c", ident, ' ');
@@ -22723,7 +22867,7 @@ int object_merge_current_state_with_state_number_core(struct flow_object* object
                 object_merge_current_state_with_state_number_core(pointed, state_number, visit_number);
             }
 
-}
+        }
 #endif
     }
     return 1;
@@ -22875,9 +23019,9 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
                 object_set_nothing(&t2, pointed);
             }
             type_destroy(&t2);
-    }
+        }
 #endif
-}
+    }
     else
     {
         p_visitor->p_object->current.state = OBJECT_STATE_UNINITIALIZED;
@@ -23268,9 +23412,9 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
                 object_set_deleted_core(&t2, pointed, visit_number);
                 type_destroy(&t2);
             }
-    }
+        }
 #endif
-}
+    }
     else
     {
         if (!type_is_struct_or_union(p_type))
@@ -23575,11 +23719,11 @@ void object_get_name_core(
                         outname,
                         out_size,
                         visit_number);
-        }
+                }
 #endif
-    }
+            }
             type_destroy(&t2);
-}
+        }
     }
 }
 
@@ -23694,11 +23838,11 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                         p_object->current.ref.data[i],
                         position_token,
                         visit_number);
-            }
+                }
 #endif
                 type_destroy(&t2);
+            }
         }
-    }
 
         if (p_object->current.state & OBJECT_STATE_MOVED)
         {
@@ -23736,7 +23880,7 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                 compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, NULL, "parameter", name);
             }
         }
-}
+    }
 }
 
 void checked_moved(struct flow_visit_ctx* ctx,
@@ -24211,7 +24355,8 @@ static void flow_assignment_core(
     bool a_type_is_view,
     bool a_type_is_nullable,
     struct object_visitor* p_visitor_a,
-    struct object_visitor* p_visitor_b)
+    struct object_visitor* p_visitor_b,
+    bool* set_argument_to_unkown)
 {
     if (p_visitor_a->p_object == NULL || p_visitor_b->p_object == NULL)
     {
@@ -24539,6 +24684,7 @@ static void flow_assignment_core(
                 p_visitor_a->p_object->current.state &= ~OBJECT_STATE_MOVED;
             }
 
+
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
                 struct type t3 = type_remove_pointer(p_visitor_a->p_type);
@@ -24547,11 +24693,31 @@ static void flow_assignment_core(
 
                     if (p_visitor_b->p_object->current.pointed)
                     {
-                        struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
+                        //struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
 
-                        bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-                        const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
-                        object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
+                        //bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+                        //const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
+
+                        if (set_argument_to_unkown)
+                        {
+                            /*
+                                //Consider this sample...
+                                void f(struct X *p,  int * p);
+                                int main()
+                                {
+                                    struct X *  pX = make();
+                                    if (pX->p)
+                                    {
+                                       f(pX, pX->p (not unknown  yet));
+                                       //pX->p is unknown here...
+                                    }
+                                }
+                            */
+
+                            //Tells the caller it must make argument unknown
+                            *set_argument_to_unkown = true;
+                        }
+                        //   object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
                     }
 
 
@@ -24615,7 +24781,8 @@ static void flow_assignment_core(
                                     a_type_is_view,
                                     a_type_is_nullable,
                                     &visitor_a,
-                                    &visitor_b);
+                                    &visitor_b,
+                                    set_argument_to_unkown);
                             }
                             else
                             {
@@ -24652,7 +24819,8 @@ static void flow_assignment_core(
                                             a_type_is_view,
                                             a_type_is_nullable,
                                             p_visitor_a,
-                                            p_visitor_b);
+                                            p_visitor_b,
+                                            set_argument_to_unkown);
 
                         //restore
                         p_visitor_a->p_type = temp1;
@@ -24796,13 +24964,13 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                             //return NULL;
                         }
                     }
-                }
-                return p_object;
             }
-#endif
+                return p_object;
         }
-        return NULL;
+#endif
     }
+        return NULL;
+}
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
         struct flow_object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
@@ -24860,13 +25028,13 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                             //return NULL;
                         }
                     }
-                }
+            }
                 return p_object;
         }
 #endif
     }
         return NULL;
-}
+        }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -25010,7 +25178,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     printf("null object");
     //assert(false);
     return NULL;
-}
+    }
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,
@@ -25020,7 +25188,8 @@ void flow_check_assignment(
     bool a_type_is_view,
     bool a_type_is_nullable,
     struct type* p_a_type, struct flow_object* p_a_object,
-    struct type* p_b_type, struct flow_object* p_b_object)
+    struct type* p_b_type, struct flow_object* p_b_object,
+    bool* _Opt set_argument_to_unkown)
 {
     if (type_is_pointer(p_b_type) && object_is_expansible(p_b_object))
     {
@@ -25047,7 +25216,8 @@ void flow_check_assignment(
     a_type_is_view,
     a_type_is_nullable,
     &visitor_a,
-    &visitor_b);
+    &visitor_b,
+    set_argument_to_unkown);
 }
 
 
@@ -25225,10 +25395,20 @@ void print_object_line(struct flow_object* p_object, int extra_cols)
 }
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -25244,9 +25424,14 @@ void format_visit(struct format_visit_ctx* ctx);
 #endif
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma once
 
-#define CAKE_VERSION "0.9.6"
+#define CAKE_VERSION "0.9.7"
 
 
 
@@ -25254,6 +25439,11 @@ void format_visit(struct format_visit_ctx* ctx);
 #endif
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma once
 
@@ -25570,6 +25760,8 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
             p_token_opt = marker.p_token_caret;
         else if (marker.p_token_begin)
             p_token_opt = marker.p_token_begin;
+
+        if (p_token_opt == NULL) return false;
         marker.file = p_token_opt->token_origin->lexeme;
         included_file_location = p_token_opt->level > 0;
 
@@ -25821,6 +26013,9 @@ bool first_of_enum_specifier_token(struct token* token)
 
 bool first_of_enum_specifier(struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return false;
+
     return first_of_enum_specifier_token(ctx->current);
 }
 
@@ -25873,6 +26068,9 @@ bool first_of_struct_or_union_token(struct token* token)
 
 bool first_of_struct_or_union(struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return false;
+
     return first_of_struct_or_union_token(ctx->current);
 }
 
@@ -25899,6 +26097,9 @@ bool first_of_type_qualifier_token(struct token* p_token)
 
 bool first_of_type_qualifier(struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return false;
+
     return first_of_type_qualifier_token(ctx->current);
 }
 
@@ -25917,7 +26118,7 @@ struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme)
     return NULL;
 }
 
-struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt)
+struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* ppscope_opt)
 {
     if (ppscope_opt != NULL)
         *ppscope_opt = NULL; // _Out
@@ -25925,7 +26126,7 @@ struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* 
     struct scope* _Opt scope = ctx->scopes.tail;
     while (scope)
     {
-        struct map_entry* p_entry = hashmap_find(&scope->variables, lexeme);
+        struct map_entry* _Opt p_entry = hashmap_find(&scope->variables, lexeme);
         if (p_entry)
         {
             if (ppscope_opt)
@@ -25937,13 +26138,13 @@ struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* 
     return NULL;
 }
 
-struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* lexeme)
+struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const char* lexeme)
 {
     struct enum_specifier* _Opt best = NULL;
     struct scope* _Opt scope = ctx->scopes.tail;
     while (scope)
     {
-        struct map_entry* p_entry = hashmap_find(&scope->tags, lexeme);
+        struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
         if (p_entry &&
             p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
         {
@@ -25960,13 +26161,13 @@ struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* l
     return best; // mesmo que nao seja tao completo vamos retornar.
 }
 
-struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme)
+struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme)
 {
     struct struct_or_union_specifier* _Opt p = NULL;
     struct scope* _Opt scope = ctx->scopes.tail;
     while (scope)
     {
-        struct map_entry* p_entry = hashmap_find(&scope->tags, lexeme);
+        struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
         if (p_entry &&
             p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
         {
@@ -25978,9 +26179,9 @@ struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_c
     return p;
 }
 
-struct declarator* _Opt find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt)
+struct declarator* _Opt find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt)
 {
-    struct map_entry* p_entry = find_variables(ctx, lexeme, ppscope_opt);
+    struct map_entry* _Opt p_entry = find_variables(ctx, lexeme, ppscope_opt);
 
     if (p_entry)
     {
@@ -26029,7 +26230,7 @@ bool first_of_typedef_name(struct parser_ctx* ctx, struct token* p_token)
         return false;
     }
 
-    struct declarator* pdeclarator = find_declarator(ctx, p_token->lexeme, NULL);
+    struct declarator* _Opt pdeclarator = find_declarator(ctx, p_token->lexeme, NULL);
 
     // pdeclarator->declaration_specifiers->
     if (pdeclarator &&
@@ -26058,7 +26259,11 @@ bool first_of_type_name_ahead(struct parser_ctx* ctx)
 
     if (ctx->current->type != '(')
         return false;
-    struct token* token_ahead = parser_look_ahead(ctx);
+    struct token* _Opt token_ahead = parser_look_ahead(ctx);
+
+    if (token_ahead == NULL)
+        return  false;
+
     return first_of_type_specifier_token(ctx, token_ahead) ||
         first_of_type_qualifier_token(token_ahead);
 }
@@ -26107,7 +26312,9 @@ bool first_of_type_specifier_token(struct parser_ctx* ctx, struct token* p_token
 
 bool first_of_type_specifier(struct parser_ctx* ctx)
 {
-    return first_of_type_specifier_token(ctx, ctx->current);
+    if (ctx->current == NULL)
+        return false;
+    return first_of_type_specifier_token(ctx /*should be const*/, ctx->current);
 }
 
 bool first_of_type_specifier_qualifier(struct parser_ctx* ctx)
@@ -26160,7 +26367,7 @@ bool first_of_label(struct parser_ctx* ctx)
 
     if (ctx->current->type == TK_IDENTIFIER)
     {
-        struct token* next = parser_look_ahead(ctx);
+        struct token* _Opt next = parser_look_ahead(ctx);
         return next && next->type == ':';
     }
     else if (ctx->current->type == TK_KEYWORD_CASE)
@@ -26217,7 +26424,7 @@ bool first_of_attribute_specifier(struct parser_ctx* ctx)
     {
         return false;
     }
-    struct token* p_token = parser_look_ahead(ctx);
+    struct token* _Opt p_token = parser_look_ahead(ctx);
     return p_token != NULL && p_token->type == '[';
 }
 
@@ -26535,7 +26742,10 @@ static void token_promote(struct token* token)
 
 struct token* _Opt parser_look_ahead(struct parser_ctx* ctx)
 {
-    struct token* p = ctx->current->next;
+    if (ctx->current == NULL)
+        return NULL;
+
+    struct token* _Opt p = ctx->current->next;
     while (p && !(p->flags & TK_FLAG_FINAL))
     {
         p = p->next;
@@ -26637,7 +26847,7 @@ void unsigned_suffix_opt(struct stream* stream)
     }
 }
 
-void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* flags_opt)
+void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* _Opt flags_opt)
 {
     /*
      integer-suffix:
@@ -26756,7 +26966,7 @@ bool is_nonzero_digit(struct stream* stream)
     return stream->current[0] >= '1' && stream->current[0] <= '9';
 }
 
-enum token_type parse_number_core(struct stream* stream, enum type_specifier_flags* flags_opt)
+enum token_type parse_number_core(struct stream* stream, enum type_specifier_flags* _Opt flags_opt)
 {
     if (flags_opt)
     {
@@ -26880,20 +27090,20 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
     return type;
 }
 
-enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flags_opt)
+enum token_type parse_number(const char* lexeme, enum type_specifier_flags* _Opt flags_opt)
 {
     struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
     return parse_number_core(&stream, flags_opt);
 }
 
-static struct token* pragma_match(struct token* current)
+static struct token* _Opt pragma_match(struct token* p_current)
 {
-    current = current->next;
-    while (current && current->type == TK_BLANKS)
+    struct token* _Opt p_token = p_current->next;
+    while (p_token && p_token->type == TK_BLANKS)
     {
-        current = current->next;
+        p_token = p_token->next;
     }
-    return current;
+    return p_token;
 }
 
 static void pragma_skip_blanks(struct parser_ctx* ctx)
@@ -26909,150 +27119,160 @@ static void pragma_skip_blanks(struct parser_ctx* ctx)
  */
 static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 {
-    if (ctx->current->type == TK_PRAGMA)
+    if (ctx->current == NULL)
+        return;
+    try
     {
-        ctx->current = ctx->current->next;
-        pragma_skip_blanks(ctx);
-
-        if (ctx->current &&
-            (strcmp(ctx->current->lexeme, "CAKE") == 0 ||
-                strcmp(ctx->current->lexeme, "cake") == 0))
-        {
-            ctx->current = ctx->current->next;
-            pragma_skip_blanks(ctx);
-        }
-
-        if (ctx->current && strcmp(ctx->current->lexeme, "nullchecks") == 0)
+        if (ctx->current->type == TK_PRAGMA)
         {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
 
-            // Isso nao esta funcionando pois esta informao precisa estar na AST.
-            // pois eh usada em um segundo passo.
-            bool onoff = false;
-            if (ctx->current && strcmp(ctx->current->lexeme, "ON") == 0)
+            if (ctx->current &&
+                (strcmp(ctx->current->lexeme, "CAKE") == 0 ||
+                    strcmp(ctx->current->lexeme, "cake") == 0))
             {
-                onoff = true;
+                ctx->current = ctx->current->next;
+                pragma_skip_blanks(ctx);
             }
-            else if (ctx->current && strcmp(ctx->current->lexeme, "OFF") == 0)
-            {
-                onoff = false;
-            }
-            else
-            {
-                compiler_diagnostic_message(C_ERROR_PRAGMA_ERROR, ctx, ctx->current, NULL, "nullchecks pragma needs to use ON OFF");
-            }
-            ctx->options.null_checks_enabled = onoff;
-        }
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "diagnostic") == 0)
-        {
-            ctx->current = ctx->current->next;
-            pragma_skip_blanks(ctx);
-
-            if (ctx->current && strcmp(ctx->current->lexeme, "push") == 0)
+            if (ctx->current && strcmp(ctx->current->lexeme, "nullchecks") == 0)
             {
-                // #pragma GCC diagnostic push
-                if (ctx->options.diagnostic_stack_top_index <
-                    sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
+                ctx->current = ctx->current->next;
+                pragma_skip_blanks(ctx);
+
+                // Isso nao esta funcionando pois esta informao precisa estar na AST.
+                // pois eh usada em um segundo passo.
+                bool onoff = false;
+                if (ctx->current && strcmp(ctx->current->lexeme, "ON") == 0)
                 {
-                    ctx->options.diagnostic_stack_top_index++;
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
-                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index - 1];
+                    onoff = true;
                 }
-                ctx->current = ctx->current->next;
-                pragma_skip_blanks(ctx);
-            }
-            else if (ctx->current && strcmp(ctx->current->lexeme, "pop") == 0)
-            {
-                // #pragma CAKE diagnostic pop
-                if (ctx->options.diagnostic_stack_top_index > 0)
+                else if (ctx->current && strcmp(ctx->current->lexeme, "OFF") == 0)
                 {
-                    ctx->options.diagnostic_stack_top_index--;
+                    onoff = false;
                 }
-                ctx->current = ctx->current->next;
-                pragma_skip_blanks(ctx);
-            }
-            else if (ctx->current &&
-                (strcmp(ctx->current->lexeme, "error") == 0 ||
-                    strcmp(ctx->current->lexeme, "warning") == 0 ||
-                    strcmp(ctx->current->lexeme, "note") == 0 ||
-                    strcmp(ctx->current->lexeme, "ignored") == 0))
-            {
-                const bool is_error = strcmp(ctx->current->lexeme, "error") == 0;
-                const bool is_warning = strcmp(ctx->current->lexeme, "warning") == 0;
-                const bool is_note = strcmp(ctx->current->lexeme, "note") == 0;
-
-                ctx->current = ctx->current->next;
-                pragma_skip_blanks(ctx);
-
-                if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
+                else
                 {
-
-                    unsigned long long w = get_warning_bit_mask(ctx->current->lexeme + 1 /*+ 2*/);
-
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
-
-                    if (is_error)
-                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors |= w;
-                    else if (is_warning)
-                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
-                    else if (is_note)
-                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes |= w;
+                    compiler_diagnostic_message(C_ERROR_PRAGMA_ERROR, ctx, ctx->current, NULL, "nullchecks pragma needs to use ON OFF");
                 }
+                ctx->options.null_checks_enabled = onoff;
             }
-            else if (ctx->current &&
-                (strcmp(ctx->current->lexeme, "check") == 0))
+
+            if (ctx->current && strcmp(ctx->current->lexeme, "diagnostic") == 0)
             {
-                // TODO better name .  Ack. : means ‘alarm acknowledged’ ?
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
 
-                if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
+                if (ctx->current && strcmp(ctx->current->lexeme, "push") == 0)
                 {
-                    enum diagnostic_id id = get_warning(ctx->current->lexeme + 1 + 2);
-                    bool found = false;
-                    for (int i = 0;
-                         i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
-                         i++)
+                    // #pragma GCC diagnostic push
+                    if (ctx->options.diagnostic_stack_top_index <
+                        sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
                     {
-                        if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
+                        ctx->options.diagnostic_stack_top_index++;
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
+                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index - 1];
+                    }
+                    ctx->current = ctx->current->next;
+                    pragma_skip_blanks(ctx);
+                }
+                else if (ctx->current && strcmp(ctx->current->lexeme, "pop") == 0)
+                {
+                    // #pragma CAKE diagnostic pop
+                    if (ctx->options.diagnostic_stack_top_index > 0)
+                    {
+                        ctx->options.diagnostic_stack_top_index--;
+                    }
+                    ctx->current = ctx->current->next;
+                    pragma_skip_blanks(ctx);
+                }
+                else if (ctx->current &&
+                    (strcmp(ctx->current->lexeme, "error") == 0 ||
+                        strcmp(ctx->current->lexeme, "warning") == 0 ||
+                        strcmp(ctx->current->lexeme, "note") == 0 ||
+                        strcmp(ctx->current->lexeme, "ignored") == 0))
+                {
+                    const bool is_error = strcmp(ctx->current->lexeme, "error") == 0;
+                    const bool is_warning = strcmp(ctx->current->lexeme, "warning") == 0;
+                    const bool is_note = strcmp(ctx->current->lexeme, "note") == 0;
 
-                        if (ctx->p_report->last_diagnostics_ids[i] == id)
+                    ctx->current = ctx->current->next;
+                    pragma_skip_blanks(ctx);
+
+                    if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
+                    {
+                        if (ctx->current == NULL) throw;
+
+                        unsigned long long w = get_warning_bit_mask(ctx->current->lexeme + 1 /*+ 2*/);
+
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+                        if (is_error)
+                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors |= w;
+                        else if (is_warning)
+                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+                        else if (is_note)
+                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes |= w;
+                    }
+                }
+                else if (ctx->current &&
+                    (strcmp(ctx->current->lexeme, "check") == 0))
+                {
+                    // TODO better name .  Ack. : means ‘alarm acknowledged’ ?
+                    ctx->current = ctx->current->next;
+                    pragma_skip_blanks(ctx);
+
+                    if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
+                    {
+                        enum diagnostic_id id = get_warning(ctx->current->lexeme + 1 + 2);
+                        bool found = false;
+                        for (int i = 0;
+                             i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
+                             i++)
                         {
-                            found = true;
-                            // lets remove this error/warning/info from the final report.
+                            if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
 
-                            int t =
-                                get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
-                                    id);
-                            if (t == 3)
-                                ctx->p_report->error_count--;
-                            else if (t == 2)
-                                ctx->p_report->warnings_count--;
-                            else if (t == 1)
-                                ctx->p_report->info_count--;
+                            if (ctx->p_report->last_diagnostics_ids[i] == id)
+                            {
+                                found = true;
+                                // lets remove this error/warning/info from the final report.
 
-                            break;
+                                int t =
+                                    get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                        id);
+                                if (t == 3)
+                                    ctx->p_report->error_count--;
+                                else if (t == 2)
+                                    ctx->p_report->warnings_count--;
+                                else if (t == 1)
+                                    ctx->p_report->info_count--;
+
+                                break;
+                            }
+                        }
+
+                        if (!found)
+                        {
+                            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "pragma check failed");
                         }
                     }
-
-                    if (!found)
-                    {
-                        compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "pragma check failed");
-                    }
                 }
-            }
-            else
-            {
-                compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unknown pragma");
+                else
+                {
+                    compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unknown pragma");
+                }
             }
         }
     }
+    catch
+    {
+    }
 }
-static struct token* parser_skip_blanks(struct parser_ctx* ctx)
+
+static void parser_skip_blanks(struct parser_ctx* ctx)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
     {
@@ -27071,12 +27291,13 @@ static struct token* parser_skip_blanks(struct parser_ctx* ctx)
     {
         token_promote(ctx->current); // transforma para token de parser
     }
-
-    return ctx->current;
 }
 
 void parser_match(struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return;
+
     ctx->previous = ctx->current;
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx);
@@ -27302,6 +27523,7 @@ void declaration_specifiers_add(struct declaration_specifiers* list, struct decl
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -27322,6 +27544,9 @@ struct declaration_specifiers* _Owner  _Opt declaration_specifiers(struct parser
      typedef char X;
      typedef char X;
     */
+
+    if (ctx->current == NULL)
+        return NULL;
 
     struct declaration_specifiers* _Owner _Opt p_declaration_specifiers = calloc(1, sizeof(struct declaration_specifiers));
 
@@ -27358,8 +27583,7 @@ struct declaration_specifiers* _Owner  _Opt declaration_specifiers(struct parser
                         &p_declaration_specifiers->type_specifier_flags,
                         p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
                     {
-                        declaration_specifier_delete(p_declaration_specifier);
-                        throw;
+                        //not fatal error
                     }
 
                     if (p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier)
@@ -27686,6 +27910,13 @@ struct simple_declaration* _Owner  _Opt simple_declaration(struct parser_ctx* ct
     struct attribute_specifier_sequence* _Owner  _Opt p_attribute_specifier_sequence_opt,
     bool ignore_semicolon)
 {
+
+    if (ctx->current == NULL)
+    {
+        attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+        return NULL;
+    }
+
     enum storage_class_specifier_flags storage_specifier_flags = STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
     /*
       simple-declaration:
@@ -27699,7 +27930,6 @@ struct simple_declaration* _Owner  _Opt simple_declaration(struct parser_ctx* ct
     {
         if (p_simple_declaration == NULL)
             throw;
-
 
         p_simple_declaration->first_token = ctx->current;
 
@@ -27716,6 +27946,8 @@ struct simple_declaration* _Owner  _Opt simple_declaration(struct parser_ctx* ct
         }
 
         p_simple_declaration->init_declarator_list = init_declarator_list(ctx, p_simple_declaration->p_declaration_specifiers);
+
+        if (ctx->current == NULL) throw;
 
         p_simple_declaration->last_token = previous_parser_token(ctx->current);
 
@@ -28076,6 +28308,7 @@ void init_declarator_list_add(struct init_declarator_list* list, struct init_dec
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -28661,7 +28894,7 @@ struct struct_or_union_specifier* _Owner  _Opt struct_or_union_specifier(struct 
 
             snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "%s", ctx->current->lexeme);
 
-            struct map_entry* p_entry = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
+            struct map_entry* _Opt p_entry = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
             if (p_entry)
             {
                 /*this tag already exist in this scope*/
@@ -28682,7 +28915,7 @@ struct struct_or_union_specifier* _Owner  _Opt struct_or_union_specifier(struct 
             else
             {
                 /*tag does not exist in the current scope, let search on upper scopes*/
-                struct struct_or_union_specifier* p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
+                struct struct_or_union_specifier* _Opt p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
                 if (p_first_tag_previous_scopes == NULL)
                 {
                     /*tag not found, so it is the first appearence*/
@@ -28714,7 +28947,7 @@ struct struct_or_union_specifier* _Owner  _Opt struct_or_union_specifier(struct 
             this is the complete struct
             */
 
-            struct struct_or_union_specifier* first = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tag_name);
+            struct struct_or_union_specifier* _Opt first = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tag_name);
 
             if (first)
             {
@@ -28850,6 +29083,7 @@ void member_declarator_list_add(struct member_declarator_list* list, struct memb
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -28913,6 +29147,7 @@ void member_declaration_list_add(struct member_declaration_list* list, struct me
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -29095,6 +29330,7 @@ void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct 
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -29417,6 +29653,7 @@ void enumerator_list_add(struct enumerator_list* list, struct enumerator* _Owner
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -29745,6 +29982,10 @@ struct declarator* _Owner  _Opt declarator(struct parser_ctx* ctx,
       declarator:
       pointer_opt direct-declarator
     */
+
+    if (ctx->current == NULL)
+        return NULL;
+
     struct declarator* _Owner _Opt p_declarator = calloc(1, sizeof(struct declarator));
     try
     {
@@ -29838,7 +30079,7 @@ struct direct_declarator* _Owner  _Opt direct_declarator(struct parser_ctx* ctx,
         if (ctx->current == NULL)
             throw;
 
-        struct token* p_token_ahead = parser_look_ahead(ctx);
+        struct token* _Opt p_token_ahead = parser_look_ahead(ctx);
         if (ctx->current->type == TK_IDENTIFIER)
         {
             p_direct_declarator->name_opt = ctx->current;
@@ -29852,7 +30093,7 @@ struct direct_declarator* _Owner  _Opt direct_declarator(struct parser_ctx* ctx,
         }
         else if (ctx->current->type == '(')
         {
-            struct token* ahead = parser_look_ahead(ctx);
+            struct token* _Opt ahead = parser_look_ahead(ctx);
 
             if (!first_of_type_specifier_token(ctx, p_token_ahead) &&
                 !first_of_type_qualifier_token(p_token_ahead) &&
@@ -29864,12 +30105,17 @@ struct direct_declarator* _Owner  _Opt direct_declarator(struct parser_ctx* ctx,
 
                 parser_match(ctx);
 
-                p_direct_declarator->declarator = declarator(ctx,
-                    p_specifier_qualifier_list,
-                    p_declaration_specifiers,
-                    abstract_acceptable,
-                    pptoken_name);
+                struct declarator* _Owner _Opt p_declarator_temp =
+                    declarator(ctx,
+                        p_specifier_qualifier_list,
+                        p_declaration_specifiers,
+                        abstract_acceptable,
+                        pptoken_name);
 
+                if (p_declarator_temp == NULL)
+                    throw;
+
+                p_direct_declarator->declarator = p_declarator_temp;
                 parser_match(ctx); //)
             }
         }
@@ -29879,12 +30125,16 @@ struct direct_declarator* _Owner  _Opt direct_declarator(struct parser_ctx* ctx,
         {
             struct direct_declarator* _Owner _Opt p_direct_declarator2 = calloc(1, sizeof(struct direct_declarator));
             if (p_direct_declarator2 == NULL) throw;
-            static_set(*p_direct_declarator2, "zero");
+
             if (ctx->current->type == '[')
             {
                 p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx);
                 p_direct_declarator = NULL; //MOVED
-                if (p_direct_declarator2->array_declarator == NULL) throw;
+                if (p_direct_declarator2->array_declarator == NULL)
+                {
+                    direct_declarator_delete(p_direct_declarator2);
+                    throw;
+                }
             }
             else
             {
@@ -30108,7 +30358,18 @@ struct pointer* _Owner  _Opt pointer_opt(struct parser_ctx* ctx)
 
             if (first_of_type_qualifier(ctx))
             {
-                p_pointer->type_qualifier_list_opt = type_qualifier_list(ctx);
+                if (ctx->current->type == TK_KEYWORD__VIEW)
+                {
+                    compiler_diagnostic_message(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "invalid qualifier for pointer");
+                }
+                else
+                {
+                    p_pointer->type_qualifier_list_opt = type_qualifier_list(ctx);
+                }
             }
 
             while (ctx->current != NULL && ctx->current->type == '*')
@@ -30136,6 +30397,7 @@ void type_qualifier_list_add(struct type_qualifier_list* list, struct type_quali
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -30241,6 +30503,7 @@ void parameter_list_add(struct parameter_list* list, struct parameter_declaratio
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -30640,6 +30903,7 @@ void initializer_list_add(struct initializer_list* list, struct initializer* _Ow
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -30744,6 +31008,7 @@ void designator_list_add(struct designator_list* list, struct designator* _Owner
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -30936,49 +31201,45 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             p_pragma_token = pragma_match(p_pragma_token);
 
             if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
-            {                
-                if (p_pragma_token->lexeme[2] == 'E')
-                {
-                    //fatal errors are kept here and checked at end
-                    ctx->p_report->fatal_error_expected = atoi(p_pragma_token->lexeme + 3);                    
-                }
-                else
-                {
-                    enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1);
-                    //warnings errors are removed on demand..
+            {
+                enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1);
+                //warnings errors are removed on demand..
 
-                    if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) ||
-                        (on_flow_analysis && get_diagnostic_phase(id) == 2))
+                if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) ||
+                    (on_flow_analysis && get_diagnostic_phase(id) == 2))
+                {
+                    bool found = false;
+                    for (int i = 0;
+                         i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
+                         i++)
                     {
-                        bool found = false;
-                        for (int i = 0;
-                             i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
-                             i++)
+                        if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
+
+                        if (ctx->p_report->last_diagnostics_ids[i] == id)
                         {
-                            if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
+                            // lets remove this error/warning/info from the final report.
+                            found = true;
+                            int t =
+                                get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                    id);
+                            if (t == 3)
+                                ctx->p_report->error_count--;
+                            else if (t == 2)
+                                ctx->p_report->warnings_count--;
+                            else if (t == 1)
+                                ctx->p_report->info_count--;
 
-                            if (ctx->p_report->last_diagnostics_ids[i] == id)
-                            {
-                                // lets remove this error/warning/info from the final report.
-                                found = true;
-                                int t =
-                                    get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
-                                        id);
-                                if (t == 3)
-                                    ctx->p_report->error_count--;
-                                else if (t == 2)
-                                    ctx->p_report->warnings_count--;
-                                else if (t == 1)
-                                    ctx->p_report->info_count--;
-
-                                break;
-                            }
+                            break;
                         }
+                    }
 
-                        if (!found)
-                        {
-                            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "pragma check failed");
-                        }
+                    if (!found)
+                    {
+                        //is fatal error?
+                        //fatal errors are kept here and checked at end
+                        ctx->p_report->fatal_error_expected = atoi(p_pragma_token->lexeme + 3);
+
+                        compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "pragma check failed");
                     }
                 }
             }
@@ -31206,6 +31467,7 @@ void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list,
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -31323,6 +31585,7 @@ void attribute_list_add(struct attribute_list* list, struct attribute* _Owner p_
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -31400,6 +31663,9 @@ void attribute_token_delete(struct attribute_token* _Owner _Opt p)
 }
 struct attribute_token* _Owner  _Opt attribute_token(struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return NULL;
+
     struct attribute_token* _Owner _Opt p_attribute_token = calloc(1, sizeof(struct attribute_token));
 
     struct token* attr_token = ctx->current;
@@ -31440,8 +31706,7 @@ struct attribute_token* _Owner  _Opt attribute_token(struct parser_ctx* ctx)
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
     }
 
-    const bool is_cake_attr =
-        strcmp(attr_token->lexeme, "cake") == 0;
+    const bool is_cake_attr = strcmp(attr_token->lexeme, "cake") == 0;
 
     if (token_is_identifier_or_keyword(ctx->current->type))
     {
@@ -31871,11 +32136,11 @@ struct unlabeled_statement* _Owner  _Opt unlabeled_statement(struct parser_ctx* 
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
+                    }
                 }
             }
         }
     }
-}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -31895,6 +32160,9 @@ void label_delete(struct label* _Owner _Opt p)
 }
 struct label* _Owner  _Opt label(struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return NULL;
+
     struct label* _Owner  _Opt p_label = calloc(1, sizeof(struct label));
     try
     {
@@ -31955,11 +32223,11 @@ struct label* _Owner  _Opt label(struct parser_ctx* ctx)
                     }
                 }
 
-                const struct enum_specifier* p_enum_specifier =
+                const struct enum_specifier* _Opt p_enum_specifier =
                     get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
                 if (p_enum_specifier)
                 {
-                    const struct enumerator* p_enumerator = find_enumerator_by_value(p_enum_specifier, case_value);
+                    const struct enumerator* _Opt p_enumerator = find_enumerator_by_value(p_enum_specifier, case_value);
                     if (p_enumerator == NULL)
                     {
                         compiler_diagnostic_message(W_ENUN_CONVERSION,
@@ -32071,7 +32339,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
         {
             if (block_scope.variables.table == NULL)
                 continue;
-            struct map_entry* entry = block_scope.variables.table[i];
+            struct map_entry* _Opt entry = block_scope.variables.table[i];
             while (entry)
             {
 
@@ -32136,6 +32404,7 @@ void block_item_list_add(struct block_item_list* list, struct block_item* _Owner
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_item;
     }
@@ -32208,10 +32477,17 @@ struct block_item* _Owner  _Opt block_item(struct parser_ctx* ctx)
     //   declaration
     //     unlabeled_statement
     //   label
+
+    if (ctx->current == NULL)
+        return NULL;
+
     struct block_item* _Owner _Opt p_block_item = calloc(1, sizeof(struct block_item));
 
     try
     {
+        if (p_block_item == NULL)
+            throw;
+
         /*
          * Attributes can be first of declaration, labels etc..
          * so it is better to parse it in advance.
@@ -32262,7 +32538,7 @@ struct block_item* _Owner  _Opt block_item(struct parser_ctx* ctx)
                 throw;
             p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
 
-            struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
+            struct init_declarator* _Opt p = p_block_item->declaration->init_declarator_list.head;
             while (p)
             {
                 if (p->p_declarator && p->p_declarator->name_opt)
@@ -32541,7 +32817,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             //switch of enum without default, then we check if all items were used
             if (switch_value_list.p_default == NULL)
             {
-                const struct enum_specifier* p_enum_specifier =
+                const struct enum_specifier* _Opt p_enum_specifier =
                     get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
                 if (p_enum_specifier)
                 {
@@ -32760,6 +33036,9 @@ struct jump_statement* _Owner  _Opt jump_statement(struct parser_ctx* ctx)
        throw; (extension)
     */
 
+    if (ctx->current == NULL)
+        return NULL;
+
     struct jump_statement* _Owner _Opt p_jump_statement = calloc(1, sizeof(struct jump_statement));
     try
     {
@@ -32771,6 +33050,10 @@ struct jump_statement* _Owner  _Opt jump_statement(struct parser_ctx* ctx)
         if (ctx->current->type == TK_KEYWORD_GOTO)
         {
             parser_match(ctx);
+
+            if (ctx->current == NULL)
+                throw;
+
             p_jump_statement->label = ctx->current;
             if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
                 throw;
@@ -32787,7 +33070,6 @@ struct jump_statement* _Owner  _Opt jump_statement(struct parser_ctx* ctx)
         {
             if (ctx->p_current_try_statement_opt == NULL)
             {
-
                 compiler_diagnostic_message(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "throw statement not within try block");
             }
             else
@@ -32838,6 +33120,12 @@ struct jump_statement* _Owner  _Opt jump_statement(struct parser_ctx* ctx)
         {
             assert(false);
         }
+
+        if (ctx->current == NULL)
+        {
+            throw;
+        }
+
         p_jump_statement->last_token = ctx->current;
         if (parser_match_tk(ctx, ';') != 0)
             throw;
@@ -32902,6 +33190,7 @@ void declaration_list_add(struct declaration_list* list, struct declaration* _Ow
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = p_declaration;
     }
@@ -32937,6 +33226,8 @@ void condition_delete(struct condition* _Owner _Opt p_condition)
 
 struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return NULL;
 
     /*
     condition :
@@ -32946,7 +33237,12 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
     struct condition* _Owner _Opt p_condition = calloc(1, sizeof * p_condition);
     try
     {
-        if (p_condition == NULL) throw;
+        if (p_condition == NULL)
+            throw;
+
+        if (ctx->current == NULL)
+            throw;
+
         p_condition->first_token = ctx->current;
         if (first_of_declaration_specifier(ctx))
         {
@@ -32959,7 +33255,17 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
             p_condition->expression = expression(ctx);
             if (p_condition->expression == NULL) throw;
         }
-        p_condition->last_token = previous_parser_token(ctx->current);
+
+        if (ctx->current == NULL)
+            throw;
+
+        struct token* _Opt previous = previous_parser_token(ctx->current);
+
+        if (previous)
+        {
+            //shoult never be null
+            p_condition->last_token = previous;
+        }
     }
     catch
     {
@@ -33086,12 +33392,14 @@ struct compound_statement* _Owner  _Opt function_body(struct parser_ctx* ctx)
 
 static void show_unused_file_scope(struct parser_ctx* ctx)
 {
+    if (ctx->scopes.head == NULL)
+        return;
 
     for (int i = 0; i < ctx->scopes.head->variables.capacity; i++)
     {
         if (ctx->scopes.head->variables.table == NULL)
             continue;
-        struct map_entry* entry = ctx->scopes.head->variables.table[i];
+        struct map_entry* _Opt entry = ctx->scopes.head->variables.table[i];
         while (entry)
         {
 
@@ -33123,10 +33431,14 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
-                    compiler_diagnostic_message(W_UNUSED_VARIABLE,
-                        ctx,
-                        p_declarator->name_opt, NULL,
-                        "declarator '%s' not used", p_declarator->name_opt->lexeme);
+                    if (p_declarator->name_opt)
+                    {
+                        compiler_diagnostic_message(W_UNUSED_VARIABLE,
+                            ctx,
+                            p_declarator->name_opt,
+                            NULL,
+                            "declarator '%s' not used", p_declarator->name_opt->lexeme);
+                    }
                 }
             }
 
@@ -33704,7 +34016,7 @@ int compile_many_files(const char* file_name,
         return errno;
     }
 
-    struct dirent* dp;
+    struct dirent* _Opt dp;
     while ((dp = readdir(dir)) != NULL)
     {
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
@@ -33844,7 +34156,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-    }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -33953,7 +34265,7 @@ struct ast get_ast(struct options* options,
 
     struct preprocessor_ctx prectx = { 0 };
 
-    struct parser_ctx ctx = { 0 };
+    struct parser_ctx ctx = { .p_report = report };
     try
     {
         prectx.options = *options;
@@ -33966,7 +34278,7 @@ struct ast get_ast(struct options* options,
             throw;
 
         ctx.options = *options;
-        ctx.p_report = report;
+
         bool berror = false;
         ast.declaration_list = parse(&ctx, &ast.token_list, &berror);
         if (berror)
@@ -34362,6 +34674,11 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
     }
 }
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 //#pragma safety enable
 
@@ -36941,6 +37258,11 @@ void visit(struct visit_ctx* ctx)
 
 
 
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 
@@ -37126,7 +37448,7 @@ static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx* ctx
 
             struct flow_object* _Opt p_object =
                 expression_get_object(ctx, a->data[i].p_expression, nullable_enabled);
-            
+
             if (p_object)
             {
                 const bool is_pointer = type_is_pointer(&a->data[i].p_expression->type);
@@ -37900,7 +38222,8 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                                     &p_init_declarator->p_declarator->type,
                                     p_init_declarator->p_declarator->p_object,
                                     &p_init_declarator->initializer->assignment_expression->type,
-                                    p_right_object);
+                                    p_right_object,
+                                    NULL);
             }
             //cast?
             if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
@@ -37943,7 +38266,8 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                                    &p_init_declarator->p_declarator->type,
                                    p_init_declarator->p_declarator->p_object,
                                    &p_init_declarator->p_declarator->type,
-                                   p_right_object);
+                                   p_right_object,
+                                   NULL);
             //object_destroy(&o);
         }
         else
@@ -38462,79 +38786,133 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
 {
-    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-
-    struct param* p_current_parameter_type = NULL;
-
-    const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
-
-    if (p_param_list)
+    try
     {
-        p_current_parameter_type = p_param_list->head;
-    }
+        const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
+        const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(p_type);
+        if (p_param_list == NULL) throw;
 
-    struct argument_expression* p_current_argument = p_argument_expression_list->head;
+        struct param* p_current_parameter_type = p_param_list->head;
+        struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
-    while (p_current_argument && p_current_parameter_type)
-    {
-
-        struct flow_object* _Opt p_argument_object =
-            expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
-
-        if (p_argument_object)
+        while (p_current_argument && p_current_parameter_type)
         {
-            struct flow_object* parameter_object = make_object(ctx, &p_current_parameter_type->type, NULL, p_current_argument->expression);
-            object_set_uninitialized(&p_current_parameter_type->type, parameter_object);
-            flow_check_assignment(ctx,
-              p_current_argument->expression->first_token,
-              ASSIGMENT_TYPE_PARAMETER,
-              true,
-              type_is_view(&p_current_parameter_type->type),
-              type_is_nullable(&p_current_parameter_type->type, ctx->ctx->options.null_checks_enabled),
-              &p_current_parameter_type->type,
-              parameter_object, /*dest object*/
+            struct flow_object* _Opt p_argument_object =
+                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
 
-              &p_current_argument->expression->type,
-              p_argument_object
-            );
+            if (p_argument_object)
+            {
+                struct flow_object* _Opt parameter_object = make_object(ctx, &p_current_parameter_type->type, NULL, p_current_argument->expression);
+                if (parameter_object == NULL) throw;
 
-            //print_arena(ctx);
+                object_set_uninitialized(&p_current_parameter_type->type, parameter_object);
 
-            //object_destroy(&parameter_object);
+                flow_check_assignment(ctx,
+                  p_current_argument->expression->first_token,
+                  ASSIGMENT_TYPE_PARAMETER,
+                  true,
+                  type_is_view(&p_current_parameter_type->type),
+                  type_is_nullable(&p_current_parameter_type->type, ctx->ctx->options.null_checks_enabled),
+                  &p_current_parameter_type->type,
+                  parameter_object, /*dest object*/
 
+                  &p_current_argument->expression->type,
+                  p_argument_object,
+                  &p_current_argument->set_unkown
+                );
+            }
+            p_current_argument = p_current_argument->next;
+            p_current_parameter_type = p_current_parameter_type->next;
         }
-        p_current_argument = p_current_argument->next;
-        p_current_parameter_type = p_current_parameter_type->next;
-        //object_destroy(&temp_obj1);
-    }
 
-    while (p_current_argument)
-    {
+        while (p_current_argument)
+        {
+            /*
+               We have more argument than parameters, this happens with variadic functions
+            */
+
+            struct flow_object* _Opt p_argument_object =
+                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
+
+            if (p_argument_object)
+            {
+                checked_read_object(ctx,
+                    &p_current_argument->expression->type,
+                    type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled),
+                    p_argument_object,
+                    p_current_argument->expression->first_token,
+                    false);
+            }
+            else
+            {
+                //
+            }
+            p_current_argument = p_current_argument->next;
+        }
+
+        //////////////////////////// SECOND PASS ////////////////////////////
         /*
-           We have more argument than parameters, this happens with variadic functions
+            //consider this sample...
+            void f(struct X *p,  int * p);
+
+            int main()
+            {
+                struct X *  pX = make();
+                if (pX->p)
+                {
+                   //cake is making pX->p  unkown before function call..it must be after
+                   f(pX, pX->p);
+                }
+            }
         */
 
+        /*struct param* */ p_current_parameter_type = p_param_list->head;
+        /*struct argument_expression* */ p_current_argument = p_argument_expression_list->head;
 
-        struct flow_object* _Opt p_argument_object =
-            expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
-        if (p_argument_object)
+
+        while (p_current_argument && p_current_parameter_type)
         {
-            checked_read_object(ctx,
-                &p_current_argument->expression->type,
-                type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled),
-                p_argument_object,
-                p_current_argument->expression->first_token,
-                false);
+            struct flow_object* _Opt p_argument_object =
+                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
+
+            if (p_argument_object && p_current_argument->set_unkown)
+            {
+                const bool argument_type_is_nullable =
+                    type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled);
+
+                object_set_unknown(&p_current_argument->expression->type,
+                               argument_type_is_nullable,
+                               p_argument_object,
+                               ctx->ctx->options.null_checks_enabled);
+            }
+            p_current_argument = p_current_argument->next;
+            p_current_parameter_type = p_current_parameter_type->next;
         }
-        else
+
+        while (p_current_argument)
         {
-            //
+            /*
+               We have more argument than parameters, this happens with variadic functions
+            */
+
+            struct flow_object* _Opt p_argument_object =
+                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
+
+            if (p_argument_object)
+            {
+                //??
+            }
+            else
+            {
+                //??
+            }
+            p_current_argument = p_current_argument->next;
         }
-        p_current_argument = p_current_argument->next;
-        //object_destroy(&temp_obj);
     }
-
+    catch
+    {
+    }
 }
 
 static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p_expression)
@@ -38628,11 +39006,17 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
         struct flow_object* _Opt p_object = expression_get_object(ctx, p_expression, nullable_enabled);
         if (p_object)
         {
+            struct marker marker = {
+                 .p_token_begin = p_expression->first_token,
+                 .p_token_end = p_expression->last_token
+            };
+
             if (flow_object_is_null(p_object))
             {
                 compiler_diagnostic_message(W_FLOW_NON_NULL,
                         ctx->ctx,
-                        p_expression->first_token, NULL,
+                        NULL,
+                        &marker,
                         "pointer is always null");
 
             }
@@ -38640,7 +39024,8 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
             {
                 compiler_diagnostic_message(W_FLOW_NON_NULL,
                         ctx->ctx,
-                        p_expression->first_token, NULL,
+                        NULL,
+                        &marker,
                         "pointer is always not-null");
             }
         }
@@ -38746,7 +39131,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
-                    struct marker marker = {0};
+                    struct marker marker = { 0 };
                     marker.p_token_begin = p_expression->left->first_token;
                     marker.p_token_end = p_expression->left->last_token;
                     compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
@@ -38947,9 +39332,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             if (!ctx->expression_is_not_evaluated)
             {
-                struct marker marker = {0};
+                struct marker marker = { 0 };
                 marker.p_token_begin = p_expression->right->first_token;
-                marker.p_token_end= p_expression->right->last_token;
+                marker.p_token_end = p_expression->right->last_token;
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     NULL, &marker, "using a uninitialized object");
@@ -39003,7 +39388,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             &p_expression->left->type, /*dest type*/
             p_dest_object, /*dest object*/
             &p_expression->right->type, /*source type*/
-            p_right_object /*source*/);
+            p_right_object /*source*/,
+            NULL);
         //print_arena(ctx);
         //we could havea arena_broadcast
         /*
@@ -39642,7 +40028,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                     ctx->p_return_type, /*dest type*/
                     p_dest_object, /*dest object*/
                     &p_jump_statement->expression_opt->type, /*source type*/
-                    p_object /*source*/
+                    p_object, /*source*/
+                    NULL
                 );
 
                 p_dest_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
@@ -40157,7 +40544,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
             }
 #endif
         }
-    }
+        }
 
     /*if (p_declarator->pointer)
     {
@@ -40173,7 +40560,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-}
+    }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -40545,6 +40932,11 @@ void flow_analysis_visit(struct flow_visit_ctx* ctx)
 }
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 
 #pragma safety enable
@@ -41004,6 +41396,11 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 */
 
 
+
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 
 

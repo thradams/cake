@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 
 /*
    Object represents "memory" and state. Used by flow analysis
@@ -168,7 +173,8 @@ void flow_check_assignment(struct flow_visit_ctx* ctx,
     bool a_type_is_view,
     bool a_type_is_nullable,
     struct type* p_a_type, struct flow_object* p_a_object,
-    struct type* p_b_type, struct flow_object* p_b_object);
+    struct type* p_b_type, struct flow_object* p_b_object,
+    bool * _Opt set_argument_to_unkown);
 
 
 void object_set_zero(struct type* p_type, struct flow_object* p_object);

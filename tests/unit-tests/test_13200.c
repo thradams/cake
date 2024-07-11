@@ -2,4 +2,5 @@ int main()
 {
  int * p = &1;
 }
-#pragma cake diagnostic check "-E121"
+#pragma cake diagnostic check "-E122"
+

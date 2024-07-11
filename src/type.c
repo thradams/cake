@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 #include "ownership.h"
@@ -2023,7 +2028,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
     {
         struct osstream ss = { 0 };
 
-        const struct enum_specifier* p_complete =
+        const struct enum_specifier* _Opt p_complete =
             get_complete_enum_specifier(p_type->enum_specifier);
 
 

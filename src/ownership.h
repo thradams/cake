@@ -27,7 +27,7 @@ int snprintf(_Out char* const _Buffer,
              ...);
 
 typedef struct _iobuf FILE;
-FILE* _Owner fopen(char const* _FileName, char const* _Mode);
+FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* _Owner _Stream);
 
 size_t fread(

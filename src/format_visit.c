@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 #include "ownership.h"
 #include "format_visit.h"
 #include <assert.h>

@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 #include "ownership.h"
@@ -911,10 +916,10 @@ void print_object_core(int ident,
                 visitor.p_object = p_visitor->p_object->current.ref.data[i];
                 print_object_core(ident + 1, &visitor, buffer, is_pointer, short_version, visit_number);
             }
-    }
+        }
 #endif
         type_destroy(&t2);
-}
+    }
     else
     {
         printf("%*c", ident, ' ');
@@ -1091,7 +1096,7 @@ int object_merge_current_state_with_state_number_core(struct flow_object* object
                 object_merge_current_state_with_state_number_core(pointed, state_number, visit_number);
             }
 
-}
+        }
 #endif
     }
     return 1;
@@ -1243,9 +1248,9 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
                 object_set_nothing(&t2, pointed);
             }
             type_destroy(&t2);
-    }
+        }
 #endif
-}
+    }
     else
     {
         p_visitor->p_object->current.state = OBJECT_STATE_UNINITIALIZED;
@@ -1636,9 +1641,9 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
                 object_set_deleted_core(&t2, pointed, visit_number);
                 type_destroy(&t2);
             }
-    }
+        }
 #endif
-}
+    }
     else
     {
         if (!type_is_struct_or_union(p_type))
@@ -1943,11 +1948,11 @@ void object_get_name_core(
                         outname,
                         out_size,
                         visit_number);
-        }
+                }
 #endif
-    }
+            }
             type_destroy(&t2);
-}
+        }
     }
 }
 
@@ -2062,11 +2067,11 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                         p_object->current.ref.data[i],
                         position_token,
                         visit_number);
-            }
+                }
 #endif
                 type_destroy(&t2);
+            }
         }
-    }
 
         if (p_object->current.state & OBJECT_STATE_MOVED)
         {
@@ -2104,7 +2109,7 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                 compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, NULL, "parameter", name);
             }
         }
-}
+    }
 }
 
 void checked_moved(struct flow_visit_ctx* ctx,
@@ -2579,7 +2584,8 @@ static void flow_assignment_core(
     bool a_type_is_view,
     bool a_type_is_nullable,
     struct object_visitor* p_visitor_a,
-    struct object_visitor* p_visitor_b)
+    struct object_visitor* p_visitor_b,
+    bool* set_argument_to_unkown)
 {
     if (p_visitor_a->p_object == NULL || p_visitor_b->p_object == NULL)
     {
@@ -2907,6 +2913,7 @@ static void flow_assignment_core(
                 p_visitor_a->p_object->current.state &= ~OBJECT_STATE_MOVED;
             }
 
+
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
                 struct type t3 = type_remove_pointer(p_visitor_a->p_type);
@@ -2915,11 +2922,31 @@ static void flow_assignment_core(
 
                     if (p_visitor_b->p_object->current.pointed)
                     {
-                        struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
+                        //struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
 
-                        bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-                        const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
-                        object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
+                        //bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+                        //const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
+
+                        if (set_argument_to_unkown)
+                        {
+                            /*
+                                //Consider this sample...
+                                void f(struct X *p,  int * p);
+                                int main()
+                                {
+                                    struct X *  pX = make();
+                                    if (pX->p)
+                                    {
+                                       f(pX, pX->p (not unknown  yet));
+                                       //pX->p is unknown here...
+                                    }
+                                }
+                            */
+
+                            //Tells the caller it must make argument unknown
+                            *set_argument_to_unkown = true;
+                        }
+                        //   object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
                     }
 
 
@@ -2983,7 +3010,8 @@ static void flow_assignment_core(
                                     a_type_is_view,
                                     a_type_is_nullable,
                                     &visitor_a,
-                                    &visitor_b);
+                                    &visitor_b,
+                                    set_argument_to_unkown);
                             }
                             else
                             {
@@ -3020,7 +3048,8 @@ static void flow_assignment_core(
                                             a_type_is_view,
                                             a_type_is_nullable,
                                             p_visitor_a,
-                                            p_visitor_b);
+                                            p_visitor_b,
+                                            set_argument_to_unkown);
 
                         //restore
                         p_visitor_a->p_type = temp1;
@@ -3164,13 +3193,13 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                             //return NULL;
                         }
                     }
-                }
-                return p_object;
             }
-#endif
+                return p_object;
         }
-        return NULL;
+#endif
     }
+        return NULL;
+}
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
         struct flow_object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
@@ -3228,13 +3257,13 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                             //return NULL;
                         }
                     }
-                }
+            }
                 return p_object;
         }
 #endif
     }
         return NULL;
-}
+        }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -3378,7 +3407,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     printf("null object");
     //assert(false);
     return NULL;
-}
+    }
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,
@@ -3388,7 +3417,8 @@ void flow_check_assignment(
     bool a_type_is_view,
     bool a_type_is_nullable,
     struct type* p_a_type, struct flow_object* p_a_object,
-    struct type* p_b_type, struct flow_object* p_b_object)
+    struct type* p_b_type, struct flow_object* p_b_object,
+    bool* _Opt set_argument_to_unkown)
 {
     if (type_is_pointer(p_b_type) && object_is_expansible(p_b_object))
     {
@@ -3415,7 +3445,8 @@ void flow_check_assignment(
     a_type_is_view,
     a_type_is_nullable,
     &visitor_a,
-    &visitor_b);
+    &visitor_b,
+    set_argument_to_unkown);
 }
 
 

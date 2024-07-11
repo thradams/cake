@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 #pragma once
 #include "hashmap.h"
 #include "token.h"
@@ -89,7 +94,7 @@ const char* _Owner get_code_as_compiler_see(struct token_list* list);
 const char* _Owner get_code_as_we_see_plus_macros(struct token_list* list);
 const char* _Owner get_code_as_we_see(struct token_list* list, bool remove_comments);
 
-void print_tokens(struct token* p_token);
+void print_tokens(struct token* _Opt p_token);
 void print_preprocessed(struct token* p_token);
 const char* _Owner print_preprocessed_to_string(struct token* p_token);
 const char* _Owner print_preprocessed_to_string2(struct token* _Opt p_token);

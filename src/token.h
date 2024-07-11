@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 #pragma once
 #include <stdbool.h>
 #include "ownership.h"
@@ -263,7 +268,7 @@ void print_tokens_html(struct token* p_token);
 
 struct marker {    
     
-    const char* file;
+    const char* _Opt file;
     int line;
     int col;
 
@@ -286,7 +291,7 @@ struct stream
     int line;
     int col;
     int line_continuation_count;
-    const char* _View path;
+    const char* path;
 };
 
 int is_digit(struct stream* p);

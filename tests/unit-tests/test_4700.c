@@ -6,6 +6,6 @@ char* _Opt f() {
     return p;
 
 //cannot return a owner to non owner
-#pragma cake diagnostic check "-E127"
+#pragma cake diagnostic check "-E128"
 
 }

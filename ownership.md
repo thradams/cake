@@ -1,5 +1,5 @@
   
-Last Updated 28 June 2024
+Last Updated 11 July 2024
   
 This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.
 
@@ -346,7 +346,7 @@ When an owner object is copied to a view object, the ownership is not transferre
 
 #include <stdio.h>
 
-void use_file(FILE *f) {}
+void use_file(FILE * f) {}
 
 int main() {
     FILE * _Owner _Opt f = fopen("file.txt", "r");

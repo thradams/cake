@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 #include "ownership.h"
@@ -194,7 +199,7 @@ static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx* ctx
 
             struct flow_object* _Opt p_object =
                 expression_get_object(ctx, a->data[i].p_expression, nullable_enabled);
-            
+
             if (p_object)
             {
                 const bool is_pointer = type_is_pointer(&a->data[i].p_expression->type);
@@ -968,7 +973,8 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                                     &p_init_declarator->p_declarator->type,
                                     p_init_declarator->p_declarator->p_object,
                                     &p_init_declarator->initializer->assignment_expression->type,
-                                    p_right_object);
+                                    p_right_object,
+                                    NULL);
             }
             //cast?
             if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
@@ -1011,7 +1017,8 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                                    &p_init_declarator->p_declarator->type,
                                    p_init_declarator->p_declarator->p_object,
                                    &p_init_declarator->p_declarator->type,
-                                   p_right_object);
+                                   p_right_object,
+                                   NULL);
             //object_destroy(&o);
         }
         else
@@ -1530,79 +1537,133 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
 {
-    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-
-    struct param* p_current_parameter_type = NULL;
-
-    const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
-
-    if (p_param_list)
+    try
     {
-        p_current_parameter_type = p_param_list->head;
-    }
+        const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
+        const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(p_type);
+        if (p_param_list == NULL) throw;
 
-    struct argument_expression* p_current_argument = p_argument_expression_list->head;
+        struct param* p_current_parameter_type = p_param_list->head;
+        struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
-    while (p_current_argument && p_current_parameter_type)
-    {
-
-        struct flow_object* _Opt p_argument_object =
-            expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
-
-        if (p_argument_object)
+        while (p_current_argument && p_current_parameter_type)
         {
-            struct flow_object* parameter_object = make_object(ctx, &p_current_parameter_type->type, NULL, p_current_argument->expression);
-            object_set_uninitialized(&p_current_parameter_type->type, parameter_object);
-            flow_check_assignment(ctx,
-              p_current_argument->expression->first_token,
-              ASSIGMENT_TYPE_PARAMETER,
-              true,
-              type_is_view(&p_current_parameter_type->type),
-              type_is_nullable(&p_current_parameter_type->type, ctx->ctx->options.null_checks_enabled),
-              &p_current_parameter_type->type,
-              parameter_object, /*dest object*/
+            struct flow_object* _Opt p_argument_object =
+                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
 
-              &p_current_argument->expression->type,
-              p_argument_object
-            );
+            if (p_argument_object)
+            {
+                struct flow_object* _Opt parameter_object = make_object(ctx, &p_current_parameter_type->type, NULL, p_current_argument->expression);
+                if (parameter_object == NULL) throw;
 
-            //print_arena(ctx);
+                object_set_uninitialized(&p_current_parameter_type->type, parameter_object);
 
-            //object_destroy(&parameter_object);
+                flow_check_assignment(ctx,
+                  p_current_argument->expression->first_token,
+                  ASSIGMENT_TYPE_PARAMETER,
+                  true,
+                  type_is_view(&p_current_parameter_type->type),
+                  type_is_nullable(&p_current_parameter_type->type, ctx->ctx->options.null_checks_enabled),
+                  &p_current_parameter_type->type,
+                  parameter_object, /*dest object*/
 
+                  &p_current_argument->expression->type,
+                  p_argument_object,
+                  &p_current_argument->set_unkown
+                );
+            }
+            p_current_argument = p_current_argument->next;
+            p_current_parameter_type = p_current_parameter_type->next;
         }
-        p_current_argument = p_current_argument->next;
-        p_current_parameter_type = p_current_parameter_type->next;
-        //object_destroy(&temp_obj1);
-    }
 
-    while (p_current_argument)
-    {
+        while (p_current_argument)
+        {
+            /*
+               We have more argument than parameters, this happens with variadic functions
+            */
+
+            struct flow_object* _Opt p_argument_object =
+                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
+
+            if (p_argument_object)
+            {
+                checked_read_object(ctx,
+                    &p_current_argument->expression->type,
+                    type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled),
+                    p_argument_object,
+                    p_current_argument->expression->first_token,
+                    false);
+            }
+            else
+            {
+                //
+            }
+            p_current_argument = p_current_argument->next;
+        }
+
+        //////////////////////////// SECOND PASS ////////////////////////////
         /*
-           We have more argument than parameters, this happens with variadic functions
+            //consider this sample...
+            void f(struct X *p,  int * p);
+
+            int main()
+            {
+                struct X *  pX = make();
+                if (pX->p)
+                {
+                   //cake is making pX->p  unkown before function call..it must be after
+                   f(pX, pX->p);
+                }
+            }
         */
 
+        /*struct param* */ p_current_parameter_type = p_param_list->head;
+        /*struct argument_expression* */ p_current_argument = p_argument_expression_list->head;
 
-        struct flow_object* _Opt p_argument_object =
-            expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
-        if (p_argument_object)
+
+        while (p_current_argument && p_current_parameter_type)
         {
-            checked_read_object(ctx,
-                &p_current_argument->expression->type,
-                type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled),
-                p_argument_object,
-                p_current_argument->expression->first_token,
-                false);
+            struct flow_object* _Opt p_argument_object =
+                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
+
+            if (p_argument_object && p_current_argument->set_unkown)
+            {
+                const bool argument_type_is_nullable =
+                    type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled);
+
+                object_set_unknown(&p_current_argument->expression->type,
+                               argument_type_is_nullable,
+                               p_argument_object,
+                               ctx->ctx->options.null_checks_enabled);
+            }
+            p_current_argument = p_current_argument->next;
+            p_current_parameter_type = p_current_parameter_type->next;
         }
-        else
+
+        while (p_current_argument)
         {
-            //
+            /*
+               We have more argument than parameters, this happens with variadic functions
+            */
+
+            struct flow_object* _Opt p_argument_object =
+                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
+
+            if (p_argument_object)
+            {
+                //??
+            }
+            else
+            {
+                //??
+            }
+            p_current_argument = p_current_argument->next;
         }
-        p_current_argument = p_current_argument->next;
-        //object_destroy(&temp_obj);
     }
-
+    catch
+    {
+    }
 }
 
 static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p_expression)
@@ -1696,11 +1757,17 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
         struct flow_object* _Opt p_object = expression_get_object(ctx, p_expression, nullable_enabled);
         if (p_object)
         {
+            struct marker marker = {
+                 .p_token_begin = p_expression->first_token,
+                 .p_token_end = p_expression->last_token
+            };
+
             if (flow_object_is_null(p_object))
             {
                 compiler_diagnostic_message(W_FLOW_NON_NULL,
                         ctx->ctx,
-                        p_expression->first_token, NULL,
+                        NULL,
+                        &marker,
                         "pointer is always null");
 
             }
@@ -1708,7 +1775,8 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
             {
                 compiler_diagnostic_message(W_FLOW_NON_NULL,
                         ctx->ctx,
-                        p_expression->first_token, NULL,
+                        NULL,
+                        &marker,
                         "pointer is always not-null");
             }
         }
@@ -1814,7 +1882,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
-                    struct marker marker = {0};
+                    struct marker marker = { 0 };
                     marker.p_token_begin = p_expression->left->first_token;
                     marker.p_token_end = p_expression->left->last_token;
                     compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
@@ -2015,9 +2083,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             if (!ctx->expression_is_not_evaluated)
             {
-                struct marker marker = {0};
+                struct marker marker = { 0 };
                 marker.p_token_begin = p_expression->right->first_token;
-                marker.p_token_end= p_expression->right->last_token;
+                marker.p_token_end = p_expression->right->last_token;
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     NULL, &marker, "using a uninitialized object");
@@ -2071,7 +2139,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             &p_expression->left->type, /*dest type*/
             p_dest_object, /*dest object*/
             &p_expression->right->type, /*source type*/
-            p_right_object /*source*/);
+            p_right_object /*source*/,
+            NULL);
         //print_arena(ctx);
         //we could havea arena_broadcast
         /*
@@ -2710,7 +2779,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                     ctx->p_return_type, /*dest type*/
                     p_dest_object, /*dest object*/
                     &p_jump_statement->expression_opt->type, /*source type*/
-                    p_object /*source*/
+                    p_object, /*source*/
+                    NULL
                 );
 
                 p_dest_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
@@ -3225,7 +3295,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
             }
 #endif
         }
-    }
+        }
 
     /*if (p_declarator->pointer)
     {
@@ -3241,7 +3311,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-}
+    }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {

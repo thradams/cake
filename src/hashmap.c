@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 #include "ownership.h"
@@ -68,7 +73,7 @@ struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
 }
 
 
-void* _View _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt)
+void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt)
 {
     if (map->table != NULL)
     {
@@ -85,7 +90,7 @@ void* _View _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag*
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* _View p = p_entry->p;
+                void* p = p_entry->p;
                 free((void* _Owner)p_entry->key);
                 free((void* _Owner)p_entry);
 
@@ -99,7 +104,7 @@ void* _View _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag*
 }
 
 
-int hashmap_set(struct hash_map* map, const char* key, const void* _View p, enum tag type)
+int hashmap_set(struct hash_map* map, const char* key, const void* p, enum tag type)
 {
     int result = 0;
 

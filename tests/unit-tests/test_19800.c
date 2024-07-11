@@ -10,10 +10,10 @@ void del(struct X * _Owner _Opt p);
 int main() {
    struct X * _Owner p = make();
    p++;
-#pragma cake diagnostic check "-E130"
+#pragma cake diagnostic check "-E131"
 
    p--;
-#pragma cake diagnostic check "-E131"
+#pragma cake diagnostic check "-E132"
 
    del(p);
 }

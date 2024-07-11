@@ -2,4 +2,5 @@ int main()
 {
  1--;
 }
-#pragma cake diagnostic check "-E122"
+#pragma cake diagnostic check "-E123"
+

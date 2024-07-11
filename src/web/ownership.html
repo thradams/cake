@@ -73,7 +73,7 @@
 <a href="#toc_12">Code transition Strategy</a>
 </li>
 </ul>
-<p>Last Updated 28 June 2024</p>
+<p>Last Updated 11 July 2024</p>
 
 <p>This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.</p>
 
@@ -413,7 +413,7 @@ When an owner object is copied to a view object, the ownership is not transferre
 
 #include &lt;stdio.h&gt;
 
-void use_file(FILE *f) {}
+void use_file(FILE * f) {}
 
 int main() {
     FILE * _Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);

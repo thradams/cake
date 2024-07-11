@@ -1,2 +1,2 @@
 long long long i;
-#pragma cake diagnostic check "-E97"
+#pragma cake diagnostic check "-E98"

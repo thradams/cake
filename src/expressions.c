@@ -1,4 +1,9 @@
-//#pragma safety enable
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
+#pragma safety enable
 
 #include "ownership.h"
 #include <limits.h>
@@ -1937,7 +1942,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (p_expression_node_new->left->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
-                    struct struct_or_union_specifier* p =
+                    struct struct_or_union_specifier* _Opt p =
                         find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
                     p = get_complete_struct_or_union_specifier(p);
                     if (p)
@@ -2655,17 +2660,20 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 if (check_sizeof_argument(ctx, new_expression, &new_expression->type_name->type) != 0)
                 {
-                    expression_delete(new_expression);
-                    throw;
-                }
-
-                if (type_is_vla(&new_expression->type_name->declarator->type))
-                {
-                    //not constant
+                    //not fatal error
+                    //fatal will be if someone need the sizeof at compile time
+                    //but we don't have the constant_value set here
                 }
                 else
                 {
-                    new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
+                    if (type_is_vla(&new_expression->type_name->declarator->type))
+                    {
+                        //not constant
+                    }
+                    else
+                    {
+                        new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
+                    }
                 }
             }
             else

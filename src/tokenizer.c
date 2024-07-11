@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //#pragma safety enable
 
 /*
@@ -610,6 +615,7 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = pnew;
         list->tail = pnew;

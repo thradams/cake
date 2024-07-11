@@ -19,9 +19,10 @@ int main()
 
     p = 1;
     //error: non-pointer to pointer [E133]
-#pragma cake diagnostic check "-E133"
+#pragma cake diagnostic check "-E134"
 
     p = true;
     //error: non-pointer to pointer [E133]
-#pragma cake diagnostic check "-E133"
+#pragma cake diagnostic check "-E134"
 }
+
