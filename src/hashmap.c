@@ -272,43 +272,46 @@ void* _Owner _Opt owner_hashmap_set(struct owner_hash_map* map, const char* key,
             if (map->table == NULL) throw;
         }
 
-        if (map->table != NULL)
+        const unsigned int hash = string_hash(key);
+        const int index = hash % map->capacity;
+
+        /* searching existing entry */
+        struct owner_map_entry* _Opt pentry = map->table[index];
+
+        for (; pentry != NULL; pentry = pentry->next)
         {
-            unsigned int hash = string_hash(key);
-            int index = hash % map->capacity;
-
-            struct owner_map_entry* _Opt pentry = map->table[index];
-
-            for (; pentry != NULL; pentry = pentry->next)
+            if (pentry->hash == hash && strcmp(pentry->key, key) == 0)
             {
-                if (pentry->hash == hash && strcmp(pentry->key, key) == 0)
-                {
-                    break;
-                }
+                break;
+            }
+        }
+
+        if (pentry == NULL)
+        {
+            char* _Owner _Opt const key_temp = strdup(key);
+            if (key_temp == NULL) throw;
+
+            struct owner_map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
+            if (p_new_entry == NULL)
+            {
+                free(key_temp);
+                throw;
             }
 
-            if (pentry == NULL)
-            {
-                struct owner_map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
-                if (p_new_entry == NULL) throw;
-                p_new_entry->hash = hash;
-                p_new_entry->p = (void* _Owner)p;
-                p_new_entry->type = type;
-                p_new_entry->key = strdup(key);
-                p_new_entry->next = map->table[index];
-                map->table[index] = p_new_entry;
-                map->size++;
-            }
-            else
-            {
-                previous = pentry->p;
-                pentry->p = (void* _Owner) p;
-                pentry->type = type;
-            }
+            p_new_entry->hash = hash;
+            p_new_entry->p = (void* _Owner)p;
+            p_new_entry->type = type;
+            p_new_entry->key = key_temp;
+
+            p_new_entry->next = map->table[index];
+            map->table[index] = p_new_entry;
+            map->size++;
         }
         else
         {
-            static_set(p, "moved"); //this is a leak actually
+            previous = pentry->p;
+            pentry->p = (void* _Owner) p;
+            pentry->type = type;
         }
     }
     catch

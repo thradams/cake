@@ -284,8 +284,14 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             }
             else if (p->enum_specifier)
             {
-                if (p->enum_specifier->tag_token->lexeme)
+                if (p->enum_specifier->tag_token)
+                {
                     ss_fprintf(&local, "enum %s", p->enum_specifier->tag_token->lexeme);
+                }
+                else
+                {
+                    ss_fprintf(&local, "enum ");
+                }
             }
             else
             {
@@ -476,10 +482,10 @@ void param_list_add(struct param_list* list, struct param* _Owner p_item)
 
 void param_list_destroy(struct param_list* _Obj_owner p)
 {
-    struct param* _Owner item = p->head;
+    struct param* _Owner _Opt item = p->head;
     while (item)
     {
-        struct param* _Owner next = item->next;
+        struct param* _Owner _Opt next = item->next;
         type_destroy(&item->type);
         free(item);
         item = next;
@@ -2687,49 +2693,55 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* pdeclarator,
     char** ppname, struct type_list* list)
 {
-    struct type_list pointers = { 0 };
-    struct pointer* pointer = pdeclarator->pointer;
-    while (pointer)
+    try
     {
-        struct type* _Owner _Opt p_flat = calloc(1, sizeof(struct type));
-
-        if (pointer->type_qualifier_list_opt)
+        struct type_list pointers = { 0 };
+        struct pointer* pointer = pdeclarator->pointer;
+        while (pointer)
         {
-            p_flat->type_qualifier_flags = pointer->type_qualifier_list_opt->flags;
-        }
+            struct type* _Owner _Opt p_flat = calloc(1, sizeof(struct type));
+            if (p_flat == NULL) throw;
 
-        if (pointer->attribute_specifier_sequence_opt)
-        {
-            p_flat->attributes_flags |= pointer->attribute_specifier_sequence_opt->attributes_flags;
-        }
-        p_flat->category = TYPE_CATEGORY_POINTER;
-
-
-        type_list_push_front(&pointers, p_flat); /*invertido*/
-        pointer = pointer->pointer;
-    }
-
-    if (pdeclarator->direct_declarator)
-    {
-        make_type_using_direct_declarator(ctx, pdeclarator->direct_declarator, ppname, list);
-        if (list->head &&
-            list->head->category == TYPE_CATEGORY_FUNCTION)
-        {
-            if (pointers.head)
+            if (pointer->type_qualifier_list_opt)
             {
-                pointers.head->storage_class_specifier_flags |= STORAGE_SPECIFIER_FUNCTION_RETURN;
+                p_flat->type_qualifier_flags = pointer->type_qualifier_list_opt->flags;
+            }
+
+            if (pointer->attribute_specifier_sequence_opt)
+            {
+                p_flat->attributes_flags |= pointer->attribute_specifier_sequence_opt->attributes_flags;
+            }
+            p_flat->category = TYPE_CATEGORY_POINTER;
+
+
+            type_list_push_front(&pointers, p_flat); /*invertido*/
+            pointer = pointer->pointer;
+        }
+
+        if (pdeclarator->direct_declarator)
+        {
+            make_type_using_direct_declarator(ctx, pdeclarator->direct_declarator, ppname, list);
+            if (list->head &&
+                list->head->category == TYPE_CATEGORY_FUNCTION)
+            {
+                if (pointers.head)
+                {
+                    pointers.head->storage_class_specifier_flags |= STORAGE_SPECIFIER_FUNCTION_RETURN;
+                }
             }
         }
-    }
 
-    while (pointers.head)
+        while (pointers.head)
+        {
+            struct type* _Owner p = pointers.head;
+            pointers.head = p->next;
+            p->next = NULL;
+            type_list_push_back(list, p);
+        }
+    }
+    catch
     {
-        struct type* _Owner p = pointers.head;
-        pointers.head = p->next;
-        p->next = NULL;
-        type_list_push_back(list, p);
     }
-
 }
 
 struct enum_specifier* _Opt declarator_get_enum_specifier(struct declarator* pdeclarator)
@@ -2839,6 +2851,13 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 type_dup(&p_typedef_declarator->type);
 
             struct type* _Owner _Opt p_nt = calloc(1, sizeof(struct type));
+            if (p_nt == NULL)
+            {
+                type_list_destroy(&list);
+                type_destroy(&nt);
+                throw;
+            }
+
             *p_nt = nt;
 
 

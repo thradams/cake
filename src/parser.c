@@ -994,13 +994,14 @@ struct token* _Opt previous_parser_token(struct token* token)
     {
         return NULL;
     }
-    struct token* r = token->prev;
-    while (!(r->flags & TK_FLAG_FINAL))
+
+    struct token* _Opt prev = token->prev;
+    while (prev && !(prev->flags & TK_FLAG_FINAL))
     {
-        r = r->prev;
+        prev = prev->prev;
     }
 
-    return r;
+    return prev;
 }
 
 enum token_type is_keyword(const char* text)

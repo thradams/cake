@@ -476,10 +476,12 @@ struct token_list copy_replacement_list(struct token_list* list);
 
 struct token_list copy_argument_list_tokens(struct token_list* list)
 {
+    assert(list->head != NULL);
+
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
     struct token_list r = { 0 };
-    struct token* current = list->head;
+    struct token* _Opt current = list->head;
     //sai de cima de todos brancos iniciais
     while (current &&
         (token_is_blank(current) ||
@@ -576,7 +578,7 @@ void macro_argument_list_destroy(struct macro_argument_list* _Obj_owner list)
 
 void print_macro_arguments(struct macro_argument_list* arguments)
 {
-    struct macro_argument* p_argument = arguments->head;
+    struct macro_argument* _Opt p_argument = arguments->head;
     while (p_argument)
     {
         printf("%s:", p_argument->name);
@@ -591,7 +593,7 @@ struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_li
     * Os argumentos são coletados na expansão da macro e cada um (exceto ...)
     * é associado a um dos parametros da macro.
     */
-    struct macro_argument* p = parameters->head;
+    struct macro_argument* _Opt p = parameters->head;
     while (p)
     {
         if (strcmp(p->name, name) == 0)
@@ -1421,7 +1423,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 #ifdef MOCKFILES
         free(textfile);
 #endif
-        }
+    }
     catch
     {
     }
@@ -1441,7 +1443,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
     assert(list.head != NULL);
     return list;
-    }
+}
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -4130,9 +4132,9 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
         while (input_list->head &&
             input_list->head->type != TK_PREPROCESSOR_LINE)
         {
-            struct macro* macro = NULL;
-            struct token* start_token = input_list->head;
-            const struct token* origin = NULL;
+            struct macro* _Opt macro = NULL;
+            struct token* _Opt start_token = input_list->head;
+            const struct token* _Opt origin = NULL;
 
             if (is_active && input_list->head->type == TK_IDENTIFIER)
             {
@@ -4414,6 +4416,8 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
      text-line
      # non-directive
     */
+    
+    assert(input_list->head != NULL);
 
     if (input_list->head->type == TK_PREPROCESSOR_LINE)
     {
@@ -4474,7 +4478,7 @@ static void mark_macros_as_used(struct owner_hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct owner_map_entry* pentry = map->table[i];
+            struct owner_map_entry* _Opt pentry = map->table[i];
 
             while (pentry != NULL)
             {
@@ -4496,7 +4500,7 @@ void check_unused_macros(struct owner_hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct owner_map_entry* pentry = map->table[i];
+            struct owner_map_entry* _Opt pentry = map->table[i];
 
             while (pentry != NULL)
             {
@@ -5058,7 +5062,7 @@ void print_literal(const char* s)
 const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list)
 {
     struct osstream ss = { 0 };
-    struct token* current = list->head;
+    struct token* _Opt current = list->head;
     while (current)
     {
         if (current->level == 0 &&
@@ -5086,7 +5090,7 @@ const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list)
 void print_code_as_we_see(struct token_list* list, bool remove_comments)
 {
 
-    struct token* current = list->head;
+    struct token* _Opt current = list->head;
     while (current && current != list->tail->next)
     {
         if (current->level == 0 &&
@@ -5120,8 +5124,11 @@ void print_code_as_we_see(struct token_list* list, bool remove_comments)
 }
 const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments)
 {
+    if (list->head == NULL)
+        return NULL;
+
     struct osstream ss = { 0 };
-    struct token* current = list->head;
+    struct token* _Opt current = list->head;
     while (current != list->tail->next)
     {
         if (current->level == 0 &&
@@ -5164,6 +5171,11 @@ const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_
 
 const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list)
 {
+    if (list->head == NULL)
+    {
+        return NULL;
+    }
+
     struct osstream ss = { 0 };
 
 
@@ -5209,7 +5221,7 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
         return strdup("(null)");
 
     struct osstream ss = { 0 };
-    struct token* current = p_token;
+    struct token* _Opt current = p_token;
     while (current)
     {
 
@@ -5279,7 +5291,7 @@ const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token)
     */
 
     struct osstream ss = { 0 };
-    struct token* current = p_token;
+    struct token* _Opt current = p_token;
 
     /*
     * Ignora tudo o que é espaço no início

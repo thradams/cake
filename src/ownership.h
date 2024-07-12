@@ -43,6 +43,20 @@ long long strtoll(
     int         _Radix
     );
 
+double strtod(
+    char const* _String,
+    char**      _Opt _EndPtr
+    );
+
+unsigned long long strtoull(
+    char const* _String,
+    char**      _Opt _EndPtr,
+    int         _Radix
+    );
+
+//typedef unsigned long long time_t;
+//static time_t time(time_t* const _Opt _Time);
+
 #else
 /*
   ownership not suported

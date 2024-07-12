@@ -1887,7 +1887,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     marker.p_token_end = p_expression->left->last_token;
                     compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                             ctx->ctx,
-                            NULL, &marker, "object is possibly null");
+                            NULL,
+                            &marker,
+                           "object is possibly null");
                 }
             }
             else if (flow_object_can_be_uninitialized(p_object))
@@ -2107,7 +2109,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
+            struct true_false_set local_true_false = {0};
+            flow_visit_expression(ctx, p_expression->right, &local_true_false);
+            /*empty set*/
+            true_false_set_destroy(&local_true_false);
         }
     }
     break;
@@ -2573,14 +2578,10 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     ctx->initial_state = arena_add_copy_of_current_state(ctx, "original");
     ctx->break_join_state = arena_add_empty_state(ctx, "break join");
 
-
     struct true_false_set true_false_set = { 0 };
-
 
     if (p_iteration_statement->expression1)
     {
-        //compute_true_false_set(p_iteration_statement->expression1, &true_false_set);
-
         //We do a visit but this is not conclusive..so we ignore warnings
         ctx->ctx->options.diagnostic_stack_top_index++;
         ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
@@ -2592,7 +2593,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     if (p_iteration_statement->secondary_block)
     {
-
         struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
         true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
@@ -2601,22 +2601,14 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
-
-
-        bool was_last_statement_inside_true_branch_return =
+        const bool was_last_statement_inside_true_branch_return =
             secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
         if (was_last_statement_inside_true_branch_return)
         {
-
             /*
-            while (p)
-            {
-              return;
-            }
-            */
-            //restore original
-            //ctx->initial_state = push_copy_of_current_state(ctx, "original");
+               while (p) { return; }
+            */                        
             arena_restore_current_state_from(ctx, ctx->initial_state);
             true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
         }
@@ -2627,8 +2619,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
             arena_restore_current_state_from(ctx, ctx->break_join_state);
         }
 
-
-        //pop_states(ctx, 2);
         flow_visit_ctx_pop_tail_block(ctx);
     }
 
@@ -2646,7 +2636,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     ctx->break_join_state = old_break_join_state;
     true_false_set_destroy(&true_false_set);
     true_false_set_destroy(&true_false_set2);
-
 }
 
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)

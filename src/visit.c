@@ -341,7 +341,7 @@ void print_all_defer_until_label(struct defer_scope* deferblock, const char* lab
     * Não nós imprimos os defers pois estamos saindo do escopo e vamos para o escopo
     * de cima. Assim vamos repetindo em cada saida de escopo imprimos o defer.
     */
-    struct defer_scope* p_defer = deferblock;
+    struct defer_scope* _Opt p_defer = deferblock;
 
     while (p_defer != NULL)
     {
@@ -524,10 +524,10 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
 static void visit_init_declarator(struct visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     if (p_init_declarator->p_declarator)
-      visit_declarator(ctx, p_init_declarator->p_declarator);
+        visit_declarator(ctx, p_init_declarator->p_declarator);
 
     if (p_init_declarator->initializer)
-      visit_initializer(ctx, p_init_declarator->initializer);
+        visit_initializer(ctx, p_init_declarator->initializer);
 }
 static void visit_condition(struct visit_ctx* ctx, struct condition* p_condition)
 {
@@ -2214,7 +2214,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
 */
 static bool is_last_item_return(struct compound_statement* p_compound_statement)
 {
-    if (p_compound_statement &&
+    if (/*p_compound_statement &&*/
         p_compound_statement->block_item_list.tail &&
         p_compound_statement->block_item_list.tail->unlabeled_statement &&
         p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement &&
@@ -2230,7 +2230,7 @@ void defer_scope_delete_one(struct defer_scope* _Owner p_block)
 {
     if (p_block != NULL)
     {
-        struct defer_scope* _Owner child = p_block->lastchild;
+        struct defer_scope* _Owner _Opt child = p_block->lastchild;
         while (child != NULL)
         {
             struct defer_scope* _Owner prev = child->previous;
@@ -2248,7 +2248,7 @@ void defer_scope_delete_one(struct defer_scope* _Owner p_block)
 
 void defer_scope_delete_all(struct defer_scope* _Owner p)
 {
-    struct defer_scope* _Owner p_block = p;
+    struct defer_scope* _Owner _Opt p_block = p;
     while (p_block != NULL)
     {
         struct defer_scope* _Owner prev_block = p_block->previous;
@@ -2454,100 +2454,110 @@ int visit_literal_string(struct visit_ctx* ctx, struct token* current)
 
 int visit_tokens(struct visit_ctx* ctx)
 {
-    struct token* _Opt current = ctx->ast.token_list.head;
-    while (current)
+    try
     {
-
-        if (current->type == TK_STRING_LITERAL)
+        struct token* _Opt current = ctx->ast.token_list.head;
+        while (current)
         {
-            visit_literal_string(ctx, current);
-        }
 
-        if (ctx->target < LANGUAGE_C2X)
-        {
-            if (current->type == TK_LINE_COMMENT)
+            if (current->type == TK_STRING_LITERAL)
             {
-                if (ctx->target < LANGUAGE_C99)
-                {
-                    struct osstream ss = { 0 };
-                    //TODO  check /* inside
-                    ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
-                    free(current->lexeme);
-                    current->lexeme = ss.c_str;
-                }
-            }
-            else if (current->type == TK_PREPROCESSOR_LINE)
-            {
-                while (current->next && current->next->type == TK_BLANKS)
-                    current = current->next;
-
-                /*
-                  Trocar C23 #elifdef e #elifndef
-                */
-                if (current->next && strcmp(current->next->lexeme, "elifdef") == 0)
-                {
-                    free(current->next->lexeme);
-                    current->next->lexeme = strdup("elif defined ");
-                    current = current->next->next;
-                    continue;
-                }
-                else if (current->next && strcmp(current->next->lexeme, "elifndef") == 0)
-                {
-                    free(current->next->lexeme);
-                    current->next->lexeme = strdup("elif ! defined ");
-                    current = current->next->next;
-                    continue;
-                }
+                visit_literal_string(ctx, current);
             }
 
-            if (
-                (current->type == TK_COMPILER_BINARY_CONSTANT) ||
-                (current->type == TK_PPNUMBER && current->lexeme[0] == '0' && (current->lexeme[1] == 'b' || current->lexeme[1] == 'B')) /*dentro macros*/
-                )
+            if (ctx->target < LANGUAGE_C2X)
             {
-                /*remove digit separators*/
-                remove_char(current->lexeme, '\'');
-
-                /*
-                * Binary literals were added into C23.
-                * We are converting to C99 hex.
-                */
-                current->type = TK_COMPILER_HEXADECIMAL_CONSTANT;
-                int value = strtol(current->lexeme + 2, NULL, 2);
-                char buffer[33 + 2] = { '0', 'x' };
-                snprintf(buffer, sizeof buffer, "0x%x", value);
-                free(current->lexeme);
-                current->lexeme = strdup(buffer);
-            }
-            else if (current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
-            {
-                remove_char(current->lexeme, '\'');
-
-                if (ctx->target < LANGUAGE_C99)
+                if (current->type == TK_LINE_COMMENT)
                 {
+                    if (ctx->target < LANGUAGE_C99)
+                    {
+                        struct osstream ss = { 0 };
+                        //TODO  check /* inside
+                        ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
+                        free(current->lexeme);
+                        current->lexeme = ss.c_str;
+                    }
+                }
+                else if (current->type == TK_PREPROCESSOR_LINE)
+                {
+                    while (current->next && current->next->type == TK_BLANKS)
+                        current = current->next;
+
                     /*
-                     * C99 Hexadecimal floating constants to C89.
-                     */
-                    long double d = strtold(current->lexeme, NULL);
-                    char buffer[50] = { 0 };
-                    snprintf(buffer, sizeof buffer, "%Lg", d);
+                      Trocar C23 #elifdef e #elifndef
+                    */
+                    if (current->next && strcmp(current->next->lexeme, "elifdef") == 0)
+                    {
+                        free(current->next->lexeme);
+                        current->next->lexeme = strdup("elif defined ");
+                        current = current->next->next;
+                        continue;
+                    }
+                    else if (current->next && strcmp(current->next->lexeme, "elifndef") == 0)
+                    {
+                        free(current->next->lexeme);
+                        current->next->lexeme = strdup("elif ! defined ");
+                        current = current->next->next;
+                        continue;
+                    }
+                }
+
+                if (
+                    (current->type == TK_COMPILER_BINARY_CONSTANT) ||
+                    (current->type == TK_PPNUMBER && current->lexeme[0] == '0' && (current->lexeme[1] == 'b' || current->lexeme[1] == 'B')) /*dentro macros*/
+                    )
+                {
+                    /*remove digit separators*/
+                    remove_char(current->lexeme, '\'');
+
+                    /*
+                    * Binary literals were added into C23.
+                    * We are converting to C99 hex.
+                    */
+                    current->type = TK_COMPILER_HEXADECIMAL_CONSTANT;
+                    int value = strtol(current->lexeme + 2, NULL, 2);
+                    char buffer[33 + 2] = { '0', 'x' };
+                    snprintf(buffer, sizeof buffer, "0x%x", value);
+                    
+                    char * _Opt _Owner p_temp = strdup(buffer);
+                    if (p_temp == NULL) throw;                    
                     free(current->lexeme);
-                    current->lexeme = strdup(buffer);
+                    current->lexeme = p_temp;
+                }
+                else if (current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+                {
+                    remove_char(current->lexeme, '\'');
+
+                    if (ctx->target < LANGUAGE_C99)
+                    {
+                        /*
+                         * C99 Hexadecimal floating constants to C89.
+                         */
+                        long double d = strtold(current->lexeme, NULL);
+                        char buffer[50] = { 0 };
+                        snprintf(buffer, sizeof buffer, "%Lg", d);
+                        free(current->lexeme);
+                        current->lexeme = strdup(buffer);
+                    }
+                }
+                else if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
+                    current->type == TK_COMPILER_OCTAL_CONSTANT ||
+                    current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
+                    current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
+                    current->type == TK_PPNUMBER)
+                {
+                    /*remove digit separators*/
+                    remove_char(current->lexeme, '\'');
                 }
             }
-            else if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
-                current->type == TK_COMPILER_OCTAL_CONSTANT ||
-                current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
-                current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
-                current->type == TK_PPNUMBER)
-            {
-                /*remove digit separators*/
-                remove_char(current->lexeme, '\'');
-            }
-        }
 
-        current = current->next;
+            current = current->next;
+        }
     }
+    catch
+    {
+    }
+
     return 0;
 }
 
@@ -2559,7 +2569,7 @@ void visit(struct visit_ctx* ctx)
     if (visit_tokens(ctx) != 0)
         return;
 
-    struct declaration* p_declaration = ctx->ast.declaration_list.head;
+    struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)
     {
         visit_declaration(ctx, p_declaration);

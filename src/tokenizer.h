@@ -73,7 +73,7 @@ void token_list_destroy( struct token_list* _Obj_owner list);
 bool token_is_blank(struct token* p);
 void token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);
-struct token* _Owner token_list_pop_front_get(struct token_list* list);
+struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list);
 void remove_line_continuation(char* s);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 
@@ -88,16 +88,16 @@ void token_list_paste_string_before(struct token_list* list,
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
 
 void print_code_as_we_see(struct token_list* list, bool remove_comments);
-const char* _Owner get_code_as_we_see(struct token_list* list, bool remove_comments);
-const char* _Owner get_code_as_compiler_see(struct token_list* list);
+const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments);
+const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list);
 
-const char* _Owner get_code_as_we_see_plus_macros(struct token_list* list);
-const char* _Owner get_code_as_we_see(struct token_list* list, bool remove_comments);
+const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list);
+const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments);
 
 void print_tokens(struct token* _Opt p_token);
 void print_preprocessed(struct token* p_token);
-const char* _Owner print_preprocessed_to_string(struct token* p_token);
-const char* _Owner print_preprocessed_to_string2(struct token* _Opt p_token);
+const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token);
+const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token);
 void check_unused_macros(struct owner_hash_map* map);
 
 char* _Owner _Opt read_file(const char* path);

@@ -1,55 +1,31 @@
   
-Last Updated 11 July 2024
+Last Updated 12 July 2024
   
-This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.
+This is a work in progress. Cake source is currently being used to validate the concepts. It's in the process of transitioning to include annotated nullable checks, which was the last feature added.  
+
 
 ## Abstract
-The objective is to statically check code and prevent bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like "destroy" or "init" serve as hints, along with documentation and sometimes the implementation itself.
+  
+The objective is to statically check code and prevent bugs, including memory bugs. For this task, the compiler needs information that humans typically get from documentation or the implementation itself. Since the compiler doesn't read documentation and may not have access to the implementation, we need something at the interface level.
 
-The compiler doesn't read documentation, nor does it operate in the same way as humans. Instead, a formal means of communication with the compiler is necessary. To facilitate this, new qualifiers have been created, and new methods of communication with the compiler have been established.
+To address this, new qualifiers have been created to extend the type system and insert information at function declarations. Ultimately, we still have the same language, but with an improved type system that checks new contracts.
 
-In the end, we still have the same language, but with a improved type system that checks new contracts.  
- 
-These new contracts can be ignored and the language remains unmodified.
-
-The creation of these rules follows certain principles, one of which is to default to safety.  
-
-In cases of uncertainty, the compiler asks for clarification. While C programmers retain the freedom 
-to code as they wish, they must either persuade the compiler or disable analysis in specific code sections.
+These new contracts can be ignored, the language **and existing code patterns** remains unmodified. 
 
 
 ## Concepts
 
 ### Nullable pointers
 
-Nullable pointers are part of the safety strategy to ensure that we don't dereference a null pointer. 
-For this task, a new qualifier \_Opt has been created. 
-A pointer qualified with \_Opt is called nullable pointer. 
-Pointers without \_Opt qualifier are not nullable. 
-Existing code uses pointers as both as nullable or non-nullable. 
-To facilitate code migration, a `#pragma nullable enabled/disable` has been created.
+Nullable pointers are part of the safety strategy to ensure that we don't dereference a null pointer.
 
-#### \#pragma nullable enabled
+For this task, a new qualifier \_Opt has been created to represent *"this pointer can be null"*.  
+ 
+A pointer qualified with \_Opt is called nullable pointer. Pointers without \_Opt qualifier are not nullable. 
 
-All pointers are non-nullable, unless qualified with \_Opt. 
+The existing code does not have any \_Opt qualifiers, so we cannot assume that pointers without \_Opt are non-nullable.
 
-```c
-#pragma nullable enable
-
-void f(int * p) 
-{
-   if (p)  //warning p is not-null
-   {
-   }
-}
-
-int main()
-{ 
-  int * p = nullptr; //warning p is non-nullable
-}
-```
-
-<button onclick="Try(this)">try</button>
+To facilitate code migration, a `#pragma nullable enabled/disable` has been created to inform where nullable checks are enabled.
 
 
 #### \#pragma nullable disabled
@@ -69,6 +45,28 @@ void f(int * p)
 int main()
 {
    int * p = nullptr; //ok
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+#### \#pragma nullable enabled
+
+All pointers are non-nullable, unless qualified with \_Opt. 
+
+```c
+#pragma nullable enable
+
+void f(int * p) 
+{
+   if (p)  //warning p is not-null
+   {
+   }
+}
+
+int main()
+{ 
+  int * p = nullptr; //warning p is non-nullable
 }
 ```
 
@@ -118,7 +116,8 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-When \_Opt qualifier is aplied to structs it makes all member \_Opt.
+When \_Opt qualifier is applied to structs it makes all member \_Opt.
+
 For instance:
 
 ```c
@@ -166,12 +165,20 @@ constructed in case of some error.
 For other functions, like use_x, the object must be completely constructed, and in this case, name must not be null.
 
 
-### Owner References
+### Object lifetime checks  
+From the C23 standard:
 
+"The *lifetime* of an object is the portion of program execution during which storage is guaranteed
+to be reserved for it. An object exists, has a constant address, and retains its last-stored value
+throughout its lifetime) If an object is referred to outside of its lifetime, the **behavior is undefined**"
+
+To conceptually manage the storage and object lifetime we will use the concept of ownership.
+
+#### Owner references
 An **owner reference** is an object referencing another object and managing its lifetime. 
 
-The most common type of owner reference are pointers, referred as **owner pointers**. An owner pointer is created with the qualifier owner.
-
+The most common type of owner reference are pointers to *allocated* objects.  We can call then just **owner pointers**.  
+ 
 **Sample - Owner Pointer to FILE**
 
 ```c
@@ -191,7 +198,13 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
->Note. Ownerhip checks are enabled with the pragma ownership. pragma safety enables both nullable and ownership.
+##### \#pragma ownership enabled
+Object lifetime checks are enabled with the pragma ownership.     
+
+##### \#pragma safety enabled  
+pragma safety enable, enables both nullable and ownership   
+
+Sample:  
 
 If the programmer incorrectly assumes that `fclose` accepts NULL.
 
@@ -213,17 +226,12 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-The ownership mechanism has some rules.
 
-**Rule:** An **owner reference** is always the unique owner of the referenced object, 
-as a consequence when owner references are copied the ownership is transferred.
+**Rule:** An **owner reference** is always the unique owner of the referenced object. As a consequence when owner references are copied the ownership is transferred.
 
-**Rule:** Before the end of its lifetime, owner references must move the ownership 
-of the objects they own.
+**Rule:** Before the end of its lifetime, owner references must move the ownership of the objects they own.
 
-
-> Note: The cake ownership model does not include the concept of a destroyed object. 
-Instead, everything is viewed as a transformation, where the object is broken into 
+The cake ownership model does not have the concept of a destroyed object. Instead, everything is viewed as a transformation, where the object is broken into 
 smaller parts and those parts are moved.
 
 Sample
@@ -243,19 +251,19 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-Invoking a function `fclose` is analogous to assignment of the argument `f2`,
-resulting in the transfer of ownership of `f2` to the function parameter.  
+Invoking a function `fclose` is analogous to assignment of the argument `f2`, resulting in the transfer of ownership of `f2` to the function parameter.  
 
 Sample - Declaration of fopen and fclose
 
 ```c
 FILE * _Owner _Opt fopen( const char *filename, const char *mode );
-void fclose(FILE * _Owner p);
+void fclose(FILE * _Owner p); /*p is not nullable*/
 ```
 
-### Non-pointer owner references
+#### Non-pointer owner references
 
-We can have other types of **owner references**. 
+We can have other types of **owner references**.   
+
 For instance, Berkeley sockets use an integer to identify the socket.
 
 Sample
@@ -266,13 +274,9 @@ Sample
  close(server_socket);
 ```
 
-> Note: The location and usage of the qualifier \_Owner is similar to 
-the const qualifier. For pointers, it goes after *, and for this socket sample, 
-it can be before int. The owner qualifier belongs to the object (memory) 
-that holds the reference.
+> Note: The location and usage of the qualifier \_Owner is similar to the const qualifier. For pointers, it goes after *, and for this socket sample, it can be before int. The \_Owner qualifier belongs to the object (memory)that holds the reference.
 
-When a struct or union have at least one owner object we can say the struct is 
-a owner object too.
+When a struct or union have at least one owner object we can say the struct is a owner object too.
 
 **Rule:** Owner objects cannot be discarded.
 
@@ -297,23 +301,23 @@ int main() {
 #pragma safety enable
 
 typedef int T;
-T * f(); //returning non owner
+  
+T * f(); /*returning non owner*/  
+
 int main() {  
-   T * _Owner p = f(); //ERROR   
-   T * _Owner _Opt _p2 = 0;  //OK
+   T * _Owner p = f();      //ERROR   
+   T * _Owner _Opt _p2 = 0; //OK
 }
 ```
 <button onclick="Try(this)">try</button>
 
-### View references
+#### View references
 
-A **view reference** is an object referencing another object without 
-managing its lifetime. 
+A **view reference** is an object referencing another object without managing its lifetime. 
 
-**Rule:** The lifetime of the referenced object must be longer than the 
-lifetime of the view reference.
+**Rule:** The lifetime of the referenced object must be longer than the lifetime of the view reference.
 
-Sample
+Sample:
 
 ```c
 #pragma safety enable
@@ -336,7 +340,8 @@ int main(){
 
 The most common view references are pointers called **view pointers**. 
 
-The view qualifier is not necessary for pointers, since it's the default behavior. 
+The view qualifier is not necessary for pointers, since it's the default behavior. The usage of _View in pointers  are forbidden to avoid the propagation of more than one style.  
+
 When an owner object is copied to a view object, the ownership is not transferred.
   
 **Sample**
@@ -359,7 +364,7 @@ int main() {
 <button onclick="Try(this)">try</button>
 
 
-When a **view** qualifier is used in structs, it makes all members as view objects. 
+When a **\_View** qualifier is used in structs, it makes all members as view objects. 
  
 **Sample - A view parameter**
 
@@ -383,15 +388,11 @@ int main() {
 
 <button onclick="Try(this)">try</button>
 
-> Note: It is interesting to compare against const qualifier. 
-While const adds a qualifier "const" "view" removes the qualifier "owner".
+> Note: It is interesting to compare against const qualifier. While const adds a qualifier "const" "\_View" removes the qualifier "\_Owner".
 
-### Returning a pointer to a view object
+#### Returning a pointer to a view object
   
-We can check the rule "The lifetime of the referenced object must be longer
-than the lifetime of the view object" with these constrains.
-
-We cannot return the address of local variables
+**Rule:** We cannot return a view pointer to objects with automatic storage duration from the function scope.
 
 ```c
 #pragma safety enable
@@ -404,8 +405,9 @@ int * f()
 ```  
   <button onclick="Try(this)">try</button>
 
-We can return the address of global variables
-
+But we can return a view pointer to objects with static, thread and allocated duration.
+  
+Sample:
 ```c
 static int a = 1;
 int * f()
@@ -416,7 +418,7 @@ int * f()
   
   <button onclick="Try(this)">try</button>
 
-And we can return parameters
+We can return view pointers to objects pointed by parameters because they are from one scope above.  We cannot return the address of the parameters.
 
 ```c
 int * f2(int *p) {
@@ -449,31 +451,15 @@ int main(){
 
 Examining the implementation reveals that the returned view pointer's lifetime can be that of either 'a' or 'b'.
 
-Our goal is to set contracts at the declaration level.
+This check is missing at cake but the idea is to make `a` and `b` suspects. Considering the lifetime of `b` smaller than `p` then the programmer needs to tell the compiler that `p` cannot be `b`. For instance `assert(p != &b);`.  
+But the programmer will not do that in this code. The expectation is that code naturally will avoid this kind of situation using the returned object in a limited scope.
+When objects with static storage duration are returned we don't need to check suspects as well.  This is not implemented yet but one alternative is to use `char * static` to inform *"pointer to static storage duration object"*.
 
-Following the concept of ensuring safety by default, we assume that the returned view pointers have the shortest scope, limited to the function call.  
+#### Deleting Owner Pointers
 
-> Note : Currently, this check is missing at cake 
+**Owner pointers** take on the responsibility of owning the pointed object and its associated storage, treating them as distinct entities.
 
-### View pointer as struct members
-Consider this sample.
-
-```c  
-struct X {  
- struct Y * pY;  
-};  
-struct Y {  
- char * _Owner name;  
-};  
-```
-
-The rule "The lifetime of the referenced object must be longer than the lifetime of the view object" needs to be checked at each instantiation.
-
-> Note : Currently, this check is missing at cake 
-
-### Deleting Owner Pointers
-
-**Owner pointers** take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources.
+A common practice is to implement a delete function to release both resources.
 
 **Sample - Implementing the delete function**
 
@@ -509,10 +495,12 @@ int main() {
 
 <button onclick="Try(this)">try</button>
 
-### Conversion from `T * _Owner` to `void * _Owner`
+The differentiation of object and storage ownership is given by the `void *` conversion.  Moving `void*` implies that only the storage without any object on it is being moved.
 
-**Rule:** Assignment or cast from `T * _Owner` to `void * _Owner` requires the 
-pointed object T to be empty.
+
+#### Conversion from `T * _Owner` to `void * _Owner`
+
+**Rule:** Assignment or cast from `T * _Owner` to `void * _Owner` requires the pointed object T to be empty.
 
 ```c  
 #pragma safety enable
@@ -532,7 +520,6 @@ int main(){
 ```
 
 <button onclick="Try(this)">try</button>
-
 
 When the object is created on the stack, we can implement a destructor.
 
@@ -560,6 +547,8 @@ int main() {
 <button onclick="Try(this)">try</button>
 
 However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, Cake introduces a new qualifier, **\_Obj\_owner**. 
+  
+It can also be seen as an owner pointer that owns the object but not the storage. (Better names?)
 
 A pointer qualified with **\_Obj\_owner** is the owner of the pointed object but not responsible for managing its memory.
 
@@ -673,7 +662,8 @@ But I think this is quite uncommon.
 
 ## Flow analysis  
 
-Flow analysis is the core feature that enables the nullable and ownership checks.
+Flow analysis is the core feature that enables the nullable and lifetime checks.
+  
 The compiler flag `-fanalyzer` activates the flow analysis that works a secondary pass.
 
 Flow analysis  also can be enabled/disable with pragma
@@ -683,7 +673,6 @@ Flow analysis  also can be enabled/disable with pragma
 ```
 
 When pragma safety, nullable or ownership are enabled, they enable flow as well.
-
 
 To check the nullable and ownership rules, the compiler use these states:
 
@@ -705,18 +694,19 @@ We can also assert the variable is at a certain state using the **static_state**
 #pragma safety enable
 
 int main() {
- int a;   
- static_state(a, "uninitialized"); //checks a state  
- static_debug(a);                  //prints 'a' state 
+  int a;   
+  static_state(a, "uninitialized"); //checks a state  
+  static_debug(a);                  //prints 'a' state 
 }
 ```  
 
 <button onclick="Try(this)">try</button>
-
  
 #### Uninitialized state
 
 The **uninitialized** state is the state of variables that are declared but not initialized. 
+
+Objects are defined as having both a real part and an imaginary one. The real part corresponds to the actual value stored in memory, while the imaginary part lacks any physical representation. Consequently, the uninitialized state refers to this imaginary part, leaving the real value unspecified.
 
 Flow analysis must  ensure that we don't read uninitialized objects.
 
@@ -734,7 +724,7 @@ void f(int condition) {
 ```
 <button onclick="Try(this)">try</button>
 
-The other situation were variables becomes **uninitialized** is when moving ownership to function parameters. 
+The other situation were variables becomes `**uninitialized** is when moving ownership to function parameters. 
 
 This prevents bugs like double free or use after free.
 
@@ -755,9 +745,9 @@ int main() {
  
 #### Moved state
 
-The **moved** state is similar to the uninitialized state.
-The difference is that the moved state is used when moving local variables.  
-For pointers, the moved state implies that the pointer was not-null. 
+The **moved** state is similar to the *uninitialized* state, it is also an imaginary state and does not have a representation on storage.  
+
+The difference is that the moved state is used when moving local variables. For pointers, the moved state implies that the pointer was not-null. 
   
 **Sample - local scope moves**
 
@@ -815,9 +805,7 @@ int main() {
 
 With the \_Out qualifier, caller is informed that the argument must be uninitialized.
 
-The implementation is aware that it can safely override the contents of the object `p->text` 
-without causing a memory leak.
-
+The implementation is aware that it can safely override the contents of the object `p->text` without causing a memory leak.
 
 > Note: There is no explicit "initialized" state. When referring to initialized objects, it means the state is neither "moved" nor "uninitialized.".
 
@@ -1174,4 +1162,38 @@ int main()
 {
 }
 ```
+
+
+## Glossary
+
+#### undefined behavior (From C23)
+behavior, upon use of a nonportable or erroneous program construct or of erroneous data, for which
+this document imposes no requirements
+2 Note 1 to entry: Possible undefined behavior ranges from ignoring the situation completely with unpredictable results,
+to behaving during translation or program execution in a documented manner characteristic of the environment (with or
+without the issuance of a diagnostic message), to terminating a translation or execution (with the issuance of a diagnostic
+message).
+
+#### indeterminate representation (From C23)
+object representation that either represents an unspecified value or is a non-value representation  
+
+#### unspecified value (From C23)
+valid value of the relevant type where this document imposes no requirements on which value is  
+
+#### unspecified behavior (From C23)
+behavior, that results from the use of an unspecified value, or other behavior upon which this
+document provides two or more possibilities and imposes no further requirements on which is
+chosen in any instance
+
+#### lifetime (From C23)
+The lifetime of an object is the portion of program execution during which storage is guaranteed
+to be reserved for it. An object exists, has a constant address36), and retains its last-stored value
+throughout its lifetime37) If an object is referred to outside of its lifetime, the behavior is undefined.
+If a pointer value is used in an evaluation after the object the pointer points to (or just past) reaches
+the end of its lifetime, the behavior is undefined. The representation of a pointer object becomes
+indeterminate when the object the pointer points to (or just past) reaches the end of its lifetime
+
+#### object (From C23)
+region of data storage in the execution environment, the contents of which can represent values
+
 

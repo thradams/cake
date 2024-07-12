@@ -154,7 +154,7 @@ struct generic_selection
     /*
     * Points to the matching expression
     */
-    struct expression* p_view_selected_expression;
+    struct expression* _Opt p_view_selected_expression;
 
     struct generic_assoc_list generic_assoc_list;
     struct token* first_token;
