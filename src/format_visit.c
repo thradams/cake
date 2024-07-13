@@ -258,7 +258,7 @@ static void format_visit_expression_statement(struct format_visit_ctx* ctx, stru
 
 static void format_visit_labeled_statement(struct format_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)
 {
-    ajust_line_and_identation(p_labeled_statement->label->name, ctx);
+    ajust_line_and_identation(p_labeled_statement->label->p_identifier_opt, ctx);
 
     if (p_labeled_statement->statement)
         format_visit_statement(ctx, p_labeled_statement->statement);

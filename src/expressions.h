@@ -232,10 +232,10 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
-bool expression_is_zero(const struct expression*);
+
 bool expression_is_lvalue(const struct expression* expr);
 
-
+bool expression_is_zero(const struct expression* expression);
 bool expression_is_null_pointer_constant(const struct expression* expression);
 void expression_evaluate_equal_not_equal(const struct expression* left,
     const struct expression* right,
@@ -253,3 +253,8 @@ void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
     struct expression* right,
     enum assigment_type assigment_type);
+
+void check_comparison(struct parser_ctx* ctx,
+    struct expression* p_a_expression,
+    struct expression* p_b_expression,
+    const struct token* op_token);

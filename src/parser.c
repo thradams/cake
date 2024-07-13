@@ -282,7 +282,7 @@ void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx)
 }
 
 _Bool compiler_diagnostic_message(enum diagnostic_id w,
-    struct parser_ctx* ctx,
+    const struct parser_ctx* ctx,
     const struct token* _Opt p_token_opt,
     const struct marker* _Opt p_marker_temp,
     const char* fmt, ...)
@@ -6729,7 +6729,7 @@ struct label* _Owner  _Opt label(struct parser_ctx* ctx)
     {
         if (ctx->current->type == TK_IDENTIFIER)
         {
-            p_label->name = ctx->current;
+            p_label->p_identifier_opt = ctx->current;
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;

@@ -344,7 +344,7 @@ struct visit_objects {
 };
 
 
-static struct flow_defer_scope* flow_visit_ctx_push_tail_block(struct flow_visit_ctx* ctx)
+static struct flow_defer_scope* _Opt flow_visit_ctx_push_tail_block(struct flow_visit_ctx* ctx)
 {
     struct flow_defer_scope* _Owner _Opt p_block = calloc(1, sizeof * p_block);
     if (p_block)
@@ -359,8 +359,11 @@ static struct flow_defer_scope* flow_visit_ctx_push_tail_block(struct flow_visit
     return ctx->tail_block;
 }
 
-static struct flow_defer_scope* flow_visit_ctx_push_child(struct flow_visit_ctx* ctx)
+static struct flow_defer_scope* _Opt flow_visit_ctx_push_child(struct flow_visit_ctx* ctx)
 {
+    if (ctx->tail_block == NULL)
+        return NULL;
+
     struct flow_defer_scope* _Owner _Opt child = calloc(1, sizeof * child);
     if (child)
     {
@@ -433,14 +436,19 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
             struct declarator* p_declarator = deferchild->declarator;
             const char* name = p_declarator->name_opt ? p_declarator->name_opt->lexeme : "?";
 
-            end_of_storage_visit(ctx,
-                &p_declarator->type,
-                type_is_view(&p_declarator->type),
-                p_declarator->p_object,
-                position_token,
-                name);
-            //visit_object(ctx->ctx, &p_declarator->type, &p_declarator->object, position_token, name, false);
-
+            if (p_declarator->p_object)
+            {
+                end_of_storage_visit(ctx,
+                    &p_declarator->type,
+                    type_is_view(&p_declarator->type),
+                    p_declarator->p_object,
+                    position_token,
+                    name);
+            }
+            else
+            {
+                assert(0);
+            }
         }
         deferchild = deferchild->previous;
     }
@@ -474,8 +482,8 @@ static bool flow_find_label_block_item_list(struct flow_visit_ctx* ctx, struct b
     while (block_item)
     {
         if (block_item->label &&
-            block_item->label->name &&
-            strcmp(block_item->label->name->lexeme, label) == 0)
+            block_item->label->p_identifier_opt &&
+            strcmp(block_item->label->p_identifier_opt->lexeme, label) == 0)
         {
             /*achou*/
             return true;
@@ -538,9 +546,12 @@ static bool flow_find_label_unlabeled_statement(struct flow_visit_ctx* ctx, stru
         }
         else if (p_unlabeled_statement->primary_block->iteration_statement)
         {
-            if (flow_find_label_statement(ctx, p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
+            if (p_unlabeled_statement->primary_block->iteration_statement->secondary_block)
             {
-                return true;
+                if (flow_find_label_statement(ctx, p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
+                {
+                    return true;
+                }
             }
         }
     }
@@ -549,10 +560,11 @@ static bool flow_find_label_unlabeled_statement(struct flow_visit_ctx* ctx, stru
 
 static bool flow_find_label_statement(struct flow_visit_ctx* ctx, struct statement* statement, const char* label)
 {
-    if (statement->labeled_statement)
+    if (statement->labeled_statement &&
+        statement->labeled_statement->label->p_identifier_opt)
     {
-        if (statement->labeled_statement->label &&
-            strcmp(statement->labeled_statement->label->name->lexeme, label) == 0)
+        if (/*statement->labeled_statement->label &&*/
+            strcmp(statement->labeled_statement->label->p_identifier_opt->lexeme, label) == 0)
         {
             return true;
         }
@@ -577,6 +589,7 @@ static bool flow_find_label_scope(struct flow_visit_ctx* ctx, struct flow_defer_
     }
     else if (deferblock->p_selection_statement)
     {
+        //warning: pointer is always not-null 
         if (deferblock->p_selection_statement->secondary_block)
         {
             if (flow_find_label_statement(ctx, deferblock->p_selection_statement->secondary_block->statement, label))
@@ -591,6 +604,7 @@ static bool flow_find_label_scope(struct flow_visit_ctx* ctx, struct flow_defer_
     }
     else if (deferblock->p_try_statement)
     {
+        //warning: pointer is always not-null 
         if (deferblock->p_try_statement->secondary_block)
         {
             if (flow_find_label_statement(ctx, deferblock->p_try_statement->secondary_block->statement, label))
@@ -640,7 +654,7 @@ static bool check_all_defer_until_label(struct flow_visit_ctx* ctx, struct flow_
     * Não nós imprimos os defers pois estamos saindo do escopo e vamos para o escopo
     * de cima. Assim vamos repetindo em cada saida de escopo imprimos o defer.
     */
-    struct flow_defer_scope* p_defer = deferblock;
+    struct flow_defer_scope* _Opt p_defer = deferblock;
 
     while (p_defer != NULL)
     {
@@ -662,7 +676,7 @@ static bool check_all_defer_until_iter(struct flow_visit_ctx* ctx,
     struct token* position_token)
 {
     bool error_found = false;
-    struct flow_defer_scope* p_defer = deferblock;
+    struct flow_defer_scope* _Opt p_defer = deferblock;
     while (p_defer != NULL)
     {
         if (check_defer_and_variables(ctx, p_defer, position_token))
@@ -681,7 +695,7 @@ static bool check_all_defer_until_iteration_or_selection_statement(struct flow_v
     struct token* position_token)
 {
     bool error_found = false;
-    struct flow_defer_scope* p_defer = deferblock;
+    struct flow_defer_scope* _Opt p_defer = deferblock;
     while (p_defer != NULL)
     {
         if (check_defer_and_variables(ctx, p_defer, position_token))
@@ -699,7 +713,7 @@ static bool check_all_defer_until_iteration_or_selection_statement(struct flow_v
 static bool check_all_defer_until_end(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock, struct token* position_token)
 {
     bool found_found = false;
-    struct flow_defer_scope* p_defer = deferblock;
+    struct flow_defer_scope* _Opt p_defer = deferblock;
     while (p_defer != NULL)
     {
         found_found = found_found || check_defer_and_variables(ctx, p_defer, position_token);
@@ -719,8 +733,11 @@ static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct second
 
 static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_child(ctx);
-    p_defer->defer_statement = p_defer_statement;
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_child(ctx);
+    if (p_defer)
+    {
+        p_defer->defer_statement = p_defer_statement;
+    }
     /*
       We are not going to visit the secondary block here because
       this is not the place were defer is executed.
@@ -762,7 +779,7 @@ static int arena_add_empty_state(struct flow_visit_ctx* ctx, const char* name)
 
 void flow_object_set_state_from_current(struct flow_object* object, int state_number)
 {
-    struct flow_object_state* p_flow_object_state = object->current.next;
+    struct flow_object_state* _Opt p_flow_object_state = object->current.next;
     while (p_flow_object_state)
     {
         if (p_flow_object_state->state_number == state_number)
@@ -807,6 +824,9 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                 }
                 else if (object->current.pointed != it->pointed)
                 {
+                    assert(object->current.pointed != NULL);
+                    assert(it->pointed != NULL);
+
                     struct flow_object* _Opt p_new_object = arena_new_object(ctx);
                     if (p_new_object == NULL) throw;
 
@@ -964,8 +984,20 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
 
             if (p_right_object)
             {
+                struct marker a_marker = {
+                    .p_token_begin = p_init_declarator->p_declarator->first_token,
+                    .p_token_end = p_init_declarator->p_declarator->last_token,
+                };
+
+                struct marker b_marker = {
+                    .p_token_begin = p_init_declarator->initializer->assignment_expression->first_token,
+                    .p_token_end = p_init_declarator->initializer->assignment_expression->last_token,
+                };
+
                 flow_check_assignment(ctx,
                                     p_init_declarator->initializer->assignment_expression->first_token,
+                                    &a_marker,
+                                    &b_marker,
                                     ASSIGMENT_TYPE_OBJECTS,
                                     false,
                                     type_is_view(&p_init_declarator->p_declarator->type),
@@ -1007,9 +1039,21 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                 &p_init_declarator->p_declarator->type,
                 po);
 
+            struct marker a_marker = {
+              .p_token_begin = p_init_declarator->p_declarator->first_token,
+              .p_token_end = p_init_declarator->p_declarator->last_token,
+            };
+            struct marker b_marker = {
+                .p_token_begin = p_init_declarator->initializer->braced_initializer->first_token,
+                .p_token_end = p_init_declarator->initializer->braced_initializer->last_token,
+            };
+
+
             struct flow_object* p_right_object = po;
             flow_check_assignment(ctx,
                                    p_init_declarator->p_declarator->first_token,
+                                   &a_marker,
+                                   &b_marker,
                                    ASSIGMENT_TYPE_OBJECTS,
                                    false,
                                    type_is_view(&p_init_declarator->p_declarator->type),
@@ -1060,7 +1104,8 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
 
 static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type_opt);
+    struct type* _Opt p_type);
+
 
 static void flow_visit_simple_declaration(struct flow_visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
 {
@@ -1559,8 +1604,21 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
 
                 object_set_uninitialized(&p_current_parameter_type->type, parameter_object);
 
+                struct marker a_marker = {
+                    .p_token_begin = p_current_argument->expression->first_token,
+                    .p_token_end = p_current_argument->expression->last_token
+                };
+
+                //TODO pass real function to get location
+                struct marker b_marker = {
+                    .p_token_begin = p_current_argument->expression->first_token,
+                    .p_token_end = p_current_argument->expression->last_token
+                };
+
                 flow_check_assignment(ctx,
                   p_current_argument->expression->first_token,
+                  &a_marker,
+                  &b_marker,
                   ASSIGMENT_TYPE_PARAMETER,
                   true,
                   type_is_view(&p_current_parameter_type->type),
@@ -1963,14 +2021,17 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     break;
 
     case POSTFIX_FUNCTION_CALL:
-
-        flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
+    {
+        struct true_false_set left_local = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_local);
 
         flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
+
         //new function waiting all test to pass to become active
         compare_function_arguments3(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
-
-        break;
+        true_false_set_destroy(&left_local);
+    }
+    break;
 
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
 
@@ -2152,8 +2213,20 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         //struct object temp_obj2 = { 0 };
         struct flow_object* const _Opt p_dest_object = expression_get_object(ctx, p_expression->left, nullable_enabled);
 
+        struct marker a_marker = {
+          .p_token_begin = p_expression->left->first_token,
+          .p_token_end = p_expression->left->last_token
+        };
+
+        struct marker b_marker = {
+          .p_token_begin = p_expression->right->first_token,
+          .p_token_end = p_expression->right->last_token
+        };
+
         flow_check_assignment(ctx,
             p_expression->left->first_token,
+            &a_marker,
+            &b_marker,
             ASSIGMENT_TYPE_OBJECTS,
             true,
             type_is_view(&p_expression->left->type), /*dest type*/
@@ -2491,22 +2564,46 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case CONDITIONAL_EXPRESSION:
-        //TODO
-        if (p_expression->condition_expr)
+    {
+        if (p_expression->condition_expr == NULL ||
+            p_expression->left == NULL ||
+            p_expression->right == NULL)
         {
-            flow_visit_expression(ctx, p_expression->condition_expr, expr_true_false_set);
+            break;
         }
 
-        if (p_expression->left)
-        {
-            flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
-        }
-        if (p_expression->right)
-        {
-            flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
-        }
+        struct true_false_set true_false_set = { 0 };
 
-        break;
+        flow_check_pointer_used_as_bool(ctx, p_expression->condition_expr);
+        flow_visit_expression(ctx, p_expression->condition_expr, &true_false_set);
+
+        const int before_if_state_number = arena_add_copy_of_current_state(ctx, "before-if");
+
+        true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+
+        struct true_false_set set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &set);
+        true_false_set_destroy(&set);
+
+
+        const int left_true_branch_state_number = arena_add_copy_of_current_state(ctx, "left-true-branch");
+
+        arena_restore_current_state_from(ctx, before_if_state_number);
+
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+
+        struct true_false_set set2 = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &set2);
+        true_false_set_destroy(&set2);
+
+        arena_merge_current_state_with_state_number(ctx, left_true_branch_state_number);
+
+        arena_restore_current_state_from(ctx, left_true_branch_state_number);
+        arena_remove_state(ctx, before_if_state_number);
+        arena_remove_state(ctx, left_true_branch_state_number);
+        true_false_set_destroy(&true_false_set);
+    }
+    break;
 
     default:
         break;
@@ -2709,7 +2806,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     {
         flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
     }
-    const bool b_secondary_block_ends_with_jump  = 
+    const bool b_secondary_block_ends_with_jump =
         secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
     /*we visit again*/
@@ -2778,8 +2875,19 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
                 object_set_zero(ctx->p_return_type, p_dest_object);
 
+                struct marker a_marker = {
+                   .p_token_begin = p_jump_statement->expression_opt->first_token,
+                   .p_token_end = p_jump_statement->expression_opt->last_token,
+                };
+                struct marker b_marker = {
+                   .p_token_begin = p_jump_statement->expression_opt->first_token,
+                   .p_token_end = p_jump_statement->expression_opt->last_token,
+                };
+
                 flow_check_assignment(ctx,
                  p_jump_statement->expression_opt->first_token,
+                 &a_marker,
+                 &b_marker,
                  ASSIGMENT_TYPE_RETURN,
                  true,
                     type_is_view(ctx->p_return_type), /*dest type*/
@@ -2920,11 +3028,11 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 {
 
-    if (p_label->name)
+    if (p_label->p_identifier_opt)
     {
         for (int i = 0; i < ctx->labels_size; i++)
         {
-            if (strcmp(ctx->labels[i].label_name, p_label->name->lexeme) == 0)
+            if (strcmp(ctx->labels[i].label_name, p_label->p_identifier_opt->lexeme) == 0)
             {
                 //print_arena(ctx);
                 arena_restore_current_state_from(ctx, ctx->labels[i].state_number);
@@ -3168,11 +3276,6 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     true_false_set_destroy(&a);
 }
 
-static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
-    struct declaration_specifiers* p_declaration_specifiers,
-    struct type* _Opt p_type);
-
-
 static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
@@ -3217,108 +3320,115 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
 static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator* p_declarator)
 {
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-
-    if (ctx->tail_block &&
-        p_declarator->type.category != TYPE_CATEGORY_FUNCTION)
+    try
     {
-
-        if (ctx->parameter_list > 1)
+        if (ctx->tail_block &&
+            p_declarator->type.category != TYPE_CATEGORY_FUNCTION)
         {
-            /*
-             The objective here is to avoid including the arguments
-             of function pointers inside the scope.
-             Sample
-             void x_destroy(void (*f)(void * _Owner p))
-             We add f but not p.
-            */
-            return;
-        }
 
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_child(ctx);
-        p_defer->declarator = p_declarator;
-
-
-        p_declarator->p_object = make_object(ctx, &p_declarator->type, p_declarator, NULL);
-        object_set_uninitialized(&p_declarator->type, p_declarator->p_object);
-
-
-        if (p_declarator->declaration_specifiers &&
-            p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-        {
-            if (type_is_pointer(&p_declarator->type))
+            if (ctx->parameter_list > 1)
             {
-                if (type_is_nullable(&p_declarator->type, ctx->ctx->options.null_checks_enabled))
+                /*
+                 The objective here is to avoid including the arguments
+                 of function pointers inside the scope.
+                 Sample
+                 void x_destroy(void (*f)(void * _Owner p))
+                 We add f but not p.
+                */
+                return;
+            }
+
+            struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_child(ctx);
+            if (p_defer == NULL) throw;
+
+            p_defer->declarator = p_declarator;
+
+
+            p_declarator->p_object = make_object(ctx, &p_declarator->type, p_declarator, NULL);
+            object_set_uninitialized(&p_declarator->type, p_declarator->p_object);
+
+
+            if (p_declarator->declaration_specifiers &&
+                p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+            {
+                if (type_is_pointer(&p_declarator->type))
                 {
-                    p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
+                    if (type_is_nullable(&p_declarator->type, ctx->ctx->options.null_checks_enabled))
+                    {
+                        p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
+                    }
+                    else
+                    {
+                        p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL;
+                    }
+
+                    if (type_is_pointer_to_out(&p_declarator->type))
+                    {
+                        struct type t = type_remove_pointer(&p_declarator->type);
+                        struct flow_object* po = make_object(ctx, &t, p_declarator, NULL);
+                        object_set_uninitialized(&t, po);
+                        object_set_pointer(p_declarator->p_object, po); //MOVED                    
+                        type_destroy(&t);
+                    }
+                    else if (type_is_any_owner(&p_declarator->type))
+                    {
+                        struct type t = type_remove_pointer(&p_declarator->type);
+                        struct flow_object* po = make_object(ctx, &t, p_declarator, NULL);
+                        const bool t_is_nullable = type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
+                        object_set_unknown(&t, t_is_nullable, po, nullable_enabled);
+                        object_set_pointer(p_declarator->p_object, po); //MOVED                    
+                        type_destroy(&t);
+                    }
+                }
+                else if (type_is_struct_or_union(&p_declarator->type))
+                {
+                    const bool is_nullable = type_is_nullable(&p_declarator->type, nullable_enabled);
+                    object_set_unknown(&p_declarator->type, is_nullable, p_declarator->p_object, nullable_enabled);
+                }
+                else if (type_is_array(&p_declarator->type))
+                {
+                    // assert(false);//TODO
+                     //object_set_unknown(&p_declarator->type, &p_declarator->object);
+                    p_declarator->p_object->current.state = OBJECT_STATE_NOT_ZERO;
                 }
                 else
                 {
-                    p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL;
+                    p_declarator->p_object->current.state = OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO;
                 }
-
-                if (type_is_pointer_to_out(&p_declarator->type))
-                {
-                    struct type t = type_remove_pointer(&p_declarator->type);
-                    struct flow_object* po = make_object(ctx, &t, p_declarator, NULL);
-                    object_set_uninitialized(&t, po);
-                    object_set_pointer(p_declarator->p_object, po); //MOVED                    
-                    type_destroy(&t);
-                }
-                else if (type_is_any_owner(&p_declarator->type))
-                {
-                    struct type t = type_remove_pointer(&p_declarator->type);
-                    struct flow_object* po = make_object(ctx, &t, p_declarator, NULL);
-                    const bool t_is_nullable = type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
-                    object_set_unknown(&t, t_is_nullable, po, nullable_enabled);
-                    object_set_pointer(p_declarator->p_object, po); //MOVED                    
-                    type_destroy(&t);
-                }
-            }
-            else if (type_is_struct_or_union(&p_declarator->type))
-            {
-                const bool is_nullable = type_is_nullable(&p_declarator->type, nullable_enabled);
-                object_set_unknown(&p_declarator->type, is_nullable, p_declarator->p_object, nullable_enabled);
-            }
-            else if (type_is_array(&p_declarator->type))
-            {
-                // assert(false);//TODO
-                 //object_set_unknown(&p_declarator->type, &p_declarator->object);
-                p_declarator->p_object->current.state = OBJECT_STATE_NOT_ZERO;
-            }
-            else
-            {
-                p_declarator->p_object->current.state = OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO;
-            }
 
 
 #if 0
-            if (type_is_pointer(&p_declarator->type))
-            {
-                //TODO necessary?
-                struct type t2 = type_remove_pointer(&p_declarator->type);
-                if (p_declarator->p_object->pointed)
+                if (type_is_pointer(&p_declarator->type))
                 {
-                    set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
+                    //TODO necessary?
+                    struct type t2 = type_remove_pointer(&p_declarator->type);
+                    if (p_declarator->p_object->pointed)
+                    {
+                        set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
+                    }
+                    type_destroy(&t2);
                 }
-                type_destroy(&t2);
-        }
 #endif
-    }
-}
-
-    /*if (p_declarator->pointer)
-    {
-        struct pointer* p = p_declarator->pointer;
-        while (p)
-        {
-            p = p->pointer;
+            }
         }
-    }*/
+
+        /*if (p_declarator->pointer)
+        {
+            struct pointer* p = p_declarator->pointer;
+            while (p)
+            {
+                p = p->pointer;
+            }
+        }*/
 
 
-    if (p_declarator->direct_declarator)
+        if (p_declarator->direct_declarator)
+        {
+            flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
+        }
+    }
+    catch
     {
-        flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
 }
 
@@ -3535,7 +3645,7 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 /*
 * retorna true se o ultimo item for um return
 */
-static bool flow_is_last_item_return(struct compound_statement* _Opt p_compound_statement)
+static bool flow_is_last_item_return(struct compound_statement* p_compound_statement)
 {
     if (p_compound_statement &&
         p_compound_statement->block_item_list.tail &&
@@ -3624,7 +3734,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
     {
 
         assert(ctx->tail_block == NULL);
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         if (p_defer == NULL)
         {
             return;
@@ -3632,6 +3742,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
         p_defer->p_function_body = p_declaration->function_body;
 
         flow_visit_declaration(ctx, p_declaration);
+        assert(p_declaration->function_body != NULL); //flow_visit_declaration does not change this
 
         if (!flow_is_last_item_return(p_declaration->function_body))
         {
@@ -3642,7 +3753,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
     }
     else
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         if (p_defer == NULL)
         {
             return;

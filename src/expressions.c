@@ -1991,9 +1991,14 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                     struct struct_or_union_specifier* _Opt p =
                         find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
-                    p = get_complete_struct_or_union_specifier(p);
+
+                    if (p)
+                        p = get_complete_struct_or_union_specifier(p);
+
                     if (p)
                     {
+                        assert(ctx->current != NULL);
+
                         int member_index = 0;
                         struct member_declarator* _Opt p_member_declarator =
                             find_member_declarator(&p->member_declaration_list, ctx->current->lexeme, &member_index);
@@ -2002,7 +2007,18 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         {
                             p_expression_node_new->member_index = member_index;
 
-                            p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                            if (p_member_declarator->declarator)
+                            {
+                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                            }
+                            else
+                            {
+                                /*
+                                struct X {
+                                    int : 1;
+                                };
+                                */
+                            }
 
                             if (p_member_declarator->declarator != NULL)
                             {
@@ -2824,6 +2840,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
+                if (ctx->current == NULL)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+
                 new_expression->last_token = ctx->current;
                 if (parser_match_tk(ctx, ')') != 0)
                 {
@@ -3608,6 +3631,11 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
 
             new_expression->last_token = new_expression->right->last_token;
 
+            check_comparison(ctx,
+              new_expression->left,
+              new_expression->right,
+              ctx->current);
+
             if (op == '>')
             {
                 new_expression->expression_type = RELATIONAL_EXPRESSION_BIGGER_THAN;
@@ -3743,9 +3771,13 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
                 throw;
 
+            check_comparison(ctx,
+              new_expression->left,
+              new_expression->right,
+              ctx->current);
+
             new_expression->last_token = new_expression->right->last_token;
-            check_diferent_enuns(ctx, operator_token, new_expression->left, new_expression->right,
-                "comparing different enums.");
+
 
             new_expression->first_token = operator_token;
 
@@ -4365,6 +4397,16 @@ bool is_first_of_conditional_expression(struct parser_ctx* ctx)
         is_first_of_primary_expression(ctx);
 }
 
+bool expression_is_zero(const struct expression* expression)
+{
+    if (expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
+    {
+        return (constant_value_is_valid(&expression->constant_value) &&
+            constant_value_to_ull(&expression->constant_value) == 0);
+    }
+    return false;
+}
+
 bool expression_is_null_pointer_constant(const struct expression* expression)
 {
 
@@ -4634,18 +4676,6 @@ bool expression_is_lvalue(const struct expression* expr)
     return false;
 }
 
-bool expression_is_zero(const struct expression* p_expression)
-{
-    bool is_zero = false;
-
-    if (type_is_nullptr_t(&p_expression->type) ||
-        (constant_value_is_valid(&p_expression->constant_value) &&
-            constant_value_to_ull(&p_expression->constant_value) == 0))
-    {
-        is_zero = true;
-    }
-    return is_zero;
-}
 
 /*
  * Returns true if the type of expression is subjected to type_lvalue_conversion
@@ -4667,6 +4697,40 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression* expre
     }
 
     return true;
+}
+
+void check_comparison(struct parser_ctx* ctx,
+    struct expression* p_a_expression,
+    struct expression* p_b_expression,
+    const struct token* op_token)
+{
+    //TODO more checks unsigned < 0
+
+    struct type* p_a_type = &p_a_expression->type;
+    struct type* p_b_type = &p_b_expression->type;
+
+    if (type_is_pointer(p_a_type) && type_is_integer(p_b_type))
+    {
+        if (expression_is_zero(p_b_expression))
+        {
+            // p == 0
+            //style warning
+        }
+        else
+        {
+            //array functions..
+            compiler_diagnostic_message(W_ENUN_CONVERSION,
+                                        ctx,
+                                        op_token, NULL,
+                                        "comparison between pointer and integer");
+        }
+    }
+
+    check_diferent_enuns(ctx,
+                         op_token,
+                         p_a_expression,
+                         p_b_expression,
+                         "comparing different enums.");
 }
 
 void check_assigment(struct parser_ctx* ctx,

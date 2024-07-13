@@ -28,7 +28,7 @@ struct flow_visit_ctx
 
     struct parser_ctx *ctx;
     _View struct ast ast;    
-    struct flow_defer_scope* _Owner tail_block;
+    struct flow_defer_scope* _Owner _Opt tail_block;
     struct type* _Opt p_return_type;
     int parameter_list;
     

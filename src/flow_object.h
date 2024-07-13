@@ -166,8 +166,12 @@ struct token;
 
 void print_object(struct type* p_type, struct flow_object* p_object, bool short_version);
 
+struct marker;
+
 void flow_check_assignment(struct flow_visit_ctx* ctx,
     const struct token* error_position,
+    const struct marker* p_a_marker,
+    const struct marker* p_b_marker,
     enum  assigment_type assigment_type,
     bool check_uninitialized_b,
     bool a_type_is_view,

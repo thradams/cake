@@ -159,7 +159,7 @@ char* _Opt _Owner CompileText(const char* options, const char* content);
 
 
 _Bool compiler_diagnostic_message(enum diagnostic_id w,
-    struct parser_ctx* ctx,
+    const struct parser_ctx* ctx,
     const struct token* _Opt p_token,
     const struct marker* _Opt p_marker,
     const char* fmt, ...);
@@ -883,6 +883,7 @@ struct braced_initializer
     */
 
     struct token* first_token;
+    struct token* last_token;
     struct initializer_list* _Owner _Opt initializer_list;
 };
 struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx);
@@ -1006,7 +1007,7 @@ struct member_declarator
     /*
      member-declarator:
        declarator
-       declarator _Opt : constant-expression
+       declarator opt : constant-expression
     */
 
     struct declarator* _Owner _Opt declarator;
@@ -1469,7 +1470,7 @@ struct label
        attribute-specifier-sequence _Opt "default" :
     */
     struct expression* _Owner _Opt constant_expression;
-    struct token* _Opt name;
+    struct token* _Opt p_identifier_opt;
 };
 
 struct label* _Owner _Opt label(struct parser_ctx* ctx);

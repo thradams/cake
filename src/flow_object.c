@@ -1892,28 +1892,8 @@ void object_get_name_core(
     else
     {
         if (type_is_pointer(p_type))
-        {
-            char buffer[100] = { 0 };
-            snprintf(buffer, sizeof buffer, "%s", previous_names);
-
-            struct type t2 = type_remove_pointer(p_type);
-            if (type_is_owner(&t2))
-            {
-#if 0
-                if (p_object->current.ref.size > 0)
-                {
-                    object_get_name_core(
-                        &t2,
-                        p_object->current.ref.data[0],
-                        p_object_target,
-                        buffer,
-                        outname,
-                        out_size,
-                        visit_number);
-                }
-#endif
-            }
-            type_destroy(&t2);
+        {         
+            snprintf(outname, out_size, "%s", previous_names);          
         }
     }
 }
@@ -1963,6 +1943,8 @@ void object_get_name(const struct type* p_type,
         outname[0] = '?';
         outname[1] = '\0';
     }
+    
+    assert(outname[0] != '\0');
 }
 
 void checked_moved_core(struct flow_visit_ctx* ctx,
@@ -2094,6 +2076,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
     const char* previous_names,
     unsigned int visit_number)
 {
+    assert(previous_names != NULL);
     if (p_visitor->p_object == NULL)
     {
         return;
@@ -2268,26 +2251,10 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     bool check_pointed_object)
 {
     const char* _Owner _Opt s = NULL;
-    const char* name = "";
-    if (p_object->p_declarator_origin)
-        name = p_object->p_declarator_origin->name_opt ? p_object->p_declarator_origin->name_opt->lexeme : "?";
-    else if (p_object->p_expression_origin)
-    {
-        if (p_object->p_expression_origin->first_token &&
-            p_object->p_expression_origin->last_token)
-        {
-            _View struct token_list list = { .head = p_object->p_expression_origin->first_token,
-                                            .tail = p_object->p_expression_origin->last_token
-            };
-            s = get_code_as_we_see(&list, true);
-            name = s;
-        }
-        else
-        {
-            //assert(false);
-        }
-    }
-
+    char name[200] = {0};
+    
+    object_get_name(p_type,  p_object, name, sizeof name);
+        
     struct object_visitor visitor = { 0 };
     visitor.p_object = p_object;
     visitor.p_type = p_type;
@@ -2541,6 +2508,8 @@ bool flow_object_is_zero_or_null(const struct flow_object* p_object)
 static void flow_assignment_core(
     struct flow_visit_ctx* ctx,
     const struct token* error_position,
+    const struct marker* p_a_marker,
+    const struct marker* p_b_marker,
     enum assigment_type assigment_type,
     bool check_uninitialized_b,
     bool a_type_is_view,
@@ -2626,13 +2595,31 @@ static void flow_assignment_core(
             char buffer[100] = { 0 };
             object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, buffer, sizeof buffer);
 
-            compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+            {
+                compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                        ctx->ctx,
-                       error_position,
                        NULL,
+                       p_b_marker,
+                       "passing a possible null object '%s' to non-nullable pointer parameter", buffer);
+            }
+            else if (assigment_type == ASSIGMENT_TYPE_RETURN)
+            {
+                compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                       ctx->ctx,
+                       NULL,
+                       p_b_marker,
+                       "returning a possible null object '%s' to non-nullable pointer", buffer);
+            }
+            else
+            {
+                compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                       ctx->ctx,
+                       NULL,
+                       p_b_marker,
                        "assignment of possible null object '%s' to non-nullable pointer", buffer);
+            }
         }
-
     }
 
     if (type_is_pointer(p_visitor_a->p_type))
@@ -2967,6 +2954,8 @@ static void flow_assignment_core(
 
                                 flow_assignment_core(ctx,
                                     error_position,
+                                    p_a_marker,
+                                    p_b_marker,
                                     assigment_type,
                                     check_uninitialized_b,
                                     a_type_is_view,
@@ -3005,6 +2994,8 @@ static void flow_assignment_core(
                         flow_assignment_core(
                                             ctx,
                                             error_position,
+                                            p_a_marker,
+                                            p_b_marker,
                                             assigment_type,
                                             check_uninitialized_b,
                                             a_type_is_view,
@@ -3397,6 +3388,8 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,
     const struct token* error_position,
+    const struct marker* p_a_marker,
+    const struct marker* p_b_marker,
     enum assigment_type assigment_type,
     bool check_uninitialized_b,
     bool a_type_is_view,
@@ -3425,6 +3418,8 @@ void flow_check_assignment(
     flow_assignment_core(
      ctx,
     error_position,
+    p_a_marker,
+    p_b_marker,
     assigment_type,
     check_uninitialized_b,
     a_type_is_view,

@@ -211,8 +211,8 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
             while (block_item)
             {
                 if (block_item->label &&
-                    block_item->label->name &&
-                    strcmp(block_item->label->name->lexeme, label) == 0)
+                    block_item->label->p_identifier_opt &&
+                    strcmp(block_item->label->p_identifier_opt->lexeme, label) == 0)
                 {
                     /*achou*/
                     return true;
@@ -272,7 +272,7 @@ bool find_label_statement(struct statement* statement, const char* label)
     if (statement->labeled_statement)
     {
         if (statement->labeled_statement->label &&
-            strcmp(statement->labeled_statement->label->name->lexeme, label) == 0)
+            strcmp(statement->labeled_statement->label->p_identifier_opt->lexeme, label) == 0)
         {
             /*achou*/
             return true;

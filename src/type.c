@@ -960,7 +960,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
     }///////////////////////////////////////////////////////////////
     else if (argument_is_view && paramer_is_owner)
     {
-        if (!expression_is_zero(current_argument->expression))
+        if (!expression_is_null_pointer_constant(current_argument->expression))
         {
             compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                 ctx,
@@ -1000,7 +1000,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         }
         else
         {
-            if (!expression_is_zero(current_argument->expression))
+            if (!expression_is_null_pointer_constant(current_argument->expression))
             {
                 compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
