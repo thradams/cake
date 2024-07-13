@@ -23858,10 +23858,7 @@ void object_get_name_core(
     }
     else
     {
-        if (type_is_pointer(p_type))
-        {         
-            snprintf(outname, out_size, "%s", previous_names);          
-        }
+        snprintf(outname, out_size, "%s", previous_names);
     }
 }
 
@@ -23910,8 +23907,6 @@ void object_get_name(const struct type* p_type,
         outname[0] = '?';
         outname[1] = '\0';
     }
-    
-    assert(outname[0] != '\0');
 }
 
 void checked_moved_core(struct flow_visit_ctx* ctx,
@@ -23978,11 +23973,11 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                         p_object->current.ref.data[i],
                         position_token,
                         visit_number);
-                }
+        }
 #endif
                 type_destroy(&t2);
-            }
-        }
+    }
+}
 
         if (p_object->current.state & OBJECT_STATE_MOVED)
         {
@@ -24218,10 +24213,10 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     bool check_pointed_object)
 {
     const char* _Owner _Opt s = NULL;
-    char name[200] = {0};
-    
-    object_get_name(p_type,  p_object, name, sizeof name);
-        
+    char name[200] = { 0 };
+
+    object_get_name(p_type, p_object, name, sizeof name);
+
     struct object_visitor visitor = { 0 };
     visitor.p_object = p_object;
     visitor.p_type = p_type;
@@ -24691,7 +24686,7 @@ static void flow_assignment_core(
 
 
         return;
-    }
+}
 
 
 
@@ -25179,11 +25174,11 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                     }
                 }
                 return p_object;
-            }
-#endif
         }
-        return NULL;
+#endif
     }
+        return NULL;
+}
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);

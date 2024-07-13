@@ -1,16 +1,55 @@
+
+/*
+  This code is from 
+  The C Programming Language 2 edition, page 145
+
+  There are two bugs int this original sample
+  - one memory leak
+  - one invalid state
+*/
+
 #pragma safety enable
 
-struct X {
-    int i;
+#include <stdlib.h>
+#include <string.h>
+
+struct nlist {          /* table entry: */
+    struct nlist *next; /* next entry in chain */
+    char *name;  /* defined name */
+    char *defn;  /* replacement text */
 };
 
-void f(struct X* _Opt p)
-{
-    int i = p ? p->i : 0; //no warning
-    
-    int i3 = p->i;
-    #pragma cake diagnostic check "-Wanalyzer-null-dereference"
+struct nlist *lookup(char *s);
 
-    int i2 = p ? 0 : p->i; //warning
-#pragma cake diagnostic check "-Wanalyzer-null-dereference"
+/* hash:  form hash value for string s */
+unsigned hash(char *s);
+
+
+#define HASHSIZE 101
+
+static struct nlist *hashtab[HASHSIZE]; /* pointer table */
+
+/*1* lookup: look for s in hashtab */
+struct nlist *lookup(char *);
+
+
+/* install:  put (name, defn) in hashtab */
+struct nlist *install(char *name, char *defn)
+{
+    struct nlist *np;
+    unsigned hashval;
+
+    if ((np = lookup(name)) == NULL) {  /* not found */
+        np = (struct nlist *) malloc(sizeof(*np));
+        if (np == NULL || (np->name = strdup(name)) == NULL)
+            return NULL;
+        hashval = hash(name);
+        np->next = hashtab[hashval];
+        hashtab[hashval] = np;
+    } else      /* already there */
+        free((void *) np->defn);  /* free previous defn */
+
+    if ((np->defn = strdup(defn)) == NULL)
+        return NULL;
+    return np;
 }
