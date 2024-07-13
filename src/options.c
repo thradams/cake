@@ -72,7 +72,8 @@ s_warnings[] = {
     {W_OUT_OF_BOUNDS, "out-of-bounds"},
     {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
     {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
-    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"}
+    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
+    {W_CONST_NOT_INITIALIZED, "const-init"}
 
 };
 
@@ -107,6 +108,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_NULL_DEREFERENCE:
     case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
     case W_FLOW_NON_NULL:
+    case W_FLOW_LIFETIME_ENDED:
         return 2; /*returns 2 if it flow analysis*/
     default:
         break;

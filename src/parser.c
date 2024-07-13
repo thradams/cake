@@ -2703,7 +2703,9 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
             assert(false);
         }
 
-        if (ctx->current && ctx->current->type == '=')
+        if (ctx->current == NULL) throw;
+
+        if (ctx->current->type == '=')
         {
             parser_match(ctx);
             p_init_declarator->initializer = initializer(ctx);
@@ -2787,6 +2789,17 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
                 check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_OBJECTS);
+            }
+        }
+        else
+        {
+            if (type_is_const(&p_init_declarator->p_declarator->type))
+            {
+                compiler_diagnostic_message(W_CONST_NOT_INITIALIZED,
+                    ctx,
+                    p_init_declarator->p_declarator->first_token, NULL,
+                    "const object should be initialized");
+            
             }
         }
     }

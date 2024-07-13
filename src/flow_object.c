@@ -1103,44 +1103,6 @@ int object_merge_current_state_with_state_number_core(struct flow_object* object
 }
 
 
-
-static void object_merge_current_state_with_state_number_or_core(struct flow_object* object, int state_number, unsigned int visit_number)
-{
-    if (object->visit_number == visit_number) return;
-    object->visit_number = visit_number;
-
-    struct flow_object_state* it = object->current.next;
-    while (it)
-    {
-        if (it->state_number == state_number)
-        {
-            it->state |= object->current.state;
-#if 0
-            objects_view_merge(&it->ref, &object->current.ref);
-#endif
-            break;
-        }
-        it = it->next;
-    }
-
-    for (int i = 0; i < object->members.size; i++)
-    {
-        object_merge_current_state_with_state_number_or_core(object->members.data[i], state_number, visit_number);
-    }
-#if 0
-    for (int i = 0; i < object->current.ref.size; i++)
-    {
-        struct flow_object* pointed = object->current.ref.data[i];
-
-        if (pointed)
-        {
-            object_merge_current_state_with_state_number_or_core(pointed, state_number, visit_number);
-        }
-    }
-#endif
-}
-
-
 void object_get_name(const struct type* p_type,
     const struct flow_object* p_object,
     char* outname,

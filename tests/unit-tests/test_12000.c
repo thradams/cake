@@ -23,6 +23,8 @@ int main()
         f(p1, &p2);
 
         free(p2->text);
+#pragma cake diagnostic check "-Wanalyzer-null-dereference"
+
         free(p2);
     }
 }

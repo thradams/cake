@@ -476,20 +476,20 @@ struct token_list copy_replacement_list(struct token_list* list);
 
 struct token_list copy_argument_list_tokens(struct token_list* list)
 {
-    assert(list->head != NULL);
-
-    //Faz uma copia dos tokens fazendo um trim no iniico e fim
-    //qualquer espaco coments etcc vira um unico  espaco
+    // Makes a copy of the tokens, trimming the beginning and end
+    // Any space, comments, etc., will become a single space
     struct token_list r = { 0 };
-    struct token* _Opt current = list->head;
-    //sai de cima de todos brancos iniciais
+    struct token* _Opt current = list->head; /*null is fine*/
+    
+    // skip all leading white spaces
     while (current &&
         (token_is_blank(current) ||
             current->type == TK_NEWLINE))
     {
         current = current->next;
     }
-    //remover flag de espaco antes se tiver
+
+    // Removes leading space flag if present
     bool is_first = true;
 
     for (; current;)

@@ -1911,10 +1911,27 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
-                    compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
+                    compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
                             ctx->ctx,
                             p_expression->left->first_token, NULL, "object lifetime ended");
                 }
+            }
+        }
+
+        if (!ctx->expression_is_not_evaluated)
+        {
+            struct flow_object* _Opt p_object2 = expression_get_object(ctx, p_expression, nullable_enabled);
+            if (p_object2 && flow_object_can_have_its_lifetime_ended(p_object2))
+            {
+                struct marker marker = {
+                    .p_token_begin = p_expression->first_token,
+                    .p_token_end = p_expression->last_token
+                };
+                compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
+                        ctx->ctx,
+                        NULL,
+                        &marker,
+                        "object lifetime ended");
             }
         }
 
@@ -2109,7 +2126,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            struct true_false_set local_true_false = {0};
+            struct true_false_set local_true_false = { 0 };
             flow_visit_expression(ctx, p_expression->right, &local_true_false);
             /*empty set*/
             true_false_set_destroy(&local_true_false);
@@ -2608,7 +2625,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         {
             /*
                while (p) { return; }
-            */                        
+            */
             arena_restore_current_state_from(ctx, ctx->initial_state);
             true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
         }
@@ -2692,9 +2709,11 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     {
         flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
     }
+    const bool b_secondary_block_ends_with_jump  = 
+        secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
     /*we visit again*/
-    if (p_iteration_statement->secondary_block)
+    if (!b_secondary_block_ends_with_jump && p_iteration_statement->secondary_block)
     {
         struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
@@ -2772,7 +2791,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                     NULL
                 );
 
-                p_dest_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
+                //WTF??
+                //p_dest_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
             }
 
             if (p_object && p_object->is_temporary)
@@ -3281,10 +3301,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-            }
+        }
 #endif
-        }
-        }
+    }
+}
 
     /*if (p_declarator->pointer)
     {
@@ -3300,7 +3320,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-    }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -3638,7 +3658,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wanalyzer-maybe-uninitialized" 
 
-struct flow_object* arena_new_object(struct flow_visit_ctx* ctx)
+struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
 {
     struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
     if (p != NULL)
@@ -3649,7 +3669,7 @@ struct flow_object* arena_new_object(struct flow_visit_ctx* ctx)
             p = NULL;
         }
     }
-    return (struct flow_object*)p; //warning removed
+    return (struct flow_object* _Opt)p; //warning removed
 }
 
 #pragma CAKE diagnostic pop

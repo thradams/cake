@@ -702,7 +702,7 @@ enum diagnostic_id {
     W_SWITCH,
     W_UNSUAL_NULL_POINTER_CONSTANT,
     W_SIZEOF_ARRAY_ARGUMENT,
-    W_NOT_DEFINED45,
+    W_CONST_NOT_INITIALIZED,
     W_NOT_DEFINED46,
     W_NOT_DEFINED47,
     W_NOT_DEFINED48,
@@ -3078,20 +3078,20 @@ struct token_list copy_replacement_list(struct token_list* list);
 
 struct token_list copy_argument_list_tokens(struct token_list* list)
 {
-    assert(list->head != NULL);
-
-    //Faz uma copia dos tokens fazendo um trim no iniico e fim
-    //qualquer espaco coments etcc vira um unico  espaco
+    // Makes a copy of the tokens, trimming the beginning and end
+    // Any space, comments, etc., will become a single space
     struct token_list r = { 0 };
-    struct token* _Opt current = list->head;
-    //sai de cima de todos brancos iniciais
+    struct token* _Opt current = list->head; /*null is fine*/
+    
+    // skip all leading white spaces
     while (current &&
         (token_is_blank(current) ||
             current->type == TK_NEWLINE))
     {
         current = current->next;
     }
-    //remover flag de espaco antes se tiver
+
+    // Removes leading space flag if present
     bool is_first = true;
 
     for (; current;)
@@ -10388,7 +10388,8 @@ s_warnings[] = {
     {W_OUT_OF_BOUNDS, "out-of-bounds"},
     {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
     {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
-    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"}
+    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
+    {W_CONST_NOT_INITIALIZED, "const-init"}
 
 };
 
@@ -10423,6 +10424,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_NULL_DEREFERENCE:
     case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
     case W_FLOW_NON_NULL:
+    case W_FLOW_LIFETIME_ENDED:
         return 2; /*returns 2 if it flow analysis*/
     default:
         break;
@@ -21900,13 +21902,13 @@ struct flow_visit_ctx
     int labels_size;
 };
 
-struct flow_object* arena_new_object(struct flow_visit_ctx* ctx);
+struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx);
 
 void flow_visit_ctx_destroy(struct flow_visit_ctx* _Obj_owner p);
 
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
 void print_arena(struct flow_visit_ctx* ctx);
-struct flow_object* arena_new_object(struct flow_visit_ctx* ctx);
+
 
 
 struct object_visitor
@@ -22992,44 +22994,6 @@ int object_merge_current_state_with_state_number_core(struct flow_object* object
 #endif
     }
     return 1;
-}
-
-
-
-static void object_merge_current_state_with_state_number_or_core(struct flow_object* object, int state_number, unsigned int visit_number)
-{
-    if (object->visit_number == visit_number) return;
-    object->visit_number = visit_number;
-
-    struct flow_object_state* it = object->current.next;
-    while (it)
-    {
-        if (it->state_number == state_number)
-        {
-            it->state |= object->current.state;
-#if 0
-            objects_view_merge(&it->ref, &object->current.ref);
-#endif
-            break;
-        }
-        it = it->next;
-    }
-
-    for (int i = 0; i < object->members.size; i++)
-    {
-        object_merge_current_state_with_state_number_or_core(object->members.data[i], state_number, visit_number);
-    }
-#if 0
-    for (int i = 0; i < object->current.ref.size; i++)
-    {
-        struct flow_object* pointed = object->current.ref.data[i];
-
-        if (pointed)
-        {
-            object_merge_current_state_with_state_number_or_core(pointed, state_number, visit_number);
-        }
-    }
-#endif
 }
 
 
@@ -25575,7 +25539,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.8"
+#define CAKE_VERSION "0.9.9"
 
 
 
@@ -28300,7 +28264,9 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
             assert(false);
         }
 
-        if (ctx->current && ctx->current->type == '=')
+        if (ctx->current == NULL) throw;
+
+        if (ctx->current->type == '=')
         {
             parser_match(ctx);
             p_init_declarator->initializer = initializer(ctx);
@@ -28384,6 +28350,17 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
                 check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_OBJECTS);
+            }
+        }
+        else
+        {
+            if (type_is_const(&p_init_declarator->p_declarator->type))
+            {
+                compiler_diagnostic_message(W_CONST_NOT_INITIALIZED,
+                    ctx,
+                    p_init_declarator->p_declarator->first_token, NULL,
+                    "const object should be initialized");
+            
             }
         }
     }
@@ -39315,10 +39292,27 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
-                    compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
+                    compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
                             ctx->ctx,
                             p_expression->left->first_token, NULL, "object lifetime ended");
                 }
+            }
+        }
+
+        if (!ctx->expression_is_not_evaluated)
+        {
+            struct flow_object* _Opt p_object2 = expression_get_object(ctx, p_expression, nullable_enabled);
+            if (p_object2 && flow_object_can_have_its_lifetime_ended(p_object2))
+            {
+                struct marker marker = {
+                    .p_token_begin = p_expression->first_token,
+                    .p_token_end = p_expression->last_token
+                };
+                compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
+                        ctx->ctx,
+                        NULL,
+                        &marker,
+                        "object lifetime ended");
             }
         }
 
@@ -39513,7 +39507,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            struct true_false_set local_true_false = {0};
+            struct true_false_set local_true_false = { 0 };
             flow_visit_expression(ctx, p_expression->right, &local_true_false);
             /*empty set*/
             true_false_set_destroy(&local_true_false);
@@ -40012,7 +40006,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         {
             /*
                while (p) { return; }
-            */                        
+            */
             arena_restore_current_state_from(ctx, ctx->initial_state);
             true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
         }
@@ -40096,9 +40090,11 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     {
         flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
     }
+    const bool b_secondary_block_ends_with_jump  = 
+        secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
     /*we visit again*/
-    if (p_iteration_statement->secondary_block)
+    if (!b_secondary_block_ends_with_jump && p_iteration_statement->secondary_block)
     {
         struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
@@ -40176,7 +40172,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                     NULL
                 );
 
-                p_dest_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
+                //WTF??
+                //p_dest_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
             }
 
             if (p_object && p_object->is_temporary)
@@ -40685,10 +40682,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-            }
+        }
 #endif
-        }
-        }
+    }
+}
 
     /*if (p_declarator->pointer)
     {
@@ -40704,7 +40701,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-    }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -41042,7 +41039,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wanalyzer-maybe-uninitialized" 
 
-struct flow_object* arena_new_object(struct flow_visit_ctx* ctx)
+struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
 {
     struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
     if (p != NULL)
@@ -41053,7 +41050,7 @@ struct flow_object* arena_new_object(struct flow_visit_ctx* ctx)
             p = NULL;
         }
     }
-    return (struct flow_object*)p; //warning removed
+    return (struct flow_object* _Opt)p; //warning removed
 }
 
 #pragma CAKE diagnostic pop
