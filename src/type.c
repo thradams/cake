@@ -504,16 +504,25 @@ void type_destroy(_Opt struct type* _Obj_owner p_type)
     free((void* _Owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
 
-    struct type* _Owner item = p_type->next;
+    struct type* _Owner _Opt item = p_type->next;
     while (item)
     {
-        struct type* _Owner next = item->next;
+        struct type* _Owner _Opt next = item->next;
         item->next = NULL;
         type_destroy_one(item);
         free(item);
         item = next;
     }
 
+}
+
+void type_delete(struct type* _Owner _Opt p_type)
+{
+    if (p_type)
+    {
+        type_destroy(p_type);
+        free(p_type);
+    }
 }
 
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes)
@@ -526,8 +535,7 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
         return true;
     }
 
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt = NULL;
-
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence_opt = NULL;
 
     if (p_type->struct_or_union_specifier)
     {
@@ -537,7 +545,7 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
         */
         p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
 
-        struct struct_or_union_specifier* p_complete =
+        struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         if (p_attribute_specifier_sequence_opt == NULL && p_complete)
@@ -547,11 +555,14 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
     }
     else if (p_type->enum_specifier)
     {
+        const struct enum_specifier* _Opt p_complete_enum_specifier =
+            get_complete_enum_specifier(p_type->enum_specifier);
+
         p_attribute_specifier_sequence_opt = p_type->enum_specifier->attribute_specifier_sequence_opt;
-        if (p_attribute_specifier_sequence_opt == NULL &&
-            get_complete_enum_specifier(p_type->enum_specifier))
+
+        if (p_attribute_specifier_sequence_opt == NULL && p_complete_enum_specifier)
         {
-            p_attribute_specifier_sequence_opt = get_complete_enum_specifier(p_type->enum_specifier)->attribute_specifier_sequence_opt;
+            p_attribute_specifier_sequence_opt = p_complete_enum_specifier->attribute_specifier_sequence_opt;
         }
     }
 
@@ -584,8 +595,6 @@ bool type_is_array(const struct type* p_type)
     return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
-
-
 bool type_is_any_owner(const struct type* p_type)
 {
     if (type_is_owner(p_type))
@@ -597,6 +606,9 @@ bool type_is_any_owner(const struct type* p_type)
 
 bool type_is_pointer_to_owner(const struct type* p_type)
 {
+    if (p_type->next == NULL)
+        return false;
+
     return type_is_owner(p_type->next);
 }
 
@@ -607,13 +619,12 @@ bool type_is_obj_owner(const struct type* p_type)
 
 bool type_is_owner(const struct type* p_type)
 {
-
     if (p_type->struct_or_union_specifier)
     {
         if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
             return false;
 
-        struct struct_or_union_specifier* p_complete =
+        struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         if (p_complete && p_complete->is_owner)
@@ -643,19 +654,14 @@ bool type_is_nullable(const struct type* p_type, bool nullable_enabled)
         return p_type->type_qualifier_flags & TYPE_QUALIFIER_NULLABLE;
     }
 
-    //If  nullable_enabled is disabled then all pointer are nullable
+    //If  nullable_enabled is disabled then all pointers are nullable
     return true;
 }
-
 
 bool type_is_view(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW;
 }
-
-
-
-
 
 bool type_is_out(const struct type* p_type)
 {
@@ -713,6 +719,9 @@ bool type_is_nullptr_t(const struct type* p_type)
 
 bool type_is_pointer_to_out(const struct type* p_type)
 {
+    if (p_type->next == NULL)
+        return false;
+
     if (p_type->category == TYPE_CATEGORY_POINTER)
     {
         return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_OUT;
@@ -1021,6 +1030,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
     struct type* paramer_type,
     int param_num)
 {
+    // TODO use assignment check for everthing..
 
     if (type_is_any_owner(paramer_type))
     {
@@ -1046,13 +1056,9 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
             }
         }
     }
-    struct type* argument_type = &current_argument->expression->type;
-    bool is_null_pointer_constant = false;
 
-    if (current_argument)
-    {
-        is_null_pointer_constant = expression_is_null_pointer_constant(current_argument->expression);
-    }
+    struct type* argument_type = &current_argument->expression->type;
+    const bool is_null_pointer_constant = expression_is_null_pointer_constant(current_argument->expression);
 
     struct type parameter_type_converted = (type_is_array(paramer_type)) ?
         type_lvalue_conversion(paramer_type, ctx->options.null_checks_enabled) :
@@ -1063,7 +1069,6 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
         expression_is_subjected_to_lvalue_conversion(current_argument->expression) ?
         type_lvalue_conversion(argument_type, ctx->options.null_checks_enabled) :
         type_dup(argument_type);
-
 
     /*
        less generic tests are first
@@ -1276,25 +1281,39 @@ bool type_is_function_or_function_pointer(const struct type* p_type)
     return false;
 }
 
+bool type_is_empty(const struct type* p_type)
+{
+    return p_type->type_specifier_flags == TYPE_SPECIFIER_NONE;
+}
+
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled)
 {
     struct type r = type_dup(p_type);
+    try
+    {
+        //waiting test
+        //if (type_is_empty(&r)) throw;
 
-    struct type* _Owner _Opt  p = calloc(1, sizeof(struct type));
-    *p = r;
-    r = (struct type){ 0 };
-    r.next = p;
-    r.category = TYPE_CATEGORY_POINTER;
+        struct type* _Owner _Opt p = calloc(1, sizeof(struct type));
+        if (p == NULL) throw;
+
+        *p = r;
+        r = (struct type){ 0 };
+        r.next = p;
+        r.category = TYPE_CATEGORY_POINTER;
 
 
-    r.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
+        r.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
+    }
+    catch
+    {
+    }
 
     return r;
 }
 
 struct type type_remove_pointer(const struct type* p_type)
 {
-
     struct type r = type_dup(p_type);
     if (!type_is_pointer(p_type))
     {
@@ -1317,6 +1336,8 @@ struct type type_remove_pointer(const struct type* p_type)
         assert(false);
     }
 
+    assert(p_type->next != NULL); //guaranteed by type_is_pointer
+
     r.storage_class_specifier_flags = p_type->next->storage_class_specifier_flags;
     r.type_qualifier_flags = p_type->next->type_qualifier_flags;
 
@@ -1328,13 +1349,17 @@ struct type get_array_item_type(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
 
-    struct type r2 = *r.next;
+    if (r.next)
+    {
+        struct type r2 = *r.next;
 
-    free(r.next);
-    free((void* _Owner) r.name_opt);
-    param_list_destroy(&r.params);
+        free(r.next);
+        free((void* _Owner) r.name_opt);
+        param_list_destroy(&r.params);
+        return r2;
+    }
 
-    return r2;
+    return r;
 }
 
 struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled)
@@ -1365,7 +1390,9 @@ bool type_is_pointer_or_array(const struct type* p_type)
 
     if (category == TYPE_CATEGORY_POINTER ||
         category == TYPE_CATEGORY_ARRAY)
+    {
         return true;
+    }
 
     if (category == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
@@ -1481,82 +1508,75 @@ void type_set(struct type* a, const struct type* b)
 
 struct type type_dup(const struct type* p_type)
 {
-    struct type_list l = { 0 };
-    const struct type* p = p_type;
-    while (p)
+    try
     {
-        struct type* _Owner _Opt p_new = calloc(1, sizeof(struct type));
-        *p_new = *p;
-
-        //actually I was not the _Owner of p_new->next
-        static_set(p_new->next, "uninitialized");
-        p_new->next = NULL;
-
-        if (p->name_opt)
+        struct type_list l = { 0 };
+        const struct type* _Opt p = p_type;
+        while (p)
         {
-            //actually p_new->name_opt was not mine..
-            static_set(p_new->name_opt, "uninitialized");
-            p_new->name_opt = strdup(p->name_opt);
-        }
+            struct type* _Owner _Opt p_new = calloc(1, sizeof(struct type));
+            if (p_new == NULL) throw;
 
-        if (p->category == TYPE_CATEGORY_FUNCTION)
-        {
-            //actually p_new->params.head  p_new->params.tail and was not mine..
-            static_set(p_new->params.head, "uninitialized");
-            p_new->params.head = NULL;
-            static_set(p_new->params.tail, "uninitialized");
-            p_new->params.tail = NULL;
+            *p_new = *p;
 
-            struct param* p_param = p->params.head;
-            while (p_param)
+            //actually I was not the _Owner of p_new->next
+            static_set(p_new->next, "uninitialized");
+            p_new->next = NULL;
+
+            if (p->name_opt)
             {
-                struct param* _Owner _Opt p_new_param = calloc(1, sizeof * p_new_param);
-                p_new_param->type = type_dup(&p_param->type);
-
-                param_list_add(&p_new->params, p_new_param);
-                p_param = p_param->next;
+                //actually p_new->name_opt was not mine..
+                static_set(p_new->name_opt, "uninitialized");
+                p_new->name_opt = strdup(p->name_opt);
             }
+
+            if (p->category == TYPE_CATEGORY_FUNCTION)
+            {
+                //actually p_new->params.head  p_new->params.tail and was not mine..
+                static_set(p_new->params.head, "uninitialized");
+                p_new->params.head = NULL;
+                static_set(p_new->params.tail, "uninitialized");
+                p_new->params.tail = NULL;
+
+                struct param* _Opt p_param = p->params.head;
+                while (p_param)
+                {
+                    struct param* _Owner _Opt p_new_param = calloc(1, sizeof * p_new_param);
+                    if (p_new_param == NULL)
+                    {
+                        type_delete(p_new);
+                        throw;
+                    }
+
+                    p_new_param->type = type_dup(&p_param->type);
+
+                    param_list_add(&p_new->params, p_new_param);
+                    p_param = p_param->next;
+                }
+            }
+
+            type_list_push_back(&l, p_new);
+            p = p->next;
         }
 
-        type_list_push_back(&l, p_new);
-        p = p->next;
+        struct type r = *l.head;
+        /*
+           we have moved the content of l.head
+           but we also need to delete the memory
+        */
+        free(l.head);
+
+        return r;
+    }
+    catch
+    {
     }
 
-    struct type r = *l.head;
-    /*
-       we have moved the content of l.head
-       but we also need to delete the memory
-    */
-    free(l.head);
-
-    return r;
+    struct type empty = { 0 };
+    return empty;
 }
 
 
-
-int type_get_num_members(const struct type* type);
-int type_get_struct_num_members(struct struct_or_union_specifier* complete_struct_or_union_specifier)
-{
-    int count = 0;
-    struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
-    while (d)
-    {
-        if (d->member_declarator_list_opt)
-        {
-            struct member_declarator* md = d->member_declarator_list_opt->head;
-            while (md)
-            {
-                count += 1;
-                md = md->next;
-            }
-        }
-        d = d->next;
-    }
-
-    return count;
-}
-
-int type_get_sizeof(const struct type* p_type);
 int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
     const bool is_union =
@@ -1564,12 +1584,12 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
 
     int maxalign = 0;
     int size = 0;
-    struct member_declaration* _Opt  d = complete_struct_or_union_specifier->member_declaration_list.head;
+    struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
     while (d)
     {
         if (d->member_declarator_list_opt)
         {
-            struct member_declarator* md = d->member_declarator_list_opt->head;
+            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
             while (md)
             {
                 int align = type_get_alignof(&md->declarator->type);
@@ -1648,12 +1668,12 @@ int type_get_alignof(const struct type* p_type);
 int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
     int align = 0;
-    struct member_declaration* _Opt  d = complete_struct_or_union_specifier->member_declaration_list.head;
+    struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
     while (d)
     {
         if (d->member_declarator_list_opt)
         {
-            struct member_declarator* md = d->member_declarator_list_opt->head;
+            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
             while (md)
             {
                 //TODO padding
@@ -1822,53 +1842,6 @@ int type_get_alignof(const struct type* p_type)
     return align;
 }
 
-int type_get_num_members(const struct type* p_type)
-{
-    enum type_category category = type_get_category(p_type);
-
-    if (category == TYPE_CATEGORY_POINTER)
-    {
-        return 0;
-    }
-    else if (category == TYPE_CATEGORY_FUNCTION)
-    {
-        return 0;
-    }
-    else if (category == TYPE_CATEGORY_ITSELF)
-    {
-        if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
-        {
-            struct struct_or_union_specifier* p_complete =
-                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-
-            if (p_complete)
-            {
-                return type_get_struct_num_members(p_complete);
-            }
-            else
-            {
-                return 0;
-            }
-        }
-        else
-        {
-            return 0;
-        }
-    }
-    else if (category == TYPE_CATEGORY_ARRAY)
-    {
-        //int arraysize = type_get_array_bytes_size(p_type);
-        //struct type type = get_array_item_type(p_type);
-        //int sz = type_get_sizeof(&type);
-        //size = sz * arraysize;
-        //type_destroy(&type);
-        //assert(false);
-        return 1;
-    }
-    return 0;
-}
-
 int type_get_sizeof(const struct type* p_type)
 {
     int size = 0;
@@ -2004,63 +1977,6 @@ int type_get_sizeof(const struct type* p_type)
     return size;
 }
 
-unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
-{
-    unsigned int hash = 0;
-    if (type_is_struct_or_union(p_type))
-    {
-        struct osstream ss = { 0 };
-        struct struct_or_union_specifier* _Opt p_complete =
-            p_type->struct_or_union_specifier->complete_struct_or_union_specifier_indirection;
-        if (p_complete)
-        {
-            struct token* current = p_complete->first_token;
-            for (;
-                current != p_complete->last_token->next;
-                current = current->next)
-            {
-                if (current->flags & TK_FLAG_FINAL)
-                {
-                    ss_fprintf(&ss, "%s", current->lexeme);
-
-                }
-            }
-        }
-
-        hash = string_hash(ss.c_str);
-        ss_close(&ss);
-    }
-    else if (type_is_enum(p_type))
-    {
-        struct osstream ss = { 0 };
-
-        const struct enum_specifier* _Opt p_complete =
-            get_complete_enum_specifier(p_type->enum_specifier);
-
-
-        if (p_complete)
-        {
-            //struct token* current = p_complete->first_token;
-           // for (;
-             //   current != p_complete->last_token->next;
-               // current = current->next)
-            //{
-              //  if (current->flags & TK_FLAG_FINAL)
-                //{
-                  //  ss_fprintf(&ss, "%s", current->lexeme);
-//
-  //              }
-    //        }
-        }
-
-        hash = string_hash(ss.c_str);
-        ss_close(&ss);
-    }
-
-    return hash;
-}
-
-
 void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
@@ -2075,78 +1991,16 @@ void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
     }
 }
 
-
-
-
-
-
-
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
-
-
-#if 0
-/*this sample is useful to try in compiler explorer*/
-#include <stdio.h>
-#include <typeinfo>
-#include <cxxabi.h>
-
-int status;
-#define TYPE(EXPR) \
- printf("%s=", #EXPR); \
- printf("%s\n", abi::__cxa_demangle(typeid(typeof(EXPR)).dbg_name(),0,0,&status))
-
-
-typedef char* T1;
-typedef const T1 CONST_T1;
-typedef CONST_T1 T2[5];
-typedef T2 T3[2];
-
-int main()
-{
-    TYPE(T1);
-}
-#endif
-/*
-
-typedef char *T;
-T a[2]; //char * [2]
-
-typedef char *T[1];
-T a[2]; // char* [2][1]
-
-typedef char (*PF)(void);
-PF a[2]; //char (* [2])()
-
-typedef char *T;
-T (*a)(void); //char* (*)()
-
-typedef char const *T;
-T (*a)(void); //char const* (*)()
-
-typedef char (*PF)(void);
-    PF (*a)(void); //char (*(*)())()
-
-typedef char (*PF)(double);
-    PF (*a)(int); //char (*(*)(int))(double)
-
- typedef char (*PF)(double);
- const PF (*a)(int); //char (* const (*)(int))(double)
-
-*/
-
-
-
 
 struct type get_function_return_type(const struct type* p_type)
 {
-
     if (type_is_pointer(p_type))
     {
         /*pointer to function returning ... */
         struct type r = type_dup(p_type->next->next);
         return r;
     }
-
 
     /*function returning ... */
     struct type r = type_dup(p_type->next);
@@ -2169,6 +2023,7 @@ struct type type_make_enumerator(const struct enum_specifier* enum_specifier)
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
+
 struct type type_get_enum_type(const struct type* p_type)
 {
     assert(p_type->enum_specifier != NULL);
@@ -2204,13 +2059,20 @@ struct type type_make_size_t()
 struct type make_void_ptr_type()
 {
     struct type t = { 0 };
-    t.category = TYPE_CATEGORY_POINTER;
+    try
+    {
+        struct type* _Owner _Opt p = calloc(1, sizeof * p);
+        if (p == NULL) throw;
 
-    struct type* _Owner _Opt p = calloc(1, sizeof * p);
-    p->category = TYPE_CATEGORY_ITSELF;
-    p->type_specifier_flags = TYPE_SPECIFIER_VOID;
-    t.next = p;
+        t.category = TYPE_CATEGORY_POINTER;
+        p->category = TYPE_CATEGORY_ITSELF;
+        p->type_specifier_flags = TYPE_SPECIFIER_VOID;
+        t.next = p;
+    }
+    catch
+    {
 
+    }
     return t;
 }
 
@@ -2249,23 +2111,35 @@ struct type type_make_int()
 
 struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flags chartype)
 {
-    struct type char_type = { 0 };
-    char_type.category = TYPE_CATEGORY_ITSELF;
-    char_type.type_specifier_flags = chartype;
-    int char_size = type_get_sizeof(&char_type);
-    if (char_size == 0)
-        char_size = 1;
-
-    type_destroy(&char_type);
-
     struct type t = { 0 };
-    t.category = TYPE_CATEGORY_ARRAY;
-    t.num_of_elements = size_in_bytes / char_size;
 
-    struct type* _Owner _Opt p2 = calloc(1, sizeof(struct type));
-    p2->category = TYPE_CATEGORY_ITSELF;
-    p2->type_specifier_flags = chartype;
-    t.next = p2;
+    try
+    {
+        struct type* _Owner _Opt p2 = calloc(1, sizeof(struct type));
+        if (p2 == NULL) throw;
+
+        struct type char_type = { 0 };
+        char_type.category = TYPE_CATEGORY_ITSELF;
+        char_type.type_specifier_flags = chartype;
+        int char_size = type_get_sizeof(&char_type);
+        if (char_size == 0)
+        {
+            char_size = 1;
+        }
+        type_destroy(&char_type);
+
+
+        t.category = TYPE_CATEGORY_ARRAY;
+        t.num_of_elements = size_in_bytes / char_size;
+
+        p2->category = TYPE_CATEGORY_ITSELF;
+        p2->type_specifier_flags = chartype;
+        t.next = p2;
+    }
+    catch
+    {
+    }
+
     return t;
 }
 
@@ -2273,8 +2147,8 @@ bool struct_or_union_specifier_is_same(struct struct_or_union_specifier* a, stru
 {
     if (a && b)
     {
-        struct struct_or_union_specifier* p_complete_a = get_complete_struct_or_union_specifier(a);
-        struct struct_or_union_specifier* p_complete_b = get_complete_struct_or_union_specifier(b);
+        struct struct_or_union_specifier* _Opt p_complete_a = get_complete_struct_or_union_specifier(a);
+        struct struct_or_union_specifier* _Opt p_complete_b = get_complete_struct_or_union_specifier(b);
 
         if (p_complete_a != NULL && p_complete_b != NULL)
         {
@@ -2305,7 +2179,9 @@ bool enum_specifier_is_same(struct enum_specifier* a, struct enum_specifier* b)
         if (get_complete_enum_specifier(a) && get_complete_enum_specifier(b))
         {
             if (get_complete_enum_specifier(a) != get_complete_enum_specifier(b))
+            {
                 return false;
+            }
             return true;
         }
         return get_complete_enum_specifier(a) == NULL &&
@@ -2319,9 +2195,8 @@ bool enum_specifier_is_same(struct enum_specifier* a, struct enum_specifier* b)
 
 bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
 {
-    const struct type* pa = a;
-    const struct type* pb = b;
-
+    const struct type* _Opt pa = a;
+    const struct type* _Opt pb = b;
 
     while (pa && pb)
     {
@@ -2370,8 +2245,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
                 return false;
             }
 
-            struct param* p_param_a = pa->params.head;
-            struct param* p_param_b = pb->params.head;
+            struct param* _Opt p_param_a = pa->params.head;
+            struct param* _Opt p_param_b = pb->params.head;
             while (p_param_a && p_param_b)
             {
                 if (!type_is_same(&p_param_a->type, &p_param_b->type, true))
@@ -2604,90 +2479,106 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
     char** ppname,
     struct type_list* list)
 {
-    if (pdirectdeclarator->declarator)
+    try
     {
-        make_type_using_declarator_core(ctx, pdirectdeclarator->declarator, ppname, list);
-    }
-
-    else if (pdirectdeclarator->function_declarator)
-    {
-        if (pdirectdeclarator->function_declarator->direct_declarator)
+        if (pdirectdeclarator->declarator)
         {
-            make_type_using_direct_declarator(ctx,
-                pdirectdeclarator->function_declarator->direct_declarator,
-                ppname,
-                list);
+            make_type_using_declarator_core(ctx, pdirectdeclarator->declarator, ppname, list);
         }
 
-        struct type* _Owner _Opt p_func = calloc(1, sizeof(struct type));
-        p_func->category = TYPE_CATEGORY_FUNCTION;
-
-
-        if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
-            pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list)
+        else if (pdirectdeclarator->function_declarator)
         {
-
-            struct parameter_declaration* p =
-                pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list->head;
-
-            p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;
-            p_func->params.is_void = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_void;
-
-            while (p)
+            if (pdirectdeclarator->function_declarator->direct_declarator)
             {
-                struct param* _Owner _Opt p_new_param = calloc(1, sizeof(struct param));
-                p_new_param->type = type_dup(&p->declarator->type);
-                param_list_add(&p_func->params, p_new_param);
-                p = p->next;
+                make_type_using_direct_declarator(ctx,
+                    pdirectdeclarator->function_declarator->direct_declarator,
+                    ppname,
+                    list);
             }
+
+            struct type* _Owner _Opt p_func = calloc(1, sizeof(struct type));
+            if (p_func == NULL) throw;
+
+            p_func->category = TYPE_CATEGORY_FUNCTION;
+
+
+            if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
+                pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list)
+            {
+
+                struct parameter_declaration* _Opt p =
+                    pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+
+                p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;
+                p_func->params.is_void = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_void;
+
+                while (p)
+                {
+                    struct param* _Owner _Opt p_new_param = calloc(1, sizeof(struct param));
+                    if (p_new_param == NULL)
+                    {
+                        type_delete(p_func);
+                        throw;
+                    }
+
+                    p_new_param->type = type_dup(&p->declarator->type);
+                    param_list_add(&p_func->params, p_new_param);
+                    p = p->next;
+                }
+            }
+
+
+            type_list_push_back(list, p_func);
+        }
+        else if (pdirectdeclarator->array_declarator)
+        {
+
+            if (pdirectdeclarator->array_declarator->direct_declarator)
+            {
+                make_type_using_direct_declarator(ctx,
+                    pdirectdeclarator->array_declarator->direct_declarator,
+                    ppname,
+                    list);
+            }
+
+            struct type* _Owner _Opt  p = calloc(1, sizeof(struct type));
+            if (p == NULL) throw;
+
+            p->category = TYPE_CATEGORY_ARRAY;
+
+            p->num_of_elements =
+                (int)array_declarator_get_size(pdirectdeclarator->array_declarator);
+
+            p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
+
+            if (pdirectdeclarator->array_declarator->static_token_opt)
+            {
+                p->static_array = true;
+            }
+
+            if (pdirectdeclarator->array_declarator->type_qualifier_list_opt)
+            {
+                p->type_qualifier_flags = pdirectdeclarator->array_declarator->type_qualifier_list_opt->flags;
+            }
+
+            type_list_push_back(list, p);
+
+            // if (pdirectdeclarator->name_opt)
+             //{
+               //  p->name_opt = strdup(pdirectdeclarator->name_opt->lexeme);
+             //}
         }
 
+        if (pdirectdeclarator->name_opt)
+        {
+            *ppname = pdirectdeclarator->name_opt->lexeme;
+        }
 
-        type_list_push_back(list, p_func);
     }
-    else if (pdirectdeclarator->array_declarator)
+    catch
     {
-
-        if (pdirectdeclarator->array_declarator->direct_declarator)
-        {
-            make_type_using_direct_declarator(ctx,
-                pdirectdeclarator->array_declarator->direct_declarator,
-                ppname,
-                list);
-        }
-
-        struct type* _Owner _Opt  p = calloc(1, sizeof(struct type));
-        p->category = TYPE_CATEGORY_ARRAY;
-
-        p->num_of_elements =
-            (int)array_declarator_get_size(pdirectdeclarator->array_declarator);
-
-        p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
-
-        if (pdirectdeclarator->array_declarator->static_token_opt)
-        {
-            p->static_array = true;
-        }
-
-        if (pdirectdeclarator->array_declarator->type_qualifier_list_opt)
-        {
-            p->type_qualifier_flags = pdirectdeclarator->array_declarator->type_qualifier_list_opt->flags;
-        }
-
-        type_list_push_back(list, p);
-
-        // if (pdirectdeclarator->name_opt)
-         //{
-           //  p->name_opt = strdup(pdirectdeclarator->name_opt->lexeme);
-         //}
+        //tODO
     }
-
-    if (pdirectdeclarator->name_opt)
-    {
-        *ppname = pdirectdeclarator->name_opt->lexeme;
-    }
-
-
 }
 
 void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* pdeclarator,
@@ -2696,7 +2587,7 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
     try
     {
         struct type_list pointers = { 0 };
-        struct pointer* pointer = pdeclarator->pointer;
+        struct pointer* _Opt pointer = pdeclarator->pointer;
         while (pointer)
         {
             struct type* _Owner _Opt p_flat = calloc(1, sizeof(struct type));
@@ -2961,7 +2852,7 @@ const struct type* type_get_specifer_part(const struct type* p_type)
     /*
      last part is the specifier
     */
-    const struct type* p = p_type;
+    const struct type* _Opt p = p_type;
     while (p->next) p = p->next;
     return p;
 }

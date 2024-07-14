@@ -406,7 +406,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
         return content;
 
 
-    struct include_dir* current = ctx->include_dir.head;
+    struct include_dir* _Opt current = ctx->include_dir.head;
     while (current)
     {
         int len = strlen(current->path);
@@ -3372,7 +3372,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             return macro_argument_list;
         }
 
-        struct macro_parameter* p_current_parameter = macro->parameters;
+        struct macro_parameter* _Opt p_current_parameter = macro->parameters;
         int count = 1;
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
         match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
@@ -3477,7 +3477,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
     return macro_argument_list;
 }
 
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct macro* macro, struct macro_argument_list* arguments, int level, const struct token* origin);
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* _Opt p_list, struct macro* macro, struct macro_argument_list* arguments, int level, const struct token* origin);
 struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* oldlist, int level, const struct token* origin);
 
 
@@ -3769,9 +3769,9 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
 
 struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* input_list);
 
-static bool macro_already_expanded(struct macro_expanded* p_list, const char* name)
+static bool macro_already_expanded(struct macro_expanded* _Opt p_list, const char* name)
 {
-    struct macro_expanded* p_item = p_list;
+    struct macro_expanded* _Opt p_item = p_list;
     while (p_item)
     {
         if (strcmp(name, p_item->name) == 0)
@@ -3969,7 +3969,7 @@ struct token_list  copy_replacement_list(struct token_list* list)
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
     struct token_list r = { 0 };
-    struct token* current = list->head;
+    struct token* _Opt current = list->head;
     //sai de cima de todos brancos iniciais
     while (current && token_is_blank(current))
     {
@@ -4064,7 +4064,7 @@ void print_literal2(const char* s);
 
 
 struct token_list expand_macro(struct preprocessor_ctx* ctx,
-    struct macro_expanded* list,
+    struct macro_expanded* _Opt p_list_of_macro_expanded_opt,
     struct macro* macro,
     struct macro_argument_list* arguments,
     int level,
@@ -4075,10 +4075,10 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     try
     {
-        assert(!macro_already_expanded(list, macro->name));
+        assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
         struct macro_expanded macro_expanded = { 0 };
         macro_expanded.name = macro->name;
-        macro_expanded.p_previous = list;
+        macro_expanded.p_previous = p_list_of_macro_expanded_opt;
         if (macro->is_function)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
@@ -4210,7 +4210,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 if (macro->expand)
                 {
                     //Esconde a macro e os argumentos
-                    for (struct token* current = arguments.tokens.head;
+                    for (struct token* _Opt current = arguments.tokens.head;
                         current != arguments.tokens.tail->next;
                         current = current->next)
                     {
@@ -4219,7 +4219,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 
                     //mostra a expansao da macro
                     /*teste de expandir so algumas macros*/
-                    for (struct token* current = start_macro.head;
+                    for (struct token* _Opt current = start_macro.head;
                         current != start_macro.tail->next;
                         current = current->next)
                     {

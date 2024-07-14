@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 /*
   For performance reasons we will separate expression from preprocessor from compiler.
@@ -100,8 +100,11 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
   into another so the head of the input list is the current.
   We could use the same concept here removing current.
 */
-static struct token* pre_match(struct preprocessor_ctx* ctx)
+static struct token* _Opt pre_match(struct preprocessor_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return NULL;
+
     ctx->current = ctx->current->next;
 
     while (ctx->current && token_is_blank(ctx->current))
@@ -124,6 +127,11 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
     */
     try
     {
+        if (ctx->current == NULL)
+        {
+            throw;
+        }
+
         if (ctx->current->type == TK_CHAR_CONSTANT)
         {
             const char* p = ctx->current->lexeme + 1;
@@ -220,7 +228,7 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx, struct pre_expres
       */
     try
     {
-        if (ctx->current->type == '++' || ctx->current->type == '--')
+        if (ctx->current && (ctx->current->type == '++' || ctx->current->type == '--'))
         {
             preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
                                               ctx,
@@ -232,6 +240,7 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx, struct pre_expres
         else if (ctx->current != NULL &&
                  (ctx->current->type == '&' || ctx->current->type == '*' || ctx->current->type == '+' || ctx->current->type == '-' || ctx->current->type == '~' || ctx->current->type == '!'))
         {
+            const struct token* const p_old = ctx->current;
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             pre_cast_expression(ctx, ectx);
@@ -248,15 +257,15 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx, struct pre_expres
                 ectx->value = +ectx->value;
             else if (op == '*')
             {
-                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
             }
             else if (op == '&')
             {
-                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
             }
             else
             {
-                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
             }
         }
         else
@@ -299,7 +308,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
                    ctx->current->type == '/' ||
                    ctx->current->type == '%'))
         {
-            struct token * op_token = ctx->current;
+            struct token* op_token = ctx->current;
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
@@ -315,7 +324,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
             {
                 if (ectx->value == 0)
                 {
-                    preprocessor_diagnostic_message(C_PRE_DIVISION_BY_ZERO, ctx, op_token , "division by zero");
+                    preprocessor_diagnostic_message(C_PRE_DIVISION_BY_ZERO, ctx, op_token, "division by zero");
                     throw;
                 }
                 else
@@ -352,11 +361,11 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx, struct pre_exp
                (ctx->current->type == '+' ||
                    ctx->current->type == '-'))
         {
-            enum token_type op = ctx->current->type;
+            const struct token* p_op_token = ctx->current;
             pre_match(ctx);
             if (ctx->current == NULL)
             {
-                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED_END_OF_FILE, ctx, ctx->current, "unexpected end of file");
+                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED_END_OF_FILE, ctx, p_op_token, "unexpected end of file");
                 throw;
             }
             long long left_value = ectx->value;
@@ -364,13 +373,17 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx, struct pre_exp
             if (ctx->n_errors > 0)
                 throw;
 
-            if (op == '+')
+            if (p_op_token->type == '+')
             {
                 ectx->value = left_value + ectx->value;
             }
-            else if (op == '-')
+            else if (p_op_token->type == '-')
             {
                 ectx->value = left_value - ectx->value;
+            }
+            else
+            {
+                throw;
             }
         }
     }

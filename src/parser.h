@@ -139,19 +139,19 @@ struct parser_ctx
 void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx);
 
 
-struct token* _Opt parser_look_ahead(struct parser_ctx* ctx);
+struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
 
 void parser_match(struct parser_ctx* ctx);
 NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 
-struct token* _Opt previous_parser_token(struct token* token);
-struct declarator* _Opt find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+struct token* _Opt previous_parser_token(const struct token* token);
+struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
 struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
 struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
 
 struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
-bool first_is(struct parser_ctx* ctx, enum token_type type);
+
 void print_scope(struct scope_list* e);
 
 char* _Opt _Owner CompileText(const char* options, const char* content);
@@ -1430,7 +1430,7 @@ struct attribute_argument_clause
 struct attribute_argument_clause* _Owner _Opt attribute_argument_clause(struct parser_ctx* ctx);
 void attribute_argument_clause_delete(struct attribute_argument_clause* _Owner _Opt p);
 
-bool first_of_attribute(struct parser_ctx* ctx);
+bool first_of_attribute(const struct parser_ctx* ctx);
 
 struct balanced_token
 {

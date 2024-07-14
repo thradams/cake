@@ -535,12 +535,8 @@ void print_scope(struct scope_list* e)
     printf("--- end of scope---\n");
 }
 
-bool first_is(struct parser_ctx* ctx, enum token_type type)
-{
-    return ctx->current != NULL && ctx->current->type == type;
-}
 
-bool first_of_function_specifier(struct parser_ctx* ctx)
+bool first_of_function_specifier(const struct parser_ctx* ctx)
 {
     struct token* _Opt token = ctx->current;
 
@@ -551,14 +547,14 @@ bool first_of_function_specifier(struct parser_ctx* ctx)
         token->type == TK_KEYWORD__NORETURN;
 }
 
-bool first_of_enum_specifier_token(struct token* token)
+bool first_of_enum_specifier_token(const struct token* token)
 {
     if (token == NULL)
         return false;
     return token->type == TK_KEYWORD_ENUM;
 }
 
-bool first_of_enum_specifier(struct parser_ctx* ctx)
+bool first_of_enum_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -566,14 +562,14 @@ bool first_of_enum_specifier(struct parser_ctx* ctx)
     return first_of_enum_specifier_token(ctx->current);
 }
 
-bool first_of_alignment_specifier(struct parser_ctx* ctx)
+bool first_of_alignment_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
     return ctx->current->type == TK_KEYWORD__ALIGNAS;
 }
 
-bool first_of_atomic_type_specifier(struct parser_ctx* ctx)
+bool first_of_atomic_type_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -594,7 +590,7 @@ bool first_of_atomic_type_specifier(struct parser_ctx* ctx)
     return false;
 }
 
-bool first_of_storage_class_specifier(struct parser_ctx* ctx)
+bool first_of_storage_class_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -608,12 +604,12 @@ bool first_of_storage_class_specifier(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_REGISTER;
 }
 
-bool first_of_struct_or_union_token(struct token* token)
+bool first_of_struct_or_union_token(const struct token* token)
 {
     return token->type == TK_KEYWORD_STRUCT || token->type == TK_KEYWORD_UNION;
 }
 
-bool first_of_struct_or_union(struct parser_ctx* ctx)
+bool first_of_struct_or_union(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -621,7 +617,7 @@ bool first_of_struct_or_union(struct parser_ctx* ctx)
     return first_of_struct_or_union_token(ctx->current);
 }
 
-bool first_of_type_qualifier_token(struct token* p_token)
+bool first_of_type_qualifier_token(const struct token* p_token)
 {
     if (p_token == NULL)
         return false;
@@ -642,7 +638,7 @@ bool first_of_type_qualifier_token(struct token* p_token)
     //__stdcall
 }
 
-bool first_of_type_qualifier(struct parser_ctx* ctx)
+bool first_of_type_qualifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -726,7 +722,7 @@ struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct par
     return p;
 }
 
-struct declarator* _Opt find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt)
+struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt)
 {
     struct map_entry* _Opt p_entry = find_variables(ctx, lexeme, ppscope_opt);
 
@@ -756,7 +752,7 @@ struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char
     return NULL;
 }
 
-bool first_of_typedef_name(struct parser_ctx* ctx, struct token* p_token)
+bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
 {
     if (p_token == NULL)
         return false;
@@ -795,8 +791,8 @@ bool first_of_typedef_name(struct parser_ctx* ctx, struct token* p_token)
     return false;
 }
 
-bool first_of_type_specifier(struct parser_ctx* ctx);
-bool first_of_type_specifier_token(struct parser_ctx* ctx, struct token* token);
+bool first_of_type_specifier(const struct parser_ctx* ctx);
+bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* token);
 
 bool first_of_type_name_ahead(struct parser_ctx* ctx)
 {
@@ -820,7 +816,7 @@ bool first_of_type_name(struct parser_ctx* ctx)
     return first_of_type_specifier(ctx) || first_of_type_qualifier(ctx);
 }
 
-bool first_of_type_specifier_token(struct parser_ctx* ctx, struct token* p_token)
+bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p_token)
 {
     if (p_token == NULL)
         return false;
@@ -857,26 +853,26 @@ bool first_of_type_specifier_token(struct parser_ctx* ctx, struct token* p_token
         first_of_typedef_name(ctx, p_token);
 }
 
-bool first_of_type_specifier(struct parser_ctx* ctx)
+bool first_of_type_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
-    return first_of_type_specifier_token(ctx /*should be const*/, ctx->current);
+    return first_of_type_specifier_token(ctx, ctx->current);
 }
 
-bool first_of_type_specifier_qualifier(struct parser_ctx* ctx)
+bool first_of_type_specifier_qualifier(const struct parser_ctx* ctx)
 {
     return first_of_type_specifier(ctx) ||
         first_of_type_qualifier(ctx) ||
         first_of_alignment_specifier(ctx);
 }
 
-bool first_of_compound_statement(struct parser_ctx* ctx)
+bool first_of_compound_statement(const struct parser_ctx* ctx)
 {
-    return first_is(ctx, '{');
+    return ctx->current != NULL && ctx->current->type == '{';
 }
 
-bool first_of_jump_statement(struct parser_ctx* ctx)
+bool first_of_jump_statement(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -888,7 +884,7 @@ bool first_of_jump_statement(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_THROW /*extension*/;
 }
 
-bool first_of_selection_statement(struct parser_ctx* ctx)
+bool first_of_selection_statement(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -897,7 +893,7 @@ bool first_of_selection_statement(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_SWITCH;
 }
 
-bool first_of_iteration_statement(struct parser_ctx* ctx)
+bool first_of_iteration_statement(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -907,7 +903,7 @@ bool first_of_iteration_statement(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_FOR;
 }
 
-bool first_of_label(struct parser_ctx* ctx)
+bool first_of_label(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -929,7 +925,7 @@ bool first_of_label(struct parser_ctx* ctx)
     return false;
 }
 
-bool first_of_declaration_specifier(struct parser_ctx* ctx)
+bool first_of_declaration_specifier(const struct parser_ctx* ctx)
 {
     /*
     declaration-specifier:
@@ -942,7 +938,7 @@ bool first_of_declaration_specifier(struct parser_ctx* ctx)
         first_of_type_specifier_qualifier(ctx);
 }
 
-bool first_of_pragma_declaration(struct parser_ctx* ctx)
+bool first_of_pragma_declaration(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -950,7 +946,7 @@ bool first_of_pragma_declaration(struct parser_ctx* ctx)
     return ctx->current->type == TK_PRAGMA;
 }
 
-bool first_of_static_assert_declaration(struct parser_ctx* ctx)
+bool first_of_static_assert_declaration(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -962,7 +958,7 @@ bool first_of_static_assert_declaration(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_STATIC_SET;
 }
 
-bool first_of_attribute_specifier(struct parser_ctx* ctx)
+bool first_of_attribute_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -975,12 +971,12 @@ bool first_of_attribute_specifier(struct parser_ctx* ctx)
     return p_token != NULL && p_token->type == '[';
 }
 
-bool first_of_labeled_statement(struct parser_ctx* ctx)
+bool first_of_labeled_statement(const struct parser_ctx* ctx)
 {
     return first_of_label(ctx);
 }
 
-bool first_of_designator(struct parser_ctx* ctx)
+bool first_of_designator(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -988,7 +984,7 @@ bool first_of_designator(struct parser_ctx* ctx)
     return ctx->current->type == '[' || ctx->current->type == '.';
 }
 
-struct token* _Opt previous_parser_token(struct token* token)
+struct token* _Opt previous_parser_token(const struct token* token)
 {
     if (token == NULL || token->prev == NULL)
     {
@@ -1288,7 +1284,7 @@ static void token_promote(struct token* token)
     }
 }
 
-struct token* _Opt parser_look_ahead(struct parser_ctx* ctx)
+struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return NULL;
@@ -1372,7 +1368,7 @@ void hexadecimal_digit_sequence(struct stream* stream)
     }
 }
 
-bool first_of_unsigned_suffix(struct stream* stream)
+bool first_of_unsigned_suffix(const struct stream* stream)
 {
     /*
      unsigned-suffix: one of
@@ -1899,7 +1895,8 @@ void print_declaration_specifiers(struct osstream* ss, struct declaration_specif
     }
     else if (p_declaration_specifiers->typedef_declarator)
     {
-        print_item(ss, &first, p_declaration_specifiers->typedef_declarator->name_opt->lexeme);
+        if (p_declaration_specifiers->typedef_declarator->name_opt)
+            print_item(ss, &first, p_declaration_specifiers->typedef_declarator->name_opt->lexeme);
     }
     else
     {
@@ -2103,7 +2100,6 @@ struct declaration_specifiers* _Owner  _Opt declaration_specifiers(struct parser
         if (p_declaration_specifiers == NULL)
             throw;
 
-        static_set(p_declaration_specifiers, "not-null");
         p_declaration_specifiers->first_token = ctx->current;
 
         while (first_of_declaration_specifier(ctx))
@@ -2210,7 +2206,7 @@ struct declaration_specifiers* _Owner  _Opt declaration_specifiers(struct parser
 }
 
 struct declaration* _Owner  _Opt declaration_core(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner p_attribute_specifier_sequence_opt /*SINK*/,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt /*SINK*/,
     bool can_be_function_definition,
     bool* is_function_definition,
     enum storage_class_specifier_flags default_storage_class_specifier_flags,
@@ -2799,7 +2795,7 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
                     ctx,
                     p_init_declarator->p_declarator->first_token, NULL,
                     "const object should be initialized");
-            
+
             }
         }
     }
@@ -3015,7 +3011,7 @@ struct typeof_specifier_argument* _Owner _Opt typeof_specifier_argument(struct p
     return new_typeof_specifier_argument;
 }
 
-bool first_of_typeof_specifier(struct parser_ctx* ctx)
+bool first_of_typeof_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -3421,13 +3417,13 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _
 
 struct struct_or_union_specifier* _Owner  _Opt struct_or_union_specifier(struct parser_ctx* ctx)
 {
+    assert(ctx->current != NULL);
+
     struct struct_or_union_specifier* _Owner _Opt p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
     try
     {
         if (p_struct_or_union_specifier == NULL)
             throw;
-
-        static_set(*p_struct_or_union_specifier, "zero");
 
         if (ctx->current->type == TK_KEYWORD_STRUCT ||
             ctx->current->type == TK_KEYWORD_UNION)
@@ -3437,11 +3433,10 @@ struct struct_or_union_specifier* _Owner  _Opt struct_or_union_specifier(struct 
         }
         else
         {
-            assert(false);
+            throw;
         }
 
-        p_struct_or_union_specifier->attribute_specifier_sequence_opt =
-            attribute_specifier_sequence_opt(ctx);
+        p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
 
@@ -3922,8 +3917,6 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
     struct specifier_qualifier_list* _Owner _Opt p_specifier_qualifier_list = calloc(1, sizeof(struct specifier_qualifier_list));
     if (p_specifier_qualifier_list == NULL)
         return NULL;
-
-    static_set(*p_specifier_qualifier_list, "zero");
 
     /*
       type_specifier_qualifier attribute_specifier_sequence_opt
@@ -4909,7 +4902,7 @@ struct pointer* _Owner  _Opt pointer_opt(struct parser_ctx* ctx)
             if (p_pointer == NULL)
                 throw;
 
-            static_set(*p_pointer, "zero");
+
 
             p = p_pointer;
             parser_match(ctx);
@@ -5685,7 +5678,7 @@ void pragma_declaration_delete(struct pragma_declaration* _Owner _Opt p)
 
 void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis)
 {
-    struct token* p_pragma_token = p_pragma->first_token;
+    struct token* _Opt p_pragma_token = p_pragma->first_token;
 
     if (p_pragma_token->type != TK_PRAGMA)
     {
@@ -6195,7 +6188,7 @@ struct attribute_list* _Owner  _Opt attribute_list(struct parser_ctx* ctx)
     return p_attribute_list;
 }
 
-bool first_of_attribute(struct parser_ctx* ctx)
+bool first_of_attribute(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -6583,7 +6576,7 @@ void primary_block_delete(struct primary_block* _Owner _Opt p)
         free(p);
     }
 }
-bool first_of_primary_block(struct parser_ctx* ctx)
+bool first_of_primary_block(const struct parser_ctx* ctx)
 {
     if (first_of_compound_statement(ctx) ||
         first_of_selection_statement(ctx) ||
@@ -8452,7 +8445,7 @@ int compile_one_file(const char* file_name,
                 else
                     s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
-                if (options->format_ouput)
+                if (s && options->format_ouput)
                 {
                     /*re-parser ouput and format*/
                     const char* _Owner  _Opt s2 = format_code(options, s);
@@ -8942,9 +8935,8 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             {
                 s = get_code_as_we_see(&visit_ctx.ast.token_list, options.remove_comments);
             }
-            if (options.format_ouput)
+            if (s && options.format_ouput)
             {
-
                 /*re-parser ouput and format*/
                 const char* _Owner  _Opt s2 = format_code(&options, s);
                 free((void* _Owner  _Opt)s);
@@ -9161,9 +9153,16 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
     {
         if (storage & STORAGE_SPECIFIER_STATIC)
         {
-            if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
+            if (type_is_const(type))
             {
-                compiler_diagnostic_message(W_STYLE, ctx, token, NULL, "use prefix s_ for static global variables");
+                //all upper
+            }
+            else
+            {
+                if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
+                {
+                    compiler_diagnostic_message(W_STYLE, ctx, token, NULL, "use prefix s_ for static global variables");
+                }
             }
         }
         if (!is_snake_case(token->lexeme))

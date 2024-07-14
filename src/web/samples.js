@@ -948,7 +948,9 @@ int main()
 
 
 sample["C2Y"]["defer and flow analysis"] =
-    `
+`
+#pragma flow enable
+
 void f2(int i){}
 void f(int k)
 {

@@ -2067,6 +2067,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
     struct object_visitor* p_visitor,
     bool is_nullable,
     const struct token* position_token,
+    const struct marker* p_marker,
     bool check_pointed_object,
     const char* previous_names,
     unsigned int visit_number)
@@ -2124,6 +2125,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                             &visitor,
                             is_nullable,
                             position_token,
+                            p_marker,
                             check_pointed_object,
                             buffer,
                             visit_number);
@@ -2156,6 +2158,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                         p_visitor,
                         is_nullable,
                         position_token,
+                        p_marker,
                         check_pointed_object,
                         buffer,
                         visit_number);
@@ -2179,7 +2182,8 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
         {
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                 ctx->ctx,
-                position_token, NULL,
+                NULL, 
+                p_marker,
                 "non-nullable pointer '%s' may be null",
                 previous_names);
         }
@@ -2200,6 +2204,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                     &visitor,
                     is_nullable,
                     position_token,
+                    p_marker,
                     true,
                     previous_names,
                     visit_number);
@@ -2243,6 +2248,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     bool is_nullable,
     struct flow_object* p_object,
     const struct token* position_token,
+    const struct marker* p_marker,
     bool check_pointed_object)
 {
     const char* _Owner _Opt s = NULL;
@@ -2258,6 +2264,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     &visitor,
     is_nullable,
     position_token,
+    p_marker,
     check_pointed_object,
     name,
     s_visit_number++);
@@ -2543,7 +2550,8 @@ static void flow_assignment_core(
             {
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                             ctx->ctx,
-                            error_position, NULL,
+                            NULL,
+                            p_b_marker,
                             "passing an uninitialized argument '%s' object", buffer);
             }
         }
@@ -2551,14 +2559,16 @@ static void flow_assignment_core(
         {
             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
-                        error_position, NULL,
+                        NULL, 
+                        p_b_marker,
                         "returning an uninitialized '%s' object", buffer);
         }
         else
         {
             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
-                        error_position, NULL,
+                        NULL, 
+                        p_b_marker,
                         "reading an uninitialized '%s' object", buffer);
         }
 
@@ -2573,7 +2583,8 @@ static void flow_assignment_core(
 
         compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
                     ctx->ctx,
-                    error_position, NULL,
+                    NULL,
+                    p_a_marker,
                     "The object '%s' may have been deleted or its lifetime have ended.", buffer);
 
 
@@ -2690,8 +2701,8 @@ static void flow_assignment_core(
                     //if the anwser is yes then we need a warning
                     compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                                                 ctx->ctx,
-                                                error_position,
                                                 NULL,
+                                                p_a_marker,
                                                 "pointed object may be not empty");
                 }
             }
@@ -2740,7 +2751,14 @@ static void flow_assignment_core(
         */
         const bool checked_pointed_object_read = !type_is_out(&t);
         bool is_nullable = a_type_is_nullable || type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
-        checked_read_object(ctx, p_visitor_b->p_type, is_nullable, p_visitor_b->p_object, error_position, checked_pointed_object_read);
+        
+        checked_read_object(ctx,
+            p_visitor_b->p_type, 
+            is_nullable, 
+            p_visitor_b->p_object, 
+            error_position, 
+            p_b_marker,
+            checked_pointed_object_read);
 
 
         //object_copy_state(p_a_type, p_a_object, p_b_type, p_b_object);

@@ -4764,11 +4764,11 @@ void check_assigment(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    //Everthing else is unusual
+                    //Everything else is unusual
                     // p = false;
                     // p = 1-1;
                     // p = '\0';
-                    compiler_diagnostic_message(W_UNSUAL_NULL_POINTER_CONSTANT, ctx, p_b_expression->first_token, NULL, "unusual type used as null pointer constant");
+                    compiler_diagnostic_message(W_UNSUAL_NULL_POINTER_CONSTANT, ctx, p_b_expression->first_token, NULL, "unusual expression/type used as null pointer constant");
                 }
             }
             else

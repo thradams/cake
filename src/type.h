@@ -7,7 +7,6 @@
 #include <stdbool.h>
 
 #include "osstream.h"
-#include "error.h"
 #include "options.h"
 
 struct parser_ctx;
@@ -222,11 +221,7 @@ void print_type_no_names(struct osstream* ss, const struct type* p_type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
-
 void type_destroy(_Opt struct type* _Obj_owner p_type);
-
-
-
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* _Out);
 struct type get_array_item_type(const struct type* p_type);
@@ -243,7 +238,7 @@ bool type_is_view(const struct type* p_type);
 bool type_is_owner(const struct type* p_type);
 bool type_is_obj_owner(const struct type* p_type);
 bool type_is_any_owner(const struct type* p_type);
-bool type_is_lvalue(const struct type* p_type);
+
 bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);
 bool type_is_pointer_to_out(const struct type* p_type);
@@ -304,10 +299,8 @@ struct type make_size_t_type();
 struct type get_function_return_type(const struct type* p_type);
 
 int type_get_sizeof(const struct type* p_type);
-int type_get_num_members(const struct type* type);
 
 int type_get_alignof(const struct type* p_type);
-unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled);
 void type_print(const struct type* a);
@@ -316,12 +309,10 @@ void type_println(const struct type* a);
 enum type_category type_get_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
 
-
 void type_visit_to_mark_anonymous(struct type* p_type);
 
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
-
 
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);

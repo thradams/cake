@@ -45,7 +45,7 @@ enum object_state
 
 
 struct objects {
-    struct flow_object* _Owner* _Owner data;
+    struct flow_object* _Owner* _Owner _Opt data;
     int size;
     int capacity;
 };
@@ -193,6 +193,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     bool is_nullable,
     struct flow_object* p_object,
     const struct token* position_token,
+    const struct marker* p_marker,
     bool check_pointed_object);
 
 

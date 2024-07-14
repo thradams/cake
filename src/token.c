@@ -556,7 +556,7 @@ struct token* _Owner _Opt clone_token(struct token* p)
     struct token* _Owner _Opt token = calloc(1, sizeof * token);
     if (token)
     {
-        char* _Owner lexeme = strdup(p->lexeme);
+        char* _Owner _Opt lexeme = strdup(p->lexeme);
         if (lexeme == NULL)
         {
             free(token);
@@ -819,6 +819,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
 
 void print_line_and_token(const struct marker* p_marker, bool visual_studio_ouput_format)
 {
+
     const struct token* p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
 
     if (p_token == NULL)
@@ -827,7 +828,7 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
     const int line = p_marker->line;
 
     if (!visual_studio_ouput_format)
-        COLOR_ESC_PRINT(printf(LIGHTGRAY));
+        COLOR_ESC_PRINT(printf(RESET));
 
     char nbuffer[20] = { 0 };
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
@@ -844,7 +845,14 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
     }
 
 
-    const struct token* p_item = p_line_begin;
+    const struct token* p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
+    const struct token* p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
+
+    //only expand macros if the error is inside
+    const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
+
+
+    const struct token* _Opt p_item = p_line_begin;
     while (p_item)
     {
         if (!visual_studio_ouput_format)
@@ -853,11 +861,14 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
                 COLOR_ESC_PRINT(printf(DARKGRAY));
         }
 
-        const char* p = p_item->lexeme;
-        while (*p)
+        if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
         {
-            putc(*p, stdout);
-            p++;
+            const char* p = p_item->lexeme;
+            while (*p)
+            {
+                putc(*p, stdout);
+                p++;
+            }
         }
 
         if (!visual_studio_ouput_format)
@@ -871,8 +882,8 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
         p_item = p_item->next;
     }
 
-    const struct token * p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
-    const struct token * p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
+    if (!visual_studio_ouput_format)
+        COLOR_ESC_PRINT(printf(RESET));
 
     if (p_item == NULL) printf("\n");
 
@@ -888,15 +899,18 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
             onoff = true;
         }
 
-        const char* p = p_item->lexeme;
-        while (*p)
+        if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
         {
+            const char* p = p_item->lexeme;
+            while (*p)
+            {
 
-            if (onoff)
-                putc('~', stdout);
-            else
-                putc(' ', stdout);
-            p++;
+                if (onoff)
+                    putc('~', stdout);
+                else
+                    putc(' ', stdout);
+                p++;
+            }
         }
 
         if (p_item->type == TK_NEWLINE)

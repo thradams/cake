@@ -1646,11 +1646,16 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
 
             if (p_argument_object)
             {
+                struct marker marker = {
+                    .p_token_begin = p_current_argument->expression->first_token,
+                    .p_token_end = p_current_argument->expression->last_token
+                };
                 checked_read_object(ctx,
                     &p_current_argument->expression->type,
                     type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled),
                     p_argument_object,
                     p_current_argument->expression->first_token,
+                    &marker,
                     false);
             }
             else
