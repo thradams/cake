@@ -220,7 +220,7 @@ enum token_flags
 struct token
 {
     enum token_type type;
-    char* _Owner lexeme;
+    char* _Owner lexeme; //TODO make const
     char* original;
 
     int line;

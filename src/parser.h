@@ -556,7 +556,7 @@ struct enum_specifier
        "enum" identifier enum-type-specifier _Opt
     */
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
-    struct specifier_qualifier_list* _Owner specifier_qualifier_list;
+    struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list;
 
     char tag_name[200];
 
@@ -697,8 +697,8 @@ struct declarator
     struct direct_declarator* _Owner _Opt direct_declarator;
 
 
-    struct declaration_specifiers* declaration_specifiers;
-    const struct specifier_qualifier_list* specifier_qualifier_list;
+    struct declaration_specifiers* _Opt declaration_specifiers;
+    const struct specifier_qualifier_list* _Opt specifier_qualifier_list;
 
     struct token* _Opt name_opt; //shortcut , null for abstract declarator
 
@@ -746,7 +746,7 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p);
 /*
   Return a value > 0 if it has constant size
 */
-unsigned long long  array_declarator_get_size(struct array_declarator* p_array_declarator);
+unsigned long long  array_declarator_get_size(const struct array_declarator* p_array_declarator);
 
 struct function_declarator
 {
@@ -754,7 +754,7 @@ struct function_declarator
      function-declarator:
        direct-declarator ( parameter-type-list _Opt )
     */
-    struct direct_declarator* _Owner direct_declarator;
+    struct direct_declarator* _Owner _Opt direct_declarator;
     struct scope parameters_scope; //usado para escopo parametros
     struct parameter_type_list* _Owner _Opt parameter_type_list_opt;
 };
@@ -778,7 +778,7 @@ struct direct_declarator
 
 void direct_declarator_delete(struct direct_declarator* _Owner _Opt p);
 
-struct direct_declarator* _Owner  _Opt direct_declarator(struct parser_ctx* ctx,
+struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* specifier_qualifier_list,
     struct declaration_specifiers* declaration_specifiers,
     bool abstract_acceptable,

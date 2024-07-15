@@ -262,7 +262,7 @@ void object_destroy(struct flow_object* _Obj_owner p)
     struct flow_object_state* _Owner _Opt p_flow_object_state = p->current.next;
     while (p_flow_object_state)
     {
-        struct flow_object_state* _Owner  _Opt temp = p_flow_object_state->next;
+        struct flow_object_state* _Owner _Opt temp = p_flow_object_state->next;
         p_flow_object_state->next = NULL;
         flow_object_state_delete(p_flow_object_state);
         p_flow_object_state = temp;
@@ -1738,6 +1738,79 @@ void object_set_zero(struct type* p_type, struct flow_object* p_object)
     object_set_zero_core(&visitor);
 }
 
+void object_set_end_of_lifetime_core(struct object_visitor* p_visitor)
+{
+    if (p_visitor->p_object == NULL || p_visitor->p_type == NULL)
+    {
+        return;
+    }
+
+    if (p_visitor->p_type->struct_or_union_specifier)
+    {
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier)
+        {
+            struct member_declaration* _Opt p_member_declaration = p_struct_or_union_specifier->member_declaration_list.head;
+
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* _Opt p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            if (p_visitor->member_index < p_visitor->p_object->members.size)
+                            {
+                                struct object_visitor visitor = { 0 };
+                                visitor.p_type = &p_member_declarator->declarator->type;
+                                visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
+                                object_set_end_of_lifetime_core(&visitor);
+                            }
+                            p_visitor->member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                else
+                {
+                    if (p_member_declaration->specifier_qualifier_list &&
+                        p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    {
+                        struct type t = { 0 };
+                        t.category = TYPE_CATEGORY_ITSELF;
+                        t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                        struct type* temp = p_visitor->p_type;
+                        p_visitor->p_type = &t;
+                        object_set_end_of_lifetime_core(p_visitor);
+                        p_visitor->p_type = temp; //restore
+                        type_destroy(&t);
+                    }
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+            return;
+        }
+        return;
+    }
+   
+    p_visitor->p_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;    
+}
+
+void object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_object)
+{
+    struct object_visitor visitor = { 0 };
+    visitor.p_type = p_type;
+    visitor.p_object = p_object;
+    object_set_end_of_lifetime_core(&visitor);
+}
 //returns true if all parts that need to be moved weren't moved.
 bool object_check(struct type* p_type, struct flow_object* p_object)
 {
@@ -2006,11 +2079,11 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                         p_object->current.ref.data[i],
                         position_token,
                         visit_number);
-        }
+                }
 #endif
                 type_destroy(&t2);
-    }
-}
+            }
+        }
 
         if (p_object->current.state & OBJECT_STATE_MOVED)
         {
@@ -2182,7 +2255,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
         {
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                 ctx->ctx,
-                NULL, 
+                NULL,
                 p_marker,
                 "non-nullable pointer '%s' may be null",
                 previous_names);
@@ -2271,8 +2344,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     free((void* _Owner)s);
 }
 
-
-static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
+static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
     struct object_visitor* p_visitor,
     bool b_type_is_view,
     const struct token* position_token,
@@ -2348,7 +2420,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
                             visitor.p_type = &p_member_declarator->declarator->type;
                             visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
-                            end_of_storage_visit_core(ctx,
+                            flow_end_of_block_visit_core(ctx,
                                 &visitor,
                                 b_type_is_view || member_is_view,
                                 position_token,
@@ -2373,7 +2445,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
 
                     int visit_number0 = p_visitor->p_object->visit_number;
                     p_visitor->p_object->visit_number = 0;
-                    end_of_storage_visit_core(ctx,
+                    flow_end_of_block_visit_core(ctx,
                         p_visitor,
                         member_is_view,
                         position_token,
@@ -2443,7 +2515,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
                 struct object_visitor visitor = { 0 };
                 visitor.p_type = &t2;
                 visitor.p_object = p_visitor->p_object->current.pointed;
-                end_of_storage_visit_core(ctx, &visitor, b_type_is_view, position, buffer, visit_number);
+                flow_end_of_block_visit_core(ctx, &visitor, b_type_is_view, position, buffer, visit_number);
             }
 
 
@@ -2474,12 +2546,11 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
         else
         {
         }
-
-        p_visitor->p_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
+        
     }
 }
 
-void end_of_storage_visit(struct flow_visit_ctx* ctx,
+void flow_end_of_block_visit(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool type_is_view,
     struct flow_object* p_object,
@@ -2489,7 +2560,7 @@ void end_of_storage_visit(struct flow_visit_ctx* ctx,
     struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
-    end_of_storage_visit_core(ctx,
+    flow_end_of_block_visit_core(ctx,
     &visitor,
     type_is_view,
     position_token,
@@ -2559,7 +2630,7 @@ static void flow_assignment_core(
         {
             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
-                        NULL, 
+                        NULL,
                         p_b_marker,
                         "returning an uninitialized '%s' object", buffer);
         }
@@ -2567,7 +2638,7 @@ static void flow_assignment_core(
         {
             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
-                        NULL, 
+                        NULL,
                         p_b_marker,
                         "reading an uninitialized '%s' object", buffer);
         }
@@ -2730,7 +2801,7 @@ static void flow_assignment_core(
 
 
         return;
-}
+    }
 
 
 
@@ -2751,12 +2822,12 @@ static void flow_assignment_core(
         */
         const bool checked_pointed_object_read = !type_is_out(&t);
         bool is_nullable = a_type_is_nullable || type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
-        
+
         checked_read_object(ctx,
-            p_visitor_b->p_type, 
-            is_nullable, 
-            p_visitor_b->p_object, 
-            error_position, 
+            p_visitor_b->p_type,
+            is_nullable,
+            p_visitor_b->p_object,
+            error_position,
             p_b_marker,
             checked_pointed_object_read);
 
@@ -2827,12 +2898,12 @@ static void flow_assignment_core(
                         struct type t2 = type_remove_pointer(p_visitor_b->p_type);
                         object_set_uninitialized(&t2, pointed);
                         type_destroy(&t2);
-                    }
-
                 }
+
+            }
                 else
                     object_set_moved(p_visitor_b->p_type, p_visitor_b->p_object);
-            }
+        }
             else
             {
                 if (p_visitor_b->p_type->address_of)
@@ -2864,7 +2935,7 @@ static void flow_assignment_core(
                 }
             }
 
-        }
+    }
         else
         {
             if (a_type_is_view || !type_is_owner(p_visitor_a->p_type))
@@ -2918,7 +2989,7 @@ static void flow_assignment_core(
         }
 
         return;
-    }
+}
 
     if (p_visitor_a->p_type->struct_or_union_specifier && p_visitor_a->p_object->members.size > 0)
     {
@@ -3039,7 +3110,7 @@ static void flow_assignment_core(
         else
             object_set_moved(p_visitor_b->p_type, p_visitor_b->p_object);
     }
-}
+        }
 
 
 struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled)
@@ -3225,11 +3296,11 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                     }
                 }
                 return p_object;
-        }
+            }
 #endif
-    }
+        }
         return NULL;
-}
+    }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -3244,9 +3315,9 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             {
                 return p_obj->current.pointed;
             }
-        }
+                    }
         return p_obj;
-    }
+                }
     else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
     {
         struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
@@ -3318,7 +3389,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         //object_destroy(&obj2);
 
         return p_object;
-    }
+            }
     else if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL ||
              p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
     {
@@ -3396,7 +3467,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     printf("null object");
     //assert(false);
     return NULL;
-}
+        }
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,

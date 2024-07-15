@@ -3827,8 +3827,8 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
       equality-expression
       AND-expression & equality-expression
     */
-    struct expression* _Owner  _Opt p_expression_node = NULL;
-    struct expression* _Owner  _Opt new_expression = NULL;
+    struct expression* _Owner _Opt p_expression_node = NULL;
+    struct expression* _Owner _Opt new_expression = NULL;
 
     try
     {
@@ -3887,8 +3887,8 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
       AND-expression
       exclusive-OR-expression ^ AND-expression
     */
-    struct expression* _Owner  _Opt p_expression_node = NULL;
-    struct expression* _Owner  _Opt new_expression = NULL;
+    struct expression* _Owner _Opt p_expression_node = NULL;
+    struct expression* _Owner _Opt new_expression = NULL;
 
     try
     {
@@ -3941,14 +3941,14 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner  _Opt inclusive_or_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
 {
     /*
     inclusive-OR-expression:
     exclusive-OR-expression
     inclusive-OR-expression | exclusive-OR-expression
     */
-    struct expression* _Owner  _Opt p_expression_node = NULL;
+    struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
         p_expression_node = exclusive_or_expression(ctx);
@@ -4009,14 +4009,14 @@ struct expression* _Owner  _Opt inclusive_or_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner  _Opt logical_and_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
 {
     /*
     logical-AND-expression:
      inclusive-OR-expression
      logical-AND-expression && inclusive-OR-expression
     */
-    struct expression* _Owner  _Opt p_expression_node = NULL;
+    struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
         p_expression_node = inclusive_or_expression(ctx);
@@ -4070,14 +4070,14 @@ struct expression* _Owner  _Opt logical_and_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner  _Opt logical_or_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
 {
     /*
       logical-OR-expression:
        logical-AND-expression
        logical-OR-expression || logical-AND-expression
     */
-    struct expression* _Owner  _Opt p_expression_node = NULL;
+    struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
         p_expression_node = logical_and_expression(ctx);

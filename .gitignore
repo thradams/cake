@@ -75,3 +75,4 @@ src/cake
 /vc/cake/Debug
 /vc/cake/x64/Debug
 /vc/cake/DebugTest
+/tests/unit-tests/failing/_Out

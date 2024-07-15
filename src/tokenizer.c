@@ -630,7 +630,7 @@ void print_macro(struct macro* macro)
     printf("%s", macro->name);
     if (macro->is_function)
         printf("(");
-    struct macro_parameter* parameter = macro->parameters;
+    struct macro_parameter* _Opt parameter = macro->parameters;
     while (parameter)
     {
         if (macro->parameters != parameter)
@@ -645,7 +645,7 @@ void print_macro(struct macro* macro)
 
 void macro_parameters_delete(struct macro_parameter* _Owner _Opt parameters)
 {
-    struct macro_parameter* _Owner p = parameters;
+    struct macro_parameter* _Owner _Opt p = parameters;
     while (p)
     {
         struct macro_parameter* _Owner p_next = p->next;
@@ -1955,9 +1955,10 @@ bool preprocessor_token_previous_is(struct token* p, enum token_type t)
     {
         return false;
     }
-    struct token* current = p->prev;
+    struct token* _Opt current = p->prev;
     if (current == NULL)
         return false;
+
     while (current &&
         (current->type == TK_BLANKS ||
             current->type == TK_LINE_COMMENT ||

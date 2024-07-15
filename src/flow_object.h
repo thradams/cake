@@ -180,7 +180,7 @@ void flow_check_assignment(struct flow_visit_ctx* ctx,
     struct type* p_b_type, struct flow_object* p_b_object,
     bool * _Opt set_argument_to_unkown);
 
-
+void object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_object);
 void object_set_zero(struct type* p_type, struct flow_object* p_object);
 void object_set_uninitialized(struct type* p_type, struct flow_object* p_object);
 void object_set_moved(struct type* p_type, struct flow_object* p_object);
@@ -197,7 +197,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     bool check_pointed_object);
 
 
-void end_of_storage_visit(struct flow_visit_ctx* ctx,
+void flow_end_of_block_visit(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool type_is_view,
     struct flow_object* p_object,

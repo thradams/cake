@@ -5,7 +5,7 @@ typedef const A *B;
 static_assert(_Generic(typeof(B), char *const *: 1));
 
 typedef const int T;
-T i;
+T i = 0;
 static_assert(_Generic(typeof(i), const int: 1));
 
 const T i2=0;

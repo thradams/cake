@@ -541,6 +541,7 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
     }
     else
     {
+        assert(dest->tail != NULL);
         assert(dest->tail->next == NULL);
         dest->tail->next = source->head;
         source->head->prev = dest->tail;
@@ -703,7 +704,7 @@ void print_token(struct token* p_token)
 void print_tokens(struct token* _Opt p_token)
 {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    struct token* current = p_token;
+    struct token* _Opt current = p_token;
     while (current)
     {
         print_token(current);

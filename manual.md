@@ -134,6 +134,7 @@ Enables all warnings
 
 #### -sarif               
 Generates sarif files
+Sarif VS plugin https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer
 
 #### -msvc-output          
 Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. 

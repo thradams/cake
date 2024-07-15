@@ -147,7 +147,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
 
 void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, bool hide_tokens)
 {
-    struct defer_scope* defer_child = defer_block->lastchild;
+    struct defer_scope* _Opt defer_child = defer_block->lastchild;
     while (defer_child != NULL)
     {
         _View struct token_list l = { 0 };
@@ -172,7 +172,7 @@ void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, boo
 
 void hide_block_defer(struct defer_scope* deferblock)
 {
-    struct defer_scope* deferchild = deferblock->lastchild;
+    struct defer_scope* _Opt deferchild = deferblock->lastchild;
     while (deferchild != NULL)
     {
         struct token* head = deferchild->defer_statement->first_token;
@@ -185,7 +185,7 @@ void hide_block_defer(struct defer_scope* deferblock)
 
 void print_all_defer_until_try(struct defer_scope* deferblock, struct osstream* ss)
 {
-    struct defer_scope* p_defer = deferblock;
+    struct defer_scope* _Opt p_defer = deferblock;
     while (p_defer != NULL)
     {
         print_block_defer(p_defer, ss, false);
@@ -665,7 +665,7 @@ static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initi
 
 static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_list* p_initializer_list)
 {
-    struct initializer* p_initializer = p_initializer_list->head;
+    struct initializer* _Opt p_initializer = p_initializer_list->head;
     while (p_initializer)
     {
         visit_initializer(ctx, p_initializer);
@@ -754,7 +754,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
     //}
     else
     {
-        struct type_specifier_qualifier* p_specifier_qualifier = p_specifier_qualifier_list_opt->head;
+        struct type_specifier_qualifier* _Opt p_specifier_qualifier = p_specifier_qualifier_list_opt->head;
         while (p_specifier_qualifier)
         {
             visit_specifier_qualifier(ctx, p_specifier_qualifier);
@@ -781,8 +781,7 @@ static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name
 
 static void visit_argument_expression_list(struct visit_ctx* ctx, struct argument_expression_list* p_argument_expression_list)
 {
-    struct argument_expression* _Opt p_argument_expression =
-        p_argument_expression_list->head;
+    struct argument_expression* _Opt p_argument_expression = p_argument_expression_list->head;
     while (p_argument_expression)
     {
         visit_expression(ctx, p_argument_expression->expression);
@@ -801,7 +800,7 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
         visit_type_name(ctx, p_generic_selection->type_name);
     }
 
-    struct generic_association* p = p_generic_selection->generic_assoc_list.head;
+    struct generic_association* _Opt p = p_generic_selection->generic_assoc_list.head;
     while (p)
     {
         if (p->p_type_name) visit_type_name(ctx, p->p_type_name);
@@ -1508,7 +1507,7 @@ static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_i
 
 static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list* p_block_item_list)
 {
-    struct block_item* p_block_item = p_block_item_list->head;
+    struct block_item* _Opt p_block_item = p_block_item_list->head;
     while (p_block_item)
     {
         visit_block_item(ctx, p_block_item);
@@ -1560,7 +1559,7 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 {
     if (p_direct_declarator->function_declarator)
     {
-        struct parameter_declaration* parameter = NULL;
+        struct parameter_declaration* _Opt parameter = NULL;
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt)
         {
@@ -1596,7 +1595,7 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
                 if (p_direct_declarator->array_declarator->type_qualifier_list_opt)
                 {
-                    struct type_qualifier* p_type_qualifier =
+                    struct type_qualifier* _Opt p_type_qualifier =
                         p_direct_declarator->array_declarator->type_qualifier_list_opt->head;
 
                     while (p_type_qualifier)
@@ -1616,12 +1615,12 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
 
     if (p_declarator->pointer)
     {
-        struct pointer* p = p_declarator->pointer;
+        struct pointer* _Opt p = p_declarator->pointer;
         while (p)
         {
             if (p->type_qualifier_list_opt)
             {
-                struct type_qualifier* current = p->type_qualifier_list_opt->head;
+                struct type_qualifier* _Opt current = p->type_qualifier_list_opt->head;
                 while (current)
                 {
                     visit_type_qualifier(ctx, current);
@@ -1721,9 +1720,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
 
 static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
-    struct init_declarator* p_init_declarator = p_init_declarator_list->head;
-
-
+    struct init_declarator* _Opt p_init_declarator = p_init_declarator_list->head;
 
     while (p_init_declarator)
     {
@@ -1765,7 +1762,7 @@ static void visit_member_declarator(struct visit_ctx* ctx, struct member_declara
 
 static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_declarator_list* p_member_declarator_list)
 {
-    struct member_declarator* p_member_declarator = p_member_declarator_list->head;
+    struct member_declarator* _Opt p_member_declarator = p_member_declarator_list->head;
     while (p_member_declarator)
     {
         visit_member_declarator(ctx, p_member_declarator);
@@ -1789,8 +1786,7 @@ static void visit_member_declaration(struct visit_ctx* ctx, struct member_declar
 
 static void visit_member_declaration_list(struct visit_ctx* ctx, struct member_declaration_list* p_member_declaration_list)
 {
-    struct member_declaration* p_member_declaration =
-        p_member_declaration_list->head;
+    struct member_declaration* _Opt p_member_declaration = p_member_declaration_list->head;
     while (p_member_declaration)
     {
         visit_member_declaration(ctx, p_member_declaration);
@@ -1808,7 +1804,7 @@ static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_sp
 
 static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence)
 {
-    struct attribute_specifier* current = p_visit_attribute_specifier_sequence->head;
+    struct attribute_specifier* _Opt current = p_visit_attribute_specifier_sequence->head;
     while (current)
     {
         visit_attribute_specifier(ctx, current);
@@ -1889,7 +1885,7 @@ static void visit_enumerator(struct visit_ctx* ctx, struct enumerator* p_enumera
 //struct enumerator_list* enumerator_list;
 static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list* p_enumerator_list)
 {
-    struct enumerator* current = p_enumerator_list->head;
+    struct enumerator* _Opt current = p_enumerator_list->head;
     while (current)
     {
         visit_enumerator(ctx, current);
@@ -1903,7 +1899,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
     {
         if (p_enum_specifier->specifier_qualifier_list)
         {
-            struct token* tk = p_enum_specifier->specifier_qualifier_list->first_token;
+            struct token* _Opt tk = p_enum_specifier->specifier_qualifier_list->first_token;
             while (tk)
             {
                 if (tk->type == ':')
@@ -1957,50 +1953,65 @@ static void visit_typeof_specifier(struct visit_ctx* ctx, struct typeof_specifie
 
 static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p_type_specifier)
 {
-    if (p_type_specifier->typeof_specifier)
+    try
     {
-        visit_typeof_specifier(ctx, p_type_specifier->typeof_specifier);
-    }
-
-    if (p_type_specifier->struct_or_union_specifier)
-    {
-        visit_struct_or_union_specifier(ctx, p_type_specifier->struct_or_union_specifier);
-    }
-
-    if (p_type_specifier->enum_specifier)
-    {
-        visit_enum_specifier(ctx, p_type_specifier->enum_specifier);
-    }
-
-
-    if (p_type_specifier->atomic_type_specifier)
-    {
-        //visit_deped(ctx, p_type_specifier->enum_specifier);
-    }
-
-    if (p_type_specifier->flags & TYPE_SPECIFIER_BOOL)
-    {
-        if (ctx->target < LANGUAGE_C99)
+        if (p_type_specifier->typeof_specifier)
         {
-            free(p_type_specifier->token->lexeme);
-            p_type_specifier->token->lexeme = strdup("unsigned char");
+            visit_typeof_specifier(ctx, p_type_specifier->typeof_specifier);
         }
-        else
+
+        if (p_type_specifier->struct_or_union_specifier)
         {
-            if (ctx->target < LANGUAGE_C2X)
+            visit_struct_or_union_specifier(ctx, p_type_specifier->struct_or_union_specifier);
+        }
+
+        if (p_type_specifier->enum_specifier)
+        {
+            visit_enum_specifier(ctx, p_type_specifier->enum_specifier);
+        }
+
+
+        if (p_type_specifier->atomic_type_specifier)
+        {
+            //visit_deped(ctx, p_type_specifier->enum_specifier);
+        }
+
+        if (p_type_specifier->flags & TYPE_SPECIFIER_BOOL)
+        {
+            if (ctx->target < LANGUAGE_C99)
             {
-                if (strcmp(p_type_specifier->token->lexeme, "bool") == 0)
-                {
-                    free(p_type_specifier->token->lexeme);
-                    p_type_specifier->token->lexeme = strdup("_Bool");
-                }
+                char* _Owner _Opt temp = strdup("unsigned char");
+                if (temp == NULL) throw;
+
+                free(p_type_specifier->token->lexeme);
+                p_type_specifier->token->lexeme = temp;
             }
             else
             {
-                free(p_type_specifier->token->lexeme);
-                p_type_specifier->token->lexeme = strdup("bool");
+                if (ctx->target < LANGUAGE_C2X)
+                {
+                    if (strcmp(p_type_specifier->token->lexeme, "bool") == 0)
+                    {
+                        char* _Owner _Opt temp = strdup("_Bool");
+                        if (temp == NULL) throw;
+
+                        free(p_type_specifier->token->lexeme);
+                        p_type_specifier->token->lexeme = temp;
+                    }
+                }
+                else
+                {
+                    char* _Owner _Opt temp = strdup("bool");
+                    if (temp == NULL) throw;
+
+                    free(p_type_specifier->token->lexeme);
+                    p_type_specifier->token->lexeme = temp;
+                }
             }
         }
+    }
+    catch
+    {
     }
 }
 
@@ -2093,7 +2104,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
             p_declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF))
     {
 
-        struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
+        struct declaration_specifier* _Opt p_declaration_specifier = p_declaration_specifiers->head;
         while (p_declaration_specifier)
         {
             if (p_declaration_specifier->function_specifier)
@@ -2147,7 +2158,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
 
     struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
 
-    struct declaration_specifier* p_constexpr_declaration_specifier = NULL;
+    struct declaration_specifier* _Opt p_constexpr_declaration_specifier = NULL;
     while (p_declaration_specifier)
     {
         if (p_declaration_specifier->storage_class_specifier &&
@@ -2233,7 +2244,7 @@ void defer_scope_delete_one(struct defer_scope* _Owner p_block)
         struct defer_scope* _Owner _Opt child = p_block->lastchild;
         while (child != NULL)
         {
-            struct defer_scope* _Owner prev = child->previous;
+            struct defer_scope* _Owner _Opt prev = child->previous;
 
             child->previous = NULL;
             defer_scope_delete_one(child);
@@ -2251,7 +2262,7 @@ void defer_scope_delete_all(struct defer_scope* _Owner p)
     struct defer_scope* _Owner _Opt p_block = p;
     while (p_block != NULL)
     {
-        struct defer_scope* _Owner prev_block = p_block->previous;
+        struct defer_scope* _Owner _Opt prev_block = p_block->previous;
         p_block->previous = NULL;
         defer_scope_delete_one(p_block);
         p_block = prev_block;
@@ -2305,6 +2316,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         if (p_declaration->declaration_specifiers &&
             p_declaration->declaration_specifiers->type_specifier_flags == TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
+            assert(p_declaration->declaration_specifiers->struct_or_union_specifier != NULL);
+
             if (p_declaration->declaration_specifiers->struct_or_union_specifier->visit_moved == 1)
             {
                 struct tokenizer_ctx tctx = { 0 };
@@ -2518,9 +2531,9 @@ int visit_tokens(struct visit_ctx* ctx)
                     int value = strtol(current->lexeme + 2, NULL, 2);
                     char buffer[33 + 2] = { '0', 'x' };
                     snprintf(buffer, sizeof buffer, "0x%x", value);
-                    
-                    char * _Opt _Owner p_temp = strdup(buffer);
-                    if (p_temp == NULL) throw;                    
+
+                    char* _Opt _Owner p_temp = strdup(buffer);
+                    if (p_temp == NULL) throw;
                     free(current->lexeme);
                     current->lexeme = p_temp;
                 }

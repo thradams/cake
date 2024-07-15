@@ -22,12 +22,18 @@ int main()
     struct X* _Opt _Owner p = calloc(1, sizeof * p);
     if (p)
     {
-        static_debug_ex(p);
         f(p);
         free(p);
+        /*
+          one object struct X was deleted
+        */
     }
     if (g)
     {
+        /*
+          g points to one struct X
+          programmer needs to assert(g != p);
+        */
         g->i = 1;
     }
 }
