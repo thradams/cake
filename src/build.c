@@ -99,6 +99,8 @@ void compile_cake()
 #endif
                " /D_CRT_NONSTDC_NO_WARNINGS "
                " /wd4996 "
+               " /wd4100 " //unreferenced formal paramet
+               " /wd4068 " //unknown pragma
                " /permissive- "
                " /GS "
                " /Zc:preprocessor- "
