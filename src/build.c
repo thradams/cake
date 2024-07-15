@@ -288,10 +288,13 @@ int main()
       running cake on its own source code
     */
 
-    execute_cmd("cake.exe  -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES);
+    execute_cmd("cake.exe -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable " HEADER_FILES SOURCE_FILES);
     printf("\n");
+
+#ifndef TEST
     printf("To run unit test use:\n");
     printf("cake ../tests/unit-tests/*.c -test-mode\n");
+#endif
 
 #ifdef TEST
     execute_cmd("cake.exe ../tests/unit-tests/*.c -test-mode");
