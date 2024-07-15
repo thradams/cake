@@ -68,7 +68,7 @@ static int mychdir(const char* path)
     " fs.c "              \
     " options.c "         \
     " expressions.c "     \
-    " pre_expressions.c " \    
+    " pre_expressions.c " \
     " flow_object.c "     \
     " parser.c "          \
     " visit.c "           \
