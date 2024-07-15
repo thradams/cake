@@ -68,15 +68,14 @@ static int mychdir(const char* path)
     " fs.c "              \
     " options.c "         \
     " expressions.c "     \
-    " pre_expressions.c " \
-    " type.c "            \
+    " pre_expressions.c " \    
     " flow_object.c "     \
     " parser.c "          \
     " visit.c "           \
     " flow_visit.c " \
     " error.c "           \
-    " format_visit.c "
-
+    " format_visit.c " \
+    " type.c "            
 
 void compile_cake()
 {
