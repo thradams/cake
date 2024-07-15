@@ -168,6 +168,7 @@ void compile_cake()
     execute_cmd("gcc "
            "  -Wall "
            " -Wno-multichar "
+           " -Wno-unknown-pragmas "
            " -g  " SOURCE_FILES " main.c "
 
 #ifdef TEST

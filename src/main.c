@@ -74,7 +74,10 @@ int main(int argc, char** argv)
 
 #ifdef TEST
     test_main();
+    printf("--------------------------------------\n");    
+    printf("Embedded tests in #ifdef TEST groups\n");    
     printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);    
+    printf("--------------------------------------\n");    
     if (g_unit_test_error_count > 0)
     { 
         return EXIT_FAILURE;
