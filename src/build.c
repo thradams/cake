@@ -8,14 +8,25 @@
 
 #include "build.h"
 
-static int mysytem(const char *cmd)
+static void execute_cmd(const char* cmd)
+{
+    printf("%s\n", cmd);
+    fflush(stdout);
+    if (system_like(cmd) != 0)
+    {
+        exit(1);
+    }
+}
+
+static int echo_sytem(const char* cmd)
 {
     printf("%s\n", cmd);
     fflush(stdout);
     return system_like(cmd);
 }
 
-static int mychdir(const char *path)
+
+static int mychdir(const char* path)
 {
     printf("chdir: %s\n", path);
     fflush(stdout);
@@ -69,10 +80,10 @@ static int mychdir(const char *path)
 
 void compile_cake()
 {
-  int result = 0;
+    int result = 0;
 
 #ifdef BUILD_WINDOWS_MSC
-    if (mysytem("cl  " SOURCE_FILES " main.c "
+    execute_cmd("cl  " SOURCE_FILES " main.c "
 
 #ifdef DISABLE_COLORS
                " /DDISABLE_COLORS "
@@ -113,14 +124,13 @@ void compile_cake()
                " ucrt.lib vcruntime.lib msvcrt.lib "
                " Kernel32.lib User32.lib Advapi32.lib"
                " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
-               " /out:" OUTPUT) != 0)
-        exit(1);
+               " /out:" OUTPUT);
 
 #endif
 
 #ifdef BUILD_WINDOWS_CLANG
 
-    result = mysytem("clang " SOURCE_FILES " main.c "
+    execute_cmd("clang " SOURCE_FILES " main.c "
 #if defined DEBUG
            " -D_DEBUG"
 #else
@@ -143,7 +153,7 @@ void compile_cake()
 #endif
 
 #if defined BUILD_LINUX_CLANG || defined BUILD_MACOS_CLANG
-    result = mysytem("clang " SOURCE_FILES " main.c "
+    execute_cmd("clang " SOURCE_FILES " main.c "
 #ifdef TEST
            "-DTEST"
 #endif
@@ -155,7 +165,7 @@ void compile_cake()
 #if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC  || defined BUILD_MACOS_GCC
 
     // #define GCC_ANALIZER  " -fanalyzer "
-    result = mysytem("gcc "
+    execute_cmd("gcc "
            "  -Wall "
            " -Wno-multichar "
            " -g  " SOURCE_FILES " main.c "
@@ -166,28 +176,12 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#ifdef BUILD_WINDOWS_TCC
-    result = mysytem(CC
-               SOURCE_FILES " main.c "
 
-#if defined DEBUG
-                            " /D_DEBUG"
-#else
-                            " /D_NDEBUG"
-#endif
-
-#ifdef TEST
-                            " /DTEST"
-#endif
-                            " -o " OUTPUT);
-#endif
-  printf("%d result\n", result);
-  if (result != 0) exit(result);
 }
 
-void generate_doc(const char *mdfilename, const char *outfile)
+void generate_doc(const char* mdfilename, const char* outfile)
 {
-    const char *header =
+    const char* header =
         "<!DOCTYPE html>\n"
         "<html>\n"
         "<head>\n"
@@ -200,19 +194,19 @@ void generate_doc(const char *mdfilename, const char *outfile)
         "    <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
         "    <script>\n"
         "    function Try(elm)\n"
-         "    {\n"
-         "        //collect the text previous sample\n"
-         "        var source = elm.parentElement.previousElementSibling.innerText;\n"
-         "\n"
-         "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
-         "            \"&to=\" + encodeURI(\"1\") +\n"
-         "            \"&options=\" + encodeURI(\"\");\n"
-         "\n"
-         "        window.open(link, 'popup','width=800,height=600');\n"
-         "    }\n"
-         "// find-replace for this\n"
-         "// <button onclick=\"Try(this)\">try</button> \n"
-         "</script>"
+        "    {\n"
+        "        //collect the text previous sample\n"
+        "        var source = elm.parentElement.previousElementSibling.innerText;\n"
+        "\n"
+        "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
+        "            \"&to=\" + encodeURI(\"1\") +\n"
+        "            \"&options=\" + encodeURI(\"\");\n"
+        "\n"
+        "        window.open(link, 'popup','width=800,height=600');\n"
+        "    }\n"
+        "// find-replace for this\n"
+        "// <button onclick=\"Try(this)\">try</button> \n"
+        "</script>"
         "</head>\n"
         "<body>\n"
         "    <article style=\"max-width: 40em; margin:auto\">\n"
@@ -220,7 +214,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
         "<article>\n"
         "<h1>Cake - C23 and Beyond</h1>\n";
 
-    FILE *f2 = fopen(outfile /*"./web/index.html"*/, "w");
+    FILE* f2 = fopen(outfile /*"./web/index.html"*/, "w");
     if (f2)
     {
         fwrite(header, 1, strlen(header), f2);
@@ -228,14 +222,12 @@ void generate_doc(const char *mdfilename, const char *outfile)
     }
     char cmd[200];
     snprintf(cmd, sizeof cmd, RUN "hoedown.exe --html-toc --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
-    if (mysytem(cmd) != 0)
-        exit(1);
+    execute_cmd(cmd);
 
     snprintf(cmd, sizeof cmd, RUN "hoedown.exe  --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
-    if (mysytem(cmd) != 0)
-        exit(1);
+    execute_cmd(cmd);
 
-    FILE *f3 = fopen(outfile /*"./web/index.html"*/, "a");
+    FILE* f3 = fopen(outfile /*"./web/index.html"*/, "a");
     if (f3)
     {
         fwrite("</article></body></html>", 1, strlen("</article></body></html>"), f3);
@@ -255,17 +247,14 @@ int main()
     printf("Building tools-------------------------------------------\n");
     mychdir("./tools");
 
-    if (mysytem(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe") != 0)
-        exit(1);
-    if (mysytem(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe") != 0)
-        exit(1);
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe");
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe");
 
     mychdir("./hoedown");
 
 #define HOEDOWN_SRC " autolink.c buffer.c document.c escape.c hoedown.c html.c html_blocks.c html_smartypants.c stack.c version.c"
 
-    if (mysytem(CC HOEDOWN_SRC OUT_OPT "../../hoedown.exe") != 0)
-        exit(1);
+    execute_cmd(CC HOEDOWN_SRC OUT_OPT "../../hoedown.exe");
 
     mychdir("..");
     mychdir("..");
@@ -278,85 +267,59 @@ int main()
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../warnings.md", "./web/warnings.html");
     generate_doc("../ownership.md", "./web/ownership.html");
-    generate_doc("../ownership_samples.md", "./web/ownership_samples.html");
-    generate_doc("../ownership_proposal.md", "./web/ownership_proposal.html");
 
     remove("hoedown.exe");
 
-    if (mysytem(RUN "maketest.exe unit_test.c " SOURCE_FILES) != 0)
-        exit(1);
+    execute_cmd(RUN "maketest.exe unit_test.c " SOURCE_FILES);
+
     remove("maketest.exe");
 
-    if (mysytem(RUN "amalgamator.exe -olib.c" SOURCE_FILES) != 0)
-        exit(1);
+    execute_cmd(RUN "amalgamator.exe -olib.c" SOURCE_FILES);
     remove("amalgamator.exe");
-
 
     compile_cake();
 
-#if !defined TEST
-/*run cake on it�s own source*/
+
+    /*run cake on it�s own source*/
 #ifdef BUILD_WINDOWS_MSC
 
     /*
       running cake on its own source code
     */
 
-    //-flow-analysis
-    //-nullchecks
-#ifdef NULLCHECKS
-#define NC " -nullable=enable "
-#else
-#define NC " -nullable=disable "
-#endif
-
-    //if (mysytem("cake ../tests/unit-tests/*.c -fanalyzer  -test-mode") != 0)
-    //    exit(1);
-
-    if (mysytem("cake.exe  " NC " -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
-    {
-        exit(1);
-    }
-
+    execute_cmd("cake.exe  -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES);
     printf("\n");
     printf("To run unit test use:\n");
     printf("cake ../tests/unit-tests/*.c -test-mode\n");
+
+#ifdef TEST
+    execute_cmd("cake.exe ../tests/unit-tests/*.c -test-mode\n");
+#endif // TEST
+
 
 
 #endif
 
 #if defined BUILD_LINUX_GCC
+
     /*
-      running cake on its own source code
-      To find GCC directories use
-      echo | gcc -E -Wp,-v -
+       running cake on its own source code
     */
 
-    //Generates cakeconfig.h
-   mysytem("./cake -autoconfig");
+    //Generates cakeconfig.h with the include dir used by gcc
+    execute_cmd("./cake -autoconfig");
 
-   //Uses previouly generated cakeconfig.h to find include dir
-    if (mysytem("./cake "
+    //Uses previouly generated cakeconfig.h to find include dir
+    execute_cmd("./cake "
                " -D__x86_64__ "
-               " -fanalyzer "               
+               " -fanalyzer "
                HEADER_FILES
-               SOURCE_FILES) != 0)
-    {
-       exit(1);
-    }
-#endif
-
-#endif
+               SOURCE_FILES);
 
 #ifdef TEST
-    int test_result = mysytem(RUN OUTPUT);
-    if (test_result)
-    {
-        printf("\n");
-        printf(RED "TESTS FAILED " OUTPUT " exit code %d\n", test_result);
-        printf(RESET);
-        return test_result;
-    }
+    execute_cmd("./cake ../tests/unit-tests/*.c -test-mode\n");
+#endif // TEST
+
 #endif
 
     return 0;

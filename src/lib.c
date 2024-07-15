@@ -25861,9 +25861,6 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
 }
 */
 
-#ifdef TEST
-int printf_nothing(const char* fmt, ...) { return 0; }
-#endif
 
 void scope_destroy(struct scope* _Obj_owner p)
 {
@@ -26084,7 +26081,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     get_warning_name(w, sizeof diagnostic_name, diagnostic_name);
 
 
-#ifndef TEST
+
 
     print_position(marker.file, marker.line, marker.col, ctx->options.visual_studio_ouput_format);
 
@@ -26135,7 +26132,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     }
 
     print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
-#endif
+
 
     if (ctx->sarif_file)
     {
@@ -27916,12 +27913,12 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
     try
     {
         if (p_declaration == NULL)
-        {            
+        {
             throw;
         }
 
         if (ctx->current == NULL)
-        {            
+        {
             throw;
         }
 
@@ -32561,9 +32558,9 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 #endif
                     }
                 }
-                    }
-                }
             }
+        }
+    }
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -32571,7 +32568,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
     }
 
     return p_unlabeled_statement;
-        }
+}
 
 void label_delete(struct label* _Owner _Opt p)
 {

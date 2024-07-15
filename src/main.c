@@ -23,7 +23,6 @@
 #endif
 
 
-#ifndef TEST
 
 static void print_report(struct report* report, bool msvc)
 {
@@ -52,6 +51,10 @@ static void print_report(struct report* report, bool msvc)
     printf("\n");
 }
 
+#ifdef TEST
+#include "unit_test.c"
+#endif
+
 int main(int argc, char** argv)
 {
     enable_vt_mode();
@@ -62,12 +65,21 @@ int main(int argc, char** argv)
       /nologo ?
     */
     printf("Cake " CAKE_VERSION "\n");
-    
+
     if (argc < 2)
     {
         print_help();
         return 1;
     }
+
+#ifdef TEST
+    test_main();
+    printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);    
+    if (g_unit_test_error_count > 0)
+    { 
+        return EXIT_FAILURE;
+    }
+#endif
 
     struct report report = { 0 };
     compile(argc, (const char**)argv, &report);
@@ -80,19 +92,6 @@ int main(int argc, char** argv)
     return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
 }
-#else
-#include "unit_test.c"
-#define CURRENT_NUMBER_OF_FAILING_TEST 0
-int main(int argc, char** argv)
-{
 
-    enable_vt_mode();
 
-    test_main();
-    printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);
-    printf("%d expected to fail - waiting fixes\n", CURRENT_NUMBER_OF_FAILING_TEST);
-
-    return g_unit_test_error_count > CURRENT_NUMBER_OF_FAILING_TEST ? EXIT_FAILURE : EXIT_SUCCESS;
-}
-#endif
 
