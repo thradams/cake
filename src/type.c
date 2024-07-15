@@ -1870,11 +1870,7 @@ int type_get_sizeof(const struct type* p_type)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
             size = (int)sizeof(short);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
-        {
-            size = (int)sizeof(int);
-        }
+        }        
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
             //TODO enum type
@@ -1887,6 +1883,12 @@ int type_get_sizeof(const struct type* p_type)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
             size = (int)sizeof(long long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
+        {
+            //check long first!
+            //typedef long unsigned int uint64_t;
+            size = (int)sizeof(int);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
         {
