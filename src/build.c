@@ -293,7 +293,7 @@ int main()
     printf("cake ../tests/unit-tests/*.c -test-mode\n");
 
 #ifdef TEST
-    execute_cmd("cake.exe ../tests/unit-tests/*.c -test-mode\n");
+    execute_cmd("cake.exe ../tests/unit-tests/*.c -test-mode");
 #endif // TEST
 
 
@@ -317,7 +317,7 @@ int main()
                SOURCE_FILES);
 
 #ifdef TEST
-    execute_cmd("./cake ../tests/unit-tests/*.c -test-mode\n");
+    execute_cmd("./cake ../tests/unit-tests/*.c -test-mode");
 #endif // TEST
 
 #endif
