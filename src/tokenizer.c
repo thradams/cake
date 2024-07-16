@@ -4694,6 +4694,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
         "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
 
+        // gcc -dM -E
 
         "#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
         "#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"

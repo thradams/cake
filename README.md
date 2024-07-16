@@ -10,11 +10,6 @@ The C Programming language Second Edition 1988
 > _"As we said in the preface to the first edition, C "wears well as one's experience with it grows." With a decade more experience, we still feel that way."_
 
 
-
-> _As my experience with any language grows, more a like C._
-
-
-
 # 🍰 Cake
 
 Cake is a compiler front end written from scratch in C, designed from the C23 language specification.
@@ -44,6 +39,8 @@ Cake can also be used as static analyzer, especially the new ownership analysis.
 * Sarif output
 * C backend
 * AST 
+* So far, 34 preprocessor diagnostics, 236 compiler diagnostics
+
 
 # Build
 
@@ -177,7 +174,7 @@ The other difference is that C++ is a second branch of evolution making C++ more
 compatible with C89 than C99.
 
 The idea of Cake is to keep the main line of evolution of C and be always 100% 
-compatible. Cake ♥ C. 
+compatible.
 
 The added extensions aims to keep the spirit of the language and implement proposed 
 features in a way they can be experimented even before standardization.

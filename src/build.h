@@ -1,7 +1,17 @@
 #pragma once
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+
+#if defined(_M_IX86)  || defined(__i386__) /*gcc*/
+    #define CPU_ARCHITECTURE_TEXT "X86"
+#elif defined(_M_X64) || defined(__x86_64__)
+    #define CPU_ARCHITECTURE_TEXT "X64"
+#else
+    #define CPU_ARCHITECTURE_TEXT "??"
+#endif
 
 
 #ifdef _WIN32
@@ -28,28 +38,21 @@ int system_like(const char* command)
 #define BUILD_WINDOWS_CLANG
 #define CC "clang "
 #define OUT_OPT " -o "
-#define CC_DESCRIPTION "clang windows"
+#define CC_DESCRIPTION "CLANG WINDOWS "
 
 #elif defined __GNUC__
 
 #define BUILD_WINDOWS_GCC
 #define CC "gcc "
 #define OUT_OPT " -o "
-#define CC_DESCRIPTION "mingw"
-
-#elif defined __TINYC__
-
-#define BUILD_WINDOWS_TCC
-#define CC "tcc "
-#define OUT_OPT " -o "
-#define CC_DESCRIPTION "tiny c compiler"
+#define CC_DESCRIPTION "MINGW " 
 
 #elif defined _MSC_VER
 
 #define BUILD_WINDOWS_MSC
 #define CC "cl "
 #define OUT_OPT " -o "
-#define CC_DESCRIPTION "msvc"
+#define CC_DESCRIPTION "MSVC " 
 
 #else
 
@@ -72,14 +75,14 @@ int system_like(const char* command)
 #define BUILD_LINUX_CLANG
 #define CC "clang "
 #define OUT_OPT " -o "
-#define CC_DESCRIPTION "clang linux"
+#define CC_DESCRIPTION "clang linux" 
 
 #elif defined __GNUC__
 
 #define BUILD_LINUX_GCC
 #define CC "gcc "
 #define OUT_OPT " -o "
-#define CC_DESCRIPTION "gcc"
+#define CC_DESCRIPTION "gcc" 
 
 #else
 
@@ -134,7 +137,7 @@ int system_like(const char* command)
 #define BUILD_MACOS_CLANG
 #define CC "clang "
 #define OUT_OPT " -o "
-#define CC_DESCRIPTION "clang macos"
+#define CC_DESCRIPTION "clang macos" 
 
 #elif defined __GNUC__
 
@@ -145,7 +148,7 @@ int system_like(const char* command)
 #endif
 #define CC GCC" "
 #define OUT_OPT " -o "
-#define CC_DESCRIPTION GCC
+#define CC_DESCRIPTION GCC 
 
 #else
 
@@ -193,29 +196,27 @@ int system_like(const char* command)
 
 #endif
 
+static void execute_cmd(const char* cmd)
+{
+    printf("%s\n", cmd);
+    fflush(stdout);
+    if (system_like(cmd) != 0)
+    {
+        exit(1);
+    }
+}
 
-#ifdef WITH_ANSI_COLOR
-#define COLOR_ESC(x) x
-#else
-#define COLOR_ESC(x) ""
-#endif
-#define ESC COLOR_ESC("\x1b")
-#define CSI COLOR_ESC("\x1b[")
-#define RESET ESC COLOR_ESC("[0m")
-#define BLACK     COLOR_ESC("\x1b[30m")
-#define BLUE     COLOR_ESC("\x1b[34m")
-#define GREEN     COLOR_ESC("\x1b[32m")
-#define CYAN     COLOR_ESC("\x1b[36m")
-#define RED COLOR_ESC("\x1b[31;1m")
-#define MAGENTA     COLOR_ESC("\x1b[35m")
-#define BROWN     COLOR_ESC("\x1b[31m")
-#define LIGHTGRAY COLOR_ESC("\x1b[30;1m")
-#define DARKGRAY COLOR_ESC("\x1b[30m")
-#define LIGHTBLUE    COLOR_ESC("\x1b[34;1m")
-#define  LIGHTGREEN COLOR_ESC("\x1b[32,1m")
-#define LIGHTCYAN COLOR_ESC("\x1b[36;1m")
-#define LIGHTRED COLOR_ESC("\x1b[31;1m")
-#define LIGHTMAGENTA COLOR_ESC("\x1b[35;1m")
-#define YELLOW COLOR_ESC("\x1b[33;1m")
-#define WHITE COLOR_ESC("\x1b[37;1m")
+static int echo_sytem(const char* cmd)
+{
+    printf("%s\n", cmd);
+    fflush(stdout);
+    return system_like(cmd);
+}
 
+
+static int echo_chdir(const char* path)
+{
+    printf("chdir: %s\n", path);
+    fflush(stdout);
+    return chdir(path);
+}

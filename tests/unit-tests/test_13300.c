@@ -6,6 +6,6 @@ struct X f() {
 int main() {
     f().i = 1;
 }
-#pragma cake diagnostic check "-E123"
+#pragma cake diagnostic check "-E1230"
 
 

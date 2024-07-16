@@ -2,6 +2,6 @@ int main(){
 
     int x = 1;
     auto * p = &x;
-#pragma cake diagnostic check "-E129"
+#pragma cake diagnostic check "-E1290"
 }
 

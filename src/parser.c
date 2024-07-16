@@ -8548,11 +8548,6 @@ int compile_one_file(const char* file_name,
     const char** argv,
     struct report* report)
 {
-    report->error_count = 0;
-    report->warnings_count = 0;
-    report->info_count = 0;
-    report->fatal_error_expected = 0;
-
     printf("%s\n", file_name);
     struct preprocessor_ctx prectx = { 0 };
 
@@ -9024,7 +9019,15 @@ int compile(int argc, const char** argv, struct report* report)
         }
         else
         {
-            compile_one_file(fullpath, &options, output_file, argc, argv, report);
+            struct report report_local = { 0 };
+            compile_one_file(fullpath, &options, output_file, argc, argv, &report_local);
+
+            report->fatal_error_expected = report_local.fatal_error_expected;
+            report->error_count += report_local.error_count;
+            report->warnings_count += report_local.warnings_count;
+            report->info_count += report_local.info_count;
+            report->test_succeeded += report_local.test_succeeded;
+            report->test_failed += report_local.test_failed;
         }
     }
 

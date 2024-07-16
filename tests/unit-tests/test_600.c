@@ -3,5 +3,5 @@ void f()
     int i;
     char i;
 }
-#pragma cake diagnostic check "-E102"
+#pragma cake diagnostic check "-E1020"
 

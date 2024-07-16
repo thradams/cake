@@ -1,45 +1,17 @@
 
 /*
  WINDOWS
- cl -DTEST build.c && build
+   cl -DTEST build.c && build
+
  LINUX/MACOS
- gcc  build.c -o build && ./build
+   gcc  build.c -o build && ./build
  */
 
 #include "build.h"
 
-static void execute_cmd(const char* cmd)
-{
-    printf("%s\n", cmd);
-    fflush(stdout);
-    if (system_like(cmd) != 0)
-    {
-        exit(1);
-    }
-}
-
-static int echo_sytem(const char* cmd)
-{
-    printf("%s\n", cmd);
-    fflush(stdout);
-    return system_like(cmd);
-}
 
 
-static int mychdir(const char* path)
-{
-    printf("chdir: %s\n", path);
-    fflush(stdout);
-    return chdir(path);
-}
-
-#ifdef BUILD_WINDOWS
-#define OUTPUT "cake.exe"
-#else
-#define OUTPUT "cake"
-#endif
-
-#define HEADER_FILES      \
+#define CAKE_HEADER_FILES \
     " console.h "         \
     " tokenizer.h "       \
     " parser.h "          \
@@ -58,7 +30,7 @@ static int mychdir(const char* path)
     " format_visit.h "
 
 
-#define SOURCE_FILES      \
+#define CAKE_SOURCE_FILES \
     " token.c "           \
     " hash.c "            \
     " hashmap.c "         \
@@ -72,18 +44,123 @@ static int mychdir(const char* path)
     " flow_object.c "     \
     " parser.c "          \
     " visit.c "           \
-    " flow_visit.c " \
+    " flow_visit.c "      \
     " error.c "           \
     " format_visit.c "    \
     " type.c "           
 
+#define HOEDOWN_SOURCE_FILES \
+ " autolink.c " \
+ " buffer.c "   \
+ " document.c " \
+ " escape.c "   \
+ " hoedown.c "  \
+ " html.c "     \
+ " html_blocks.c "\
+ " html_smartypants.c "\
+ " stack.c "\
+ " version.c"
 
-void compile_cake()
+static void generate_doc(const char* mdfilename, const char* outfile)
 {
-    int result = 0;
+    const char* header =
+        "<!DOCTYPE html>\n"
+        "<html>\n"
+        "<head>\n"
+        "  \n"
+        "    <link rel=\"stylesheet\" href=\"default.min.css\">\n"
+        "    <script src=\"highlight.min.js\"></script>\n"
+        "    <script>hljs.highlightAll();</script>\n"
+        "    <link rel=\"stylesheet\" href=\"style.css\" />\n"
+        "    <title>Cake Playground</title>\n"
+        "    <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
+        "    <script>\n"
+        "    function Try(elm)\n"
+        "    {\n"
+        "        //collect the text previous sample\n"
+        "        var source = elm.parentElement.previousElementSibling.innerText;\n"
+        "\n"
+        "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
+        "            \"&to=\" + encodeURI(\"1\") +\n"
+        "            \"&options=\" + encodeURI(\"\");\n"
+        "\n"
+        "        window.open(link, 'popup','width=800,height=600');\n"
+        "    }\n"
+        "// find-replace for this\n"
+        "// <button onclick=\"Try(this)\">try</button> \n"
+        "</script>"
+        "</head>\n"
+        "<body>\n"
+        "    <article style=\"max-width: 40em; margin:auto\">\n"
+        "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"playground.html\">Playground</a></p>\n"
+        "<article>\n"
+        "<h1>Cake - C23 and Beyond</h1>\n";
+
+    FILE* f2 = fopen(outfile /*"./web/index.html"*/, "w");
+    if (f2)
+    {
+        fwrite(header, 1, strlen(header), f2);
+        fclose(f2);
+    }
+    else
+    {
+        printf("could not open index.html for writing\n");
+        exit(1);
+    }
+
+    char cmd[200];
+    snprintf(cmd, sizeof cmd, RUN "hoedown.exe --html-toc --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
+    execute_cmd(cmd);
+
+    snprintf(cmd, sizeof cmd, RUN "hoedown.exe  --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
+    execute_cmd(cmd);
+
+    FILE* f3 = fopen(outfile /*"./web/index.html"*/, "a");
+    if (f3)
+    {
+        fwrite("</article></body></html>", 1, strlen("</article></body></html>"), f3);
+        fclose(f3);
+    }
+    else
+    {
+        printf("could not open index.html for writing\n");
+        exit(1);
+    }
+}
+
+int main()
+{
+    printf(CC_DESCRIPTION " " CPU_ARCHITECTURE_TEXT "\n");
+    
+    echo_chdir("./tools");
+
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe");
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe");
+
+    echo_chdir("./hoedown");
+
+    execute_cmd(CC HOEDOWN_SOURCE_FILES OUT_OPT "../../hoedown.exe");
+
+    echo_chdir("..");
+    echo_chdir("..");
+
+    generate_doc("../manual.md", "./web/manual.html");
+    generate_doc("../README.md", "./web/index.html");
+    generate_doc("../warnings.md", "./web/warnings.html");
+    generate_doc("../ownership.md", "./web/ownership.html");
+
+    remove("hoedown.exe");
+
+    execute_cmd(RUN "maketest.exe unit_test.c " CAKE_SOURCE_FILES);
+
+    remove("maketest.exe");
+
+    execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_SOURCE_FILES);
+    remove("amalgamator.exe");
+    
 
 #ifdef BUILD_WINDOWS_MSC
-    execute_cmd("cl  " SOURCE_FILES " main.c "
+    execute_cmd("cl  " CAKE_SOURCE_FILES " main.c "
 
 #ifdef DISABLE_COLORS
                " /DDISABLE_COLORS "
@@ -126,13 +203,21 @@ void compile_cake()
                " ucrt.lib vcruntime.lib msvcrt.lib "
                " Kernel32.lib User32.lib Advapi32.lib"
                " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
-               " /out:" OUTPUT);
+               " /out:cake.exe");
+
+    //Runs cake on its own source
+    execute_cmd("cake.exe -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable " CAKE_HEADER_FILES CAKE_SOURCE_FILES);
+
+    //run unit test if -DTEST
+#ifdef TEST
+    execute_cmd("cake.exe ../tests/unit-tests/*.c -test-mode");
+#endif // TEST
 
 #endif
 
 #ifdef BUILD_WINDOWS_CLANG
 
-    execute_cmd("clang " SOURCE_FILES " main.c "
+    execute_cmd("clang " CAKE_SOURCE_FILES " main.c "
 #if defined DEBUG
            " -D_DEBUG"
 #else
@@ -151,17 +236,21 @@ void compile_cake()
            " -lucrt.lib -lvcruntime.lib -lmsvcrt.lib "
            " -lKernel32.lib -lUser32.lib -lAdvapi32.lib"
            " -luuid.lib -lWs2_32.lib -lRpcrt4.lib -lBcrypt.lib "
-           " -o " OUTPUT);
+           " -o cake.exe");
+
+    //Runs cake on its own source
+    execute_cmd("cake.exe -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable " CAKE_HEADER_FILES CAKE_SOURCE_FILES);
+
 #endif
 
 #if defined BUILD_LINUX_CLANG || defined BUILD_MACOS_CLANG
-    execute_cmd("clang " SOURCE_FILES " main.c "
+    execute_cmd("clang " CAKE_SOURCE_FILES " main.c "
 #ifdef TEST
            "-DTEST"
 #endif
            " -std=c17 "
            " -Wall "
-           " -o " OUTPUT);
+           " -o cake");
 #endif
 
 #if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC  || defined BUILD_MACOS_GCC
@@ -171,171 +260,29 @@ void compile_cake()
            "  -Wall "
            " -Wno-multichar "
            " -Wno-unknown-pragmas "
-           " -g  " SOURCE_FILES " main.c "
+           " -g  " CAKE_SOURCE_FILES " main.c "
 
 #ifdef TEST
            " -DTEST"
 #endif
-           " -o " OUTPUT);
-#endif
-
-
-}
-
-void generate_doc(const char* mdfilename, const char* outfile)
-{
-    const char* header =
-        "<!DOCTYPE html>\n"
-        "<html>\n"
-        "<head>\n"
-        "  \n"
-        "    <link rel=\"stylesheet\" href=\"default.min.css\">\n"
-        "    <script src=\"highlight.min.js\"></script>\n"
-        "    <script>hljs.highlightAll();</script>\n"
-        "    <link rel=\"stylesheet\" href=\"style.css\" />\n"
-        "    <title>Cake Playground</title>\n"
-        "    <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
-        "    <script>\n"
-        "    function Try(elm)\n"
-        "    {\n"
-        "        //collect the text previous sample\n"
-        "        var source = elm.parentElement.previousElementSibling.innerText;\n"
-        "\n"
-        "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
-        "            \"&to=\" + encodeURI(\"1\") +\n"
-        "            \"&options=\" + encodeURI(\"\");\n"
-        "\n"
-        "        window.open(link, 'popup','width=800,height=600');\n"
-        "    }\n"
-        "// find-replace for this\n"
-        "// <button onclick=\"Try(this)\">try</button> \n"
-        "</script>"
-        "</head>\n"
-        "<body>\n"
-        "    <article style=\"max-width: 40em; margin:auto\">\n"
-        "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"playground.html\">Playground</a></p>\n"
-        "<article>\n"
-        "<h1>Cake - C23 and Beyond</h1>\n";
-
-    FILE* f2 = fopen(outfile /*"./web/index.html"*/, "w");
-    if (f2)
-    {
-        fwrite(header, 1, strlen(header), f2);
-        fclose(f2);
-    }
-    char cmd[200];
-    snprintf(cmd, sizeof cmd, RUN "hoedown.exe --html-toc --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
-    execute_cmd(cmd);
-
-    snprintf(cmd, sizeof cmd, RUN "hoedown.exe  --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
-    execute_cmd(cmd);
-
-    FILE* f3 = fopen(outfile /*"./web/index.html"*/, "a");
-    if (f3)
-    {
-        fwrite("</article></body></html>", 1, strlen("</article></body></html>"), f3);
-        fclose(f3);
-    }
-}
-
-int main()
-{
-    printf(CC_DESCRIPTION "\n");
-#if RELEASE
-    printf("RELEASE\n");
-#endif
-
-#ifdef defined DEBUG
-    printf("DEBUG\n");
-#endif
-
-#ifdef _M_IX86 
-    printf("_M_IX86\n");
-#endif
-#ifdef _M_X64 
-    printf("_M_X64\n");
-#endif
-
-    printf("Building tools-------------------------------------------\n");
-    mychdir("./tools");
-
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe");
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe");
-
-    mychdir("./hoedown");
-
-#define HOEDOWN_SRC " autolink.c buffer.c document.c escape.c hoedown.c html.c html_blocks.c html_smartypants.c stack.c version.c"
-
-    execute_cmd(CC HOEDOWN_SRC OUT_OPT "../../hoedown.exe");
-
-    mychdir("..");
-    mychdir("..");
-
-    /*
-     * Generates documentation from md files
-     */
-
-    generate_doc("../manual.md", "./web/manual.html");
-    generate_doc("../README.md", "./web/index.html");
-    generate_doc("../warnings.md", "./web/warnings.html");
-    generate_doc("../ownership.md", "./web/ownership.html");
-
-    remove("hoedown.exe");
-
-    execute_cmd(RUN "maketest.exe unit_test.c " SOURCE_FILES);
-
-    remove("maketest.exe");
-
-    execute_cmd(RUN "amalgamator.exe -olib.c" SOURCE_FILES);
-    remove("amalgamator.exe");
-
-    compile_cake();
-
-
-    /*run cake on it�s own source*/
-#ifdef BUILD_WINDOWS_MSC
-
-    /*
-      running cake on its own source code
-    */
-
-    execute_cmd("cake.exe -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable " HEADER_FILES SOURCE_FILES);
-    printf("\n");
-
-#ifndef TEST
-    printf("To run unit test use:\n");
-    printf("cake ../tests/unit-tests/*.c -test-mode\n");
-#endif
-
-#ifdef TEST
-    execute_cmd("cake.exe ../tests/unit-tests/*.c -test-mode");
-#endif // TEST
-
-
-
-#endif
-
-#if defined BUILD_LINUX_GCC
-
-    /*
-       running cake on its own source code
-    */
+           " -o cake");
 
     //Generates cakeconfig.h with the include dir used by gcc
     execute_cmd("./cake -autoconfig");
 
     //Uses previouly generated cakeconfig.h to find include dir
     execute_cmd("./cake "
-               " -D__x86_64__ "
                " -fanalyzer "
-               HEADER_FILES
-               SOURCE_FILES);
+               CAKE_HEADER_FILES
+               CAKE_SOURCE_FILES);
 
+    //run unit test if -DTEST
 #ifdef TEST
     execute_cmd("./cake ../tests/unit-tests/*.c -test-mode");
 #endif // TEST
 
 #endif
+
 
     return 0;
 }
