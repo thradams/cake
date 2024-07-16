@@ -25,5 +25,5 @@ jobs:
     - name: Build and test
       run: |
         cd src
-        cl build.c -DTEST
+        cl build.c 
         .\build.exe
