@@ -145,10 +145,13 @@ enum diagnostic_id  get_warning(const char* wname)
 
 unsigned long long  get_warning_bit_mask(const char* wname)
 {
+    const bool disable_warning = wname[2] == 'n' && wname[3] == 'o';
+    const char * final_name = disable_warning ? wname + 5 : wname + 2;
     assert(wname[0] == '-');
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
     {
-        if (strncmp(s_warnings[j].name, wname + 2, strlen(s_warnings[j].name)) == 0)
+
+        if (strncmp(s_warnings[j].name, final_name , strlen(s_warnings[j].name)) == 0)
         {
             return (1ULL << ((unsigned long long)s_warnings[j].w));
         }
@@ -410,12 +413,7 @@ int fill_options(struct options* options,
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
-            unsigned long long w = 0;
-
-            if (disable_warning)
-                w = get_warning_bit_mask(argv[i] + 3);
-            else
-                w = get_warning_bit_mask(argv[i]);
+            unsigned long long w = get_warning_bit_mask(argv[i]);
 
             if (w == 0)
             {

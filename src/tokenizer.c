@@ -136,7 +136,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
     ctx->n_errors++;
-#ifndef TEST
+
     char buffer[200] = { 0 };
 
 #pragma CAKE diagnostic push
@@ -161,7 +161,6 @@ static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream
     {
         printf(LIGHTRED "error: " WHITE "%s\n", buffer);
     }
-#endif
 }
 
 
@@ -169,7 +168,7 @@ static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stre
 {
     ctx->n_warnings++;
 
-#ifndef TEST
+
     char buffer[200] = { 0 };
 
 #pragma CAKE diagnostic push
@@ -193,7 +192,7 @@ static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stre
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
     }
-#endif
+
 }
 
 
@@ -262,7 +261,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
 
 
 
-#ifndef TEST
+
 
 
     print_position(marker.file, marker.line, marker.col, ctx->options.visual_studio_ouput_format);
@@ -303,7 +302,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
         print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
 
     }
-#endif
+
     return true;
 }
 
@@ -480,7 +479,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
     // Any space, comments, etc., will become a single space
     struct token_list r = { 0 };
     struct token* _Opt current = list->head; /*null is fine*/
-    
+
     // skip all leading white spaces
     while (current &&
         (token_is_blank(current) ||
@@ -4417,7 +4416,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
      text-line
      # non-directive
     */
-    
+
     assert(input_list->head != NULL);
 
     if (input_list->head->type == TK_PREPROCESSOR_LINE)

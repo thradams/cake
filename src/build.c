@@ -74,8 +74,9 @@ static int mychdir(const char* path)
     " visit.c "           \
     " flow_visit.c " \
     " error.c "           \
-    " format_visit.c " \
-    " type.c "            
+    " format_visit.c "    \
+    " type.c "           
+
 
 void compile_cake()
 {
