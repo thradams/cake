@@ -1,0 +1,2 @@
+
+int f(void);    

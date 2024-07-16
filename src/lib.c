@@ -2524,9 +2524,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2548,9 +2545,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -3930,7 +3924,10 @@ struct token* _Owner ppnumber(struct stream* stream)
     return p_new_token;
 }
 
-struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* filename_opt, int level, enum token_flags addflags)
+struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
+    const struct token* position,
+    const char* filename_opt,
+    int level, enum token_flags addflags)
 {
     struct token_list list = { 0 };
 
@@ -3946,7 +3943,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         file = (FILE * _Owner _Opt)fopen(filename_opt, "rb");
         if (file == NULL)
         {
-            preprocessor_diagnostic_message(C_ERROR_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
+            preprocessor_diagnostic_message(C_ERROR_FILE_NOT_FOUND, ctx, position, "file '%s' not found", filename_opt);
             throw;
         }
 #else
@@ -4016,25 +4013,27 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 #ifdef MOCKFILES
         free(textfile);
 #endif
+
+        /*new line*/
+        char newline[] = "\n";
+        struct token* _Owner _Opt p_new_token = new_token(newline, &newline[1], TK_NEWLINE);
+        p_new_token->level = level;
+        p_new_token->token_origin = NULL;
+        p_new_token->line = line;
+        p_new_token->col = col;
+        token_list_add(&list, p_new_token);
+
+        if (file) fclose(file);
+
+
+
+        assert(list.head != NULL);
     }
     catch
     {
     }
 
-    /*new line*/
-    char newline[] = "\n";
-    struct token* _Owner _Opt p_new_token = new_token(newline, &newline[1], TK_NEWLINE);
-    p_new_token->level = level;
-    p_new_token->token_origin = NULL;
-    p_new_token->line = line;
-    p_new_token->col = col;
-    token_list_add(&list, p_new_token);
 
-    if (file) fclose(file);
-
-
-
-    assert(list.head != NULL);
     return list;
 }
 
@@ -5519,7 +5518,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
               C23
               # embed pp-tokens new-line
             */
+
+            const struct token* const p_embed_token = input_list->head;
+
             match_token_level(p_list, input_list, TK_IDENTIFIER, level, ctx); //embed
+
             skip_blanks_level(ctx, p_list, input_list, level);
             char path[100] = { 0 };
 
@@ -5571,8 +5574,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 nlevel = nlevel + 1;
             }
 
-            struct token_list list = embed_tokenizer(ctx, fullpath, nlevel, f);
 
+            struct token_list list = embed_tokenizer(ctx, p_embed_token, fullpath, nlevel, f);
+
+            if (ctx->n_errors > 0)
+                throw;
 
             token_list_append_list(&r, &list);
             token_list_destroy(&list);
@@ -7289,6 +7295,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
 
         // gcc -dM -E
+        
+        "#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
+        "#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
+        
 
         "#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
         "#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
@@ -25474,8 +25484,20 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     if (sz == 0)
                     {
                         /*int a[] = {1, 2, 3}*/
-                        const int braced_initializer_size =
-                            p_init_declarator->initializer->braced_initializer->initializer_list->size;
+                        int braced_initializer_size = 0;
+                            
+                        if (p_init_declarator->initializer->braced_initializer->initializer_list)
+                        {
+                            braced_initializer_size = p_init_declarator->initializer->braced_initializer->initializer_list->size;
+                        }
+                        else
+                        {
+                           /*
+                              char s[] = {};
+                              warning: zero size arrays are an extension [-Wzero-length-array] 
+                           */
+                        }
+
                         p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
                     }
                 }
@@ -31373,8 +31395,14 @@ int compile_one_file(const char* file_name,
         }
 
         ast.token_list = preprocessor(&prectx, &tokens, 0);
+        
+        report->warnings_count += prectx.n_warnings;
+        report->error_count += prectx.n_errors;
+
         if (prectx.n_errors > 0)
+        {                        
             throw;
+        }
 
         if (options->dump_pptokens)
         {
@@ -31494,6 +31522,7 @@ int compile_one_file(const char* file_name,
         }
         if (report->error_count > 0 || report->warnings_count > 0)
         {
+            remove(file_name);
             printf("-------------------------------------------\n");
             printf("%s", content);
             printf("\n-------------------------------------------\n");
@@ -31502,7 +31531,8 @@ int compile_one_file(const char* file_name,
             report->test_failed++;
         }
         else
-        {
+        {           
+            
             report->test_succeeded++;
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }

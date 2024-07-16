@@ -2726,8 +2726,20 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     if (sz == 0)
                     {
                         /*int a[] = {1, 2, 3}*/
-                        const int braced_initializer_size =
-                            p_init_declarator->initializer->braced_initializer->initializer_list->size;
+                        int braced_initializer_size = 0;
+                            
+                        if (p_init_declarator->initializer->braced_initializer->initializer_list)
+                        {
+                            braced_initializer_size = p_init_declarator->initializer->braced_initializer->initializer_list->size;
+                        }
+                        else
+                        {
+                           /*
+                              char s[] = {};
+                              warning: zero size arrays are an extension [-Wzero-length-array] 
+                           */
+                        }
+
                         p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
                     }
                 }
@@ -8625,8 +8637,14 @@ int compile_one_file(const char* file_name,
         }
 
         ast.token_list = preprocessor(&prectx, &tokens, 0);
+        
+        report->warnings_count += prectx.n_warnings;
+        report->error_count += prectx.n_errors;
+
         if (prectx.n_errors > 0)
+        {                        
             throw;
+        }
 
         if (options->dump_pptokens)
         {
@@ -8746,6 +8764,7 @@ int compile_one_file(const char* file_name,
         }
         if (report->error_count > 0 || report->warnings_count > 0)
         {
+            
             printf("-------------------------------------------\n");
             printf("%s", content);
             printf("\n-------------------------------------------\n");
@@ -8754,7 +8773,8 @@ int compile_one_file(const char* file_name,
             report->test_failed++;
         }
         else
-        {
+        {           
+            
             report->test_succeeded++;
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }

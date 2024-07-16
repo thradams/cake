@@ -211,6 +211,7 @@ int main()
     //run unit test if -DTEST
 #ifdef TEST
     execute_cmd("cake.exe ../tests/unit-tests/*.c -test-mode");
+    execute_cmd("cake.exe ../tests/en-cpp-reference-c/*.c -Wno-array-indirection -Wno-div-by-zero -test-mode");
 #endif // TEST
 
 #endif
@@ -279,6 +280,8 @@ int main()
     //run unit test if -DTEST
 #ifdef TEST
     execute_cmd("./cake ../tests/unit-tests/*.c -test-mode");
+    execute_cmd("./cake ../tests/en-cpp-reference-c/*.c -Wno-array-indirection -Wno-div-by-zero -test-mode");
+    
 #endif // TEST
 
 #endif
