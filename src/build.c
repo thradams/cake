@@ -243,8 +243,17 @@ int main()
     printf(CC_DESCRIPTION "\n");
 #if RELEASE
     printf("RELEASE\n");
-#elif defined DEBUG
+#endif
+
+#ifdef defined DEBUG
     printf("DEBUG\n");
+#endif
+
+#ifdef _M_IX86 
+    printf("_M_IX86\n");
+#endif
+#ifdef _M_X64 
+    printf("_M_X64\n");
 #endif
 
     printf("Building tools-------------------------------------------\n");
