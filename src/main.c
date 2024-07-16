@@ -45,7 +45,6 @@ static void print_report(struct report* report, bool msvc)
     {
         printf("\n");
         printf(" %d tests of %d failed\n", report->test_failed, (report->test_failed + report->test_succeeded));
-
     }
 
     printf("\n");
@@ -74,12 +73,12 @@ int main(int argc, char** argv)
 
 #ifdef TEST
     test_main();
-    printf("--------------------------------------\n");    
-    printf("Embedded tests in #ifdef TEST groups\n");    
-    printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);    
-    printf("--------------------------------------\n");    
+    printf("--------------------------------------\n");
+    printf("Embedded tests in #ifdef TEST groups\n");
+    printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);
+    printf("--------------------------------------\n");
     if (g_unit_test_error_count > 0)
-    { 
+    {
         return EXIT_FAILURE;
     }
 #endif
@@ -90,6 +89,11 @@ int main(int argc, char** argv)
     if (!report.ignore_this_report)
     {
         print_report(&report, true);
+    }
+
+    if (report.test_mode)
+    {
+        return report.test_failed ? EXIT_FAILURE : EXIT_SUCCESS;
     }
 
     return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
