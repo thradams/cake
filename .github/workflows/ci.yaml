@@ -22,6 +22,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: ilammy/msvc-dev-cmd@v1.13.0
+      with:
+        arch: amd64_x86
     - name: Build and test
       run: |
         cd src
