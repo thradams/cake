@@ -661,7 +661,7 @@ struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme)
 struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* ppscope_opt)
 {
     if (ppscope_opt != NULL)
-        *ppscope_opt = NULL; // _Out
+        *ppscope_opt = NULL; // out
 
     struct scope* _Opt scope = ctx->scopes.tail;
     while (scope)
@@ -8567,7 +8567,10 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx);
 
-    include_config_header(&prectx);
+    if (include_config_header(&prectx, file_name) != 0)
+    {
+       //cakeconfig.h is optional               
+    }
     // print_all_macros(&prectx);
 
     struct ast ast = { 0 };
@@ -8585,6 +8588,7 @@ int compile_one_file(const char* file_name,
 
     try
     {
+        //-D , -I etc..
         if (fill_preprocessor_options(argc, argv, &prectx) != 0)
         {
             throw;
@@ -8801,6 +8805,11 @@ int compile_many_files(const char* file_name,
     const char* const file_name_name = basename(file_name);
     const char* const file_name_extension = strrchr(file_name_name, '.');
 
+    if (file_name_extension == NULL)
+    {
+        assert(false);
+    }
+
     int num_files = 0;
 
     char path[MYMAX_PATH] = { 0 };
@@ -8834,7 +8843,9 @@ int compile_many_files(const char* file_name,
             const char* const file_name_iter = basename(dp->d_name);
             const char* const file_extension = strrchr(file_name_iter, '.');
 
-            if (strcmp(file_name_extension, file_extension) == 0)
+            if (file_name_extension && 
+                file_extension && 
+                strcmp(file_name_extension, file_extension) == 0)
             {
                 //Fixes the output file name replacing the current name
                 char out_file_name_final[MYMAX_PATH] = { 0 };
@@ -9013,7 +9024,7 @@ int compile(int argc, const char** argv, struct report* report)
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
-                strcat(output_file, "/_Out");
+                strcat(output_file, "/out");
 
                 strcat(output_file, fullpath + root_dir_len);
 

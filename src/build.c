@@ -131,7 +131,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
 int main()
 {
     printf(CC_DESCRIPTION " " CPU_ARCHITECTURE_TEXT "\n");
-    
+
     echo_chdir("./tools");
 
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe");
@@ -157,7 +157,7 @@ int main()
 
     execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_SOURCE_FILES);
     remove("amalgamator.exe");
-    
+
 
 #ifdef BUILD_WINDOWS_MSC
     execute_cmd("cl  " CAKE_SOURCE_FILES " main.c "
@@ -208,11 +208,6 @@ int main()
     //Runs cake on its own source
     execute_cmd("cake.exe -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable " CAKE_HEADER_FILES CAKE_SOURCE_FILES);
 
-    //run unit test if -DTEST
-#ifdef TEST
-    execute_cmd("cake.exe ../tests/unit-tests/*.c -test-mode");
-    execute_cmd("cake.exe ../tests/en-cpp-reference-c/*.c -Wno-array-indirection -Wno-div-by-zero -test-mode");
-#endif // TEST
 
 #endif
 
@@ -278,14 +273,16 @@ int main()
                CAKE_SOURCE_FILES);
 
     //run unit test if -DTEST
-#ifdef TEST
-    execute_cmd("./cake ../tests/unit-tests/*.c -test-mode");
-    execute_cmd("./cake ../tests/en-cpp-reference-c/*.c -Wno-array-indirection -Wno-div-by-zero -test-mode");
-    
-#endif // TEST
+
 
 #endif
 
+#ifdef TEST
+    execute_cmd(RUN "cake ../tests/unit-tests/*.c -test-mode");
+    execute_cmd(RUN "cake ../tests/en-cpp-reference-c/*.c -Wno-array-indirection -Wno-div-by-zero -test-mode");
+#endif // TEST
+
+    //cake ..\tests\sqlite\sqlite3.c -DSQLITE_OMIT_SEH -Wno-out-of-bounds
 
     return 0;
 }

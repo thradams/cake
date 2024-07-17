@@ -9,13 +9,28 @@ For static analyzer concepts of ownership and nullable pointers visit  [ownershi
 
 ## Include directories
 
-On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file 'cakeconfig.h' and specifying the directories using `pragma dir`. 
 
-To discover what directories are included, you can run the command 'echo %INCLUDE%' at Visual Studio command prompt.
-  
-When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.  
-  
-On Linux, the same file `cakeconfig.h` is used. To find out what are the directories used by GCC type
+On Windows, Cake can be used on the command line similarly to MSVC.
+Cake reads the `INCLUDE` variable, the same variable used by MSVC to locate the include directories.
+
+Additionally, you can run Cake outside the Visual Studio command prompt by placing the file `cakeconfig.h` in 
+the same directory or above the source files, and specifying the directories using #pragma dir.
+
+If Cake doesn't find `cakeconfig.h` in the local directories, it will try to locate it in the 
+same path as the Cake executable.
+
+The **-autoconfig** option generates the `cakeconfig.h` automatically on both Windows and Linux.
+
+To manually discover which directories are included, you can run the command:
+
+
+```
+echo %INCLUDE%
+```
+
+at Visual Studio command prompt.
+
+To find out what are the directories used by GCC type:
 
 ```
 echo | gcc -E -Wp,-v -
@@ -58,9 +73,18 @@ Sample of cakeconfig.h
 
 ```
 
-Cake also have the option -autoconfig that generates the cakeconfig.h automatically.
+Sample, project `cakeconfig.h`
 
-Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on `cakeconfig.h` but mixing cake headers with other headers is not recommended.
+```c
+
+//system includes...etc
+#include "C:\Program Files (x86)\cake\cakeconfig.h"
+
+//project extra includes
+#pragma dir ".\openssl\include"
+
+```
+
 
 ## Command line
 

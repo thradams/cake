@@ -91,7 +91,7 @@ const char* get_posix_error_message(int error)
     case  EPIPE:
         return "Broken pipe";
     case  EDOM:
-        return "Math argument _Out of domain of func";
+        return "Math argument out of domain of func";
     case  ERANGE:
         return "Math result not representable";
     case  EDEADLK:

@@ -471,10 +471,10 @@ void print_help()
         LIGHTGREEN "Samples:\n" RESET
         "\n"
         WHITE "    " CAKE " source.c\n" RESET
-        "    Compiles source.c and outputs /_Out/source.c\n"
+        "    Compiles source.c and outputs /out/source.c\n"
         "\n"
         WHITE "    " CAKE " -target=C11 source.c\n" RESET
-        "    Compiles source.c and outputs C11 code at /_Out/source.c\n"
+        "    Compiles source.c and outputs C11 code at /out/source.c\n"
         "\n"
         WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"

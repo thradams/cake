@@ -1279,7 +1279,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 #endif
             }
 
-            p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
+            p_expression_node->constant_value = make_constant_value_ll(value, false /*ctx->evaluation_is_disabled*/);
         }
         else
         {
@@ -1317,7 +1317,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     break;
                 }
             }
-            p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
+            p_expression_node->constant_value = make_constant_value_ll(value, false /*ctx->evaluation_is_disabled*/);
         }
 
         parser_match(ctx);
@@ -1526,7 +1526,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             if (get_char_type(ctx->current->lexeme) == 2)
             {
                 /*
-                   automatically finding _Out the type of wchar_t to copy
+                   automatically finding out the type of wchar_t to copy
                    GCC or MSVC.
                    windows it is short linux is
                 */
@@ -1566,7 +1566,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
 
             p_expression_node->constant_value =
-                make_constant_value_ll(ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0, ctx->evaluation_is_disabled);
+                make_constant_value_ll(ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0, false /*ctx->evaluation_is_disabled*/);
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
@@ -1584,7 +1584,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            p_expression_node->constant_value = make_constant_value_ll(0, ctx->evaluation_is_disabled);
+            p_expression_node->constant_value = make_constant_value_ll(0, false /*ctx->evaluation_is_disabled*/);
 
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
@@ -1603,7 +1603,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
             p_expression_node->expression_type = PRIMARY_EXPRESSION_NUMBER;
 
-            convert_to_number(ctx->current, p_expression_node, ctx->evaluation_is_disabled);
+            convert_to_number(ctx->current, p_expression_node, false /*ctx->evaluation_is_disabled*/);
 
             parser_match(ctx);
             if (ctx->current == NULL) throw;
@@ -3227,10 +3227,17 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 new_expression->constant_value =
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '/');
 
-                if (constant_value_is_valid(&new_expression->right->constant_value) &&
-                    constant_value_to_ll(&new_expression->right->constant_value) == 0)
+                if (ctx->evaluation_is_disabled)
                 {
-                    compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, ctx->current, NULL, "division by zero");
+                    //sizeof(1/0)
+                }
+                else
+                {
+                    if (constant_value_is_valid(&new_expression->right->constant_value) &&
+                        constant_value_to_ll(&new_expression->right->constant_value) == 0)
+                    {
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, ctx->current, NULL, "division by zero");
+                    }
                 }
 
                 if (!type_is_arithmetic(&new_expression->left->type))
@@ -4239,7 +4246,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
 
             new_expression->last_token = new_expression->right->last_token;
 
-            new_expression->type = type_dup(&new_expression->right->type);
+            new_expression->type = type_dup(&new_expression->left->type);
 
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD;
@@ -4739,14 +4746,8 @@ void check_assigment(struct parser_ctx* ctx,
     enum assigment_type assignment_type /*ASSIGMENT_TYPE_RETURN, ASSIGMENT_TYPE_PARAMETER, ASSIGMENT_TYPE_OBJECTS*/)
 {
     struct type* const p_b_type = &p_b_expression->type;
-    bool is_null_pointer_constant = false;
 
-    if (type_is_nullptr_t(&p_b_expression->type) ||
-        (constant_value_is_valid(&p_b_expression->constant_value) &&
-            constant_value_to_ull(&p_b_expression->constant_value) == 0))
-    {
-        is_null_pointer_constant = true;
-    }
+    const bool is_null_pointer_constant = expression_is_null_pointer_constant(p_b_expression);
 
     if (type_is_pointer(p_a_type))
     {

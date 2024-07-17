@@ -305,13 +305,25 @@
 
 <h2 id="toc_2">Include directories</h2>
 
-<p>On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file &#39;cakeconfig.h&#39; and specifying the directories using <code>pragma dir</code>. </p>
+<p>On Windows, Cake can be used on the command line similarly to MSVC.
+Cake reads the <code>INCLUDE</code> variable, the same variable used by MSVC to locate the include directories.</p>
 
-<p>To discover what directories are included, you can run the command &#39;echo %INCLUDE%&#39; at Visual Studio command prompt.</p>
+<p>Additionally, you can run Cake outside the Visual Studio command prompt by placing the file <code>cakeconfig.h</code> in 
+the same directory or above the source files, and specifying the directories using #pragma dir.</p>
 
-<p>When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.  </p>
+<p>If Cake doesn&#39;t find <code>cakeconfig.h</code> in the local directories, it will try to locate it in the 
+same path as the Cake executable.</p>
 
-<p>On Linux, the same file <code>cakeconfig.h</code> is used. To find out what are the directories used by GCC type</p>
+<p>The <strong>-autoconfig</strong> option generates the <code>cakeconfig.h</code> automatically on both Windows and Linux.</p>
+
+<p>To manually discover which directories are included, you can run the command:</p>
+
+<pre><code>echo %INCLUDE%
+</code></pre>
+
+<p>at Visual Studio command prompt.</p>
+
+<p>To find out what are the directories used by GCC type:</p>
 
 <pre><code>echo | gcc -E -Wp,-v -
 </code></pre>
@@ -352,9 +364,16 @@
 
 </code></pre>
 
-<p>Cake also have the option -autoconfig that generates the cakeconfig.h automatically.</p>
+<p>Sample, project <code>cakeconfig.h</code></p>
 
-<p>Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on <code>cakeconfig.h</code> but mixing cake headers with other headers is not recommended.</p>
+<pre><code class="language-c">
+//system includes...etc
+#include &quot;C:\Program Files (x86)\cake\cakeconfig.h&quot;
+
+//project extra includes
+#pragma dir &quot;.\openssl\include&quot;
+
+</code></pre>
 
 <h2 id="toc_3">Command line</h2>
 

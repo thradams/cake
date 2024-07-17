@@ -4528,41 +4528,57 @@ void check_unused_macros(struct owner_hash_map* map)
     }
 }
 
-void include_config_header(struct preprocessor_ctx* ctx)
+int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
 {
-    char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
-    get_self_path(executable_path, sizeof(executable_path));
-    dirname(executable_path);
-    char path[MAX_PATH] = { 0 };
-    snprintf(path, sizeof path, "%s" CAKE_CFG_FNAME, executable_path);
-    /*
-    * windows
-     echo %INCLUDE%
-     Linux
-     echo | gcc -E -Wp,-v -
-    */
+    char local_cakeconfig_path[MAX_PATH];
+    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s", file_name);
+    dirname(local_cakeconfig_path);
 
-    char* _Owner _Opt str = read_file(path);
-    if (str)
+    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s" CAKE_CFG_FNAME, local_cakeconfig_path);
+
+    char* _Owner _Opt str = read_file(local_cakeconfig_path);
+    while (str == NULL)
     {
-        const enum diagnostic_id w =
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
-
-        struct tokenizer_ctx tctx = { 0 };
-        struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
-        struct token_list l10 = preprocessor(ctx, &l, 0);
-        mark_macros_as_used(&ctx->macros);
-        token_list_destroy(&l);
-        free(str);
-        token_list_destroy(&l10);
-
-        /*restore*/
-        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
+        dirname(local_cakeconfig_path);
+        dirname(local_cakeconfig_path);
+        if (local_cakeconfig_path[0] == '\0')
+            break;
+        str = read_file(local_cakeconfig_path);
     }
-    else
+
+
+    if (str == NULL)
     {
-        //cakeconfig.h is optional
+        //Search cakeconfig at cake executable dir
+
+        char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
+        get_self_path(executable_path, sizeof(executable_path));
+        dirname(executable_path);
+        char root_cakeconfig_path[MAX_PATH] = { 0 };
+        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
+        str = read_file(root_cakeconfig_path);
     }
+
+    if (str == NULL)
+    {
+        //"No such file or directory";
+        return  ENOENT;
+    }
+    const enum diagnostic_id w =
+        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
+
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
+    struct token_list l10 = preprocessor(ctx, &l, 0);
+    mark_macros_as_used(&ctx->macros);
+    token_list_destroy(&l);
+    free(str);
+    token_list_destroy(&l10);
+
+    /*restore*/
+    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
+
+    return  0;
 }
 
 void add_standard_macros(struct preprocessor_ctx* ctx)
@@ -4660,6 +4676,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __builtin_va_arg(a, b) ((b)a)\n"
         "#define __builtin_va_copy(a, b)\n"
         "#define __builtin_offsetof(type, member) 0\n"
+        //see
+        //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+        //We parse and ignore GCC __attribute__
+        "#define __attribute__(x)\n"
 
         "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
         "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
@@ -4707,10 +4727,27 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
 
         // gcc -dM -E
-        
+
         "#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
         "#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
-        
+        "#define __FLT_DECIMAL_DIG__ " TOSTRING(__FLT_DECIMAL_DIG__) "\n"
+
+
+        "#define __FLT_MIN_10_EXP__ " TOSTRING(__FLT_MIN_10_EXP__) "\n"
+        "#define __FLT_MIN__ " TOSTRING(__FLT_MIN__) "\n"
+        "#define __FLT_MAX__ " TOSTRING(__FLT_MAX__) "\n"
+        "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
+        "#define __FLT_DIG__ " TOSTRING(__FLT_DIG__) "\n"
+        "#define __FLT_MANT_DIG__ " TOSTRING(__FLT_MANT_DIG__) "\n"
+        "#define __FLT_MIN_EXP__ " TOSTRING(__FLT_MIN_EXP__) "\n"
+        "#define __FLT_MAX_10_EXP__ " TOSTRING(__FLT_MAX_10_EXP__) "\n"
+        "#define __FLT_ROUNDS__ " TOSTRING(__FLT_ROUNDS__) "\n"
+        "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
+        "#define __FLT_HAS_SUBNORM__ " TOSTRING(__FLT_HAS_SUBNORM__) "\n"
+
+        "#define __FLT_MAX_EXP__ " TOSTRING(__FLT_MAX_EXP__) "\n"
+        "#define __FLT_HAS_DENORM__ " TOSTRING(__FLT_HAS_DENORM__) "\n"
+
 
         "#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
         "#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"

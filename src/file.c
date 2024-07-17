@@ -1,6 +1,18 @@
 
-typedef typeof(L'.') wchar_t;
-wchar_t s[] = L"abcd";
-static_assert(sizeof(s) == sizeof(wchar_t)*5);
-static_assert(sizeof(L"abcd") == sizeof(L'.')*5);
+#pragma flow enable
 
+struct X{
+  int i;
+};
+
+void f(char *s){
+}
+
+void  f2(struct X *p){}
+int main(void)
+{
+  char buffer[20];
+  f(buffer);
+  struct X x;
+  f2(&x);
+}
