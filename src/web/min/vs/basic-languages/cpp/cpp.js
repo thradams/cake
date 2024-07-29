@@ -14,18 +14,19 @@ define("vs/basic-languages/cpp/cpp", ["require", "require"], (require) => {
             keywords: [
 
                 //cake extensions
-                "owner", "_Owner", "out", "_Out", "opt", "_Opt", "assert", "_Generic", "view", "_View", "obj_owner", "_Obj_owner", 
+                "_Owner", "_Out", "_Opt", "assert", "_Generic", "_View", "_Obj_owner",
                 "static_debug", "static_state", "static_set",
                 "defer",
                 //cake extensions
                 //C23
                 "_Static_assert",
+                "_Bool",
                 "typeof_unqual", "typeof",
                 //
                 "auto", "bool", "break", "case", "catch", "char", "const",
-                "constexpr", "continue", "typeof", "default",  "do",
+                "constexpr", "continue", "typeof", "default", "do",
                 "double", "else", "enum", "false",
-                "float", "for", "goto", "if", 
+                "float", "for", "goto", "if",
                 "inline", "int", "interior_ptr", "internal", "literal", "long", "mutable", "namespace",
                 "new", "noexcept", "nullptr", "__nullptr", "operator", "override", "partial", "pascal", "pin_ptr", "private",
                 "property", "protected", "public", "ref", "register", "reinterpret_cast", "restrict", "return",
