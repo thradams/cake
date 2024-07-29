@@ -251,11 +251,16 @@ int main()
 
 <h5>#pragma ownership enabled</h5>
 
-<p>Object lifetime checks are enabled with the pragma ownership.     </p>
+<p>Object lifetime checks are enabled with the <code>#pragma ownership enable</code>.<br>
+Qualifiers like <code>_Owner</code> can be used when ownership is disabled but they are ignored.</p>
 
 <h5>#pragma safety enabled</h5>
 
-<p>pragma safety enable, enables both nullable and ownership   </p>
+<p><code>#pragma safety enable</code> is equivalent of :</p>
+
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+</code></pre>
 
 <p>Sample:  </p>
 
@@ -745,7 +750,7 @@ int main() {
 
 <h4>Uninitialized state</h4>
 
-<p>The <strong>uninitialized</strong> state is the state of variables that are declared but not initialized. </p>
+<p>The <strong>uninitialized</strong> state is the state of local variables that are declared but not initialized. </p>
 
 <p>Objects are defined as having both a real part and an imaginary one. The real part corresponds to the actual value stored in memory, while the imaginary part lacks any physical representation. Consequently, the uninitialized state refers to this imaginary part, leaving the real value unspecified.</p>
 

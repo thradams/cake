@@ -235,6 +235,7 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
 bool expression_is_lvalue(const struct expression* expr);
 
+bool expression_is_one(const struct expression* expression);
 bool expression_is_zero(const struct expression* expression);
 bool expression_is_null_pointer_constant(const struct expression* expression);
 void expression_evaluate_equal_not_equal(const struct expression* left,

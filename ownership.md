@@ -199,10 +199,18 @@ int main()
 <button onclick="Try(this)">try</button>
 
 ##### \#pragma ownership enabled
-Object lifetime checks are enabled with the pragma ownership.     
+
+Object lifetime checks are enabled with the `#pragma ownership enable`.      
+Qualifiers like `_Owner` can be used when ownership is disabled but they are ignored.
 
 ##### \#pragma safety enabled  
-pragma safety enable, enables both nullable and ownership   
+
+`#pragma safety enable` is equivalent of :
+
+```c
+#pragma nullable enable
+#pragma ownership enable
+```
 
 Sample:  
 
@@ -704,7 +712,7 @@ int main() {
  
 #### Uninitialized state
 
-The **uninitialized** state is the state of variables that are declared but not initialized. 
+The **uninitialized** state is the state of local variables that are declared but not initialized. 
 
 Objects are defined as having both a real part and an imaginary one. The real part corresponds to the actual value stored in memory, while the imaginary part lacks any physical representation. Consequently, the uninitialized state refers to this imaginary part, leaving the real value unspecified.
 

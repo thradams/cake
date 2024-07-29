@@ -117,22 +117,23 @@ int flow_object_add_state(struct flow_object* p, struct flow_object_state* _Owne
 
 bool flow_object_is_zero_or_null(const struct flow_object* p_object);
 
-bool flow_object_is_not_null(struct flow_object* p);
-bool flow_object_can_be_not_null_or_moved(struct flow_object* p);
+bool flow_object_is_not_null(const struct flow_object* p);
+bool flow_object_can_be_not_null_or_moved(const struct flow_object* p);
 
-bool flow_object_is_null(struct flow_object* p);
-bool flow_object_can_be_null(struct flow_object* p);
+bool flow_object_is_null(const struct flow_object* p);
+bool flow_object_can_be_null(const struct flow_object* p);
+bool flow_object_can_be_moved(const struct flow_object* p);
 bool flow_object_can_be_zero(const struct flow_object* p);
 
 
 
-bool flow_object_is_not_zero(struct flow_object* p);
-bool flow_object_is_zero(struct flow_object* p);
+bool flow_object_is_not_zero(const struct flow_object* p);
+bool flow_object_is_zero(const struct flow_object* p);
 
-bool flow_object_is_uninitialized(struct flow_object* p);
-bool flow_object_can_be_uninitialized(struct flow_object* p);
+bool flow_object_is_uninitialized(const struct flow_object* p);
+bool flow_object_can_be_uninitialized(const struct flow_object* p);
 
-bool flow_object_can_have_its_lifetime_ended(struct flow_object* p);
+bool flow_object_can_have_its_lifetime_ended(const struct flow_object* p);
 
 void flow_object_print_state(struct flow_object* p);
 

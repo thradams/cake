@@ -227,6 +227,9 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* _Out);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
 
+bool type_is_essential_bool(const struct type* p_type);
+bool type_is_essential_char(const struct type* p_type);
+
 bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 

@@ -278,8 +278,9 @@ int main()
 #endif
 
 #ifdef TEST
-    execute_cmd(RUN "cake ../tests/unit-tests/*.c -test-mode");
     execute_cmd(RUN "cake ../tests/en-cpp-reference-c/*.c -Wno-array-indirection -Wno-div-by-zero -test-mode");
+    execute_cmd(RUN "cake ../tests/unit-tests/*.c -test-mode");
+
 #endif // TEST
 
     //cake ..\tests\sqlite\sqlite3.c -DSQLITE_OMIT_SEH -Wno-out-of-bounds

@@ -26,7 +26,7 @@ struct object_visitor
 
 unsigned int s_visit_number = 1; //creates a unique number
 
-bool flow_object_is_not_null(struct flow_object* p)
+bool flow_object_is_not_null(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
     return (
@@ -36,14 +36,14 @@ bool flow_object_is_not_null(struct flow_object* p)
 
 }
 
-bool flow_object_can_be_not_null_or_moved(struct flow_object* p)
+bool flow_object_can_be_not_null_or_moved(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
     return (e & OBJECT_STATE_NOT_NULL) ||
         (e & OBJECT_STATE_MOVED);
 }
 
-bool flow_object_is_null(struct flow_object* p)
+bool flow_object_is_null(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
     return ((e & OBJECT_STATE_NULL) &&
@@ -51,14 +51,14 @@ bool flow_object_is_null(struct flow_object* p)
            !(e & OBJECT_STATE_MOVED));
 }
 
-bool flow_object_is_zero(struct flow_object* p)
+bool flow_object_is_zero(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
     return ((e & OBJECT_STATE_ZERO) &&
             !(e & OBJECT_STATE_NOT_ZERO));
 }
 
-bool flow_object_is_not_zero(struct flow_object* p)
+bool flow_object_is_not_zero(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
     return (!(e & OBJECT_STATE_ZERO) &&
@@ -73,26 +73,33 @@ bool flow_object_can_be_zero(const struct flow_object* p)
     return (e & OBJECT_STATE_ZERO);
 }
 
-bool flow_object_can_be_null(struct flow_object* p)
+bool flow_object_can_be_moved(const struct flow_object* p)
+{
+    enum object_state e = p->current.state;
+
+    return (e & OBJECT_STATE_MOVED);
+}
+
+bool flow_object_can_be_null(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
 
     return (e & OBJECT_STATE_NULL);
 }
 
-bool flow_object_is_uninitialized(struct flow_object* p)
+bool flow_object_is_uninitialized(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
     return e == OBJECT_STATE_UNINITIALIZED;
 }
 
-bool flow_object_can_be_uninitialized(struct flow_object* p)
+bool flow_object_can_be_uninitialized(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
     return (e & OBJECT_STATE_UNINITIALIZED);
 }
 
-bool flow_object_can_have_its_lifetime_ended(struct flow_object* p)
+bool flow_object_can_have_its_lifetime_ended(const struct flow_object* p)
 {
     enum object_state e = p->current.state;
     return (e & OBJECT_STATE_LIFE_TIME_ENDED);
@@ -2621,51 +2628,83 @@ static void flow_assignment_core(
      //printf("\n");
 
      /*general check for copying uninitialized object*/
-    if (check_uninitialized_b && p_visitor_b->p_object->current.state & OBJECT_STATE_UNINITIALIZED)
+
+
+    if (check_uninitialized_b &&
+        flow_object_can_be_uninitialized(p_visitor_b->p_object))
     {
-        //a = b where b is uninitialized
-        char buffer[100] = { 0 };
-        object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, buffer, sizeof buffer);
-        if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+        //a = b where b can be uninitialized
+
+        if (type_is_array(p_visitor_b->p_type))
         {
-            if (!type_is_out(p_visitor_a->p_type))
+            //array is uninitialized but...
+            //arrays are initialized pointers pointing to uninitialized objects
+            //
+            if (type_is_pointer_to_const(p_visitor_a->p_type))
             {
-                if (type_is_array(p_visitor_b->p_type))
+                char b_object_name[100] = { 0 };
+                object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
+                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                            ctx->ctx,
+                            NULL,
+                            p_b_marker,
+                    "'%s' may be used uninitialized", b_object_name);
+            }
+            else
+            {
+                if (ctx->ctx->options.ownership_enabled && assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 {
-                    //when arrays are passed to function, they are passed as pointer.
-                    //so the pointer is initialized, the content of the pointer (array) is not
-                }
-                else
-                {
-                    compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                                ctx->ctx,
-                                NULL,
-                                p_b_marker,
-                                "passing an uninitialized argument '%s' object", buffer);
+                    //parameter must point to _Out qualified ojbect
+                    //*b must be empty before copying to void* _Owner
+                    struct type b_pointed_type = type_remove_pointer(p_visitor_b->p_type);
+                    if (!type_is_out(&b_pointed_type))
+                    {
+                        char b_object_name[100] = { 0 };
+                        object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
+                        compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                                    ctx->ctx,
+                                    NULL,
+                                    p_b_marker,
+                            "uninitialized object '%s' passed to non-optional parameterer", b_object_name);
+                    }
                 }
             }
         }
-        else if (assigment_type == ASSIGMENT_TYPE_RETURN)
-        {
-            compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                        ctx->ctx,
-                        NULL,
-                        p_b_marker,
-                        "returning an uninitialized '%s' object", buffer);
-        }
         else
         {
-            compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                        ctx->ctx,
-                        NULL,
-                        p_b_marker,
-                        "reading an uninitialized '%s' object", buffer);
+            char b_object_name[100] = { 0 };
+            object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
+
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+            {
+                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                            ctx->ctx,
+                            NULL,
+                            p_b_marker,
+                    "passing an uninitialized argument '%s' object", b_object_name);
+            }
+            else if (assigment_type == ASSIGMENT_TYPE_RETURN)
+            {
+                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                            ctx->ctx,
+                            NULL,
+                            p_b_marker,
+                            "returning an uninitialized '%s' object", b_object_name);
+            }
+            else
+            {
+                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                            ctx->ctx,
+                            NULL,
+                            p_b_marker,
+                            "reading an uninitialized '%s' object", b_object_name);
+            }
         }
 
         return;
     }
 
-    if (check_uninitialized_b && p_visitor_a->p_object->current.state & OBJECT_STATE_LIFE_TIME_ENDED)
+    if (check_uninitialized_b && flow_object_can_have_its_lifetime_ended(p_visitor_a->p_object))
     {
         //a = b where a was deleted
         char buffer[100] = { 0 };
@@ -2729,28 +2768,16 @@ static void flow_assignment_core(
         {
             if (type_is_array(p_visitor_b->p_type))
             {
-                //int b[2] = {0};
-                //int * a = b;
-                //object_set_zero(p_a_type, p_a_object);
-#if 0
-                objects_view_clear(&p_visitor_a->p_object->current.ref);
-#endif
                 p_visitor_a->p_object->current.state = OBJECT_STATE_NOT_NULL;
                 return;
-        }
+            }
             else if (type_is_nullptr_t(p_visitor_b->p_type) || type_is_integer(p_visitor_b->p_type))
             {
-                //a = nullpr
-                //object_set_zero(p_a_type, p_a_object);
-                //p_a_object->pointed_ref = NULL;
-#if 0
-                objects_view_clear(&p_visitor_a->p_object->current.ref);
-#endif
                 flow_object_set_current_state_to_is_null(p_visitor_a->p_object);
 
                 return;
-    }
-}
+            }
+        }
     }
 
     if (!a_type_is_view && type_is_obj_owner(p_visitor_a->p_type) && type_is_pointer(p_visitor_a->p_type))
@@ -2770,9 +2797,6 @@ static void flow_assignment_core(
     if (type_is_void_ptr(p_visitor_a->p_type) && type_is_pointer(p_visitor_b->p_type))
     {
         p_visitor_a->p_object->current.state = p_visitor_b->p_object->current.state;
-#if 0
-        objects_view_copy(&p_visitor_a->p_object->current.ref, &p_visitor_b->p_object->current.ref);
-#endif
 
         if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
         {
@@ -2812,28 +2836,17 @@ static void flow_assignment_core(
             else
             {
                 flow_object_set_is_moved(p_visitor_b->p_object);
-                //p_visitor_b->p_object->current.state &= ~OBJECT_STATE_NOT_NULL;
-                //p_visitor_b->p_object->current.state |= OBJECT_STATE_MOVED;
             }
-
         }
-
-
         return;
     }
 
 
-
     if (type_is_pointer(p_visitor_a->p_type) && type_is_pointer(p_visitor_b->p_type))
     {
-
-
         p_visitor_a->p_object->current.state = p_visitor_b->p_object->current.state;
         p_visitor_a->p_object->current.pointed = p_visitor_b->p_object->current.pointed;
 
-#if 0
-        objects_view_copy(&p_visitor_a->p_object->current.ref, &p_visitor_b->p_object->current.ref);
-#endif
         struct type t = type_remove_pointer(p_visitor_a->p_type);
 
         /*if the parameter points to _Out object, then we don´t need to check
@@ -2862,7 +2875,7 @@ static void flow_assignment_core(
                T * _Owner pA = pB;
             */
 
-            if (p_visitor_b->p_object->current.state & OBJECT_STATE_MOVED)
+            if (flow_object_can_be_moved(p_visitor_b->p_object))
             {
                 //TODO we need 2 positions, source, dest
                 compiler_diagnostic_message(W_FLOW_MOVED,
@@ -2875,8 +2888,6 @@ static void flow_assignment_core(
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
                 p_visitor_b->p_object->current.state = OBJECT_STATE_UNINITIALIZED;
-
-
                 if (p_visitor_b->p_object->current.pointed)
                 {
                     struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
@@ -2885,11 +2896,6 @@ static void flow_assignment_core(
                     object_set_deleted(&t2, pointed);
                     type_destroy(&t2);
                 }
-
-
-                //p_b_object->pointed_ref = NULL;
-
-                //object_set_uninitialized()
             }
             else
             {
@@ -2910,8 +2916,6 @@ static void flow_assignment_core(
             {
                 if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 {
-
-                    //p_b_object->state = OBJECT_STATE_UNINITIALIZED;
                     if (p_visitor_b->p_object->current.pointed)
                     {
                         struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
@@ -2942,8 +2946,6 @@ static void flow_assignment_core(
                             object_set_uninitialized(&t2, pointed);
                             type_destroy(&t2);
                         }
-
-
                     }
                     else
                         object_set_moved(p_visitor_b->p_type, p_visitor_b->p_object);
@@ -2961,9 +2963,7 @@ static void flow_assignment_core(
         {
             if (a_type_is_view || !type_is_owner(p_visitor_a->p_type))
             {
-
                 p_visitor_a->p_object->current.state = p_visitor_b->p_object->current.state;
-
                 p_visitor_a->p_object->current.state &= ~OBJECT_STATE_MOVED;
             }
 
@@ -2973,37 +2973,15 @@ static void flow_assignment_core(
                 struct type t3 = type_remove_pointer(p_visitor_a->p_type);
                 if (!type_is_const(&t3))
                 {
-
                     if (p_visitor_b->p_object->current.pointed)
                     {
-                        //struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
-
-                        //bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-                        //const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
-
                         if (set_argument_to_unkown)
                         {
-                            /*
-                                //Consider this sample...
-                                void f(struct X *p,  int * p);
-                                int main()
-                                {
-                                    struct X *  pX = make();
-                                    if (pX->p)
-                                    {
-                                       f(pX, pX->p (not unknown  yet));
-                                       //pX->p is unknown here...
-                                    }
-                                }
-                            */
-
                             //Tells the caller it must make argument unknown
                             *set_argument_to_unkown = true;
                         }
                         //   object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
                     }
-
-
                 }
                 type_destroy(&t3);
             }
@@ -3249,9 +3227,9 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                         else
                         {
                             //return NULL;
-        }
-    }
-}
+                        }
+                    }
+                }
                 return p_object;
             }
 #endif
@@ -3277,7 +3255,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                 {
                     return NULL;
                 }
-            }
+                    }
 
 
 #if 0
@@ -3313,11 +3291,11 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                         else
                         {
                             //return NULL;
+                        }
+                    }
                 }
-            }
-        }
                 return p_object;
-    }
+            }
 #endif
         }
         return NULL;
@@ -3354,7 +3332,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
 
 
         return p_object;
-    }
+                    }
     else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
     {
         return p_expression->type_name->declarator->p_object;
@@ -3488,7 +3466,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     printf("null object");
     //assert(false);
     return NULL;
-        }
+                }
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,

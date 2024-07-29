@@ -1,18 +1,15 @@
+#pragma safety enable
 
-#pragma flow enable
+typedef int FILE;
+FILE* _Owner _Opt fopen(const char* restrict filename, const char* restrict mode);
+int fclose(FILE* _Owner stream);
 
-struct X{
-  int i;
-};
-
-void f(char *s){
-}
-
-void  f2(struct X *p){}
-int main(void)
+int main()
 {
-  char buffer[20];
-  f(buffer);
-  struct X x;
-  f2(&x);
+   if (FILE* _Owner _Opt f = fopen("file.txt", "r"))
+   {    
+     /*...*/
+     fclose(f);
+   }
 }
+

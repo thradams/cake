@@ -4195,39 +4195,58 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
 
             assert(new_expression->left != NULL);
 
-            enum type_category category = type_get_category(&new_expression->left->type);
+            const struct marker left_operand_marker = {
+                      .p_token_begin = new_expression->left->first_token,
+                      .p_token_end = new_expression->left->last_token,
+            };
 
-            if (category == TYPE_CATEGORY_FUNCTION)
+            if (type_is_function(&new_expression->left->type))
             {
-                compiler_diagnostic_message(C_ERROR_ASSIGNMENT_OF_FUNCTION, ctx, ctx->current, NULL, "assignment of function");
+                compiler_diagnostic_message(C_ERROR_ASSIGNMENT_OF_FUNCTION,
+                    ctx,
+                    NULL,
+                    &left_operand_marker,
+                    "assignment of function");
             }
-            else if (category == TYPE_CATEGORY_ARRAY)
+            else if (type_is_array(&new_expression->left->type))
             {
                 if (new_expression->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
                 {
                     /*
                       assignment of array parameter
                     */
-                    compiler_diagnostic_message(W_ASSIGNMENT_OF_ARRAY_PARAMETER, ctx, ctx->current, NULL, "assignment to array parameter");
+                    compiler_diagnostic_message(W_ASSIGNMENT_OF_ARRAY_PARAMETER,
+                        ctx,
+                        NULL,
+                        &left_operand_marker,
+                        "assignment to array parameter");
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE, ctx, ctx->current, NULL, "assignment to expression with array type");
+                    compiler_diagnostic_message(C_ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE,
+                        ctx,
+                        NULL,
+                        &left_operand_marker,
+                        "assignment to expression with array type");
                 }
             }
-            else
+
+            if (type_is_const(&new_expression->left->type))
             {
-                if (type_is_const(&new_expression->left->type))
-                {
-                    compiler_diagnostic_message(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT, ctx, ctx->current, NULL, "assignment of read-only object");
-                }
+                compiler_diagnostic_message(C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
+                    ctx,
+                    NULL,
+                    &left_operand_marker,
+                    "assignment of read-only object");
             }
+
 
             if (!expression_is_lvalue(new_expression->left))
             {
                 compiler_diagnostic_message(C_ERROR_OPERATOR_NEEDS_LVALUE,
                                             ctx,
-                                            op_token, NULL,
+                                            NULL,
+                                            &left_operand_marker,
                                             "lvalue required as left operand of assignment");
             }
 
@@ -4241,7 +4260,6 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
             if (op_token->type == '=')
             {
                 check_assigment(ctx, &new_expression->left->type, new_expression->right, ASSIGMENT_TYPE_OBJECTS);
-
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -4251,8 +4269,11 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD;
 
-            check_diferent_enuns(ctx, op_token, new_expression->left, new_expression->right,
-            "assignment of different enums.");
+            check_diferent_enuns(ctx,
+                op_token,
+                new_expression->left,
+                new_expression->right,
+                "assignment of different enums.");
 
             new_expression->left->is_assignment_expression = true;
             if (new_expression->left->left)
@@ -4402,6 +4423,16 @@ bool is_first_of_conditional_expression(struct parser_ctx* ctx)
 {
     return is_first_of_unary_expression(ctx) ||
         is_first_of_primary_expression(ctx);
+}
+
+bool expression_is_one(const struct expression* expression)
+{
+    if (expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
+    {
+        return (constant_value_is_valid(&expression->constant_value) &&
+            constant_value_to_ull(&expression->constant_value) == 1);
+    }
+    return false;
 }
 
 bool expression_is_zero(const struct expression* expression)
@@ -4777,6 +4808,20 @@ void check_assigment(struct parser_ctx* ctx,
                 compiler_diagnostic_message(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "non-pointer to pointer");
             }
         }
+    }
+
+    if (type_is_bool(p_a_type) && type_is_nullptr_t(p_b_type))
+    {
+        struct marker marker = {
+        .p_token_begin = p_b_expression->first_token,
+        .p_token_end = p_b_expression->first_token
+        };
+
+        compiler_diagnostic_message(W_NULL_CONVERTION,
+        ctx,
+        NULL,
+        &marker,
+        "implicit conversion of nullptr constant to 'bool'");
     }
 
     struct type lvalue_right_type = { 0 };

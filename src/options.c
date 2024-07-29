@@ -73,7 +73,8 @@ s_warnings[] = {
     {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
     {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
     {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
-    {W_CONST_NOT_INITIALIZED, "const-init"}
+    {W_CONST_NOT_INITIALIZED, "const-init"},
+    {W_NULL_CONVERTION, "null-conversion"}
 
 };
 
