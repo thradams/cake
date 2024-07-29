@@ -570,7 +570,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
 
         if (p_type->struct_or_union_specifier)
         {
-            struct struct_or_union_specifier* p_struct_or_union_specifier =
+            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
                 get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
             if (p_struct_or_union_specifier)
@@ -769,7 +769,7 @@ void print_object_core(int ident,
     if (p_visitor->p_type->struct_or_union_specifier)
     {
         assert(p_visitor->p_object->current.state == OBJECT_STATE_NOT_APPLICABLE);
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -1144,7 +1144,7 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
 
     if (p_visitor->p_type->struct_or_union_specifier)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -1238,7 +1238,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct flow_object* p_object,
     const char* previous_names,
-    const struct token* position_token)
+    const struct marker* p_marker)
 {
     if (p_object == NULL)
     {
@@ -1248,7 +1248,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
 
     if (p_type->struct_or_union_specifier && p_object->members.size > 0)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         struct member_declaration* p_member_declaration =
@@ -1283,7 +1283,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
                         checked_empty_core(ctx, &p_member_declarator->declarator->type,
                             p_object->members.data[member_index],
                             name,
-                            position_token);
+                            p_marker);
 
                         member_index++;
                     }
@@ -1312,8 +1312,9 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
 
             compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
-                position_token, NULL,
-                "object '%s' may be not empty",
+                NULL,
+                p_marker,
+                "object '%s' may not be empty",
                 previous_names);
         }
     }
@@ -1322,16 +1323,16 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
 void checked_empty(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct flow_object* p_object,
-    const struct token* position_token)
+    const struct marker* p_marker)
 {
     char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
+
     checked_empty_core(ctx,
     p_type,
     p_object,
-        name,
-    position_token);
-
+    name,
+    p_marker);
 }
 
 static void object_set_moved_core(struct object_visitor* p_visitor)
@@ -1343,7 +1344,7 @@ static void object_set_moved_core(struct object_visitor* p_visitor)
 
     if (p_visitor->p_type->struct_or_union_specifier)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -1433,7 +1434,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
 
     if (p_visitor->p_type->struct_or_union_specifier)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -1557,7 +1558,7 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
 
     if (p_type->struct_or_union_specifier && p_object->members.size > 0)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -2042,7 +2043,7 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
 
     if (p_type->struct_or_union_specifier && p_object->members.size > 0)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         struct member_declaration* p_member_declaration =
@@ -2665,8 +2666,9 @@ static void flow_assignment_core(
                                     ctx->ctx,
                                     NULL,
                                     p_b_marker,
-                            "uninitialized object '%s' passed to non-optional parameterer", b_object_name);
+                            "uninitialized object '%s' passed to non-optional parameter", b_object_name);
                     }
+                    type_destroy(&b_pointed_type);
                 }
             }
         }
@@ -2761,7 +2763,7 @@ static void flow_assignment_core(
     {
         if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
         {
-            checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, error_position);
+            checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, p_a_marker);
         }
 
         if (flow_object_is_zero_or_null(p_visitor_b->p_object))
@@ -2782,7 +2784,7 @@ static void flow_assignment_core(
 
     if (!a_type_is_view && type_is_obj_owner(p_visitor_a->p_type) && type_is_pointer(p_visitor_a->p_type))
     {
-        checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, error_position);
+        checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, p_a_marker);
 
         if (flow_object_is_zero_or_null(p_visitor_b->p_object))
         {
@@ -2822,7 +2824,7 @@ static void flow_assignment_core(
             }
             else
             {
-                checked_empty(ctx, &t, p_visitor_b->p_object->current.pointed, error_position);
+                checked_empty(ctx, &t, p_visitor_b->p_object->current.pointed, p_b_marker);
                 object_set_deleted(&t, p_visitor_b->p_object->current.pointed);
             }
 
@@ -3247,56 +3249,19 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             }
 
             struct flow_object* pointed = p_obj->current.pointed;
-            if (pointed != NULL)
-            {
-                if (p_expression->member_index < pointed->members.size)
-                    return pointed->members.data[p_expression->member_index];
-                else
-                {
-                    return NULL;
-                }
-                    }
 
+            if (pointed == NULL ||
+                p_expression->member_index >= pointed->members.size)
+            {
+                //ops!
+                return NULL;
+            }
 
-#if 0
-            if (p_obj->current.ref.size == 1)
-            {
-                struct flow_object* pointed = p_obj->current.ref.data[0];
-                if (pointed != NULL)
-                {
-                    if (p_expression->member_index < pointed->members.size)
-                        return pointed->members.data[p_expression->member_index];
-                    else
-                    {
-                        return NULL;
-                    }
-                }
-            }
-            else
-            {
-                struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
-                object_set_nothing(&p_expression->type, p_object);
-                for (int i = 0; i < p_obj->current.ref.size; i++)
-                {
-                    struct flow_object* pointed = p_obj->current.ref.data[i];
-                    if (pointed != NULL)
-                    {
-                        if (p_expression->member_index < pointed->members.size)
-                        {
-                            p_object->current.state |=
-                                pointed->members.data[p_expression->member_index]->current.state;
-                            objects_view_merge(&p_object->current.ref, &pointed->members.data[p_expression->member_index]->current.ref);
-                            //return pointed->members.data[p_expression->member_index];
-                        }
-                        else
-                        {
-                            //return NULL;
-                        }
-                    }
-                }
-                return p_object;
-            }
-#endif
+            struct flow_object* _Opt p_obj2 = pointed->members.data[p_expression->member_index];
+
+            p_obj2->p_declarator_origin = NULL;
+            p_obj2->p_expression_origin = p_expression;
+            return p_obj2;
         }
         return NULL;
     }
@@ -3332,7 +3297,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
 
 
         return p_object;
-                    }
+    }
     else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
     {
         return p_expression->type_name->declarator->p_object;
@@ -3463,10 +3428,10 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         return p_object;
     }
 
-    printf("null object");
+    //printf("null object");
     //assert(false);
     return NULL;
-                }
+}
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,

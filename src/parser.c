@@ -3570,7 +3570,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             p_struct_or_union_specifier->last_token = ctx->current;
         }
 
-        struct struct_or_union_specifier* p_complete =
+        struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
 
         /*check if complete struct is deprecated*/

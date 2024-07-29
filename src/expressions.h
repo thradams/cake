@@ -14,7 +14,7 @@ struct parser_ctx;
 enum expression_type
 {
     PRIMARY_IDENTIFIER,
-    
+
 
     PRIMARY_EXPRESSION_ENUMERATOR,
     PRIMARY_EXPRESSION_DECLARATOR,
@@ -38,8 +38,8 @@ enum expression_type
 
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
-    UNARY_EXPRESSION_SIZEOF_TYPE,    
-    
+    UNARY_EXPRESSION_SIZEOF_TYPE,
+
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
@@ -79,7 +79,7 @@ enum expression_type
     AND_EXPRESSION,
     EXCLUSIVE_OR_EXPRESSION,
     INCLUSIVE_OR_EXPRESSION,
-    
+
     LOGICAL_OR_EXPRESSION,
     LOGICAL_AND_EXPRESSION,
     ASSIGNMENT_EXPRESSION,
@@ -98,8 +98,8 @@ struct argument_expression_list
     struct argument_expression* _Opt tail;
 };
 
-void argument_expression_list_destroy(struct argument_expression_list * _Obj_owner p);
-void argument_expression_list_push(struct argument_expression_list * list, struct argument_expression* _Owner p);
+void argument_expression_list_destroy(struct argument_expression_list* _Obj_owner p);
+void argument_expression_list_push(struct argument_expression_list* list, struct argument_expression* _Owner p);
 
 struct generic_association
 {
@@ -127,8 +127,8 @@ struct generic_assoc_list
     struct generic_association* _Opt tail;
 };
 
-void generic_assoc_list_add(struct generic_assoc_list * p, struct generic_association* _Owner item);
-void generic_assoc_list_destroy(struct generic_assoc_list * _Obj_owner p);
+void generic_assoc_list_add(struct generic_assoc_list* p, struct generic_association* _Owner item);
+void generic_assoc_list_destroy(struct generic_assoc_list* _Obj_owner p);
 
 struct generic_selection
 {
@@ -161,7 +161,7 @@ struct generic_selection
     struct token* last_token;
 };
 
-void generic_selection_delete(struct generic_selection * _Owner _Opt p);
+void generic_selection_delete(struct generic_selection* _Owner _Opt p);
 
 enum constant_value_type {
     TYPE_NOT_CONSTANT,
@@ -170,7 +170,7 @@ enum constant_value_type {
     TYPE_UNSIGNED_LONG_LONG
 };
 
-struct constant_value {       
+struct constant_value {
     enum constant_value_type type;
     union {
         unsigned long long ullvalue;
@@ -194,12 +194,12 @@ void constant_value_to_string(const struct constant_value* a, char buffer[], int
 struct expression
 {
     enum expression_type expression_type;
-    struct type type;    
+    struct type type;
 
     struct constant_value constant_value;
 
-    struct type_name* _Owner _Opt type_name; 
-    
+    struct type_name* _Owner _Opt type_name;
+
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
     struct generic_selection* _Owner _Opt generic_selection; //_Generic
@@ -207,7 +207,7 @@ struct expression
     struct token* first_token;
     struct token* last_token;
 
-    
+
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* _Opt declarator;
     int member_index; //used in post_fix .
@@ -220,7 +220,7 @@ struct expression
     struct expression* _Owner _Opt right;
 
     bool is_assignment_expression;
- };
+};
 
 //built-in semantics
 bool expression_is_malloc(const struct expression* p);
@@ -245,14 +245,14 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
     bool disabled);
 
 void check_diferent_enuns(struct parser_ctx* ctx,
-                                 const struct token* operator_token,
-                                 struct expression* left,
-                                 struct expression* right,
-                                 const char * message);
+                          const struct token* operator_token,
+                          const struct expression* left,
+                          const struct expression* right,
+                          const char* message);
 
 void check_assigment(struct parser_ctx* ctx,
-    struct type* left_type,
-    struct expression* right,
+    const struct type* left_type,
+    const struct expression* right,
     enum assigment_type assigment_type);
 
 void check_comparison(struct parser_ctx* ctx,

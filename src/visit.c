@@ -1818,7 +1818,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
     if (p_struct_or_union_specifier->attribute_specifier_sequence_opt)
         visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence_opt);
 
-    struct struct_or_union_specifier* p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
+    struct struct_or_union_specifier* _Opt p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
 
     if (p_struct_or_union_specifier->show_anonymous_tag && !ctx->is_second_pass)
     {

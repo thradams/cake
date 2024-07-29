@@ -278,7 +278,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
     int param_num);
 
 struct type type_convert_to(const struct type* p_type, enum language_version target);
-struct type type_lvalue_conversion(struct type* p_type, bool nullchecks_enabled);
+struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);

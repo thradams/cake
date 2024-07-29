@@ -169,7 +169,7 @@ void type_remove_qualifiers(struct type* p_type)
     p_type->type_qualifier_flags = 0;
 }
 
-struct type type_lvalue_conversion(struct type* p_type, bool nullchecks_enabled)
+struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled)
 {
 
     enum type_category category = type_get_category(p_type);

@@ -11216,7 +11216,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
     int param_num);
 
 struct type type_convert_to(const struct type* p_type, enum language_version target);
-struct type type_lvalue_conversion(struct type* p_type, bool nullchecks_enabled);
+struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
@@ -11265,7 +11265,7 @@ struct parser_ctx;
 enum expression_type
 {
     PRIMARY_IDENTIFIER,
-    
+
 
     PRIMARY_EXPRESSION_ENUMERATOR,
     PRIMARY_EXPRESSION_DECLARATOR,
@@ -11289,8 +11289,8 @@ enum expression_type
 
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
-    UNARY_EXPRESSION_SIZEOF_TYPE,    
-    
+    UNARY_EXPRESSION_SIZEOF_TYPE,
+
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
@@ -11330,7 +11330,7 @@ enum expression_type
     AND_EXPRESSION,
     EXCLUSIVE_OR_EXPRESSION,
     INCLUSIVE_OR_EXPRESSION,
-    
+
     LOGICAL_OR_EXPRESSION,
     LOGICAL_AND_EXPRESSION,
     ASSIGNMENT_EXPRESSION,
@@ -11349,8 +11349,8 @@ struct argument_expression_list
     struct argument_expression* _Opt tail;
 };
 
-void argument_expression_list_destroy(struct argument_expression_list * _Obj_owner p);
-void argument_expression_list_push(struct argument_expression_list * list, struct argument_expression* _Owner p);
+void argument_expression_list_destroy(struct argument_expression_list* _Obj_owner p);
+void argument_expression_list_push(struct argument_expression_list* list, struct argument_expression* _Owner p);
 
 struct generic_association
 {
@@ -11378,8 +11378,8 @@ struct generic_assoc_list
     struct generic_association* _Opt tail;
 };
 
-void generic_assoc_list_add(struct generic_assoc_list * p, struct generic_association* _Owner item);
-void generic_assoc_list_destroy(struct generic_assoc_list * _Obj_owner p);
+void generic_assoc_list_add(struct generic_assoc_list* p, struct generic_association* _Owner item);
+void generic_assoc_list_destroy(struct generic_assoc_list* _Obj_owner p);
 
 struct generic_selection
 {
@@ -11412,7 +11412,7 @@ struct generic_selection
     struct token* last_token;
 };
 
-void generic_selection_delete(struct generic_selection * _Owner _Opt p);
+void generic_selection_delete(struct generic_selection* _Owner _Opt p);
 
 enum constant_value_type {
     TYPE_NOT_CONSTANT,
@@ -11421,7 +11421,7 @@ enum constant_value_type {
     TYPE_UNSIGNED_LONG_LONG
 };
 
-struct constant_value {       
+struct constant_value {
     enum constant_value_type type;
     union {
         unsigned long long ullvalue;
@@ -11445,12 +11445,12 @@ void constant_value_to_string(const struct constant_value* a, char buffer[], int
 struct expression
 {
     enum expression_type expression_type;
-    struct type type;    
+    struct type type;
 
     struct constant_value constant_value;
 
-    struct type_name* _Owner _Opt type_name; 
-    
+    struct type_name* _Owner _Opt type_name;
+
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
     struct generic_selection* _Owner _Opt generic_selection; //_Generic
@@ -11458,7 +11458,7 @@ struct expression
     struct token* first_token;
     struct token* last_token;
 
-    
+
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* _Opt declarator;
     int member_index; //used in post_fix .
@@ -11471,7 +11471,7 @@ struct expression
     struct expression* _Owner _Opt right;
 
     bool is_assignment_expression;
- };
+};
 
 //built-in semantics
 bool expression_is_malloc(const struct expression* p);
@@ -11496,14 +11496,14 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
     bool disabled);
 
 void check_diferent_enuns(struct parser_ctx* ctx,
-                                 const struct token* operator_token,
-                                 struct expression* left,
-                                 struct expression* right,
-                                 const char * message);
+                          const struct token* operator_token,
+                          const struct expression* left,
+                          const struct expression* right,
+                          const char* message);
 
 void check_assigment(struct parser_ctx* ctx,
-    struct type* left_type,
-    struct expression* right,
+    const struct type* left_type,
+    const struct expression* right,
     enum assigment_type assigment_type);
 
 void check_comparison(struct parser_ctx* ctx,
@@ -14659,10 +14659,9 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 if (p_init_declarator)
                 {
                     if (/*
-                         p_init_declarator->p_declarator &&
+                         p_init_declarator->p_declarator && */
                          p_init_declarator->p_declarator->declaration_specifiers &&
-                        */
-                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+                         p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
                     {
                         if (p_init_declarator->initializer &&
                             p_init_declarator->initializer->assignment_expression)
@@ -15296,7 +15295,10 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                     if (type_is_struct_or_union(&item_type))
                     {
-                        struct struct_or_union_specifier* p_complete =
+                        assert(p_expression_node->type.next);
+                        assert(p_expression_node->type.next->struct_or_union_specifier);
+
+                        struct struct_or_union_specifier* _Opt p_complete =
                             get_complete_struct_or_union_specifier(p_expression_node->type.next->struct_or_union_specifier);
 
                         if (p_complete)
@@ -15307,9 +15309,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                             if (p_member_declarator)
                             {
-                                p_expression_node_new->member_index = member_index;
-                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
-                                fix_arrow_member_type(&p_expression_node_new->type, &p_expression_node->type, &p_expression_node_new->type);
+                                if (p_member_declarator->declarator)
+                                {
+                                    p_expression_node_new->member_index = member_index;
+                                    p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                                    fix_arrow_member_type(&p_expression_node_new->type, &p_expression_node->type, &p_expression_node_new->type);
+                                }
+                                else
+                                {
+                                    assert(false); //TODO
+                                }
                             }
                             else
                             {
@@ -15433,7 +15442,14 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             }
             else
             {
-                p_expression_node->last_token = previous_parser_token(ctx->current);
+                if (ctx->current == NULL)
+                    throw;
+
+                struct token* _Opt p_last = previous_parser_token(ctx->current);
+                if (p_last == NULL)
+                    throw; //unexpected
+
+                p_expression_node->last_token = p_last;
                 break;
             }
         }
@@ -15445,7 +15461,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* _Owner p_type_name)
+struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* _Owner p_type_name_par)
 {
     /*
         ( type-name ) { initializer-ctx }
@@ -15455,7 +15471,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         ( type-name ) compound-statement
 
     */
-
+    struct type_name* _Owner _Opt p_type_name = p_type_name_par; //MOVED
     struct expression* _Owner _Opt p_expression_node = NULL;
 
     try
@@ -15467,7 +15483,11 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         static_set(*p_expression_node, "zero");
         assert(p_expression_node->type_name == NULL);
 
-        p_expression_node->first_token = previous_parser_token(p_type_name->first_token);
+        struct token* _Opt p_previous = previous_parser_token(p_type_name->first_token);
+        if (p_previous == NULL)
+            throw;
+
+        p_expression_node->first_token = p_previous;
         assert(p_expression_node->first_token->type == '(');
 
         p_expression_node->type_name = p_type_name; /*MOVED*/
@@ -15490,6 +15510,9 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
             p_expression_node->braced_initializer = braced_initializer(ctx);
         }
+
+        if (ctx->previous == NULL)
+            throw;
 
         p_expression_node->last_token = ctx->previous;
 
@@ -15654,7 +15677,9 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     else if (category == TYPE_CATEGORY_ITSELF &&
             p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
-        struct struct_or_union_specifier* p_complete =
+        assert(p_type->struct_or_union_specifier);
+
+        struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
         if (p_complete == NULL)
         {
@@ -16060,6 +16085,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
 
                 p_type = &new_expression->right->type;
+                if (ctx->previous == NULL)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+
                 new_expression->last_token = ctx->previous;
             }
 
@@ -16329,16 +16361,18 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
             assert(p_expression_node == NULL);
             throw;
         }
+
+        if (ctx->current == NULL || ctx->previous == NULL)
+            throw;
+
+        p_expression_node->last_token = ctx->previous;
     }
     catch
     {
         expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
-    if (p_expression_node && ctx->current)
-    {
-        p_expression_node->last_token = ctx->previous;
-    }
+
     return p_expression_node;
 }
 
@@ -16828,6 +16862,10 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             }
 
             new_expression->last_token = new_expression->right->last_token;
+            if (ctx->current == NULL)
+            {
+                throw;
+            }
 
             check_comparison(ctx,
               new_expression->left,
@@ -16872,8 +16910,8 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
 
 void check_diferent_enuns(struct parser_ctx* ctx,
                                  const struct token* operator_token,
-                                 struct expression* left,
-                                 struct expression* right,
+                                 const struct expression* left,
+                                 const struct expression* right,
                                  const char* message)
 {
     if (left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
@@ -16968,6 +17006,11 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             new_expression->right = relational_expression(ctx);
             if (new_expression->right == NULL)
                 throw;
+
+            if (ctx->current == NULL)
+            {
+                throw;
+            }
 
             check_comparison(ctx,
               new_expression->left,
@@ -17963,11 +18006,11 @@ void check_comparison(struct parser_ctx* ctx,
 }
 
 void check_assigment(struct parser_ctx* ctx,
-    struct type* p_a_type, /*this is not expression because function parameters*/
-    struct expression* p_b_expression,
+    const struct type* p_a_type, /*this is not expression because function parameters*/
+    const struct expression* p_b_expression,
     enum assigment_type assignment_type /*ASSIGMENT_TYPE_RETURN, ASSIGMENT_TYPE_PARAMETER, ASSIGMENT_TYPE_OBJECTS*/)
 {
-    struct type* const p_b_type = &p_b_expression->type;
+    const struct type* const p_b_type = &p_b_expression->type;
 
     const bool is_null_pointer_constant = expression_is_null_pointer_constant(p_b_expression);
 
@@ -19677,7 +19720,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
 
         if (p_type->struct_or_union_specifier)
         {
-            struct struct_or_union_specifier* p_struct_or_union_specifier =
+            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
                 get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
             if (p_struct_or_union_specifier)
@@ -19876,7 +19919,7 @@ void print_object_core(int ident,
     if (p_visitor->p_type->struct_or_union_specifier)
     {
         assert(p_visitor->p_object->current.state == OBJECT_STATE_NOT_APPLICABLE);
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -20251,7 +20294,7 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
 
     if (p_visitor->p_type->struct_or_union_specifier)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -20345,7 +20388,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct flow_object* p_object,
     const char* previous_names,
-    const struct token* position_token)
+    const struct marker* p_marker)
 {
     if (p_object == NULL)
     {
@@ -20355,7 +20398,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
 
     if (p_type->struct_or_union_specifier && p_object->members.size > 0)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         struct member_declaration* p_member_declaration =
@@ -20390,7 +20433,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
                         checked_empty_core(ctx, &p_member_declarator->declarator->type,
                             p_object->members.data[member_index],
                             name,
-                            position_token);
+                            p_marker);
 
                         member_index++;
                     }
@@ -20419,8 +20462,9 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
 
             compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
-                position_token, NULL,
-                "object '%s' may be not empty",
+                NULL,
+                p_marker,
+                "object '%s' may not be empty",
                 previous_names);
         }
     }
@@ -20429,16 +20473,16 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
 void checked_empty(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct flow_object* p_object,
-    const struct token* position_token)
+    const struct marker* p_marker)
 {
     char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
+
     checked_empty_core(ctx,
     p_type,
     p_object,
-        name,
-    position_token);
-
+    name,
+    p_marker);
 }
 
 static void object_set_moved_core(struct object_visitor* p_visitor)
@@ -20450,7 +20494,7 @@ static void object_set_moved_core(struct object_visitor* p_visitor)
 
     if (p_visitor->p_type->struct_or_union_specifier)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -20540,7 +20584,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
 
     if (p_visitor->p_type->struct_or_union_specifier)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -20664,7 +20708,7 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
 
     if (p_type->struct_or_union_specifier && p_object->members.size > 0)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
@@ -21149,7 +21193,7 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
 
     if (p_type->struct_or_union_specifier && p_object->members.size > 0)
     {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         struct member_declaration* p_member_declaration =
@@ -21772,8 +21816,9 @@ static void flow_assignment_core(
                                     ctx->ctx,
                                     NULL,
                                     p_b_marker,
-                            "uninitialized object '%s' passed to non-optional parameterer", b_object_name);
+                            "uninitialized object '%s' passed to non-optional parameter", b_object_name);
                     }
+                    type_destroy(&b_pointed_type);
                 }
             }
         }
@@ -21868,7 +21913,7 @@ static void flow_assignment_core(
     {
         if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
         {
-            checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, error_position);
+            checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, p_a_marker);
         }
 
         if (flow_object_is_zero_or_null(p_visitor_b->p_object))
@@ -21889,7 +21934,7 @@ static void flow_assignment_core(
 
     if (!a_type_is_view && type_is_obj_owner(p_visitor_a->p_type) && type_is_pointer(p_visitor_a->p_type))
     {
-        checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, error_position);
+        checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, p_a_marker);
 
         if (flow_object_is_zero_or_null(p_visitor_b->p_object))
         {
@@ -21929,7 +21974,7 @@ static void flow_assignment_core(
             }
             else
             {
-                checked_empty(ctx, &t, p_visitor_b->p_object->current.pointed, error_position);
+                checked_empty(ctx, &t, p_visitor_b->p_object->current.pointed, p_b_marker);
                 object_set_deleted(&t, p_visitor_b->p_object->current.pointed);
             }
 
@@ -22354,56 +22399,19 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             }
 
             struct flow_object* pointed = p_obj->current.pointed;
-            if (pointed != NULL)
-            {
-                if (p_expression->member_index < pointed->members.size)
-                    return pointed->members.data[p_expression->member_index];
-                else
-                {
-                    return NULL;
-                }
-                    }
 
+            if (pointed == NULL ||
+                p_expression->member_index >= pointed->members.size)
+            {
+                //ops!
+                return NULL;
+            }
 
-#if 0
-            if (p_obj->current.ref.size == 1)
-            {
-                struct flow_object* pointed = p_obj->current.ref.data[0];
-                if (pointed != NULL)
-                {
-                    if (p_expression->member_index < pointed->members.size)
-                        return pointed->members.data[p_expression->member_index];
-                    else
-                    {
-                        return NULL;
-                    }
-                }
-            }
-            else
-            {
-                struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
-                object_set_nothing(&p_expression->type, p_object);
-                for (int i = 0; i < p_obj->current.ref.size; i++)
-                {
-                    struct flow_object* pointed = p_obj->current.ref.data[i];
-                    if (pointed != NULL)
-                    {
-                        if (p_expression->member_index < pointed->members.size)
-                        {
-                            p_object->current.state |=
-                                pointed->members.data[p_expression->member_index]->current.state;
-                            objects_view_merge(&p_object->current.ref, &pointed->members.data[p_expression->member_index]->current.ref);
-                            //return pointed->members.data[p_expression->member_index];
-                        }
-                        else
-                        {
-                            //return NULL;
-                        }
-                    }
-                }
-                return p_object;
-            }
-#endif
+            struct flow_object* _Opt p_obj2 = pointed->members.data[p_expression->member_index];
+
+            p_obj2->p_declarator_origin = NULL;
+            p_obj2->p_expression_origin = p_expression;
+            return p_obj2;
         }
         return NULL;
     }
@@ -22439,7 +22447,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
 
 
         return p_object;
-                    }
+    }
     else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
     {
         return p_expression->type_name->declarator->p_object;
@@ -22570,10 +22578,10 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         return p_object;
     }
 
-    printf("null object");
+    //printf("null object");
     //assert(false);
     return NULL;
-                }
+}
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,
@@ -22830,7 +22838,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.12"
+#define CAKE_VERSION "0.9.14"
 
 
 
@@ -26422,7 +26430,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             p_struct_or_union_specifier->last_token = ctx->current;
         }
 
-        struct struct_or_union_specifier* p_complete =
+        struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
 
         /*check if complete struct is deprecated*/
@@ -34162,7 +34170,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
     if (p_struct_or_union_specifier->attribute_specifier_sequence_opt)
         visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence_opt);
 
-    struct struct_or_union_specifier* p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
+    struct struct_or_union_specifier* _Opt p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
 
     if (p_struct_or_union_specifier->show_anonymous_tag && !ctx->is_second_pass)
     {
@@ -39759,7 +39767,7 @@ void type_remove_qualifiers(struct type* p_type)
     p_type->type_qualifier_flags = 0;
 }
 
-struct type type_lvalue_conversion(struct type* p_type, bool nullchecks_enabled)
+struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled)
 {
 
     enum type_category category = type_get_category(p_type);

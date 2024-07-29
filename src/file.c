@@ -1,15 +1,23 @@
+
 #pragma safety enable
 
-typedef int FILE;
-FILE* _Owner _Opt fopen(const char* restrict filename, const char* restrict mode);
-int fclose(FILE* _Owner stream);
+void* _Owner _Opt calloc(unsigned long long n, unsigned long size);
+void free(void* _Owner _Opt ptr);
 
-int main()
+struct  Y { int i ; };
+struct  X { int i ; struct Y* _Owner _Opt pY;};
+
+void f(struct X *pX) 
 {
-   if (FILE* _Owner _Opt f = fopen("file.txt", "r"))
-   {    
-     /*...*/
-     fclose(f);
-   }
+  pX->pY = nullptr;  
 }
 
+int main(){
+  struct X x = {0};
+  x.pY = calloc(1, sizeof (struct Y));
+
+  struct X x2 = {0};
+  x = x2;
+
+  
+}
