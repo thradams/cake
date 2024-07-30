@@ -1749,7 +1749,10 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
 
             type_destroy(&type);
         }
-        else { /*static_assert*/ }
+        else
+        {
+            /*static_assert*/
+        }
         d = d->next;
     }
     assert(align != 0);

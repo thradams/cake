@@ -1200,8 +1200,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         break;
 
-    default:
-        break;
+    //default:
+      //  break;
     }
 }
 
@@ -1512,6 +1512,24 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
     {
         visit_block_item(ctx, p_block_item);
         p_block_item = p_block_item->next;
+    }
+}
+
+static void visit_pragma_declaration(struct visit_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
+{
+    struct token* next = p_pragma_declaration->first_token->next;
+    if (next)
+        next = next->next;
+    if (next)
+    {
+        if (strcmp(next->lexeme, "safety") == 0 ||
+            strcmp(next->lexeme, "expand") == 0 ||
+            strcmp(next->lexeme, "nullable") == 0 ||
+            strcmp(next->lexeme, "flow") == 0)
+        {
+            free(p_pragma_declaration->first_token->lexeme);
+            p_pragma_declaration->first_token->lexeme = strdup("//pragma");
+        }
     }
 }
 
@@ -2271,12 +2289,14 @@ void defer_scope_delete_all(struct defer_scope* _Owner p)
 
 static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration)
 {
-
-
-
     if (p_declaration->static_assert_declaration)
     {
         visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
+    }
+
+    if (p_declaration->pragma_declaration)
+    {
+        visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
     }
 
     if (p_declaration->p_attribute_specifier_sequence_opt)
@@ -2284,10 +2304,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt);
     }
 
-
     if (p_declaration->declaration_specifiers)
     {
-
         if (p_declaration->init_declarator_list.head)
         {
             visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers,

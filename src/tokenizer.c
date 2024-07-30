@@ -94,7 +94,7 @@ struct macro_parameter
 struct macro
 {
     const char* _Owner name;
-    struct token_list replacement_list; /*copia*/
+    struct token_list replacement_list; /*copy*/
     struct macro_parameter* _Owner _Opt parameters;
     bool is_function;
     int usage;
@@ -439,7 +439,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
 
 
 
-/*usado para verificar recursividade*/
+/*used to check recursion*/
 struct macro_expanded
 {
     const char* name;
@@ -588,9 +588,9 @@ void print_macro_arguments(struct macro_argument_list* arguments)
 
 struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_list* parameters, const char* name)
 {
-    /*
-    * Os argumentos são coletados na expansão da macro e cada um (exceto ...)
-    * é associado a um dos parametros da macro.
+   /* 
+    * The arguments are collected in the macro expansion and each one (except ...) 
+    * is associated with one of the macro parameters. 
     */
     struct macro_argument* _Opt p = parameters->head;
     while (p)
@@ -3891,14 +3891,14 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
             }
             else
             {
-                /*
-                aqui eh um bom lugar para setar o level e macro flags
-                poq sempre tem a re scann da macro no fim
+                /* 
+                 This is a good place to set the level and macro flags 
+                 because there is always a macro rescan at the end 
                 */
                 new_list.head->level = level;
                 new_list.head->flags |= TK_FLAG_MACRO_EXPANDED;
                 assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-                prematch(&r, &new_list); //nao era macro
+                prematch(&r, &new_list); //it wasn't macro
             }
         }
     }
@@ -4071,8 +4071,6 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
 }
 
 void print_literal2(const char* s);
-
-
 
 
 struct token_list expand_macro(struct preprocessor_ctx* ctx,
@@ -4318,7 +4316,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 token_list_destroy(&start_macro);
 
                 continue;
-                //saiu tetris...
+                //exit tetris...
                 //entao tudo foi expandido desde a primeiroa
             }
             else
@@ -4352,7 +4350,6 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         prematch(&r, input_list);
                         r.tail->flags |= TK_FLAG_FINAL;
-                        //token_promote(r.tail);
                     }
                     else
                     {
@@ -4377,28 +4374,15 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             prematch(&r, input_list);
                             if (is_final)
                             {
-                                // if (strcmp(r.tail->lexeme, "_CRT_STDIO_INLINE") == 0)
-                                 //{
-                                   //  printf("");
-                                 //}
-
                                 r.tail->flags |= TK_FLAG_FINAL;
-                                //token_promote(r.tail);
-
                             }
                         }
                         else
                         {
                             if (is_final)
                             {
-                                //if (strcmp(r.tail->lexeme, "_CRT_STDIO_INLINE") == 0)
-                                //{
-                                 //   printf("");
-                                //}
-
                                 prematch(&r, input_list);
                                 r.tail->flags |= TK_FLAG_FINAL;
-                                //token_promote(r.tail);
                             }
                             else
                             {
@@ -4452,7 +4436,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
         }
         else
         {
-            //aqui vou consumir o # dentro para ficar simetrico
+            //here I will consume the # inside to make it symmetrical
             return non_directive(ctx, input_list, level);
         }
     }
@@ -5022,9 +5006,6 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_STATIC_DEBUG_EX: return "TK_KEYWORD_STATIC_DEBUG_EX"; /*extension*/
     case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
     case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
-    case TK_KEYWORD_ATTR_ADD: return "TK_KEYWORD_ATTR_ADD"; /*extension*/
-    case TK_KEYWORD_ATTR_REMOVE: return "TK_KEYWORD_ATTR_REMOVE"; /*extension*/
-    case TK_KEYWORD_ATTR_HAS: return "TK_KEYWORD_ATTR_HAS"; /*extension*/
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
@@ -5038,9 +5019,8 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_IS_ARITHMETIC: return "TK_KEYWORD_IS_ARITHMETIC";
     case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
     case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
+    case TK_PRAGMA_END: return "TK_PRAGMA_END";
 
-    default:
-        break;
     }
     return "TK_X_MISSING_NAME";
 };
@@ -5155,7 +5135,7 @@ void print_code_as_we_see(struct token_list* list, bool remove_comments)
             if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
                 (current->prev != NULL && current->prev->type != TK_BLANKS))
             {
-                //se uma macro expandida for mostrada ele nao tem espacos entao inserimos
+                //if an expanded macro is shown it does not have spaces so we insert
                 printf(" ");
             }
 
@@ -5262,14 +5242,14 @@ const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list)
 const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token)
 {
     /*
-    * No nivel > 0 (ou seja dentro dos includes)
-    * Esta funcao imprime os tokens como o compilador ve
-    * e insere um espaco ou quebra de linha para poder representar
-    * a separacao entre os tokens.
+      * At level > 0 (i.e. inside the includes)
+      * This function prints the tokens as the compiler sees them
+      * and inserts a space or line break to represent
+      * the separation between tokens.
 
-    * Ja no nivel 0 (arquivo principal) ele imprime espacos comentarios
-    * etc.. e insere espacos na expancao da macro.
-    */
+      * At level 0 (main file) it prints spaces, comments
+      * etc. and inserts spaces in the macro expansion.
+  */
 
     if (p_token == NULL)
         return strdup("(null)");
@@ -5279,18 +5259,16 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
     while (current)
     {
 
-        //Nós ignorados a line continuation e ela pode aparecer em qualquer parte
-        //dos lexemes.
-        //inves de remover poderia so pular ao imprimir
+        //We ignored the line continuation and it can appear anywhere in the lexemes. 
+        //instead of removing it, you could just skip it when printing
         remove_line_continuation(current->lexeme);
 
         if (current->flags & TK_FLAG_FINAL)
         {
             if (current->level > 0)
             {
-                //nos niveis de include nos podemos estar ignorando todos
-                //os espacos. neste caso eh preciso incluilos para nao juntar os tokens
-
+                //at the include levels we may be ignoring all
+                //the spaces. in this case it is necessary to include them so as not to add the tokens
                 if ((current->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
                     ss_fprintf(&ss, "\n");
                 else if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE))
@@ -5299,8 +5277,8 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
             else
             {
                 /*
-                  no nivel 0 nos imprimimos os espacos.. porem no caso das macros
-                  eh preciso colocar um espaco pq ele nao existe.
+                 at level 0 we print the spaces.. however in the case of macros
+                 it is necessary to put a space because it does not exist.
                 */
                 if (current->flags & TK_FLAG_MACRO_EXPANDED)
                 {
@@ -5308,8 +5286,6 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
                         ss_fprintf(&ss, " ");
                 }
             }
-
-            //}
 
             if (current->lexeme[0] != '\0')
             {

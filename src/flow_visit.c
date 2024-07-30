@@ -36,7 +36,7 @@ struct flow_defer_scope
     struct declarator* _Opt declarator; // declarator
     struct defer_statement* _Opt defer_statement; // defer
 
-    //statements for controling where jump like break, throw stop.
+    //statements for controlling where jump like break, throw stop.
 
     struct try_statement* _Opt p_try_statement; //try
     struct selection_statement* _Opt p_selection_statement; //if switch
@@ -508,7 +508,6 @@ static bool flow_find_label_block_item_list(struct flow_visit_ctx* ctx, struct b
             block_item->label->p_identifier_opt &&
             strcmp(block_item->label->p_identifier_opt->lexeme, label) == 0)
         {
-            /*achou*/
             return true;
         }
         else if (block_item->unlabeled_statement)
@@ -669,12 +668,12 @@ static bool flow_find_label_scope(struct flow_visit_ctx* ctx, struct flow_defer_
 static void check_all_defer_until_label(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock, const char* label,
     struct token* position_token)
 {
-    /*
-    * Precisamos saber quantos escopos nós saimos até achar o label.
-    * Para isso procuramos no escopo atual aonde aparede o goto.
-    * Se o label não esta diretamente neste escopo ou dentro de algum escopo interno
-    * Não nós imprimos os defers pois estamos saindo do escopo e vamos para o escopo
-    * de cima. Assim vamos repetindo em cada saida de escopo imprimos o defer.
+    /* 
+    * We need to know how many scopes we exited until we found the label. 
+    * To do this, we look in the current scope for where the goto appears. 
+    * If the label is not directly in this scope or within some internal scope 
+    * No, we print the defers because we are exiting the scope and going to the scope 
+    * above. So we repeat this at each scope exit, printing the defer. 
     */
     struct flow_defer_scope* _Opt p_defer = deferblock;
 
@@ -719,7 +718,7 @@ static void flow_exit_iteration_or_switch_statement_visit(struct flow_visit_ctx*
 
         if (p_defer->p_iteration_statement || p_defer->p_selection_statement)
         {
-            //break pode ser usado em loops or switch
+            //break can be used in loops or switch
             break;
         }
         p_defer = p_defer->previous;
@@ -2485,8 +2484,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_visit_expression(ctx, p_expression->right, &right_set);
         //arena_restore_current_state_from(ctx, original_state_number);
 
-        //Tudo o que faz left e right true também fazem left && right ser true.
-        //Tudo o que faz left false ou right false também fazem left && right ser false.
+       //Anything that makes left and right true also makes left && right true. 
+       //Anything that makes left false or right false also makes left && right false.
 
         for (int i = 0; i < left_set.size; i++)
         {
@@ -2606,8 +2605,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
-    default:
-        break;
     }
 }
 

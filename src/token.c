@@ -30,7 +30,7 @@
 #endif
 
 /*
-  PROVISORY - unchecked was removed, now we control flow ownerhip error with pragma
+  PROVISORY - unchecked was removed, now we control flow ownership error with pragma
   TODO review alternatives from Domingo's branch.
 */
 #ifdef __CAKE__
@@ -187,7 +187,7 @@ void token_delete(struct token* _Owner _Opt p)
     {
         /*
          * ownership warning here is about the p->next
-         * we need a way to remove only this especific warning
+         * we need a way to remove only this specific warning
         */
         assert(p->next == NULL);
         free(p->lexeme);
@@ -197,7 +197,6 @@ void token_delete(struct token* _Owner _Opt p)
 
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col)
 {
-    //assert(filetoken != NULL);
     struct token* _Opt p = list->head;
     while (p)
     {
@@ -289,8 +288,6 @@ void token_list_paste_string_before(struct token_list* list,
 }
 
 
-
-
 void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
 {
     if (append_list->head == NULL)
@@ -337,18 +334,16 @@ void token_list_insert_before(struct token_list* token_list, struct token* after
 
 struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
 {
-    /*evitar que sem querer esteja em 2 listas diferentes*/
+    /*avoid accidentally being in 2 different lists*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
-    //assert(pnew->token_origin);
-
+    
     if (list->head == NULL)
     {
         pnew->prev = NULL;
         pnew->next = NULL;
         list->head = pnew;
         list->tail = pnew;
-        //pnew->prev = list->tail;
     }
     else
     {
@@ -467,9 +462,6 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_STATIC_DEBUG_EX: /*extension*/
     case TK_KEYWORD_STATIC_STATE: /*extension*/
     case TK_KEYWORD_STATIC_SET: /*extension*/
-    case TK_KEYWORD_ATTR_ADD: /*extension*/
-    case TK_KEYWORD_ATTR_REMOVE: /*extension*/
-    case TK_KEYWORD_ATTR_HAS: /*extension*/
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 

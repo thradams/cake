@@ -174,9 +174,6 @@ enum token_type
     TK_KEYWORD_STATIC_DEBUG_EX, /*extension*/
     TK_KEYWORD_STATIC_STATE, /*extension*/
     TK_KEYWORD_STATIC_SET, /*extension*/
-    TK_KEYWORD_ATTR_ADD, /*extension*/
-    TK_KEYWORD_ATTR_REMOVE, /*extension*/
-    TK_KEYWORD_ATTR_HAS, /*extension*/
     
     /*https://en.cppreference.com/w/cpp/header/type_traits*/
     

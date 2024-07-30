@@ -60,14 +60,15 @@ double constant_value_to_double(const struct constant_value* a)
 {
     switch (a->type)
     {
+    case TYPE_NOT_CONSTANT:
+        break;
+
     case TYPE_LONG_LONG:
         return (double)a->llvalue;
     case TYPE_DOUBLE:
         return a->dvalue;
     case TYPE_UNSIGNED_LONG_LONG:
         return (double)a->ullvalue;
-    default:
-        break;
     }
 
     return 0;
@@ -574,7 +575,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
     return 0;
 }
 
-bool is_enumeration_constant(struct parser_ctx* ctx)
+bool is_enumeration_constant(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
     {
@@ -606,7 +607,7 @@ bool is_enumeration_constant(struct parser_ctx* ctx)
     return is_enumerator;
 }
 
-bool is_first_of_floating_constant(struct parser_ctx* ctx)
+bool is_first_of_floating_constant(const struct parser_ctx* ctx)
 {
     /*
      floating-constant:
@@ -617,7 +618,7 @@ bool is_first_of_floating_constant(struct parser_ctx* ctx)
         ctx->current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
-bool is_first_of_integer_constant(struct parser_ctx* ctx)
+bool is_first_of_integer_constant(const struct parser_ctx* ctx)
 {
     /*
      integer-constant:
@@ -633,14 +634,14 @@ bool is_first_of_integer_constant(struct parser_ctx* ctx)
         ctx->current->type == TK_COMPILER_BINARY_CONSTANT;
 }
 
-bool is_predefined_constant(struct parser_ctx* ctx)
+bool is_predefined_constant(const struct parser_ctx* ctx)
 {
     return ctx->current->type == TK_KEYWORD_TRUE ||
         ctx->current->type == TK_KEYWORD_FALSE ||
         ctx->current->type == TK_KEYWORD_NULLPTR;
 }
 
-bool is_first_of_constant(struct parser_ctx* ctx)
+bool is_first_of_constant(const struct parser_ctx* ctx)
 {
     /*
      constant:
@@ -657,7 +658,7 @@ bool is_first_of_constant(struct parser_ctx* ctx)
         is_predefined_constant(ctx);
 }
 
-bool is_first_of_primary_expression(struct parser_ctx* ctx)
+bool is_first_of_primary_expression(const struct parser_ctx* ctx)
 {
     /*
      primary-expression:
@@ -690,8 +691,6 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         if (p_generic_association == NULL)
             throw;
 
-
-        static_set(*p_generic_association, "zero");
         p_generic_association->first_token = ctx->current;
         /*generic - association:
             type-name : assignment-expression
@@ -1753,7 +1752,7 @@ bool first_of_postfix_expression(struct parser_ctx* ctx)
 {
     //( type-name )  postfix confunde com (expression) primary
     if (first_of_type_name_ahead(ctx))
-        return true; // acho q  nao precisa pq primary tb serve p postif
+        return true;// I don't think it's necessary because primary also works for postfix
     return is_first_of_primary_expression(ctx);
 }
 
@@ -2289,7 +2288,6 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         if (p_expression_node == NULL)
             throw;
 
-        static_set(*p_expression_node, "zero");
         assert(p_expression_node->type_name == NULL);
 
         struct token* _Opt p_previous = previous_parser_token(p_type_name->first_token);
@@ -2368,8 +2366,7 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
             if (p_expression_node == NULL)
                 throw;
 
-            static_set(*p_expression_node, "zero");
-
+            
             assert(ctx->current != NULL);
             p_expression_node->first_token = ctx->current;
             if (parser_match_tk(ctx, '(') != 0)
@@ -2441,12 +2438,7 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_SCALAR ||
         ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
         ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
-        ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
-        //
-
-        ctx->current->type == TK_KEYWORD_ATTR_ADD ||
-        ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
-        ctx->current->type == TK_KEYWORD_ATTR_HAS;
+        ctx->current->type == TK_KEYWORD_IS_INTEGRAL;
 }
 
 bool is_first_of_unary_expression(struct parser_ctx* ctx)
@@ -2554,7 +2546,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
             new_expression->first_token = ctx->current;
 
-            static_set(*new_expression, "zero");
             if (ctx->current->type == '++')
                 new_expression->expression_type = UNARY_EXPRESSION_INCREMENT;
             else
@@ -3087,8 +3078,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
             // pop_f
             if (ctx->current->type == '{')
             {
-                // Achar que era um cast_expression foi um engano...
-                // porque apareceu o { então é compound literal que eh postfix.
+                // Thinking it was a cast expression was a mistake... 
+                // because the { appeared then it is a compound literal which is a postfix.
                 struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name);
                 if (new_expression == NULL) throw;
 
@@ -3216,7 +3207,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 p_expression_node = NULL;
                 throw;
             }
-            static_set(*new_expression, "zero");
+            
             new_expression->first_token = ctx->current;
             enum token_type op = ctx->current->type;
             parser_match(ctx);
@@ -3568,7 +3559,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
             if (new_expression == NULL) throw;
 
             new_expression->first_token = ctx->current;
-            static_set(*new_expression, "zero");
+            
 
             enum token_type op = ctx->current->type;
             parser_match(ctx);
@@ -3804,7 +3795,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
                 throw;
 
             new_expression->first_token = ctx->current;
-            static_set(*new_expression, "zero");
+            
             struct token* operator_token = ctx->current;
             parser_match(ctx);
             if (ctx->current == NULL) throw;
@@ -4016,7 +4007,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
             if (new_expression == NULL)
                 throw;
 
-            static_set(*new_expression, "zero");
+            
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;

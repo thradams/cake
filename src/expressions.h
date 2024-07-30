@@ -208,7 +208,7 @@ struct expression
     struct token* last_token;
 
 
-    /*se expressão for um identificador ele aponta para declaração dele*/
+    /*if expression is an identifier it points to its declaration*/
     struct declarator* _Opt declarator;
     int member_index; //used in post_fix .
 

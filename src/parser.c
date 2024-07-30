@@ -559,6 +559,7 @@ bool first_of_enum_specifier(const struct parser_ctx* ctx)
     return first_of_enum_specifier_token(ctx->current);
 }
 
+
 bool first_of_alignment_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
@@ -756,28 +757,27 @@ bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
 
     if (p_token->type != TK_IDENTIFIER)
     {
-        // nao precisa verificar
+        // no need to check
         return false;
     }
     if (p_token->flags & TK_FLAG_IDENTIFIER_IS_TYPEDEF)
     {
-        // ja foi verificado que eh typedef
+        // it has already been verified that it is a typedef
         return true;
     }
     if (p_token->flags & TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF)
     {
-        // ja foi verificado que NAO eh typedef
+        // it has already been verified that it is NOT a typedef
         return false;
     }
 
-    struct declarator* _Opt pdeclarator = find_declarator(ctx, p_token->lexeme, NULL);
+    struct declarator* _Opt p_declarator = find_declarator(ctx, p_token->lexeme, NULL);
 
-    // pdeclarator->declaration_specifiers->
-    if (pdeclarator &&
-        pdeclarator->declaration_specifiers &&
-        (pdeclarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
+    if (p_declarator &&
+        p_declarator->declaration_specifiers &&
+        (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
     {
-        pdeclarator->num_uses++;
+        p_declarator->num_uses++;
         p_token->flags |= TK_FLAG_IDENTIFIER_IS_TYPEDEF;
         return true;
     }
@@ -837,6 +837,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_DOUBLE ||
         p_token->type == TK_KEYWORD_SIGNED ||
         p_token->type == TK_KEYWORD_UNSIGNED ||
+        p_token->type == TK_KEYWORD__BITINT ||
         p_token->type == TK_KEYWORD__BOOL ||
         p_token->type == TK_KEYWORD__COMPLEX ||
         p_token->type == TK_KEYWORD__DECIMAL32 ||
@@ -1168,14 +1169,6 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_View", text) == 0)
             result = TK_KEYWORD__VIEW; /*extension*/
 
-        /*EXPERIMENTAL EXTENSION*/
-        else if (strcmp("_has_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_HAS;
-        else if (strcmp("_add_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_ADD;
-        else if (strcmp("_del_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_REMOVE;
-        /*EXPERIMENTAL EXTENSION*/
 
         /*TRAITS EXTENSION*/
         else if (strcmp("_is_lvalue", text) == 0)
@@ -1830,7 +1823,7 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
 
     if (ctx->current)
     {
-        token_promote(ctx->current); // transforma para token de parser
+        token_promote(ctx->current); // transform to parser token
     }
 }
 
@@ -1943,7 +1936,7 @@ int add_specifier(struct parser_ctx* ctx,
         in
         TYPE_SPECIFIER_LONG_LONG
     */
-    if (new_flag & TYPE_SPECIFIER_LONG) // adicionando um long
+    if (new_flag & TYPE_SPECIFIER_LONG) // adding a long
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) // ja tinha long long
         {
@@ -2051,8 +2044,6 @@ void declaration_specifiers_delete(struct declaration_specifiers* _Owner _Opt p)
             item = next;
         }
         free(p);
-
-
     }
 }
 
@@ -2279,7 +2270,6 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 }
                 else
                 {
-
                     if (!without_semicolon && parser_match_tk(ctx, ';') != 0)
                         throw;
                 }
@@ -2389,7 +2379,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             if (ctx->options.flow_analysis)
             {
                 /*
-                 Now we have the full function AST let´s visit to analise
+                 Now we have the full function AST let´s visit to Analise
                  jumps
                 */
 
@@ -2727,17 +2717,17 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     {
                         /*int a[] = {1, 2, 3}*/
                         int braced_initializer_size = 0;
-                            
+
                         if (p_init_declarator->initializer->braced_initializer->initializer_list)
                         {
                             braced_initializer_size = p_init_declarator->initializer->braced_initializer->initializer_list->size;
                         }
                         else
                         {
-                           /*
-                              char s[] = {};
-                              warning: zero size arrays are an extension [-Wzero-length-array] 
-                           */
+                            /*
+                               char s[] = {};
+                               warning: zero size arrays are an extension [-Wzero-length-array]
+                            */
                         }
 
                         p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
@@ -3133,6 +3123,7 @@ void typeof_specifier_delete(struct typeof_specifier* _Owner _Opt p)
         free(p);
     }
 }
+
 void type_specifier_delete(struct type_specifier* _Owner _Opt p)
 {
     if (p)
@@ -3349,6 +3340,11 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             type_specifier_delete(p_type_specifier);
             return NULL;
         }
+    }
+    else if (ctx->current->type == TK_KEYWORD__BITINT)
+    {
+        //TODO
+        return NULL;
     }
     else if (ctx->current->type == TK_IDENTIFIER)
     {
@@ -8569,7 +8565,7 @@ int compile_one_file(const char* file_name,
 
     if (include_config_header(&prectx, file_name) != 0)
     {
-       //cakeconfig.h is optional               
+        //cakeconfig.h is optional               
     }
     // print_all_macros(&prectx);
 
@@ -8641,12 +8637,12 @@ int compile_one_file(const char* file_name,
         }
 
         ast.token_list = preprocessor(&prectx, &tokens, 0);
-        
+
         report->warnings_count += prectx.n_warnings;
         report->error_count += prectx.n_errors;
 
         if (prectx.n_errors > 0)
-        {                        
+        {
             throw;
         }
 
@@ -8768,7 +8764,7 @@ int compile_one_file(const char* file_name,
         }
         if (report->error_count > 0 || report->warnings_count > 0)
         {
-            
+
             printf("-------------------------------------------\n");
             printf("%s", content);
             printf("\n-------------------------------------------\n");
@@ -8777,8 +8773,8 @@ int compile_one_file(const char* file_name,
             report->test_failed++;
         }
         else
-        {           
-            
+        {
+
             report->test_succeeded++;
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }
@@ -8843,8 +8839,8 @@ int compile_many_files(const char* file_name,
             const char* const file_name_iter = basename(dp->d_name);
             const char* const file_extension = strrchr(file_name_iter, '.');
 
-            if (file_name_extension && 
-                file_extension && 
+            if (file_name_extension &&
+                file_extension &&
                 strcmp(file_name_extension, file_extension) == 0)
             {
                 //Fixes the output file name replacing the current name

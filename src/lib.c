@@ -469,9 +469,6 @@ enum token_type
     TK_KEYWORD_STATIC_DEBUG_EX, /*extension*/
     TK_KEYWORD_STATIC_STATE, /*extension*/
     TK_KEYWORD_STATIC_SET, /*extension*/
-    TK_KEYWORD_ATTR_ADD, /*extension*/
-    TK_KEYWORD_ATTR_REMOVE, /*extension*/
-    TK_KEYWORD_ATTR_HAS, /*extension*/
     
     /*https://en.cppreference.com/w/cpp/header/type_traits*/
     
@@ -1098,7 +1095,7 @@ int stringify(const char* input, int n, char output[]);
 #endif
 
 /*
-  PROVISORY - unchecked was removed, now we control flow ownerhip error with pragma
+  PROVISORY - unchecked was removed, now we control flow ownership error with pragma
   TODO review alternatives from Domingo's branch.
 */
 #ifdef __CAKE__
@@ -1255,7 +1252,7 @@ void token_delete(struct token* _Owner _Opt p)
     {
         /*
          * ownership warning here is about the p->next
-         * we need a way to remove only this especific warning
+         * we need a way to remove only this specific warning
         */
         assert(p->next == NULL);
         free(p->lexeme);
@@ -1265,7 +1262,6 @@ void token_delete(struct token* _Owner _Opt p)
 
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col)
 {
-    //assert(filetoken != NULL);
     struct token* _Opt p = list->head;
     while (p)
     {
@@ -1357,8 +1353,6 @@ void token_list_paste_string_before(struct token_list* list,
 }
 
 
-
-
 void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
 {
     if (append_list->head == NULL)
@@ -1405,18 +1399,16 @@ void token_list_insert_before(struct token_list* token_list, struct token* after
 
 struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
 {
-    /*evitar que sem querer esteja em 2 listas diferentes*/
+    /*avoid accidentally being in 2 different lists*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
-    //assert(pnew->token_origin);
-
+    
     if (list->head == NULL)
     {
         pnew->prev = NULL;
         pnew->next = NULL;
         list->head = pnew;
         list->tail = pnew;
-        //pnew->prev = list->tail;
     }
     else
     {
@@ -1535,9 +1527,6 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_STATIC_DEBUG_EX: /*extension*/
     case TK_KEYWORD_STATIC_STATE: /*extension*/
     case TK_KEYWORD_STATIC_SET: /*extension*/
-    case TK_KEYWORD_ATTR_ADD: /*extension*/
-    case TK_KEYWORD_ATTR_REMOVE: /*extension*/
-    case TK_KEYWORD_ATTR_HAS: /*extension*/
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
@@ -2688,7 +2677,7 @@ struct macro_parameter
 struct macro
 {
     const char* _Owner name;
-    struct token_list replacement_list; /*copia*/
+    struct token_list replacement_list; /*copy*/
     struct macro_parameter* _Owner _Opt parameters;
     bool is_function;
     int usage;
@@ -3033,7 +3022,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
 
 
 
-/*usado para verificar recursividade*/
+/*used to check recursion*/
 struct macro_expanded
 {
     const char* name;
@@ -3182,9 +3171,9 @@ void print_macro_arguments(struct macro_argument_list* arguments)
 
 struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_list* parameters, const char* name)
 {
-    /*
-    * Os argumentos são coletados na expansão da macro e cada um (exceto ...)
-    * é associado a um dos parametros da macro.
+   /* 
+    * The arguments are collected in the macro expansion and each one (except ...) 
+    * is associated with one of the macro parameters. 
     */
     struct macro_argument* _Opt p = parameters->head;
     while (p)
@@ -6485,14 +6474,14 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
             }
             else
             {
-                /*
-                aqui eh um bom lugar para setar o level e macro flags
-                poq sempre tem a re scann da macro no fim
+                /* 
+                 This is a good place to set the level and macro flags 
+                 because there is always a macro rescan at the end 
                 */
                 new_list.head->level = level;
                 new_list.head->flags |= TK_FLAG_MACRO_EXPANDED;
                 assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-                prematch(&r, &new_list); //nao era macro
+                prematch(&r, &new_list); //it wasn't macro
             }
         }
     }
@@ -6665,8 +6654,6 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
 }
 
 void print_literal2(const char* s);
-
-
 
 
 struct token_list expand_macro(struct preprocessor_ctx* ctx,
@@ -6912,7 +6899,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 token_list_destroy(&start_macro);
 
                 continue;
-                //saiu tetris...
+                //exit tetris...
                 //entao tudo foi expandido desde a primeiroa
             }
             else
@@ -6946,7 +6933,6 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         prematch(&r, input_list);
                         r.tail->flags |= TK_FLAG_FINAL;
-                        //token_promote(r.tail);
                     }
                     else
                     {
@@ -6971,28 +6957,15 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             prematch(&r, input_list);
                             if (is_final)
                             {
-                                // if (strcmp(r.tail->lexeme, "_CRT_STDIO_INLINE") == 0)
-                                 //{
-                                   //  printf("");
-                                 //}
-
                                 r.tail->flags |= TK_FLAG_FINAL;
-                                //token_promote(r.tail);
-
                             }
                         }
                         else
                         {
                             if (is_final)
                             {
-                                //if (strcmp(r.tail->lexeme, "_CRT_STDIO_INLINE") == 0)
-                                //{
-                                 //   printf("");
-                                //}
-
                                 prematch(&r, input_list);
                                 r.tail->flags |= TK_FLAG_FINAL;
-                                //token_promote(r.tail);
                             }
                             else
                             {
@@ -7046,7 +7019,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
         }
         else
         {
-            //aqui vou consumir o # dentro para ficar simetrico
+            //here I will consume the # inside to make it symmetrical
             return non_directive(ctx, input_list, level);
         }
     }
@@ -7616,9 +7589,6 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_STATIC_DEBUG_EX: return "TK_KEYWORD_STATIC_DEBUG_EX"; /*extension*/
     case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
     case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
-    case TK_KEYWORD_ATTR_ADD: return "TK_KEYWORD_ATTR_ADD"; /*extension*/
-    case TK_KEYWORD_ATTR_REMOVE: return "TK_KEYWORD_ATTR_REMOVE"; /*extension*/
-    case TK_KEYWORD_ATTR_HAS: return "TK_KEYWORD_ATTR_HAS"; /*extension*/
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
@@ -7632,9 +7602,8 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_IS_ARITHMETIC: return "TK_KEYWORD_IS_ARITHMETIC";
     case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
     case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
+    case TK_PRAGMA_END: return "TK_PRAGMA_END";
 
-    default:
-        break;
     }
     return "TK_X_MISSING_NAME";
 };
@@ -7749,7 +7718,7 @@ void print_code_as_we_see(struct token_list* list, bool remove_comments)
             if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
                 (current->prev != NULL && current->prev->type != TK_BLANKS))
             {
-                //se uma macro expandida for mostrada ele nao tem espacos entao inserimos
+                //if an expanded macro is shown it does not have spaces so we insert
                 printf(" ");
             }
 
@@ -7856,14 +7825,14 @@ const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list)
 const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token)
 {
     /*
-    * No nivel > 0 (ou seja dentro dos includes)
-    * Esta funcao imprime os tokens como o compilador ve
-    * e insere um espaco ou quebra de linha para poder representar
-    * a separacao entre os tokens.
+      * At level > 0 (i.e. inside the includes)
+      * This function prints the tokens as the compiler sees them
+      * and inserts a space or line break to represent
+      * the separation between tokens.
 
-    * Ja no nivel 0 (arquivo principal) ele imprime espacos comentarios
-    * etc.. e insere espacos na expancao da macro.
-    */
+      * At level 0 (main file) it prints spaces, comments
+      * etc. and inserts spaces in the macro expansion.
+  */
 
     if (p_token == NULL)
         return strdup("(null)");
@@ -7873,18 +7842,16 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
     while (current)
     {
 
-        //Nós ignorados a line continuation e ela pode aparecer em qualquer parte
-        //dos lexemes.
-        //inves de remover poderia so pular ao imprimir
+        //We ignored the line continuation and it can appear anywhere in the lexemes. 
+        //instead of removing it, you could just skip it when printing
         remove_line_continuation(current->lexeme);
 
         if (current->flags & TK_FLAG_FINAL)
         {
             if (current->level > 0)
             {
-                //nos niveis de include nos podemos estar ignorando todos
-                //os espacos. neste caso eh preciso incluilos para nao juntar os tokens
-
+                //at the include levels we may be ignoring all
+                //the spaces. in this case it is necessary to include them so as not to add the tokens
                 if ((current->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
                     ss_fprintf(&ss, "\n");
                 else if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE))
@@ -7893,8 +7860,8 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
             else
             {
                 /*
-                  no nivel 0 nos imprimimos os espacos.. porem no caso das macros
-                  eh preciso colocar um espaco pq ele nao existe.
+                 at level 0 we print the spaces.. however in the case of macros
+                 it is necessary to put a space because it does not exist.
                 */
                 if (current->flags & TK_FLAG_MACRO_EXPANDED)
                 {
@@ -7902,8 +7869,6 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
                         ss_fprintf(&ss, " ");
                 }
             }
-
-            //}
 
             if (current->lexeme[0] != '\0')
             {
@@ -10853,15 +10818,15 @@ void print_help()
         "\n"
         LIGHTCYAN "  -autoconfig           " RESET "Generates cakeconfig.h with include directories\n"
         "\n"
-        LIGHTCYAN "  -no-output            " RESET "Cake will not generate ouput\n"
+        LIGHTCYAN "  -no-output            " RESET "Cake will not generate output\n"
         "\n"
         LIGHTCYAN "  -D                    " RESET "Defines a preprocessing symbol for a source file \n"
         "\n"
         LIGHTCYAN "  -E                    " RESET "Copies preprocessor output to standard output \n"
         "\n"
-        LIGHTCYAN "  -o name.c             " RESET "Defines the ouput name. used when we compile one file\n"
+        LIGHTCYAN "  -o name.c             " RESET "Defines the output name. used when we compile one file\n"
         "\n"
-        LIGHTCYAN "  -remove-comments      " RESET "Remove all comments from the ouput file \n"
+        LIGHTCYAN "  -remove-comments      " RESET "Remove all comments from the output file \n"
         "\n"
         LIGHTCYAN "  -direct-compilation   " RESET "output without macros/preprocessor parts\n"
         "\n"
@@ -10871,19 +10836,19 @@ void print_help()
         LIGHTCYAN "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
         "                        (not implemented yet, input is considered C23)                    \n"
         "\n"
-        LIGHTCYAN "  -fi                   " RESET "Format input (format before language convertion)\n"
+        LIGHTCYAN "  -fi                   " RESET "Format input (format before language conversion)\n"
         "\n"
-        LIGHTCYAN "  -fo                   " RESET "Format output (format after language convertion, result parsed again)\n"
+        LIGHTCYAN "  -fo                   " RESET "Format output (format after language conversion, result parsed again)\n"
         "\n"
         LIGHTCYAN "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
         LIGHTCYAN "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
         "\n"
-        LIGHTCYAN "  -fanalyzer            " RESET "Runs flow analysis -  required for onwership\n"
+        LIGHTCYAN "  -fanalyzer            " RESET "Runs flow analysis -  required for ownership\n"
         "\n"
         LIGHTCYAN "  -sarif                " RESET "Generates sarif files\n"
         "\n"
-        LIGHTCYAN "  -msvc-output          " RESET "Ouput is compatible with visual studio\n"
+        LIGHTCYAN "  -msvc-output          " RESET "Output is compatible with visual studio\n"
         "\n"
         LIGHTCYAN "  -dump-tokens          " RESET "Output tokens before preprocessor\n"
         "\n"
@@ -11459,7 +11424,7 @@ struct expression
     struct token* last_token;
 
 
-    /*se expressão for um identificador ele aponta para declaração dele*/
+    /*if expression is an identifier it points to its declaration*/
     struct declarator* _Opt declarator;
     int member_index; //used in post_fix .
 
@@ -13251,14 +13216,15 @@ double constant_value_to_double(const struct constant_value* a)
 {
     switch (a->type)
     {
+    case TYPE_NOT_CONSTANT:
+        break;
+
     case TYPE_LONG_LONG:
         return (double)a->llvalue;
     case TYPE_DOUBLE:
         return a->dvalue;
     case TYPE_UNSIGNED_LONG_LONG:
         return (double)a->ullvalue;
-    default:
-        break;
     }
 
     return 0;
@@ -13765,7 +13731,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
     return 0;
 }
 
-bool is_enumeration_constant(struct parser_ctx* ctx)
+bool is_enumeration_constant(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
     {
@@ -13797,7 +13763,7 @@ bool is_enumeration_constant(struct parser_ctx* ctx)
     return is_enumerator;
 }
 
-bool is_first_of_floating_constant(struct parser_ctx* ctx)
+bool is_first_of_floating_constant(const struct parser_ctx* ctx)
 {
     /*
      floating-constant:
@@ -13808,7 +13774,7 @@ bool is_first_of_floating_constant(struct parser_ctx* ctx)
         ctx->current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
-bool is_first_of_integer_constant(struct parser_ctx* ctx)
+bool is_first_of_integer_constant(const struct parser_ctx* ctx)
 {
     /*
      integer-constant:
@@ -13824,14 +13790,14 @@ bool is_first_of_integer_constant(struct parser_ctx* ctx)
         ctx->current->type == TK_COMPILER_BINARY_CONSTANT;
 }
 
-bool is_predefined_constant(struct parser_ctx* ctx)
+bool is_predefined_constant(const struct parser_ctx* ctx)
 {
     return ctx->current->type == TK_KEYWORD_TRUE ||
         ctx->current->type == TK_KEYWORD_FALSE ||
         ctx->current->type == TK_KEYWORD_NULLPTR;
 }
 
-bool is_first_of_constant(struct parser_ctx* ctx)
+bool is_first_of_constant(const struct parser_ctx* ctx)
 {
     /*
      constant:
@@ -13848,7 +13814,7 @@ bool is_first_of_constant(struct parser_ctx* ctx)
         is_predefined_constant(ctx);
 }
 
-bool is_first_of_primary_expression(struct parser_ctx* ctx)
+bool is_first_of_primary_expression(const struct parser_ctx* ctx)
 {
     /*
      primary-expression:
@@ -13881,8 +13847,6 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         if (p_generic_association == NULL)
             throw;
 
-
-        static_set(*p_generic_association, "zero");
         p_generic_association->first_token = ctx->current;
         /*generic - association:
             type-name : assignment-expression
@@ -14944,7 +14908,7 @@ bool first_of_postfix_expression(struct parser_ctx* ctx)
 {
     //( type-name )  postfix confunde com (expression) primary
     if (first_of_type_name_ahead(ctx))
-        return true; // acho q  nao precisa pq primary tb serve p postif
+        return true;// I don't think it's necessary because primary also works for postfix
     return is_first_of_primary_expression(ctx);
 }
 
@@ -15480,7 +15444,6 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         if (p_expression_node == NULL)
             throw;
 
-        static_set(*p_expression_node, "zero");
         assert(p_expression_node->type_name == NULL);
 
         struct token* _Opt p_previous = previous_parser_token(p_type_name->first_token);
@@ -15559,8 +15522,7 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
             if (p_expression_node == NULL)
                 throw;
 
-            static_set(*p_expression_node, "zero");
-
+            
             assert(ctx->current != NULL);
             p_expression_node->first_token = ctx->current;
             if (parser_match_tk(ctx, '(') != 0)
@@ -15632,12 +15594,7 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_SCALAR ||
         ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
         ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
-        ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
-        //
-
-        ctx->current->type == TK_KEYWORD_ATTR_ADD ||
-        ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
-        ctx->current->type == TK_KEYWORD_ATTR_HAS;
+        ctx->current->type == TK_KEYWORD_IS_INTEGRAL;
 }
 
 bool is_first_of_unary_expression(struct parser_ctx* ctx)
@@ -15745,7 +15702,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
             new_expression->first_token = ctx->current;
 
-            static_set(*new_expression, "zero");
             if (ctx->current->type == '++')
                 new_expression->expression_type = UNARY_EXPRESSION_INCREMENT;
             else
@@ -16278,8 +16234,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
             // pop_f
             if (ctx->current->type == '{')
             {
-                // Achar que era um cast_expression foi um engano...
-                // porque apareceu o { então é compound literal que eh postfix.
+                // Thinking it was a cast expression was a mistake... 
+                // because the { appeared then it is a compound literal which is a postfix.
                 struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name);
                 if (new_expression == NULL) throw;
 
@@ -16407,7 +16363,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 p_expression_node = NULL;
                 throw;
             }
-            static_set(*new_expression, "zero");
+            
             new_expression->first_token = ctx->current;
             enum token_type op = ctx->current->type;
             parser_match(ctx);
@@ -16759,7 +16715,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
             if (new_expression == NULL) throw;
 
             new_expression->first_token = ctx->current;
-            static_set(*new_expression, "zero");
+            
 
             enum token_type op = ctx->current->type;
             parser_match(ctx);
@@ -16995,7 +16951,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
                 throw;
 
             new_expression->first_token = ctx->current;
-            static_set(*new_expression, "zero");
+            
             struct token* operator_token = ctx->current;
             parser_match(ctx);
             if (ctx->current == NULL) throw;
@@ -17207,7 +17163,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
             if (new_expression == NULL)
                 throw;
 
-            static_set(*new_expression, "zero");
+            
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
@@ -23419,6 +23375,7 @@ bool first_of_enum_specifier(const struct parser_ctx* ctx)
     return first_of_enum_specifier_token(ctx->current);
 }
 
+
 bool first_of_alignment_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
@@ -23616,28 +23573,27 @@ bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
 
     if (p_token->type != TK_IDENTIFIER)
     {
-        // nao precisa verificar
+        // no need to check
         return false;
     }
     if (p_token->flags & TK_FLAG_IDENTIFIER_IS_TYPEDEF)
     {
-        // ja foi verificado que eh typedef
+        // it has already been verified that it is a typedef
         return true;
     }
     if (p_token->flags & TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF)
     {
-        // ja foi verificado que NAO eh typedef
+        // it has already been verified that it is NOT a typedef
         return false;
     }
 
-    struct declarator* _Opt pdeclarator = find_declarator(ctx, p_token->lexeme, NULL);
+    struct declarator* _Opt p_declarator = find_declarator(ctx, p_token->lexeme, NULL);
 
-    // pdeclarator->declaration_specifiers->
-    if (pdeclarator &&
-        pdeclarator->declaration_specifiers &&
-        (pdeclarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
+    if (p_declarator &&
+        p_declarator->declaration_specifiers &&
+        (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
     {
-        pdeclarator->num_uses++;
+        p_declarator->num_uses++;
         p_token->flags |= TK_FLAG_IDENTIFIER_IS_TYPEDEF;
         return true;
     }
@@ -23697,6 +23653,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_DOUBLE ||
         p_token->type == TK_KEYWORD_SIGNED ||
         p_token->type == TK_KEYWORD_UNSIGNED ||
+        p_token->type == TK_KEYWORD__BITINT ||
         p_token->type == TK_KEYWORD__BOOL ||
         p_token->type == TK_KEYWORD__COMPLEX ||
         p_token->type == TK_KEYWORD__DECIMAL32 ||
@@ -24028,14 +23985,6 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_View", text) == 0)
             result = TK_KEYWORD__VIEW; /*extension*/
 
-        /*EXPERIMENTAL EXTENSION*/
-        else if (strcmp("_has_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_HAS;
-        else if (strcmp("_add_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_ADD;
-        else if (strcmp("_del_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_REMOVE;
-        /*EXPERIMENTAL EXTENSION*/
 
         /*TRAITS EXTENSION*/
         else if (strcmp("_is_lvalue", text) == 0)
@@ -24690,7 +24639,7 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
 
     if (ctx->current)
     {
-        token_promote(ctx->current); // transforma para token de parser
+        token_promote(ctx->current); // transform to parser token
     }
 }
 
@@ -24803,7 +24752,7 @@ int add_specifier(struct parser_ctx* ctx,
         in
         TYPE_SPECIFIER_LONG_LONG
     */
-    if (new_flag & TYPE_SPECIFIER_LONG) // adicionando um long
+    if (new_flag & TYPE_SPECIFIER_LONG) // adding a long
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) // ja tinha long long
         {
@@ -24911,8 +24860,6 @@ void declaration_specifiers_delete(struct declaration_specifiers* _Owner _Opt p)
             item = next;
         }
         free(p);
-
-
     }
 }
 
@@ -25139,7 +25086,6 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 }
                 else
                 {
-
                     if (!without_semicolon && parser_match_tk(ctx, ';') != 0)
                         throw;
                 }
@@ -25249,7 +25195,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             if (ctx->options.flow_analysis)
             {
                 /*
-                 Now we have the full function AST let´s visit to analise
+                 Now we have the full function AST let´s visit to Analise
                  jumps
                 */
 
@@ -25587,17 +25533,17 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     {
                         /*int a[] = {1, 2, 3}*/
                         int braced_initializer_size = 0;
-                            
+
                         if (p_init_declarator->initializer->braced_initializer->initializer_list)
                         {
                             braced_initializer_size = p_init_declarator->initializer->braced_initializer->initializer_list->size;
                         }
                         else
                         {
-                           /*
-                              char s[] = {};
-                              warning: zero size arrays are an extension [-Wzero-length-array] 
-                           */
+                            /*
+                               char s[] = {};
+                               warning: zero size arrays are an extension [-Wzero-length-array]
+                            */
                         }
 
                         p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
@@ -25993,6 +25939,7 @@ void typeof_specifier_delete(struct typeof_specifier* _Owner _Opt p)
         free(p);
     }
 }
+
 void type_specifier_delete(struct type_specifier* _Owner _Opt p)
 {
     if (p)
@@ -26209,6 +26156,11 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             type_specifier_delete(p_type_specifier);
             return NULL;
         }
+    }
+    else if (ctx->current->type == TK_KEYWORD__BITINT)
+    {
+        //TODO
+        return NULL;
     }
     else if (ctx->current->type == TK_IDENTIFIER)
     {
@@ -31429,7 +31381,7 @@ int compile_one_file(const char* file_name,
 
     if (include_config_header(&prectx, file_name) != 0)
     {
-       //cakeconfig.h is optional               
+        //cakeconfig.h is optional               
     }
     // print_all_macros(&prectx);
 
@@ -31501,12 +31453,12 @@ int compile_one_file(const char* file_name,
         }
 
         ast.token_list = preprocessor(&prectx, &tokens, 0);
-        
+
         report->warnings_count += prectx.n_warnings;
         report->error_count += prectx.n_errors;
 
         if (prectx.n_errors > 0)
-        {                        
+        {
             throw;
         }
 
@@ -31628,7 +31580,7 @@ int compile_one_file(const char* file_name,
         }
         if (report->error_count > 0 || report->warnings_count > 0)
         {
-            
+
             printf("-------------------------------------------\n");
             printf("%s", content);
             printf("\n-------------------------------------------\n");
@@ -31637,8 +31589,8 @@ int compile_one_file(const char* file_name,
             report->test_failed++;
         }
         else
-        {           
-            
+        {
+
             report->test_succeeded++;
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }
@@ -31703,8 +31655,8 @@ int compile_many_files(const char* file_name,
             const char* const file_name_iter = basename(dp->d_name);
             const char* const file_extension = strrchr(file_name_iter, '.');
 
-            if (file_name_extension && 
-                file_extension && 
+            if (file_name_extension &&
+                file_extension &&
                 strcmp(file_name_extension, file_extension) == 0)
             {
                 //Fixes the output file name replacing the current name
@@ -33552,8 +33504,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         break;
 
-    default:
-        break;
+    //default:
+      //  break;
     }
 }
 
@@ -33864,6 +33816,24 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
     {
         visit_block_item(ctx, p_block_item);
         p_block_item = p_block_item->next;
+    }
+}
+
+static void visit_pragma_declaration(struct visit_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
+{
+    struct token* next = p_pragma_declaration->first_token->next;
+    if (next)
+        next = next->next;
+    if (next)
+    {
+        if (strcmp(next->lexeme, "safety") == 0 ||
+            strcmp(next->lexeme, "expand") == 0 ||
+            strcmp(next->lexeme, "nullable") == 0 ||
+            strcmp(next->lexeme, "flow") == 0)
+        {
+            free(p_pragma_declaration->first_token->lexeme);
+            p_pragma_declaration->first_token->lexeme = strdup("//pragma");
+        }
     }
 }
 
@@ -34623,12 +34593,14 @@ void defer_scope_delete_all(struct defer_scope* _Owner p)
 
 static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration)
 {
-
-
-
     if (p_declaration->static_assert_declaration)
     {
         visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
+    }
+
+    if (p_declaration->pragma_declaration)
+    {
+        visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
     }
 
     if (p_declaration->p_attribute_specifier_sequence_opt)
@@ -34636,10 +34608,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt);
     }
 
-
     if (p_declaration->declaration_specifiers)
     {
-
         if (p_declaration->init_declarator_list.head)
         {
             visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers,
@@ -34990,7 +34960,7 @@ struct flow_defer_scope
     struct declarator* _Opt declarator; // declarator
     struct defer_statement* _Opt defer_statement; // defer
 
-    //statements for controling where jump like break, throw stop.
+    //statements for controlling where jump like break, throw stop.
 
     struct try_statement* _Opt p_try_statement; //try
     struct selection_statement* _Opt p_selection_statement; //if switch
@@ -35462,7 +35432,6 @@ static bool flow_find_label_block_item_list(struct flow_visit_ctx* ctx, struct b
             block_item->label->p_identifier_opt &&
             strcmp(block_item->label->p_identifier_opt->lexeme, label) == 0)
         {
-            /*achou*/
             return true;
         }
         else if (block_item->unlabeled_statement)
@@ -35623,12 +35592,12 @@ static bool flow_find_label_scope(struct flow_visit_ctx* ctx, struct flow_defer_
 static void check_all_defer_until_label(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock, const char* label,
     struct token* position_token)
 {
-    /*
-    * Precisamos saber quantos escopos nós saimos até achar o label.
-    * Para isso procuramos no escopo atual aonde aparede o goto.
-    * Se o label não esta diretamente neste escopo ou dentro de algum escopo interno
-    * Não nós imprimos os defers pois estamos saindo do escopo e vamos para o escopo
-    * de cima. Assim vamos repetindo em cada saida de escopo imprimos o defer.
+    /* 
+    * We need to know how many scopes we exited until we found the label. 
+    * To do this, we look in the current scope for where the goto appears. 
+    * If the label is not directly in this scope or within some internal scope 
+    * No, we print the defers because we are exiting the scope and going to the scope 
+    * above. So we repeat this at each scope exit, printing the defer. 
     */
     struct flow_defer_scope* _Opt p_defer = deferblock;
 
@@ -35673,7 +35642,7 @@ static void flow_exit_iteration_or_switch_statement_visit(struct flow_visit_ctx*
 
         if (p_defer->p_iteration_statement || p_defer->p_selection_statement)
         {
-            //break pode ser usado em loops or switch
+            //break can be used in loops or switch
             break;
         }
         p_defer = p_defer->previous;
@@ -37439,8 +37408,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_visit_expression(ctx, p_expression->right, &right_set);
         //arena_restore_current_state_from(ctx, original_state_number);
 
-        //Tudo o que faz left e right true também fazem left && right ser true.
-        //Tudo o que faz left false ou right false também fazem left && right ser false.
+       //Anything that makes left and right true also makes left && right true. 
+       //Anything that makes left false or right false also makes left && right false.
 
         for (int i = 0; i < left_set.size; i++)
         {
@@ -37560,8 +37529,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
-    default:
-        break;
     }
 }
 
@@ -41347,7 +41314,10 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
 
             type_destroy(&type);
         }
-        else { /*static_assert*/ }
+        else
+        {
+            /*static_assert*/
+        }
         d = d->next;
     }
     assert(align != 0);

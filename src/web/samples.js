@@ -38,7 +38,7 @@ sample["C99"]["int a[static]"] =
 
 void F(int a[static const 5]) 
 {
-    //cake was a warning when modifing array arguments
+    //cake was a warning when modifying array arguments
     a = 0;
 
     //bounds check for constant indexes
@@ -99,12 +99,12 @@ int main(void)
 {
     cbrt(1.0);
 
-    const int * const p;
+    const int * const p = 0;
     _Static_assert(_Generic(p, const int * : 1 ), "");
     _Static_assert(_Generic(&p, const int * const * : 1 ), "");
     _Static_assert(_Generic(main, int (*)(void) : 1 ), "");
 
-    const int * const p2;
+    const int * const p2 = 0;
     static_assert(_Generic(p2, const int *: 1));
 
     static_assert(_Generic("abc",  char *: 1));    
@@ -147,10 +147,10 @@ sample["C11"]["u8 literals"] =
 `
 /*
 * cake input source code encode is always utf8
-* cake ouput source code is also utf8
+* cake output source code is also utf8
 *
-* This web ouput also works with utf8. So everthing just works
-* even without u8 prefix. (press compile ouput)
+* This web output also works with utf8. So everything just works
+* even without u8 prefix. (press compile output)
 *
 * u8 prefix may be useful in case you have a compiler where
 * the input or output is not uft8.
@@ -199,7 +199,7 @@ int main()
 
 /*
   Note:
-  This convesion happens at token level, even not active blocks
+  This conversion happens at token level, even not active blocks
   are converted
 */
 #if 0
@@ -220,7 +220,7 @@ int main()
 
 /*
   Note:
-  This convesion happens at token level, even not active blocks
+  This conversion happens at token level, even not active blocks
   are converted
 */
 `;
@@ -341,7 +341,7 @@ sample["C23"]["_has_include|__has_embed|__has_c_attribute"] =
 
 /*
   __has_include is a sample of feature that is impossible to translate, 
-  unless for imediate compilation.
+  unless for immediate compilation.
 */
 `;
 
@@ -1076,7 +1076,7 @@ void dispatch(void* capture, int sz, void (*F)(void* data))
 {
   /*
     The real function would copy capture and the function pointer
-    to a queue and then execute sequencially.
+    to a queue and then execute sequentially.
   */
   F(capture);
 }
@@ -1226,7 +1226,7 @@ sample["Extensions"]["assert"] =
 /* 
    assert in cake is a built-in expression.
    including assert.h if NDEBUG is defined, defines
-   assert as ((void)0). Othewise, assert is defined as assert(...) assert(__VA_ARGS__)
+   assert as ((void)0). Otherwise, assert is defined as assert(...) assert(__VA_ARGS__)
 */    
 
 #define NDEBUG
