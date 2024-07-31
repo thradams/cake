@@ -278,6 +278,47 @@ void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx)
     }
 }
 
+static void stringfy(const char* input, char* output, int output_size)
+{
+    char json_str_message[200] = { 0 };
+
+    int k = 0;
+    while (*input != '\0')
+    {
+        if (*input == '\"')
+        {
+            if (k < output_size)
+                json_str_message[k] = '\\';
+            k++;
+            if (k < output_size)
+                json_str_message[k] = '"';
+            k++;
+            input++;
+        }
+        else if (*input == '\n')
+        {
+            if (k < output_size)
+                json_str_message[k] = '\\';
+            k++;
+            if (k < output_size)
+                json_str_message[k] = 'n';
+            k++;
+            input++;
+        }
+        else
+        {
+            if (k < output_size)
+                json_str_message[k] = *input;
+            k++;
+            input++;
+        }
+    }
+    if (k < output_size)
+        json_str_message[k] = '\0';
+    else
+        json_str_message[output_size - 1] = '\0';
+}
+
 _Bool compiler_diagnostic_message(enum diagnostic_id w,
     const struct parser_ctx* ctx,
     const struct token* _Opt p_token_opt,
@@ -447,19 +488,28 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     if (ctx->sarif_file)
     {
 
+        char json_str_message[200] = { 0 };
+        stringfy(buffer, json_str_message, sizeof json_str_message);
 
-        if (ctx->p_report->error_count + ctx->p_report->warnings_count + ctx->p_report->info_count > 1)
+        if (ctx->sarif_entries > 0)
         {
-            fprintf(ctx->sarif_file, ",\n");
+            fprintf(ctx->sarif_file, "   ,\n");
         }
+
+        ((struct parser_ctx*)ctx)->sarif_entries++;
 
         fprintf(ctx->sarif_file, "   {\n");
         fprintf(ctx->sarif_file, "     \"ruleId\":\"%s\",\n", diagnostic_name);
 
-        fprintf(ctx->sarif_file, "     \"level\":\"warning\",\n");
+        if (is_error)
+            fprintf(ctx->sarif_file, "     \"level\":\"error\",\n");
+        else if (is_warning)
+            fprintf(ctx->sarif_file, "     \"level\":\"warning\",\n");
+        else if (is_note)
+            fprintf(ctx->sarif_file, "     \"level\":\"note\",\n");
 
         fprintf(ctx->sarif_file, "     \"message\": {\n");
-        fprintf(ctx->sarif_file, "            \"text\": \"%s\"\n", buffer);
+        fprintf(ctx->sarif_file, "            \"text\": \"%s\"\n", json_str_message);
         fprintf(ctx->sarif_file, "      },\n");
         fprintf(ctx->sarif_file, "      \"locations\": [\n");
         fprintf(ctx->sarif_file, "       {\n");
@@ -696,7 +746,7 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
                 return best; // OK bem completo
             else
             {
-                // nao eh completo vamos continuar subindo
+                // it's not complete let's keep going up
             }
         }
         scope = scope->previous;
@@ -6875,10 +6925,10 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
-                }
             }
         }
+    }
+}
     }
     catch
     {
@@ -8634,7 +8684,7 @@ int compile_one_file(const char* file_name,
             else
             {
                 report->error_count++;
-                printf("cannot open sarif output file '%s'\n", sarif_file_name);
+                printf("cannot open Sarif output file '%s'\n", sarif_file_name);
                 throw;
             }
         }
@@ -8970,7 +9020,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-    }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -9011,12 +9061,12 @@ int compile(int argc, const char** argv, struct report* report)
     {
         if (strcmp(argv[i], "-o") == 0 ||
             strcmp(argv[i], "-sarif-path") == 0)
-        {       
+        {
             //consumes next
             i++;
             continue;
         }
-        
+
         if (argv[i][0] == '-')
             continue;
 
@@ -9126,9 +9176,9 @@ struct ast get_ast(struct options* options,
 }
 
 /*
- * dada uma string s produz o argv modificando a string de entrada
- * return argc
- */
+* given a string s, produce argv by modifying the input string
+* return argc
+*/
 int strtoargv(char* s, int n, const char* argv[/*n*/])
 {
     int argvc = 0;

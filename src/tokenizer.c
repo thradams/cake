@@ -75,7 +75,7 @@
 
 
 // Includes tokens that are not necessary for compilation at second level of includes
-static const bool INCLUDE_ALL = true;
+enum { INCLUDE_ALL = 1 };
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
@@ -311,45 +311,72 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
 
 struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const char* path)
 {
-    if (path == NULL)
-        return NULL;
+    try
+    {
+        if (path == NULL)
+            return NULL;
 
-    struct include_dir* _Owner _Opt p_new_include_dir = calloc(1, sizeof * p_new_include_dir);
-    if (p_new_include_dir == NULL)
-        return NULL;
+        struct include_dir* _Owner _Opt p_new_include_dir = calloc(1, sizeof * p_new_include_dir);
+        if (p_new_include_dir == NULL)
+            throw;
 
-    int len = strlen(path);
-    if (path[len - 1] == '\\')
-    {
-        //windows path format ending with \ .
-        p_new_include_dir->path = strdup(path);
-    }
-    else if (path[len - 1] != '/')
-    {
-        /*
-          not ending with \, we add it
-        */
-        p_new_include_dir->path = malloc(len + 2);
-        snprintf((char*)p_new_include_dir->path, len + 2, "%s/", path);
-    }
-    else
-    {
-        p_new_include_dir->path = strdup(path);
-    }
+        int len = strlen(path);
+        if (path[len - 1] == '\\')
+        {
+            //windows path format ending with \ .
+            const char* _Owner _Opt temp = strdup(path);
+            if (temp == NULL)
+            {
+                free(p_new_include_dir);
+                throw;
+            }
+            p_new_include_dir->path = temp;
+        }
+        else if (path[len - 1] != '/')
+        {
+            /*
+              not ending with \, we add it
+            */
+            const char* _Owner _Opt temp = calloc(len + 2, sizeof(char));
+            if (temp == NULL)
+            {
+                free(p_new_include_dir);
+                throw;
+            }
 
-    if (list->head == NULL)
-    {
-        list->head = p_new_include_dir;
-        list->tail = p_new_include_dir;
+            p_new_include_dir->path = temp;
+            snprintf((char*)p_new_include_dir->path, len + 2, "%s/", path);
+        }
+        else
+        {
+            const char* _Owner _Opt temp = strdup(path);
+            if (temp == NULL)
+            {
+                free(p_new_include_dir);
+                throw;
+            }
+            p_new_include_dir->path = temp;
+        }
+
+        if (list->head == NULL)
+        {
+            list->head = p_new_include_dir;
+            list->tail = p_new_include_dir;
+        }
+        else
+        {
+            assert(list->tail != NULL);
+            assert(list->tail->next == NULL);
+            list->tail->next = p_new_include_dir;
+            list->tail = p_new_include_dir;
+        }
+        return list->tail;
     }
-    else
+    catch
     {
-        assert(list->tail != NULL);
-        assert(list->tail->next == NULL);
-        list->tail->next = p_new_include_dir;
-        list->tail = p_new_include_dir;
+
     }
-    return list->tail;
+    return NULL;
 }
 
 
@@ -450,16 +477,31 @@ struct macro_expanded
 
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct macro* _Owner _Opt macro = calloc(1, sizeof * macro);
-    if (macro != NULL)
+    try
     {
-        macro->name = strdup(name);
+        char* _Owner _Opt name_local = strdup(name);
+        if (name_local == NULL)
+        {
+            throw;
+        }
+
+        struct macro* _Owner _Opt macro = calloc(1, sizeof * macro);
+        if (macro == NULL)
+        {
+            free(name_local);
+            throw;
+        }
+
+        macro->name = name_local;
         struct macro* _Owner _Opt previous = (struct macro* _Owner)owner_hashmap_set(&ctx->macros, name, (void* _Owner) macro, 0);
         if (previous)
         {
             delete_macro(previous);
             previous = NULL;
         }
+    }
+    catch
+    {
     }
 }
 
@@ -519,6 +561,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
 
         if (current == list->tail)
             break;
+
         current = current->next;
     }
 
@@ -538,21 +581,27 @@ void macro_argument_delete(struct macro_argument* _Owner _Opt p)
 
 struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
 {
-    struct token_list list = copy_argument_list_tokens(&p_macro_argument->tokens);
-    if (list.head == NULL)
+    try
     {
-        /*nunca eh vazio..se for ele colocar um TK_PLACEMARKER*/
-        struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
-        if (p_new_token)
+        struct token_list list = copy_argument_list_tokens(&p_macro_argument->tokens);
+        if (list.head == NULL)
         {
+            /*it's never empty...if puts a TK PLACEMARKER*/
+            struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
+            if (p_new_token == NULL) throw;
+
             p_new_token->lexeme = strdup("");
             p_new_token->type = TK_PLACEMARKER;
             token_list_add(&list, p_new_token);
-
         }
+        return list;
     }
-    //print_list(&list);
-    return list;
+    catch
+    {
+    }
+    
+    struct token_list empty={0};
+    return empty;    
 }
 
 
@@ -589,10 +638,10 @@ void print_macro_arguments(struct macro_argument_list* arguments)
 
 struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_list* parameters, const char* name)
 {
-   /* 
-    * The arguments are collected in the macro expansion and each one (except ...) 
-    * is associated with one of the macro parameters. 
-    */
+    /*
+     * The arguments are collected in the macro expansion and each one (except ...)
+     * is associated with one of the macro parameters.
+     */
     struct macro_argument* _Opt p = parameters->head;
     while (p)
     {
@@ -755,7 +804,7 @@ void print_line(struct token* p)
     printf("\n");
 }
 
-int is_nondigit(struct stream* p)
+int is_nondigit(const struct stream* p)
 {
     /*
     nondigit: one of
@@ -1441,14 +1490,14 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
 
 
         assert(list.head != NULL);
-    }
+        }
     catch
     {
     }
 
 
     return list;
-}
+    }
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -2991,7 +3040,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token_list list = embed_tokenizer(ctx, p_embed_token, fullpath, nlevel, f);
 
             if (ctx->n_errors > 0)
+            {
+                token_list_destroy(&list);
                 throw;
+            }
 
             token_list_append_list(&r, &list);
             token_list_destroy(&list);
@@ -3887,9 +3939,9 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
             }
             else
             {
-                /* 
-                 This is a good place to set the level and macro flags 
-                 because there is always a macro rescan at the end 
+                /*
+                 This is a good place to set the level and macro flags
+                 because there is always a macro rescan at the end
                 */
                 new_list.head->level = level;
                 new_list.head->flags |= TK_FLAG_MACRO_EXPANDED;
@@ -4510,7 +4562,7 @@ void check_unused_macros(struct owner_hash_map* map)
 
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
 {
-    char local_cakeconfig_path[MAX_PATH];
+    char local_cakeconfig_path[MAX_PATH] = { 0 };
     snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s", file_name);
     dirname(local_cakeconfig_path);
 
@@ -5157,6 +5209,8 @@ const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_
     if (list->head == NULL)
         return NULL;
 
+    assert(list->tail != NULL);        
+
     struct osstream ss = { 0 };
     struct token* _Opt current = list->head;
     while (current != list->tail->next)
@@ -5169,7 +5223,7 @@ const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_
             if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
                 (current->prev != NULL && current->prev->type != TK_BLANKS))
             {
-                //se uma macro expandida for mostrada ele nao tem espacos entao inserimos
+                //if an expanded macro is shown it has no spaces so we insert
                 ss_fprintf(&ss, " ");
             }
 

@@ -357,7 +357,7 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
 
 }
 
-int is_digit(struct stream* p)
+int is_digit(const struct stream* p)
 {
     /*
      digit : one of
@@ -484,7 +484,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
 }
 
 
-bool token_is_blank(struct token* p)
+bool token_is_blank(const struct token* p)
 {
     return p->type == TK_BEGIN_OF_FILE ||
         p->type == TK_BLANKS ||

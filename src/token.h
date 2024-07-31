@@ -255,7 +255,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 char* _Owner token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);
-bool token_is_blank(struct token* _Opt p);
+bool token_is_blank(const struct token* _Opt p);
 bool token_is_identifier_or_keyword(enum token_type t);
 void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag);
 void token_range_remove_flag(struct token* first, struct token* last, enum token_flags flag);
@@ -292,8 +292,8 @@ struct stream
     const char* path;
 };
 
-int is_digit(struct stream* p);
-int is_nondigit(struct stream* p);
+int is_digit(const struct stream* p);
+int is_nondigit(const struct stream* p);
 void stream_match(struct stream* stream);
 
 

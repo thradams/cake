@@ -70,7 +70,7 @@ struct token_list  copy_replacement_list(struct token_list* list);
 void token_list_append_list(struct token_list* dest, struct token_list* _Obj_owner source);
 void print_list(struct token_list* list);
 void token_list_destroy( struct token_list* _Obj_owner list);
-bool token_is_blank(struct token* p);
+bool token_is_blank(const struct token* p);
 void token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);
 struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list);

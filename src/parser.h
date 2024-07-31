@@ -116,6 +116,7 @@ struct parser_ctx
     struct  switch_value_list* _Opt p_switch_value_list;
 
     FILE* _Owner _Opt sarif_file;
+    unsigned int sarif_entries;
 
     _View struct token_list input_list;
     struct token* _Opt current;

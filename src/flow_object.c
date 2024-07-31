@@ -290,7 +290,7 @@ void flow_object_update_current(struct flow_object* p)
         p->current.state = 0;
         for (int i = 0; i < p->current.alternatives.size; i++)
         {
-            //infinit recursin?
+            //infinite recursion?
             flow_object_update_current(p->current.alternatives.data[i]);
             p->current.state |= p->current.alternatives.data[i]->current.state;
         }
@@ -2955,7 +2955,7 @@ static void flow_assignment_core(
                 else
                 {
                     //avoid error on top of error
-                    //address error already emmited
+                    //address error already emitted
                     //at this point
                 }
             }

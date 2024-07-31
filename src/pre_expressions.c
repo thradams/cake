@@ -22,10 +22,10 @@
 #include <debugapi.h>
 #endif
 
-/*contexto expressoes preprocessador*/
+/*context expressions preprocessor*/
 struct pre_expression_ctx
 {
-    /*todas expressões do preprocessador sao calculadas com long long*/
+    /*all preprocessor expressions are calculated with long long*/
     long long value;
 };
 
@@ -52,7 +52,7 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 static int ppnumber_to_longlong(struct token* token, long long* result)
 {
 
-    /*copia removendo os separadores*/
+    /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
     // 0xb1'1'1....
     int c = 0;
@@ -692,9 +692,9 @@ static void pre_assignment_expression(struct preprocessor_ctx* ctx, struct pre_e
           assignment-operator: one of
           = *= /= %= += -= <<= >>= &= ^= |=
        */
-       // aqui eh duvidoso mas conditional faz a unary tb.
-       // a diferenca q nao eh qualquer expressao
-       // que pode ser de atribuicao
+       // here it is doubtful but conditional does unary too. 
+       // the difference is that it is not just any expression 
+       // which can be an assignment
     try
     {
         pre_conditional_expression(ctx, ectx);
@@ -734,7 +734,7 @@ static void pre_expression(struct preprocessor_ctx* ctx, struct pre_expression_c
         if (ctx->n_errors > 0)
             throw;
 
-        while (ctx->current->type == ',')
+        while (ctx->current && ctx->current->type == ',')
         {
             pre_match(ctx);
             pre_expression(ctx, ectx);

@@ -1099,6 +1099,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case UNARY_EXPRESSION_PLUS:
     case UNARY_EXPRESSION_CONTENT:
     case UNARY_EXPRESSION_ADDRESSOF:
+    case UNARY_EXPRESSION_ASSERT:
+
         if (p_expression->right)
         {
             visit_expression(ctx, p_expression->right);
@@ -1134,6 +1136,10 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
     case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
     case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
+
+    case LOGICAL_AND_EXPRESSION:
+    case LOGICAL_OR_EXPRESSION:
+
 
         if (p_expression->left)
         {
