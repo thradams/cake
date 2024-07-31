@@ -15039,8 +15039,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             string concatenation deveria ser em uma phase anterior
             mas como mantemos as forma do fonte aqui foi uma alternativa
             */
-            while (ctx->current &&
-                   ctx->current->type == TK_STRING_LITERAL)
+            while (ctx->current->type == TK_STRING_LITERAL)
             {
                 parser_match(ctx);
                 if (ctx->current == NULL) throw;
@@ -23168,7 +23167,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.14"
+#define CAKE_VERSION "0.9.15"
 
 
 

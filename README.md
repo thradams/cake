@@ -28,14 +28,14 @@ http://thradams.com/cake/playground.html
 
 If you have a project that is distributed with code, you don't need to limit the project development at the lower supported language version.  For instance, you can use attributes like *nodiscard* during the development or *defer*, both features 
 improving the code security. Then adding a extra step in your build you can distribute a readable C99 source code that compiles everywhere.
-Cake can also be used as static analyzer, especially the new ownership analysis.
+Cake can also be used as static analyzer, especially the new object lifetime analysis.
 
 # Features
 
 * C23 preprocessor
 * C23 syntax analysis
 * C23 semantic analysis
-* Static ownership checks (Extension)
+* Static [object lifetime](ownership.html) checks (Extension)
 * Sarif output
 * C backend
 * AST 

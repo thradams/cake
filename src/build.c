@@ -281,6 +281,8 @@ int main()
     execute_cmd(RUN "cake ../tests/en-cpp-reference-c/*.c -Wno-array-indirection -Wno-div-by-zero -test-mode");
     execute_cmd(RUN "cake ../tests/unit-tests/*.c -test-mode");
 
+    printf("Other test cases\n");
+    printf("cake ../tests/unit-tests/failing/*.c -test-mode\n");
 #endif // TEST
 
     //cake ..\tests\sqlite\sqlite3.c -DSQLITE_OMIT_SEH -Wno-out-of-bounds

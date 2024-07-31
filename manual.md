@@ -158,7 +158,15 @@ Enables all warnings
 
 #### -sarif               
 Generates sarif files
-Sarif VS plugin https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer
+Sarif Visual Studio plugin https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer
+
+#### -sarif-path               
+Specifies the Sarif output dir.
+
+Inside "Visual Studio -> External Tools" this command can be used for static analysis.
+
+`-Wstyle  -msvc-output  -no-output -sarif -sarif-path "$(SolutionDir).sarif" $(ItemPath)´
+
 
 #### -msvc-output          
 Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. 

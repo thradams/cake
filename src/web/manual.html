@@ -462,7 +462,15 @@ See <a href="warnings.html">warnings</a></p>
 <h4>-sarif</h4>
 
 <p>Generates sarif files
-Sarif VS plugin <a href="https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer">https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer</a></p>
+Sarif Visual Studio plugin <a href="https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer">https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer</a></p>
+
+<h4>-sarif-path</h4>
+
+<p>Specifies the Sarif output dir.</p>
+
+<p>Inside &quot;Visual Studio -&gt; External Tools&quot; this command can be used for static analysis.</p>
+
+<p>`-Wstyle  -msvc-output  -no-output -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; $(ItemPath)´</p>
 
 <h4>-msvc-output</h4>
 
