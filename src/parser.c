@@ -278,9 +278,9 @@ void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx)
     }
 }
 
-static void stringfy(const char* input, char* output, int output_size)
+static void stringfy(const char* input, char* json_str_message, int output_size)
 {
-    char json_str_message[200] = { 0 };
+    json_str_message[0] = '\0'; //out
 
     int k = 0;
     while (*input != '\0')
