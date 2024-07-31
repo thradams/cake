@@ -1447,8 +1447,8 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
 void balanced_token_sequence_delete(struct balanced_token_sequence* _Owner _Opt  p);
 
 bool is_first_of_conditional_expression(struct parser_ctx* ctx);
-bool first_of_type_name(struct parser_ctx* ctx);
-bool first_of_type_name_ahead(struct parser_ctx* ctx);
+bool first_of_type_name(const struct parser_ctx* ctx);
+bool first_of_type_name_ahead(const struct parser_ctx* ctx);
 
 struct argument_expression_list argument_expression_list(struct parser_ctx* ctx);
 

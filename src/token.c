@@ -810,7 +810,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     }
 }
 
-void print_line_and_token(const struct marker* p_marker, bool visual_studio_ouput_format)
+void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format)
 {
 
     const struct token* p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
@@ -881,6 +881,9 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
     if (p_item == NULL) printf("\n");
 
     printf(" %*s |", n, " ");
+    bool complete = false;
+    int start_col = 1;
+    int end_col = 1;
     bool onoff = false;
     p_item = p_line_begin;
     while (p_item)
@@ -890,6 +893,7 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
             if (!visual_studio_ouput_format)
                 COLOR_ESC_PRINT(printf(LIGHTGREEN));
             onoff = true;
+            end_col = start_col;
         }
 
         if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
@@ -899,9 +903,15 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
             {
 
                 if (onoff)
+                {
                     putc('~', stdout);
+                    end_col++;
+                }
                 else
+                {
                     putc(' ', stdout);
+                    if (!complete) start_col++;                    
+                }
                 p++;
             }
         }
@@ -911,6 +921,7 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
 
         if (p_item == p_token_end)
         {
+            complete = true;
             onoff = false;
             if (!visual_studio_ouput_format)
                 COLOR_ESC_PRINT(printf(RESET));
@@ -923,6 +934,8 @@ void print_line_and_token(const struct marker* p_marker, bool visual_studio_oupu
         COLOR_ESC_PRINT(printf(RESET));
 
     printf("\n");
+    p_marker->start_col =start_col;
+    p_marker->end_col =end_col;
 }
 
 

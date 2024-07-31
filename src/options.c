@@ -232,6 +232,20 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-sarif-path") == 0)
+        {
+            if (i + 1 < argc)
+            {
+                strcpy(options->sarifpath, argv[i + 1]);
+                i++;
+            }
+            else
+            {
+                //ops
+            }
+            continue;
+        }
+        
         if (strcmp(argv[i], "-showIncludes") == 0)
         {
             options->show_includes = true;
@@ -369,14 +383,15 @@ int fill_options(struct options* options,
             options->target = LANGUAGE_C11;
             continue;
         }
-        if (strcmp(argv[i], "-target=c2x") == 0)
+        if (strcmp(argv[i], "-target=c2x") == 0 ||
+            strcmp(argv[i], "-target=c23") == 0)
         {
-            options->target = LANGUAGE_C2X;
+            options->target = LANGUAGE_C23;
             continue;
         }
         if (strcmp(argv[i], "-target=cxx") == 0)
         {
-            options->target = LANGUAGE_CXX;
+            options->target = LANGUAGE_CAK;
             continue;
         }
 
@@ -393,14 +408,15 @@ int fill_options(struct options* options,
             options->input = LANGUAGE_C11;
             continue;
         }
-        if (strcmp(argv[i], "-std=c2x") == 0)
+        if (strcmp(argv[i], "-std=c2x") == 0 ||
+            strcmp(argv[i], "-std=c23") == 0)
         {
-            options->input = LANGUAGE_C2X;
+            options->input = LANGUAGE_C23;
             continue;
         }
         if (strcmp(argv[i], "-std=cxx") == 0)
         {
-            options->input = LANGUAGE_CXX;
+            options->input = LANGUAGE_CAK;
             continue;
         }
 
@@ -520,6 +536,8 @@ void print_help()
         LIGHTCYAN "  -fanalyzer            " RESET "Runs flow analysis -  required for ownership\n"
         "\n"
         LIGHTCYAN "  -sarif                " RESET "Generates sarif files\n"
+        "\n"
+        LIGHTCYAN "  -sarif-path           " RESET "Set sarif output dir\n"        
         "\n"
         LIGHTCYAN "  -msvc-output          " RESET "Output is compatible with visual studio\n"
         "\n"

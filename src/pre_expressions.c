@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include "tokenizer.h"
 #include "pre_expressions.h"
-
+#include <locale.h>
 #ifdef _WIN32
 #include <Windows.h>
 #endif

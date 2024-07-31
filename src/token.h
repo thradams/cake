@@ -267,7 +267,8 @@ struct marker {
     
     const char* _Opt file;
     int line;
-    int col;
+    int start_col;
+    int end_col;
 
     // Line
     //~~~~~~~~^~~~~~~~~
@@ -277,7 +278,7 @@ struct marker {
     const struct token* _Opt p_token_begin;
     const struct token* _Opt p_token_end;
 };
-void print_line_and_token(const struct marker* p_marker, bool visual_studio_ouput_format);
+void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format);
 
 void print_position(const char* path, int line, int col, bool msvc_format);
 

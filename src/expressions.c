@@ -609,6 +609,9 @@ bool is_enumeration_constant(const struct parser_ctx* ctx)
 
 bool is_first_of_floating_constant(const struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return false;
+
     /*
      floating-constant:
       decimal-floating-constant
@@ -628,6 +631,9 @@ bool is_first_of_integer_constant(const struct parser_ctx* ctx)
       binary-constant integer-suffixop
     */
 
+    if (ctx->current == NULL)
+        return false;
+
     return ctx->current->type == TK_COMPILER_DECIMAL_CONSTANT ||
         ctx->current->type == TK_COMPILER_OCTAL_CONSTANT ||
         ctx->current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
@@ -636,6 +642,9 @@ bool is_first_of_integer_constant(const struct parser_ctx* ctx)
 
 bool is_predefined_constant(const struct parser_ctx* ctx)
 {
+    if (ctx->current == NULL)
+        return false;
+
     return ctx->current->type == TK_KEYWORD_TRUE ||
         ctx->current->type == TK_KEYWORD_FALSE ||
         ctx->current->type == TK_KEYWORD_NULLPTR;
@@ -651,6 +660,9 @@ bool is_first_of_constant(const struct parser_ctx* ctx)
       character-constant
       predefined-constant
     */
+    if (ctx->current == NULL)
+        return false;
+
     return is_first_of_integer_constant(ctx) ||
         is_first_of_floating_constant(ctx) ||
         is_enumeration_constant(ctx) ||
@@ -757,6 +769,9 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
 
         generic_assoc_list_add(&list, p_generic_association);
 
+        if (ctx->current == NULL)
+            throw;
+
         while (ctx->current->type == ',')
         {
             parser_match(ctx);
@@ -767,6 +782,8 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
                 throw;
 
             generic_assoc_list_add(&list, p_generic_association2);
+            if (ctx->current == NULL)
+                throw;
         }
     }
     catch
@@ -1717,6 +1734,8 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
         p_argument_expression->expression = p_assignment_expression;
         argument_expression_list_push(&list, p_argument_expression);
 
+        if (ctx->current == NULL)
+            throw;
 
         while (ctx->current->type == ',')
         {
@@ -1748,7 +1767,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
     return list;
 }
 
-bool first_of_postfix_expression(struct parser_ctx* ctx)
+bool first_of_postfix_expression(const struct parser_ctx* ctx)
 {
     //( type-name )  postfix confunde com (expression) primary
     if (first_of_type_name_ahead(ctx))
@@ -2366,7 +2385,7 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
             if (p_expression_node == NULL)
                 throw;
 
-            
+
             assert(ctx->current != NULL);
             p_expression_node->first_token = ctx->current;
             if (parser_match_tk(ctx, '(') != 0)
@@ -2397,6 +2416,9 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
                 p_expression_node->braced_initializer = braced_initializer(ctx);
+                if (p_expression_node->braced_initializer == NULL) throw;
+                if (ctx->current == NULL) throw;
+
                 p_expression_node->last_token = ctx->current;
             }
         }
@@ -2539,6 +2561,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
+        if (ctx->current == NULL)
+            throw;
+
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
@@ -3207,7 +3232,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 p_expression_node = NULL;
                 throw;
             }
-            
+
             new_expression->first_token = ctx->current;
             enum token_type op = ctx->current->type;
             parser_match(ctx);
@@ -3559,7 +3584,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
             if (new_expression == NULL) throw;
 
             new_expression->first_token = ctx->current;
-            
+
 
             enum token_type op = ctx->current->type;
             parser_match(ctx);
@@ -3717,6 +3742,9 @@ void check_diferent_enuns(struct parser_ctx* ctx,
     if (left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
         right->type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
+        assert(left->type.enum_specifier);
+        assert(right->type.enum_specifier);
+
         if (get_complete_enum_specifier(left->type.enum_specifier) !=
             get_complete_enum_specifier(right->type.enum_specifier))
         {
@@ -3795,7 +3823,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
                 throw;
 
             new_expression->first_token = ctx->current;
-            
+
             struct token* operator_token = ctx->current;
             parser_match(ctx);
             if (ctx->current == NULL) throw;
@@ -3986,8 +4014,8 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
 {
     /*
     inclusive-OR-expression:
-    exclusive-OR-expression
-    inclusive-OR-expression | exclusive-OR-expression
+        exclusive-OR-expression
+        inclusive-OR-expression | exclusive-OR-expression
     */
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
@@ -4007,7 +4035,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
             if (new_expression == NULL)
                 throw;
 
-            
+
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
@@ -4403,8 +4431,14 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
+        if (ctx->current == NULL)
+            throw;
+
         p_expression_node = assignment_expression(ctx);
         if (p_expression_node == NULL)
+            throw;
+
+        if (ctx->current == NULL)
             throw;
 
         if (ctx->current->type == ',')
@@ -4417,7 +4451,6 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL)
                     throw;
-
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
@@ -4433,6 +4466,12 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
                 p_expression_node_new->left->last_token = p_expression_node_new->right->last_token;
 
                 p_expression_node = p_expression_node_new;
+
+                if (ctx->current == NULL)
+                {
+                    //unexpected end of file
+                    throw;
+                }
             }
 
             if (p_expression_node->right == NULL)

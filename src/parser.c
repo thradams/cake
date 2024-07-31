@@ -292,7 +292,8 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
 
         marker.file = p_token_opt->token_origin->lexeme;
         marker.line = p_token_opt->line;
-        marker.col = p_token_opt->col;
+        marker.start_col = p_token_opt->col;
+        marker.end_col = p_token_opt->col;
         marker.p_token_caret = p_token_opt;
         included_file_location = p_token_opt->level > 0;
     }
@@ -310,7 +311,8 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
         included_file_location = p_token_opt->level > 0;
 
         marker.line = p_token_opt->line;
-        marker.col = p_token_opt->col;
+        marker.start_col = p_token_opt->col;
+        marker.end_col = p_token_opt->col;
     }
 
     bool is_error = false;
@@ -391,7 +393,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
 
 
 
-    print_position(marker.file, marker.line, marker.col, ctx->options.visual_studio_ouput_format);
+    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
 
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
@@ -470,9 +472,9 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
 
         fprintf(ctx->sarif_file, "              \"region\": {\n");
         fprintf(ctx->sarif_file, "                  \"startLine\": %d,\n", marker.line);
-        fprintf(ctx->sarif_file, "                  \"startColumn\": %d,\n", marker.col);
+        fprintf(ctx->sarif_file, "                  \"startColumn\": %d,\n", marker.start_col);
         fprintf(ctx->sarif_file, "                  \"endLine\": %d,\n", marker.line);
-        fprintf(ctx->sarif_file, "                  \"endColumn\": %d\n", marker.col);
+        fprintf(ctx->sarif_file, "                  \"endColumn\": %d\n", marker.end_col);
         fprintf(ctx->sarif_file, "               }\n");
         fprintf(ctx->sarif_file, "         },\n");
 
@@ -791,7 +793,7 @@ bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
 bool first_of_type_specifier(const struct parser_ctx* ctx);
 bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* token);
 
-bool first_of_type_name_ahead(struct parser_ctx* ctx)
+bool first_of_type_name_ahead(const struct parser_ctx* ctx)
 {
 
     if (ctx->current == NULL)
@@ -808,7 +810,7 @@ bool first_of_type_name_ahead(struct parser_ctx* ctx)
         first_of_type_qualifier_token(token_ahead);
 }
 
-bool first_of_type_name(struct parser_ctx* ctx)
+bool first_of_type_name(const struct parser_ctx* ctx)
 {
     return first_of_type_specifier(ctx) || first_of_type_qualifier(ctx);
 }
@@ -5476,6 +5478,7 @@ struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx
         p_bracket_initializer_list->first_token = ctx->current;
         if (parser_match_tk(ctx, '{') != 0)
             throw;
+
         if (ctx->current->type != '}')
         {
             p_bracket_initializer_list->initializer_list = initializer_list(ctx);
@@ -8432,7 +8435,7 @@ int generate_config_file(const char* configpath)
 
 #ifdef __linux__
 
-        fprintf(outfile, "This file was generated reading the ouput of\n");
+        fprintf(outfile, "This file was generated reading the output of\n");
         fprintf(outfile, "//echo | gcc -v -E - 2>&1\n");
         fprintf(outfile, "\n");
 
@@ -8604,15 +8607,22 @@ int compile_one_file(const char* file_name,
         if (options->sarif_output)
         {
             char sarif_file_name[260] = { 0 };
-            strcpy(sarif_file_name, file_name);
-            strcat(sarif_file_name, ".sarif");
+            if (options->sarifpath[0] != '\0')
+            {
+                mkdir(options->sarifpath, 0777);
+                snprintf(sarif_file_name, sizeof sarif_file_name, "%s/%s.cake.sarif", options->sarifpath, basename(file_name));
+            }
+            else
+            {
+                snprintf(sarif_file_name, sizeof sarif_file_name, "%s.cake.sarif", file_name);
+            }
+
             ctx.sarif_file = (FILE * _Owner _Opt) fopen(sarif_file_name, "w");
             if (ctx.sarif_file)
             {
                 const char* begin_sarif =
                     "{\n"
                     "  \"version\": \"2.1.0\",\n"
-                    //"  \"$schema\": \"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json\",\n"
                     "  \"$schema\": \"https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json\",\n"
                     "  \"runs\": [\n"
                     "    {\n"
@@ -8688,7 +8698,7 @@ int compile_one_file(const char* file_name,
 
                 if (s && options->format_ouput)
                 {
-                    /*re-parser ouput and format*/
+                    /*re-parser output and format*/
                     const char* _Owner _Opt s2 = format_code(options, s);
                     free((void* _Owner _Opt)s);
                     s = s2;
@@ -8715,21 +8725,21 @@ int compile_one_file(const char* file_name,
         if (ctx.sarif_file)
         {
 
-#define END                                                             \
+#define SARIF_FOOTER                                                             \
     "      ],\n"                                                        \
     "      \"tool\": {\n"                                               \
     "        \"driver\": {\n"                                           \
     "          \"name\": \"cake\",\n"                                   \
     "          \"fullName\": \"cake code analysis\",\n"                 \
-    "          \"version\": \"0.5\",\n"                                 \
-    "          \"informationUri\": \"https://github.com/cake-build\"\n" \
+    "          \"version\": \"" CAKE_VERSION  "\",\n"                   \
+    "          \"informationUri\": \"https://https://github.com/thradams/cake\"\n" \
     "        }\n"                                                       \
     "      }\n"                                                         \
     "    }\n"                                                           \
     "  ]\n"                                                             \
     "}\n"                                                               \
     "\n"
-            fprintf(ctx.sarif_file, "%s", END);
+            fprintf(ctx.sarif_file, "%s", SARIF_FOOTER);
             fclose(ctx.sarif_file);
             ctx.sarif_file = NULL;
         }
@@ -8960,7 +8970,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-}
+    }
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -8999,8 +9009,17 @@ int compile(int argc, const char** argv, struct report* report)
     /*second loop to compile each file*/
     for (int i = 1; i < argc; i++)
     {
+        if (strcmp(argv[i], "-o") == 0 ||
+            strcmp(argv[i], "-sarif-path") == 0)
+        {       
+            //consumes next
+            i++;
+            continue;
+        }
+        
         if (argv[i][0] == '-')
             continue;
+
         no_files++;
         char output_file[MYMAX_PATH] = { 0 };
 
@@ -9146,7 +9165,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
 
     struct preprocessor_ctx prectx = { 0 };
     struct ast ast = { 0 };
-    struct options options = { .input = LANGUAGE_CXX };
+    struct options options = { .input = LANGUAGE_CAK };
 
     _Opt struct visit_ctx visit_ctx = { 0 };
     try
@@ -9195,7 +9214,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             }
             if (s && options.format_ouput)
             {
-                /*re-parser ouput and format*/
+                /*re-parser output and format*/
                 const char* _Owner _Opt s2 = format_code(&options, s);
                 free((void* _Owner _Opt)s);
                 s = s2;

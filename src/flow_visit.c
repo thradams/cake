@@ -668,12 +668,12 @@ static bool flow_find_label_scope(struct flow_visit_ctx* ctx, struct flow_defer_
 static void check_all_defer_until_label(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock, const char* label,
     struct token* position_token)
 {
-    /* 
-    * We need to know how many scopes we exited until we found the label. 
-    * To do this, we look in the current scope for where the goto appears. 
-    * If the label is not directly in this scope or within some internal scope 
-    * No, we print the defers because we are exiting the scope and going to the scope 
-    * above. So we repeat this at each scope exit, printing the defer. 
+    /*
+    * We need to know how many scopes we exited until we found the label.
+    * To do this, we look in the current scope for where the goto appears.
+    * If the label is not directly in this scope or within some internal scope
+    * No, we print the defers because we are exiting the scope and going to the scope
+    * above. So we repeat this at each scope exit, printing the defer.
     */
     struct flow_defer_scope* _Opt p_defer = deferblock;
 
@@ -1818,7 +1818,7 @@ void object_push_states_from(const struct flow_object* p_object_from, struct flo
 #endif
 
         it_from = it_from->next;
-}
+    }
 
     for (int i = 0; i < p_object_to->members.size; i++)
     {
@@ -2316,39 +2316,50 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         }
     }
     break;
+    
+    case EQUALITY_EXPRESSION_NOT_EQUAL:
     case EQUALITY_EXPRESSION_EQUAL:
     {
-        const long long left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
-            constant_value_to_ll(&p_expression->left->constant_value) :
-            -1;
+        const bool left_is_constant = constant_value_is_valid(&p_expression->left->constant_value); 
+        const bool right_is_constant = constant_value_is_valid(&p_expression->right->constant_value); 
 
-        const long long right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
-            constant_value_to_ll(&p_expression->right->constant_value) :
-            -1;
-
-        if (left_value == 0 || left_value == 1)
+        if (left_is_constant)
         {
+            const long long left_value =  constant_value_to_ll(&p_expression->left->constant_value);
+
             struct true_false_set true_false_set_right = { 0 };
             flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
             //0 == expression            
             //1 == expression            
             true_false_set_swap(expr_true_false_set, &true_false_set_right);
-            if (left_value == 0)
+            
+            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && left_value == 0)
             {
                 true_false_set_invert(expr_true_false_set);
             }
+            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && left_value != 0)
+            {
+                true_false_set_invert(expr_true_false_set);
+            }
+
             true_false_set_destroy(&true_false_set_right);
         }
 
-        else if (right_value == 0 || right_value == 1)
+        else if (right_is_constant)
         {
+            const long long right_value = constant_value_to_ll(&p_expression->right->constant_value);
+
             struct true_false_set true_false_set_left3 = { 0 };
             flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
 
             //expression == 0
             //expression == 1
             true_false_set_swap(expr_true_false_set, &true_false_set_left3);
-            if (right_value == 0)
+            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && right_value == 0)
+            {
+                true_false_set_invert(expr_true_false_set);
+            }
+            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && right_value != 0)
             {
                 true_false_set_invert(expr_true_false_set);
             }
@@ -2356,54 +2367,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         }
         else
         {
+            struct true_false_set true_false_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set);
+            flow_visit_expression(ctx, p_expression->right, &true_false_set);            
+            true_false_set_destroy(&true_false_set);
         }
     }
     break;
-
-    case EQUALITY_EXPRESSION_NOT_EQUAL:
-    {
-        const long long left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
-            constant_value_to_ll(&p_expression->left->constant_value) :
-            -1;
-        const long long right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
-            constant_value_to_ll(&p_expression->right->constant_value) :
-            -1;
-
-        if (left_value == 0 || left_value == 1)
-        {
-            struct true_false_set true_false_set_right = { 0 };
-            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
-            //0 != expression            
-            //1 != expression            
-            true_false_set_swap(expr_true_false_set, &true_false_set_right);
-            if (left_value == 1)
-            {
-                true_false_set_invert(expr_true_false_set);
-            }
-            true_false_set_destroy(&true_false_set_right);
-        }
-
-        else if (right_value == 0 || right_value == 1)
-        {
-            struct true_false_set true_false_set_left2 = { 0 };
-            flow_visit_expression(ctx, p_expression->left, &true_false_set_left2);
-
-            //expression != 0
-            //expression != 1
-            true_false_set_swap(expr_true_false_set, &true_false_set_left2);
-            if (right_value == 1)
-            {
-                true_false_set_invert(expr_true_false_set);
-            }
-            true_false_set_destroy(&true_false_set_left2);
-        }
-        else
-        {
-
-        }
-    }
-    break;
-
+    
     case LOGICAL_OR_EXPRESSION:
     {
         flow_check_pointer_used_as_bool(ctx, p_expression->left);
@@ -2531,8 +2502,25 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
+    case INCLUSIVE_OR_EXPRESSION:
+    {
+        // A | B
+        struct true_false_set true_false_set = { 0 };
+        if (p_expression->left)
+        {
+            flow_visit_expression(ctx, p_expression->left, &true_false_set);
+        }
+        if (p_expression->right)
+        {
+            flow_visit_expression(ctx, p_expression->right, &true_false_set);
+        }
+        true_false_set_destroy(&true_false_set);
+    }
+    break;
+
     case AND_EXPRESSION:
     case EXCLUSIVE_OR_EXPRESSION:
+
 
     case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
     case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
@@ -2545,10 +2533,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         }
-        if (p_expression->type_name)
-        {
-            flow_visit_type_name(ctx, p_expression->type_name);
-        }
+        
         break;
 
     case UNARY_EXPRESSION_TRAITS:
@@ -3417,12 +3402,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     if (p_declarator->p_object->pointed)
                     {
                         set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                }
+                    }
                     type_destroy(&t2);
-            }
+                }
 #endif
+            }
         }
-    }
 
         /*if (p_declarator->pointer)
         {
@@ -3438,7 +3423,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         {
             flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
         }
-}
+    }
     catch
     {
     }

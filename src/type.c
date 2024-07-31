@@ -233,28 +233,24 @@ struct type type_convert_to(const struct type* p_type, enum language_version tar
     * Convert types to previous standard format
     */
 
-    if (type_is_nullptr_t(p_type))
+    if (target < LANGUAGE_C23 && type_is_nullptr_t(p_type))
     {
-        if (target < LANGUAGE_C2X)
+
+        struct type t = make_void_ptr_type();
+        assert(t.name_opt == NULL);
+        if (p_type->name_opt)
         {
-            struct type t = make_void_ptr_type();
-            assert(t.name_opt == NULL);
-            if (p_type->name_opt)
-            {
-                t.name_opt = strdup(p_type->name_opt);
-            }
-            return t;
+            t.name_opt = strdup(p_type->name_opt);
         }
+        return t;
     }
-    else if (type_is_bool(p_type))
+
+    if (target < LANGUAGE_C99 && type_is_bool(p_type))
     {
-        if (target < LANGUAGE_C99)
-        {
-            struct type t = type_dup(p_type);
-            t.type_specifier_flags &= ~TYPE_SPECIFIER_BOOL;
-            t.type_specifier_flags |= TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
-            return t;
-        }
+        struct type t = type_dup(p_type);
+        t.type_specifier_flags &= ~TYPE_SPECIFIER_BOOL;
+        t.type_specifier_flags |= TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
+        return t;
     }
 
     return type_dup(p_type);

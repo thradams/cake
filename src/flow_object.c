@@ -729,7 +729,7 @@ void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* ob
     object->current.next = pnew;
 
     flow_object_state_copy(pnew, &object->current);
-
+    //TODO fix pnew is changed..
 }
 
 void object_remove_state(struct flow_object* object, int state_number)

@@ -204,7 +204,8 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
 
     marker.file = p_token_opt->token_origin->lexeme;
     marker.line = p_token_opt->line;
-    marker.col = p_token_opt->col;
+    marker.start_col = p_token_opt->col;
+    marker.end_col = p_token_opt->col;
     marker.p_token_caret = p_token_opt;
 
     /*warnings inside headers are ignored*/
@@ -264,7 +265,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
 
 
 
-    print_position(marker.file, marker.line, marker.col, ctx->options.visual_studio_ouput_format);
+    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
 
     char buffer[200] = { 0 };
 
@@ -2917,7 +2918,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         {
             struct token_list discard0 = { 0 };
             struct token_list* p_list = &r;
-            if (ctx->options.target < LANGUAGE_C2X)
+            if (ctx->options.target < LANGUAGE_C23)
             {
                 p_list = &discard0;
 
@@ -2974,7 +2975,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             int nlevel = level;
 
             enum token_flags f = 0;
-            if (ctx->options.target < LANGUAGE_C2X)
+            if (ctx->options.target < LANGUAGE_C23)
             {
                 //we can see it
                 f = TK_FLAG_FINAL;
@@ -3193,12 +3194,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
               # warning pp-tokensopt new-line
             */
             ctx->n_warnings++;
-            if (ctx->options.target < LANGUAGE_C2X)
-            {
-                /*insert comment before #*/
-                free(ptoken->lexeme);
-                ptoken->lexeme = strdup("//#");
-            }
+
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
 
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);

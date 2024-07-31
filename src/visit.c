@@ -20,10 +20,10 @@ static void del(struct token* from, struct token* to)
     while (p)
     {
         p->flags |= TK_C_BACKEND_FLAG_HIDE;
-        p = p->next;
 
         if (p == to)
             break;
+        p = p->next;
     }
 }
 
@@ -618,7 +618,7 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
 {
     if (p_bracket_initializer_list->initializer_list == NULL)
     {
-        if (ctx->target < LANGUAGE_C2X)
+        if (ctx->target < LANGUAGE_C23)
         {
             assert(p_bracket_initializer_list->first_token->type == '{');
 
@@ -856,7 +856,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case PRIMARY_IDENTIFIER:
         break;
     case PRIMARY_EXPRESSION_ENUMERATOR:
-        if (ctx->target < LANGUAGE_C2X)
+        if (ctx->target < LANGUAGE_C23)
         {
             struct type t = type_get_enum_type(&p_expression->type);
             if (t.type_specifier_flags != TYPE_SPECIFIER_INT)
@@ -877,7 +877,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
 
-        if (ctx->target < LANGUAGE_C2X)
+        if (ctx->target < LANGUAGE_C23)
         {
             if (constant_value_is_valid(&p_expression->constant_value))
             {
@@ -920,7 +920,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         if (p_expression->first_token &&
             p_expression->first_token->type == TK_KEYWORD_NULLPTR)
         {
-            if (ctx->target < LANGUAGE_C2X)
+            if (ctx->target < LANGUAGE_C23)
             {
                 free(p_expression->first_token->lexeme);
                 p_expression->first_token->lexeme = strdup("((void*)0)");
@@ -934,7 +934,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 free(p_expression->first_token->lexeme);
                 p_expression->first_token->lexeme = strdup("1");
             }
-            else if (ctx->target < LANGUAGE_C2X)
+            else if (ctx->target < LANGUAGE_C23)
             {
                 free(p_expression->first_token->lexeme);
                 p_expression->first_token->lexeme = strdup("((_Bool)1)");
@@ -948,7 +948,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 free(p_expression->first_token->lexeme);
                 p_expression->first_token->lexeme = strdup("0");
             }
-            else if (ctx->target < LANGUAGE_C2X)
+            else if (ctx->target < LANGUAGE_C23)
             {
                 free(p_expression->first_token->lexeme);
                 p_expression->first_token->lexeme = strdup("((_Bool)0)");
@@ -1153,7 +1153,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
     case UNARY_EXPRESSION_TRAITS:
     {
-        if (ctx->target < LANGUAGE_CXX)
+        if (ctx->target < LANGUAGE_CAK)
         {
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l2 = { 0 };
@@ -1200,8 +1200,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         break;
 
-    //default:
-      //  break;
+        //default:
+          //  break;
     }
 }
 
@@ -1517,20 +1517,7 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
 
 static void visit_pragma_declaration(struct visit_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
 {
-    struct token* next = p_pragma_declaration->first_token->next;
-    if (next)
-        next = next->next;
-    if (next)
-    {
-        if (strcmp(next->lexeme, "safety") == 0 ||
-            strcmp(next->lexeme, "expand") == 0 ||
-            strcmp(next->lexeme, "nullable") == 0 ||
-            strcmp(next->lexeme, "flow") == 0)
-        {
-            free(p_pragma_declaration->first_token->lexeme);
-            p_pragma_declaration->first_token->lexeme = strdup("//pragma");
-        }
-    }
+    p_pragma_declaration;
 }
 
 static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
@@ -1649,7 +1636,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
         }
     }
 
-    if (ctx->target < LANGUAGE_C2X)
+    if (ctx->target < LANGUAGE_C23)
     {
         if (p_declarator->declaration_specifiers)
         {
@@ -1814,7 +1801,7 @@ static void visit_member_declaration_list(struct visit_ctx* ctx, struct member_d
 
 static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
 {
-    if (ctx->target < LANGUAGE_C2X)
+    if (ctx->target < LANGUAGE_C23)
     {
         token_range_add_flag(p_attribute_specifier->first_token, p_attribute_specifier->last_token, TK_C_BACKEND_FLAG_HIDE);
     }
@@ -1913,7 +1900,7 @@ static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list*
 
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier)
 {
-    if (ctx->target < LANGUAGE_C2X)
+    if (ctx->target < LANGUAGE_C23)
     {
         if (p_enum_specifier->specifier_qualifier_list)
         {
@@ -2006,7 +1993,7 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
             }
             else
             {
-                if (ctx->target < LANGUAGE_C2X)
+                if (ctx->target < LANGUAGE_C23)
                 {
                     if (strcmp(p_type_specifier->token->lexeme, "bool") == 0)
                     {
@@ -2052,7 +2039,7 @@ static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_
 {
     if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_AUTO)
     {
-        if (ctx->target < LANGUAGE_C2X)
+        if (ctx->target < LANGUAGE_C23)
         {
             p_storage_class_specifier->token->flags |= TK_C_BACKEND_FLAG_HIDE;
         }
@@ -2117,7 +2104,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         */
         //
     if (!ctx->is_second_pass &&
-        ctx->target < LANGUAGE_C2X &&
+        ctx->target < LANGUAGE_C23 &&
         (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO ||
             p_declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF))
     {
@@ -2190,7 +2177,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
     }
 
 
-    if (ctx->target < LANGUAGE_C2X)
+    if (ctx->target < LANGUAGE_C23)
     {
         /*
           fixing constexpr, we add static const if necessary
@@ -2493,57 +2480,71 @@ int visit_tokens(struct visit_ctx* ctx)
 
             if (current->type == TK_STRING_LITERAL)
             {
+                //C99 u8 prefix
                 visit_literal_string(ctx, current);
+
+                current = current->next;
+                continue;
             }
 
-            if (ctx->target < LANGUAGE_C2X)
+            if (ctx->target < LANGUAGE_C99 && current->type == TK_LINE_COMMENT)
             {
-                if (current->type == TK_LINE_COMMENT)
-                {
-                    if (ctx->target < LANGUAGE_C99)
-                    {
-                        struct osstream ss = { 0 };
-                        //TODO  check /* inside
-                        ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
-                        free(current->lexeme);
-                        current->lexeme = ss.c_str;
-                    }
-                }
-                else if (current->type == TK_PREPROCESSOR_LINE)
-                {
-                    while (current->next && current->next->type == TK_BLANKS)
-                        current = current->next;
+                struct osstream ss = { 0 };
+                //TODO  check /* inside
+                ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
+                free(current->lexeme);
+                current->lexeme = ss.c_str;
 
-                    /*
-                      Trocar C23 #elifdef e #elifndef
-                    */
-                    if (current->next && strcmp(current->next->lexeme, "elifdef") == 0)
-                    {
-                        free(current->next->lexeme);
-                        current->next->lexeme = strdup("elif defined ");
-                        current = current->next->next;
-                        continue;
-                    }
-                    else if (current->next && strcmp(current->next->lexeme, "elifndef") == 0)
-                    {
-                        free(current->next->lexeme);
-                        current->next->lexeme = strdup("elif ! defined ");
-                        current = current->next->next;
-                        continue;
-                    }
-                }
+                current = current->next;
+                continue;
+            }
 
-                if (
-                    (current->type == TK_COMPILER_BINARY_CONSTANT) ||
-                    (current->type == TK_PPNUMBER && current->lexeme[0] == '0' && (current->lexeme[1] == 'b' || current->lexeme[1] == 'B')) /*dentro macros*/
-                    )
+
+            if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
+                current->type == TK_COMPILER_OCTAL_CONSTANT ||
+                current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
+                current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
+                current->type == TK_PPNUMBER ||
+                current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+            {
+                if (ctx->target < LANGUAGE_C23)
                 {
-                    /*remove digit separators*/
+                    /*remove C23 digit separators*/
                     remove_char(current->lexeme, '\'');
+                }
 
+                if (ctx->target < LANGUAGE_C99 && current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+                {
                     /*
-                    * Binary literals were added into C23.
-                    * We are converting to C99 hex.
+                     * C99 Hexadecimal floating constants to C89.
+                     */
+                    long double d = strtold(current->lexeme, NULL);
+                    char buffer[50] = { 0 };
+                    snprintf(buffer, sizeof buffer, "%Lg", d);
+                    free(current->lexeme);
+                    current->lexeme = strdup(buffer);
+                }
+
+                current = current->next;
+                continue;
+            }
+
+
+            if ((current->type == TK_COMPILER_BINARY_CONSTANT) ||
+                      (current->type == TK_PPNUMBER && current->lexeme[0] == '0' &&
+                          (current->lexeme[1] == 'b' || current->lexeme[1] == 'B')) /*dentro macros*/
+                      )
+            {
+                if (ctx->target < LANGUAGE_C23)
+                {
+                    /*remove C23 digit separators*/
+                    remove_char(current->lexeme, '\'');
+                }
+
+                if (ctx->target < LANGUAGE_C23)
+                {
+                    /*
+                    * Convert C23 binary literals to C99 hex
                     */
                     current->type = TK_COMPILER_HEXADECIMAL_CONSTANT;
                     int value = strtol(current->lexeme + 2, NULL, 2);
@@ -2555,30 +2556,99 @@ int visit_tokens(struct visit_ctx* ctx)
                     free(current->lexeme);
                     current->lexeme = p_temp;
                 }
-                else if (current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
-                {
-                    remove_char(current->lexeme, '\'');
 
-                    if (ctx->target < LANGUAGE_C99)
+                current = current->next;
+                continue;
+            }
+
+
+            if (current->type == TK_PREPROCESSOR_LINE)
+            {
+                struct token* first_preprocessor_token = current;
+                struct token* last_preprocessor_token = current;
+
+                while (last_preprocessor_token)
+                {
+                    if (last_preprocessor_token->next == NULL ||
+                        last_preprocessor_token->next->type == TK_NEWLINE ||
+                        last_preprocessor_token->next->type == TK_PRAGMA_END)
                     {
-                        /*
-                         * C99 Hexadecimal floating constants to C89.
-                         */
-                        long double d = strtold(current->lexeme, NULL);
-                        char buffer[50] = { 0 };
-                        snprintf(buffer, sizeof buffer, "%Lg", d);
-                        free(current->lexeme);
-                        current->lexeme = strdup(buffer);
+                        break;
+                    }
+                    last_preprocessor_token = last_preprocessor_token->next;
+                }
+
+                current = current->next;
+
+                while (current && current->type == TK_BLANKS)
+                {
+                    current = current->next;
+                }
+
+                if (current == NULL) break;
+
+                if (strcmp(current->lexeme, "pragma") == 0)
+                {
+                    current = current->next;
+
+                    /*skip blanks*/
+                    while (current && current->type == TK_BLANKS)
+                    {
+                        current = current->next;
+                    }
+
+                    if (current == NULL) break;
+
+                    if (strcmp(current->lexeme, "safety") == 0 ||
+                        strcmp(current->lexeme, "nullable") == 0 ||
+                        strcmp(current->lexeme, "expand") == 0 ||
+                        strcmp(current->lexeme, "flow") == 0)
+                    {
+                        del(first_preprocessor_token, last_preprocessor_token);
+
+                        current = current->next;
+                        continue;
                     }
                 }
-                else if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
-                    current->type == TK_COMPILER_OCTAL_CONSTANT ||
-                    current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
-                    current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
-                    current->type == TK_PPNUMBER)
+
+                if (ctx->target < LANGUAGE_C23 &&
+                    strcmp(current->lexeme, "warning") == 0)
                 {
-                    /*remove digit separators*/
-                    remove_char(current->lexeme, '\'');
+                    /*
+                      change C23 #warning to comment
+                    */
+                    free(first_preprocessor_token->lexeme);
+                    first_preprocessor_token->lexeme = strdup("//#");
+
+                    current = current->next;
+                    continue;
+                }
+
+                if (ctx->target < LANGUAGE_C23 &&
+                    strcmp(current->lexeme, "elifdef") == 0)
+                {
+                    /*
+                      change C23 #elifdef to #elif defined e #elifndef to C11
+                    */
+                    free(current->lexeme);
+                    current->lexeme = strdup("elif defined ");
+
+                    current = current->next;
+                    continue;
+                }
+
+                if (ctx->target < LANGUAGE_C23 &&
+                    strcmp(current->lexeme, "elifndef") == 0)
+                {
+                    /*
+                     change C23 #elifndef to #elif !defined
+                    */
+
+                    free(current->lexeme);
+                    current->lexeme = strdup("elif ! defined ");
+
+                    current = current->next;
+                    continue;
                 }
             }
 

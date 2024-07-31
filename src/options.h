@@ -15,8 +15,9 @@ enum language_version
     LANGUAGE_C89 = -1,
     LANGUAGE_C99 = 0, /*default*/
     LANGUAGE_C11 = 1,
-    LANGUAGE_C2X = 2, //C23
-    LANGUAGE_CXX = 3, //experimental
+    LANGUAGE_C23 = 2, //C23, C2X
+    LANGUAGE_C2Y = 3, //C2Y
+    LANGUAGE_CAK = 4, //cake extensions
 };
 
 enum diagnostic_id {
@@ -347,6 +348,7 @@ struct options
       defines the ouputfile when 1 file is used
     */
     char output[200];
+    char sarifpath[200];
 };
 
 int fill_options(struct options* options,
