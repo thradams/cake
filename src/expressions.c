@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 #include "ownership.h"
 #include <limits.h>
@@ -1557,8 +1557,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             string concatenation deveria ser em uma phase anterior
             mas como mantemos as forma do fonte aqui foi uma alternativa
             */
-            while (ctx->current &&
-                   ctx->current->type == TK_STRING_LITERAL)
+            while (ctx->current->type == TK_STRING_LITERAL)
             {
                 parser_match(ctx);
                 if (ctx->current == NULL) throw;
@@ -1759,6 +1758,12 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
             }
 
             argument_expression_list_push(&list, p_argument_expression_2);
+
+            if (ctx->current == NULL)
+            {
+                //unexpected end of file
+                throw;
+            }
         }
     }
     catch
@@ -2704,23 +2709,21 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 if (new_expression->right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_REGISTER)
                 {
-                    if (new_expression->right->declarator)
+                    const char* variable_name = "?";
+
+                    if (new_expression->right->declarator &&
+                        new_expression->right->declarator->name_opt)
                     {
-                        compiler_diagnostic_message(C_ERROR_ADDRESS_OF_REGISTER,
-                                                    ctx,
-                                                    new_expression->right->first_token,
-                            NULL,
-                                                    "address of register variable 'x' requested",
-                                                    new_expression->right->declarator->name_opt->lexeme);
+                        variable_name = new_expression->right->declarator->name_opt->lexeme;
                     }
-                    else
-                    {
-                        compiler_diagnostic_message(C_ERROR_ADDRESS_OF_REGISTER,
-                                                    ctx,
-                                                    new_expression->right->first_token,
-                            NULL,
-                                                    "address of register variable requested - declarator?");
-                    }
+
+                    compiler_diagnostic_message(C_ERROR_ADDRESS_OF_REGISTER,
+                                                ctx,
+                                                new_expression->right->first_token,
+                                                NULL,
+                                                "address of register variable 'x' requested",
+                                                variable_name);
+
                 }
 
                 new_expression->type = type_add_pointer(&new_expression->right->type, ctx->options.null_checks_enabled);
@@ -3071,14 +3074,14 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
+        if (ctx->current == NULL)
+            throw;
+
         if (first_of_type_name_ahead(ctx))
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL)
                 throw;
-
-
-            assert(ctx->current != NULL); //by first_of_type_name_ahead
 
             p_expression_node->first_token = ctx->current;
             p_expression_node->expression_type = CAST_EXPRESSION;
@@ -3095,12 +3098,16 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
-            // type_set_int(&ctx->result_type);
-            // print_type_name(p_cast_expression->type_name);
+            
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
-            // struct token_list r = copy_replacement_list(&l);
-            // pop_f
+            
+            if (ctx->current == NULL) 
+            {
+                //unexpected end of file
+                throw;
+            }
+
             if (ctx->current->type == '{')
             {
                 // Thinking it was a cast expression was a mistake... 
@@ -3173,7 +3180,6 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
         }
         else if (is_first_of_unary_expression(ctx))
         {
-
             p_expression_node = unary_expression(ctx);
             if (p_expression_node == NULL)
             {

@@ -11214,7 +11214,7 @@ void test_get_warning_name()
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 
 
@@ -15241,6 +15241,12 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
             }
 
             argument_expression_list_push(&list, p_argument_expression_2);
+
+            if (ctx->current == NULL)
+            {
+                //unexpected end of file
+                throw;
+            }
         }
     }
     catch
@@ -16186,23 +16192,21 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 if (new_expression->right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_REGISTER)
                 {
-                    if (new_expression->right->declarator)
+                    const char* variable_name = "?";
+
+                    if (new_expression->right->declarator &&
+                        new_expression->right->declarator->name_opt)
                     {
-                        compiler_diagnostic_message(C_ERROR_ADDRESS_OF_REGISTER,
-                                                    ctx,
-                                                    new_expression->right->first_token,
-                            NULL,
-                                                    "address of register variable 'x' requested",
-                                                    new_expression->right->declarator->name_opt->lexeme);
+                        variable_name = new_expression->right->declarator->name_opt->lexeme;
                     }
-                    else
-                    {
-                        compiler_diagnostic_message(C_ERROR_ADDRESS_OF_REGISTER,
-                                                    ctx,
-                                                    new_expression->right->first_token,
-                            NULL,
-                                                    "address of register variable requested - declarator?");
-                    }
+
+                    compiler_diagnostic_message(C_ERROR_ADDRESS_OF_REGISTER,
+                                                ctx,
+                                                new_expression->right->first_token,
+                                                NULL,
+                                                "address of register variable 'x' requested",
+                                                variable_name);
+
                 }
 
                 new_expression->type = type_add_pointer(&new_expression->right->type, ctx->options.null_checks_enabled);
@@ -16553,14 +16557,14 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
+        if (ctx->current == NULL)
+            throw;
+
         if (first_of_type_name_ahead(ctx))
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL)
                 throw;
-
-
-            assert(ctx->current != NULL); //by first_of_type_name_ahead
 
             p_expression_node->first_token = ctx->current;
             p_expression_node->expression_type = CAST_EXPRESSION;
@@ -16577,12 +16581,16 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
-            // type_set_int(&ctx->result_type);
-            // print_type_name(p_cast_expression->type_name);
+            
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
-            // struct token_list r = copy_replacement_list(&l);
-            // pop_f
+            
+            if (ctx->current == NULL) 
+            {
+                //unexpected end of file
+                throw;
+            }
+
             if (ctx->current->type == '{')
             {
                 // Thinking it was a cast expression was a mistake... 
@@ -16655,7 +16663,6 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
         }
         else if (is_first_of_unary_expression(ctx))
         {
-
             p_expression_node = unary_expression(ctx);
             if (p_expression_node == NULL)
             {
@@ -20912,7 +20919,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
 
         if (p_struct_or_union_specifier)
         {
-            struct member_declaration* p_member_declaration =
+            struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
 
@@ -23461,9 +23468,9 @@ void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx)
     }
 }
 
-static void stringfy(const char* input, char* output, int output_size)
+static void stringfy(const char* input, char* json_str_message, int output_size)
 {
-    char json_str_message[200] = { 0 };
+    json_str_message[0] = '\0'; //out
 
     int k = 0;
     while (*input != '\0')
@@ -35626,7 +35633,10 @@ static int find_item_index_by_expression(const struct true_false_set* a, const s
 }
 
 
-static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx* ctx, struct true_false_set* a, bool nullable_enabled)
+static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx,
+    struct true_false_set* a,
+    bool nullable_enabled,
+    bool true_branch)
 {
     for (int i = 0; i < a->size; i++)
     {
@@ -35638,79 +35648,26 @@ static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx* ctx
 
             if (p_object)
             {
+                if (p_object->current.state == OBJECT_STATE_NOT_NULL ||
+                    p_object->current.state == OBJECT_STATE_NULL ||
+                    p_object->current.state == OBJECT_STATE_MOVED ||
+                    p_object->current.state == OBJECT_STATE_ZERO ||
+                    p_object->current.state == OBJECT_STATE_NOT_ZERO ||
+                    p_object->current.state == OBJECT_STATE_LIFE_TIME_ENDED)
+                {
+                    continue;
+                }
+
                 const bool is_pointer = type_is_pointer(&a->data[i].p_expression->type);
-                const enum boolean_flag flag = a->data[i].true_branch_state;
-
-                if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE)
-                    )
-                {
-                    p_object->current.state &= ~OBJECT_STATE_UNINITIALIZED;
-                    if (is_pointer)
-                        p_object->current.state |= (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
-                    else
-                        p_object->current.state |= (OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO);
-                }
-                else if (flag & BOOLEAN_FLAG_FALSE)
-                {
-                    p_object->current.state &= ~OBJECT_STATE_UNINITIALIZED;
-                    if (is_pointer)
-                    {
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_NOT_NULL;
-                        p_object->current.state |= OBJECT_STATE_NULL;
-                    }
-                    else
-                    {
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_NOT_ZERO;
-                        p_object->current.state |= OBJECT_STATE_ZERO;
-                    }
-                }
-                else if (flag & BOOLEAN_FLAG_TRUE)
-                {
-                    p_object->current.state &= ~OBJECT_STATE_UNINITIALIZED;
-                    if (is_pointer)
-                    {
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_NULL;
-                        if (p_object->current.state & OBJECT_STATE_MOVED)
-                        {
-                        }
-                        else
-                            p_object->current.state |= OBJECT_STATE_NOT_NULL;
-                    }
-                    else
-                    {
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_ZERO;
-                        p_object->current.state |= OBJECT_STATE_NOT_ZERO;
-                    }
-                }
-            }
-            if (p_object && p_object->is_temporary)
-            {
-                p_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
-            }
-        }
-    }
-}
-
-static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx* ctx, struct true_false_set* a, bool nullable_enabled)
-{
-    for (int i = 0; i < a->size; i++)
-    {
-        if (a->data[i].p_expression != NULL)
-        {
-
-            struct flow_object* _Opt p_object =
-                expression_get_object(ctx, a->data[i].p_expression, nullable_enabled);
-
-            if (p_object)
-            {
-                const bool is_pointer = type_is_pointer(&a->data[i].p_expression->type);
-                const enum boolean_flag flag = a->data[i].false_branch_state;
+                const enum boolean_flag flag =
+                    true_branch ?
+                    a->data[i].true_branch_state :
+                    a->data[i].false_branch_state;
 
 
 
                 if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE))
                 {
-                    p_object->current.state &= ~OBJECT_STATE_UNINITIALIZED;
 
                     if (is_pointer)
                         p_object->current.state |= (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
@@ -35719,7 +35676,6 @@ static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx* ct
                 }
                 else if (flag & BOOLEAN_FLAG_FALSE)
                 {
-                    p_object->current.state &= ~OBJECT_STATE_UNINITIALIZED;
 
                     if (is_pointer)
                     {
@@ -35727,6 +35683,7 @@ static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx* ct
                         p_object->current.state = p_object->current.state & ~OBJECT_STATE_NOT_NULL;
                         p_object->current.state = p_object->current.state & ~OBJECT_STATE_MOVED;
                         p_object->current.state |= OBJECT_STATE_NULL;
+
                         //pointed object does not exist. set nothing
                         //See test_18000.c
                         //                        
@@ -35739,7 +35696,6 @@ static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx* ct
                 }
                 else if (flag & BOOLEAN_FLAG_TRUE)
                 {
-                    p_object->current.state &= ~OBJECT_STATE_UNINITIALIZED;
 
                     if (is_pointer)
                     {
@@ -35762,12 +35718,19 @@ static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx* ct
 
 
             }
-            //object_destroy(&temp);
         }
     }
 }
 
+static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx* ctx, struct true_false_set* a, bool nullable_enabled)
+{
+    true_false_set_set_objects_to_core_branch(ctx, a, nullable_enabled, true);
+}
 
+static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx* ctx, struct true_false_set* a, bool nullable_enabled)
+{
+    true_false_set_set_objects_to_core_branch(ctx, a, nullable_enabled, false);    
+}
 
 static int arena_add_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name);
 
@@ -37140,18 +37103,27 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
 
         while (p_current_argument && p_current_parameter_type)
         {
-            struct flow_object* _Opt p_argument_object =
-                expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
-
-            if (p_argument_object && p_current_argument->set_unkown)
+            if (p_current_argument->set_unkown &&
+                type_is_pointer(&p_current_argument->expression->type))
             {
-                const bool argument_type_is_nullable =
-                    type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled);
+                struct type pointed_type = type_remove_pointer(&p_current_argument->expression->type);
 
-                object_set_unknown(&p_current_argument->expression->type,
-                               argument_type_is_nullable,
-                               p_argument_object,
-                               ctx->ctx->options.null_checks_enabled);
+                struct flow_object* _Opt p_argument_object =
+                    expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
+
+
+                if (p_argument_object)
+                {
+                    const bool argument_type_is_nullable =
+                        type_is_nullable(&pointed_type, ctx->ctx->options.null_checks_enabled);
+
+                    object_set_unknown(&pointed_type,
+                                       argument_type_is_nullable,
+                                       p_argument_object->current.pointed,
+                                       ctx->ctx->options.null_checks_enabled);
+                }
+
+                type_destroy(&pointed_type);
             }
             p_current_argument = p_current_argument->next;
             p_current_parameter_type = p_current_parameter_type->next;
@@ -37752,23 +37724,23 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         }
     }
     break;
-    
+
     case EQUALITY_EXPRESSION_NOT_EQUAL:
     case EQUALITY_EXPRESSION_EQUAL:
     {
-        const bool left_is_constant = constant_value_is_valid(&p_expression->left->constant_value); 
-        const bool right_is_constant = constant_value_is_valid(&p_expression->right->constant_value); 
+        const bool left_is_constant = constant_value_is_valid(&p_expression->left->constant_value);
+        const bool right_is_constant = constant_value_is_valid(&p_expression->right->constant_value);
 
         if (left_is_constant)
         {
-            const long long left_value =  constant_value_to_ll(&p_expression->left->constant_value);
+            const long long left_value = constant_value_to_ll(&p_expression->left->constant_value);
 
             struct true_false_set true_false_set_right = { 0 };
             flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
             //0 == expression            
             //1 == expression            
             true_false_set_swap(expr_true_false_set, &true_false_set_right);
-            
+
             if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && left_value == 0)
             {
                 true_false_set_invert(expr_true_false_set);
@@ -37805,12 +37777,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             struct true_false_set true_false_set = { 0 };
             flow_visit_expression(ctx, p_expression->left, &true_false_set);
-            flow_visit_expression(ctx, p_expression->right, &true_false_set);            
+            flow_visit_expression(ctx, p_expression->right, &true_false_set);
             true_false_set_destroy(&true_false_set);
         }
     }
     break;
-    
+
     case LOGICAL_OR_EXPRESSION:
     {
         flow_check_pointer_used_as_bool(ctx, p_expression->left);
@@ -37969,7 +37941,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         }
-        
+
         break;
 
     case UNARY_EXPRESSION_TRAITS:

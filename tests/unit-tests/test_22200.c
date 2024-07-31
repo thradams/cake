@@ -6,7 +6,7 @@ struct Y {
 };
 
 struct X {
-    struct Y* /*_Opt*/ current;
+    struct Y* _Opt current;
 };
 
 void f(struct X* ctx)
@@ -20,7 +20,7 @@ void f(struct X* ctx)
     }
     else
     {
-        //still not null
+        //still not null, so no warning
         ctx->current->type = 1;
     }
 

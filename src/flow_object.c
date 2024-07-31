@@ -1439,7 +1439,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
 
         if (p_struct_or_union_specifier)
         {
-            struct member_declaration* p_member_declaration =
+            struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
 
