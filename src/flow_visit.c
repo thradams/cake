@@ -772,7 +772,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
 {
     try
     {
-        struct flow_object_state* it = object->current.next;
+        struct flow_object_state* _Opt it = object->current.next;
         while (it)
         {
             if (it->state_number == state_number)
@@ -863,7 +863,7 @@ static void arena_merge_current_state_with_state_number(struct flow_visit_ctx* c
 
 static void object_restore_current_state_from2(struct flow_visit_ctx* ctx, struct flow_object* object, int state_number)
 {
-    struct flow_object_state* it = object->current.next;
+    struct flow_object_state* _Opt it = object->current.next;
     while (it)
     {
         if (it->state_number == state_number)
@@ -980,7 +980,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
             {
                 struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                struct flow_object* po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
+                struct flow_object* _Opt po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
                 object_set_pointer(p_init_declarator->p_declarator->p_object, po);
                 type_destroy(&t);
                 p_init_declarator->p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
@@ -989,7 +989,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             {
 
                 struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                struct flow_object* po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
+                struct flow_object* _Opt po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
                 object_set_zero(&t, po);
                 object_set_pointer(p_init_declarator->p_declarator->p_object, po);
                 type_destroy(&t);
@@ -1001,7 +1001,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
         else  if (p_init_declarator->initializer &&
             p_init_declarator->initializer->braced_initializer)
         {
-            struct flow_object* po = make_object(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
+            struct flow_object* _Opt po = make_object(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
 
             braced_initializer_set_object(p_init_declarator->initializer->braced_initializer,
                 &p_init_declarator->p_declarator->type,
@@ -1017,7 +1017,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             };
 
 
-            struct flow_object* p_right_object = po;
+            struct flow_object* _Opt p_right_object = po;
             flow_check_assignment(ctx,
                                    p_init_declarator->p_declarator->first_token,
                                    &a_marker,
@@ -1089,7 +1089,7 @@ void print_arena(struct flow_visit_ctx* ctx)
     for (int i = 0; i < ctx->arena.size; i++)
     {
         struct flow_object* p_object = ctx->arena.data[i];
-        struct flow_object_state* p_state = p_object->current.next;
+        struct flow_object_state* _Opt p_state = p_object->current.next;
         int count = 0;
         while (p_state)
         {
@@ -1147,7 +1147,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement = p_selection_statement;
 
     if (p_selection_statement->p_init_statement &&
@@ -1296,7 +1296,7 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
     const int throw_join_state_old = ctx->throw_join_state;
-    struct secondary_block* catch_secondary_block_old = ctx->catch_secondary_block_opt;
+    struct secondary_block* _Opt catch_secondary_block_old = ctx->catch_secondary_block_opt;
 
 
     ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
@@ -1305,7 +1305,7 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
 
     const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
 
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_try_statement = p_try_statement;
 
     if (p_try_statement->secondary_block)
@@ -1361,7 +1361,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
     ctx->initial_state = arena_add_copy_of_current_state(ctx, "original");
     ctx->break_join_state = arena_add_empty_state(ctx, "break join");
 
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement = p_selection_statement;
 
     if (p_selection_statement->secondary_block)
@@ -1562,8 +1562,8 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
         const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(p_type);
         if (p_param_list == NULL) throw;
 
-        struct param* p_current_parameter_type = p_param_list->head;
-        struct argument_expression* p_current_argument = p_argument_expression_list->head;
+        struct param* _Opt p_current_parameter_type = p_param_list->head;
+        struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
         while (p_current_argument && p_current_parameter_type)
         {
@@ -1770,7 +1770,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
 
 void object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to)
 {
-    struct flow_object_state* it_from = p_object_from->current.next;
+    struct flow_object_state* _Opt it_from = p_object_from->current.next;
     while (it_from)
     {
 #if 0
@@ -1864,8 +1864,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
     case PRIMARY_EXPRESSION__FUNC__:
         break;
-    case PRIMARY_IDENTIFIER:
-        break;
+    
     case PRIMARY_EXPRESSION_ENUMERATOR:
 
         break;
@@ -2039,7 +2038,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
 
-        struct flow_object* temp2 = make_object(ctx, &p_expression->type, NULL, p_expression);
+        struct flow_object* _Opt temp2 = make_object(ctx, &p_expression->type, NULL, p_expression);
         object_swap(temp2, p_expression->type_name->declarator->p_object);
         //object_destroy(&temp2);
 
@@ -2211,7 +2210,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         if (expression_is_malloc(p_expression->right))
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
-            struct flow_object* po = make_object(ctx, &t, NULL, p_expression->left);
+            struct flow_object* _Opt po = make_object(ctx, &t, NULL, p_expression->left);
             object_set_pointer(p_dest_object, po);
             type_destroy(&t);
             p_dest_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
@@ -2219,7 +2218,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         else if (expression_is_calloc(p_expression->right))
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
-            struct flow_object* po = make_object(ctx, &t, NULL, p_expression->left);
+            struct flow_object* _Opt po = make_object(ctx, &t, NULL, p_expression->left);
             object_set_zero(&t, po);
             object_set_pointer(p_dest_object, po);
             type_destroy(&t);
@@ -2290,7 +2289,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (left_is_constant)
         {
-            const long long left_value = constant_value_to_ll(&p_expression->left->constant_value);
+            const long long left_value = constant_value_to_signed_long_long(&p_expression->left->constant_value);
 
             struct true_false_set true_false_set_right = { 0 };
             flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
@@ -2312,7 +2311,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         else if (right_is_constant)
         {
-            const long long right_value = constant_value_to_ll(&p_expression->right->constant_value);
+            const long long right_value = constant_value_to_signed_long_long(&p_expression->right->constant_value);
 
             struct true_false_set true_false_set_left3 = { 0 };
             flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
@@ -2598,7 +2597,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     if (p_iteration_statement->secondary_block)
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
 
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -2657,7 +2656,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     if (p_iteration_statement->secondary_block)
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
         true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
 
@@ -2747,7 +2746,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     if (p_iteration_statement->secondary_block)
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
@@ -2767,7 +2766,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     /*we visit again*/
     if (!b_secondary_block_ends_with_jump && p_iteration_statement->secondary_block)
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
@@ -2828,7 +2827,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
             if (p_object)
             {
-                struct flow_object* p_dest_object =
+                struct flow_object* _Opt p_dest_object =
                     make_object(ctx, ctx->p_return_type, NULL, p_jump_statement->expression_opt);
 
                 object_set_zero(ctx->p_return_type, p_dest_object);
@@ -3242,7 +3241,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
 {
     if (p_direct_declarator->function_declarator)
     {
-        struct parameter_declaration* parameter = NULL;
+        struct parameter_declaration* _Opt parameter = NULL;
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt)
         {
@@ -3327,7 +3326,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     if (type_is_pointer_to_out(&p_declarator->type))
                     {
                         struct type t = type_remove_pointer(&p_declarator->type);
-                        struct flow_object* po = make_object(ctx, &t, p_declarator, NULL);
+                        struct flow_object* _Opt po = make_object(ctx, &t, p_declarator, NULL);
                         object_set_uninitialized(&t, po);
                         object_set_pointer(p_declarator->p_object, po); //MOVED                    
                         type_destroy(&t);
@@ -3335,7 +3334,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     else if (type_is_any_owner(&p_declarator->type))
                     {
                         struct type t = type_remove_pointer(&p_declarator->type);
-                        struct flow_object* po = make_object(ctx, &t, p_declarator, NULL);
+                        struct flow_object* _Opt po = make_object(ctx, &t, p_declarator, NULL);
                         const bool t_is_nullable = type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
                         object_set_unknown(&t, t_is_nullable, po, nullable_enabled);
                         object_set_pointer(p_declarator->p_object, po); //MOVED                    

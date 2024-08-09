@@ -25,6 +25,7 @@
     " token.h "           \
     " type.h "            \
     " pre_expressions.h " \
+    " constant_value.c "  \
     " expressions.h "     \
     " visit.h "           \
     " format_visit.h "
@@ -39,6 +40,7 @@
     " osstream.c "        \
     " fs.c "              \
     " options.c "         \
+    " constant_value.c "  \
     " expressions.c "     \
     " pre_expressions.c " \
     " flow_object.c "     \
@@ -47,7 +49,7 @@
     " flow_visit.c "      \
     " error.c "           \
     " format_visit.c "    \
-    " type.c "           
+    " type.c "            
 
 #define HOEDOWN_SOURCE_FILES \
  " autolink.c " \
@@ -185,8 +187,7 @@ int main()
                " /utf-8 "
                " /W4 "
                " /Zi "
-               " /Gm- "
-               " /sdl "
+               " /Gm- "               
                " /Zc:inline "
                //" /WX " //Treats all compiler warnings as errors.
                " /Gd "
@@ -278,7 +279,7 @@ int main()
 #endif
 
 #ifdef TEST
-    execute_cmd(RUN "cake ../tests/en-cpp-reference-c/*.c -Wno-array-indirection -Wno-div-by-zero -test-mode");
+    execute_cmd(RUN "cake ../tests/en-cpp-reference-c/*.c -Wno-array-size -Wno-array-indirection -Wno-div-by-zero -test-mode");
     execute_cmd(RUN "cake ../tests/unit-tests/*.c -test-mode");
 
     printf("Other test cases\n");

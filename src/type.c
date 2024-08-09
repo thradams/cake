@@ -778,6 +778,67 @@ bool type_is_vla(const struct type* p_type)
     }
     return false;
 }
+
+bool type_is_decimal128(const struct type* p_type)
+{
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL128;
+}
+bool type_is_decimal64(const struct type* p_type)
+{
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL64;
+}
+bool type_is_decimal32(const struct type* p_type)
+{
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL32;
+}
+bool type_is_long_double(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return  false;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+    {
+        if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
+        {
+            return true;
+        }
+
+    }
+    return false;
+}
+
+bool type_is_double(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return  false;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+    {
+        if (!(p_type->type_specifier_flags & TYPE_SPECIFIER_LONG))
+        {
+            return true;
+        }
+
+    }
+    return false;
+}
+
+bool type_is_float(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return  false;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+    {
+        return true;
+    }
+    return false;
+}
+
+
 bool type_is_bool(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
@@ -810,6 +871,18 @@ bool type_is_unsigned_integer(const struct type* p_type)
 
     return false;
 }
+
+bool type_is_signed_integer(const struct type* p_type)
+{
+    if (type_is_integer(p_type) &&
+        !(p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED))
+    {
+        return true;
+    }
+
+    return false;
+}
+
 
 /*
   The type char, the signed and unsigned integer types,
@@ -1410,98 +1483,262 @@ bool type_is_pointer_or_array(const struct type* p_type)
 
 
 //See 6.3.1.1
-int type_get_rank(struct type* p_type1)
+int type_get_integer_rank(const struct type* p_type1)
 {
     if (type_is_pointer_or_array(p_type1))
     {
+        assert(false);
         return 40;
     }
 
-    int rank = 0;
-    if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL))
+    if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT64))
     {
-        rank = 10;
+        return 80;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT8))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T))
     {
-        rank = 20;
-    }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT16))
-    {
-        rank = 30;
-    }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_INT) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_ENUM))
-    {
-        rank = 40;
+        return 50; //?
     }
     else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG) ||
         (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT32))
     {
-        rank = 50;
+        return 50;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_INT) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_ENUM))
     {
-        rank = 50; //?
+        return 40;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_FLOAT))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT16))
     {
-        rank = 60;
+        return 30;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_DOUBLE))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT8))
     {
-        rank = 70;
+        return 20;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT64))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL))
     {
-        rank = 80;
+        return 10;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
+
+    return 0;
+}
+
+struct type type_get_enum_underlying_type(const struct type* p)
+{
+    struct type r = type_make_int();
+    //TODO
+    return r;
+}
+
+struct type type_common(const struct type* p_type1, const struct type* p_type2)
+{
+    //See 6.3.1.8 Usual arithmetic conversions
+
+
+    /*
+       First, if the type of either operand is _Decimal128,
+       the other operand is converted to _Decimal128.
+    */
+    if (type_is_decimal128(p_type1))
     {
-        return -1;
-        //seterror(error, "internal error - struct is not valid for rank");
+        return type_dup(p_type1);
+    }
+
+    if (type_is_decimal128(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+      Otherwise, if the type of either operand is _Decimal64,
+      the other operand is converted to _Decimal64
+    */
+
+    if (type_is_decimal64(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_decimal64(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+      Otherwise, if the type of either operand is _Decimal32,
+      the other operand is converted to _Decimal32.
+    */
+    if (type_is_decimal32(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_decimal32(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+      Otherwise, if the corresponding real type of either operand is long double,
+      the other operand is converted, without change of type domain, to a type whose
+      corresponding real type is long double
+    */
+    if (type_is_long_double(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_long_double(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+      Otherwise, if the corresponding real type of either operand is double,
+      the other operand is converted, without change of type domain, to a type
+      whose corresponding real type is double.
+    */
+
+    if (type_is_double(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_double(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+
+    /*
+      Otherwise, if the corresponding real type of either operand is float,
+      the other operand is converted, without change of type domain,
+      to a type whose corresponding real type is float
+    */
+    if (type_is_float(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_float(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+     Otherwise, if any of the two types is an enumeration, it is converted to its underlying type.
+    */
+    struct type promoted_a = { 0 };
+    struct type promoted_b = { 0 };
+
+
+    if (type_is_enum(p_type1))
+    {
+        promoted_a = type_get_enum_underlying_type(p_type1);
+
     }
     else
     {
-        return -2;
-        //seterror(error, "unexpected type for rank");
+        promoted_a = type_dup(p_type1);
     }
-    return rank;
-}
 
-int type_common(struct type* p_type1, struct type* p_type2, struct type* out_type)
-{
-    struct type t0 = { 0 };
-    try
+    if (type_is_enum(p_type2))
     {
-        int rank_left = type_get_rank(p_type1);
-        if (rank_left < 0) throw;
-
-        int rank_right = type_get_rank(p_type2);
-        if (rank_right < 0) throw;
-
-        if (rank_left >= rank_right)
-            t0 = type_dup(p_type1);
-        else
-            t0 = type_dup(p_type2);
-
-        /*
-           The result of expression +,- * / etc are not lvalue
-        */
-
+        promoted_b = type_get_enum_underlying_type(p_type2);
     }
-    catch
+    else
     {
-        return 1;
+        promoted_b = type_dup(p_type2);
     }
 
-    type_swap(out_type, &t0);
-    type_destroy(&t0);
+    /*
+      Then, the integer promotions are performed on both operands. Next, the following rules are
+      applied to the promoted operands
+    */
+    type_integer_promotion(&promoted_a);
+    type_integer_promotion(&promoted_b);
 
-    return 0;
+
+
+    /*
+      if both operands have the same type, then no further conversion is needed
+    */
+    if (type_is_same(&promoted_a, &promoted_b, false))
+    {
+        type_destroy(&promoted_b);
+        return promoted_a;
+    }
+
+    /*
+     Otherwise, if both operands have signed integer types or both have unsigned integer
+     types, the operand with the type of lesser integer conversion rank is converted to the type
+     of the operand with greater rank.
+    */
+
+    if (type_is_signed_integer(&promoted_a) == type_is_signed_integer(&promoted_b))
+    {
+        if (type_get_integer_rank(&promoted_a) > type_get_integer_rank(&promoted_b))
+        {
+            type_destroy(&promoted_b);
+            return promoted_a;
+        }
+
+        type_destroy(&promoted_a);
+        return promoted_b;
+    }
+
+
+    /*
+     Otherwise, if the operand that has unsigned integer type has rank greater or equal to
+     the rank of the type of the other operand, then the operand with signed integer type is
+     converted to the type of the operand with unsigned integer type.
+    */
+
+    struct type* p_signed_promoted = type_is_signed_integer(&promoted_a) ? &promoted_a : &promoted_b;
+    struct type* p_unsigned_promoted = type_is_unsigned_integer(&promoted_a) ? &promoted_a : &promoted_b;
+
+    assert(p_signed_promoted != p_unsigned_promoted);
+
+    if (type_get_integer_rank(p_unsigned_promoted) >= type_get_integer_rank(p_signed_promoted))
+    {
+        struct type r = { 0 };
+        type_swap(&r, p_unsigned_promoted);
+        type_destroy(&promoted_a);
+        type_destroy(&promoted_b);
+        return r;
+    }
+
+    /*
+      Otherwise, if the type of the operand with signed integer type can represent all the values
+      of the type of the operand with unsigned integer type, then the operand with unsigned
+      integer type is converted to the type of the operand with signed integer type
+    */
+
+    if (type_get_sizeof(p_signed_promoted) > type_get_sizeof(p_unsigned_promoted))
+    {
+        struct type r = { 0 };
+        type_swap(&r, p_signed_promoted);
+        type_destroy(&promoted_a);
+        type_destroy(&promoted_b);
+        return r;
+    }
+
+    /*
+      Otherwise, both operands are converted to the unsigned integer type corresponding to
+      the type of the operand with signed integer type
+    */
+
+    struct type r = { 0 };
+    type_swap(&r, p_signed_promoted);
+    r.type_specifier_flags |= TYPE_SPECIFIER_UNSIGNED;
+    type_destroy(&promoted_a);
+    type_destroy(&promoted_b);
+    return r;
 }
 
 void type_set(struct type* a, const struct type* b)
@@ -1685,8 +1922,8 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
     return size;
 }
 
-int type_get_alignof(const struct type* p_type);
-int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
+size_t type_get_alignof(const struct type* p_type);
+size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
     int align = 0;
     struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
@@ -1755,7 +1992,7 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
     return align;
 }
 
-int type_get_alignof(const struct type* p_type)
+size_t type_get_alignof(const struct type* p_type)
 {
     int align = 0;
 
@@ -1877,7 +2114,7 @@ int type_get_alignof(const struct type* p_type)
     return align;
 }
 
-int type_get_sizeof(const struct type* p_type)
+size_t type_get_sizeof(const struct type* p_type)
 {
     const enum type_category category = type_get_category(p_type);
 
@@ -1888,7 +2125,7 @@ int type_get_sizeof(const struct type* p_type)
 
     if (category == TYPE_CATEGORY_FUNCTION)
     {
-        return -1;
+        return (size_t)-1;
     }
 
     if (category == TYPE_CATEGORY_ARRAY)
@@ -2111,6 +2348,31 @@ struct type type_get_enum_type(const struct type* p_type)
     struct type empty = { 0 };
     return empty;
 }
+
+struct type type_make_long_double()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type type_make_double()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type type_make_float()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
 
 struct type type_make_size_t()
 {

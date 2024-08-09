@@ -107,8 +107,15 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
     if (p_selection_statement->p_init_statement &&
         p_selection_statement->p_init_statement->p_expression_statement)
     {
-        init_tokens_cut = cut(p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token,
-            p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token);
+        if (p_selection_statement->p_init_statement->p_expression_statement->expression_opt)
+        {
+            init_tokens_cut = cut(p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token,
+                p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token);
+        }
+        else
+        {
+            assert(false);
+        }
     }
     else if (p_selection_statement->p_init_statement &&
         p_selection_statement->p_init_statement->p_simple_declaration)
@@ -134,9 +141,17 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         token_list_insert_before(&ctx->ast.token_list, p_selection_statement->first_token, &condition_tokens_cut);
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, ";");
 
-        token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
-            p_selection_statement->condition->p_init_declarator->p_declarator->name_opt->lexeme
-        );
+        if (p_selection_statement->condition->p_init_declarator->p_declarator->name_opt)
+        {
+            token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
+                p_selection_statement->condition->p_init_declarator->p_declarator->name_opt->lexeme
+            );
+        }
+        else
+        {
+            assert(false);
+        }
+
 
     }
 
@@ -150,13 +165,19 @@ void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, boo
     struct defer_scope* _Opt defer_child = defer_block->lastchild;
     while (defer_child != NULL)
     {
+        if (defer_child->defer_statement == NULL)
+        {
+            assert(false);
+            return;
+        }
+
         _View struct token_list l = { 0 };
 
         l.head = defer_child->defer_statement->first_token;
         l.tail = defer_child->defer_statement->last_token;
 
         l.head->flags |= TK_C_BACKEND_FLAG_HIDE;
-        const char* _Owner s = get_code_as_compiler_see(&l);
+        const char* _Owner _Opt s = get_code_as_compiler_see(&l);
         if (s != NULL)
         {
             if (hide_tokens)
@@ -175,6 +196,12 @@ void hide_block_defer(struct defer_scope* deferblock)
     struct defer_scope* _Opt deferchild = deferblock->lastchild;
     while (deferchild != NULL)
     {
+        if (deferchild->defer_statement == NULL)
+        {
+            assert(false);
+            return;
+        }
+
         struct token* head = deferchild->defer_statement->first_token;
         struct token* tail = deferchild->defer_statement->last_token;
         token_range_add_flag(head, tail, TK_C_BACKEND_FLAG_HIDE);
@@ -258,9 +285,16 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
         }
         else if (p_unlabeled_statement->primary_block->iteration_statement)
         {
-            if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
+            if (p_unlabeled_statement->primary_block->iteration_statement->secondary_block)
             {
-                return true;
+                if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                assert(false);
             }
         }
     }
@@ -269,12 +303,12 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
 
 bool find_label_statement(struct statement* statement, const char* label)
 {
-    if (statement->labeled_statement)
+    if (statement->labeled_statement &&
+        statement->labeled_statement->label &&
+        statement->labeled_statement->label->p_identifier_opt)
     {
-        if (statement->labeled_statement->label &&
-            strcmp(statement->labeled_statement->label->p_identifier_opt->lexeme, label) == 0)
+        if (strcmp(statement->labeled_statement->label->p_identifier_opt->lexeme, label) == 0)
         {
-            /*achou*/
             return true;
         }
     }
@@ -386,9 +420,12 @@ static void visit_secondary_block(struct visit_ctx* ctx, struct secondary_block*
 {
     visit_statement(ctx, p_secondary_block->statement);
 }
-struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
+struct defer_scope* _Opt visit_ctx_push_tail_child(struct visit_ctx* ctx)
 {
     struct defer_scope* _Owner _Opt p_defer = calloc(1, sizeof * p_defer);
+    if (p_defer == NULL)
+        return NULL;
+
     p_defer->previous = ctx->tail_block->lastchild;
     ctx->tail_block->lastchild = p_defer;
 
@@ -396,26 +433,26 @@ struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
 }
 
 
-struct defer_scope* visit_ctx_push_tail_block(struct visit_ctx* ctx)
+struct defer_scope* _Opt visit_ctx_push_tail_block(struct visit_ctx* ctx)
 {
     struct defer_scope* _Owner _Opt p_defer = calloc(1, sizeof * p_defer);
-    if (p_defer)
-    {
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
-    }
-    else
-    {
-        //ops
-    }
+    if (p_defer == NULL)
+        return NULL;
+
+    p_defer->previous = ctx->tail_block;
+    ctx->tail_block = p_defer;
+
     return ctx->tail_block;
 }
 static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
     if (!ctx->is_second_pass)
     {
-        //adiciona como filho do ultimo bloco
-        struct defer_scope* p_defer = visit_ctx_push_tail_child(ctx);
+        //add as child of the last block
+        struct defer_scope* _Opt p_defer = visit_ctx_push_tail_child(ctx);
+        if (p_defer == NULL)
+            return;
+
         p_defer->defer_statement = p_defer_statement;
 
 
@@ -451,6 +488,9 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
     if (!ctx->is_second_pass)
     {
         struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+            return;
+
         p_defer->p_try_statement = p_try_statement;
 
         if (p_try_statement->secondary_block)
@@ -474,6 +514,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         char buffer[50] = { 0 };
         if (p_try_statement->catch_secondary_block_opt)
         {
+            assert(p_try_statement->catch_token_opt != NULL);
 
             snprintf(buffer, sizeof buffer, "else _catch_label_%d:", p_try_statement->try_catch_block_index);
 
@@ -496,7 +537,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
 
 static void visit_declaration_specifiers(struct visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type);
+    struct type* _Opt p_type);
 
 static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
 
@@ -548,9 +589,10 @@ static void visit_condition(struct visit_ctx* ctx, struct condition* p_condition
 
 static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
+    struct defer_scope* _Opt p_defer = visit_ctx_push_tail_block(ctx);
+    if (p_defer == NULL)
+        return;
 
-    //PUSH
-    struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement2 = p_selection_statement;
 
     if (p_selection_statement->p_init_statement)
@@ -822,6 +864,10 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
                 {
                     current->flags |= TK_C_BACKEND_FLAG_SHOW_AGAIN;
                 }
+                if (current->next == NULL)
+                {
+                    break;
+                }
             }
         }
 
@@ -832,13 +878,17 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
         if (p_generic_selection->p_view_selected_expression)
         {
             for (struct token* current = p_generic_selection->p_view_selected_expression->first_token;
-                current != p_generic_selection->p_view_selected_expression->last_token->next;
-                current = current->next)
+                 current != p_generic_selection->p_view_selected_expression->last_token->next;
+                 current = current->next)
             {
                 if ((current->flags & TK_C_BACKEND_FLAG_HIDE) &&
                     (current->flags & TK_C_BACKEND_FLAG_SHOW_AGAIN))
                 {
                     current->flags = current->flags & ~(TK_C_BACKEND_FLAG_SHOW_AGAIN | TK_C_BACKEND_FLAG_HIDE);
+                }
+                if (current->next == NULL)
+                {
+                    break;
                 }
             }
         }
@@ -853,8 +903,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     {
     case PRIMARY_EXPRESSION__FUNC__:
         break;
-    case PRIMARY_IDENTIFIER:
-        break;
+    
     case PRIMARY_EXPRESSION_ENUMERATOR:
         if (ctx->target < LANGUAGE_C23)
         {
@@ -1019,6 +1068,9 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             ss_close(&ss0);
 
+            if (ss.c_str == NULL)
+                return;
+
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l1 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
 
@@ -1031,6 +1083,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 current = current->next)
             {
                 token_list_clone_and_add(&ctx->insert_before_declaration, current);
+                if (current->next == NULL)
+                    break;
             }
 
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_C_BACKEND_FLAG_HIDE);
@@ -1068,7 +1122,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             const int level = p_expression->first_token->level;
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_C_BACKEND_FLAG_HIDE);
             char buffer[30] = { 0 };
-            snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
+            snprintf(buffer, sizeof buffer, "%lld", constant_value_to_signed_long_long(&p_expression->constant_value));
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l3 = tokenizer(&tctx, buffer, NULL, level, TK_FLAG_FINAL);
             l3.head->flags = p_expression->last_token->flags;
@@ -1241,7 +1295,10 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 
     if (p_iteration_statement->secondary_block)
     {
-        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
+        struct defer_scope* _Opt p_defer = visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+            return;
+
         p_defer->p_iteration_statement = p_iteration_statement;
 
         visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -1541,7 +1598,7 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
     {
         if (p_static_assert_declaration->string_literal_opt == NULL)
         {
-            struct token* rp = previous_parser_token(p_static_assert_declaration->last_token);
+            struct token* _Opt rp = previous_parser_token(p_static_assert_declaration->last_token);
             rp = previous_parser_token(rp);
 
             struct tokenizer_ctx tctx = { 0 };
@@ -2095,7 +2152,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
 
 static void visit_declaration_specifiers(struct visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type_opt)
+    struct type* _Opt p_type_opt)
 {
     /*
         * Se tiver typeof ou auto vamos apagar todos type specifiers.
@@ -2167,7 +2224,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         token_list_destroy(&l2);
     }
 
-    struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
+    struct declaration_specifier* _Opt p_declaration_specifier = p_declaration_specifiers->head;
 
     struct declaration_specifier* _Opt p_constexpr_declaration_specifier = NULL;
     while (p_declaration_specifier)
@@ -2354,6 +2411,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 {
                     token_list_clone_and_add(&ctx->insert_before_declaration, current);
                     //current->flags |= TK_FLAG_FINAL;
+                    if (current->next == NULL)
+                        break;
                 }
 
                 struct token_list list3 = tokenizer(&tctx, ";\n", NULL, 0, TK_FLAG_FINAL);
@@ -2389,7 +2448,10 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         ctx->is_second_pass = false;
 
 
-        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
+        struct defer_scope* _Opt p_defer = visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+            return;
+
         p_defer->p_function_body = p_declaration->function_body;
 
         visit_compound_statement(ctx, p_declaration->function_body);

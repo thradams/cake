@@ -822,13 +822,16 @@ int main(void)
 <pre><code class="language-c">/*line comments*/
 int main(void)
 {
-    unsigned char b = 1;
+    unsigned char b = 123;
     return 0;
 }
 </code></pre>
 
 <p>Alternative design - typedef ?
 Considering C23 has bool and the objective of C89 version is to have a version that compiles in C++ the best option would be use bool, true, false.</p>
+
+<p>Obs:
+ Currently cake is not converting 123 to 1 as required by C standard.</p>
 
 <h2 id="toc_28">C11 Transformations</h2>
 
@@ -1720,6 +1723,8 @@ int main()
 <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html</a></p>
 
 <h3 id="toc_73">Extension typename on _Generic</h3>
+
+<p>This feature was created in Cake and now it is part of C2Y!</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf</a></p>
 

@@ -559,7 +559,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
     }
 
 
-    struct flow_object* p_object = arena_new_object(ctx);
+    struct flow_object* _Opt p_object = arena_new_object(ctx);
 
     try
     {
@@ -612,7 +612,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
 
                                 if (tag && has_name(tag, &l))
                                 {
-                                    struct flow_object* member_obj = arena_new_object(ctx);
+                                    struct flow_object* _Opt member_obj = arena_new_object(ctx);
                                     member_obj->parent = p_object;
 
                                     member_obj->p_expression_origin = p_expression_origin;
@@ -647,11 +647,14 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                             t.category = TYPE_CATEGORY_ITSELF;
                             t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                             t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-                            struct flow_object* member_obj = make_object_core(ctx, &t, &l, p_declarator_opt, p_expression_origin);
-                            for (int k = 0; k < member_obj->members.size; k++)
+                            struct flow_object* _Opt member_obj = make_object_core(ctx, &t, &l, p_declarator_opt, p_expression_origin);
+                            if (member_obj != NULL)
                             {
-                                objects_view_push_back(&p_object->members, member_obj->members.data[k]);
-                                member_obj->members.data[k] = NULL;
+                                for (int k = 0; k < member_obj->members.size; k++)
+                                {
+                                    objects_view_push_back(&p_object->members, member_obj->members.data[k]);
+                                    member_obj->members.data[k] = NULL;
+                                }
                             }
                             type_destroy(&t);
                         }
@@ -693,7 +696,7 @@ struct flow_object* _Opt make_object(struct flow_visit_ctx* ctx,
 {
 
     struct object_name_list list = { .name = "" };
-    struct flow_object* p_object = make_object_core(ctx, p_type, &list, p_declarator_opt, p_expression_origin);
+    struct flow_object* _Opt p_object = make_object_core(ctx, p_type, &list, p_declarator_opt, p_expression_origin);
 
     return p_object;
 }
@@ -740,7 +743,7 @@ void object_remove_state(struct flow_object* object, int state_number)
     {
         if (it->state_number == state_number)
         {
-            struct flow_object_state* _Owner p_it_next = it->next;
+            struct flow_object_state* _Owner _Opt p_it_next = it->next;
             it->next = NULL;
             flow_object_state_delete(previous->next);
             previous->next = p_it_next;
@@ -784,7 +787,7 @@ void print_object_core(int ident,
             printf("%*c", ident + 1, ' ');
             printf("#%02d {\n", p_visitor->p_object->id);
 
-            struct member_declaration* p_member_declaration =
+            struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
 
@@ -884,7 +887,7 @@ void print_object_core(int ident,
             printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
 
-            struct flow_object_state* it = p_visitor->p_object->current.next;
+            struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
             while (it)
             {
                 printf(LIGHTCYAN);
@@ -941,7 +944,7 @@ void print_object_core(int ident,
             printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
 
-            struct flow_object_state* it = p_visitor->p_object->current.next;
+            struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
             while (it)
             {
                 printf("(#%02d %s)", it->state_number, it->dbg_name);
@@ -1053,7 +1056,7 @@ int object_merge_current_state_with_state_number_core(struct flow_object* object
     }
     object->visit_number = visit_number;
 
-    struct flow_object_state* it = object->current.next;
+    struct flow_object_state* _Opt it = object->current.next;
     while (it)
     {
         if (it->state_number == state_number)
@@ -1149,7 +1152,7 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
 
         if (p_struct_or_union_specifier)
         {
-            struct member_declaration* p_member_declaration =
+            struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
 
@@ -1251,7 +1254,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
         struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        struct member_declaration* p_member_declaration =
+        struct member_declaration* _Opt p_member_declaration =
             p_struct_or_union_specifier ?
             p_struct_or_union_specifier->member_declaration_list.head :
             NULL;
@@ -1563,7 +1566,7 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
 
         if (p_struct_or_union_specifier)
         {
-            struct member_declaration* p_member_declaration =
+            struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
             int member_index = 0;
@@ -1931,7 +1934,7 @@ void object_get_name_core(
         struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        struct member_declaration* p_member_declaration =
+        struct member_declaration* _Opt p_member_declaration =
             p_struct_or_union_specifier->member_declaration_list.head;
 
         int member_index = 0;
@@ -1990,7 +1993,7 @@ void object_get_name(const struct type* p_type,
         const char* root_name = p_object->p_declarator_origin->name_opt ? p_object->p_declarator_origin->name_opt->lexeme : "?";
         //snprintf(outname, out_size, "%s",root_name);
 
-        const struct flow_object* root = p_object->p_declarator_origin->p_object;
+        const struct flow_object* _Opt root = p_object->p_declarator_origin->p_object;
 
         object_get_name_core(&p_object->p_declarator_origin->type, root, p_object, root_name, outname, out_size, s_visit_number++);
     }
@@ -2046,7 +2049,7 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
         struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        struct member_declaration* p_member_declaration =
+        struct member_declaration* _Opt p_member_declaration =
             p_struct_or_union_specifier->member_declaration_list.head;
 
         /*
@@ -2485,7 +2488,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
     else
     {
         const char* name = previous_names;
-        const struct token* position = NULL;
+        const struct token* _Opt position = NULL;
         if (p_visitor->p_object->p_declarator_origin)
             position = p_visitor->p_object->p_declarator_origin->name_opt ? p_visitor->p_object->p_declarator_origin->name_opt : p_visitor->p_object->p_declarator_origin->first_token;
         else if (p_visitor->p_object->p_expression_origin)
@@ -3139,7 +3142,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
 
     else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
     {
-        struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+        struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
         object_set_pointer(p_object, expression_get_object(ctx, p_expression->right, nullable_enabled));
         p_object->current.state = OBJECT_STATE_NOT_NULL;
         p_object->is_temporary = true;
@@ -3152,7 +3155,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     else if (p_expression->expression_type == CAST_EXPRESSION)
     {
 
-        struct flow_object* p = expression_get_object(ctx, p_expression->left, nullable_enabled);
+        struct flow_object* _Opt p = expression_get_object(ctx, p_expression->left, nullable_enabled);
         if (p)
         {
             if (type_is_pointer(&p_expression->type_name->type))
@@ -3310,7 +3313,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     }
     else if (p_expression->expression_type == PRIMARY_EXPRESSION_PREDEFINED_CONSTANT)
     {
-        struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+        struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
         if (p_expression->type.type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
         {
             p_object->current.state = OBJECT_STATE_NULL;

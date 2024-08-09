@@ -1322,7 +1322,8 @@ static void token_promote(struct token* token)
     }
     else if (token->type == TK_PPNUMBER)
     {
-        token->type = parse_number(token->lexeme, NULL);
+        char suffix[4] = {0};
+        token->type = parse_number(token->lexeme, suffix);
     }
 }
 
@@ -1346,341 +1347,6 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
     return p;
 }
 
-bool is_binary_digit(struct stream* stream)
-{
-    return stream->current[0] >= '0' && stream->current[0] <= '1';
-}
-
-bool is_hexadecimal_digit(struct stream* stream)
-{
-    return (stream->current[0] >= '0' && stream->current[0] <= '9') ||
-        (stream->current[0] >= 'a' && stream->current[0] <= 'f') ||
-        (stream->current[0] >= 'A' && stream->current[0] <= 'F');
-}
-
-bool is_octal_digit(struct stream* stream)
-{
-    return stream->current[0] >= '0' && stream->current[0] <= '7';
-}
-
-void digit_sequence(struct stream* stream)
-{
-    while (is_digit(stream))
-    {
-        stream_match(stream);
-    }
-}
-
-static void binary_exponent_part(struct stream* stream)
-{
-    // p signopt digit - sequence
-    // P   signopt digit - sequence
-
-    stream_match(stream); // p or P
-    if (stream->current[0] == '+' || stream->current[0] == '-')
-    {
-        stream_match(stream); // p or P
-    }
-    digit_sequence(stream);
-}
-
-void hexadecimal_digit_sequence(struct stream* stream)
-{
-    /*
-     hexadecimal-digit-sequence:
-     hexadecimal-digit
-     hexadecimal-digit ’_Opt hexadecimal-digit
-    */
-
-    stream_match(stream);
-    while (stream->current[0] == '\'' ||
-        is_hexadecimal_digit(stream))
-    {
-        if (stream->current[0] == '\'')
-        {
-            stream_match(stream);
-            if (!is_hexadecimal_digit(stream))
-            {
-                // erro
-            }
-            stream_match(stream);
-        }
-        else
-            stream_match(stream);
-    }
-}
-
-bool first_of_unsigned_suffix(const struct stream* stream)
-{
-    /*
-     unsigned-suffix: one of
-       u U
-     */
-    return (stream->current[0] == 'u' ||
-        stream->current[0] == 'U');
-}
-
-void unsigned_suffix_opt(struct stream* stream)
-{
-    /*
-   unsigned-suffix: one of
-     u U
-   */
-    if (stream->current[0] == 'u' ||
-        stream->current[0] == 'U')
-    {
-        stream_match(stream);
-    }
-}
-
-void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* _Opt flags_opt)
-{
-    /*
-     integer-suffix:
-     unsigned-suffix long-suffixopt
-     unsigned-suffix long-long-suffix
-     long-suffix unsigned-suffixopt
-     long-long-suffix unsigned-suffixopt
-    */
-
-    if (/*unsigned-suffix*/
-        stream->current[0] == 'U' || stream->current[0] == 'u')
-    {
-        stream_match(stream);
-
-        if (flags_opt)
-        {
-            *flags_opt |= TYPE_SPECIFIER_UNSIGNED;
-        }
-
-        /*long-suffixopt*/
-        if (stream->current[0] == 'l' || stream->current[0] == 'L')
-        {
-            if (flags_opt)
-            {
-                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_INT;
-                *flags_opt |= TYPE_SPECIFIER_LONG;
-            }
-            stream_match(stream);
-        }
-
-        /*long-long-suffix*/
-        if (stream->current[0] == 'l' || stream->current[0] == 'L')
-        {
-            if (flags_opt)
-            {
-                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_LONG;
-                *flags_opt |= TYPE_SPECIFIER_LONG_LONG;
-            }
-
-            stream_match(stream);
-        }
-    }
-    else if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
-    {
-        if (flags_opt)
-        {
-            *flags_opt = *flags_opt & ~TYPE_SPECIFIER_INT;
-            *flags_opt |= TYPE_SPECIFIER_LONG;
-        }
-
-        /*long-suffix*/
-        stream_match(stream);
-
-        /*long-long-suffix*/
-        if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
-        {
-            if (flags_opt)
-            {
-                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_LONG;
-                *flags_opt |= TYPE_SPECIFIER_LONG_LONG;
-            }
-            stream_match(stream);
-        }
-
-        if (/*unsigned-suffix*/
-            stream->current[0] == 'U' || stream->current[0] == 'u')
-        {
-            if (flags_opt)
-            {
-                *flags_opt |= TYPE_SPECIFIER_UNSIGNED;
-            }
-            stream_match(stream);
-        }
-    }
-}
-
-void exponent_part_opt(struct stream* stream)
-{
-    /*
-    exponent-part:
-    e signopt digit-sequence
-    E signopt digit-sequence
-    */
-    if (stream->current[0] == 'e' || stream->current[0] == 'E')
-    {
-        stream_match(stream);
-
-        if (stream->current[0] == '-' || stream->current[0] == '+')
-        {
-            stream_match(stream);
-        }
-        digit_sequence(stream);
-    }
-}
-
-enum type_specifier_flags floating_suffix_opt(struct stream* stream)
-{
-    enum type_specifier_flags f = TYPE_SPECIFIER_DOUBLE;
-
-    if (stream->current[0] == 'l' || stream->current[0] == 'L')
-    {
-        f = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
-        stream_match(stream);
-    }
-    else if (stream->current[0] == 'f' || stream->current[0] == 'F')
-    {
-        f = TYPE_SPECIFIER_FLOAT;
-        stream_match(stream);
-    }
-
-    return f;
-}
-
-bool is_nonzero_digit(struct stream* stream)
-{
-    return stream->current[0] >= '1' && stream->current[0] <= '9';
-}
-
-enum token_type parse_number_core(struct stream* stream, enum type_specifier_flags* _Opt flags_opt)
-{
-    if (flags_opt)
-    {
-        *flags_opt = TYPE_SPECIFIER_INT;
-    }
-
-    enum token_type type = TK_NONE;
-    if (stream->current[0] == '.')
-    {
-        type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
-        stream_match(stream);
-        digit_sequence(stream);
-        exponent_part_opt(stream);
-        enum type_specifier_flags f = floating_suffix_opt(stream);
-        if (flags_opt)
-        {
-            *flags_opt = f;
-        }
-    }
-    else if (stream->current[0] == '0' && (stream->current[1] == 'x' || stream->current[1] == 'X'))
-    {
-        type = TK_COMPILER_HEXADECIMAL_CONSTANT;
-
-        stream_match(stream);
-        stream_match(stream);
-        while (is_hexadecimal_digit(stream))
-        {
-            stream_match(stream);
-        }
-
-        integer_suffix_opt(stream, flags_opt);
-
-        if (stream->current[0] == '.')
-        {
-            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
-            hexadecimal_digit_sequence(stream);
-        }
-
-        if (stream->current[0] == 'p' ||
-            stream->current[0] == 'P')
-        {
-            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
-            binary_exponent_part(stream);
-        }
-
-        if (type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
-        {
-            enum type_specifier_flags f = floating_suffix_opt(stream);
-            if (flags_opt)
-            {
-                *flags_opt = f;
-            }
-        }
-    }
-    else if (stream->current[0] == '0' && (stream->current[1] == 'b' || stream->current[1] == 'B'))
-    {
-        type = TK_COMPILER_BINARY_CONSTANT;
-        stream_match(stream);
-        stream_match(stream);
-        while (is_binary_digit(stream))
-        {
-            stream_match(stream);
-        }
-        integer_suffix_opt(stream, flags_opt);
-    }
-    else if (stream->current[0] == '0') // octal
-    {
-        type = TK_COMPILER_OCTAL_CONSTANT;
-
-        stream_match(stream);
-        while (is_octal_digit(stream))
-        {
-            stream_match(stream);
-        }
-        integer_suffix_opt(stream, flags_opt);
-
-        if (stream->current[0] == '.')
-        {
-            hexadecimal_digit_sequence(stream);
-            enum type_specifier_flags f = floating_suffix_opt(stream);
-            if (flags_opt)
-            {
-                *flags_opt = f;
-            }
-        }
-    }
-    else if (is_nonzero_digit(stream)) // decimal
-    {
-        type = TK_COMPILER_DECIMAL_CONSTANT;
-
-        stream_match(stream);
-        while (is_digit(stream))
-        {
-            stream_match(stream);
-        }
-        integer_suffix_opt(stream, flags_opt);
-
-        if (stream->current[0] == 'e' || stream->current[0] == 'E')
-        {
-            exponent_part_opt(stream);
-            enum type_specifier_flags f = floating_suffix_opt(stream);
-            if (flags_opt)
-            {
-                *flags_opt = f;
-            }
-        }
-        else if (stream->current[0] == '.')
-        {
-            stream_match(stream);
-            type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
-            digit_sequence(stream);
-            exponent_part_opt(stream);
-            enum type_specifier_flags f = floating_suffix_opt(stream);
-            if (flags_opt)
-            {
-                *flags_opt = f;
-            }
-        }
-    }
-
-    return type;
-}
-
-enum token_type parse_number(const char* lexeme, enum type_specifier_flags* _Opt flags_opt)
-{
-    struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
-    return parse_number_core(&stream, flags_opt);
-}
 
 static struct token* _Opt pragma_match(struct token* p_current)
 {
@@ -2804,6 +2470,17 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         {
                             p_init_declarator->p_declarator->type.num_of_elements =
                                 p_init_declarator->initializer->assignment_expression->type.num_of_elements;
+                        }
+                        else
+                        {
+                            if (array_size_elements <= p_init_declarator->initializer->assignment_expression->type.num_of_elements)
+                            {
+                                if (array_size_elements == p_init_declarator->initializer->assignment_expression->type.num_of_elements-1)
+                                    compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "string will not be zero terminated");
+
+                                else
+                                    compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "initializer-string for array of is too long");
+                            }
                         }
                     }
                 }
@@ -3993,9 +3670,16 @@ void specifier_qualifier_list_delete(struct specifier_qualifier_list* _Owner _Op
 
 struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct parser_ctx* ctx)
 {
+    if (!first_of_type_specifier(ctx) && !first_of_type_qualifier(ctx))
+    {
+        compiler_diagnostic_message(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, NULL, "type specifier or qualifier expected");
+        return NULL;
+    }
+
     struct specifier_qualifier_list* _Owner _Opt p_specifier_qualifier_list = calloc(1, sizeof(struct specifier_qualifier_list));
     if (p_specifier_qualifier_list == NULL)
         return NULL;
+
 
     /*
       type_specifier_qualifier attribute_specifier_sequence_opt
@@ -4145,7 +3829,7 @@ const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifi
     struct enumerator* p = p_enum_specifier->enumerator_list.head;
     while (p)
     {
-        if (p->value == value)
+        if (constant_value_to_signed_long_long(&p->value) == value)
             return p;
         p = p->next;
     }
@@ -4385,13 +4069,13 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             p_enumerator->constant_expression_opt = constant_expression(ctx, true);
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
-            p_enumerator->value = constant_value_to_ll(&p_enumerator->constant_expression_opt->constant_value);
-            *p_next_enumerator_value = p_enumerator->value;
+            p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
+            *p_next_enumerator_value = constant_value_to_signed_long_long(&p_enumerator->value);
             (*p_next_enumerator_value)++; // TODO overflow  and size check
         }
         else
         {
-            p_enumerator->value = *p_next_enumerator_value;
+            p_enumerator->value = constant_value_make_signed_long_long(*p_next_enumerator_value);
             (*p_next_enumerator_value)++; // TODO overflow  and size check
         }
     }
@@ -4811,7 +4495,7 @@ unsigned long long array_declarator_get_size(const struct array_declarator* p_ar
     {
         if (constant_value_is_valid(&p_array_declarator->assignment_expression->constant_value))
         {
-            return constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
+            return constant_value_to_unsigned_long_long(&p_array_declarator->assignment_expression->constant_value);
         }
     }
     return 0;
@@ -6925,10 +6609,10 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
+                    }
+                }
             }
         }
-    }
-}
     }
     catch
     {
@@ -6972,7 +6656,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
 
-            const long long case_value = constant_value_to_ll(&p_label->constant_expression->constant_value);
+            const long long case_value = constant_value_to_signed_long_long(&p_label->constant_expression->constant_value);
 
             struct switch_value* p_switch_value = switch_value_list_find(ctx->p_switch_value_list, case_value);
 
@@ -7641,7 +7325,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     struct enumerator* p = p_enum_specifier->enumerator_list.head;
                     while (p)
                     {
-                        struct switch_value* p_used = switch_value_list_find(&switch_value_list, p->value);
+                        struct switch_value* p_used = switch_value_list_find(&switch_value_list, constant_value_to_signed_long_long(&p->value));
 
                         if (p_used == NULL)
                         {

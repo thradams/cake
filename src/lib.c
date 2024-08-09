@@ -596,6 +596,9 @@ bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);
 
 struct token make_simple_token(char ch);
+enum token_type parse_number(const char* lexeme, char suffix[4]);
+const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c);
+const unsigned char* escape_sequences_decode_opt(const unsigned char* p, int* out_value);
 
 
 /*
@@ -604,6 +607,15 @@ struct token make_simple_token(char ch);
 */
 
 //#pragma once
+
+typedef int errno_t;
+
+#if __STDC_VERSION__  >= 202311L 
+#define NODISCARD [[nodiscard]]
+#else
+#define NODISCARD
+#endif
+
 
 #ifndef __CAKE__
 
@@ -693,9 +705,9 @@ enum diagnostic_id {
     W_SIZEOF_ARRAY_ARGUMENT,
     W_CONST_NOT_INITIALIZED,
     W_NULL_CONVERTION,
-    W_NOT_DEFINED47,
-    W_NOT_DEFINED48,
-    W_NOT_DEFINED49,
+    W_IMPLICITLY_UNSIGNED_LITERAL,
+    W_INTEGER_OVERFLOW,
+    W_ARRAY_SIZE,
     W_NOT_DEFINED50,
     W_NOT_DEFINED51,
     W_NOT_DEFINED52,
@@ -792,7 +804,8 @@ enum diagnostic_id {
     C_ERROR_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER = 1310,
     C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER = 1320,
     C_PRE_DIVISION_BY_ZERO = 1330,
-    C_ERROR_INT_TO_POINTER = 1340
+    C_ERROR_INT_TO_POINTER = 1340,
+    C_ERROR_LITERAL_OVERFLOW = 1350,
 };
 
 _Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");
@@ -1034,7 +1047,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx);
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path);
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
-struct token_list  copy_replacement_list(struct token_list* list);
+struct token_list  copy_replacement_list(const struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* _Obj_owner source);
 void print_list(struct token_list* list);
@@ -1056,24 +1069,24 @@ void token_list_paste_string_before(struct token_list* list,
     const char* s);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
 
-void print_code_as_we_see(struct token_list* list, bool remove_comments);
-const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments);
-const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list);
+void print_code_as_we_see(const struct token_list* list, bool remove_comments);
+const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list);
+const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* list);
+const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool remove_comments);
 
-const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list);
-const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments);
-
-void print_tokens(struct token* _Opt p_token);
-void print_preprocessed(struct token* p_token);
-const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token);
-const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token);
-void check_unused_macros(struct owner_hash_map* map);
+void print_tokens(const struct token* _Opt p_token);
+void print_preprocessed(const struct token* p_token);
+const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
+const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
+void check_unused_macros(const struct owner_hash_map* map);
 
 char* _Owner _Opt read_file(const char* path);
 const char* get_token_name(enum token_type tk);
-void print_all_macros(struct preprocessor_ctx* prectx);
+void print_all_macros(const struct preprocessor_ctx* prectx);
 
-int string_literal_byte_size(const char* s);
+int string_literal_char_byte_size(const char* s);
+int string_literal_byte_size_not_zero_included(const char* s);
+
 int get_char_type(const char* s);
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
 int stringify(const char* input, int n, char output[]);
@@ -1142,11 +1155,13 @@ void token_list_clear(struct token_list* list)
 
 void token_range_add_show(struct token* first, struct token* last)
 {
-    for (struct token* _Opt current = first;
-        current != last->next;
-        current = current->next)
+    for (struct token* current = first;
+         current != last->next;
+         current = current->next)
     {
         current->flags = current->flags & ~TK_C_BACKEND_FLAG_HIDE;
+        if (current->next == NULL)
+            break;
     }
 }
 
@@ -1405,7 +1420,7 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
     /*avoid accidentally being in 2 different lists*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
-    
+
     if (list->head == NULL)
     {
         pnew->prev = NULL;
@@ -1714,7 +1729,7 @@ void print_literal2(const char* s)
 }
 
 
-void print_token(struct token* p_token)
+void print_token(const struct token* p_token)
 {
     for (int i = 0; i < p_token->level; i++)
     {
@@ -1761,10 +1776,10 @@ void print_token(struct token* p_token)
     COLOR_ESC_PRINT(printf(RESET));
 }
 
-void print_tokens(struct token* _Opt p_token)
+void print_tokens(const struct token* _Opt p_token)
 {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    struct token* _Opt current = p_token;
+    const struct token* _Opt current = p_token;
     while (current)
     {
         print_token(current);
@@ -1978,7 +1993,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
                 else
                 {
                     putc(' ', stdout);
-                    if (!complete) start_col++;                    
+                    if (!complete) start_col++;
                 }
                 p++;
             }
@@ -2002,10 +2017,488 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         COLOR_ESC_PRINT(printf(RESET));
 
     printf("\n");
-    p_marker->start_col =start_col;
-    p_marker->end_col =end_col;
+    p_marker->start_col = start_col;
+    p_marker->end_col = end_col;
 }
 
+static void digit_sequence(struct stream* stream)
+{
+    while (is_digit(stream))
+    {
+        stream_match(stream);
+    }
+}
+
+static void binary_exponent_part(struct stream* stream)
+{
+    // p signopt digit - sequence
+    // P   signopt digit - sequence
+
+    stream_match(stream); // p or P
+    if (stream->current[0] == '+' || stream->current[0] == '-')
+    {
+        stream_match(stream); // p or P
+    }
+    digit_sequence(stream);
+}
+
+static bool is_hexadecimal_digit(struct stream* stream)
+{
+    return (stream->current[0] >= '0' && stream->current[0] <= '9') ||
+        (stream->current[0] >= 'a' && stream->current[0] <= 'f') ||
+        (stream->current[0] >= 'A' && stream->current[0] <= 'F');
+}
+
+static bool is_octal_digit(struct stream* stream)
+{
+    return stream->current[0] >= '0' && stream->current[0] <= '7';
+}
+
+static void hexadecimal_digit_sequence(struct stream* stream)
+{
+    /*
+     hexadecimal-digit-sequence:
+     hexadecimal-digit
+     hexadecimal-digit ’_Opt hexadecimal-digit
+    */
+
+    stream_match(stream);
+    while (stream->current[0] == '\'' ||
+        is_hexadecimal_digit(stream))
+    {
+        if (stream->current[0] == '\'')
+        {
+            stream_match(stream);
+            if (!is_hexadecimal_digit(stream))
+            {
+                // erro
+            }
+            stream_match(stream);
+        }
+        else
+            stream_match(stream);
+    }
+}
+
+static bool first_of_unsigned_suffix(const struct stream* stream)
+{
+    /*
+     unsigned-suffix: one of
+       u U
+     */
+    return (stream->current[0] == 'u' ||
+        stream->current[0] == 'U');
+}
+
+static void unsigned_suffix_opt(struct stream* stream)
+{
+    /*
+   unsigned-suffix: one of
+     u U
+   */
+    if (stream->current[0] == 'u' ||
+        stream->current[0] == 'U')
+    {
+        stream_match(stream);
+    }
+}
+
+static void integer_suffix_opt(struct stream* stream, char suffix[4])
+{
+    /*
+        (6.4.4.2) integer-suffix:
+          unsigned-suffix long-suffixopt
+          unsigned-suffix long-long-suffix
+          unsigned-suffix bit-precise-int-suffix
+          long-suffix unsigned-suffixopt
+          long-long-suffix unsigned-suffixopt
+          bit-precise-int-suffix unsigned-suffixop
+    */
+
+    //test 3100
+    if (/*unsigned-suffix*/
+        stream->current[0] == 'U' || stream->current[0] == 'u')
+    {
+        suffix[0] = 'U';
+        stream_match(stream);
+
+
+        /*long-suffixopt*/
+        if (stream->current[0] == 'l' || stream->current[0] == 'L')
+        {
+            suffix[1] = 'L';
+            stream_match(stream);
+        }
+
+        /*long-long-suffix*/
+        if (stream->current[0] == 'l' || stream->current[0] == 'L')
+        {
+            suffix[2] = 'L';
+            stream_match(stream);
+        }
+    }
+    else if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
+    {
+        suffix[0] = 'L';
+
+        /*long-suffix*/
+        stream_match(stream);
+
+        /*long-long-suffix*/
+        if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
+        {
+            suffix[1] = 'L';
+            stream_match(stream);
+        }
+
+        if (/*unsigned-suffix*/
+            stream->current[0] == 'U' || stream->current[0] == 'u')
+        {
+
+            //normalize the output from LLU to ul 
+            suffix[3] = suffix[2];
+            suffix[2] = suffix[1];
+            suffix[1] = suffix[0];
+            suffix[0] = 'U';
+            stream_match(stream);
+        }
+    }
+}
+
+static void exponent_part_opt(struct stream* stream)
+{
+    /*
+    exponent-part:
+    e signopt digit-sequence
+    E signopt digit-sequence
+    */
+    if (stream->current[0] == 'e' || stream->current[0] == 'E')
+    {
+        stream_match(stream);
+
+        if (stream->current[0] == '-' || stream->current[0] == '+')
+        {
+            stream_match(stream);
+        }
+        digit_sequence(stream);
+    }
+}
+
+static void floating_suffix_opt(struct stream* stream, char suffix[4])
+{
+
+    if (stream->current[0] == 'l' || stream->current[0] == 'L')
+    {
+        suffix[0] = 'L';
+        stream_match(stream);
+    }
+    else if (stream->current[0] == 'f' || stream->current[0] == 'F')
+    {
+        suffix[0] = 'F';
+        stream_match(stream);
+    }
+}
+
+static bool is_binary_digit(struct stream* stream)
+{
+    return stream->current[0] >= '0' && stream->current[0] <= '1';
+}
+
+static bool is_nonzero_digit(struct stream* stream)
+{
+    return stream->current[0] >= '1' && stream->current[0] <= '9';
+}
+
+enum token_type parse_number_core(struct stream* stream, char suffix[4])
+{
+    enum token_type type = TK_NONE;
+    if (stream->current[0] == '.')
+    {
+        type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
+        stream_match(stream);
+        digit_sequence(stream);
+        exponent_part_opt(stream);
+        floating_suffix_opt(stream, suffix);
+    }
+    else if (stream->current[0] == '0' && (stream->current[1] == 'x' || stream->current[1] == 'X'))
+    {
+        type = TK_COMPILER_HEXADECIMAL_CONSTANT;
+
+        stream_match(stream);
+        stream_match(stream);
+        while (is_hexadecimal_digit(stream))
+        {
+            stream_match(stream);
+        }
+
+        integer_suffix_opt(stream, suffix);
+
+        if (stream->current[0] == '.')
+        {
+            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
+            hexadecimal_digit_sequence(stream);
+        }
+
+        if (stream->current[0] == 'p' ||
+            stream->current[0] == 'P')
+        {
+            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
+            binary_exponent_part(stream);
+        }
+
+        if (type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+        {
+            floating_suffix_opt(stream, suffix);
+        }
+    }
+    else if (stream->current[0] == '0' && (stream->current[1] == 'b' || stream->current[1] == 'B'))
+    {
+        type = TK_COMPILER_BINARY_CONSTANT;
+        stream_match(stream);
+        stream_match(stream);
+        while (is_binary_digit(stream))
+        {
+            stream_match(stream);
+        }
+        integer_suffix_opt(stream, suffix);
+    }
+    else if (stream->current[0] == '0') // octal
+    {
+        type = TK_COMPILER_OCTAL_CONSTANT;
+
+        stream_match(stream);
+        while (is_octal_digit(stream))
+        {
+            stream_match(stream);
+        }
+        integer_suffix_opt(stream, suffix);
+
+        if (stream->current[0] == '.')
+        {
+            hexadecimal_digit_sequence(stream);
+            floating_suffix_opt(stream, suffix);
+        }
+    }
+    else if (is_nonzero_digit(stream)) // decimal
+    {
+        type = TK_COMPILER_DECIMAL_CONSTANT;
+
+        stream_match(stream);
+        while (is_digit(stream))
+        {
+            stream_match(stream);
+        }
+        integer_suffix_opt(stream, suffix);
+
+        if (stream->current[0] == 'e' || stream->current[0] == 'E')
+        {
+            exponent_part_opt(stream);
+            floating_suffix_opt(stream, suffix);
+
+        }
+        else if (stream->current[0] == '.')
+        {
+            stream_match(stream);
+            type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
+            digit_sequence(stream);
+            exponent_part_opt(stream);
+            floating_suffix_opt(stream, suffix);
+        }
+    }
+
+    return type;
+}
+
+enum token_type parse_number(const char* lexeme, char suffix[4])
+{
+    struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
+    return parse_number_core(&stream, suffix);
+}
+
+
+/*
+    https://en.wikipedia.org/wiki/UTF-8
+    Since the restriction of the Unicode code-space to 21-bit values in 2003,
+    UTF-8 is defined to encode code points in one to four bytes, depending on the number
+    of significant bits in the numerical value of the code point. The following table shows
+    the structure of the encoding. The x characters are replaced by the bits of the code point.
+
+    Code point <->UTF - 8 conversion
+    First         | Last           | Byte 1   | Byte 2   | Byte 3   | Byte 4
+    --------------| -------------- |----------|----------|----------| ----------
+    U+0000      0 | U+007F     127 | 0xxxxxxx |          |          |
+    U+0080    128 | U+07FF    2047 | 110xxxxx | 10xxxxxx |          |
+    U+0800   2048 | U+FFFF   65535 | 1110xxxx | 10xxxxxx | 10xxxxxx |
+    U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
+*/
+
+const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c)
+{
+    if (s[0] == '\0')
+    {
+        *c = 0;
+        return NULL; /*end*/
+    }
+
+    const unsigned char* _Opt next = NULL;
+    if (s[0] < 0x80)
+    {
+        *c = s[0];
+        assert(*c >= 0x0000 && *c <= 0x007F);
+        next = s + 1;
+    }
+    else if ((s[0] & 0xe0) == 0xc0)
+    {
+        *c = ((int)(s[0] & 0x1f) << 6) |
+            ((int)(s[1] & 0x3f) << 0);
+        assert(*c >= 0x0080 && *c <= 0x07FF);
+        next = s + 2;
+    }
+    else if ((s[0] & 0xf0) == 0xe0)
+    {
+        *c = ((int)(s[0] & 0x0f) << 12) |
+            ((int)(s[1] & 0x3f) << 6) |
+            ((int)(s[2] & 0x3f) << 0);
+        assert(*c >= 0x0800 && *c <= 0xFFFF);
+        next = s + 3;
+    }
+    else if ((s[0] & 0xf8) == 0xf0 && (s[0] <= 0xf4))
+    {
+        *c = ((int)(s[0] & 0x07) << 18) |
+            ((int)(s[1] & 0x3f) << 12) |
+            ((int)(s[2] & 0x3f) << 6) |
+            ((int)(s[3] & 0x3f) << 0);
+        assert(*c >= 0x10000 && *c <= 0x10FFFF);
+        next = s + 4;
+    }
+    else
+    {
+        *c = -1;      // invalid
+        next = s + 1; // skip this byte
+    }
+
+    if (*c >= 0xd800 && *c <= 0xdfff)
+    {
+        *c = -1; // surrogate half
+    }
+
+    return next;
+}
+
+static bool is_hex_digit(unsigned char c)
+{
+    if (c >= '0' && c <= '9')
+        return true;
+    else if (c >= 'a' && c <= 'f')
+        return true;
+    else if (c >= 'A' && c <= 'F')
+        return true;
+    return false;
+}
+
+const unsigned char* escape_sequences_decode_opt(const unsigned char* p, int* out_value)
+{
+    // TODO OVERFLOW CHECK
+    if (*p == 'x')
+    {
+        p++;
+        int result = 0;
+        while (is_hex_digit(*p))
+        {
+            int byte = 0;
+            if (*p >= '0' && *p <= '9')
+                byte = (*p - '0');
+            else if (*p >= 'a' && *p <= 'f')
+                byte = (*p - 'a') + 10;
+            else if (*p >= 'A' && *p <= 'F')
+                byte = (*p - 'A') + 10;
+
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+
+        *out_value = result;
+    }
+    else if (*p == 'u' || *p == 'U')
+    {
+        // TODO  assuming input is checked
+        // missing tests
+        const int num_of_hex_digits = *p == 'U' ? 8 : 4;
+
+        p++;
+        unsigned long long result = 0;
+        for (int i = 0; i < num_of_hex_digits; i++)
+        {
+            int byte = 0;
+            if (*p >= '0' && *p <= '9')
+                byte = (*p - '0');
+            else if (*p >= 'a' && *p <= 'f')
+                byte = (*p - 'a') + 10;
+            else if (*p >= 'A' && *p <= 'F')
+                byte = (*p - 'A') + 10;
+
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+
+        *out_value = (int)result;
+    }
+    else if (*p == '0')
+    {
+        // octal digit
+        p++;
+        int result = 0;
+        while ((*p >= '0' && *p <= '7'))
+        {
+            int byte;
+            byte = (*p - '0');
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+        *out_value = result;
+    }
+    else
+    {
+        switch (*p)
+        {
+        case 'a':
+            *out_value = '\a';
+            break;
+        case 'b':
+            *out_value = '\b';
+            break;
+        case 'f':
+            *out_value = '\f';
+            break;
+        case 'n':
+            *out_value = '\n';
+            break;
+        case 'r':
+            *out_value = '\r';
+            break;
+            ;
+        case 't':
+            *out_value = '\t';
+            break;
+        case '\'':
+            *out_value = '\'';
+            break;
+        case '\\':
+            *out_value = '\\';
+            break;
+        case '"':
+            *out_value = '"';
+            break;
+        default:
+            // assume this error is handled at tokenizer
+            assert(false);
+            break;
+        }
+        p++;
+    }
+
+    return p;
+}
 
 
 
@@ -3113,7 +3606,7 @@ struct macro_argument
 void macro_argument_delete(struct macro_argument* _Owner _Opt p);
 
 
-struct token_list copy_replacement_list(struct token_list* list);
+struct token_list copy_replacement_list(const struct token_list* list);
 
 struct token_list copy_argument_list_tokens(struct token_list* list)
 {
@@ -3198,9 +3691,9 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
     catch
     {
     }
-    
-    struct token_list empty={0};
-    return empty;    
+
+    struct token_list empty = { 0 };
+    return empty;
 }
 
 
@@ -3832,8 +4325,24 @@ int get_char_type(const char* s)
 
     return 1;
 }
+/* 
+  Returns the char byte size according with the literal suffix
+*/
+int string_literal_char_byte_size(const char* s)
+{
+    if (s[0] == 'u')
+    {        
+        //must be followed by u8 but not checked here
+    }
+    else if (s[0] == 'U' || s[0] == 'L')
+    {
+        return (int)sizeof(wchar_t);        
+    }
 
-int string_literal_byte_size(const char* s)
+    return 1;
+}
+
+int string_literal_byte_size_not_zero_included(const char* s)
 {
 
     struct stream stream = { .source = s,
@@ -3842,7 +4351,7 @@ int string_literal_byte_size(const char* s)
         .col = 1 };
 
     int size = 0;
-    int charsize = sizeof(char);
+    const int charsize = string_literal_char_byte_size(s);
 
     try
     {
@@ -3855,8 +4364,7 @@ int string_literal_byte_size(const char* s)
         }
         else if (stream.current[0] == 'U' ||
             stream.current[0] == 'L')
-        {
-            charsize = sizeof(wchar_t);
+        {            
             stream_match(&stream);
         }
 
@@ -3890,7 +4398,9 @@ int string_literal_byte_size(const char* s)
     {
     }
 
-    size++; /* /0 included */
+    /*
+       Last \0 is not included
+    */
 
     return size * charsize;
 }
@@ -4083,20 +4593,18 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         p_new_token->line = line;
         p_new_token->col = col;
         token_list_add(&list, p_new_token);
-
-        if (file) fclose(file);
-
-
-
+       
         assert(list.head != NULL);
-        }
+    }
     catch
     {
     }
 
+    if (file)
+        fclose(file);
 
     return list;
-    }
+}
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -6623,7 +7131,7 @@ void remove_line_continuation(char* s)
     *pwrite = *pread;
 }
 
-struct token_list  copy_replacement_list(struct token_list* list)
+struct token_list  copy_replacement_list(const struct token_list* list)
 {
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
@@ -6774,7 +7282,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     //print_list(&r);
     return r;
 }
-void print_token(struct token* p_token);
+void print_token(const struct token* p_token);
 
 static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -7133,7 +7641,7 @@ static void mark_macros_as_used(struct owner_hash_map* map)
     }
 }
 
-void check_unused_macros(struct owner_hash_map* map)
+void check_unused_macros(const struct owner_hash_map* map)
 {
     /*
      *  Objetivo era alertar macros nao usadas...
@@ -7740,7 +8248,7 @@ void print_literal(const char* s)
 
 
 
-const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list)
+const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* list)
 {
     struct osstream ss = { 0 };
     struct token* _Opt current = list->head;
@@ -7768,7 +8276,7 @@ const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list)
 }
 
 /*useful to debug visit.c*/
-void print_code_as_we_see(struct token_list* list, bool remove_comments)
+void print_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
 
     struct token* _Opt current = list->head;
@@ -7803,12 +8311,12 @@ void print_code_as_we_see(struct token_list* list, bool remove_comments)
         current = current->next;
     }
 }
-const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments)
+const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
     if (list->head == NULL)
         return NULL;
 
-    assert(list->tail != NULL);        
+    assert(list->tail != NULL);
 
     struct osstream ss = { 0 };
     struct token* _Opt current = list->head;
@@ -7852,7 +8360,7 @@ const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_
 }
 
 
-const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list)
+const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list)
 {
     if (list->head == NULL)
     {
@@ -7888,7 +8396,7 @@ const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list)
     return ss.c_str;
 }
 
-const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token)
+const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token)
 {
     /*
       * At level > 0 (i.e. inside the includes)
@@ -7904,7 +8412,7 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
         return strdup("(null)");
 
     struct osstream ss = { 0 };
-    struct token* _Opt current = p_token;
+    const struct token* _Opt current = p_token;
     while (current)
     {
 
@@ -7961,7 +8469,7 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
     return ss.c_str;
 }
 
-const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token)
+const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token)
 {
     /*
     * Esta funcao imprime os tokens como o compilador ve
@@ -7970,7 +8478,7 @@ const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token)
     */
 
     struct osstream ss = { 0 };
-    struct token* _Opt current = p_token;
+    const struct token* _Opt current = p_token;
 
     /*
     * Ignora tudo o que é espaço no início
@@ -8011,7 +8519,7 @@ const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token)
     return ss.c_str; /*MOVED*/
 }
 
-void print_preprocessed(struct token* p_token)
+void print_preprocessed(const struct token* p_token)
 {
     const char* _Owner _Opt s = print_preprocessed_to_string(p_token);
     if (s)
@@ -8045,7 +8553,7 @@ static bool is_screaming_case(const char* text)
     return screaming_case;
 }
 
-void print_all_macros(struct preprocessor_ctx* prectx)
+void print_all_macros(const struct preprocessor_ctx* prectx)
 {
     for (int i = 0; i < prectx->macros.capacity; i++)
     {
@@ -10708,7 +11216,10 @@ s_warnings[] = {
     {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
     {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
     {W_CONST_NOT_INITIALIZED, "const-init"},
-    {W_NULL_CONVERTION, "null-conversion"}
+    {W_NULL_CONVERTION, "null-conversion"},
+    {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
+    {W_INTEGER_OVERFLOW, "overflow"},
+    {W_ARRAY_SIZE, "array-size"}
 
 };
 
@@ -11209,6 +11720,1314 @@ void test_get_warning_name()
 #endif
 
 
+
+
+//#pragma once
+
+
+enum constant_value_type {
+    TYPE_NOT_CONSTANT,
+    TYPE_BOOL,
+
+    TYPE_SIGNED_CHAR,
+    TYPE_UNSIGNED_CHAR,
+
+    TYPE_SIGNED_SHORT,
+    TYPE_UNSIGNED_SHORT,
+
+    TYPE_SIGNED_INT,
+    TYPE_UNSIGNED_INT,
+
+    TYPE_SIGNED_LONG,
+    TYPE_UNSIGNED_LONG,
+
+    TYPE_SIGNED_LONG_LONG,
+    TYPE_UNSIGNED_LONG_LONG,
+
+    TYPE_FLOAT,
+    TYPE_DOUBLE,
+    TYPE_LONG_DOUBLE
+};
+
+struct constant_value {
+    enum constant_value_type type;
+    union {
+        _Bool bool_value;
+
+        signed char signed_char_value;
+        unsigned char unsigned_char_value;
+
+        signed short signed_short_value;
+        unsigned short unsigned_short_value;
+
+        signed int signed_int_value;
+        unsigned int unsigned_int_value;
+
+        signed long signed_long_value;
+        unsigned long unsigned_long_value;
+
+        signed long long signed_long_long_value;
+        unsigned long long unsigned_long_long_value;
+
+        float float_value;
+        double double_value;
+        long double long_double_value;
+    };
+};
+
+bool constant_value_is_valid(const struct constant_value* a);
+void constant_value_to_string(const struct constant_value* a, char buffer[], int sz);
+
+//Make constant value
+struct constant_value            constant_value_make_wchar_t(wchar_t value);
+struct constant_value             constant_value_make_size_t(size_t value);
+struct constant_value               constant_value_make_bool(bool value);
+struct constant_value            constant_value_make_nullptr();
+struct constant_value        constant_value_make_signed_char(signed char value);
+struct constant_value      constant_value_make_unsigned_char(unsigned char value);
+struct constant_value       constant_value_make_signed_short(signed short value);
+struct constant_value     constant_value_make_unsigned_short(unsigned short value);
+struct constant_value         constant_value_make_signed_int(signed int value);
+struct constant_value       constant_value_make_unsigned_int(unsigned int value);
+struct constant_value        constant_value_make_signed_long(signed long value);
+struct constant_value      constant_value_make_unsigned_long(unsigned long value);
+struct constant_value   constant_value_make_signed_long_long(signed long long value);
+struct constant_value constant_value_make_unsigned_long_long(unsigned long long value);
+struct constant_value              constant_value_make_float(float value);
+struct constant_value             constant_value_make_double(double value);
+struct constant_value        constant_value_make_long_double(long double value);
+
+//dynamic cast
+struct constant_value constant_value_cast(enum constant_value_type e, const struct constant_value* a);
+
+//static cast
+signed char constant_value_to_signed_char(const struct constant_value* a);
+unsigned char constant_value_to_unsigned_char(const struct constant_value* a);
+signed short constant_value_to_signed_short(const struct constant_value* a);
+unsigned short constant_value_to_unsigned_short(const struct constant_value* a);
+signed int constant_value_to_signed_int(const struct constant_value* a);
+unsigned int constant_value_to_unsigned_int(const struct constant_value* a);
+signed long constant_value_to_signed_long(const struct constant_value* a);
+unsigned long constant_value_to_unsigned_long(const struct constant_value* a);
+signed long long constant_value_to_signed_long_long(const struct constant_value* a);
+unsigned long long constant_value_to_unsigned_long_long(const struct constant_value* a);
+float constant_value_to_float(const struct constant_value* a);
+double constant_value_to_double(const struct constant_value* a);
+long double constant_value_to_long_double(const struct constant_value* a);
+bool constant_value_to_bool(const struct constant_value* a);
+
+//Oveflow checks
+bool unsigned_long_long_sub(unsigned long long* result, unsigned long long a, unsigned long long b);
+bool unsigned_long_long_mul(unsigned long long* result, unsigned long long a, unsigned long long b);
+bool unsigned_long_long_add(unsigned long long* result, unsigned long long a, unsigned long long b);
+bool signed_long_long_sub(signed long long* result, signed long long a, signed long long b);
+bool signed_long_long_add(signed long long* result, signed long long a, signed long long b);
+bool signed_long_long_mul(signed long long* result, signed long long a, signed long long b);
+
+
+#include <limits.h>
+
+bool unsigned_long_long_sub(unsigned long long* result, unsigned long long a, unsigned long long b)
+{
+    if (a < b)
+        return false;
+
+    *result = a - b;
+    return true;
+}
+
+bool unsigned_long_long_mul(unsigned long long* result, unsigned long long a, unsigned long long b)
+{
+
+    if (b == 0)
+    {
+        /*
+          b cannot be zero in the next test
+          so we solve this case here
+        */
+        *result = 0;
+        return true;
+    }
+
+    if (a > ULLONG_MAX / b)
+        return false;
+
+    *result = a * b;
+    return true;
+}
+
+bool unsigned_long_long_add(unsigned long long* result, unsigned long long a, unsigned long long b)
+{
+    if (a > ULLONG_MAX - b)
+    {
+        //a=2
+        //b=254
+        return false;
+    }
+    *result = a + b;
+    return true;
+}
+
+bool signed_long_long_sub(signed long long* result, signed long long a, signed long long b)
+{
+    if (a >= 0 && b >= 0)
+    {
+    }
+    else if (a < 0 && b < 0)
+    {
+    }
+    else
+    {
+        if (a < 0)
+        {
+            if (a < LLONG_MIN + b)
+            {
+                // (-128) - (-1)
+                return false;
+            }
+        }
+        else
+        {
+            if (b == LLONG_MIN)
+            {
+                // 0 - (-128)                
+                return false;
+            }
+
+            if (a > LLONG_MAX - (-b))
+            {
+                /*
+                *  1 - (-127)
+                *  2 - (-126)
+                */
+                return false;
+            }
+        }
+    }
+
+    *result = a - b;
+    return true;
+}
+
+bool signed_long_long_add(signed long long* result, signed long long a, signed long long b)
+{
+
+    if (a >= 0 && b >= 0)
+    {
+        /*both positive*/
+        if (a > LLONG_MAX - b)
+        {
+            //2+126
+            return false;
+        }
+    }
+    else if (a < 0 && b < 0)
+    {
+
+        if (a == LLONG_MIN || b == LLONG_MIN)
+        {
+            //(-128) + (-128)
+            return false;
+        }
+
+        if (a < LLONG_MIN - b)
+        {
+            // (-127) + (-127)
+            return false;
+        }
+    }
+    else
+    {
+        /*one positive another negative*/
+
+    }
+
+    *result = a + b;
+    return true;
+}
+
+bool signed_long_long_mul(signed long long* result, signed long long a, signed long long b)
+{
+
+    if (a > 0 && b > 0)
+    {
+        if (a > LLONG_MAX / b)
+        {
+            //2*64
+            return false;
+        }
+    }
+    else if (a < 0 && b < 0)
+    {
+
+        if (a == LLONG_MIN || b == LLONG_MIN)
+        {
+            //(-128)*(-128)
+            return false;
+        }
+
+        if (-a > LLONG_MAX / -b)
+        {
+            //-127 * -127
+            return false;
+        }
+    }
+    else
+    {
+        if (a == 0 || b == 0)
+        {
+            *result = 0;
+            return true;
+        }
+        if (b > 0)
+        {
+            if (a < LLONG_MIN / b)
+                //(-127) * (2)
+                return false;
+        }
+        else
+        {
+            if (b < LLONG_MIN / a)
+            {
+                //2*(-128)
+                return false;
+            }
+        }
+    }
+
+    *result = a * b;
+    return true;
+}
+
+bool constant_value_is_valid(const struct constant_value* a)
+{
+    return a->type != TYPE_NOT_CONSTANT;
+}
+
+void constant_value_to_string(const struct constant_value* a, char buffer[], int sz)
+{
+    buffer[0] = 0;
+    switch (a->type)
+    {
+
+    case TYPE_NOT_CONSTANT:
+        snprintf(buffer, sz, "(not-const)");
+        break;
+
+    case TYPE_BOOL:
+        snprintf(buffer, sz, "%s", a->signed_char_value ? "true" : "false");
+        break;
+
+    case TYPE_SIGNED_CHAR:
+        snprintf(buffer, sz, "%c", a->signed_char_value);
+        break;
+
+    case TYPE_UNSIGNED_CHAR:
+        snprintf(buffer, sz, "%c", a->unsigned_char_value);
+        break;
+
+    case TYPE_SIGNED_SHORT:
+        snprintf(buffer, sz, "%c", a->signed_short_value);
+        break;
+    case TYPE_UNSIGNED_SHORT:
+        snprintf(buffer, sz, "%c", a->signed_short_value);
+        break;
+
+    case TYPE_SIGNED_INT:
+        snprintf(buffer, sz, "%d", a->signed_int_value);
+        break;
+
+    case TYPE_UNSIGNED_INT:
+        snprintf(buffer, sz, "%u", a->signed_int_value);
+        break;
+
+    case TYPE_SIGNED_LONG:
+        snprintf(buffer, sz, "%ld", a->signed_long_value);
+        break;
+
+    case TYPE_UNSIGNED_LONG:
+        break;
+
+    case TYPE_SIGNED_LONG_LONG:
+        snprintf(buffer, sz, "%lud", a->signed_long_value);
+        break;
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        snprintf(buffer, sz, "%llu", a->signed_long_long_value);
+        break;
+
+    case TYPE_FLOAT:
+        snprintf(buffer, sz, "%f", a->float_value);
+        break;
+
+    case TYPE_DOUBLE:
+        snprintf(buffer, sz, "%f", a->double_value);
+        break;
+
+    case TYPE_LONG_DOUBLE:
+        snprintf(buffer, sz, "%Lf", a->long_double_value);
+        break;
+    }
+}
+
+struct constant_value constant_value_make_size_t(size_t value)
+{
+    struct constant_value r = { 0 };
+
+#if defined(_WIN64) || defined(__x86_64__) 
+    r.type = TYPE_UNSIGNED_LONG_LONG;
+    r.unsigned_long_long_value = value;
+#else
+    r.type = TYPE_UNSIGNED_INT;
+    r.unsigned_int_value = value;
+#endif
+
+    return r;
+}
+
+struct constant_value constant_value_make_nullptr()
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_SIGNED_INT;
+    r.signed_short_value = 0;
+    return r;
+}
+
+struct constant_value constant_value_make_wchar_t(wchar_t value)
+{
+    struct constant_value r = { 0 };
+#ifdef _WIN32
+    static_assert(_Generic(L' ', unsigned short : 1), "");
+    r.type = TYPE_SIGNED_SHORT;
+    r.signed_short_value = value;
+#else
+    static_assert(_Generic(L' ', int : 1), "");
+    r.type = TYPE_SIGNED_INT;
+    r.signed_int_value = value;
+#endif
+
+    return r;
+}
+
+struct constant_value constant_value_make_bool(bool value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_BOOL;
+    r.bool_value = value;
+    return r;
+}
+
+#pragma warning( push )
+#pragma warning( disable : 4244 )
+
+bool constant_value_to_bool(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_signed_char(signed char value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_SIGNED_CHAR;
+    r.signed_char_value = value;
+    return r;
+}
+
+signed char constant_value_to_signed_char(const struct constant_value* a)
+{
+
+
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+
+struct constant_value constant_value_make_unsigned_char(unsigned char value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_UNSIGNED_CHAR;
+    r.unsigned_char_value = value;
+    return r;
+}
+
+unsigned char constant_value_to_unsigned_char(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_signed_short(signed short value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_SIGNED_SHORT;
+    r.signed_short_value = value;
+    return r;
+}
+
+signed short constant_value_to_signed_short(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_unsigned_short(unsigned short value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_UNSIGNED_SHORT;
+    r.unsigned_short_value = value;
+    return r;
+}
+
+unsigned short constant_value_to_unsigned_short(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_signed_int(signed int value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_SIGNED_INT;
+    r.signed_int_value = value;
+    return r;
+}
+
+signed int constant_value_to_signed_int(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_unsigned_int(unsigned int value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_UNSIGNED_INT;
+    r.unsigned_int_value = value;
+    return r;
+}
+
+unsigned int constant_value_to_unsigned_int(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_signed_long(signed long value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_SIGNED_LONG;
+    r.signed_long_value = value;
+    return r;
+}
+
+signed long constant_value_to_signed_long(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_unsigned_long(unsigned long value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_UNSIGNED_LONG;
+    r.unsigned_long_value = value;
+    return r;
+}
+
+unsigned long constant_value_to_unsigned_long(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_signed_long_long(signed long long value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_SIGNED_LONG_LONG;
+    r.signed_long_long_value = value;
+    return r;
+}
+
+signed long long constant_value_to_signed_long_long(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_unsigned_long_long(unsigned long long value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_UNSIGNED_LONG_LONG;
+    r.unsigned_long_long_value = value;
+    return r;
+}
+
+unsigned long long constant_value_to_unsigned_long_long(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_float(float value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_FLOAT;
+    r.float_value = value;
+    return r;
+}
+
+float constant_value_to_float(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_double(double value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_DOUBLE;
+    r.double_value = value;
+    return r;
+}
+
+double constant_value_to_double(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+struct constant_value constant_value_make_long_double(long double value)
+{
+    struct constant_value r = { 0 };
+    r.type = TYPE_LONG_DOUBLE;
+    r.long_double_value = value;
+    return r;
+}
+
+long double constant_value_to_long_double(const struct constant_value* a)
+{
+    switch (a->type)
+    {
+    case TYPE_NOT_CONSTANT:break;
+    case TYPE_BOOL: return a->bool_value;
+    case TYPE_SIGNED_CHAR: return a->signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
+    case TYPE_FLOAT: return a->float_value;
+    case TYPE_DOUBLE: return a->double_value;
+    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    }
+    assert(0);
+    return 0;
+}
+
+
+
+#pragma warning( pop )
+
+
+
+struct constant_value constant_value_cast(enum constant_value_type t, const struct constant_value* v)
+{
+    //No changes
+    if (v->type == t)
+        return *v;
+
+
+    //This function is generated by this program
+    /*
+            struct type
+            {
+                const char * type;
+                const char * name;
+                const char * value_type;
+            };
+            struct type types[] =
+            {
+                {"bool", "bool", "TYPE_BOOL"},
+                {"signed char", "signed_char", "TYPE_SIGNED_CHAR"},
+                {"unsigned char", "unsigned_char", "TYPE_UNSIGNED_CHAR"},
+                {"signed short", "signed_short", "TYPE_SIGNED_SHORT"},
+                {"unsigned short", "unsigned_short", "TYPE_UNSIGNED_SHORT"},
+                {"signed int", "signed_int", "TYPE_SIGNED_INT"},
+                {"unsigned int", "unsigned_int", "TYPE_UNSIGNED_INT"},
+                {"signed long", "signed_long", "TYPE_SIGNED_LONG"},
+                {"unsigned long", "unsigned_long", "TYPE_UNSIGNED_LONG"},
+                {"signed long long", "signed_long_long", "TYPE_SIGNED_LONG_LONG"},
+                {"unsigned long long", "unsigned_long_long", "TYPE_UNSIGNED_LONG_LONG"},
+                {"float", "float", "TYPE_FLOAT"},
+                {"double", "double", "TYPE_DOUBLE"},
+                {"long double", "long_double", "TYPE_LONG_DOUBLE"}
+            };
+
+
+            int main()
+            {
+                FILE * f = fopen("imp.c", "w");
+                if (f == NULL)
+                    return;
+
+                fprintf(f, "struct constant_value cast(enum constant_value_type t, struct constant_value * v)\n");
+                fprintf(f, "{\n");
+                for (int i = 0; i < sizeof(types) / sizeof(types[0]); i++)
+                {
+                    fprintf(f, "if (t == %s)\n", types[i].value_type);
+                    fprintf(f, "{\n");
+                    for (int j = 0; j < sizeof(types) / sizeof(types[0]); j++)
+                    {
+                        if (i == j)
+                            continue;
+                        fprintf(f, "if (v->type == %s)\n", types[j].value_type);
+                        fprintf(f, " return constant_value_make_%s((%s)v->%s_value);\n", types[i].name, types[i].type, types[j].name);
+                    }
+                    fprintf(f, "}\n");
+                }
+                fprintf(f, "}\n");
+
+                fclose(f);
+            }
+    */
+    if (t == TYPE_BOOL)
+    {
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_bool((bool)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_bool((bool)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_bool((bool)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_bool((bool)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_bool((bool)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_bool((bool)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_bool((bool)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_bool((bool)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_bool((bool)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_bool((bool)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_bool((bool)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_bool((bool)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_bool((bool)v->long_double_value);
+    }
+    if (t == TYPE_SIGNED_CHAR)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_signed_char((signed char)v->bool_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_signed_char((signed char)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_signed_char((signed char)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_signed_char((signed char)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_signed_char((signed char)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_signed_char((signed char)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_signed_char((signed char)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_signed_char((signed char)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_signed_char((signed char)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_signed_char((signed char)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_signed_char((signed char)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_signed_char((signed char)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_signed_char((signed char)v->long_double_value);
+    }
+    if (t == TYPE_UNSIGNED_CHAR)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_unsigned_char((unsigned char)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_unsigned_char((unsigned char)v->signed_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_unsigned_char((unsigned char)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_unsigned_char((unsigned char)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_unsigned_char((unsigned char)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_unsigned_char((unsigned char)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_unsigned_char((unsigned char)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_unsigned_char((unsigned char)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_unsigned_char((unsigned char)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_unsigned_char((unsigned char)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_unsigned_char((unsigned char)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_unsigned_char((unsigned char)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_unsigned_char((unsigned char)v->long_double_value);
+    }
+    if (t == TYPE_SIGNED_SHORT)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_signed_short((signed short)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_signed_short((signed short)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_signed_short((signed short)v->unsigned_char_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_signed_short((signed short)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_signed_short((signed short)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_signed_short((signed short)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_signed_short((signed short)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_signed_short((signed short)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_signed_short((signed short)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_signed_short((signed short)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_signed_short((signed short)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_signed_short((signed short)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_signed_short((signed short)v->long_double_value);
+    }
+    if (t == TYPE_UNSIGNED_SHORT)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_unsigned_short((unsigned short)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_unsigned_short((unsigned short)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_unsigned_short((unsigned short)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_unsigned_short((unsigned short)v->signed_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_unsigned_short((unsigned short)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_unsigned_short((unsigned short)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_unsigned_short((unsigned short)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_unsigned_short((unsigned short)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_unsigned_short((unsigned short)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_unsigned_short((unsigned short)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_unsigned_short((unsigned short)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_unsigned_short((unsigned short)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_unsigned_short((unsigned short)v->long_double_value);
+    }
+    if (t == TYPE_SIGNED_INT)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_signed_int((signed int)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_signed_int((signed int)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_signed_int((signed int)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_signed_int((signed int)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_signed_int((signed int)v->unsigned_short_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_signed_int((signed int)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_signed_int((signed int)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_signed_int((signed int)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_signed_int((signed int)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_signed_int((signed int)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_signed_int((signed int)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_signed_int((signed int)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_signed_int((signed int)v->long_double_value);
+    }
+    if (t == TYPE_UNSIGNED_INT)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_unsigned_int((unsigned int)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_unsigned_int((unsigned int)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_unsigned_int((unsigned int)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_unsigned_int((unsigned int)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_unsigned_int((unsigned int)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_unsigned_int((unsigned int)v->signed_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_unsigned_int((unsigned int)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_unsigned_int((unsigned int)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_unsigned_int((unsigned int)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_unsigned_int((unsigned int)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_unsigned_int((unsigned int)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_unsigned_int((unsigned int)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_unsigned_int((unsigned int)v->long_double_value);
+    }
+    if (t == TYPE_SIGNED_LONG)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_signed_long((signed long)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_signed_long((signed long)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_signed_long((signed long)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_signed_long((signed long)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_signed_long((signed long)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_signed_long((signed long)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_signed_long((signed long)v->unsigned_int_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_signed_long((signed long)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_signed_long((signed long)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_signed_long((signed long)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_signed_long((signed long)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_signed_long((signed long)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_signed_long((signed long)v->long_double_value);
+    }
+    if (t == TYPE_UNSIGNED_LONG)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_unsigned_long((unsigned long)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_unsigned_long((unsigned long)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_unsigned_long((unsigned long)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_unsigned_long((unsigned long)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_unsigned_long((unsigned long)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_unsigned_long((unsigned long)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_unsigned_long((unsigned long)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_unsigned_long((unsigned long)v->signed_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_unsigned_long((unsigned long)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_unsigned_long((unsigned long)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_unsigned_long((unsigned long)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_unsigned_long((unsigned long)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_unsigned_long((unsigned long)v->long_double_value);
+    }
+    if (t == TYPE_SIGNED_LONG_LONG)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_signed_long_long((signed long long)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_signed_long_long((signed long long)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_signed_long_long((signed long long)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_signed_long_long((signed long long)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_signed_long_long((signed long long)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_signed_long_long((signed long long)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_signed_long_long((signed long long)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_signed_long_long((signed long long)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_signed_long_long((signed long long)v->unsigned_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_signed_long_long((signed long long)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_signed_long_long((signed long long)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_signed_long_long((signed long long)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_signed_long_long((signed long long)v->long_double_value);
+    }
+    if (t == TYPE_UNSIGNED_LONG_LONG)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->signed_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_unsigned_long_long((unsigned long long)v->long_double_value);
+    }
+    if (t == TYPE_FLOAT)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_float((float)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_float((float)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_float((float)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_float((float)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_float((float)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_float((float)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_float((float)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_float((float)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_float((float)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_float((float)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_float((float)v->unsigned_long_long_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_float((float)v->double_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_float((float)v->long_double_value);
+    }
+    if (t == TYPE_DOUBLE)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_double((double)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_double((double)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_double((double)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_double((double)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_double((double)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_double((double)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_double((double)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_double((double)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_double((double)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_double((double)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_double((double)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_double((double)v->float_value);
+        if (v->type == TYPE_LONG_DOUBLE)
+            return constant_value_make_double((double)v->long_double_value);
+    }
+    if (t == TYPE_LONG_DOUBLE)
+    {
+        if (v->type == TYPE_BOOL)
+            return constant_value_make_long_double((long double)v->bool_value);
+        if (v->type == TYPE_SIGNED_CHAR)
+            return constant_value_make_long_double((long double)v->signed_char_value);
+        if (v->type == TYPE_UNSIGNED_CHAR)
+            return constant_value_make_long_double((long double)v->unsigned_char_value);
+        if (v->type == TYPE_SIGNED_SHORT)
+            return constant_value_make_long_double((long double)v->signed_short_value);
+        if (v->type == TYPE_UNSIGNED_SHORT)
+            return constant_value_make_long_double((long double)v->unsigned_short_value);
+        if (v->type == TYPE_SIGNED_INT)
+            return constant_value_make_long_double((long double)v->signed_int_value);
+        if (v->type == TYPE_UNSIGNED_INT)
+            return constant_value_make_long_double((long double)v->unsigned_int_value);
+        if (v->type == TYPE_SIGNED_LONG)
+            return constant_value_make_long_double((long double)v->signed_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG)
+            return constant_value_make_long_double((long double)v->unsigned_long_value);
+        if (v->type == TYPE_SIGNED_LONG_LONG)
+            return constant_value_make_long_double((long double)v->signed_long_long_value);
+        if (v->type == TYPE_UNSIGNED_LONG_LONG)
+            return constant_value_make_long_double((long double)v->unsigned_long_long_value);
+        if (v->type == TYPE_FLOAT)
+            return constant_value_make_long_double((long double)v->float_value);
+        if (v->type == TYPE_DOUBLE)
+            return constant_value_make_long_double((long double)v->double_value);
+    }
+    struct constant_value empty = { 0 };
+    return empty;
+}
+
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -11216,9 +13035,6 @@ void test_get_warning_name()
 
 #pragma safety enable
 
-
-
-#include <limits.h>
 
 
 /*
@@ -11451,7 +13267,7 @@ struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
 void type_destroy(_Opt struct type* _Obj_owner p_type);
 
-int type_common(struct type* p_type1, struct type* p_type2, struct type* _Out);
+struct type type_common(const struct type* p_type1, const struct type* p_type2);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
 
@@ -11478,7 +13294,9 @@ bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
 bool type_is_unsigned_integer(const struct type* p_type);
+bool type_is_signed_integer(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
+int type_get_integer_rank(const struct type* p_type1);
 
 bool type_is_arithmetic(const struct type* p_type);
 
@@ -11495,6 +13313,13 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 bool type_is_scalar(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);
+bool type_is_decimal128(const struct type* p_type);
+bool type_is_decimal64(const struct type* p_type);
+bool type_is_decimal32(const struct type* p_type);
+bool type_is_long_double(const struct type* p_type);
+bool type_is_double(const struct type* p_type);
+bool type_is_float(const struct type* p_type);
+
 bool type_is_vla(const struct type* p_type);
 
 struct type type_get_enum_type(const struct type* p_type);
@@ -11522,6 +13347,11 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t();
+struct type type_make_long_double();
+struct type type_make_double();
+struct type type_make_float();
+
+
 struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
@@ -11529,9 +13359,9 @@ struct type make_size_t_type();
 
 struct type get_function_return_type(const struct type* p_type);
 
-int type_get_sizeof(const struct type* p_type);
+size_t type_get_sizeof(const struct type* p_type);
 
-int type_get_alignof(const struct type* p_type);
+size_t type_get_alignof(const struct type* p_type);
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled);
 void type_print(const struct type* a);
@@ -11554,8 +13384,7 @@ struct parser_ctx;
 
 enum expression_type
 {
-    PRIMARY_IDENTIFIER,
-
+    EXPRESSION_TYPE_INVALID, 
 
     PRIMARY_EXPRESSION_ENUMERATOR,
     PRIMARY_EXPRESSION_DECLARATOR,
@@ -11703,34 +13532,6 @@ struct generic_selection
 };
 
 void generic_selection_delete(struct generic_selection* _Owner _Opt p);
-
-enum constant_value_type {
-    TYPE_NOT_CONSTANT,
-    TYPE_LONG_LONG,
-    TYPE_DOUBLE,
-    TYPE_UNSIGNED_LONG_LONG
-};
-
-struct constant_value {
-    enum constant_value_type type;
-    union {
-        unsigned long long ullvalue;
-        long long llvalue;
-        double dvalue;
-    };
-};
-
-struct constant_value make_constant_value_double(double d, bool disabled);
-struct constant_value make_constant_value_ull(unsigned long long d, bool disabled);
-struct constant_value make_constant_value_ll(long long d, bool disabled);
-
-struct constant_value constant_value_op(const struct constant_value* a, const  struct constant_value* b, int op);
-unsigned long long constant_value_to_ull(const struct constant_value* a);
-long long constant_value_to_ll(const struct constant_value* a);
-long long constant_value_to_ll(const struct constant_value* a);
-bool constant_value_to_bool(const struct constant_value* a);
-bool constant_value_is_valid(const struct constant_value* a);
-void constant_value_to_string(const struct constant_value* a, char buffer[], int sz);
 
 struct expression
 {
@@ -12025,11 +13826,7 @@ struct flow_object* _Opt expression_get_object(struct flow_visit_ctx* ctx, struc
 
 
 
-#if __STDC_VERSION__  >= 202311L 
-#define NODISCARD [[nodiscard]]
-#else
-#define NODISCARD
-#endif
+
 struct scope
 {
     int scope_level;
@@ -12178,7 +13975,7 @@ int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 
-enum token_type parse_number(const char* lexeme, enum type_specifier_flags* _Opt flags_opt);
+enum token_type parse_number(const char* lexeme, char suffix[4]);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -13419,7 +15216,7 @@ struct enumerator
     const struct enum_specifier* enum_specifier;
 
     struct enumerator* _Owner _Opt next;
-    long long value;
+    struct constant_value value;
 };
 
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long* p_enumerator_value);
@@ -13500,491 +15297,94 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
 const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
 
 
+
+#include <math.h>
+
 #ifdef _WIN32
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
 #endif
 
-struct constant_value make_constant_value_double(double d, bool disabled)
+#if ULONG_MAX == UINT_MAX
+
+#define TYPE_SIGNED_INT_OR_SIGNED_LONG      TYPE_SIGNED_INT:    case TYPE_SIGNED_LONG
+#define TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG  TYPE_UNSIGNED_INT:  case TYPE_UNSIGNED_LONG
+
+#define TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG     TYPE_SIGNED_LONG_LONG
+#define TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG TYPE_UNSIGNED_LONG_LONG
+
+#else
+
+#define TYPE_SIGNED_INT_OR_SIGNED_LONG     TYPE_SIGNED_INT
+#define TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG TYPE_UNSIGNED_INT
+
+#define TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG     TYPE_SIGNED_LONG_LONG:case TYPE_SIGNED_LONG
+#define TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG TYPE_UNSIGNED_LONG_LONG:case TYPE_UNSIGNED_LONG
+
+#endif
+
+
+enum constant_value_type type_to_constant_value_type(const struct type* type)
 {
-    struct constant_value r = { 0 };
-    if (disabled)
-        return r;
-    r.dvalue = d;
-    r.type = TYPE_DOUBLE;
-    return r;
+    if (type_is_pointer(type))
+    {
+#if defined(_WIN64) || defined(__x86_64__) 
+        return TYPE_UNSIGNED_LONG_LONG;
+#else
+        return TYPE_UNSIGNED_INT;
+#endif
+    }
+    const enum type_specifier_flags type_specifier_flags = type->type_specifier_flags;
+
+
+    if (type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        return TYPE_BOOL;
+
+    if (type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+        return TYPE_FLOAT;
+
+    if (type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+    {
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG)
+            return TYPE_LONG_DOUBLE;
+        return TYPE_DOUBLE;
+    }
+
+
+    if (type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
+    {
+        if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
+            return TYPE_UNSIGNED_CHAR;
+        if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
+            return TYPE_UNSIGNED_SHORT;
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG)
+            return TYPE_UNSIGNED_LONG; /*check before int*/
+        if (type_specifier_flags & TYPE_SPECIFIER_INT)
+            return TYPE_UNSIGNED_INT;
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+            return TYPE_UNSIGNED_LONG_LONG;
+    }
+    else
+    {
+        if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
+            return TYPE_SIGNED_CHAR;
+        if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
+            return TYPE_SIGNED_SHORT;
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG)
+            return TYPE_SIGNED_LONG; /*check before int*/
+        if (type_specifier_flags & TYPE_SPECIFIER_INT)
+            return TYPE_SIGNED_INT;
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+            return TYPE_SIGNED_LONG_LONG;
+    }
+
+    //assert(0);
+    return TYPE_NOT_CONSTANT;
 }
 
-struct constant_value make_constant_value_ull(unsigned long long d, bool disabled)
-{
-    struct constant_value r = { 0 };
-    if (disabled)
-        return r;
 
-    r.ullvalue = d;
-    r.type = TYPE_UNSIGNED_LONG_LONG;
-    return r;
-}
 
-struct constant_value make_constant_value_ll(long long d, bool disabled)
-{
-    struct constant_value r = { 0 };
-    if (disabled)
-        return r;
-
-    r.llvalue = d;
-    r.type = TYPE_LONG_LONG;
-    return r;
-}
-
-double constant_value_to_double(const struct constant_value* a)
-{
-    switch (a->type)
-    {
-    case TYPE_NOT_CONSTANT:
-        break;
-
-    case TYPE_LONG_LONG:
-        return (double)a->llvalue;
-    case TYPE_DOUBLE:
-        return a->dvalue;
-    case TYPE_UNSIGNED_LONG_LONG:
-        return (double)a->ullvalue;
-    }
-
-    return 0;
-}
-
-bool constant_value_is_valid(const struct constant_value* a)
-{
-    return a->type != TYPE_NOT_CONSTANT;
-}
-
-void constant_value_to_string(const struct constant_value* a, char buffer[], int sz)
-{
-    buffer[0] = 0;
-    switch (a->type)
-    {
-    case TYPE_LONG_LONG:
-        snprintf(buffer, sz, "%lld", a->llvalue);
-        break;
-    case TYPE_DOUBLE:
-        snprintf(buffer, sz, "%f", a->dvalue);
-        break;
-
-    case TYPE_UNSIGNED_LONG_LONG:
-        snprintf(buffer, sz, "%llu", a->ullvalue);
-        break;
-    default:
-        return;
-    }
-}
-
-unsigned long long constant_value_to_ull(const struct constant_value* a)
-{
-    switch (a->type)
-    {
-    case TYPE_LONG_LONG:
-        return (unsigned long long)a->llvalue;
-    case TYPE_DOUBLE:
-        return (unsigned long long)a->dvalue;
-    case TYPE_UNSIGNED_LONG_LONG:
-        return (unsigned long long)a->ullvalue;
-    default:
-        break;
-    }
-
-    return 0;
-}
-long long constant_value_to_ll(const struct constant_value* a)
-{
-    switch (a->type)
-    {
-    case TYPE_LONG_LONG:
-        return (long long)a->llvalue;
-    case TYPE_DOUBLE:
-        return (long long)a->dvalue;
-    case TYPE_UNSIGNED_LONG_LONG:
-        return (long long)a->ullvalue;
-    default:
-        break;
-    }
-
-    return 0;
-}
-bool constant_value_to_bool(const struct constant_value* a)
-{
-    switch (a->type)
-    {
-    case TYPE_LONG_LONG:
-        return a->llvalue != 0;
-    case TYPE_DOUBLE:
-        return a->dvalue != 0;
-    case TYPE_UNSIGNED_LONG_LONG:
-        return a->ullvalue != 0;
-    default:
-        break;
-    }
-
-    return 0;
-}
-
-struct constant_value constant_value_cast(const struct constant_value* a, enum constant_value_type type)
-{
-    struct constant_value r = *a;
-
-    if (a->type == TYPE_NOT_CONSTANT)
-    {
-        return r;
-    }
-
-    switch (type)
-    {
-    case TYPE_NOT_CONSTANT:
-
-    case TYPE_LONG_LONG:
-        r.type = TYPE_LONG_LONG;
-        r.llvalue = constant_value_to_ll(a);
-        break;
-    case TYPE_DOUBLE:
-        r.type = TYPE_DOUBLE;
-        r.dvalue = constant_value_to_double(a);
-        break;
-    case TYPE_UNSIGNED_LONG_LONG:
-        r.type = TYPE_UNSIGNED_LONG_LONG;
-        r.ullvalue = constant_value_to_ull(a);
-        break;
-    }
-    return r;
-}
-
-struct constant_value constant_value_unary_op(const struct constant_value* a, int op)
-{
-    struct constant_value r = { 0 };
-    if (!constant_value_is_valid(a))
-    {
-        return r;
-    }
-
-    if (a->type == TYPE_DOUBLE)
-    {
-        r.type = TYPE_DOUBLE;
-        switch (op)
-        {
-        case '!':
-            r.dvalue = !a->dvalue;
-            break;
-            // case '~':r.dvalue = ~ a->dvalue;  break;
-        case '+':
-            r.dvalue = +a->dvalue;
-            break;
-        case '-':
-            r.dvalue = -a->dvalue;
-            break;
-        default:
-            assert(false);
-            break;
-        }
-        return r;
-    }
-    else if (a->type == TYPE_UNSIGNED_LONG_LONG)
-    {
-        r.type = TYPE_UNSIGNED_LONG_LONG;
-        switch (op)
-        {
-        case '!':
-            r.ullvalue = !a->ullvalue;
-            break;
-        case '~':
-            r.ullvalue = ~a->ullvalue;
-            break;
-        case '+':
-            r.ullvalue = a->ullvalue;
-            break;
-            // case '-':r.dvalue = -a->ullvalue;  break;
-        case '-':
-            r.dvalue = 0; // -a->ullvalue;
-            break;
-        default:
-            assert(false);
-            break;
-        }
-        return r;
-    }
-    else if (a->type == TYPE_LONG_LONG)
-    {
-        r.type = TYPE_UNSIGNED_LONG_LONG;
-        switch (op)
-        {
-        case '!':
-            r.llvalue = !((long long)a->llvalue);
-            break;
-        case '~':
-            r.llvalue = ~((long long)a->llvalue);
-            break;
-        case '+':
-            r.llvalue = +((long long)a->llvalue);
-            break;
-        case '-':
-            r.llvalue = -((long long)a->llvalue);
-            break;
-        default:
-            assert(false);
-            break;
-        }
-        return r;
-    }
-
-    return r;
-}
-
-struct constant_value constant_value_op(const struct constant_value* a, const struct constant_value* b, int op)
-{
-    // TODO https://github.com/thradams/checkedints
-    struct constant_value r = { 0 };
-    if (!constant_value_is_valid(a) || !constant_value_is_valid(b))
-    {
-        return r;
-    }
-
-    if (a->type == TYPE_DOUBLE || b->type == TYPE_DOUBLE)
-    {
-        double va = constant_value_to_double(a);
-        double vb = constant_value_to_double(b);
-        r.type = TYPE_DOUBLE;
-
-        switch (op)
-        {
-            // Arithmetic Operators
-        case '+':
-            r.dvalue = va + vb;
-            break;
-        case '-':
-            r.dvalue = va - vb;
-            break;
-        case '*':
-            r.dvalue = va * vb;
-            break;
-        case '/':
-            if (vb != 0)
-                r.dvalue = va / vb;
-            else
-                r.type = TYPE_NOT_CONSTANT;
-            break;
-
-            // case '%':r.dvalue = va % vb;  break;
-
-            // Relational Operators
-        case '==':
-            r.dvalue = va == vb;
-            break;
-        case '!=':
-            r.dvalue = va != vb;
-            break;
-        case '>':
-            r.dvalue = va > vb;
-            break;
-        case '<':
-            r.dvalue = va < vb;
-            break;
-        case '<=':
-            r.dvalue = va <= vb;
-            break;
-        case '>=':
-            r.dvalue = va >= vb;
-            break;
-
-            // Logical Operators
-        case '&&':
-            r.dvalue = va && vb;
-            break;
-        case '||':
-            r.dvalue = va || vb;
-            break;
-
-            // Bitwise Operators
-            // case '|':r.dvalue = va | vb;  break;
-            // case '&':r.dvalue = va & vb;  break;
-            // case '^':r.dvalue = va ^ vb;  break;
-            // case '>>':r.dvalue = va >> vb;  break;
-            // case '<<':r.dvalue = va << vb;  break;
-
-        default:
-            assert(false);
-            break;
-        }
-
-        return r;
-    }
-
-    if (a->type == TYPE_UNSIGNED_LONG_LONG || b->type == TYPE_UNSIGNED_LONG_LONG)
-    {
-        unsigned long long va = constant_value_to_ull(a);
-        unsigned long long vb = constant_value_to_ull(b);
-        r.type = TYPE_UNSIGNED_LONG_LONG;
-
-        switch (op)
-        {
-            // Arithmetic Operators
-        case '+':
-            r.ullvalue = va + vb;
-            break;
-        case '-':
-            r.ullvalue = va - vb;
-            break;
-        case '*':
-            r.ullvalue = va * vb;
-            break;
-        case '/':
-            if (vb != 0)
-                r.ullvalue = va / vb;
-            else
-                r.type = TYPE_NOT_CONSTANT;
-            break;
-
-        case '%':
-            if (vb != 0)
-                r.ullvalue = va % vb;
-            else
-                r.type = TYPE_NOT_CONSTANT;
-            break;
-
-            // Relational Operators
-        case '==':
-            r.ullvalue = va == vb;
-            break;
-        case '!=':
-            r.ullvalue = va != vb;
-            break;
-        case '>':
-            r.ullvalue = va > vb;
-            break;
-        case '<':
-            r.ullvalue = va < vb;
-            break;
-        case '<=':
-            r.ullvalue = va <= vb;
-            break;
-        case '>=':
-            r.ullvalue = va >= vb;
-            break;
-
-            // Logical Operators
-        case '&&':
-            r.ullvalue = va && vb;
-            break;
-        case '||':
-            r.ullvalue = va || vb;
-            break;
-
-            // Bitwise Operators
-        case '|':
-            r.ullvalue = va | vb;
-            break;
-        case '&':
-            r.ullvalue = va & vb;
-            break;
-        case '^':
-            r.ullvalue = va ^ vb;
-            break;
-        case '>>':
-            r.ullvalue = va >> vb;
-            break;
-        case '<<':
-            r.ullvalue = va << vb;
-            break;
-
-        default:
-            assert(false);
-            break;
-        }
-
-        return r;
-    }
-
-    unsigned long long va = a->llvalue;
-    unsigned long long vb = b->llvalue;
-    r.type = TYPE_LONG_LONG;
-    switch (op)
-    {
-        // Arithmetic Operators
-    case '+':
-        r.llvalue = va + vb;
-        break;
-    case '-':
-        r.llvalue = va - vb;
-        break;
-    case '*':
-        r.llvalue = va * vb;
-        break;
-
-    case '/':
-        if (vb != 0)
-            r.llvalue = va / vb;
-        else
-            r.type = TYPE_NOT_CONSTANT;
-        break;
-
-    case '%':
-        if (vb != 0)
-            r.llvalue = va % vb;
-        else
-            r.type = TYPE_NOT_CONSTANT;
-        break;
-
-        // Relational Operators
-    case '==':
-        r.llvalue = va == vb;
-        break;
-    case '!=':
-        r.llvalue = va != vb;
-        break;
-    case '>':
-        r.llvalue = va > vb;
-        break;
-    case '<':
-        r.llvalue = va < vb;
-        break;
-    case '<=':
-        r.llvalue = va <= vb;
-        break;
-    case '>=':
-        r.llvalue = va >= vb;
-        break;
-
-        // Logical Operators
-    case '&&':
-        r.llvalue = va && vb;
-        break;
-    case '||':
-        r.llvalue = va || vb;
-        break;
-
-        // Bitwise Operators
-    case '|':
-        r.llvalue = va | vb;
-        break;
-    case '&':
-        r.llvalue = va & vb;
-        break;
-    case '^':
-        r.llvalue = va ^ vb;
-        break;
-    case '>>':
-        r.llvalue = va >> vb;
-        break;
-    case '<<':
-        r.llvalue = va << vb;
-        break;
-
-    default:
-        assert(false);
-        break;
-    }
-
-    return r;
-}
 
 struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx);
@@ -14002,6 +15402,9 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx);
+
+NODISCARD
+static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expression* new_expression, int op);
 
 static int compare_function_arguments(struct parser_ctx* ctx,
                                       struct type* p_type,
@@ -14434,188 +15837,7 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
     return p_generic_selection;
 }
 
-/*
-    https://en.wikipedia.org/wiki/UTF-8
-    Since the restriction of the Unicode code-space to 21-bit values in 2003,
-    UTF-8 is defined to encode code points in one to four bytes, depending on the number
-    of significant bits in the numerical value of the code point. The following table shows
-    the structure of the encoding. The x characters are replaced by the bits of the code point.
 
-    Code point <->UTF - 8 conversion
-    First         | Last           | Byte 1   | Byte 2   | Byte 3   | Byte 4
-    --------------| -------------- |----------|----------|----------| ----------
-    U+0000      0 | U+007F     127 | 0xxxxxxx |          |          |
-    U+0080    128 | U+07FF    2047 | 110xxxxx | 10xxxxxx |          |
-    U+0800   2048 | U+FFFF   65535 | 1110xxxx | 10xxxxxx | 10xxxxxx |
-    U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
-*/
-
-const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c)
-{
-    if (s[0] == '\0')
-    {
-        *c = 0;
-        return NULL; /*end*/
-    }
-
-    const unsigned char* _Opt next = NULL;
-    if (s[0] < 0x80)
-    {
-        *c = s[0];
-        assert(*c >= 0x0000 && *c <= 0x007F);
-        next = s + 1;
-    }
-    else if ((s[0] & 0xe0) == 0xc0)
-    {
-        *c = ((int)(s[0] & 0x1f) << 6) |
-            ((int)(s[1] & 0x3f) << 0);
-        assert(*c >= 0x0080 && *c <= 0x07FF);
-        next = s + 2;
-    }
-    else if ((s[0] & 0xf0) == 0xe0)
-    {
-        *c = ((int)(s[0] & 0x0f) << 12) |
-            ((int)(s[1] & 0x3f) << 6) |
-            ((int)(s[2] & 0x3f) << 0);
-        assert(*c >= 0x0800 && *c <= 0xFFFF);
-        next = s + 3;
-    }
-    else if ((s[0] & 0xf8) == 0xf0 && (s[0] <= 0xf4))
-    {
-        *c = ((int)(s[0] & 0x07) << 18) |
-            ((int)(s[1] & 0x3f) << 12) |
-            ((int)(s[2] & 0x3f) << 6) |
-            ((int)(s[3] & 0x3f) << 0);
-        assert(*c >= 0x10000 && *c <= 0x10FFFF);
-        next = s + 4;
-    }
-    else
-    {
-        *c = -1;      // invalid
-        next = s + 1; // skip this byte
-    }
-
-    if (*c >= 0xd800 && *c <= 0xdfff)
-    {
-        *c = -1; // surrogate half
-    }
-
-    return next;
-}
-static bool is_hex_digit(unsigned char c)
-{
-    if (c >= '0' && c <= '9')
-        return true;
-    else if (c >= 'a' && c <= 'f')
-        return true;
-    else if (c >= 'A' && c <= 'F')
-        return true;
-    return false;
-}
-
-static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, int* out_value)
-{
-    // TODO OVERFLOW CHECK
-    if (*p == 'x')
-    {
-        p++;
-        int result = 0;
-        while (is_hex_digit(*p))
-        {
-            int byte = 0;
-            if (*p >= '0' && *p <= '9')
-                byte = (*p - '0');
-            else if (*p >= 'a' && *p <= 'f')
-                byte = (*p - 'a') + 10;
-            else if (*p >= 'A' && *p <= 'F')
-                byte = (*p - 'A') + 10;
-
-            result = (result << 4) | (byte & 0xF);
-            p++;
-        }
-
-        *out_value = result;
-    }
-    else if (*p == 'u' || *p == 'U')
-    {
-        // TODO  assuming input is checked
-        // missing tests
-        const int num_of_hex_digits = *p == 'U' ? 8 : 4;
-
-        p++;
-        unsigned long long result = 0;
-        for (int i = 0; i < num_of_hex_digits; i++)
-        {
-            int byte = 0;
-            if (*p >= '0' && *p <= '9')
-                byte = (*p - '0');
-            else if (*p >= 'a' && *p <= 'f')
-                byte = (*p - 'a') + 10;
-            else if (*p >= 'A' && *p <= 'F')
-                byte = (*p - 'A') + 10;
-
-            result = (result << 4) | (byte & 0xF);
-            p++;
-        }
-
-        *out_value = (int)result;
-    }
-    else if (*p == '0')
-    {
-        // octal digit
-        p++;
-        int result = 0;
-        while ((*p >= '0' && *p <= '7'))
-        {
-            int byte;
-            byte = (*p - '0');
-            result = (result << 4) | (byte & 0xF);
-            p++;
-        }
-        *out_value = result;
-    }
-    else
-    {
-        switch (*p)
-        {
-        case 'a':
-            *out_value = '\a';
-            break;
-        case 'b':
-            *out_value = '\b';
-            break;
-        case 'f':
-            *out_value = '\f';
-            break;
-        case 'n':
-            *out_value = '\n';
-            break;
-        case 'r':
-            *out_value = '\r';
-            break;
-            ;
-        case 't':
-            *out_value = '\t';
-            break;
-        case '\'':
-            *out_value = '\'';
-            break;
-        case '\\':
-            *out_value = '\\';
-            break;
-        case '"':
-            *out_value = '"';
-            break;
-        default:
-            // assume this error is handled at tokenizer
-            assert(false);
-            break;
-        }
-        p++;
-    }
-
-    return p;
-}
 
 struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* ctx)
 {
@@ -14666,7 +15888,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
+            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -14696,7 +15918,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
+            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)c);
         }
         else if (p[0] == 'U')
         {
@@ -14726,7 +15948,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
+            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)c);
         }
         else if (p[0] == 'L')
         {
@@ -14760,8 +15982,16 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (p == 0)
                     break;
-                // TODO \u
-                value = value * 256 + c;
+
+                if (c < 0x80)
+                {
+                    value = value * 256 + c;
+                }
+                else
+                {
+                    //decoded
+                    value = c;
+                }
 #ifdef _WIN32
                 if (value > USHRT_MAX)
                 {
@@ -14777,7 +16007,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 #endif
             }
 
-            p_expression_node->constant_value = make_constant_value_ll(value, false /*ctx->evaluation_is_disabled*/);
+            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)value);
         }
         else
         {
@@ -14815,7 +16045,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     break;
                 }
             }
-            p_expression_node->constant_value = make_constant_value_ll(value, false /*ctx->evaluation_is_disabled*/);
+            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)value);
         }
 
         parser_match(ctx);
@@ -14831,11 +16061,15 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     return p_expression_node;
 }
 
-int convert_to_number(struct token* token, struct expression* p_expression_node, bool disabled)
+int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled)
 {
+    if (ctx->current == NULL)
+        return 1;
 
-    /*copia removendo os separadores*/
-    // um dos maiores buffer necessarios seria 128 bits binario...
+    struct token* token = ctx->current;
+
+    /*copy removing separators*/
+    // one of the largest buffers needed would be 128 bits binary... 
     // 0xb1'1'1....
     int c = 0;
     char buffer[128 * 2 + 4] = { 0 };
@@ -14849,41 +16083,133 @@ int convert_to_number(struct token* token, struct expression* p_expression_node,
         }
         s++;
     }
-    enum type_specifier_flags flags = 0;
-    parse_number(buffer, &flags);
-    p_expression_node->type.type_specifier_flags = flags;
+    char suffix[4] = { 0 };
+    parse_number(buffer, suffix);
+
 
     switch (token->type)
     {
     case TK_COMPILER_DECIMAL_CONSTANT:
-
-        if (flags & TYPE_SPECIFIER_UNSIGNED)
+    case TK_COMPILER_OCTAL_CONSTANT:
+    case TK_COMPILER_HEXADECIMAL_CONSTANT:
+    case TK_COMPILER_BINARY_CONSTANT:
+    {
+        unsigned long long value = 0;
+        switch (token->type)
         {
-            p_expression_node->constant_value = make_constant_value_ull(strtoull(buffer, NULL, 10), disabled);
+        case TK_COMPILER_DECIMAL_CONSTANT:
+            value = strtoull(buffer, NULL, 10);
+            break;
+        case TK_COMPILER_OCTAL_CONSTANT:
+            value = strtoull(buffer + 1, NULL, 8);
+            break;
+        case TK_COMPILER_HEXADECIMAL_CONSTANT:
+            value = strtoull(buffer + 2, NULL, 16);
+            break;
+        case TK_COMPILER_BINARY_CONSTANT:
+            value = strtoull(buffer + 2, NULL, 2);
+            break;
+        default:
+            break;
+        }
+
+        if (value == ULLONG_MAX && errno == ERANGE)
+        {
+            compiler_diagnostic_message(
+            C_ERROR_LITERAL_OVERFLOW,
+            ctx,
+            token,
+            NULL,
+            "integer literal is too large to be represented in any integer type");
+        }
+
+        if (suffix[0] == 'U')
+        {
+            /*fixing the type that fits the size*/
+            if (value <= UINT_MAX && suffix[1] != 'L')
+            {
+                p_expression_node->constant_value = constant_value_make_unsigned_int((unsigned int)value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED;
+            }
+            else if (value <= ULONG_MAX && suffix[2] != 'L')
+            {
+                p_expression_node->constant_value = constant_value_make_unsigned_long((unsigned long)value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_UNSIGNED;
+            }
+            else //if (value <= ULLONG_MAX)
+            {
+                p_expression_node->constant_value = constant_value_make_unsigned_long_long((unsigned long long)value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
+            }
         }
         else
         {
-            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, NULL, 10), disabled);
+            /*fixing the type that fits the size*/
+            if (value <= INT_MAX && suffix[0] != 'L')
+            {
+                p_expression_node->constant_value = constant_value_make_signed_int((int)value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
+            }
+            else if (value <= LONG_MAX && suffix[1] != 'L' /*!= LL*/)
+            {
+                p_expression_node->constant_value = constant_value_make_signed_long((long)value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
+            }
+            else if (value <= LLONG_MAX)
+            {
+                p_expression_node->constant_value = constant_value_make_signed_long_long((long long)value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
+            }
+            else
+            {
+                compiler_diagnostic_message(
+                    W_IMPLICITLY_UNSIGNED_LITERAL,
+                    ctx,
+                    token,
+                    NULL,
+                    "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
+                p_expression_node->constant_value = constant_value_make_signed_long_long(value);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
+            }
         }
 
-        break;
-    case TK_COMPILER_OCTAL_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, NULL, 8), disabled);
+    }
+    break;
 
-        break;
-    case TK_COMPILER_HEXADECIMAL_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, NULL, 16), disabled);
-
-        break;
-    case TK_COMPILER_BINARY_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, NULL, 2), disabled);
-        break;
     case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer, NULL), disabled);
-        break;
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, NULL), disabled);
-        break;
+    {
+        if (suffix[0] == 'F')
+        {
+            float value = strtof(buffer, NULL);
+            if (value == HUGE_VALF && errno == ERANGE)
+            {
+            }
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
+            p_expression_node->constant_value = constant_value_make_float(value);
+        }
+        else if (suffix[0] == 'L')
+        {
+            long double value = strtold(buffer, NULL);
+            if (value == HUGE_VALL && errno == ERANGE)
+            {
+            }
+
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
+            p_expression_node->constant_value = constant_value_make_long_double(value);
+        }
+        else
+        {
+            double value = strtod(buffer, NULL);
+            if (value == HUGE_VAL && errno == ERANGE)
+            {
+            }
+            p_expression_node->constant_value = constant_value_make_double(value);
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
+        }
+    }
+    break;
+
     default:
         assert(false);
     }
@@ -14934,7 +16260,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             {
                 struct enumerator* p_enumerator = p_entry->p;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
-                p_expression_node->constant_value = make_constant_value_ll(p_enumerator->value, ctx->evaluation_is_disabled);
+                p_expression_node->constant_value = p_enumerator->value;
 
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
             }
@@ -15029,21 +16355,21 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 */
                 char_type = CAKE_WCHAR_T_TYPE_SPECIFIER;
             }
-
-            p_expression_node->type = type_make_literal_string(string_literal_byte_size(ctx->current->lexeme), char_type);
-
-            parser_match(ctx);
-            if (ctx->current == NULL) throw;
-
             /*
-            string concatenation deveria ser em uma phase anterior
-            mas como mantemos as forma do fonte aqui foi uma alternativa
+              string concatenation should have been done in a previous phase
+              but since we keep the source format here it was an alternative
             */
+
+            const int char_byte_size = string_literal_char_byte_size(ctx->current->lexeme);
+            int number_of_bytes = 0;
             while (ctx->current->type == TK_STRING_LITERAL)
             {
+                //"part1" "part2" TODO check different types
+                number_of_bytes += string_literal_byte_size_not_zero_included(ctx->current->lexeme);
                 parser_match(ctx);
                 if (ctx->current == NULL) throw;
             }
+            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
@@ -15062,7 +16388,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
 
             p_expression_node->constant_value =
-                make_constant_value_ll(ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0, false /*ctx->evaluation_is_disabled*/);
+                constant_value_make_signed_int(ctx->current->type == TK_KEYWORD_TRUE ? (_Bool)true : (_Bool)false);
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
@@ -15080,7 +16406,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            p_expression_node->constant_value = make_constant_value_ll(0, false /*ctx->evaluation_is_disabled*/);
+            p_expression_node->constant_value = constant_value_make_nullptr();
 
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
@@ -15099,7 +16425,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
             p_expression_node->expression_type = PRIMARY_EXPRESSION_NUMBER;
 
-            convert_to_number(ctx->current, p_expression_node, false /*ctx->evaluation_is_disabled*/);
+            convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/);
 
             parser_match(ctx);
             if (ctx->current == NULL) throw;
@@ -15392,7 +16718,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 if (constant_value_is_valid(&p_expression_node_new->right->constant_value))
                 {
                     unsigned long long index =
-                        constant_value_to_ull(&p_expression_node_new->right->constant_value);
+                        constant_value_to_unsigned_long_long(&p_expression_node_new->right->constant_value);
                     if (type_is_array(&p_expression_node->type))
                     {
                         if (p_expression_node->type.num_of_elements > 0)
@@ -16114,36 +17440,208 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (op == '!')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_NOT;
-                new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
-
-                // same as v == 0
-
+                if (!ctx->evaluation_is_disabled &&
+                    constant_value_is_valid(&new_expression->right->constant_value))
+                {
+                    const bool v = constant_value_to_bool(&new_expression->right->constant_value);
+                    new_expression->constant_value = constant_value_make_signed_int(!v);
+                }
                 new_expression->type = type_make_int_bool_like();
             }
             else if (op == '~')
             {
+                if (!type_is_integer(&new_expression->right->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_INTEGER,
+                                               ctx,
+                                               op_position,
+                                               NULL,
+                                               "requires integer type");
+
+                    expression_delete(new_expression);
+                    throw;
+                }
+
                 new_expression->expression_type = UNARY_EXPRESSION_BITNOT;
-                new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
-                new_expression->type = type_dup(&new_expression->right->type);
-                type_integer_promotion(&new_expression->type);
+
+                /*
+                The result of the ~ operator is the bitwise complement of its (promoted) operand (that is, each bit in
+                the result is set if and only if the corresponding bit in the converted operand is not set). The integer
+                promotions are performed on the operand, and the result has the promoted type. If the promoted
+                type is an unsigned type, the expression ~E is equivalent to the maximum value representable in
+                that type minus E.
+                */
+                struct type promoted = type_dup(&new_expression->right->type);
+                type_integer_promotion(&promoted);
+                new_expression->type = promoted;
+
+                if (!ctx->evaluation_is_disabled &&
+                  constant_value_is_valid(&new_expression->right->constant_value))
+                {
+                    enum constant_value_type vt = type_to_constant_value_type(&new_expression->type);
+                    switch (vt)
+                    {
+                    case TYPE_SIGNED_INT:
+                    {
+                        signed int r = constant_value_to_signed_int(&new_expression->right->constant_value);
+                        new_expression->constant_value = constant_value_make_signed_int(~r);
+                    }
+                    break;
+
+                    case TYPE_UNSIGNED_INT:
+                    {
+                        unsigned int r = constant_value_to_unsigned_int(&new_expression->right->constant_value);
+                        new_expression->constant_value = constant_value_make_unsigned_int(~r);
+                    }
+                    break;
+
+                    case TYPE_SIGNED_LONG:
+                    {
+                        signed long r = constant_value_to_signed_long(&new_expression->right->constant_value);
+                        new_expression->constant_value = constant_value_make_signed_long(~r);
+                    }
+                    break;
+                    case TYPE_UNSIGNED_LONG:
+                    {
+                        unsigned long r = constant_value_to_unsigned_long(&new_expression->right->constant_value);
+                        new_expression->constant_value = constant_value_make_unsigned_long(~r);
+                    }
+                    break;
+
+                    case TYPE_SIGNED_LONG_LONG:
+                    {
+                        signed long long r = constant_value_to_signed_long_long(&new_expression->right->constant_value);
+                        new_expression->constant_value = constant_value_make_signed_long_long(~r);
+                    }
+                    break;
+                    case TYPE_UNSIGNED_LONG_LONG:
+                    {
+                        unsigned long long r = constant_value_to_unsigned_long_long(&new_expression->right->constant_value);
+                        new_expression->constant_value = constant_value_make_unsigned_long_long(~r);
+                    }
+                    break;
+
+                    case TYPE_SIGNED_SHORT:
+                    case TYPE_UNSIGNED_SHORT:
+                    case TYPE_SIGNED_CHAR:
+                    case TYPE_UNSIGNED_CHAR:
+                    case TYPE_NOT_CONSTANT:
+                    case TYPE_BOOL:
+                    case TYPE_FLOAT:
+                    case TYPE_DOUBLE:
+                    case TYPE_LONG_DOUBLE:
+                        break;
+                    };
+                }
             }
-            else if (op == '-')
+            else if (op == '-' || op == '+')
             {
-                new_expression->expression_type = UNARY_EXPRESSION_NEG;
+                if (op == '-')
+                    new_expression->expression_type = UNARY_EXPRESSION_NEG;
+                else
+                    new_expression->expression_type = UNARY_EXPRESSION_PLUS;
 
-                new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
+                //promote
+                new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type);
 
-                new_expression->type = type_dup(&new_expression->right->type);
-                type_integer_promotion(&new_expression->type);
-            }
-            else if (op == '+')
-            {
-                new_expression->expression_type = UNARY_EXPRESSION_PLUS;
+                if (!ctx->evaluation_is_disabled &&
+                    constant_value_is_valid(&new_expression->right->constant_value))
+                {
+                    enum constant_value_type vt = type_to_constant_value_type(&new_expression->type);
+                    switch (vt)
+                    {
+                    case TYPE_SIGNED_INT_OR_SIGNED_LONG:
+                    {
+                        const int a = constant_value_to_signed_int(&new_expression->right->constant_value);
+                        if (op == '-')
+                            new_expression->constant_value = constant_value_make_signed_int(-a);
+                        else
+                            new_expression->constant_value = constant_value_make_signed_int(+a);
+                    }
+                    break;
 
-                new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
+                    case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
+                    {
+                        unsigned int a = constant_value_to_unsigned_int(&new_expression->right->constant_value);
+                        if (op == '-')
+                        {
+                            //error C4146: unary minus operator applied to unsigned type, result still unsigned
+                            new_expression->constant_value = constant_value_make_unsigned_int(-a);
+                        }
+                        else
+                            new_expression->constant_value = constant_value_make_unsigned_int(+a);
+                    }
+                    break;
 
-                new_expression->type = type_dup(&new_expression->right->type);
-                type_integer_promotion(&new_expression->type);
+                    case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
+                    {
+                        long long a = constant_value_to_signed_long(&new_expression->right->constant_value);
+                        if (op == '-')
+                            new_expression->constant_value = constant_value_make_signed_long_long(-a);
+                        else
+                            new_expression->constant_value = constant_value_make_signed_long_long(+a);
+                    }
+                    break;
+
+                    case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
+                    {
+                        unsigned long long a = constant_value_to_unsigned_long(&new_expression->right->constant_value);
+
+                        if (op == '-')
+                        {
+                            //error C4146: unary minus operator applied to unsigned type, result still unsigned
+                            new_expression->constant_value = constant_value_make_unsigned_long_long(-a);
+                        }
+                        else
+                            new_expression->constant_value = constant_value_make_unsigned_long_long(+a);
+                    }
+                    break;
+
+                    case TYPE_BOOL:
+                    case TYPE_SIGNED_CHAR:
+                    case TYPE_UNSIGNED_CHAR:
+                    case TYPE_SIGNED_SHORT:
+                    case TYPE_UNSIGNED_SHORT:
+                        assert(false); //they are promoted
+                        throw;
+                        break;
+
+                    case TYPE_NOT_CONSTANT:
+                        assert(false); //they are promoted
+                        throw;
+                        break;
+
+                    case TYPE_FLOAT:
+                    {
+                        float a = constant_value_to_float(&new_expression->right->constant_value);
+                        if (op == '-')
+                            new_expression->constant_value = constant_value_make_float(-a);
+                        else
+                            new_expression->constant_value = constant_value_make_float(+a);
+                    }
+                    break;
+                    case TYPE_DOUBLE:
+                    {
+                        double a = constant_value_to_double(&new_expression->right->constant_value);
+                        if (op == '-')
+                            new_expression->constant_value = constant_value_make_double(-a);
+                        else
+                            new_expression->constant_value = constant_value_make_double(+a);
+                    }
+                    break;
+                    case TYPE_LONG_DOUBLE:
+                    {
+                        long double a = constant_value_to_long_double(&new_expression->right->constant_value);
+                        if (op == '-')
+                            new_expression->constant_value = constant_value_make_long_double(-a);
+                        else
+                            new_expression->constant_value = constant_value_make_long_double(+a);
+                    }
+                    break;
+                    };
+                }
+                //'//'new_expression->type = type_dup(&new_expression->right->type);
+                //type_integer_promotion(&new_expression->type);
             }
             else if (op == '*')
             {
@@ -16277,7 +17775,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     else
                     {
-                        new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
+                        new_expression->constant_value = constant_value_make_size_t(type_get_sizeof(&new_expression->type_name->declarator->type));
                     }
                 }
             }
@@ -16306,11 +17804,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
                 else
                 {
-                    new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->right->type), false);
+                    new_expression->constant_value = constant_value_make_size_t(type_get_sizeof(&new_expression->right->type));
                 }
             }
 
-            type_destroy(&new_expression->type);
             new_expression->type = type_make_size_t();
             p_expression_node = new_expression;
 
@@ -16408,42 +17905,42 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             switch (traits_token->type)
             {
             case TK_KEYWORD_IS_LVALUE:
-                new_expression->constant_value = make_constant_value_ll(expression_is_lvalue(new_expression->right), false);
+                new_expression->constant_value = constant_value_make_signed_int(expression_is_lvalue(new_expression->right));
                 break;
 
             case TK_KEYWORD_IS_CONST:
-                new_expression->constant_value = make_constant_value_ll(type_is_const(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_const(p_type));
                 break;
             case TK_KEYWORD_IS_OWNER:
-                new_expression->constant_value = make_constant_value_ll(type_is_owner(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_owner(p_type));
                 break;
 
             case TK_KEYWORD_IS_POINTER:
-                new_expression->constant_value = make_constant_value_ll(type_is_pointer(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_pointer(p_type));
 
                 break;
             case TK_KEYWORD_IS_FUNCTION:
-                new_expression->constant_value = make_constant_value_ll(type_is_function(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_function(p_type));
 
                 break;
             case TK_KEYWORD_IS_ARRAY:
-                new_expression->constant_value = make_constant_value_ll(type_is_array(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_array(p_type));
 
                 break;
             case TK_KEYWORD_IS_ARITHMETIC:
-                new_expression->constant_value = make_constant_value_ll(type_is_arithmetic(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_arithmetic(p_type));
 
                 break;
             case TK_KEYWORD_IS_SCALAR:
-                new_expression->constant_value = make_constant_value_ll(type_is_scalar(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_scalar(p_type));
 
                 break;
             case TK_KEYWORD_IS_FLOATING_POINT:
-                new_expression->constant_value = make_constant_value_ll(type_is_floating_point(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_floating_point(p_type));
 
                 break;
             case TK_KEYWORD_IS_INTEGRAL:
-                new_expression->constant_value = make_constant_value_ll(type_is_integer(p_type), false);
+                new_expression->constant_value = constant_value_make_signed_int(type_is_integer(p_type));
 
                 break;
 
@@ -16514,7 +18011,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
             if (!ctx->evaluation_is_disabled)
             {
-                new_expression->constant_value = make_constant_value_ll(type_get_alignof(&new_expression->type_name->type), ctx->evaluation_is_disabled);
+                new_expression->constant_value = constant_value_make_size_t(type_get_alignof(&new_expression->type_name->type));
             }
             new_expression->type = type_make_int();
 
@@ -16580,11 +18077,11 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
-            
+
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
-            
-            if (ctx->current == NULL) 
+
+            if (ctx->current == NULL)
             {
                 //unexpected end of file
                 throw;
@@ -16629,28 +18126,21 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                     }
                 }
 
-                p_expression_node->constant_value = p_expression_node->left->constant_value;
-
                 type_destroy(&p_expression_node->type);
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
-                if (type_is_floating_point(&p_expression_node->type))
+
+                if (!ctx->evaluation_is_disabled &&
+                    constant_value_is_valid(&p_expression_node->left->constant_value))
                 {
-                    p_expression_node->constant_value =
-                        constant_value_cast(&p_expression_node->constant_value, TYPE_DOUBLE);
-                }
-                else if (type_is_integer(&p_expression_node->type))
-                {
-                    if (type_is_unsigned_integer(&p_expression_node->type))
+                    enum constant_value_type vt = type_to_constant_value_type(&p_expression_node->type);
+                    if (vt != TYPE_NOT_CONSTANT)
                     {
                         p_expression_node->constant_value =
-                            constant_value_cast(&p_expression_node->constant_value, TYPE_UNSIGNED_LONG_LONG);
-                    }
-                    else
-                    {
-                        p_expression_node->constant_value =
-                            constant_value_cast(&p_expression_node->constant_value, TYPE_LONG_LONG);
+                            constant_value_cast(vt, &p_expression_node->left->constant_value);
                     }
                 }
+
+
 
                 p_expression_node->type.storage_class_specifier_flags =
                     p_expression_node->left->type.storage_class_specifier_flags;
@@ -16687,6 +18177,648 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
     }
 
     return p_expression_node;
+}
+
+
+NODISCARD
+errno_t execute_arithmetic(const struct parser_ctx* ctx,
+                      const struct expression* new_expression,
+                      int op,
+                      struct constant_value* result)
+{
+
+    try
+    {
+        if (new_expression->left == NULL || new_expression->right == NULL)
+        {
+            assert(false);
+            throw;
+        }
+
+        struct constant_value value = { 0 };
+        switch (op)
+        {
+        case '+':
+        case '-':
+
+        case '*':
+        case '/':
+        case '%':
+            //
+        case '>':
+        case '<':
+        case '>=':
+        case '<=':
+            //
+        case '==':
+        case '!=':
+            break;
+        default:
+            assert(false);
+            throw;
+        }
+
+        //Each of the operands shall have arithmetic type
+        if (!type_is_arithmetic(&new_expression->left->type))
+        {
+            compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an arithmetic type");
+            throw;
+        }
+
+        if (!type_is_arithmetic(&new_expression->right->type))
+        {
+            compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an arithmetic type");
+            throw;
+        }
+
+
+        if (!ctx->evaluation_is_disabled &&
+            constant_value_is_valid(&new_expression->left->constant_value) &&
+            constant_value_is_valid(&new_expression->right->constant_value))
+        {
+
+            const struct marker m =
+            {
+                .p_token_begin = new_expression->left->first_token,
+                .p_token_end = new_expression->right->last_token
+            };
+
+            struct type common_type = type_common(&new_expression->left->type,
+                                                  &new_expression->right->type);
+
+            enum constant_value_type vt = type_to_constant_value_type(&common_type);
+            switch (vt)
+            {
+            case TYPE_SIGNED_INT_OR_SIGNED_LONG:
+            {
+                const int a = constant_value_to_signed_int(&new_expression->left->constant_value);
+                const int b = constant_value_to_signed_int(&new_expression->right->constant_value);
+
+                if (op == '+')
+                {
+                    const int computed_result = a + b;
+                    signed long long exact_result;
+                    if (signed_long_long_add(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        assert(false);
+                    }
+                    value = constant_value_make_signed_int(computed_result);
+                }
+                else if (op == '-')
+                {
+                    const int computed_result = a - b;
+                    signed long long exact_result;
+                    if (signed_long_long_sub(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        assert(false);
+                    }
+                    value = constant_value_make_signed_int(computed_result);
+                }
+                else if (op == '*')
+                {
+                    const int computed_result = a * b;
+                    signed long long exact_result;
+                    if (signed_long_long_mul(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        assert(false);
+                    }
+                    value = constant_value_make_signed_int(computed_result);
+                }
+                else if (op == '/')
+                {
+                    if (b == 0)
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else
+                        value = constant_value_make_signed_int(a / b);
+                }
+                else if (op == '%')
+                {
+                    if (b == 0)
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else
+                        value = constant_value_make_signed_int(a % b);
+                }
+                //////////
+                else if (op == '>')
+                {
+                    value = constant_value_make_signed_int(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = constant_value_make_signed_int(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = constant_value_make_signed_int(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = constant_value_make_signed_int(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = constant_value_make_signed_int(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = constant_value_make_signed_int(a != b);
+                }
+            }
+            break;
+
+            case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
+            {
+                unsigned int a = constant_value_to_unsigned_int(&new_expression->left->constant_value);
+                unsigned int b = constant_value_to_unsigned_int(&new_expression->right->constant_value);
+
+                if (op == '+')
+                {
+                    const unsigned int computed_result = a + b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_add(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        assert(false);
+                    }
+                    value = constant_value_make_signed_int(computed_result);
+                }
+                else if (op == '-')
+                {
+                    const unsigned int computed_result = a - b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_sub(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        assert(false);
+                    }
+                    value = constant_value_make_signed_int(computed_result);
+                }
+                else if (op == '*')
+                {
+                    const unsigned int computed_result = a * b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_mul(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        assert(false);
+                    }
+                    value = constant_value_make_signed_int(computed_result);
+                }
+                else if (op == '/')
+                {
+                    if (b == 0)
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else
+                        value = constant_value_make_unsigned_int(a / b);
+                }
+                else if (op == '%')
+                {
+                    if (b == 0)
+                    {
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                        throw;
+                    }
+
+                    value = constant_value_make_unsigned_int(a % b);
+                }
+                //////////                
+                else if (op == '>')
+                {
+                    value = constant_value_make_signed_int(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = constant_value_make_signed_int(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = constant_value_make_signed_int(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = constant_value_make_signed_int(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = constant_value_make_signed_int(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = constant_value_make_signed_int(a != b);
+                }
+
+            }
+            break;
+
+            case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
+            {
+                long long a = constant_value_to_signed_long_long(&new_expression->left->constant_value);
+                long long b = constant_value_to_signed_long_long(&new_expression->right->constant_value);
+
+                if (op == '+')
+                {
+                    const long long computed_result = a + b;
+                    signed long long exact_result;
+                    if (!signed_long_long_add(&exact_result, a, b))
+                    {
+                        compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%dll'. ", computed_result);
+                    }
+                    value = constant_value_make_signed_long_long(computed_result);
+                }
+                else if (op == '-')
+                {
+                    const long long computed_result = a - b;
+                    signed long long exact_result;
+                    if (!signed_long_long_sub(&exact_result, a, b))
+                    {
+                        compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%dll'.", computed_result);
+                    }
+                    value = constant_value_make_signed_long_long(computed_result);
+                }
+                else if (op == '*')
+                {
+                    const long long computed_result = a * b;
+                    signed long long exact_result;
+                    if (!signed_long_long_mul(&exact_result, a, b))
+                    {
+                        compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%dll", computed_result);
+                    }
+                    value = constant_value_make_signed_long_long(computed_result);
+                }
+                else if (op == '/')
+                {
+                    if (b == 0)
+                    {
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                        throw;
+                    }
+
+                    value = constant_value_make_signed_long_long(a / b);
+
+                }
+                else if (op == '%')
+                {
+
+                    if (b == 0)
+                    {
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                        throw;
+                    }
+
+                    value = constant_value_make_signed_long_long(a % b);
+                }
+                //////////                
+                else if (op == '>')
+                {
+                    value = constant_value_make_signed_int(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = constant_value_make_signed_int(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = constant_value_make_signed_int(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = constant_value_make_signed_int(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = constant_value_make_signed_int(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = constant_value_make_signed_int(a != b);
+                }
+            }
+            break;
+
+            case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
+            {
+                unsigned long long a = constant_value_to_unsigned_long(&new_expression->left->constant_value);
+                unsigned long long b = constant_value_to_unsigned_long(&new_expression->right->constant_value);
+
+
+                if (op == '+')
+                {
+                    value = constant_value_make_unsigned_long_long(a + b);
+                }
+                else if (op == '-')
+                {
+                    value = constant_value_make_unsigned_long_long(a - b);
+                }
+                else if (op == '*')
+                {
+                    value = constant_value_make_unsigned_long_long(a * b);
+                }
+                else if (op == '/')
+                {
+
+                    if (b == 0)
+                    {
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                        throw;
+                    }
+
+                    value = constant_value_make_unsigned_long_long(a / b);
+                }
+                else if (op == '%')
+                {
+                    if (b == 0)
+                    {
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                        throw;
+                    }
+                    value = constant_value_make_unsigned_long_long(a % b);
+                }
+                //////////
+                //////////                
+                else if (op == '>')
+                {
+                    value = constant_value_make_signed_int(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = constant_value_make_signed_int(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = constant_value_make_signed_int(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = constant_value_make_signed_int(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = constant_value_make_signed_int(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = constant_value_make_signed_int(a != b);
+                }
+
+            }
+            break;
+
+            case TYPE_BOOL:
+            case TYPE_SIGNED_CHAR:
+            case TYPE_UNSIGNED_CHAR:
+            case TYPE_SIGNED_SHORT:
+            case TYPE_UNSIGNED_SHORT:
+                assert(false); //they are promoted
+                throw;
+                break;
+
+            case TYPE_NOT_CONSTANT:
+                //assert(false); //they are promoted
+                throw;
+                break;
+
+            case TYPE_FLOAT:
+            {
+                float a = constant_value_to_float(&new_expression->left->constant_value);
+                float b = constant_value_to_float(&new_expression->right->constant_value);
+
+
+                if (op == '+')
+                {
+                    value = constant_value_make_float(a + b);
+                }
+                else if (op == '-')
+                {
+                    value = constant_value_make_float(a - b);
+                }
+                else if (op == '*')
+                {
+                    value = constant_value_make_float(a * b);
+                }
+                else if (op == '/')
+                {
+                    if (b == 0)
+                    {
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                        throw;
+                    }
+
+                    value = constant_value_make_float(a / b);
+                }
+                else if (op == '%')
+                {
+                    //error C2296: '%': not valid as left operand has type 'float'
+                    compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "'%': not valid as left operand has type 'float'");
+                    throw;
+                    //r = a % b;
+                }
+                //////////                
+                else if (op == '>')
+                {
+                    value = constant_value_make_signed_int(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = constant_value_make_signed_int(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = constant_value_make_signed_int(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = constant_value_make_signed_int(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = constant_value_make_signed_int(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = constant_value_make_signed_int(a != b);
+                }
+
+            }
+            break;
+            case TYPE_DOUBLE:
+            {
+                double a = constant_value_to_double(&new_expression->left->constant_value);
+                double b = constant_value_to_double(&new_expression->right->constant_value);
+
+                if (op == '+')
+                {
+                    value = constant_value_make_double(a + b);
+                }
+                else if (op == '-')
+                {
+                    value = constant_value_make_double(a - b);
+                }
+                else if (op == '*')
+                {
+                    value = constant_value_make_double(a * b);
+                }
+                else if (op == '/')
+                {
+                    if (b == 0)
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else
+                        value = constant_value_make_double(a / b);
+                }
+                else if (op == '%')
+                {
+                    //value = constant_value_make_double(r);
+                    //error C2296: '%': not valid as left operand has type 'float'
+                    compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "'%': not valid as left operand has type 'float'");
+                    throw;
+                    //r = a % b;
+                }
+                //////////                
+                else if (op == '>')
+                {
+                    value = constant_value_make_signed_int(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = constant_value_make_signed_int(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = constant_value_make_signed_int(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = constant_value_make_signed_int(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = constant_value_make_signed_int(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = constant_value_make_signed_int(a != b);
+                }
+
+            }
+            break;
+            case TYPE_LONG_DOUBLE:
+            {
+                long double a = constant_value_to_long_double(&new_expression->left->constant_value);
+                long double b = constant_value_to_long_double(&new_expression->right->constant_value);
+
+                if (op == '+')
+                {
+                    value = constant_value_make_long_double(a + b);
+                }
+                else if (op == '-')
+                {
+                    value = constant_value_make_long_double(a - b);
+                }
+                else if (op == '*')
+                {
+                    value = constant_value_make_long_double(a * b);
+                }
+                else if (op == '/')
+                {
+                    if (b == 0)
+                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else
+                        value = constant_value_make_long_double(a / b);
+                }
+                else if (op == '%')
+                {
+                    //error C2296: '%': not valid as left operand has type 'float'
+                    //value = constant_value_make_long_double(a % b);
+                    compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "'%': not valid as left operand has type 'float'");
+                    //r = a % b;
+                    throw;
+                }
+                //////////                
+                else if (op == '>')
+                {
+                    value = constant_value_make_signed_int(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = constant_value_make_signed_int(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = constant_value_make_signed_int(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = constant_value_make_signed_int(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = constant_value_make_signed_int(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = constant_value_make_signed_int(a != b);
+                }
+
+            }
+            break;
+
+            };
+        }
+        *result = value;
+        return 0;//ok
+    }
+    catch
+    {
+    }
+
+    struct constant_value empty = { 0 };
+    *result = empty;
+    return 1; //error
 }
 
 struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
@@ -16741,80 +18873,14 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 expression_delete(new_expression);
                 throw;
             }
-
             new_expression->last_token = new_expression->right->last_token;
 
-            if (op == '*')
-            {
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
 
-                if (!type_is_arithmetic(&new_expression->left->type))
-                {
-                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_ARITHMETIC, ctx, ctx->current, NULL, "left * is not arithmetic");
-                }
-                if (!type_is_arithmetic(&new_expression->right->type))
-                {
-                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_ARITHMETIC, ctx, ctx->current, NULL, "right * is not arithmetic");
-                }
-            }
-            else if (op == '/')
-            {
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
 
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV;
-
-                new_expression->constant_value =
-                    constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '/');
-
-                if (ctx->evaluation_is_disabled)
-                {
-                    //sizeof(1/0)
-                }
-                else
-                {
-                    if (constant_value_is_valid(&new_expression->right->constant_value) &&
-                        constant_value_to_ll(&new_expression->right->constant_value) == 0)
-                    {
-                        compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, ctx->current, NULL, "division by zero");
-                    }
-                }
-
-                if (!type_is_arithmetic(&new_expression->left->type))
-                {
-                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_ARITHMETIC, ctx, ctx->current, NULL, "left / is not arithmetic");
-                }
-                if (!type_is_arithmetic(&new_expression->right->type))
-                {
-                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_ARITHMETIC, ctx, ctx->current, NULL, "right / is not arithmetic");
-                }
-            }
-            else if (op == '%')
-            {
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD;
-
-                if (!type_is_integer(&new_expression->left->type))
-                {
-                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left is not integer");
-                }
-                if (!type_is_integer(&new_expression->right->type))
-                {
-                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right is not integer");
-                }
-
-                if (constant_value_is_valid(&new_expression->right->constant_value) &&
-                    constant_value_to_ll(&new_expression->right->constant_value) == 0)
-                {
-                    compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, ctx->current, NULL, "divizion by zero");
-                }
-            }
-
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
-
-            int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-            if (code != 0)
+            if (execute_arithmetic(ctx, new_expression, op, &new_expression->constant_value) != 0)
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid type multiplicative expression");
                 throw;
             }
 
@@ -16828,6 +18894,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
     }
     return p_expression_node;
 }
+
 
 struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
 {
@@ -16886,6 +18953,8 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
 
             new_expression->last_token = new_expression->right->last_token;
 
+
+
             if (!type_is_scalar(&new_expression->left->type))
             {
                 compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, NULL, "left operator is not scalar");
@@ -16912,12 +18981,10 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 */
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
-                    int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-                    if (code != 0)
+                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                    if (execute_arithmetic(ctx, new_expression, op, &new_expression->constant_value) != 0)
                     {
                         expression_delete(new_expression);
-                        new_expression = NULL;
-                        compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "internal error");
                         throw;
                     }
                 }
@@ -16982,14 +19049,10 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 */
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
-                    // — both operands have arithmetic type;
-                    int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-                    if (code != 0)
+                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                    if (execute_arithmetic(ctx, new_expression, op, &new_expression->constant_value) != 0)
                     {
                         expression_delete(new_expression);
-                        new_expression = NULL;
-
-                        compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "internal error type_common");
                         throw;
                     }
                 }
@@ -17032,9 +19095,6 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                     }
                 }
             }
-
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
 
             p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
@@ -17103,17 +19163,12 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
             {
                 new_expression->expression_type = SHIFT_EXPRESSION_LEFT;
             }
-
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
-
-            int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-            if (code != 0)
+            if (execute_bitwise_operator(ctx, new_expression, op) != 0)
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid type shift expression");
                 throw;
             }
+
 
             p_expression_node = new_expression;
         }
@@ -17177,6 +19232,8 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
             if (ctx->current == NULL)
             {
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -17202,8 +19259,18 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
                 new_expression->expression_type = RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN;
             }
 
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
+            //Each of the operands shall have arithmetic type
+            if (type_is_arithmetic(&new_expression->left->type) &&
+                type_is_arithmetic(&new_expression->right->type))
+            {
+                new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                if (execute_arithmetic(ctx, new_expression, op, &new_expression->constant_value) != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+            }
 
             new_expression->type = type_make_int_bool_like();
 
@@ -17271,8 +19338,8 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
                                          bool disabled)
 {
     assert(op == '==' || op == '!=');
-    result->constant_value =
-        constant_value_op(&left->constant_value, &right->constant_value, op);
+    //result->constant_value =
+        //constant_value_op(&left->constant_value, &right->constant_value, op);
 }
 
 struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
@@ -17316,6 +19383,11 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             if (ctx->current == NULL) throw;
 
+            if (operator_token->type == '==')
+                new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
+            else
+                new_expression->expression_type = EQUALITY_EXPRESSION_NOT_EQUAL;
+
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -17334,34 +19406,17 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
               ctx->current);
 
             new_expression->last_token = new_expression->right->last_token;
-
-
             new_expression->first_token = operator_token;
 
-            if (operator_token->type == '==')
+            if (type_is_arithmetic(&new_expression->left->type) &&
+                type_is_arithmetic(&new_expression->right->type))
             {
-                new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
-                expression_evaluate_equal_not_equal(new_expression->left,
-                                                    new_expression->right,
-                                                    new_expression,
-                                                    '==',
-                                                    ctx->evaluation_is_disabled);
-            }
-            else if (operator_token->type == '!=')
-            {
-                new_expression->expression_type = EQUALITY_EXPRESSION_NOT_EQUAL;
-                expression_evaluate_equal_not_equal(new_expression->left,
-                                                    new_expression->right,
-                                                    new_expression,
-                                                    '!=',
-                                                    ctx->evaluation_is_disabled);
-            }
-            else
-            {
-                assert(false);
+
+                if (execute_arithmetic(ctx, new_expression, operator_token->type, &new_expression->constant_value) != 0)
+                    throw;
             }
 
-            type_destroy(&new_expression->type);
+
             new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
@@ -17413,15 +19468,9 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
                 throw;
 
             new_expression->last_token = new_expression->right->last_token;
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '&');
 
-            int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-            if (code != 0)
-            {
-                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types and expression");
+            if (execute_bitwise_operator(ctx, new_expression, '&') != 0)
                 throw;
-            }
 
             p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
@@ -17474,15 +19523,9 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
                 throw;
 
             new_expression->last_token = new_expression->right->last_token;
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '^');
 
-            int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-            if (code != 0)
-            {
-                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types or expression");
+            if (execute_bitwise_operator(ctx, new_expression, '^') != 0)
                 throw;
-            }
 
             p_expression_node = new_expression;
             new_expression = NULL;
@@ -17496,6 +19539,157 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
 
     expression_delete(new_expression);
     return p_expression_node;
+}
+
+
+NODISCARD
+static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expression* new_expression, int op)
+{
+    try
+    {
+        switch (op)
+        {
+        case '&':
+        case '^':
+        case '|':
+        case '>>':
+        case '<<':
+            break;
+        default:
+            assert(false);
+            throw;
+        }
+
+
+        //Each of the operands shall have integer type.
+        if (!type_is_integer(&new_expression->left->type))
+        {
+            compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
+            throw;
+        }
+
+        if (!type_is_integer(&new_expression->right->type))
+        {
+            compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+            throw;
+        }
+
+        new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+
+        if (!ctx->evaluation_is_disabled &&
+            constant_value_is_valid(&new_expression->left->constant_value) &&
+            constant_value_is_valid(&new_expression->right->constant_value))
+        {
+            enum constant_value_type vt = type_to_constant_value_type(&new_expression->type);
+            switch (vt)
+            {
+            case TYPE_SIGNED_INT_OR_SIGNED_LONG:
+            {
+                int a = constant_value_to_signed_int(&new_expression->left->constant_value);
+                int b = constant_value_to_signed_int(&new_expression->right->constant_value);
+
+                int r = 0;
+                if (op == '|')
+                    r = a | b;
+                else if (op == '^')
+                    r = a ^ b;
+                else if (op == '&')
+                    r = a & b;
+                //
+                else if (op == '>>')
+                    r = a >> b;
+                else if (op == '<<')
+                    r = a << b;
+
+                new_expression->constant_value = constant_value_make_signed_int(r);
+            }
+            break;
+
+            case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
+            {
+                unsigned int a = constant_value_to_unsigned_int(&new_expression->left->constant_value);
+                unsigned int b = constant_value_to_unsigned_int(&new_expression->right->constant_value);
+                int r = 0;
+                if (op == '|')
+                    r = a | b;
+                else if (op == '^')
+                    r = a ^ b;
+                else if (op == '&')
+                    r = a & b;
+                //
+                else if (op == '>>')
+                    r = a >> b;
+                else if (op == '<<')
+                    r = a << b;
+                new_expression->constant_value = constant_value_make_unsigned_int(r);
+            }
+            break;
+
+            case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
+            {
+                long long a = constant_value_to_signed_long(&new_expression->left->constant_value);
+                long long b = constant_value_to_signed_long(&new_expression->right->constant_value);
+                long long r = 0;
+                if (op == '|')
+                    r = a | b;
+                else if (op == '^')
+                    r = a ^ b;
+                else if (op == '&')
+                    r = a & b;
+                //
+                else if (op == '>>')
+                    r = a >> b;
+                else if (op == '<<')
+                    r = a << b;
+                new_expression->constant_value = constant_value_make_signed_long_long(r);
+
+            }
+            break;
+
+            case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
+            {
+                unsigned long long a = constant_value_to_unsigned_long(&new_expression->left->constant_value);
+                unsigned long long b = constant_value_to_unsigned_long(&new_expression->right->constant_value);
+                unsigned long long r = 0;
+                if (op == '|')
+                    r = a | b;
+                else if (op == '^')
+                    r = a ^ b;
+                else if (op == '&')
+                    r = a & b;
+                //
+                else if (op == '>>')
+                    r = a >> b;
+                else if (op == '<<')
+                    r = a << b;
+                new_expression->constant_value = constant_value_make_unsigned_long_long(r);
+            }
+            break;
+
+            case TYPE_BOOL:
+            case TYPE_SIGNED_CHAR:
+            case TYPE_UNSIGNED_CHAR:
+            case TYPE_SIGNED_SHORT:
+            case TYPE_UNSIGNED_SHORT:
+                assert(false); //they are promoted
+                throw;
+                break;
+
+            case TYPE_NOT_CONSTANT:
+            case TYPE_FLOAT:
+            case TYPE_DOUBLE:
+            case TYPE_LONG_DOUBLE:
+                assert(false); //works for integers only
+                throw;
+                break;
+            };
+        }
+        return 0;//ok
+    }
+    catch
+    {
+    }
+    return 1; //error
 }
 
 struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
@@ -17543,14 +19737,10 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
                                 "operator '|' between enumerations of different types.");
 
             new_expression->last_token = new_expression->right->last_token;
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '|');
 
-            int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-            if (code != 0)
+            if (execute_bitwise_operator(ctx, new_expression, '|') != 0)
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types inclusive or expression");
                 throw;
             }
 
@@ -17602,19 +19792,36 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
                 throw;
             }
             new_expression->last_token = new_expression->right->last_token;
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '&&');
 
-            int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-            if (code != 0)
+            if (!ctx->evaluation_is_disabled &&
+                constant_value_is_valid(&new_expression->left->constant_value) &&
+                constant_value_is_valid(&new_expression->right->constant_value))
             {
+                //The && operator shall yield 1 if both of its operands compare unequal to 0;
+                // otherwise, it yields 0. The result has type int
+                bool a = constant_value_to_bool(&new_expression->left->constant_value);
+                bool b = constant_value_to_bool(&new_expression->right->constant_value);
+                new_expression->constant_value = constant_value_make_signed_int(a && b);
+            }
 
-                type_print(&new_expression->left->type);
-                type_print(&new_expression->right->type);
-                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "invalid types logical and expression");
+            //Each of the operands shall have scalar type
+            if (!type_is_scalar(&new_expression->left->type))
+            {
                 expression_delete(new_expression);
+                compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
                 throw;
             }
+
+            if (!type_is_scalar(&new_expression->right->type))
+            {
+                expression_delete(new_expression);
+                compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
+                throw;
+            }
+
+            //The result has type int
+            new_expression->type = type_make_int_bool_like();
+
             p_expression_node = new_expression;
         }
     }
@@ -17637,6 +19844,8 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
+
+
         p_expression_node = logical_and_expression(ctx);
         if (p_expression_node == NULL)
             throw;
@@ -17644,6 +19853,9 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
         while (ctx->current != NULL &&
                (ctx->current->type == '||'))
         {
+
+
+
             parser_match(ctx);
             if (ctx->current == NULL) throw;
 
@@ -17664,9 +19876,17 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
             }
 
             new_expression->last_token = new_expression->right->last_token;
-            new_expression->constant_value =
-                constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '||');
 
+            if (!ctx->evaluation_is_disabled &&
+                constant_value_is_valid(&new_expression->left->constant_value) &&
+                constant_value_is_valid(&new_expression->right->constant_value))
+            {
+                bool a = constant_value_to_bool(&new_expression->left->constant_value);
+                bool b = constant_value_to_bool(&new_expression->right->constant_value);
+                new_expression->constant_value = constant_value_make_signed_int(a || b);
+            }
+
+            //Each of the operands shall have scalar type
             if (!type_is_scalar(&new_expression->left->type))
             {
                 expression_delete(new_expression);
@@ -17681,6 +19901,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
                 throw;
             }
 
+            //The result has type int
             new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
@@ -17991,7 +20212,7 @@ bool expression_is_one(const struct expression* expression)
     if (expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
     {
         return (constant_value_is_valid(&expression->constant_value) &&
-            constant_value_to_ull(&expression->constant_value) == 1);
+            constant_value_to_signed_int(&expression->constant_value) == 1);
     }
     return false;
 }
@@ -18001,7 +20222,7 @@ bool expression_is_zero(const struct expression* expression)
     if (expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
     {
         return (constant_value_is_valid(&expression->constant_value) &&
-            constant_value_to_ull(&expression->constant_value) == 0);
+            constant_value_to_signed_int(&expression->constant_value) == 0);
     }
     return false;
 }
@@ -18011,7 +20232,7 @@ bool expression_is_null_pointer_constant(const struct expression* expression)
 
     if (type_is_nullptr_t(&expression->type) ||
         (constant_value_is_valid(&expression->constant_value) &&
-            constant_value_to_ull(&expression->constant_value) == 0))
+            constant_value_to_signed_int(&expression->constant_value) == 0))
     {
         return true;
     }
@@ -18120,8 +20341,9 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             {
                 /*
                  *  both operands have arithmetic type;
-                 */
-                type_common(&left_type, &right_type, &p_conditional_expression->type);
+                */
+                type_destroy(&p_conditional_expression->type);
+                p_conditional_expression->type = type_common(&left_type, &right_type);
             }
             else if (type_is_struct_or_union(&left_type) && type_is_struct_or_union(&right_type))
             {
@@ -18643,6 +20865,7 @@ void check_assigment(struct parser_ctx* ctx,
 
 
 #include <locale.h>
+
 #ifdef _WIN32
 #endif
 
@@ -18673,12 +20896,12 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 static void pre_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx);
 static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx);
 
+//TODO share this with parser!
 /*
  * preprocessor uses long long
  */
 static int ppnumber_to_longlong(struct token* token, long long* result)
 {
-
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
     // 0xb1'1'1....
@@ -18695,28 +20918,97 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
         s++;
     }
 
-    if (buffer[0] == '0' &&
-        buffer[1] == 'x')
+    char suffix[4] = { 0 };
+    const enum token_type type = parse_number(token->lexeme, suffix);
+
+    struct constant_value  cv = { 0 };
+    switch (type)
     {
-        // hex
-        *result = strtoll(buffer + 2, NULL, 16);
-    }
-    else if (buffer[0] == '0' &&
-             buffer[1] == 'b')
+    case TK_COMPILER_DECIMAL_CONSTANT:
+    case TK_COMPILER_OCTAL_CONSTANT:
+    case TK_COMPILER_HEXADECIMAL_CONSTANT:
+    case TK_COMPILER_BINARY_CONSTANT:
     {
-        // binario
-        *result = strtoll(buffer + 2, NULL, 2);
+        unsigned long long value = 0;
+        switch (type)
+        {
+        case TK_COMPILER_DECIMAL_CONSTANT:
+            value = strtoull(buffer, NULL, 10);
+            break;
+        case TK_COMPILER_OCTAL_CONSTANT:
+            value = strtoull(buffer + 1, NULL, 8);
+            break;
+        case TK_COMPILER_HEXADECIMAL_CONSTANT:
+            value = strtoull(buffer + 2, NULL, 16);
+            break;
+        case TK_COMPILER_BINARY_CONSTANT:
+            value = strtoull(buffer + 2, NULL, 2);
+            break;
+        default:
+            break;
+        }
+
+        if (value == ULLONG_MAX && errno == ERANGE)
+        {
+            //compiler_diagnostic_message(
+            //C_ERROR_LITERAL_OVERFLOW,
+            //ctx,
+            //token,
+            //NULL,
+            //"integer literal is too large to be represented in any integer type");
+        }
+
+        if (suffix[0] == 'U')
+        {
+            /*fixing the type that fits the size*/
+            if (value <= UINT_MAX && suffix[1] != 'L')
+            {
+                cv = constant_value_make_unsigned_int((unsigned int)value);
+
+            }
+            else if (value <= ULONG_MAX && suffix[2] != 'L')
+            {
+                cv = constant_value_make_unsigned_long((unsigned long)value);
+            }
+            else //if (value <= ULLONG_MAX)
+            {
+                cv = constant_value_make_unsigned_long_long((unsigned long long)value);
+            }
+        }
+        else
+        {
+            /*fixing the type that fits the size*/
+            if (value <= INT_MAX && suffix[0] != 'L')
+            {
+                cv = constant_value_make_signed_int((int)value);
+            }
+            else if (value <= LONG_MAX && suffix[1] != 'L' /*!= LL*/)
+            {
+                cv = constant_value_make_signed_long((long)value);
+            }
+            else if (value <= LLONG_MAX)
+            {
+                cv = constant_value_make_signed_long_long((long long)value);
+            }
+            else
+            {
+                cv = constant_value_make_signed_long_long(value);
+            }
+        }
+
     }
-    else if (buffer[0] == '0')
-    {
-        // octal
-        *result = strtoll(buffer, NULL, 8);
+    break;
+
+    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
+    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
+        //error
+        break;
+
+    default:
+        assert(false);
     }
-    else
-    {
-        // decimal
-        *result = strtoll(buffer, NULL, 10);
-    }
+
+    *result = constant_value_to_signed_long_long(&cv);
 
     return 0;
 }
@@ -18742,6 +21034,205 @@ static struct token* _Opt pre_match(struct preprocessor_ctx* ctx)
     return ctx->current;
 }
 
+//TODO share this with parser
+static struct constant_value char_constant_to_value(const char* s, char error_message[/*sz*/], int error_message_sz_bytes)
+{
+    error_message[0] = '\0';
+
+    const unsigned char* _Opt p = (const unsigned char*)s;
+
+    try
+    {
+        if (p[0] == 'u' && p[1] == '8')
+        {
+            p++;
+            p++;
+            p++;
+
+            // A UTF-8 character constant has type char8_t.
+
+            int c = 0;
+            p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
+
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
+            if (*p != '\'')
+            {
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > 0x80)
+            {
+                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+            }
+
+            return constant_value_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
+        }
+        else if (p[0] == 'u')
+        {
+            p++;
+            p++;
+
+            // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
+
+            int c = 0;
+            p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
+
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
+            if (*p != '\'')
+            {
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > USHRT_MAX)
+            {
+                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+            }
+
+            return constant_value_make_wchar_t((wchar_t)c);
+        }
+        else if (p[0] == 'U')
+        {
+            p++;
+            p++;
+
+            // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
+
+            int c = 0;
+            p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
+
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
+            if (*p != '\'')
+            {
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > UINT_MAX)
+            {
+                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+            }
+
+            return constant_value_make_wchar_t((wchar_t)c);
+        }
+        else if (p[0] == 'L')
+        {
+            // A wchar_t character constant is prefixed by the letter L
+            p++;
+            p++;
+
+            /*
+             wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
+             the <stddef.h> header. The value of a wchar_t character constant containing a single multibyte
+             character that maps to a single member of the extended execution character set is the wide character
+             corresponding to that multibyte character in the implementation-defined wide literal encoding
+             (6.2.9). The value of a wchar_t character constant containing more than one multibyte character or a
+             single multibyte character that maps to multiple members of the extended execution character set,
+             or containing a multibyte character or escape sequence not represented in the extended execution
+             character set, is implementation-defined.
+            */
+            long long value = 0;
+            while (*p != '\'')
+            {
+                int c = 0;
+                p = utf8_decode(p, &c);
+                if (p == NULL)
+                {
+                    throw;
+                }
+                if (c == '\\')
+                    p = escape_sequences_decode_opt(p, &c);
+
+                if (p == 0)
+                    break;
+                // TODO \u
+                value = value * 256 + c;
+#ifdef _WIN32
+                if (value > USHRT_MAX)
+                {
+                    snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
+                    break;
+                }
+#else
+                if (value > UINT_MAX)
+                {
+                    snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
+                    break;
+                }
+#endif
+            }
+
+            return constant_value_make_wchar_t((wchar_t)value);
+        }
+        else
+        {
+            p++;
+
+            /*
+              An integer character constant has type int. The value of an integer character constant containing
+              a single character that maps to a single value in the literal encoding (6.2.9) is the numerical value
+              of the representation of the mapped character in the literal encoding interpreted as an integer.
+              The value of an integer character constant containing more than one character (e.g., ’ab’), or
+              containing a character or escape sequence that does not map to a single value in the literal encoding,
+              is implementation-defined. If an integer character constant contains a single character or escape
+              sequence, its value is the one that results when an object with type char whose value is that of the
+              single character or escape sequence is converted to type int.
+            */
+            long long value = 0;
+            while (*p != '\'')
+            {
+                int c = 0;
+                p = utf8_decode(p, &c);
+                if (p == NULL)
+                {
+                    throw;
+                }
+
+                if (c == '\\')
+                    p = escape_sequences_decode_opt(p, &c);
+                if (p == 0)
+                    break;
+                if (c < 0x80)
+                {
+                    value = value * 256 + c;
+                }
+                else
+                {
+                    value = c;
+                }
+                if (value > INT_MAX)
+                {
+                    snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
+                    break;
+                }
+            }
+            return constant_value_make_wchar_t((wchar_t)value);
+        }
+    }
+    catch
+    {
+    }
+
+    struct constant_value empty = { 0 };
+    return empty;
+}
+
 static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx)
 {
     /*
@@ -18762,19 +21253,13 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         if (ctx->current->type == TK_CHAR_CONSTANT)
         {
             const char* p = ctx->current->lexeme + 1;
-            ectx->value = 0;
-            int count = 0;
-            while (*p != '\'')
+            char errmsg[200] = { 0 };
+            struct constant_value v = char_constant_to_value(p, errmsg, sizeof errmsg);
+            if (errmsg[0] != '\0')
             {
-                ectx->value = ectx->value * 256 + *p;
-                p++;
-                count++;
-                if (count > 4)
-                {
-                    preprocessor_diagnostic_message(W_NOTE, ctx, ctx->current, "character constant too long for its type");
-                }
+                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "%s", errmsg);
             }
-
+            ectx->value = constant_value_to_signed_long_long(&v);
             pre_match(ctx);
         }
         else if (ctx->current->type == TK_PPNUMBER)
@@ -19430,6 +21915,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 }
 
 
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -20038,7 +22524,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
     }
 
 
-    struct flow_object* p_object = arena_new_object(ctx);
+    struct flow_object* _Opt p_object = arena_new_object(ctx);
 
     try
     {
@@ -20091,7 +22577,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
 
                                 if (tag && has_name(tag, &l))
                                 {
-                                    struct flow_object* member_obj = arena_new_object(ctx);
+                                    struct flow_object* _Opt member_obj = arena_new_object(ctx);
                                     member_obj->parent = p_object;
 
                                     member_obj->p_expression_origin = p_expression_origin;
@@ -20126,11 +22612,14 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                             t.category = TYPE_CATEGORY_ITSELF;
                             t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                             t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-                            struct flow_object* member_obj = make_object_core(ctx, &t, &l, p_declarator_opt, p_expression_origin);
-                            for (int k = 0; k < member_obj->members.size; k++)
+                            struct flow_object* _Opt member_obj = make_object_core(ctx, &t, &l, p_declarator_opt, p_expression_origin);
+                            if (member_obj != NULL)
                             {
-                                objects_view_push_back(&p_object->members, member_obj->members.data[k]);
-                                member_obj->members.data[k] = NULL;
+                                for (int k = 0; k < member_obj->members.size; k++)
+                                {
+                                    objects_view_push_back(&p_object->members, member_obj->members.data[k]);
+                                    member_obj->members.data[k] = NULL;
+                                }
                             }
                             type_destroy(&t);
                         }
@@ -20172,7 +22661,7 @@ struct flow_object* _Opt make_object(struct flow_visit_ctx* ctx,
 {
 
     struct object_name_list list = { .name = "" };
-    struct flow_object* p_object = make_object_core(ctx, p_type, &list, p_declarator_opt, p_expression_origin);
+    struct flow_object* _Opt p_object = make_object_core(ctx, p_type, &list, p_declarator_opt, p_expression_origin);
 
     return p_object;
 }
@@ -20219,7 +22708,7 @@ void object_remove_state(struct flow_object* object, int state_number)
     {
         if (it->state_number == state_number)
         {
-            struct flow_object_state* _Owner p_it_next = it->next;
+            struct flow_object_state* _Owner _Opt p_it_next = it->next;
             it->next = NULL;
             flow_object_state_delete(previous->next);
             previous->next = p_it_next;
@@ -20263,7 +22752,7 @@ void print_object_core(int ident,
             printf("%*c", ident + 1, ' ');
             printf("#%02d {\n", p_visitor->p_object->id);
 
-            struct member_declaration* p_member_declaration =
+            struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
 
@@ -20363,7 +22852,7 @@ void print_object_core(int ident,
             printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
 
-            struct flow_object_state* it = p_visitor->p_object->current.next;
+            struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
             while (it)
             {
                 printf(LIGHTCYAN);
@@ -20420,7 +22909,7 @@ void print_object_core(int ident,
             printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
 
-            struct flow_object_state* it = p_visitor->p_object->current.next;
+            struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
             while (it)
             {
                 printf("(#%02d %s)", it->state_number, it->dbg_name);
@@ -20532,7 +23021,7 @@ int object_merge_current_state_with_state_number_core(struct flow_object* object
     }
     object->visit_number = visit_number;
 
-    struct flow_object_state* it = object->current.next;
+    struct flow_object_state* _Opt it = object->current.next;
     while (it)
     {
         if (it->state_number == state_number)
@@ -20628,7 +23117,7 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
 
         if (p_struct_or_union_specifier)
         {
-            struct member_declaration* p_member_declaration =
+            struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
 
@@ -20730,7 +23219,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
         struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        struct member_declaration* p_member_declaration =
+        struct member_declaration* _Opt p_member_declaration =
             p_struct_or_union_specifier ?
             p_struct_or_union_specifier->member_declaration_list.head :
             NULL;
@@ -21042,7 +23531,7 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
 
         if (p_struct_or_union_specifier)
         {
-            struct member_declaration* p_member_declaration =
+            struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
             int member_index = 0;
@@ -21410,7 +23899,7 @@ void object_get_name_core(
         struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        struct member_declaration* p_member_declaration =
+        struct member_declaration* _Opt p_member_declaration =
             p_struct_or_union_specifier->member_declaration_list.head;
 
         int member_index = 0;
@@ -21469,7 +23958,7 @@ void object_get_name(const struct type* p_type,
         const char* root_name = p_object->p_declarator_origin->name_opt ? p_object->p_declarator_origin->name_opt->lexeme : "?";
         //snprintf(outname, out_size, "%s",root_name);
 
-        const struct flow_object* root = p_object->p_declarator_origin->p_object;
+        const struct flow_object* _Opt root = p_object->p_declarator_origin->p_object;
 
         object_get_name_core(&p_object->p_declarator_origin->type, root, p_object, root_name, outname, out_size, s_visit_number++);
     }
@@ -21525,7 +24014,7 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
         struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        struct member_declaration* p_member_declaration =
+        struct member_declaration* _Opt p_member_declaration =
             p_struct_or_union_specifier->member_declaration_list.head;
 
         /*
@@ -21964,7 +24453,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
     else
     {
         const char* name = previous_names;
-        const struct token* position = NULL;
+        const struct token* _Opt position = NULL;
         if (p_visitor->p_object->p_declarator_origin)
             position = p_visitor->p_object->p_declarator_origin->name_opt ? p_visitor->p_object->p_declarator_origin->name_opt : p_visitor->p_object->p_declarator_origin->first_token;
         else if (p_visitor->p_object->p_expression_origin)
@@ -22618,7 +25107,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
 
     else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
     {
-        struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+        struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
         object_set_pointer(p_object, expression_get_object(ctx, p_expression->right, nullable_enabled));
         p_object->current.state = OBJECT_STATE_NOT_NULL;
         p_object->is_temporary = true;
@@ -22631,7 +25120,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     else if (p_expression->expression_type == CAST_EXPRESSION)
     {
 
-        struct flow_object* p = expression_get_object(ctx, p_expression->left, nullable_enabled);
+        struct flow_object* _Opt p = expression_get_object(ctx, p_expression->left, nullable_enabled);
         if (p)
         {
             if (type_is_pointer(&p_expression->type_name->type))
@@ -22789,7 +25278,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     }
     else if (p_expression->expression_type == PRIMARY_EXPRESSION_PREDEFINED_CONSTANT)
     {
-        struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+        struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
         if (p_expression->type.type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
         {
             p_object->current.state = OBJECT_STATE_NULL;
@@ -23167,7 +25656,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.15"
+#define CAKE_VERSION "0.9.16"
 
 
 
@@ -24511,7 +27000,8 @@ static void token_promote(struct token* token)
     }
     else if (token->type == TK_PPNUMBER)
     {
-        token->type = parse_number(token->lexeme, NULL);
+        char suffix[4] = {0};
+        token->type = parse_number(token->lexeme, suffix);
     }
 }
 
@@ -24535,341 +27025,6 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
     return p;
 }
 
-bool is_binary_digit(struct stream* stream)
-{
-    return stream->current[0] >= '0' && stream->current[0] <= '1';
-}
-
-bool is_hexadecimal_digit(struct stream* stream)
-{
-    return (stream->current[0] >= '0' && stream->current[0] <= '9') ||
-        (stream->current[0] >= 'a' && stream->current[0] <= 'f') ||
-        (stream->current[0] >= 'A' && stream->current[0] <= 'F');
-}
-
-bool is_octal_digit(struct stream* stream)
-{
-    return stream->current[0] >= '0' && stream->current[0] <= '7';
-}
-
-void digit_sequence(struct stream* stream)
-{
-    while (is_digit(stream))
-    {
-        stream_match(stream);
-    }
-}
-
-static void binary_exponent_part(struct stream* stream)
-{
-    // p signopt digit - sequence
-    // P   signopt digit - sequence
-
-    stream_match(stream); // p or P
-    if (stream->current[0] == '+' || stream->current[0] == '-')
-    {
-        stream_match(stream); // p or P
-    }
-    digit_sequence(stream);
-}
-
-void hexadecimal_digit_sequence(struct stream* stream)
-{
-    /*
-     hexadecimal-digit-sequence:
-     hexadecimal-digit
-     hexadecimal-digit ’_Opt hexadecimal-digit
-    */
-
-    stream_match(stream);
-    while (stream->current[0] == '\'' ||
-        is_hexadecimal_digit(stream))
-    {
-        if (stream->current[0] == '\'')
-        {
-            stream_match(stream);
-            if (!is_hexadecimal_digit(stream))
-            {
-                // erro
-            }
-            stream_match(stream);
-        }
-        else
-            stream_match(stream);
-    }
-}
-
-bool first_of_unsigned_suffix(const struct stream* stream)
-{
-    /*
-     unsigned-suffix: one of
-       u U
-     */
-    return (stream->current[0] == 'u' ||
-        stream->current[0] == 'U');
-}
-
-void unsigned_suffix_opt(struct stream* stream)
-{
-    /*
-   unsigned-suffix: one of
-     u U
-   */
-    if (stream->current[0] == 'u' ||
-        stream->current[0] == 'U')
-    {
-        stream_match(stream);
-    }
-}
-
-void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* _Opt flags_opt)
-{
-    /*
-     integer-suffix:
-     unsigned-suffix long-suffixopt
-     unsigned-suffix long-long-suffix
-     long-suffix unsigned-suffixopt
-     long-long-suffix unsigned-suffixopt
-    */
-
-    if (/*unsigned-suffix*/
-        stream->current[0] == 'U' || stream->current[0] == 'u')
-    {
-        stream_match(stream);
-
-        if (flags_opt)
-        {
-            *flags_opt |= TYPE_SPECIFIER_UNSIGNED;
-        }
-
-        /*long-suffixopt*/
-        if (stream->current[0] == 'l' || stream->current[0] == 'L')
-        {
-            if (flags_opt)
-            {
-                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_INT;
-                *flags_opt |= TYPE_SPECIFIER_LONG;
-            }
-            stream_match(stream);
-        }
-
-        /*long-long-suffix*/
-        if (stream->current[0] == 'l' || stream->current[0] == 'L')
-        {
-            if (flags_opt)
-            {
-                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_LONG;
-                *flags_opt |= TYPE_SPECIFIER_LONG_LONG;
-            }
-
-            stream_match(stream);
-        }
-    }
-    else if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
-    {
-        if (flags_opt)
-        {
-            *flags_opt = *flags_opt & ~TYPE_SPECIFIER_INT;
-            *flags_opt |= TYPE_SPECIFIER_LONG;
-        }
-
-        /*long-suffix*/
-        stream_match(stream);
-
-        /*long-long-suffix*/
-        if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
-        {
-            if (flags_opt)
-            {
-                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_LONG;
-                *flags_opt |= TYPE_SPECIFIER_LONG_LONG;
-            }
-            stream_match(stream);
-        }
-
-        if (/*unsigned-suffix*/
-            stream->current[0] == 'U' || stream->current[0] == 'u')
-        {
-            if (flags_opt)
-            {
-                *flags_opt |= TYPE_SPECIFIER_UNSIGNED;
-            }
-            stream_match(stream);
-        }
-    }
-}
-
-void exponent_part_opt(struct stream* stream)
-{
-    /*
-    exponent-part:
-    e signopt digit-sequence
-    E signopt digit-sequence
-    */
-    if (stream->current[0] == 'e' || stream->current[0] == 'E')
-    {
-        stream_match(stream);
-
-        if (stream->current[0] == '-' || stream->current[0] == '+')
-        {
-            stream_match(stream);
-        }
-        digit_sequence(stream);
-    }
-}
-
-enum type_specifier_flags floating_suffix_opt(struct stream* stream)
-{
-    enum type_specifier_flags f = TYPE_SPECIFIER_DOUBLE;
-
-    if (stream->current[0] == 'l' || stream->current[0] == 'L')
-    {
-        f = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
-        stream_match(stream);
-    }
-    else if (stream->current[0] == 'f' || stream->current[0] == 'F')
-    {
-        f = TYPE_SPECIFIER_FLOAT;
-        stream_match(stream);
-    }
-
-    return f;
-}
-
-bool is_nonzero_digit(struct stream* stream)
-{
-    return stream->current[0] >= '1' && stream->current[0] <= '9';
-}
-
-enum token_type parse_number_core(struct stream* stream, enum type_specifier_flags* _Opt flags_opt)
-{
-    if (flags_opt)
-    {
-        *flags_opt = TYPE_SPECIFIER_INT;
-    }
-
-    enum token_type type = TK_NONE;
-    if (stream->current[0] == '.')
-    {
-        type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
-        stream_match(stream);
-        digit_sequence(stream);
-        exponent_part_opt(stream);
-        enum type_specifier_flags f = floating_suffix_opt(stream);
-        if (flags_opt)
-        {
-            *flags_opt = f;
-        }
-    }
-    else if (stream->current[0] == '0' && (stream->current[1] == 'x' || stream->current[1] == 'X'))
-    {
-        type = TK_COMPILER_HEXADECIMAL_CONSTANT;
-
-        stream_match(stream);
-        stream_match(stream);
-        while (is_hexadecimal_digit(stream))
-        {
-            stream_match(stream);
-        }
-
-        integer_suffix_opt(stream, flags_opt);
-
-        if (stream->current[0] == '.')
-        {
-            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
-            hexadecimal_digit_sequence(stream);
-        }
-
-        if (stream->current[0] == 'p' ||
-            stream->current[0] == 'P')
-        {
-            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
-            binary_exponent_part(stream);
-        }
-
-        if (type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
-        {
-            enum type_specifier_flags f = floating_suffix_opt(stream);
-            if (flags_opt)
-            {
-                *flags_opt = f;
-            }
-        }
-    }
-    else if (stream->current[0] == '0' && (stream->current[1] == 'b' || stream->current[1] == 'B'))
-    {
-        type = TK_COMPILER_BINARY_CONSTANT;
-        stream_match(stream);
-        stream_match(stream);
-        while (is_binary_digit(stream))
-        {
-            stream_match(stream);
-        }
-        integer_suffix_opt(stream, flags_opt);
-    }
-    else if (stream->current[0] == '0') // octal
-    {
-        type = TK_COMPILER_OCTAL_CONSTANT;
-
-        stream_match(stream);
-        while (is_octal_digit(stream))
-        {
-            stream_match(stream);
-        }
-        integer_suffix_opt(stream, flags_opt);
-
-        if (stream->current[0] == '.')
-        {
-            hexadecimal_digit_sequence(stream);
-            enum type_specifier_flags f = floating_suffix_opt(stream);
-            if (flags_opt)
-            {
-                *flags_opt = f;
-            }
-        }
-    }
-    else if (is_nonzero_digit(stream)) // decimal
-    {
-        type = TK_COMPILER_DECIMAL_CONSTANT;
-
-        stream_match(stream);
-        while (is_digit(stream))
-        {
-            stream_match(stream);
-        }
-        integer_suffix_opt(stream, flags_opt);
-
-        if (stream->current[0] == 'e' || stream->current[0] == 'E')
-        {
-            exponent_part_opt(stream);
-            enum type_specifier_flags f = floating_suffix_opt(stream);
-            if (flags_opt)
-            {
-                *flags_opt = f;
-            }
-        }
-        else if (stream->current[0] == '.')
-        {
-            stream_match(stream);
-            type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
-            digit_sequence(stream);
-            exponent_part_opt(stream);
-            enum type_specifier_flags f = floating_suffix_opt(stream);
-            if (flags_opt)
-            {
-                *flags_opt = f;
-            }
-        }
-    }
-
-    return type;
-}
-
-enum token_type parse_number(const char* lexeme, enum type_specifier_flags* _Opt flags_opt)
-{
-    struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
-    return parse_number_core(&stream, flags_opt);
-}
 
 static struct token* _Opt pragma_match(struct token* p_current)
 {
@@ -25993,6 +28148,17 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         {
                             p_init_declarator->p_declarator->type.num_of_elements =
                                 p_init_declarator->initializer->assignment_expression->type.num_of_elements;
+                        }
+                        else
+                        {
+                            if (array_size_elements <= p_init_declarator->initializer->assignment_expression->type.num_of_elements)
+                            {
+                                if (array_size_elements == p_init_declarator->initializer->assignment_expression->type.num_of_elements-1)
+                                    compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "string will not be zero terminated");
+
+                                else
+                                    compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "initializer-string for array of is too long");
+                            }
                         }
                     }
                 }
@@ -27182,9 +29348,16 @@ void specifier_qualifier_list_delete(struct specifier_qualifier_list* _Owner _Op
 
 struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct parser_ctx* ctx)
 {
+    if (!first_of_type_specifier(ctx) && !first_of_type_qualifier(ctx))
+    {
+        compiler_diagnostic_message(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, NULL, "type specifier or qualifier expected");
+        return NULL;
+    }
+
     struct specifier_qualifier_list* _Owner _Opt p_specifier_qualifier_list = calloc(1, sizeof(struct specifier_qualifier_list));
     if (p_specifier_qualifier_list == NULL)
         return NULL;
+
 
     /*
       type_specifier_qualifier attribute_specifier_sequence_opt
@@ -27334,7 +29507,7 @@ const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifi
     struct enumerator* p = p_enum_specifier->enumerator_list.head;
     while (p)
     {
-        if (p->value == value)
+        if (constant_value_to_signed_long_long(&p->value) == value)
             return p;
         p = p->next;
     }
@@ -27574,13 +29747,13 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             p_enumerator->constant_expression_opt = constant_expression(ctx, true);
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
-            p_enumerator->value = constant_value_to_ll(&p_enumerator->constant_expression_opt->constant_value);
-            *p_next_enumerator_value = p_enumerator->value;
+            p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
+            *p_next_enumerator_value = constant_value_to_signed_long_long(&p_enumerator->value);
             (*p_next_enumerator_value)++; // TODO overflow  and size check
         }
         else
         {
-            p_enumerator->value = *p_next_enumerator_value;
+            p_enumerator->value = constant_value_make_signed_long_long(*p_next_enumerator_value);
             (*p_next_enumerator_value)++; // TODO overflow  and size check
         }
     }
@@ -28000,7 +30173,7 @@ unsigned long long array_declarator_get_size(const struct array_declarator* p_ar
     {
         if (constant_value_is_valid(&p_array_declarator->assignment_expression->constant_value))
         {
-            return constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
+            return constant_value_to_unsigned_long_long(&p_array_declarator->assignment_expression->constant_value);
         }
     }
     return 0;
@@ -30114,10 +32287,10 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
+                    }
+                }
             }
         }
-    }
-}
     }
     catch
     {
@@ -30161,7 +32334,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
 
-            const long long case_value = constant_value_to_ll(&p_label->constant_expression->constant_value);
+            const long long case_value = constant_value_to_signed_long_long(&p_label->constant_expression->constant_value);
 
             struct switch_value* p_switch_value = switch_value_list_find(ctx->p_switch_value_list, case_value);
 
@@ -30830,7 +33003,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     struct enumerator* p = p_enum_specifier->enumerator_list.head;
                     while (p)
                     {
-                        struct switch_value* p_used = switch_value_list_find(&switch_value_list, p->value);
+                        struct switch_value* p_used = switch_value_list_find(&switch_value_list, constant_value_to_signed_long_long(&p->value));
 
                         if (p_used == NULL)
                         {
@@ -32853,8 +35026,15 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
     if (p_selection_statement->p_init_statement &&
         p_selection_statement->p_init_statement->p_expression_statement)
     {
-        init_tokens_cut = cut(p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token,
-            p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token);
+        if (p_selection_statement->p_init_statement->p_expression_statement->expression_opt)
+        {
+            init_tokens_cut = cut(p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token,
+                p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token);
+        }
+        else
+        {
+            assert(false);
+        }
     }
     else if (p_selection_statement->p_init_statement &&
         p_selection_statement->p_init_statement->p_simple_declaration)
@@ -32880,9 +35060,17 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         token_list_insert_before(&ctx->ast.token_list, p_selection_statement->first_token, &condition_tokens_cut);
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, ";");
 
-        token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
-            p_selection_statement->condition->p_init_declarator->p_declarator->name_opt->lexeme
-        );
+        if (p_selection_statement->condition->p_init_declarator->p_declarator->name_opt)
+        {
+            token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
+                p_selection_statement->condition->p_init_declarator->p_declarator->name_opt->lexeme
+            );
+        }
+        else
+        {
+            assert(false);
+        }
+
 
     }
 
@@ -32896,13 +35084,19 @@ void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, boo
     struct defer_scope* _Opt defer_child = defer_block->lastchild;
     while (defer_child != NULL)
     {
+        if (defer_child->defer_statement == NULL)
+        {
+            assert(false);
+            return;
+        }
+
         _View struct token_list l = { 0 };
 
         l.head = defer_child->defer_statement->first_token;
         l.tail = defer_child->defer_statement->last_token;
 
         l.head->flags |= TK_C_BACKEND_FLAG_HIDE;
-        const char* _Owner s = get_code_as_compiler_see(&l);
+        const char* _Owner _Opt s = get_code_as_compiler_see(&l);
         if (s != NULL)
         {
             if (hide_tokens)
@@ -32921,6 +35115,12 @@ void hide_block_defer(struct defer_scope* deferblock)
     struct defer_scope* _Opt deferchild = deferblock->lastchild;
     while (deferchild != NULL)
     {
+        if (deferchild->defer_statement == NULL)
+        {
+            assert(false);
+            return;
+        }
+
         struct token* head = deferchild->defer_statement->first_token;
         struct token* tail = deferchild->defer_statement->last_token;
         token_range_add_flag(head, tail, TK_C_BACKEND_FLAG_HIDE);
@@ -33004,9 +35204,16 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
         }
         else if (p_unlabeled_statement->primary_block->iteration_statement)
         {
-            if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
+            if (p_unlabeled_statement->primary_block->iteration_statement->secondary_block)
             {
-                return true;
+                if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                assert(false);
             }
         }
     }
@@ -33015,12 +35222,12 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
 
 bool find_label_statement(struct statement* statement, const char* label)
 {
-    if (statement->labeled_statement)
+    if (statement->labeled_statement &&
+        statement->labeled_statement->label &&
+        statement->labeled_statement->label->p_identifier_opt)
     {
-        if (statement->labeled_statement->label &&
-            strcmp(statement->labeled_statement->label->p_identifier_opt->lexeme, label) == 0)
+        if (strcmp(statement->labeled_statement->label->p_identifier_opt->lexeme, label) == 0)
         {
-            /*achou*/
             return true;
         }
     }
@@ -33132,9 +35339,12 @@ static void visit_secondary_block(struct visit_ctx* ctx, struct secondary_block*
 {
     visit_statement(ctx, p_secondary_block->statement);
 }
-struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
+struct defer_scope* _Opt visit_ctx_push_tail_child(struct visit_ctx* ctx)
 {
     struct defer_scope* _Owner _Opt p_defer = calloc(1, sizeof * p_defer);
+    if (p_defer == NULL)
+        return NULL;
+
     p_defer->previous = ctx->tail_block->lastchild;
     ctx->tail_block->lastchild = p_defer;
 
@@ -33142,26 +35352,26 @@ struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
 }
 
 
-struct defer_scope* visit_ctx_push_tail_block(struct visit_ctx* ctx)
+struct defer_scope* _Opt visit_ctx_push_tail_block(struct visit_ctx* ctx)
 {
     struct defer_scope* _Owner _Opt p_defer = calloc(1, sizeof * p_defer);
-    if (p_defer)
-    {
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
-    }
-    else
-    {
-        //ops
-    }
+    if (p_defer == NULL)
+        return NULL;
+
+    p_defer->previous = ctx->tail_block;
+    ctx->tail_block = p_defer;
+
     return ctx->tail_block;
 }
 static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
     if (!ctx->is_second_pass)
     {
-        //adiciona como filho do ultimo bloco
-        struct defer_scope* p_defer = visit_ctx_push_tail_child(ctx);
+        //add as child of the last block
+        struct defer_scope* _Opt p_defer = visit_ctx_push_tail_child(ctx);
+        if (p_defer == NULL)
+            return;
+
         p_defer->defer_statement = p_defer_statement;
 
 
@@ -33197,6 +35407,9 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
     if (!ctx->is_second_pass)
     {
         struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+            return;
+
         p_defer->p_try_statement = p_try_statement;
 
         if (p_try_statement->secondary_block)
@@ -33220,6 +35433,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         char buffer[50] = { 0 };
         if (p_try_statement->catch_secondary_block_opt)
         {
+            assert(p_try_statement->catch_token_opt != NULL);
 
             snprintf(buffer, sizeof buffer, "else _catch_label_%d:", p_try_statement->try_catch_block_index);
 
@@ -33242,7 +35456,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
 
 static void visit_declaration_specifiers(struct visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type);
+    struct type* _Opt p_type);
 
 static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
 
@@ -33294,9 +35508,10 @@ static void visit_condition(struct visit_ctx* ctx, struct condition* p_condition
 
 static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
+    struct defer_scope* _Opt p_defer = visit_ctx_push_tail_block(ctx);
+    if (p_defer == NULL)
+        return;
 
-    //PUSH
-    struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement2 = p_selection_statement;
 
     if (p_selection_statement->p_init_statement)
@@ -33568,6 +35783,10 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
                 {
                     current->flags |= TK_C_BACKEND_FLAG_SHOW_AGAIN;
                 }
+                if (current->next == NULL)
+                {
+                    break;
+                }
             }
         }
 
@@ -33578,13 +35797,17 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
         if (p_generic_selection->p_view_selected_expression)
         {
             for (struct token* current = p_generic_selection->p_view_selected_expression->first_token;
-                current != p_generic_selection->p_view_selected_expression->last_token->next;
-                current = current->next)
+                 current != p_generic_selection->p_view_selected_expression->last_token->next;
+                 current = current->next)
             {
                 if ((current->flags & TK_C_BACKEND_FLAG_HIDE) &&
                     (current->flags & TK_C_BACKEND_FLAG_SHOW_AGAIN))
                 {
                     current->flags = current->flags & ~(TK_C_BACKEND_FLAG_SHOW_AGAIN | TK_C_BACKEND_FLAG_HIDE);
+                }
+                if (current->next == NULL)
+                {
+                    break;
                 }
             }
         }
@@ -33599,8 +35822,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     {
     case PRIMARY_EXPRESSION__FUNC__:
         break;
-    case PRIMARY_IDENTIFIER:
-        break;
+    
     case PRIMARY_EXPRESSION_ENUMERATOR:
         if (ctx->target < LANGUAGE_C23)
         {
@@ -33765,6 +35987,9 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             ss_close(&ss0);
 
+            if (ss.c_str == NULL)
+                return;
+
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l1 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
 
@@ -33777,6 +36002,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 current = current->next)
             {
                 token_list_clone_and_add(&ctx->insert_before_declaration, current);
+                if (current->next == NULL)
+                    break;
             }
 
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_C_BACKEND_FLAG_HIDE);
@@ -33814,7 +36041,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             const int level = p_expression->first_token->level;
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_C_BACKEND_FLAG_HIDE);
             char buffer[30] = { 0 };
-            snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
+            snprintf(buffer, sizeof buffer, "%lld", constant_value_to_signed_long_long(&p_expression->constant_value));
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l3 = tokenizer(&tctx, buffer, NULL, level, TK_FLAG_FINAL);
             l3.head->flags = p_expression->last_token->flags;
@@ -33987,7 +36214,10 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 
     if (p_iteration_statement->secondary_block)
     {
-        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
+        struct defer_scope* _Opt p_defer = visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+            return;
+
         p_defer->p_iteration_statement = p_iteration_statement;
 
         visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -34287,7 +36517,7 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
     {
         if (p_static_assert_declaration->string_literal_opt == NULL)
         {
-            struct token* rp = previous_parser_token(p_static_assert_declaration->last_token);
+            struct token* _Opt rp = previous_parser_token(p_static_assert_declaration->last_token);
             rp = previous_parser_token(rp);
 
             struct tokenizer_ctx tctx = { 0 };
@@ -34841,7 +37071,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
 
 static void visit_declaration_specifiers(struct visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type_opt)
+    struct type* _Opt p_type_opt)
 {
     /*
         * Se tiver typeof ou auto vamos apagar todos type specifiers.
@@ -34913,7 +37143,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         token_list_destroy(&l2);
     }
 
-    struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
+    struct declaration_specifier* _Opt p_declaration_specifier = p_declaration_specifiers->head;
 
     struct declaration_specifier* _Opt p_constexpr_declaration_specifier = NULL;
     while (p_declaration_specifier)
@@ -35100,6 +37330,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 {
                     token_list_clone_and_add(&ctx->insert_before_declaration, current);
                     //current->flags |= TK_FLAG_FINAL;
+                    if (current->next == NULL)
+                        break;
                 }
 
                 struct token_list list3 = tokenizer(&tctx, ";\n", NULL, 0, TK_FLAG_FINAL);
@@ -35135,7 +37367,10 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         ctx->is_second_pass = false;
 
 
-        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
+        struct defer_scope* _Opt p_defer = visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+            return;
+
         p_defer->p_function_body = p_declaration->function_body;
 
         visit_compound_statement(ctx, p_declaration->function_body);
@@ -36214,7 +38449,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
 {
     try
     {
-        struct flow_object_state* it = object->current.next;
+        struct flow_object_state* _Opt it = object->current.next;
         while (it)
         {
             if (it->state_number == state_number)
@@ -36305,7 +38540,7 @@ static void arena_merge_current_state_with_state_number(struct flow_visit_ctx* c
 
 static void object_restore_current_state_from2(struct flow_visit_ctx* ctx, struct flow_object* object, int state_number)
 {
-    struct flow_object_state* it = object->current.next;
+    struct flow_object_state* _Opt it = object->current.next;
     while (it)
     {
         if (it->state_number == state_number)
@@ -36422,7 +38657,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
             {
                 struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                struct flow_object* po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
+                struct flow_object* _Opt po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
                 object_set_pointer(p_init_declarator->p_declarator->p_object, po);
                 type_destroy(&t);
                 p_init_declarator->p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
@@ -36431,7 +38666,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             {
 
                 struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                struct flow_object* po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
+                struct flow_object* _Opt po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
                 object_set_zero(&t, po);
                 object_set_pointer(p_init_declarator->p_declarator->p_object, po);
                 type_destroy(&t);
@@ -36443,7 +38678,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
         else  if (p_init_declarator->initializer &&
             p_init_declarator->initializer->braced_initializer)
         {
-            struct flow_object* po = make_object(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
+            struct flow_object* _Opt po = make_object(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
 
             braced_initializer_set_object(p_init_declarator->initializer->braced_initializer,
                 &p_init_declarator->p_declarator->type,
@@ -36459,7 +38694,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             };
 
 
-            struct flow_object* p_right_object = po;
+            struct flow_object* _Opt p_right_object = po;
             flow_check_assignment(ctx,
                                    p_init_declarator->p_declarator->first_token,
                                    &a_marker,
@@ -36531,7 +38766,7 @@ void print_arena(struct flow_visit_ctx* ctx)
     for (int i = 0; i < ctx->arena.size; i++)
     {
         struct flow_object* p_object = ctx->arena.data[i];
-        struct flow_object_state* p_state = p_object->current.next;
+        struct flow_object_state* _Opt p_state = p_object->current.next;
         int count = 0;
         while (p_state)
         {
@@ -36589,7 +38824,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement = p_selection_statement;
 
     if (p_selection_statement->p_init_statement &&
@@ -36738,7 +38973,7 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
     const int throw_join_state_old = ctx->throw_join_state;
-    struct secondary_block* catch_secondary_block_old = ctx->catch_secondary_block_opt;
+    struct secondary_block* _Opt catch_secondary_block_old = ctx->catch_secondary_block_opt;
 
 
     ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
@@ -36747,7 +38982,7 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
 
     const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
 
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_try_statement = p_try_statement;
 
     if (p_try_statement->secondary_block)
@@ -36803,7 +39038,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
     ctx->initial_state = arena_add_copy_of_current_state(ctx, "original");
     ctx->break_join_state = arena_add_empty_state(ctx, "break join");
 
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement = p_selection_statement;
 
     if (p_selection_statement->secondary_block)
@@ -37004,8 +39239,8 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
         const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(p_type);
         if (p_param_list == NULL) throw;
 
-        struct param* p_current_parameter_type = p_param_list->head;
-        struct argument_expression* p_current_argument = p_argument_expression_list->head;
+        struct param* _Opt p_current_parameter_type = p_param_list->head;
+        struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
         while (p_current_argument && p_current_parameter_type)
         {
@@ -37212,7 +39447,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
 
 void object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to)
 {
-    struct flow_object_state* it_from = p_object_from->current.next;
+    struct flow_object_state* _Opt it_from = p_object_from->current.next;
     while (it_from)
     {
 #if 0
@@ -37306,8 +39541,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
     case PRIMARY_EXPRESSION__FUNC__:
         break;
-    case PRIMARY_IDENTIFIER:
-        break;
+    
     case PRIMARY_EXPRESSION_ENUMERATOR:
 
         break;
@@ -37481,7 +39715,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
 
-        struct flow_object* temp2 = make_object(ctx, &p_expression->type, NULL, p_expression);
+        struct flow_object* _Opt temp2 = make_object(ctx, &p_expression->type, NULL, p_expression);
         object_swap(temp2, p_expression->type_name->declarator->p_object);
         //object_destroy(&temp2);
 
@@ -37653,7 +39887,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         if (expression_is_malloc(p_expression->right))
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
-            struct flow_object* po = make_object(ctx, &t, NULL, p_expression->left);
+            struct flow_object* _Opt po = make_object(ctx, &t, NULL, p_expression->left);
             object_set_pointer(p_dest_object, po);
             type_destroy(&t);
             p_dest_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
@@ -37661,7 +39895,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         else if (expression_is_calloc(p_expression->right))
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
-            struct flow_object* po = make_object(ctx, &t, NULL, p_expression->left);
+            struct flow_object* _Opt po = make_object(ctx, &t, NULL, p_expression->left);
             object_set_zero(&t, po);
             object_set_pointer(p_dest_object, po);
             type_destroy(&t);
@@ -37732,7 +39966,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (left_is_constant)
         {
-            const long long left_value = constant_value_to_ll(&p_expression->left->constant_value);
+            const long long left_value = constant_value_to_signed_long_long(&p_expression->left->constant_value);
 
             struct true_false_set true_false_set_right = { 0 };
             flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
@@ -37754,7 +39988,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         else if (right_is_constant)
         {
-            const long long right_value = constant_value_to_ll(&p_expression->right->constant_value);
+            const long long right_value = constant_value_to_signed_long_long(&p_expression->right->constant_value);
 
             struct true_false_set true_false_set_left3 = { 0 };
             flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
@@ -38040,7 +40274,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     if (p_iteration_statement->secondary_block)
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
 
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -38099,7 +40333,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     if (p_iteration_statement->secondary_block)
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
         true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
 
@@ -38189,7 +40423,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     if (p_iteration_statement->secondary_block)
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
@@ -38209,7 +40443,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     /*we visit again*/
     if (!b_secondary_block_ends_with_jump && p_iteration_statement->secondary_block)
     {
-        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
@@ -38270,7 +40504,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
             if (p_object)
             {
-                struct flow_object* p_dest_object =
+                struct flow_object* _Opt p_dest_object =
                     make_object(ctx, ctx->p_return_type, NULL, p_jump_statement->expression_opt);
 
                 object_set_zero(ctx->p_return_type, p_dest_object);
@@ -38684,7 +40918,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
 {
     if (p_direct_declarator->function_declarator)
     {
-        struct parameter_declaration* parameter = NULL;
+        struct parameter_declaration* _Opt parameter = NULL;
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt)
         {
@@ -38769,7 +41003,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     if (type_is_pointer_to_out(&p_declarator->type))
                     {
                         struct type t = type_remove_pointer(&p_declarator->type);
-                        struct flow_object* po = make_object(ctx, &t, p_declarator, NULL);
+                        struct flow_object* _Opt po = make_object(ctx, &t, p_declarator, NULL);
                         object_set_uninitialized(&t, po);
                         object_set_pointer(p_declarator->p_object, po); //MOVED                    
                         type_destroy(&t);
@@ -38777,7 +41011,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     else if (type_is_any_owner(&p_declarator->type))
                     {
                         struct type t = type_remove_pointer(&p_declarator->type);
-                        struct flow_object* po = make_object(ctx, &t, p_declarator, NULL);
+                        struct flow_object* _Opt po = make_object(ctx, &t, p_declarator, NULL);
                         const bool t_is_nullable = type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
                         object_set_unknown(&t, t_is_nullable, po, nullable_enabled);
                         object_set_pointer(p_declarator->p_object, po); //MOVED                    
@@ -40811,6 +43045,67 @@ bool type_is_vla(const struct type* p_type)
     }
     return false;
 }
+
+bool type_is_decimal128(const struct type* p_type)
+{
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL128;
+}
+bool type_is_decimal64(const struct type* p_type)
+{
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL64;
+}
+bool type_is_decimal32(const struct type* p_type)
+{
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL32;
+}
+bool type_is_long_double(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return  false;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+    {
+        if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
+        {
+            return true;
+        }
+
+    }
+    return false;
+}
+
+bool type_is_double(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return  false;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+    {
+        if (!(p_type->type_specifier_flags & TYPE_SPECIFIER_LONG))
+        {
+            return true;
+        }
+
+    }
+    return false;
+}
+
+bool type_is_float(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return  false;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+    {
+        return true;
+    }
+    return false;
+}
+
+
 bool type_is_bool(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
@@ -40843,6 +43138,18 @@ bool type_is_unsigned_integer(const struct type* p_type)
 
     return false;
 }
+
+bool type_is_signed_integer(const struct type* p_type)
+{
+    if (type_is_integer(p_type) &&
+        !(p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED))
+    {
+        return true;
+    }
+
+    return false;
+}
+
 
 /*
   The type char, the signed and unsigned integer types,
@@ -41443,98 +43750,262 @@ bool type_is_pointer_or_array(const struct type* p_type)
 
 
 //See 6.3.1.1
-int type_get_rank(struct type* p_type1)
+int type_get_integer_rank(const struct type* p_type1)
 {
     if (type_is_pointer_or_array(p_type1))
     {
+        assert(false);
         return 40;
     }
 
-    int rank = 0;
-    if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL))
+    if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT64))
     {
-        rank = 10;
+        return 80;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT8))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T))
     {
-        rank = 20;
-    }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT16))
-    {
-        rank = 30;
-    }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_INT) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_ENUM))
-    {
-        rank = 40;
+        return 50; //?
     }
     else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG) ||
         (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT32))
     {
-        rank = 50;
+        return 50;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_INT) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_ENUM))
     {
-        rank = 50; //?
+        return 40;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_FLOAT))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT16))
     {
-        rank = 60;
+        return 30;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_DOUBLE))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT8))
     {
-        rank = 70;
+        return 20;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT64))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL))
     {
-        rank = 80;
+        return 10;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
+
+    return 0;
+}
+
+struct type type_get_enum_underlying_type(const struct type* p)
+{
+    struct type r = type_make_int();
+    //TODO
+    return r;
+}
+
+struct type type_common(const struct type* p_type1, const struct type* p_type2)
+{
+    //See 6.3.1.8 Usual arithmetic conversions
+
+
+    /*
+       First, if the type of either operand is _Decimal128,
+       the other operand is converted to _Decimal128.
+    */
+    if (type_is_decimal128(p_type1))
     {
-        return -1;
-        //seterror(error, "internal error - struct is not valid for rank");
+        return type_dup(p_type1);
+    }
+
+    if (type_is_decimal128(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+      Otherwise, if the type of either operand is _Decimal64,
+      the other operand is converted to _Decimal64
+    */
+
+    if (type_is_decimal64(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_decimal64(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+      Otherwise, if the type of either operand is _Decimal32,
+      the other operand is converted to _Decimal32.
+    */
+    if (type_is_decimal32(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_decimal32(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+      Otherwise, if the corresponding real type of either operand is long double,
+      the other operand is converted, without change of type domain, to a type whose
+      corresponding real type is long double
+    */
+    if (type_is_long_double(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_long_double(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+      Otherwise, if the corresponding real type of either operand is double,
+      the other operand is converted, without change of type domain, to a type
+      whose corresponding real type is double.
+    */
+
+    if (type_is_double(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_double(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+
+    /*
+      Otherwise, if the corresponding real type of either operand is float,
+      the other operand is converted, without change of type domain,
+      to a type whose corresponding real type is float
+    */
+    if (type_is_float(p_type1))
+    {
+        return type_dup(p_type1);
+    }
+
+    if (type_is_float(p_type2))
+    {
+        return type_dup(p_type2);
+    }
+
+    /*
+     Otherwise, if any of the two types is an enumeration, it is converted to its underlying type.
+    */
+    struct type promoted_a = { 0 };
+    struct type promoted_b = { 0 };
+
+
+    if (type_is_enum(p_type1))
+    {
+        promoted_a = type_get_enum_underlying_type(p_type1);
+
     }
     else
     {
-        return -2;
-        //seterror(error, "unexpected type for rank");
+        promoted_a = type_dup(p_type1);
     }
-    return rank;
-}
 
-int type_common(struct type* p_type1, struct type* p_type2, struct type* out_type)
-{
-    struct type t0 = { 0 };
-    try
+    if (type_is_enum(p_type2))
     {
-        int rank_left = type_get_rank(p_type1);
-        if (rank_left < 0) throw;
-
-        int rank_right = type_get_rank(p_type2);
-        if (rank_right < 0) throw;
-
-        if (rank_left >= rank_right)
-            t0 = type_dup(p_type1);
-        else
-            t0 = type_dup(p_type2);
-
-        /*
-           The result of expression +,- * / etc are not lvalue
-        */
-
+        promoted_b = type_get_enum_underlying_type(p_type2);
     }
-    catch
+    else
     {
-        return 1;
+        promoted_b = type_dup(p_type2);
     }
 
-    type_swap(out_type, &t0);
-    type_destroy(&t0);
+    /*
+      Then, the integer promotions are performed on both operands. Next, the following rules are
+      applied to the promoted operands
+    */
+    type_integer_promotion(&promoted_a);
+    type_integer_promotion(&promoted_b);
 
-    return 0;
+
+
+    /*
+      if both operands have the same type, then no further conversion is needed
+    */
+    if (type_is_same(&promoted_a, &promoted_b, false))
+    {
+        type_destroy(&promoted_b);
+        return promoted_a;
+    }
+
+    /*
+     Otherwise, if both operands have signed integer types or both have unsigned integer
+     types, the operand with the type of lesser integer conversion rank is converted to the type
+     of the operand with greater rank.
+    */
+
+    if (type_is_signed_integer(&promoted_a) == type_is_signed_integer(&promoted_b))
+    {
+        if (type_get_integer_rank(&promoted_a) > type_get_integer_rank(&promoted_b))
+        {
+            type_destroy(&promoted_b);
+            return promoted_a;
+        }
+
+        type_destroy(&promoted_a);
+        return promoted_b;
+    }
+
+
+    /*
+     Otherwise, if the operand that has unsigned integer type has rank greater or equal to
+     the rank of the type of the other operand, then the operand with signed integer type is
+     converted to the type of the operand with unsigned integer type.
+    */
+
+    struct type* p_signed_promoted = type_is_signed_integer(&promoted_a) ? &promoted_a : &promoted_b;
+    struct type* p_unsigned_promoted = type_is_unsigned_integer(&promoted_a) ? &promoted_a : &promoted_b;
+
+    assert(p_signed_promoted != p_unsigned_promoted);
+
+    if (type_get_integer_rank(p_unsigned_promoted) >= type_get_integer_rank(p_signed_promoted))
+    {
+        struct type r = { 0 };
+        type_swap(&r, p_unsigned_promoted);
+        type_destroy(&promoted_a);
+        type_destroy(&promoted_b);
+        return r;
+    }
+
+    /*
+      Otherwise, if the type of the operand with signed integer type can represent all the values
+      of the type of the operand with unsigned integer type, then the operand with unsigned
+      integer type is converted to the type of the operand with signed integer type
+    */
+
+    if (type_get_sizeof(p_signed_promoted) > type_get_sizeof(p_unsigned_promoted))
+    {
+        struct type r = { 0 };
+        type_swap(&r, p_signed_promoted);
+        type_destroy(&promoted_a);
+        type_destroy(&promoted_b);
+        return r;
+    }
+
+    /*
+      Otherwise, both operands are converted to the unsigned integer type corresponding to
+      the type of the operand with signed integer type
+    */
+
+    struct type r = { 0 };
+    type_swap(&r, p_signed_promoted);
+    r.type_specifier_flags |= TYPE_SPECIFIER_UNSIGNED;
+    type_destroy(&promoted_a);
+    type_destroy(&promoted_b);
+    return r;
 }
 
 void type_set(struct type* a, const struct type* b)
@@ -41718,8 +44189,8 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
     return size;
 }
 
-int type_get_alignof(const struct type* p_type);
-int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
+size_t type_get_alignof(const struct type* p_type);
+size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
     int align = 0;
     struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
@@ -41788,7 +44259,7 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
     return align;
 }
 
-int type_get_alignof(const struct type* p_type)
+size_t type_get_alignof(const struct type* p_type)
 {
     int align = 0;
 
@@ -41910,7 +44381,7 @@ int type_get_alignof(const struct type* p_type)
     return align;
 }
 
-int type_get_sizeof(const struct type* p_type)
+size_t type_get_sizeof(const struct type* p_type)
 {
     const enum type_category category = type_get_category(p_type);
 
@@ -41921,7 +44392,7 @@ int type_get_sizeof(const struct type* p_type)
 
     if (category == TYPE_CATEGORY_FUNCTION)
     {
-        return -1;
+        return (size_t)-1;
     }
 
     if (category == TYPE_CATEGORY_ARRAY)
@@ -42144,6 +44615,31 @@ struct type type_get_enum_type(const struct type* p_type)
     struct type empty = { 0 };
     return empty;
 }
+
+struct type type_make_long_double()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type type_make_double()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type type_make_float()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
 
 struct type type_make_size_t()
 {

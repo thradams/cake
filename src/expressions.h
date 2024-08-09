@@ -8,13 +8,13 @@
 #include "type.h"
 #include  "tokenizer.h"
 #include "ownership.h"
+#include "constant_value.h"
 
 struct parser_ctx;
 
 enum expression_type
 {
-    PRIMARY_IDENTIFIER,
-
+    EXPRESSION_TYPE_INVALID, 
 
     PRIMARY_EXPRESSION_ENUMERATOR,
     PRIMARY_EXPRESSION_DECLARATOR,
@@ -162,34 +162,6 @@ struct generic_selection
 };
 
 void generic_selection_delete(struct generic_selection* _Owner _Opt p);
-
-enum constant_value_type {
-    TYPE_NOT_CONSTANT,
-    TYPE_LONG_LONG,
-    TYPE_DOUBLE,
-    TYPE_UNSIGNED_LONG_LONG
-};
-
-struct constant_value {
-    enum constant_value_type type;
-    union {
-        unsigned long long ullvalue;
-        long long llvalue;
-        double dvalue;
-    };
-};
-
-struct constant_value make_constant_value_double(double d, bool disabled);
-struct constant_value make_constant_value_ull(unsigned long long d, bool disabled);
-struct constant_value make_constant_value_ll(long long d, bool disabled);
-
-struct constant_value constant_value_op(const struct constant_value* a, const  struct constant_value* b, int op);
-unsigned long long constant_value_to_ull(const struct constant_value* a);
-long long constant_value_to_ll(const struct constant_value* a);
-long long constant_value_to_ll(const struct constant_value* a);
-bool constant_value_to_bool(const struct constant_value* a);
-bool constant_value_is_valid(const struct constant_value* a);
-void constant_value_to_string(const struct constant_value* a, char buffer[], int sz);
 
 struct expression
 {

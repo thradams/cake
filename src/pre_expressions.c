@@ -13,6 +13,11 @@
 #include "tokenizer.h"
 #include "pre_expressions.h"
 #include <locale.h>
+#include <assert.h>
+#include <limits.h>
+#include "constant_value.h"
+#include <errno.h>
+
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -46,12 +51,12 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 static void pre_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx);
 static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx);
 
+//TODO share this with parser!
 /*
  * preprocessor uses long long
  */
 static int ppnumber_to_longlong(struct token* token, long long* result)
 {
-
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
     // 0xb1'1'1....
@@ -68,28 +73,97 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
         s++;
     }
 
-    if (buffer[0] == '0' &&
-        buffer[1] == 'x')
+    char suffix[4] = { 0 };
+    const enum token_type type = parse_number(token->lexeme, suffix);
+
+    struct constant_value  cv = { 0 };
+    switch (type)
     {
-        // hex
-        *result = strtoll(buffer + 2, NULL, 16);
-    }
-    else if (buffer[0] == '0' &&
-             buffer[1] == 'b')
+    case TK_COMPILER_DECIMAL_CONSTANT:
+    case TK_COMPILER_OCTAL_CONSTANT:
+    case TK_COMPILER_HEXADECIMAL_CONSTANT:
+    case TK_COMPILER_BINARY_CONSTANT:
     {
-        // binario
-        *result = strtoll(buffer + 2, NULL, 2);
+        unsigned long long value = 0;
+        switch (type)
+        {
+        case TK_COMPILER_DECIMAL_CONSTANT:
+            value = strtoull(buffer, NULL, 10);
+            break;
+        case TK_COMPILER_OCTAL_CONSTANT:
+            value = strtoull(buffer + 1, NULL, 8);
+            break;
+        case TK_COMPILER_HEXADECIMAL_CONSTANT:
+            value = strtoull(buffer + 2, NULL, 16);
+            break;
+        case TK_COMPILER_BINARY_CONSTANT:
+            value = strtoull(buffer + 2, NULL, 2);
+            break;
+        default:
+            break;
+        }
+
+        if (value == ULLONG_MAX && errno == ERANGE)
+        {
+            //compiler_diagnostic_message(
+            //C_ERROR_LITERAL_OVERFLOW,
+            //ctx,
+            //token,
+            //NULL,
+            //"integer literal is too large to be represented in any integer type");
+        }
+
+        if (suffix[0] == 'U')
+        {
+            /*fixing the type that fits the size*/
+            if (value <= UINT_MAX && suffix[1] != 'L')
+            {
+                cv = constant_value_make_unsigned_int((unsigned int)value);
+
+            }
+            else if (value <= ULONG_MAX && suffix[2] != 'L')
+            {
+                cv = constant_value_make_unsigned_long((unsigned long)value);
+            }
+            else //if (value <= ULLONG_MAX)
+            {
+                cv = constant_value_make_unsigned_long_long((unsigned long long)value);
+            }
+        }
+        else
+        {
+            /*fixing the type that fits the size*/
+            if (value <= INT_MAX && suffix[0] != 'L')
+            {
+                cv = constant_value_make_signed_int((int)value);
+            }
+            else if (value <= LONG_MAX && suffix[1] != 'L' /*!= LL*/)
+            {
+                cv = constant_value_make_signed_long((long)value);
+            }
+            else if (value <= LLONG_MAX)
+            {
+                cv = constant_value_make_signed_long_long((long long)value);
+            }
+            else
+            {
+                cv = constant_value_make_signed_long_long(value);
+            }
+        }
+
     }
-    else if (buffer[0] == '0')
-    {
-        // octal
-        *result = strtoll(buffer, NULL, 8);
+    break;
+
+    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
+    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
+        //error
+        break;
+
+    default:
+        assert(false);
     }
-    else
-    {
-        // decimal
-        *result = strtoll(buffer, NULL, 10);
-    }
+
+    *result = constant_value_to_signed_long_long(&cv);
 
     return 0;
 }
@@ -115,6 +189,205 @@ static struct token* _Opt pre_match(struct preprocessor_ctx* ctx)
     return ctx->current;
 }
 
+//TODO share this with parser
+static struct constant_value char_constant_to_value(const char* s, char error_message[/*sz*/], int error_message_sz_bytes)
+{
+    error_message[0] = '\0';
+
+    const unsigned char* _Opt p = (const unsigned char*)s;
+
+    try
+    {
+        if (p[0] == 'u' && p[1] == '8')
+        {
+            p++;
+            p++;
+            p++;
+
+            // A UTF-8 character constant has type char8_t.
+
+            int c = 0;
+            p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
+
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
+            if (*p != '\'')
+            {
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > 0x80)
+            {
+                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+            }
+
+            return constant_value_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
+        }
+        else if (p[0] == 'u')
+        {
+            p++;
+            p++;
+
+            // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
+
+            int c = 0;
+            p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
+
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
+            if (*p != '\'')
+            {
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > USHRT_MAX)
+            {
+                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+            }
+
+            return constant_value_make_wchar_t((wchar_t)c);
+        }
+        else if (p[0] == 'U')
+        {
+            p++;
+            p++;
+
+            // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
+
+            int c = 0;
+            p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
+
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
+            if (*p != '\'')
+            {
+                snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > UINT_MAX)
+            {
+                snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
+            }
+
+            return constant_value_make_wchar_t((wchar_t)c);
+        }
+        else if (p[0] == 'L')
+        {
+            // A wchar_t character constant is prefixed by the letter L
+            p++;
+            p++;
+
+            /*
+             wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
+             the <stddef.h> header. The value of a wchar_t character constant containing a single multibyte
+             character that maps to a single member of the extended execution character set is the wide character
+             corresponding to that multibyte character in the implementation-defined wide literal encoding
+             (6.2.9). The value of a wchar_t character constant containing more than one multibyte character or a
+             single multibyte character that maps to multiple members of the extended execution character set,
+             or containing a multibyte character or escape sequence not represented in the extended execution
+             character set, is implementation-defined.
+            */
+            long long value = 0;
+            while (*p != '\'')
+            {
+                int c = 0;
+                p = utf8_decode(p, &c);
+                if (p == NULL)
+                {
+                    throw;
+                }
+                if (c == '\\')
+                    p = escape_sequences_decode_opt(p, &c);
+
+                if (p == 0)
+                    break;
+                // TODO \u
+                value = value * 256 + c;
+#ifdef _WIN32
+                if (value > USHRT_MAX)
+                {
+                    snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
+                    break;
+                }
+#else
+                if (value > UINT_MAX)
+                {
+                    snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
+                    break;
+                }
+#endif
+            }
+
+            return constant_value_make_wchar_t((wchar_t)value);
+        }
+        else
+        {
+            p++;
+
+            /*
+              An integer character constant has type int. The value of an integer character constant containing
+              a single character that maps to a single value in the literal encoding (6.2.9) is the numerical value
+              of the representation of the mapped character in the literal encoding interpreted as an integer.
+              The value of an integer character constant containing more than one character (e.g., ’ab’), or
+              containing a character or escape sequence that does not map to a single value in the literal encoding,
+              is implementation-defined. If an integer character constant contains a single character or escape
+              sequence, its value is the one that results when an object with type char whose value is that of the
+              single character or escape sequence is converted to type int.
+            */
+            long long value = 0;
+            while (*p != '\'')
+            {
+                int c = 0;
+                p = utf8_decode(p, &c);
+                if (p == NULL)
+                {
+                    throw;
+                }
+
+                if (c == '\\')
+                    p = escape_sequences_decode_opt(p, &c);
+                if (p == 0)
+                    break;
+                if (c < 0x80)
+                {
+                    value = value * 256 + c;
+                }
+                else
+                {
+                    value = c;
+                }
+                if (value > INT_MAX)
+                {
+                    snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
+                    break;
+                }
+            }
+            return constant_value_make_wchar_t((wchar_t)value);
+        }
+    }
+    catch
+    {
+    }
+
+    struct constant_value empty = { 0 };
+    return empty;
+}
+
 static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx)
 {
     /*
@@ -135,19 +408,13 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         if (ctx->current->type == TK_CHAR_CONSTANT)
         {
             const char* p = ctx->current->lexeme + 1;
-            ectx->value = 0;
-            int count = 0;
-            while (*p != '\'')
+            char errmsg[200] = { 0 };
+            struct constant_value v = char_constant_to_value(p, errmsg, sizeof errmsg);
+            if (errmsg[0] != '\0')
             {
-                ectx->value = ectx->value * 256 + *p;
-                p++;
-                count++;
-                if (count > 4)
-                {
-                    preprocessor_diagnostic_message(W_NOTE, ctx, ctx->current, "character constant too long for its type");
-                }
+                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "%s", errmsg);
             }
-
+            ectx->value = constant_value_to_signed_long_long(&v);
             pre_match(ctx);
         }
         else if (ctx->current->type == TK_PPNUMBER)
@@ -801,3 +1068,4 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
     *pvalue = ectx.value;
     return ctx->n_errors > 0;
 }
+

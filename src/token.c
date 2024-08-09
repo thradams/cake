@@ -74,11 +74,13 @@ void token_list_clear(struct token_list* list)
 
 void token_range_add_show(struct token* first, struct token* last)
 {
-    for (struct token* _Opt current = first;
-        current != last->next;
-        current = current->next)
+    for (struct token* current = first;
+         current != last->next;
+         current = current->next)
     {
         current->flags = current->flags & ~TK_C_BACKEND_FLAG_HIDE;
+        if (current->next == NULL)
+            break;
     }
 }
 
@@ -337,7 +339,7 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
     /*avoid accidentally being in 2 different lists*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
-    
+
     if (list->head == NULL)
     {
         pnew->prev = NULL;
@@ -646,7 +648,7 @@ void print_literal2(const char* s)
 }
 
 
-void print_token(struct token* p_token)
+void print_token(const struct token* p_token)
 {
     for (int i = 0; i < p_token->level; i++)
     {
@@ -693,10 +695,10 @@ void print_token(struct token* p_token)
     COLOR_ESC_PRINT(printf(RESET));
 }
 
-void print_tokens(struct token* _Opt p_token)
+void print_tokens(const struct token* _Opt p_token)
 {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    struct token* _Opt current = p_token;
+    const struct token* _Opt current = p_token;
     while (current)
     {
         print_token(current);
@@ -910,7 +912,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
                 else
                 {
                     putc(' ', stdout);
-                    if (!complete) start_col++;                    
+                    if (!complete) start_col++;
                 }
                 p++;
             }
@@ -934,8 +936,486 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         COLOR_ESC_PRINT(printf(RESET));
 
     printf("\n");
-    p_marker->start_col =start_col;
-    p_marker->end_col =end_col;
+    p_marker->start_col = start_col;
+    p_marker->end_col = end_col;
 }
 
+static void digit_sequence(struct stream* stream)
+{
+    while (is_digit(stream))
+    {
+        stream_match(stream);
+    }
+}
+
+static void binary_exponent_part(struct stream* stream)
+{
+    // p signopt digit - sequence
+    // P   signopt digit - sequence
+
+    stream_match(stream); // p or P
+    if (stream->current[0] == '+' || stream->current[0] == '-')
+    {
+        stream_match(stream); // p or P
+    }
+    digit_sequence(stream);
+}
+
+static bool is_hexadecimal_digit(struct stream* stream)
+{
+    return (stream->current[0] >= '0' && stream->current[0] <= '9') ||
+        (stream->current[0] >= 'a' && stream->current[0] <= 'f') ||
+        (stream->current[0] >= 'A' && stream->current[0] <= 'F');
+}
+
+static bool is_octal_digit(struct stream* stream)
+{
+    return stream->current[0] >= '0' && stream->current[0] <= '7';
+}
+
+static void hexadecimal_digit_sequence(struct stream* stream)
+{
+    /*
+     hexadecimal-digit-sequence:
+     hexadecimal-digit
+     hexadecimal-digit ’_Opt hexadecimal-digit
+    */
+
+    stream_match(stream);
+    while (stream->current[0] == '\'' ||
+        is_hexadecimal_digit(stream))
+    {
+        if (stream->current[0] == '\'')
+        {
+            stream_match(stream);
+            if (!is_hexadecimal_digit(stream))
+            {
+                // erro
+            }
+            stream_match(stream);
+        }
+        else
+            stream_match(stream);
+    }
+}
+
+static bool first_of_unsigned_suffix(const struct stream* stream)
+{
+    /*
+     unsigned-suffix: one of
+       u U
+     */
+    return (stream->current[0] == 'u' ||
+        stream->current[0] == 'U');
+}
+
+static void unsigned_suffix_opt(struct stream* stream)
+{
+    /*
+   unsigned-suffix: one of
+     u U
+   */
+    if (stream->current[0] == 'u' ||
+        stream->current[0] == 'U')
+    {
+        stream_match(stream);
+    }
+}
+
+static void integer_suffix_opt(struct stream* stream, char suffix[4])
+{
+    /*
+        (6.4.4.2) integer-suffix:
+          unsigned-suffix long-suffixopt
+          unsigned-suffix long-long-suffix
+          unsigned-suffix bit-precise-int-suffix
+          long-suffix unsigned-suffixopt
+          long-long-suffix unsigned-suffixopt
+          bit-precise-int-suffix unsigned-suffixop
+    */
+
+    //test 3100
+    if (/*unsigned-suffix*/
+        stream->current[0] == 'U' || stream->current[0] == 'u')
+    {
+        suffix[0] = 'U';
+        stream_match(stream);
+
+
+        /*long-suffixopt*/
+        if (stream->current[0] == 'l' || stream->current[0] == 'L')
+        {
+            suffix[1] = 'L';
+            stream_match(stream);
+        }
+
+        /*long-long-suffix*/
+        if (stream->current[0] == 'l' || stream->current[0] == 'L')
+        {
+            suffix[2] = 'L';
+            stream_match(stream);
+        }
+    }
+    else if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
+    {
+        suffix[0] = 'L';
+
+        /*long-suffix*/
+        stream_match(stream);
+
+        /*long-long-suffix*/
+        if ((stream->current[0] == 'l' || stream->current[0] == 'L'))
+        {
+            suffix[1] = 'L';
+            stream_match(stream);
+        }
+
+        if (/*unsigned-suffix*/
+            stream->current[0] == 'U' || stream->current[0] == 'u')
+        {
+
+            //normalize the output from LLU to ul 
+            suffix[3] = suffix[2];
+            suffix[2] = suffix[1];
+            suffix[1] = suffix[0];
+            suffix[0] = 'U';
+            stream_match(stream);
+        }
+    }
+}
+
+static void exponent_part_opt(struct stream* stream)
+{
+    /*
+    exponent-part:
+    e signopt digit-sequence
+    E signopt digit-sequence
+    */
+    if (stream->current[0] == 'e' || stream->current[0] == 'E')
+    {
+        stream_match(stream);
+
+        if (stream->current[0] == '-' || stream->current[0] == '+')
+        {
+            stream_match(stream);
+        }
+        digit_sequence(stream);
+    }
+}
+
+static void floating_suffix_opt(struct stream* stream, char suffix[4])
+{
+
+    if (stream->current[0] == 'l' || stream->current[0] == 'L')
+    {
+        suffix[0] = 'L';
+        stream_match(stream);
+    }
+    else if (stream->current[0] == 'f' || stream->current[0] == 'F')
+    {
+        suffix[0] = 'F';
+        stream_match(stream);
+    }
+}
+
+static bool is_binary_digit(struct stream* stream)
+{
+    return stream->current[0] >= '0' && stream->current[0] <= '1';
+}
+
+static bool is_nonzero_digit(struct stream* stream)
+{
+    return stream->current[0] >= '1' && stream->current[0] <= '9';
+}
+
+enum token_type parse_number_core(struct stream* stream, char suffix[4])
+{
+    enum token_type type = TK_NONE;
+    if (stream->current[0] == '.')
+    {
+        type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
+        stream_match(stream);
+        digit_sequence(stream);
+        exponent_part_opt(stream);
+        floating_suffix_opt(stream, suffix);
+    }
+    else if (stream->current[0] == '0' && (stream->current[1] == 'x' || stream->current[1] == 'X'))
+    {
+        type = TK_COMPILER_HEXADECIMAL_CONSTANT;
+
+        stream_match(stream);
+        stream_match(stream);
+        while (is_hexadecimal_digit(stream))
+        {
+            stream_match(stream);
+        }
+
+        integer_suffix_opt(stream, suffix);
+
+        if (stream->current[0] == '.')
+        {
+            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
+            hexadecimal_digit_sequence(stream);
+        }
+
+        if (stream->current[0] == 'p' ||
+            stream->current[0] == 'P')
+        {
+            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
+            binary_exponent_part(stream);
+        }
+
+        if (type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+        {
+            floating_suffix_opt(stream, suffix);
+        }
+    }
+    else if (stream->current[0] == '0' && (stream->current[1] == 'b' || stream->current[1] == 'B'))
+    {
+        type = TK_COMPILER_BINARY_CONSTANT;
+        stream_match(stream);
+        stream_match(stream);
+        while (is_binary_digit(stream))
+        {
+            stream_match(stream);
+        }
+        integer_suffix_opt(stream, suffix);
+    }
+    else if (stream->current[0] == '0') // octal
+    {
+        type = TK_COMPILER_OCTAL_CONSTANT;
+
+        stream_match(stream);
+        while (is_octal_digit(stream))
+        {
+            stream_match(stream);
+        }
+        integer_suffix_opt(stream, suffix);
+
+        if (stream->current[0] == '.')
+        {
+            hexadecimal_digit_sequence(stream);
+            floating_suffix_opt(stream, suffix);
+        }
+    }
+    else if (is_nonzero_digit(stream)) // decimal
+    {
+        type = TK_COMPILER_DECIMAL_CONSTANT;
+
+        stream_match(stream);
+        while (is_digit(stream))
+        {
+            stream_match(stream);
+        }
+        integer_suffix_opt(stream, suffix);
+
+        if (stream->current[0] == 'e' || stream->current[0] == 'E')
+        {
+            exponent_part_opt(stream);
+            floating_suffix_opt(stream, suffix);
+
+        }
+        else if (stream->current[0] == '.')
+        {
+            stream_match(stream);
+            type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
+            digit_sequence(stream);
+            exponent_part_opt(stream);
+            floating_suffix_opt(stream, suffix);
+        }
+    }
+
+    return type;
+}
+
+enum token_type parse_number(const char* lexeme, char suffix[4])
+{
+    struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
+    return parse_number_core(&stream, suffix);
+}
+
+
+/*
+    https://en.wikipedia.org/wiki/UTF-8
+    Since the restriction of the Unicode code-space to 21-bit values in 2003,
+    UTF-8 is defined to encode code points in one to four bytes, depending on the number
+    of significant bits in the numerical value of the code point. The following table shows
+    the structure of the encoding. The x characters are replaced by the bits of the code point.
+
+    Code point <->UTF - 8 conversion
+    First         | Last           | Byte 1   | Byte 2   | Byte 3   | Byte 4
+    --------------| -------------- |----------|----------|----------| ----------
+    U+0000      0 | U+007F     127 | 0xxxxxxx |          |          |
+    U+0080    128 | U+07FF    2047 | 110xxxxx | 10xxxxxx |          |
+    U+0800   2048 | U+FFFF   65535 | 1110xxxx | 10xxxxxx | 10xxxxxx |
+    U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
+*/
+
+const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c)
+{
+    if (s[0] == '\0')
+    {
+        *c = 0;
+        return NULL; /*end*/
+    }
+
+    const unsigned char* _Opt next = NULL;
+    if (s[0] < 0x80)
+    {
+        *c = s[0];
+        assert(*c >= 0x0000 && *c <= 0x007F);
+        next = s + 1;
+    }
+    else if ((s[0] & 0xe0) == 0xc0)
+    {
+        *c = ((int)(s[0] & 0x1f) << 6) |
+            ((int)(s[1] & 0x3f) << 0);
+        assert(*c >= 0x0080 && *c <= 0x07FF);
+        next = s + 2;
+    }
+    else if ((s[0] & 0xf0) == 0xe0)
+    {
+        *c = ((int)(s[0] & 0x0f) << 12) |
+            ((int)(s[1] & 0x3f) << 6) |
+            ((int)(s[2] & 0x3f) << 0);
+        assert(*c >= 0x0800 && *c <= 0xFFFF);
+        next = s + 3;
+    }
+    else if ((s[0] & 0xf8) == 0xf0 && (s[0] <= 0xf4))
+    {
+        *c = ((int)(s[0] & 0x07) << 18) |
+            ((int)(s[1] & 0x3f) << 12) |
+            ((int)(s[2] & 0x3f) << 6) |
+            ((int)(s[3] & 0x3f) << 0);
+        assert(*c >= 0x10000 && *c <= 0x10FFFF);
+        next = s + 4;
+    }
+    else
+    {
+        *c = -1;      // invalid
+        next = s + 1; // skip this byte
+    }
+
+    if (*c >= 0xd800 && *c <= 0xdfff)
+    {
+        *c = -1; // surrogate half
+    }
+
+    return next;
+}
+
+static bool is_hex_digit(unsigned char c)
+{
+    if (c >= '0' && c <= '9')
+        return true;
+    else if (c >= 'a' && c <= 'f')
+        return true;
+    else if (c >= 'A' && c <= 'F')
+        return true;
+    return false;
+}
+
+const unsigned char* escape_sequences_decode_opt(const unsigned char* p, int* out_value)
+{
+    // TODO OVERFLOW CHECK
+    if (*p == 'x')
+    {
+        p++;
+        int result = 0;
+        while (is_hex_digit(*p))
+        {
+            int byte = 0;
+            if (*p >= '0' && *p <= '9')
+                byte = (*p - '0');
+            else if (*p >= 'a' && *p <= 'f')
+                byte = (*p - 'a') + 10;
+            else if (*p >= 'A' && *p <= 'F')
+                byte = (*p - 'A') + 10;
+
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+
+        *out_value = result;
+    }
+    else if (*p == 'u' || *p == 'U')
+    {
+        // TODO  assuming input is checked
+        // missing tests
+        const int num_of_hex_digits = *p == 'U' ? 8 : 4;
+
+        p++;
+        unsigned long long result = 0;
+        for (int i = 0; i < num_of_hex_digits; i++)
+        {
+            int byte = 0;
+            if (*p >= '0' && *p <= '9')
+                byte = (*p - '0');
+            else if (*p >= 'a' && *p <= 'f')
+                byte = (*p - 'a') + 10;
+            else if (*p >= 'A' && *p <= 'F')
+                byte = (*p - 'A') + 10;
+
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+
+        *out_value = (int)result;
+    }
+    else if (*p == '0')
+    {
+        // octal digit
+        p++;
+        int result = 0;
+        while ((*p >= '0' && *p <= '7'))
+        {
+            int byte;
+            byte = (*p - '0');
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+        *out_value = result;
+    }
+    else
+    {
+        switch (*p)
+        {
+        case 'a':
+            *out_value = '\a';
+            break;
+        case 'b':
+            *out_value = '\b';
+            break;
+        case 'f':
+            *out_value = '\f';
+            break;
+        case 'n':
+            *out_value = '\n';
+            break;
+        case 'r':
+            *out_value = '\r';
+            break;
+            ;
+        case 't':
+            *out_value = '\t';
+            break;
+        case '\'':
+            *out_value = '\'';
+            break;
+        case '\\':
+            *out_value = '\\';
+            break;
+        case '"':
+            *out_value = '"';
+            break;
+        default:
+            // assume this error is handled at tokenizer
+            assert(false);
+            break;
+        }
+        p++;
+    }
+
+    return p;
+}
 

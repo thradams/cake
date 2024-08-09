@@ -5,6 +5,7 @@
 
 #pragma once
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "osstream.h"
 #include "options.h"
@@ -223,7 +224,7 @@ struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
 void type_destroy(_Opt struct type* _Obj_owner p_type);
 
-int type_common(struct type* p_type1, struct type* p_type2, struct type* _Out);
+struct type type_common(const struct type* p_type1, const struct type* p_type2);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
 
@@ -250,7 +251,9 @@ bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
 bool type_is_unsigned_integer(const struct type* p_type);
+bool type_is_signed_integer(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
+int type_get_integer_rank(const struct type* p_type1);
 
 bool type_is_arithmetic(const struct type* p_type);
 
@@ -267,6 +270,13 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 bool type_is_scalar(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);
+bool type_is_decimal128(const struct type* p_type);
+bool type_is_decimal64(const struct type* p_type);
+bool type_is_decimal32(const struct type* p_type);
+bool type_is_long_double(const struct type* p_type);
+bool type_is_double(const struct type* p_type);
+bool type_is_float(const struct type* p_type);
+
 bool type_is_vla(const struct type* p_type);
 
 struct type type_get_enum_type(const struct type* p_type);
@@ -294,6 +304,11 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t();
+struct type type_make_long_double();
+struct type type_make_double();
+struct type type_make_float();
+
+
 struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
@@ -301,9 +316,9 @@ struct type make_size_t_type();
 
 struct type get_function_return_type(const struct type* p_type);
 
-int type_get_sizeof(const struct type* p_type);
+size_t type_get_sizeof(const struct type* p_type);
 
-int type_get_alignof(const struct type* p_type);
+size_t type_get_alignof(const struct type* p_type);
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled);
 void type_print(const struct type* a);

@@ -65,7 +65,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx);
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path);
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
-struct token_list  copy_replacement_list(struct token_list* list);
+struct token_list  copy_replacement_list(const struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* _Obj_owner source);
 void print_list(struct token_list* list);
@@ -87,24 +87,24 @@ void token_list_paste_string_before(struct token_list* list,
     const char* s);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
 
-void print_code_as_we_see(struct token_list* list, bool remove_comments);
-const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments);
-const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list);
+void print_code_as_we_see(const struct token_list* list, bool remove_comments);
+const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list);
+const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* list);
+const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool remove_comments);
 
-const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list);
-const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments);
-
-void print_tokens(struct token* _Opt p_token);
-void print_preprocessed(struct token* p_token);
-const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token);
-const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token);
-void check_unused_macros(struct owner_hash_map* map);
+void print_tokens(const struct token* _Opt p_token);
+void print_preprocessed(const struct token* p_token);
+const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
+const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
+void check_unused_macros(const struct owner_hash_map* map);
 
 char* _Owner _Opt read_file(const char* path);
 const char* get_token_name(enum token_type tk);
-void print_all_macros(struct preprocessor_ctx* prectx);
+void print_all_macros(const struct preprocessor_ctx* prectx);
 
-int string_literal_byte_size(const char* s);
+int string_literal_char_byte_size(const char* s);
+int string_literal_byte_size_not_zero_included(const char* s);
+
 int get_char_type(const char* s);
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
 int stringify(const char* input, int n, char output[]);

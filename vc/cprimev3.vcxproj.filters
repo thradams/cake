@@ -61,6 +61,9 @@
     <ClCompile Include="..\src\flow_object.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\constant_value.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h">
@@ -112,6 +115,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\version.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\constant_value.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

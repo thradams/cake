@@ -514,7 +514,7 @@ struct macro_argument
 void macro_argument_delete(struct macro_argument* _Owner _Opt p);
 
 
-struct token_list copy_replacement_list(struct token_list* list);
+struct token_list copy_replacement_list(const struct token_list* list);
 
 struct token_list copy_argument_list_tokens(struct token_list* list)
 {
@@ -599,9 +599,9 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
     catch
     {
     }
-    
-    struct token_list empty={0};
-    return empty;    
+
+    struct token_list empty = { 0 };
+    return empty;
 }
 
 
@@ -1233,8 +1233,24 @@ int get_char_type(const char* s)
 
     return 1;
 }
+/* 
+  Returns the char byte size according with the literal suffix
+*/
+int string_literal_char_byte_size(const char* s)
+{
+    if (s[0] == 'u')
+    {        
+        //must be followed by u8 but not checked here
+    }
+    else if (s[0] == 'U' || s[0] == 'L')
+    {
+        return (int)sizeof(wchar_t);        
+    }
 
-int string_literal_byte_size(const char* s)
+    return 1;
+}
+
+int string_literal_byte_size_not_zero_included(const char* s)
 {
 
     struct stream stream = { .source = s,
@@ -1243,7 +1259,7 @@ int string_literal_byte_size(const char* s)
         .col = 1 };
 
     int size = 0;
-    int charsize = sizeof(char);
+    const int charsize = string_literal_char_byte_size(s);
 
     try
     {
@@ -1256,8 +1272,7 @@ int string_literal_byte_size(const char* s)
         }
         else if (stream.current[0] == 'U' ||
             stream.current[0] == 'L')
-        {
-            charsize = sizeof(wchar_t);
+        {            
             stream_match(&stream);
         }
 
@@ -1291,7 +1306,9 @@ int string_literal_byte_size(const char* s)
     {
     }
 
-    size++; /* /0 included */
+    /*
+       Last \0 is not included
+    */
 
     return size * charsize;
 }
@@ -1484,20 +1501,18 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         p_new_token->line = line;
         p_new_token->col = col;
         token_list_add(&list, p_new_token);
-
-        if (file) fclose(file);
-
-
-
+       
         assert(list.head != NULL);
-        }
+    }
     catch
     {
     }
 
+    if (file)
+        fclose(file);
 
     return list;
-    }
+}
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -4024,7 +4039,7 @@ void remove_line_continuation(char* s)
     *pwrite = *pread;
 }
 
-struct token_list  copy_replacement_list(struct token_list* list)
+struct token_list  copy_replacement_list(const struct token_list* list)
 {
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
@@ -4175,7 +4190,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     //print_list(&r);
     return r;
 }
-void print_token(struct token* p_token);
+void print_token(const struct token* p_token);
 
 static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -4534,7 +4549,7 @@ static void mark_macros_as_used(struct owner_hash_map* map)
     }
 }
 
-void check_unused_macros(struct owner_hash_map* map)
+void check_unused_macros(const struct owner_hash_map* map)
 {
     /*
      *  Objetivo era alertar macros nao usadas...
@@ -5141,7 +5156,7 @@ void print_literal(const char* s)
 
 
 
-const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list)
+const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* list)
 {
     struct osstream ss = { 0 };
     struct token* _Opt current = list->head;
@@ -5169,7 +5184,7 @@ const char* _Owner _Opt get_code_as_we_see_plus_macros(struct token_list* list)
 }
 
 /*useful to debug visit.c*/
-void print_code_as_we_see(struct token_list* list, bool remove_comments)
+void print_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
 
     struct token* _Opt current = list->head;
@@ -5204,12 +5219,12 @@ void print_code_as_we_see(struct token_list* list, bool remove_comments)
         current = current->next;
     }
 }
-const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_comments)
+const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
     if (list->head == NULL)
         return NULL;
 
-    assert(list->tail != NULL);        
+    assert(list->tail != NULL);
 
     struct osstream ss = { 0 };
     struct token* _Opt current = list->head;
@@ -5253,7 +5268,7 @@ const char* _Owner _Opt get_code_as_we_see(struct token_list* list, bool remove_
 }
 
 
-const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list)
+const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list)
 {
     if (list->head == NULL)
     {
@@ -5289,7 +5304,7 @@ const char* _Owner _Opt get_code_as_compiler_see(struct token_list* list)
     return ss.c_str;
 }
 
-const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token)
+const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token)
 {
     /*
       * At level > 0 (i.e. inside the includes)
@@ -5305,7 +5320,7 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
         return strdup("(null)");
 
     struct osstream ss = { 0 };
-    struct token* _Opt current = p_token;
+    const struct token* _Opt current = p_token;
     while (current)
     {
 
@@ -5362,7 +5377,7 @@ const char* _Owner _Opt print_preprocessed_to_string2(struct token* _Opt p_token
     return ss.c_str;
 }
 
-const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token)
+const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token)
 {
     /*
     * Esta funcao imprime os tokens como o compilador ve
@@ -5371,7 +5386,7 @@ const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token)
     */
 
     struct osstream ss = { 0 };
-    struct token* _Opt current = p_token;
+    const struct token* _Opt current = p_token;
 
     /*
     * Ignora tudo o que é espaço no início
@@ -5412,7 +5427,7 @@ const char* _Owner _Opt print_preprocessed_to_string(struct token* p_token)
     return ss.c_str; /*MOVED*/
 }
 
-void print_preprocessed(struct token* p_token)
+void print_preprocessed(const struct token* p_token)
 {
     const char* _Owner _Opt s = print_preprocessed_to_string(p_token);
     if (s)
@@ -5446,7 +5461,7 @@ static bool is_screaming_case(const char* text)
     return screaming_case;
 }
 
-void print_all_macros(struct preprocessor_ctx* prectx)
+void print_all_macros(const struct preprocessor_ctx* prectx)
 {
     for (int i = 0; i < prectx->macros.capacity; i++)
     {

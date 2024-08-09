@@ -1,5 +1,5 @@
 
-enum E :
+enum E 
 {
   A
 };

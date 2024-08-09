@@ -74,7 +74,10 @@ s_warnings[] = {
     {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
     {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
     {W_CONST_NOT_INITIALIZED, "const-init"},
-    {W_NULL_CONVERTION, "null-conversion"}
+    {W_NULL_CONVERTION, "null-conversion"},
+    {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
+    {W_INTEGER_OVERFLOW, "overflow"},
+    {W_ARRAY_SIZE, "array-size"}
 
 };
 

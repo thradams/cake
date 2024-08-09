@@ -18,11 +18,7 @@
 #include "flow_object.h"
 
 
-#if __STDC_VERSION__  >= 202311L 
-#define NODISCARD [[nodiscard]]
-#else
-#define NODISCARD
-#endif
+
 struct scope
 {
     int scope_level;
@@ -171,7 +167,7 @@ int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 
-enum token_type parse_number(const char* lexeme, enum type_specifier_flags* _Opt flags_opt);
+enum token_type parse_number(const char* lexeme, char suffix[4]);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -1412,7 +1408,7 @@ struct enumerator
     const struct enum_specifier* enum_specifier;
 
     struct enumerator* _Owner _Opt next;
-    long long value;
+    struct constant_value value;
 };
 
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long* p_enumerator_value);
