@@ -685,6 +685,7 @@ enum diagnostic_id {
     W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
     W_OWNERSHIP_DISCARDING_OWNER,
     W_OWNERSHIP_NON_OWNER_MOVE,    
+    //////////////////////////////////////////////
     W_FLOW_NON_NULL, //-Wnonnull
     W_FLOW_MISSING_DTOR,
     W_FLOW_UNINITIALIZED,
@@ -693,7 +694,10 @@ enum diagnostic_id {
     W_FLOW_NULL_DEREFERENCE,
     W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
     W_FLOW_NULLABLE_TO_NON_NULLABLE,
+    W_FLOW_DIVIZION_BY_ZERO,    
+    //////////////////////////////////////////////
     W_DIVIZION_BY_ZERO,
+    W_CONSTANT_VALUE, /*sample 0 * a */
     W_PASSING_NULL_AS_ARRAY,
     W_INCOMPATIBLE_ENUN_TYPES,
     W_MULTICHAR_ERROR,
@@ -708,8 +712,8 @@ enum diagnostic_id {
     W_IMPLICITLY_UNSIGNED_LITERAL,
     W_INTEGER_OVERFLOW,
     W_ARRAY_SIZE,
-    W_NOT_DEFINED50,
-    W_NOT_DEFINED51,
+    
+    
     W_NOT_DEFINED52,
     W_NOT_DEFINED53,
     W_NOT_DEFINED54,
@@ -806,6 +810,8 @@ enum diagnostic_id {
     C_PRE_DIVISION_BY_ZERO = 1330,
     C_ERROR_INT_TO_POINTER = 1340,
     C_ERROR_LITERAL_OVERFLOW = 1350,
+    C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT = 1360,
+    C_MULTICHAR_ERROR = 1370
 };
 
 _Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");
@@ -11172,7 +11178,7 @@ s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
-    {W_FLOW_NON_NULL, "nonnull"},
+
     {W_ADDRESS, "address"},
     {W_UNUSED_PARAMETER, "unused-parameter"},
     {W_DECLARATOR_HIDE, "hide-declarator"},
@@ -11189,6 +11195,7 @@ s_warnings[] = {
     {W_UNINITIALZED, "uninitialized"},
     {W_RETURN_LOCAL_ADDR, "return-local-addr"},
     {W_DIVIZION_BY_ZERO,"div-by-zero"},
+    {W_CONSTANT_VALUE, "constant-value"},
     {W_SIZEOF_ARRAY_ARGUMENT, "sizeof-array-argument"},
 
     {W_STRING_SLICED,"string-slicing"},
@@ -11199,13 +11206,21 @@ s_warnings[] = {
     {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
     {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
     {W_OWNERSHIP_DISCARDING_OWNER, "discard-owner"},
-    {W_FLOW_MISSING_DTOR, "missing-destructor"},
+
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
+    {W_FLOW_DIVIZION_BY_ZERO, "flow-div-by-zero"},
+
+    /////////////////////////////////////////////////////////////////////////
+    {W_FLOW_NON_NULL, "flow-not-null"},
+    {W_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_FLOW_MOVED, "using-moved-object"},
     {W_FLOW_UNINITIALIZED, "analyzer-maybe-uninitialized"},
     {W_FLOW_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
     {W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
     {W_FLOW_LIFETIME_ENDED, "lifetime-ended"},
+    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
+    
+    /////////////////////////////////////////////////////////////////////
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
@@ -11214,7 +11229,7 @@ s_warnings[] = {
     {W_OUT_OF_BOUNDS, "out-of-bounds"},
     {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
     {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
-    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
+
     {W_CONST_NOT_INITIALIZED, "const-init"},
     {W_NULL_CONVERTION, "null-conversion"},
     {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
@@ -11255,6 +11270,8 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
     case W_FLOW_NON_NULL:
     case W_FLOW_LIFETIME_ENDED:
+    case W_FLOW_DIVIZION_BY_ZERO:    
+
         return 2; /*returns 2 if it flow analysis*/
     default:
         break;
@@ -11292,12 +11309,12 @@ enum diagnostic_id  get_warning(const char* wname)
 unsigned long long  get_warning_bit_mask(const char* wname)
 {
     const bool disable_warning = wname[2] == 'n' && wname[3] == 'o';
-    const char * final_name = disable_warning ? wname + 5 : wname + 2;
+    const char* final_name = disable_warning ? wname + 5 : wname + 2;
     assert(wname[0] == '-');
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
     {
 
-        if (strncmp(s_warnings[j].name, final_name , strlen(s_warnings[j].name)) == 0)
+        if (strncmp(s_warnings[j].name, final_name, strlen(s_warnings[j].name)) == 0)
         {
             return (1ULL << ((unsigned long long)s_warnings[j].w));
         }
@@ -11390,7 +11407,7 @@ int fill_options(struct options* options,
             }
             continue;
         }
-        
+
         if (strcmp(argv[i], "-showIncludes") == 0)
         {
             options->show_includes = true;
@@ -11443,7 +11460,7 @@ int fill_options(struct options* options,
             options->test_mode = true;
             continue;
         }
-       
+
         if (strcmp(argv[i], "-direct-compilation") == 0 ||
             strcmp(argv[i], "-rm") == 0)
         {
@@ -11682,7 +11699,7 @@ void print_help()
         "\n"
         LIGHTCYAN "  -sarif                " RESET "Generates sarif files\n"
         "\n"
-        LIGHTCYAN "  -sarif-path           " RESET "Set sarif output dir\n"        
+        LIGHTCYAN "  -sarif-path           " RESET "Set sarif output dir\n"
         "\n"
         LIGHTCYAN "  -msvc-output          " RESET "Output is compatible with visual studio\n"
         "\n"
@@ -11719,6 +11736,8 @@ void test_get_warning_name()
 
 #endif
 
+
+#pragma safety enable
 
 
 
@@ -13033,7 +13052,7 @@ struct constant_value constant_value_cast(enum constant_value_type t, const stru
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -15880,12 +15899,12 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (*p != '\'')
             {
-                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
+                compiler_diagnostic_message(C_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
             if (c > 0x80)
             {
-                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
+                compiler_diagnostic_message(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
             p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
@@ -18854,13 +18873,30 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
             }
 
             new_expression->first_token = ctx->current;
-            enum token_type op = ctx->current->type;
+            const enum token_type op = ctx->current->type;
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 expression_delete(new_expression);
                 throw;
             }
+
+            switch (op)
+            {
+            case '*':
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
+                break;
+            case '/':
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV; 
+                break;
+            case '%':
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD; 
+                break;
+            default:
+                assert(false);
+                break;
+            }
+
 
             new_expression->left = p_expression_node;
             p_expression_node = NULL; // MOVED
@@ -19936,6 +19972,8 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
         p_expression_node = conditional_expression(ctx);
         if (p_expression_node == NULL)
             throw;
+
+        assert(p_expression_node->expression_type != EXPRESSION_TYPE_INVALID);
 
         while (ctx->current != NULL &&
                (ctx->current->type == '=' ||
@@ -25361,6 +25399,18 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         }
         return p_object;
     }
+    else if (p_expression->expression_type == UNARY_EXPRESSION_NEG ||
+             p_expression->expression_type == UNARY_EXPRESSION_PLUS)
+    {
+        struct flow_object* _Opt p_obj_right = expression_get_object(ctx, p_expression->right, nullable_enabled);
+        struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+        if (p_object && p_obj_right)
+        {
+            p_object->current.state = p_obj_right->current.state;
+        }
+
+        return p_object;
+    }
     //
     else
     {
@@ -25656,7 +25706,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.16"
+#define CAKE_VERSION "0.9.17"
 
 
 
@@ -35822,7 +35872,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     {
     case PRIMARY_EXPRESSION__FUNC__:
         break;
-    
+
     case PRIMARY_EXPRESSION_ENUMERATOR:
         if (ctx->target < LANGUAGE_C23)
         {
@@ -37486,6 +37536,23 @@ int visit_tokens(struct visit_ctx* ctx)
                 continue;
             }
 
+            if (current->type == TK_CHAR_CONSTANT && ctx->target < LANGUAGE_C23)
+            {
+                if (current->lexeme[0] == 'u' && current->lexeme[1] == '8')
+                {
+                    char buffer[25];
+                    snprintf(buffer, sizeof buffer, "((unsigned char)%s)", current->lexeme + 2);
+                    const char* newlexeme = strdup(buffer);
+                    if (newlexeme)
+                    {
+                        free(current->lexeme);
+                        current->lexeme = newlexeme;
+                    }
+                }
+
+                current = current->next;
+                continue;
+            }
 
             if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
                 current->type == TK_COMPILER_OCTAL_CONSTANT ||
@@ -37691,7 +37758,7 @@ void visit(struct visit_ctx* ctx)
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 
 
@@ -37743,6 +37810,7 @@ static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct e
 
 enum boolean_flag
 {
+    BOOLEAN_FLAG_NONE = 0,
     BOOLEAN_FLAG_TRUE = 1 << 0,
     BOOLEAN_FLAG_FALSE = 1 << 1,
 };
@@ -37775,6 +37843,14 @@ void true_false_set_clear(struct true_false_set* p)
     p->size = 0;
     p->capacity = 0;
 }
+
+enum merge_options
+{
+    MERGE_OPTIONS_A_TRUE = 1 << 0,
+    MERGE_OPTIONS_A_FALSE = 1 << 1,
+    MERGE_OPTIONS_B_TRUE = 1 << 2,
+    MERGE_OPTIONS_B_FALSE = 1 << 3
+};
 
 void true_false_set_destroy(struct true_false_set* _Obj_owner p)
 {
@@ -37867,6 +37943,70 @@ static int find_item_index_by_expression(const struct true_false_set* a, const s
 }
 
 
+//1
+// 
+//true true, false false
+//true true, false false
+void true_false_set_merge(struct true_false_set* result,
+    struct true_false_set* a,
+    struct true_false_set* b,
+    enum merge_options options_true,
+    enum merge_options options_false)
+{
+
+    for (int i = 0; i < a->size; i++)
+    {
+        const struct true_false_set_item* p_item_a = &a->data[i];
+
+        struct true_false_set_item new_item = { 0 };
+        new_item.p_expression = p_item_a->p_expression;
+
+
+        if (options_true & MERGE_OPTIONS_A_TRUE)
+            new_item.true_branch_state |= p_item_a->true_branch_state;
+
+        if (options_true & MERGE_OPTIONS_A_FALSE)
+            new_item.true_branch_state |= p_item_a->false_branch_state;
+
+        if (options_false & MERGE_OPTIONS_A_TRUE)
+            new_item.false_branch_state |= p_item_a->true_branch_state;
+
+        if (options_false & MERGE_OPTIONS_A_FALSE)
+            new_item.true_branch_state |= p_item_a->false_branch_state;
+
+
+        true_false_set_push_back(result, &new_item);
+    }
+
+    for (int k = 0; k < b->size; k++)
+    {
+        const struct true_false_set_item* p_item_b = &b->data[k];
+
+        int index = find_item_index_by_expression(result, p_item_b->p_expression);
+        if (index == -1)
+        {
+            index = result->size;
+            struct true_false_set_item item2 = { 0 };
+            item2.p_expression = p_item_b->p_expression;
+            true_false_set_push_back(result, &item2);
+        }
+
+        struct true_false_set_item* p_item_result = &result->data[index];
+
+        if (options_true & MERGE_OPTIONS_B_TRUE)
+            p_item_result->true_branch_state |= p_item_b->true_branch_state;
+
+        if (options_true & MERGE_OPTIONS_B_FALSE)
+            p_item_result->true_branch_state |= p_item_b->false_branch_state;
+
+        if (options_false & MERGE_OPTIONS_B_TRUE)
+            p_item_result->false_branch_state |= p_item_b->true_branch_state;
+
+        if (options_false & MERGE_OPTIONS_B_FALSE)
+            p_item_result->true_branch_state |= p_item_b->false_branch_state;
+    }
+}
+
 static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx,
     struct true_false_set* a,
     bool nullable_enabled,
@@ -37902,52 +38042,17 @@ static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx
 
                 if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE))
                 {
-
-                    if (is_pointer)
-                        p_object->current.state |= (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
-                    else
-                        p_object->current.state |= (OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO);
                 }
                 else if (flag & BOOLEAN_FLAG_FALSE)
                 {
-
-                    if (is_pointer)
-                    {
-
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_NOT_NULL;
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_MOVED;
-                        p_object->current.state |= OBJECT_STATE_NULL;
-
-                        //pointed object does not exist. set nothing
-                        //See test_18000.c
-                        //                        
-                    }
-                    else
-                    {
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_NOT_ZERO;
-                        p_object->current.state |= OBJECT_STATE_ZERO;
-                    }
+                    p_object->current.state &= ~OBJECT_STATE_NOT_NULL;
+                    p_object->current.state &= ~OBJECT_STATE_MOVED;
                 }
                 else if (flag & BOOLEAN_FLAG_TRUE)
                 {
+                    p_object->current.state &= ~OBJECT_STATE_NULL;
+                    p_object->current.state &= ~OBJECT_STATE_ZERO;
 
-                    if (is_pointer)
-                    {
-                        //se era moved nao faz nada!
-                        if (p_object->current.state & OBJECT_STATE_MOVED)
-                        {
-                        }
-                        else
-                        {
-                            p_object->current.state &= ~OBJECT_STATE_NULL;
-                            p_object->current.state |= OBJECT_STATE_NOT_NULL;
-                        }
-                    }
-                    else
-                    {
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_ZERO;
-                        p_object->current.state |= OBJECT_STATE_NOT_ZERO;
-                    }
                 }
 
 
@@ -37963,7 +38068,7 @@ static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx* ctx
 
 static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx* ctx, struct true_false_set* a, bool nullable_enabled)
 {
-    true_false_set_set_objects_to_core_branch(ctx, a, nullable_enabled, false);    
+    true_false_set_set_objects_to_core_branch(ctx, a, nullable_enabled, false);
 }
 
 static int arena_add_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name);
@@ -39507,7 +39612,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
         }
         //object_destroy(&temp);
     }
-}
+    }
 
 static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_object* p)
 {
@@ -39539,9 +39644,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     switch (p_expression->expression_type)
     {
+    case EXPRESSION_TYPE_INVALID:
+        assert(false);
+        break;
+
     case PRIMARY_EXPRESSION__FUNC__:
         break;
-    
+
     case PRIMARY_EXPRESSION_ENUMERATOR:
 
         break;
@@ -39772,6 +39881,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
 
+    case UNARY_EXPRESSION_NEG:
+    case UNARY_EXPRESSION_PLUS:
+        flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
+        break;
+
     case UNARY_EXPRESSION_NOT:
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
@@ -39783,8 +39897,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case UNARY_EXPRESSION_DECREMENT:
 
     case UNARY_EXPRESSION_BITNOT:
-    case UNARY_EXPRESSION_NEG:
-    case UNARY_EXPRESSION_PLUS:
+
 
     case UNARY_EXPRESSION_ADDRESSOF:
     {
@@ -39908,28 +40021,41 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     break;
     case MULTIPLICATIVE_EXPRESSION_DIV:
     {
+        struct true_false_set left_set = { 0 };
+        struct true_false_set right_set = { 0 };
+
         if (p_expression->left)
         {
-            struct true_false_set left_set = { 0 };
             flow_visit_expression(ctx, p_expression->left, &left_set);
-            true_false_set_destroy(&left_set);
         }
 
         if (p_expression->right)
         {
-            struct true_false_set right_set = { 0 };
-            flow_visit_expression(ctx, p_expression->right, &right_set);
-            true_false_set_destroy(&right_set);
-
             struct flow_object* _Opt p_object = expression_get_object(ctx, p_expression->right, ctx->ctx->options.null_checks_enabled);
             if (p_object)
             {
                 if (flow_object_can_be_zero(p_object))
                 {
-                    compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
+                    compiler_diagnostic_message(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
                 }
             }
+
+            /*
+                                   true_set               false_set
+                 b / a             b_true_set a_true_set  a_true_set
+                 0 / a             -                      a_true_set a_true_set
+            */
+
+
+            flow_visit_expression(ctx, p_expression->right, &right_set);
+
+            true_false_set_merge(expr_true_false_set, &left_set, &right_set,
+                MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE,
+                MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE);
+
         }
+        true_false_set_destroy(&left_set);
+        true_false_set_destroy(&right_set);
     }
     break;
     case CAST_EXPRESSION:
@@ -39939,8 +40065,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case ADDITIVE_EXPRESSION_MINUS:
     case SHIFT_EXPRESSION_RIGHT:
     case SHIFT_EXPRESSION_LEFT:
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
-    case RELATIONAL_EXPRESSION_LESS_THAN:
     {
         if (p_expression->left)
         {
@@ -39954,6 +40078,82 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             struct true_false_set right_set = { 0 };
             flow_visit_expression(ctx, p_expression->right, &right_set);
             true_false_set_destroy(&right_set);
+        }
+    }
+    break;
+
+    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
+    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
+    case RELATIONAL_EXPRESSION_BIGGER_THAN:
+    case RELATIONAL_EXPRESSION_LESS_THAN:
+    {
+        //TODO a > 1
+        //     a > -1 etc...
+
+        /*
+                     true_set         false_set
+           a > 0     a_true           a_true a_false
+           a < 0     a_true           a_true a_false
+
+
+           a >= 0    a_true a_false   a_true
+           b <= 0    a_true a_false   a_true
+        */
+
+        const bool left_is_constant = constant_value_is_valid(&p_expression->left->constant_value);
+        const bool right_is_constant = constant_value_is_valid(&p_expression->right->constant_value);
+
+        if (left_is_constant)
+        {
+            const long long left_value = constant_value_to_signed_long_long(&p_expression->left->constant_value);
+
+            struct true_false_set true_false_set_right = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
+            if (left_value == 0)
+            {
+                true_false_set_swap(expr_true_false_set, &true_false_set_right);
+                for (int i = 0; i < expr_true_false_set->size; i++)
+                {
+                    struct true_false_set_item* item = &expr_true_false_set->data[i];
+                    item->false_branch_state |= item->true_branch_state;
+                }
+
+                if (p_expression->expression_type == RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN ||
+                    p_expression->expression_type == RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN)
+                {
+                    true_false_set_invert(expr_true_false_set);
+                }
+            }
+            true_false_set_destroy(&true_false_set_right);
+        }
+
+        else if (right_is_constant)
+        {
+            const long long right_value = constant_value_to_signed_long_long(&p_expression->right->constant_value);
+            struct true_false_set true_false_set_left3 = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
+            if (right_value == 0)
+            {
+                true_false_set_swap(expr_true_false_set, &true_false_set_left3);
+                for (int i = 0; i < expr_true_false_set->size; i++)
+                {
+                    struct true_false_set_item* item = &expr_true_false_set->data[i];
+                    item->false_branch_state |= item->true_branch_state;
+                }
+                if (p_expression->expression_type == RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN ||
+                    p_expression->expression_type == RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN)
+                {
+                    true_false_set_invert(expr_true_false_set);
+                }
+            }
+            true_false_set_destroy(&true_false_set_left3);
+        }
+        else
+        {
+            struct true_false_set true_false_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set);
+            flow_visit_expression(ctx, p_expression->right, &true_false_set);
+            true_false_set_destroy(&true_false_set);
         }
     }
     break;
@@ -40035,6 +40235,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         struct true_false_set right_set = { 0 };
         flow_visit_expression(ctx, p_expression->right, &right_set);
 
+        //  true_false_set_merge(expr_true_false_set, &left_set, &right_set,
+        //         MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_A_FALSE | MERGE_OPTIONS_B_TRUE | MERGE_OPTIONS_B_FALSE,
+        //         MERGE_OPTIONS_A_FALSE| MERGE_OPTIONS_B_FALSE);
 
         //Tudo que faz left ser true ou right ser true
 
@@ -40161,11 +40364,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case AND_EXPRESSION:
     case EXCLUSIVE_OR_EXPRESSION:
-
-
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-
         if (p_expression->left)
         {
             flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
@@ -40233,7 +40431,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     }
 }
-
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
     struct true_false_set d = { 0 };
@@ -42280,7 +42477,7 @@ void format_visit(struct format_visit_ctx* ctx)
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 
 
@@ -44035,7 +44232,7 @@ struct type type_dup(const struct type* p_type)
             if (p->name_opt)
             {
                 //actually p_new->name_opt was not mine..
-                static_set(p_new->name_opt, "uninitialized");
+                //static_set(p_new->name_opt, "uninitialized");
                 p_new->name_opt = strdup(p->name_opt);
             }
 
@@ -45339,8 +45536,14 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else if (declarator_get_typedef_declarator(pdeclarator))
         {
-            struct declarator* p_typedef_declarator =
+            struct declarator* _Opt p_typedef_declarator =
                 declarator_get_typedef_declarator(pdeclarator);
+            
+            if (p_typedef_declarator == NULL) 
+            {   
+                type_list_destroy(&list);
+                throw;
+            }
 
             struct type nt =
                 type_dup(&p_typedef_declarator->type);

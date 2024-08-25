@@ -30,7 +30,7 @@ s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
-    {W_FLOW_NON_NULL, "nonnull"},
+
     {W_ADDRESS, "address"},
     {W_UNUSED_PARAMETER, "unused-parameter"},
     {W_DECLARATOR_HIDE, "hide-declarator"},
@@ -47,6 +47,7 @@ s_warnings[] = {
     {W_UNINITIALZED, "uninitialized"},
     {W_RETURN_LOCAL_ADDR, "return-local-addr"},
     {W_DIVIZION_BY_ZERO,"div-by-zero"},
+    {W_CONSTANT_VALUE, "constant-value"},
     {W_SIZEOF_ARRAY_ARGUMENT, "sizeof-array-argument"},
 
     {W_STRING_SLICED,"string-slicing"},
@@ -57,13 +58,21 @@ s_warnings[] = {
     {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
     {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
     {W_OWNERSHIP_DISCARDING_OWNER, "discard-owner"},
-    {W_FLOW_MISSING_DTOR, "missing-destructor"},
+
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
+    {W_FLOW_DIVIZION_BY_ZERO, "flow-div-by-zero"},
+
+    /////////////////////////////////////////////////////////////////////////
+    {W_FLOW_NON_NULL, "flow-not-null"},
+    {W_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_FLOW_MOVED, "using-moved-object"},
     {W_FLOW_UNINITIALIZED, "analyzer-maybe-uninitialized"},
     {W_FLOW_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
     {W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
     {W_FLOW_LIFETIME_ENDED, "lifetime-ended"},
+    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
+    
+    /////////////////////////////////////////////////////////////////////
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
@@ -72,7 +81,7 @@ s_warnings[] = {
     {W_OUT_OF_BOUNDS, "out-of-bounds"},
     {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
     {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
-    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
+
     {W_CONST_NOT_INITIALIZED, "const-init"},
     {W_NULL_CONVERTION, "null-conversion"},
     {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
@@ -113,6 +122,8 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
     case W_FLOW_NON_NULL:
     case W_FLOW_LIFETIME_ENDED:
+    case W_FLOW_DIVIZION_BY_ZERO:    
+
         return 2; /*returns 2 if it flow analysis*/
     default:
         break;
@@ -150,12 +161,12 @@ enum diagnostic_id  get_warning(const char* wname)
 unsigned long long  get_warning_bit_mask(const char* wname)
 {
     const bool disable_warning = wname[2] == 'n' && wname[3] == 'o';
-    const char * final_name = disable_warning ? wname + 5 : wname + 2;
+    const char* final_name = disable_warning ? wname + 5 : wname + 2;
     assert(wname[0] == '-');
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
     {
 
-        if (strncmp(s_warnings[j].name, final_name , strlen(s_warnings[j].name)) == 0)
+        if (strncmp(s_warnings[j].name, final_name, strlen(s_warnings[j].name)) == 0)
         {
             return (1ULL << ((unsigned long long)s_warnings[j].w));
         }
@@ -248,7 +259,7 @@ int fill_options(struct options* options,
             }
             continue;
         }
-        
+
         if (strcmp(argv[i], "-showIncludes") == 0)
         {
             options->show_includes = true;
@@ -301,7 +312,7 @@ int fill_options(struct options* options,
             options->test_mode = true;
             continue;
         }
-       
+
         if (strcmp(argv[i], "-direct-compilation") == 0 ||
             strcmp(argv[i], "-rm") == 0)
         {
@@ -540,7 +551,7 @@ void print_help()
         "\n"
         LIGHTCYAN "  -sarif                " RESET "Generates sarif files\n"
         "\n"
-        LIGHTCYAN "  -sarif-path           " RESET "Set sarif output dir\n"        
+        LIGHTCYAN "  -sarif-path           " RESET "Set sarif output dir\n"
         "\n"
         LIGHTCYAN "  -msvc-output          " RESET "Output is compatible with visual studio\n"
         "\n"

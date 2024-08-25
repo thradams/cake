@@ -562,7 +562,26 @@ https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf
 When compiling to versions < C11 \_Static\_Assert is removed.
 
 ### C11 Anonymous structures and unions
-TODO
+
+It is implemented, however the conversion to C99, C89 was not implemented.
+
+```c
+struct v {
+  union { /* anonymous union*/
+     struct { int i, j; }; /* anonymous structure*/
+     struct { long k, l; } w;
+  };
+  int m;
+} v1;
+
+int main(){
+  v1.i = 2; /* valid*/
+  v1.w.k = 5; /* valid*/
+}
+```
+
+I think a possible alternative to convert to C89,C99 is insert a name.
+
 
 ### C11 \_Noreturn
 
@@ -694,6 +713,8 @@ Becomes < C11
  }
 ```
 
+TODO considering a macro. For instance, ALIGNOF_INT
+
 ### C11 _Alignas or C23 alignas
 
 Not implemented. 
@@ -740,10 +761,28 @@ int main()
 In < C11 it is replaced by one space;
 
 ###  C23 u8 character prefix
-Not implemented yet.
+
+Implemented.
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf
 
+```c
+int main(){
+    unsigned char c = u8'~';
+}
+```
+
+When compiling to < C23 becomes.
+
+```c
+int main(){
+    unsigned char c = ((unsigned char)'~');
+}
+```
+
+
 ### C23 No function declarators without prototypes
+
+Implemented.
 https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm
 
 ```c
@@ -759,6 +798,7 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf
 
 
 ### C23 Improved Tag Compatibility
+
 Not implemented yet.
   
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf
@@ -1043,7 +1083,23 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf
 
 ### C23 Improved Normal Enumerations
 
+//TODO
+
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm
+
+```c
+enum a {
+	a0 = 0xFFFFFFFFFFFFFFFFULL
+};
+
+static_assert(_Generic(a0,
+		unsigned long long: 0,
+		int: 1,
+		default: 2 == 0));
+```
+
+The type of the enum must be adjusted.
+
 
 ###  C23 constexpr 
 
@@ -1150,7 +1206,7 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2448.pdf
 
 ### C23 [[unsequenced]] and [[reproducible]]
 
-Parsed.
+//TODO
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm
 
@@ -1174,12 +1230,14 @@ Conversion < C23 not defined. Maybe a define.
 #endif
 
 ```
+
 Its is implemented in cake.
-Conversion < C23 not defined. Maybe a define.
+Conversion < C23 not defined. 
+
 
 ###  C23 \#warning
   
-When compiling to versions < 23 it is commented out.
+When compiling to versions < 23 the line is commented out.
 
 ```c
 int main()
@@ -1200,6 +1258,8 @@ int main()
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
 
 ###  C23 \#embed
+
+Partially implemented.
 
 ```c
 #include <stdio.h>
@@ -1392,11 +1452,9 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 
 ### C23 Variably-modified (VM) types
 
-
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
 ## C2Y Transformations
-
 
 ###  Extension - defer
 

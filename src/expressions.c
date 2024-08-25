@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #include "ownership.h"
 #include <limits.h>
@@ -599,12 +599,12 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (*p != '\'')
             {
-                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
+                compiler_diagnostic_message(C_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
             if (c > 0x80)
             {
-                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
+                compiler_diagnostic_message(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
             p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
@@ -3573,13 +3573,30 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
             }
 
             new_expression->first_token = ctx->current;
-            enum token_type op = ctx->current->type;
+            const enum token_type op = ctx->current->type;
             parser_match(ctx);
             if (ctx->current == NULL)
             {
                 expression_delete(new_expression);
                 throw;
             }
+
+            switch (op)
+            {
+            case '*':
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
+                break;
+            case '/':
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV; 
+                break;
+            case '%':
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD; 
+                break;
+            default:
+                assert(false);
+                break;
+            }
+
 
             new_expression->left = p_expression_node;
             p_expression_node = NULL; // MOVED
@@ -4655,6 +4672,8 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
         p_expression_node = conditional_expression(ctx);
         if (p_expression_node == NULL)
             throw;
+
+        assert(p_expression_node->expression_type != EXPRESSION_TYPE_INVALID);
 
         while (ctx->current != NULL &&
                (ctx->current->type == '=' ||

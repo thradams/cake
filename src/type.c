@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 #include "ownership.h"
 #include <assert.h>
@@ -1768,7 +1768,7 @@ struct type type_dup(const struct type* p_type)
             if (p->name_opt)
             {
                 //actually p_new->name_opt was not mine..
-                static_set(p_new->name_opt, "uninitialized");
+                //static_set(p_new->name_opt, "uninitialized");
                 p_new->name_opt = strdup(p->name_opt);
             }
 
@@ -3072,8 +3072,14 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else if (declarator_get_typedef_declarator(pdeclarator))
         {
-            struct declarator* p_typedef_declarator =
+            struct declarator* _Opt p_typedef_declarator =
                 declarator_get_typedef_declarator(pdeclarator);
+            
+            if (p_typedef_declarator == NULL) 
+            {   
+                type_list_destroy(&list);
+                throw;
+            }
 
             struct type nt =
                 type_dup(&p_typedef_declarator->type);

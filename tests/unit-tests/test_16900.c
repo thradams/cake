@@ -7,5 +7,5 @@ int main()
   int * _Opt p = f();
   if (p)
     return;
-#pragma cake diagnostic check "-Wnonnull"  
+#pragma cake diagnostic check "-Wflow-not-null"  
 }

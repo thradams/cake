@@ -903,7 +903,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     {
     case PRIMARY_EXPRESSION__FUNC__:
         break;
-    
+
     case PRIMARY_EXPRESSION_ENUMERATOR:
         if (ctx->target < LANGUAGE_C23)
         {
@@ -2567,6 +2567,23 @@ int visit_tokens(struct visit_ctx* ctx)
                 continue;
             }
 
+            if (current->type == TK_CHAR_CONSTANT && ctx->target < LANGUAGE_C23)
+            {
+                if (current->lexeme[0] == 'u' && current->lexeme[1] == '8')
+                {
+                    char buffer[25];
+                    snprintf(buffer, sizeof buffer, "((unsigned char)%s)", current->lexeme + 2);
+                    const char* newlexeme = strdup(buffer);
+                    if (newlexeme)
+                    {
+                        free(current->lexeme);
+                        current->lexeme = newlexeme;
+                    }
+                }
+
+                current = current->next;
+                continue;
+            }
 
             if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
                 current->type == TK_COMPILER_OCTAL_CONSTANT ||

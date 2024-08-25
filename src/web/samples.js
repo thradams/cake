@@ -373,6 +373,15 @@ int main()
 */
 `;
 
+sample["C23"]["u8 char literal"] =
+`
+//https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf
+int main()
+{
+   unsigned char c = u8'~';
+}
+`;
+
 sample["C23"]["#warning"] =
     `
 #include <stdio.h>

@@ -1,3 +1,5 @@
+#pragma safety enable
+
 #include "constant_value.h"
 #include <limits.h>
 #include <stdio.h>

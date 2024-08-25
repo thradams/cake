@@ -848,7 +848,23 @@ Considering C23 has bool and the objective of C89 version is to have a version t
 
 <h3 id="toc_30">C11 Anonymous structures and unions</h3>
 
-<p>TODO</p>
+<p>It is implemented, however the conversion to C99, C89 was not implemented.</p>
+
+<pre><code class="language-c">struct v {
+  union { /* anonymous union*/
+     struct { int i, j; }; /* anonymous structure*/
+     struct { long k, l; } w;
+  };
+  int m;
+} v1;
+
+int main(){
+  v1.i = 2; /* valid*/
+  v1.w.k = 5; /* valid*/
+}
+</code></pre>
+
+<p>I think a possible alternative to convert to C89,C99 is insert a name.</p>
 
 <h3 id="toc_31">C11 _Noreturn</h3>
 
@@ -971,6 +987,8 @@ char * s2 = &quot;maca&quot;;
  }
 </code></pre>
 
+<p>TODO considering a macro. For instance, ALIGNOF_INT</p>
+
 <h3 id="toc_37">C11 _Alignas or C23 alignas</h3>
 
 <p>Not implemented. </p>
@@ -1017,12 +1035,25 @@ char * s2 = &quot;maca&quot;;
 
 <h3 id="toc_41">C23 u8 character prefix</h3>
 
-<p>Not implemented yet.
+<p>Implemented.
 <a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf</a></p>
+
+<pre><code class="language-c">int main(){
+    unsigned char c = u8&#39;~&#39;;
+}
+</code></pre>
+
+<p>When compiling to &lt; C23 becomes.</p>
+
+<pre><code class="language-c">int main(){
+    unsigned char c = ((unsigned char)&#39;~&#39;);
+}
+</code></pre>
 
 <h3 id="toc_42">C23 No function declarators without prototypes</h3>
 
-<p><a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm</a></p>
+<p>Implemented.
+<a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm</a></p>
 
 <pre><code class="language-c">int main(){
     func(); //this is an error in C23
@@ -1304,7 +1335,21 @@ int main()
 
 <h3 id="toc_52">C23 Improved Normal Enumerations</h3>
 
+<p>//TODO</p>
+
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm</a></p>
+
+<pre><code class="language-c">enum a {
+    a0 = 0xFFFFFFFFFFFFFFFFULL
+};
+
+static_assert(_Generic(a0,
+        unsigned long long: 0,
+        int: 1,
+        default: 2 == 0));
+</code></pre>
+
+<p>The type of the enum must be adjusted.</p>
 
 <h3 id="toc_53">C23 constexpr</h3>
 
@@ -1408,7 +1453,7 @@ int main() {
 
 <h3 id="toc_60">C23 [[unsequenced]] and [[reproducible]]</h3>
 
-<p>Parsed.</p>
+<p>//TODO</p>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm</a></p>
 
@@ -1433,11 +1478,11 @@ Conversion &lt; C23 not defined. Maybe a define.</p>
 </code></pre>
 
 <p>Its is implemented in cake.
-Conversion &lt; C23 not defined. Maybe a define.</p>
+Conversion &lt; C23 not defined. </p>
 
 <h3 id="toc_63">C23 #warning</h3>
 
-<p>When compiling to versions &lt; 23 it is commented out.</p>
+<p>When compiling to versions &lt; 23 the line is commented out.</p>
 
 <pre><code class="language-c">int main()
 {
@@ -1456,6 +1501,8 @@ Conversion &lt; C23 not defined. Maybe a define.</p>
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf</a></p>
 
 <h3 id="toc_64">C23 #embed</h3>
+
+<p>Partially implemented.</p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 

@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 #include "ownership.h"
 
@@ -66,6 +66,7 @@ static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct e
 
 enum boolean_flag
 {
+    BOOLEAN_FLAG_NONE = 0,
     BOOLEAN_FLAG_TRUE = 1 << 0,
     BOOLEAN_FLAG_FALSE = 1 << 1,
 };
@@ -98,6 +99,14 @@ void true_false_set_clear(struct true_false_set* p)
     p->size = 0;
     p->capacity = 0;
 }
+
+enum merge_options
+{
+    MERGE_OPTIONS_A_TRUE = 1 << 0,
+    MERGE_OPTIONS_A_FALSE = 1 << 1,
+    MERGE_OPTIONS_B_TRUE = 1 << 2,
+    MERGE_OPTIONS_B_FALSE = 1 << 3
+};
 
 void true_false_set_destroy(struct true_false_set* _Obj_owner p)
 {
@@ -190,6 +199,70 @@ static int find_item_index_by_expression(const struct true_false_set* a, const s
 }
 
 
+//1
+// 
+//true true, false false
+//true true, false false
+void true_false_set_merge(struct true_false_set* result,
+    struct true_false_set* a,
+    struct true_false_set* b,
+    enum merge_options options_true,
+    enum merge_options options_false)
+{
+
+    for (int i = 0; i < a->size; i++)
+    {
+        const struct true_false_set_item* p_item_a = &a->data[i];
+
+        struct true_false_set_item new_item = { 0 };
+        new_item.p_expression = p_item_a->p_expression;
+
+
+        if (options_true & MERGE_OPTIONS_A_TRUE)
+            new_item.true_branch_state |= p_item_a->true_branch_state;
+
+        if (options_true & MERGE_OPTIONS_A_FALSE)
+            new_item.true_branch_state |= p_item_a->false_branch_state;
+
+        if (options_false & MERGE_OPTIONS_A_TRUE)
+            new_item.false_branch_state |= p_item_a->true_branch_state;
+
+        if (options_false & MERGE_OPTIONS_A_FALSE)
+            new_item.true_branch_state |= p_item_a->false_branch_state;
+
+
+        true_false_set_push_back(result, &new_item);
+    }
+
+    for (int k = 0; k < b->size; k++)
+    {
+        const struct true_false_set_item* p_item_b = &b->data[k];
+
+        int index = find_item_index_by_expression(result, p_item_b->p_expression);
+        if (index == -1)
+        {
+            index = result->size;
+            struct true_false_set_item item2 = { 0 };
+            item2.p_expression = p_item_b->p_expression;
+            true_false_set_push_back(result, &item2);
+        }
+
+        struct true_false_set_item* p_item_result = &result->data[index];
+
+        if (options_true & MERGE_OPTIONS_B_TRUE)
+            p_item_result->true_branch_state |= p_item_b->true_branch_state;
+
+        if (options_true & MERGE_OPTIONS_B_FALSE)
+            p_item_result->true_branch_state |= p_item_b->false_branch_state;
+
+        if (options_false & MERGE_OPTIONS_B_TRUE)
+            p_item_result->false_branch_state |= p_item_b->true_branch_state;
+
+        if (options_false & MERGE_OPTIONS_B_FALSE)
+            p_item_result->true_branch_state |= p_item_b->false_branch_state;
+    }
+}
+
 static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx,
     struct true_false_set* a,
     bool nullable_enabled,
@@ -225,52 +298,17 @@ static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx
 
                 if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE))
                 {
-
-                    if (is_pointer)
-                        p_object->current.state |= (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
-                    else
-                        p_object->current.state |= (OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO);
                 }
                 else if (flag & BOOLEAN_FLAG_FALSE)
                 {
-
-                    if (is_pointer)
-                    {
-
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_NOT_NULL;
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_MOVED;
-                        p_object->current.state |= OBJECT_STATE_NULL;
-
-                        //pointed object does not exist. set nothing
-                        //See test_18000.c
-                        //                        
-                    }
-                    else
-                    {
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_NOT_ZERO;
-                        p_object->current.state |= OBJECT_STATE_ZERO;
-                    }
+                    p_object->current.state &= ~OBJECT_STATE_NOT_NULL;
+                    p_object->current.state &= ~OBJECT_STATE_MOVED;
                 }
                 else if (flag & BOOLEAN_FLAG_TRUE)
                 {
+                    p_object->current.state &= ~OBJECT_STATE_NULL;
+                    p_object->current.state &= ~OBJECT_STATE_ZERO;
 
-                    if (is_pointer)
-                    {
-                        //se era moved nao faz nada!
-                        if (p_object->current.state & OBJECT_STATE_MOVED)
-                        {
-                        }
-                        else
-                        {
-                            p_object->current.state &= ~OBJECT_STATE_NULL;
-                            p_object->current.state |= OBJECT_STATE_NOT_NULL;
-                        }
-                    }
-                    else
-                    {
-                        p_object->current.state = p_object->current.state & ~OBJECT_STATE_ZERO;
-                        p_object->current.state |= OBJECT_STATE_NOT_ZERO;
-                    }
                 }
 
 
@@ -286,7 +324,7 @@ static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx* ctx
 
 static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx* ctx, struct true_false_set* a, bool nullable_enabled)
 {
-    true_false_set_set_objects_to_core_branch(ctx, a, nullable_enabled, false);    
+    true_false_set_set_objects_to_core_branch(ctx, a, nullable_enabled, false);
 }
 
 static int arena_add_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name);
@@ -1830,7 +1868,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
         }
         //object_destroy(&temp);
     }
-}
+    }
 
 static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_object* p)
 {
@@ -1862,9 +1900,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     switch (p_expression->expression_type)
     {
+    case EXPRESSION_TYPE_INVALID:
+        assert(false);
+        break;
+
     case PRIMARY_EXPRESSION__FUNC__:
         break;
-    
+
     case PRIMARY_EXPRESSION_ENUMERATOR:
 
         break;
@@ -2095,6 +2137,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
 
+    case UNARY_EXPRESSION_NEG:
+    case UNARY_EXPRESSION_PLUS:
+        flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
+        break;
+
     case UNARY_EXPRESSION_NOT:
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
@@ -2106,8 +2153,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case UNARY_EXPRESSION_DECREMENT:
 
     case UNARY_EXPRESSION_BITNOT:
-    case UNARY_EXPRESSION_NEG:
-    case UNARY_EXPRESSION_PLUS:
+
 
     case UNARY_EXPRESSION_ADDRESSOF:
     {
@@ -2231,28 +2277,41 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     break;
     case MULTIPLICATIVE_EXPRESSION_DIV:
     {
+        struct true_false_set left_set = { 0 };
+        struct true_false_set right_set = { 0 };
+
         if (p_expression->left)
         {
-            struct true_false_set left_set = { 0 };
             flow_visit_expression(ctx, p_expression->left, &left_set);
-            true_false_set_destroy(&left_set);
         }
 
         if (p_expression->right)
         {
-            struct true_false_set right_set = { 0 };
-            flow_visit_expression(ctx, p_expression->right, &right_set);
-            true_false_set_destroy(&right_set);
-
             struct flow_object* _Opt p_object = expression_get_object(ctx, p_expression->right, ctx->ctx->options.null_checks_enabled);
             if (p_object)
             {
                 if (flow_object_can_be_zero(p_object))
                 {
-                    compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
+                    compiler_diagnostic_message(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
                 }
             }
+
+            /*
+                                   true_set               false_set
+                 b / a             b_true_set a_true_set  a_true_set
+                 0 / a             -                      a_true_set a_true_set
+            */
+
+
+            flow_visit_expression(ctx, p_expression->right, &right_set);
+
+            true_false_set_merge(expr_true_false_set, &left_set, &right_set,
+                MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE,
+                MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE);
+
         }
+        true_false_set_destroy(&left_set);
+        true_false_set_destroy(&right_set);
     }
     break;
     case CAST_EXPRESSION:
@@ -2262,8 +2321,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case ADDITIVE_EXPRESSION_MINUS:
     case SHIFT_EXPRESSION_RIGHT:
     case SHIFT_EXPRESSION_LEFT:
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
-    case RELATIONAL_EXPRESSION_LESS_THAN:
     {
         if (p_expression->left)
         {
@@ -2277,6 +2334,82 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             struct true_false_set right_set = { 0 };
             flow_visit_expression(ctx, p_expression->right, &right_set);
             true_false_set_destroy(&right_set);
+        }
+    }
+    break;
+
+    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
+    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
+    case RELATIONAL_EXPRESSION_BIGGER_THAN:
+    case RELATIONAL_EXPRESSION_LESS_THAN:
+    {
+        //TODO a > 1
+        //     a > -1 etc...
+
+        /*
+                     true_set         false_set
+           a > 0     a_true           a_true a_false
+           a < 0     a_true           a_true a_false
+
+
+           a >= 0    a_true a_false   a_true
+           b <= 0    a_true a_false   a_true
+        */
+
+        const bool left_is_constant = constant_value_is_valid(&p_expression->left->constant_value);
+        const bool right_is_constant = constant_value_is_valid(&p_expression->right->constant_value);
+
+        if (left_is_constant)
+        {
+            const long long left_value = constant_value_to_signed_long_long(&p_expression->left->constant_value);
+
+            struct true_false_set true_false_set_right = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
+            if (left_value == 0)
+            {
+                true_false_set_swap(expr_true_false_set, &true_false_set_right);
+                for (int i = 0; i < expr_true_false_set->size; i++)
+                {
+                    struct true_false_set_item* item = &expr_true_false_set->data[i];
+                    item->false_branch_state |= item->true_branch_state;
+                }
+
+                if (p_expression->expression_type == RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN ||
+                    p_expression->expression_type == RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN)
+                {
+                    true_false_set_invert(expr_true_false_set);
+                }
+            }
+            true_false_set_destroy(&true_false_set_right);
+        }
+
+        else if (right_is_constant)
+        {
+            const long long right_value = constant_value_to_signed_long_long(&p_expression->right->constant_value);
+            struct true_false_set true_false_set_left3 = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
+            if (right_value == 0)
+            {
+                true_false_set_swap(expr_true_false_set, &true_false_set_left3);
+                for (int i = 0; i < expr_true_false_set->size; i++)
+                {
+                    struct true_false_set_item* item = &expr_true_false_set->data[i];
+                    item->false_branch_state |= item->true_branch_state;
+                }
+                if (p_expression->expression_type == RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN ||
+                    p_expression->expression_type == RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN)
+                {
+                    true_false_set_invert(expr_true_false_set);
+                }
+            }
+            true_false_set_destroy(&true_false_set_left3);
+        }
+        else
+        {
+            struct true_false_set true_false_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set);
+            flow_visit_expression(ctx, p_expression->right, &true_false_set);
+            true_false_set_destroy(&true_false_set);
         }
     }
     break;
@@ -2358,6 +2491,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         struct true_false_set right_set = { 0 };
         flow_visit_expression(ctx, p_expression->right, &right_set);
 
+        //  true_false_set_merge(expr_true_false_set, &left_set, &right_set,
+        //         MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_A_FALSE | MERGE_OPTIONS_B_TRUE | MERGE_OPTIONS_B_FALSE,
+        //         MERGE_OPTIONS_A_FALSE| MERGE_OPTIONS_B_FALSE);
 
         //Tudo que faz left ser true ou right ser true
 
@@ -2484,11 +2620,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case AND_EXPRESSION:
     case EXCLUSIVE_OR_EXPRESSION:
-
-
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-
         if (p_expression->left)
         {
             flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
@@ -2556,7 +2687,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     }
 }
-
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
     struct true_false_set d = { 0 };

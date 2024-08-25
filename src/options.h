@@ -53,6 +53,7 @@ enum diagnostic_id {
     W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
     W_OWNERSHIP_DISCARDING_OWNER,
     W_OWNERSHIP_NON_OWNER_MOVE,    
+    //////////////////////////////////////////////
     W_FLOW_NON_NULL, //-Wnonnull
     W_FLOW_MISSING_DTOR,
     W_FLOW_UNINITIALIZED,
@@ -61,7 +62,10 @@ enum diagnostic_id {
     W_FLOW_NULL_DEREFERENCE,
     W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
     W_FLOW_NULLABLE_TO_NON_NULLABLE,
+    W_FLOW_DIVIZION_BY_ZERO,    
+    //////////////////////////////////////////////
     W_DIVIZION_BY_ZERO,
+    W_CONSTANT_VALUE, /*sample 0 * a */
     W_PASSING_NULL_AS_ARRAY,
     W_INCOMPATIBLE_ENUN_TYPES,
     W_MULTICHAR_ERROR,
@@ -76,8 +80,8 @@ enum diagnostic_id {
     W_IMPLICITLY_UNSIGNED_LITERAL,
     W_INTEGER_OVERFLOW,
     W_ARRAY_SIZE,
-    W_NOT_DEFINED50,
-    W_NOT_DEFINED51,
+    
+    
     W_NOT_DEFINED52,
     W_NOT_DEFINED53,
     W_NOT_DEFINED54,
@@ -174,6 +178,8 @@ enum diagnostic_id {
     C_PRE_DIVISION_BY_ZERO = 1330,
     C_ERROR_INT_TO_POINTER = 1340,
     C_ERROR_LITERAL_OVERFLOW = 1350,
+    C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT = 1360,
+    C_MULTICHAR_ERROR = 1370
 };
 
 _Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");

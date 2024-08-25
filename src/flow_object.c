@@ -3396,6 +3396,18 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         }
         return p_object;
     }
+    else if (p_expression->expression_type == UNARY_EXPRESSION_NEG ||
+             p_expression->expression_type == UNARY_EXPRESSION_PLUS)
+    {
+        struct flow_object* _Opt p_obj_right = expression_get_object(ctx, p_expression->right, nullable_enabled);
+        struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+        if (p_object && p_obj_right)
+        {
+            p_object->current.state = p_obj_right->current.state;
+        }
+
+        return p_object;
+    }
     //
     else
     {
