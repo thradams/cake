@@ -626,7 +626,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     //afte all visits and changes we visit again
     if (ctx->target < LANGUAGE_C2Y)
     {
-      convert_if_statement(ctx, p_selection_statement);
+        convert_if_statement(ctx, p_selection_statement);
     }
 }
 
@@ -2570,22 +2570,58 @@ int visit_tokens(struct visit_ctx* ctx)
                 continue;
             }
 
-            if (current->type == TK_CHAR_CONSTANT && ctx->target < LANGUAGE_C23)
+            if (current->type == TK_CHAR_CONSTANT)
             {
-                if (current->lexeme[0] == 'u' && current->lexeme[1] == '8')
+                if (ctx->target < LANGUAGE_C23 && current->lexeme[0] == 'u' && current->lexeme[1] == '8')
                 {
                     char buffer[25];
                     snprintf(buffer, sizeof buffer, "((unsigned char)%s)", current->lexeme + 2);
-                    const char* newlexeme = strdup(buffer);
+                    char* newlexeme = strdup(buffer);
                     if (newlexeme)
                     {
                         free(current->lexeme);
                         current->lexeme = newlexeme;
                     }
+                    current = current->next;
+                    continue;
                 }
 
-                current = current->next;
-                continue;
+                if (ctx->target < LANGUAGE_C11 && current->lexeme[0] == 'u' && current->lexeme[1] == '\'')
+                {
+                    const unsigned char* _Opt s = (const unsigned char*)(current->lexeme + 2);
+                    unsigned int c;
+                    s = utf8_decode(s, &c);
+
+                    char buffer[25];
+                    snprintf(buffer, sizeof buffer, "((unsigned short)%d)", c);
+                    char* newlexeme = strdup(buffer);
+                    if (newlexeme)
+                    {
+                        free(current->lexeme);
+                        current->lexeme = newlexeme;
+                    }
+                    current = current->next;
+                    continue;
+                }
+
+                if (ctx->target < LANGUAGE_C11 && current->lexeme[0] == 'U' && current->lexeme[1] == '\'')
+                {
+                    const unsigned char* _Opt s = (const unsigned char*)current->lexeme + 2;
+                    unsigned int c;
+                    s = utf8_decode(s, &c);
+
+                    char buffer[25];
+                    snprintf(buffer, sizeof buffer, "%du", c);
+                    char* newlexeme = strdup(buffer);
+                    if (newlexeme)
+                    {
+                        free(current->lexeme);
+                        current->lexeme = newlexeme;
+                    }
+                    current = current->next;
+                    continue;
+                }
+
             }
 
             if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||

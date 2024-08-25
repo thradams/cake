@@ -2252,6 +2252,21 @@ size_t type_get_sizeof(const struct type* p_type)
         return sizeof(void*);
     }
 
+    if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL32)
+    {
+        return 4;
+    }
+
+    if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL64)
+    {
+        return 8;
+    }
+
+    if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL128)
+    {
+        return 16;
+    }
+
     assert(false);
     return -1;
 }

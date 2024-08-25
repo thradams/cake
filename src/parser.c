@@ -1255,7 +1255,7 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD__BOOL;
         else if (strcmp("_Complex", text) == 0)
             result = TK_KEYWORD__COMPLEX;
-        else if (strcmp("_Decimal128", text) == 0)
+        else if (strcmp("_Decimal32", text) == 0)
             result = TK_KEYWORD__DECIMAL32;
         else if (strcmp("_Decimal64", text) == 0)
             result = TK_KEYWORD__DECIMAL64;
@@ -1322,7 +1322,7 @@ static void token_promote(struct token* token)
     }
     else if (token->type == TK_PPNUMBER)
     {
-        char suffix[4] = {0};
+        char suffix[4] = { 0 };
         token->type = parse_number(token->lexeme, suffix);
     }
 }
@@ -2450,6 +2450,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                         p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
                     }
+                    else
+                    {
+                        if (p_init_declarator->initializer->braced_initializer->initializer_list->size > sz)
+                        {
+                            compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "initializer for array is too long");
+                        }
+                    }
                 }
 
                 /*
@@ -2459,28 +2466,19 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
-
-                if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    /*char a[] = "ab"*/
-                    if (type_is_array(&p_init_declarator->p_declarator->type))
+                    const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
+                    if (array_size_elements == 0)
                     {
-                        const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
-                        if (array_size_elements == 0)
+                        p_init_declarator->p_declarator->type.num_of_elements =
+                            p_init_declarator->initializer->assignment_expression->type.num_of_elements;
+                    }
+                    else
+                    {
+                        if (p_init_declarator->initializer->assignment_expression->type.num_of_elements > array_size_elements)
                         {
-                            p_init_declarator->p_declarator->type.num_of_elements =
-                                p_init_declarator->initializer->assignment_expression->type.num_of_elements;
-                        }
-                        else
-                        {
-                            if (array_size_elements <= p_init_declarator->initializer->assignment_expression->type.num_of_elements)
-                            {
-                                if (array_size_elements == p_init_declarator->initializer->assignment_expression->type.num_of_elements-1)
-                                    compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "string will not be zero terminated");
-
-                                else
-                                    compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "initializer-string for array of is too long");
-                            }
+                            compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "initializer for array is too long");
                         }
                     }
                 }
@@ -6611,9 +6609,9 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 #endif
                     }
                 }
+                    }
+                }
             }
-        }
-    }
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -6621,7 +6619,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
     }
 
     return p_unlabeled_statement;
-}
+        }
 
 void label_delete(struct label* _Owner _Opt p)
 {
@@ -7304,6 +7302,20 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         ctx->p_switch_value_list = &switch_value_list;
 
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+
+        if (p_secondary_block->statement &&
+            p_secondary_block->statement->unlabeled_statement && 
+            p_secondary_block->statement->unlabeled_statement->expression_statement &&
+            p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL)
+        {
+                compiler_diagnostic_message(W_SWITCH,
+                                ctx,
+                                p_secondary_block->first_token,
+                                NULL,
+                                "empty controlled statement found; is this the intent?");
+            
+        }
+
         if (p_secondary_block == NULL)
         {
             switch_value_destroy(&switch_value_list);

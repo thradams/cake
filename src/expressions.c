@@ -587,7 +587,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             // A UTF-8 character constant has type char8_t.
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -617,7 +617,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -647,7 +647,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -690,7 +690,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             long long value = 0;
             while (*p != '\'')
             {
-                int c = 0;
+                unsigned int c = 0;
                 p = utf8_decode(p, &c);
                 if (p == NULL)
                 {
@@ -746,7 +746,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             long long value = 0;
             while (*p != '\'')
             {
-                int c = 0;
+                unsigned int c = 0;
                 p = utf8_decode(p, &c);
                 if (p == NULL)
                 {

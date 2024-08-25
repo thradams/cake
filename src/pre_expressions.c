@@ -17,6 +17,7 @@
 #include <limits.h>
 #include "constant_value.h"
 #include <errno.h>
+#include <stdio.h>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -206,7 +207,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
 
             // A UTF-8 character constant has type char8_t.
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -235,7 +236,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
 
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -264,7 +265,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
 
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -305,7 +306,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
             long long value = 0;
             while (*p != '\'')
             {
-                int c = 0;
+                unsigned int c = 0;
                 p = utf8_decode(p, &c);
                 if (p == NULL)
                 {
@@ -352,7 +353,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
             long long value = 0;
             while (*p != '\'')
             {
-                int c = 0;
+                unsigned int c = 0;
                 p = utf8_decode(p, &c);
                 if (p == NULL)
                 {

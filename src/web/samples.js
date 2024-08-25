@@ -165,6 +165,15 @@ int main()
 }
 `;
 
+sample["C11"]["u U char literals"] =
+`
+int main()
+{
+  int i = U'ç';
+  int i2 = u'ç';
+}
+`;
+
 sample["C11"]["_Alignof / C23 alignof"] =
 `
 struct X

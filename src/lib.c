@@ -597,8 +597,8 @@ bool style_has_one_space(const struct token*  token);
 
 struct token make_simple_token(char ch);
 enum token_type parse_number(const char* lexeme, char suffix[4]);
-const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c);
-const unsigned char* escape_sequences_decode_opt(const unsigned char* p, int* out_value);
+const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c);
+const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
 
 
 /*
@@ -714,7 +714,7 @@ enum diagnostic_id {
     W_ARRAY_SIZE,
     
     
-    W_NOT_DEFINED52,
+    W_EMPTY_STATEMENT,
     W_NOT_DEFINED53,
     W_NOT_DEFINED54,
     W_NOT_DEFINED55,
@@ -2338,7 +2338,7 @@ enum token_type parse_number(const char* lexeme, char suffix[4])
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c)
+const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c)
 {
     if (s[0] == '\0')
     {
@@ -2379,13 +2379,13 @@ const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c)
     }
     else
     {
-        *c = -1;      // invalid
+        *c = 0;      // invalid
         next = s + 1; // skip this byte
     }
 
     if (*c >= 0xd800 && *c <= 0xdfff)
     {
-        *c = -1; // surrogate half
+        *c = 0; // surrogate half
     }
 
     return next;
@@ -2402,7 +2402,7 @@ static bool is_hex_digit(unsigned char c)
     return false;
 }
 
-const unsigned char* escape_sequences_decode_opt(const unsigned char* p, int* out_value)
+const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
 {
     // TODO OVERFLOW CHECK
     if (*p == 'x')
@@ -11234,8 +11234,8 @@ s_warnings[] = {
     {W_NULL_CONVERTION, "null-conversion"},
     {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
     {W_INTEGER_OVERFLOW, "overflow"},
-    {W_ARRAY_SIZE, "array-size"}
-
+    {W_ARRAY_SIZE, "array-size"},
+    {W_EMPTY_STATEMENT, "empty-statement"},
 };
 
 _Static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64, "");
@@ -15896,7 +15896,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             // A UTF-8 character constant has type char8_t.
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -15926,7 +15926,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -15956,7 +15956,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -15999,7 +15999,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             long long value = 0;
             while (*p != '\'')
             {
-                int c = 0;
+                unsigned int c = 0;
                 p = utf8_decode(p, &c);
                 if (p == NULL)
                 {
@@ -16055,7 +16055,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             long long value = 0;
             while (*p != '\'')
             {
-                int c = 0;
+                unsigned int c = 0;
                 p = utf8_decode(p, &c);
                 if (p == NULL)
                 {
@@ -21098,7 +21098,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
 
             // A UTF-8 character constant has type char8_t.
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -21127,7 +21127,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
 
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -21156,7 +21156,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
 
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
 
-            int c = 0;
+            unsigned int c = 0;
             p = utf8_decode(p, &c);
             if (p == NULL)
             {
@@ -21197,7 +21197,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
             long long value = 0;
             while (*p != '\'')
             {
-                int c = 0;
+                unsigned int c = 0;
                 p = utf8_decode(p, &c);
                 if (p == NULL)
                 {
@@ -21244,7 +21244,7 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
             long long value = 0;
             while (*p != '\'')
             {
-                int c = 0;
+                unsigned int c = 0;
                 p = utf8_decode(p, &c);
                 if (p == NULL)
                 {
@@ -26992,7 +26992,7 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD__BOOL;
         else if (strcmp("_Complex", text) == 0)
             result = TK_KEYWORD__COMPLEX;
-        else if (strcmp("_Decimal128", text) == 0)
+        else if (strcmp("_Decimal32", text) == 0)
             result = TK_KEYWORD__DECIMAL32;
         else if (strcmp("_Decimal64", text) == 0)
             result = TK_KEYWORD__DECIMAL64;
@@ -27059,7 +27059,7 @@ static void token_promote(struct token* token)
     }
     else if (token->type == TK_PPNUMBER)
     {
-        char suffix[4] = {0};
+        char suffix[4] = { 0 };
         token->type = parse_number(token->lexeme, suffix);
     }
 }
@@ -28187,6 +28187,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                         p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
                     }
+                    else
+                    {
+                        if (p_init_declarator->initializer->braced_initializer->initializer_list->size > sz)
+                        {
+                            compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "initializer for array is too long");
+                        }
+                    }
                 }
 
                 /*
@@ -28196,28 +28203,19 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
-
-                if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    /*char a[] = "ab"*/
-                    if (type_is_array(&p_init_declarator->p_declarator->type))
+                    const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
+                    if (array_size_elements == 0)
                     {
-                        const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
-                        if (array_size_elements == 0)
+                        p_init_declarator->p_declarator->type.num_of_elements =
+                            p_init_declarator->initializer->assignment_expression->type.num_of_elements;
+                    }
+                    else
+                    {
+                        if (p_init_declarator->initializer->assignment_expression->type.num_of_elements > array_size_elements)
                         {
-                            p_init_declarator->p_declarator->type.num_of_elements =
-                                p_init_declarator->initializer->assignment_expression->type.num_of_elements;
-                        }
-                        else
-                        {
-                            if (array_size_elements <= p_init_declarator->initializer->assignment_expression->type.num_of_elements)
-                            {
-                                if (array_size_elements == p_init_declarator->initializer->assignment_expression->type.num_of_elements-1)
-                                    compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "string will not be zero terminated");
-
-                                else
-                                    compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "initializer-string for array of is too long");
-                            }
+                            compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token, NULL, "initializer for array is too long");
                         }
                     }
                 }
@@ -32348,9 +32346,9 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 #endif
                     }
                 }
+                    }
+                }
             }
-        }
-    }
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -32358,7 +32356,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
     }
 
     return p_unlabeled_statement;
-}
+        }
 
 void label_delete(struct label* _Owner _Opt p)
 {
@@ -33041,6 +33039,20 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         ctx->p_switch_value_list = &switch_value_list;
 
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+
+        if (p_secondary_block->statement &&
+            p_secondary_block->statement->unlabeled_statement && 
+            p_secondary_block->statement->unlabeled_statement->expression_statement &&
+            p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL)
+        {
+                compiler_diagnostic_message(W_SWITCH,
+                                ctx,
+                                p_secondary_block->first_token,
+                                NULL,
+                                "empty controlled statement found; is this the intent?");
+            
+        }
+
         if (p_secondary_block == NULL)
         {
             switch_value_destroy(&switch_value_list);
@@ -35604,7 +35616,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     //afte all visits and changes we visit again
     if (ctx->target < LANGUAGE_C2Y)
     {
-      convert_if_statement(ctx, p_selection_statement);
+        convert_if_statement(ctx, p_selection_statement);
     }
 }
 
@@ -37548,22 +37560,58 @@ int visit_tokens(struct visit_ctx* ctx)
                 continue;
             }
 
-            if (current->type == TK_CHAR_CONSTANT && ctx->target < LANGUAGE_C23)
+            if (current->type == TK_CHAR_CONSTANT)
             {
-                if (current->lexeme[0] == 'u' && current->lexeme[1] == '8')
+                if (ctx->target < LANGUAGE_C23 && current->lexeme[0] == 'u' && current->lexeme[1] == '8')
                 {
                     char buffer[25];
                     snprintf(buffer, sizeof buffer, "((unsigned char)%s)", current->lexeme + 2);
-                    const char* newlexeme = strdup(buffer);
+                    char* newlexeme = strdup(buffer);
                     if (newlexeme)
                     {
                         free(current->lexeme);
                         current->lexeme = newlexeme;
                     }
+                    current = current->next;
+                    continue;
                 }
 
-                current = current->next;
-                continue;
+                if (ctx->target < LANGUAGE_C11 && current->lexeme[0] == 'u' && current->lexeme[1] == '\'')
+                {
+                    const unsigned char* _Opt s = (const unsigned char*)(current->lexeme + 2);
+                    unsigned int c;
+                    s = utf8_decode(s, &c);
+
+                    char buffer[25];
+                    snprintf(buffer, sizeof buffer, "((unsigned short)%d)", c);
+                    char* newlexeme = strdup(buffer);
+                    if (newlexeme)
+                    {
+                        free(current->lexeme);
+                        current->lexeme = newlexeme;
+                    }
+                    current = current->next;
+                    continue;
+                }
+
+                if (ctx->target < LANGUAGE_C11 && current->lexeme[0] == 'U' && current->lexeme[1] == '\'')
+                {
+                    const unsigned char* _Opt s = (const unsigned char*)current->lexeme + 2;
+                    unsigned int c;
+                    s = utf8_decode(s, &c);
+
+                    char buffer[25];
+                    snprintf(buffer, sizeof buffer, "%du", c);
+                    char* newlexeme = strdup(buffer);
+                    if (newlexeme)
+                    {
+                        free(current->lexeme);
+                        current->lexeme = newlexeme;
+                    }
+                    current = current->next;
+                    continue;
+                }
+
             }
 
             if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
@@ -44726,6 +44774,21 @@ size_t type_get_sizeof(const struct type* p_type)
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
     {
         return sizeof(void*);
+    }
+
+    if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL32)
+    {
+        return 4;
+    }
+
+    if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL64)
+    {
+        return 8;
+    }
+
+    if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL128)
+    {
+        return 16;
     }
 
     assert(false);

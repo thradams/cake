@@ -1251,7 +1251,7 @@ enum token_type parse_number(const char* lexeme, char suffix[4])
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c)
+const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c)
 {
     if (s[0] == '\0')
     {
@@ -1292,13 +1292,13 @@ const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c)
     }
     else
     {
-        *c = -1;      // invalid
+        *c = 0;      // invalid
         next = s + 1; // skip this byte
     }
 
     if (*c >= 0xd800 && *c <= 0xdfff)
     {
-        *c = -1; // surrogate half
+        *c = 0; // surrogate half
     }
 
     return next;
@@ -1315,7 +1315,7 @@ static bool is_hex_digit(unsigned char c)
     return false;
 }
 
-const unsigned char* escape_sequences_decode_opt(const unsigned char* p, int* out_value)
+const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
 {
     // TODO OVERFLOW CHECK
     if (*p == 'x')

@@ -82,7 +82,7 @@ enum diagnostic_id {
     W_ARRAY_SIZE,
     
     
-    W_NOT_DEFINED52,
+    W_EMPTY_STATEMENT,
     W_NOT_DEFINED53,
     W_NOT_DEFINED54,
     W_NOT_DEFINED55,

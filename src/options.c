@@ -86,8 +86,8 @@ s_warnings[] = {
     {W_NULL_CONVERTION, "null-conversion"},
     {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
     {W_INTEGER_OVERFLOW, "overflow"},
-    {W_ARRAY_SIZE, "array-size"}
-
+    {W_ARRAY_SIZE, "array-size"},
+    {W_EMPTY_STATEMENT, "empty-statement"},
 };
 
 _Static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64, "");
