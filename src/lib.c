@@ -11408,7 +11408,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-showIncludes") == 0)
+        if (strcmp(argv[i], "-show-includes") == 0)
         {
             options->show_includes = true;
             continue;
@@ -11522,7 +11522,8 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-autoconfig") == 0)
+        if (strcmp(argv[i], "-autoconfig") == 0 ||
+            strcmp(argv[i], "-auto-config") == 0)
         {
             options->auto_config = true;
             continue;
@@ -11545,12 +11546,20 @@ int fill_options(struct options* options,
             options->target = LANGUAGE_C11;
             continue;
         }
+
         if (strcmp(argv[i], "-target=c2x") == 0 ||
             strcmp(argv[i], "-target=c23") == 0)
         {
             options->target = LANGUAGE_C23;
             continue;
         }
+
+        if (strcmp(argv[i], "-target=c2y") == 0)
+        {
+            options->target = LANGUAGE_C2Y;
+            continue;
+        }
+
         if (strcmp(argv[i], "-target=cxx") == 0)
         {
             options->target = LANGUAGE_CAK;
@@ -11667,7 +11676,7 @@ void print_help()
         "                        (On windows, if you run cake at the visual studio command prompt cake \n"
         "                        uses the same include files used by msvc )\n"
         "\n"
-        LIGHTCYAN "  -autoconfig           " RESET "Generates cakeconfig.h with include directories\n"
+        LIGHTCYAN "  -auto-config           " RESET "Generates cakeconfig.h with include directories\n"
         "\n"
         LIGHTCYAN "  -no-output            " RESET "Cake will not generate output\n"
         "\n"
@@ -35593,7 +35602,10 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     ss_close(&ss);
 
     //afte all visits and changes we visit again
-    convert_if_statement(ctx, p_selection_statement);
+    if (ctx->target < LANGUAGE_C2Y)
+    {
+      convert_if_statement(ctx, p_selection_statement);
+    }
 }
 
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement);

@@ -624,7 +624,10 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     ss_close(&ss);
 
     //afte all visits and changes we visit again
-    convert_if_statement(ctx, p_selection_statement);
+    if (ctx->target < LANGUAGE_C2Y)
+    {
+      convert_if_statement(ctx, p_selection_statement);
+    }
 }
 
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement);

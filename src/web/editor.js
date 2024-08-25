@@ -142,8 +142,10 @@ function OnCompileButton()
     else if (outputLanguage == 2)
         options += " -target=c11";
     else if (outputLanguage == 3)
-        options += " -target=c2x";
+        options += " -target=c23";
     else if (outputLanguage == 4)
+        options += " -target=c2y";
+    else if (outputLanguage == 100)
         options += " -target=cxx";
 
     var source = inputEditor.getValue();
