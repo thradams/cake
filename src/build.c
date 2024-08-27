@@ -241,13 +241,16 @@ int main()
 #endif
 
 #if defined BUILD_LINUX_CLANG || defined BUILD_MACOS_CLANG
-    execute_cmd("clang " CAKE_SOURCE_FILES " main.c "
+    execute_cmd("clang "
 #ifdef TEST
            "-DTEST"
 #endif
            " -std=c17 "
+           " -Wno-multichar "
+           " -Wno-unknown-pragmas "
            " -Wall "
-           " -o cake");
+           " -o cake "
+           CAKE_SOURCE_FILES " main.c ");           
 #endif
 
 #if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC  || defined BUILD_MACOS_GCC

@@ -184,6 +184,7 @@ const char* get_posix_error_message(int error)
 #ifndef _WIN32
     case  ENOTBLK:
         return "Block device required";
+#ifndef __APPLE__
     case  ECHRNG:
         return "Channel number out of range";
     case  EL2NSYNC:
@@ -257,18 +258,6 @@ const char* get_posix_error_message(int error)
         return "Attempting to link in too many shared libraries";
     case  ELIBEXEC:
         return "Cannot exec a shared library directly";
-    case  ESOCKTNOSUPPORT:
-        return "Socket type not supported";
-    case  EPFNOSUPPORT:
-        return "Protocol family not supported";
-    case  EHOSTDOWN:
-        return "Host is down";
-    case  ESHUTDOWN:
-        return "Cannot send after transport endpoint shutdown";
-    case  ETOOMANYREFS:
-        return "Too many references: cannot splice";
-    case  ESTALE:
-        return "Stale NFS file handle";
     case  EUCLEAN:
         return "Structure needs cleaning";
     case  ENOTNAM:
@@ -285,6 +274,21 @@ const char* get_posix_error_message(int error)
         return "No medium found";
     case  EMEDIUMTYPE:
         return "Wrong medium type";
+#endif
+
+    case  ESOCKTNOSUPPORT:
+        return "Socket type not supported";
+    case  EPFNOSUPPORT:
+        return "Protocol family not supported";
+    case  EHOSTDOWN:
+        return "Host is down";
+    case  ESHUTDOWN:
+        return "Cannot send after transport endpoint shutdown";
+    case  ETOOMANYREFS:
+        return "Too many references: cannot splice";
+    case  ESTALE:
+        return "Stale NFS file handle";
+
 #endif
     default:
         break;
