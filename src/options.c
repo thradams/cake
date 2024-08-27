@@ -513,7 +513,7 @@ void print_help()
         WHITE "    " CAKE " source.c\n" RESET
         "    Compiles source.c and outputs /out/source.c\n"
         "\n"
-        WHITE "    " CAKE " -target=C11 source.c\n" RESET
+        WHITE "    " CAKE " -target=c11 source.c\n" RESET
         "    Compiles source.c and outputs C11 code at /out/source.c\n"
         "\n"
         WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
@@ -542,7 +542,7 @@ void print_help()
         "\n"
         LIGHTCYAN "  -direct-compilation   " RESET "output without macros/preprocessor parts\n"
         "\n"
-        LIGHTCYAN "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c2x, cxx) \n"
+        LIGHTCYAN "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c23, c2y, cxx) \n"
         "                        C99 is the default and C89 (ANSI C) is the minimum target \n"
         "\n"
         LIGHTCYAN "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
