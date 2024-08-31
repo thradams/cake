@@ -1304,7 +1304,7 @@ enum token_type is_keyword(const char* text)
 }
 
 
-static void token_promote(struct token* token)
+static void token_promote(const struct parser_ctx* ctx, struct token* token)
 {
     if (token->type == TK_IDENTIFIER_RECURSIVE_MACRO)
     {
@@ -1322,8 +1322,13 @@ static void token_promote(struct token* token)
     }
     else if (token->type == TK_PPNUMBER)
     {
+        char errormsg[100];
         char suffix[4] = { 0 };
-        token->type = parse_number(token->lexeme, suffix);
+        token->type = parse_number(token->lexeme, suffix, errormsg);
+        if (token->type == TK_NONE)
+        {
+            compiler_diagnostic_message(C_INVALID_TOKEN, ctx, token, NULL, errormsg);
+        }
     }
 }
 
@@ -1341,7 +1346,7 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
     if (p)
     {
 
-        token_promote(p);
+        token_promote(ctx, p);
     }
 
     return p;
@@ -1541,7 +1546,7 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
 
     if (ctx->current)
     {
-        token_promote(ctx->current); // transform to parser token
+        token_promote(ctx, ctx->current); // transform to parser token
     }
 }
 
@@ -6609,9 +6614,9 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 #endif
                     }
                 }
-                    }
-                }
             }
+        }
+    }
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -6619,7 +6624,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
     }
 
     return p_unlabeled_statement;
-        }
+}
 
 void label_delete(struct label* _Owner _Opt p)
 {
@@ -7304,16 +7309,16 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
 
         if (p_secondary_block->statement &&
-            p_secondary_block->statement->unlabeled_statement && 
+            p_secondary_block->statement->unlabeled_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL)
         {
-                compiler_diagnostic_message(W_SWITCH,
-                                ctx,
-                                p_secondary_block->first_token,
-                                NULL,
-                                "empty controlled statement found; is this the intent?");
-            
+            compiler_diagnostic_message(W_SWITCH,
+                            ctx,
+                            p_secondary_block->first_token,
+                            NULL,
+                            "empty controlled statement found; is this the intent?");
+
         }
 
         if (p_secondary_block == NULL)

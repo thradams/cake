@@ -802,9 +802,20 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         s++;
     }
-    char suffix[4] = { 0 };
-    parse_number(buffer, suffix);
 
+    char errormsg[100];
+    char suffix[4] = { 0 };
+    enum token_type r = parse_number(buffer, suffix, errormsg);
+    if (r == TK_NONE)
+    {
+        compiler_diagnostic_message(
+            C_INVALID_TOKEN,
+            ctx,
+            token,
+            NULL,
+            errormsg);
+        return 0;
+    }
 
     switch (token->type)
     {
@@ -2909,7 +2920,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       struct constant_value* result)
 {
 
-    struct type common_type = {0};
+    struct type common_type = { 0 };
 
     try
     {
@@ -3533,7 +3544,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             };
 
-         
+
         }
 
         type_destroy(&common_type);
@@ -3543,7 +3554,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
     catch
     {
     }
-    
+
     type_destroy(&common_type);
 
     struct constant_value empty = { 0 };
@@ -3598,10 +3609,10 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
                 break;
             case '/':
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV; 
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV;
                 break;
             case '%':
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD; 
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD;
                 break;
             default:
                 assert(false);

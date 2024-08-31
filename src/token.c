@@ -1128,8 +1128,10 @@ static bool is_nonzero_digit(struct stream* stream)
     return stream->current[0] >= '1' && stream->current[0] <= '9';
 }
 
-enum token_type parse_number_core(struct stream* stream, char suffix[4])
+enum token_type parse_number_core(struct stream* stream, char suffix[4], char errmsg[100])
 {
+    errmsg[0] = '\0';
+
     enum token_type type = TK_NONE;
     if (stream->current[0] == '.')
     {
@@ -1145,9 +1147,18 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4])
 
         stream_match(stream);
         stream_match(stream);
-        while (is_hexadecimal_digit(stream))
+
+        if (is_hexadecimal_digit(stream))
         {
-            stream_match(stream);
+            while (is_hexadecimal_digit(stream))
+            {
+                stream_match(stream);
+            }
+        }
+        else
+        {
+            snprintf(errmsg, 100, "expected hexadecimal digit");
+            return TK_NONE;
         }
 
         integer_suffix_opt(stream, suffix);
@@ -1175,9 +1186,17 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4])
         type = TK_COMPILER_BINARY_CONSTANT;
         stream_match(stream);
         stream_match(stream);
-        while (is_binary_digit(stream))
+        if (is_binary_digit(stream))
         {
-            stream_match(stream);
+            while (is_binary_digit(stream))
+            {
+                stream_match(stream);
+            }
+        }
+        else
+        {
+            snprintf(errmsg, 100, "expected binary digit");
+            return TK_NONE;
         }
         integer_suffix_opt(stream, suffix);
     }
@@ -1228,10 +1247,10 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4])
     return type;
 }
 
-enum token_type parse_number(const char* lexeme, char suffix[4])
+enum token_type parse_number(const char* lexeme, char suffix[4], char errmsg[100])
 {
     struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
-    return parse_number_core(&stream, suffix);
+    return parse_number_core(&stream, suffix, errmsg);
 }
 
 

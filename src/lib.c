@@ -601,7 +601,7 @@ bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);
 
 struct token make_simple_token(char ch);
-enum token_type parse_number(const char* lexeme, char suffix[4]);
+enum token_type parse_number(const char* lexeme, char suffix[4], char erromsg[100]);
 const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c);
 const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
 
@@ -816,7 +816,8 @@ enum diagnostic_id {
     C_ERROR_INT_TO_POINTER = 1340,
     C_ERROR_LITERAL_OVERFLOW = 1350,
     C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT = 1360,
-    C_MULTICHAR_ERROR = 1370
+    C_MULTICHAR_ERROR = 1370,
+    C_INVALID_TOKEN = 1380,
 };
 
 _Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");
@@ -2220,8 +2221,10 @@ static bool is_nonzero_digit(struct stream* stream)
     return stream->current[0] >= '1' && stream->current[0] <= '9';
 }
 
-enum token_type parse_number_core(struct stream* stream, char suffix[4])
+enum token_type parse_number_core(struct stream* stream, char suffix[4], char errmsg[100])
 {
+    errmsg[0] = '\0';
+
     enum token_type type = TK_NONE;
     if (stream->current[0] == '.')
     {
@@ -2237,9 +2240,18 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4])
 
         stream_match(stream);
         stream_match(stream);
-        while (is_hexadecimal_digit(stream))
+
+        if (is_hexadecimal_digit(stream))
         {
-            stream_match(stream);
+            while (is_hexadecimal_digit(stream))
+            {
+                stream_match(stream);
+            }
+        }
+        else
+        {
+            snprintf(errmsg, 100, "expected hexadecimal digit");
+            return TK_NONE;
         }
 
         integer_suffix_opt(stream, suffix);
@@ -2267,9 +2279,17 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4])
         type = TK_COMPILER_BINARY_CONSTANT;
         stream_match(stream);
         stream_match(stream);
-        while (is_binary_digit(stream))
+        if (is_binary_digit(stream))
         {
-            stream_match(stream);
+            while (is_binary_digit(stream))
+            {
+                stream_match(stream);
+            }
+        }
+        else
+        {
+            snprintf(errmsg, 100, "expected binary digit");
+            return TK_NONE;
         }
         integer_suffix_opt(stream, suffix);
     }
@@ -2320,10 +2340,10 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4])
     return type;
 }
 
-enum token_type parse_number(const char* lexeme, char suffix[4])
+enum token_type parse_number(const char* lexeme, char suffix[4], char errmsg[100])
 {
     struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
-    return parse_number_core(&stream, suffix);
+    return parse_number_core(&stream, suffix, errmsg);
 }
 
 
@@ -14010,7 +14030,7 @@ int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 
-enum token_type parse_number(const char* lexeme, char suffix[4]);
+enum token_type parse_number(const char* lexeme, char suffix[4], char errormsg[100]);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -16118,9 +16138,20 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         s++;
     }
-    char suffix[4] = { 0 };
-    parse_number(buffer, suffix);
 
+    char errormsg[100];
+    char suffix[4] = { 0 };
+    enum token_type r = parse_number(buffer, suffix, errormsg);
+    if (r == TK_NONE)
+    {
+        compiler_diagnostic_message(
+            C_INVALID_TOKEN,
+            ctx,
+            token,
+            NULL,
+            errormsg);
+        return 0;
+    }
 
     switch (token->type)
     {
@@ -18225,7 +18256,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       struct constant_value* result)
 {
 
-    struct type common_type = {0};
+    struct type common_type = { 0 };
 
     try
     {
@@ -18849,7 +18880,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             };
 
-         
+
         }
 
         type_destroy(&common_type);
@@ -18859,7 +18890,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
     catch
     {
     }
-    
+
     type_destroy(&common_type);
 
     struct constant_value empty = { 0 };
@@ -18914,10 +18945,10 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
                 break;
             case '/':
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV; 
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV;
                 break;
             case '%':
-                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD; 
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD;
                 break;
             default:
                 assert(false);
@@ -20967,7 +20998,7 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 /*
  * preprocessor uses long long
  */
-static int ppnumber_to_longlong(struct token* token, long long* result)
+static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result)
 {
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
@@ -20985,9 +21016,19 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
         s++;
     }
 
+    char errormsg[100];
     char suffix[4] = { 0 };
-    const enum token_type type = parse_number(token->lexeme, suffix);
-
+    const enum token_type type = parse_number(token->lexeme, suffix, errormsg);
+    if (type == TK_NONE)
+    {
+        preprocessor_diagnostic_message(
+            C_INVALID_TOKEN,
+            ctx,
+            token,
+            NULL,
+            errormsg);
+       return 0;
+    }
     struct constant_value  cv = { 0 };
     switch (type)
     {
@@ -21331,7 +21372,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         }
         else if (ctx->current->type == TK_PPNUMBER)
         {
-            ppnumber_to_longlong(ctx->current, &ectx->value);
+            ppnumber_to_longlong(ctx, ctx->current, &ectx->value);
             pre_match(ctx);
         }
         else if (ctx->current->type == '(')
@@ -25760,7 +25801,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.18"
+#define CAKE_VERSION "0.9.19"
 
 
 
@@ -27086,7 +27127,7 @@ enum token_type is_keyword(const char* text)
 }
 
 
-static void token_promote(struct token* token)
+static void token_promote(const struct parser_ctx* ctx, struct token* token)
 {
     if (token->type == TK_IDENTIFIER_RECURSIVE_MACRO)
     {
@@ -27104,8 +27145,13 @@ static void token_promote(struct token* token)
     }
     else if (token->type == TK_PPNUMBER)
     {
+        char errormsg[100];
         char suffix[4] = { 0 };
-        token->type = parse_number(token->lexeme, suffix);
+        token->type = parse_number(token->lexeme, suffix, errormsg);
+        if (token->type == TK_NONE)
+        {
+            compiler_diagnostic_message(C_INVALID_TOKEN, ctx, token, NULL, errormsg);
+        }
     }
 }
 
@@ -27123,7 +27169,7 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
     if (p)
     {
 
-        token_promote(p);
+        token_promote(ctx, p);
     }
 
     return p;
@@ -27323,7 +27369,7 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
 
     if (ctx->current)
     {
-        token_promote(ctx->current); // transform to parser token
+        token_promote(ctx, ctx->current); // transform to parser token
     }
 }
 
@@ -32391,9 +32437,9 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 #endif
                     }
                 }
-                    }
-                }
             }
+        }
+    }
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -32401,7 +32447,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
     }
 
     return p_unlabeled_statement;
-        }
+}
 
 void label_delete(struct label* _Owner _Opt p)
 {
@@ -33086,16 +33132,16 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
 
         if (p_secondary_block->statement &&
-            p_secondary_block->statement->unlabeled_statement && 
+            p_secondary_block->statement->unlabeled_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL)
         {
-                compiler_diagnostic_message(W_SWITCH,
-                                ctx,
-                                p_secondary_block->first_token,
-                                NULL,
-                                "empty controlled statement found; is this the intent?");
-            
+            compiler_diagnostic_message(W_SWITCH,
+                            ctx,
+                            p_secondary_block->first_token,
+                            NULL,
+                            "empty controlled statement found; is this the intent?");
+
         }
 
         if (p_secondary_block == NULL)

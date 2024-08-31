@@ -56,7 +56,7 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 /*
  * preprocessor uses long long
  */
-static int ppnumber_to_longlong(struct token* token, long long* result)
+static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result)
 {
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
@@ -74,9 +74,19 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
         s++;
     }
 
+    char errormsg[100];
     char suffix[4] = { 0 };
-    const enum token_type type = parse_number(token->lexeme, suffix);
-
+    const enum token_type type = parse_number(token->lexeme, suffix, errormsg);
+    if (type == TK_NONE)
+    {
+        preprocessor_diagnostic_message(
+            C_INVALID_TOKEN,
+            ctx,
+            token,
+            NULL,
+            errormsg);
+       return 0;
+    }
     struct constant_value  cv = { 0 };
     switch (type)
     {
@@ -420,7 +430,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         }
         else if (ctx->current->type == TK_PPNUMBER)
         {
-            ppnumber_to_longlong(ctx->current, &ectx->value);
+            ppnumber_to_longlong(ctx, ctx->current, &ectx->value);
             pre_match(ctx);
         }
         else if (ctx->current->type == '(')
