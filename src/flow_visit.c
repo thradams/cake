@@ -1773,15 +1773,15 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 p_expression->declarator &&
                 p_expression->declarator->name_opt)
             {
-                //compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                  //  ctx->ctx,
-                    //p_expression->first_token, NULL, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
+                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->first_token, NULL, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
             }
             else
             {
-                //compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                  //  ctx->ctx,
-                    //p_expression->first_token, NULL, "using a uninitialized object");
+                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->first_token, NULL, "using a uninitialized object");
             }
         }
         else if (p_object && p_object->current.state & OBJECT_STATE_UNINITIALIZED)
@@ -1868,7 +1868,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
         }
         //object_destroy(&temp);
     }
-    }
+}
 
 static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_object* p)
 {
@@ -2426,6 +2426,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             struct true_false_set true_false_set_right = { 0 };
             flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
+
+            if (left_value == 0)
+            {
+                //0 == expression
+                //0 != expression
+                flow_check_pointer_used_as_bool(ctx, p_expression->right);
+            }
+
             //0 == expression            
             //1 == expression            
             true_false_set_swap(expr_true_false_set, &true_false_set_right);
@@ -2448,6 +2456,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             struct true_false_set true_false_set_left3 = { 0 };
             flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
+
+            if (right_value == 0)
+            {
+                //expression == 0
+                //expression != 0
+                flow_check_pointer_used_as_bool(ctx, p_expression->left);
+            }
 
             //expression == 0
             //expression == 1
@@ -3175,35 +3190,31 @@ static enum object_state parse_string_state(const char* s, bool* invalid)
     {
         if (isalpha(*p))
         {
+            int sz = 0;
             const char* start = p;
             while (isalpha(*p) || *p == '-')
             {
+                sz++;
                 p++;
             }
 
-            if (strncmp(start, "moved", p - start) == 0)
+            if (strncmp(start, "moved", sz) == 0)
                 e |= OBJECT_STATE_MOVED;
 
-            else if (strncmp(start, "null", p - start) == 0)
+            else if (strncmp(start, "null", sz) == 0)
                 e |= OBJECT_STATE_NULL;
-            else if (strncmp(start, "not-null", p - start) == 0)
+            else if (strncmp(start, "not-null", sz) == 0)
                 e |= OBJECT_STATE_NOT_NULL;
-            else if (strncmp(start, "maybe-null", p - start) == 0)
+            else if (strncmp(start, "maybe-null", sz) == 0)
                 e |= (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL);
-            else if (strncmp(start, "uninitialized", p - start) == 0)
+            else if (strncmp(start, "uninitialized", sz) == 0)
                 e |= OBJECT_STATE_UNINITIALIZED;
-            else if (strncmp(start, "zero", p - start) == 0)
+            else if (strncmp(start, "zero", sz) == 0)
                 e |= OBJECT_STATE_ZERO;
-            else if (strncmp(start, "not-zero", p - start) == 0)
+            else if (strncmp(start, "not-zero", sz) == 0)
                 e |= OBJECT_STATE_NOT_ZERO;
-            else if (strncmp(start, "any", p - start) == 0)
-                e |= (OBJECT_STATE_NOT_ZERO | OBJECT_STATE_ZERO);
-            //else if (strncmp(start, "moved", p - start) == 0)
-                //e |= OBJECT_STATE_MOVED;
-            else if (strncmp(start, "or", p - start) == 0) //or obsolte
-            {
-                //skiped
-            }
+            else if (strncmp(start, "any", sz) == 0)
+                e |= (OBJECT_STATE_NOT_ZERO | OBJECT_STATE_ZERO);            
             else
             {
                 *invalid = true;
@@ -3436,6 +3447,11 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 
 
             p_declarator->p_object = make_object(ctx, &p_declarator->type, p_declarator, NULL);
+            if (p_declarator->p_object == NULL)
+            {
+                throw;
+            }
+
             object_set_uninitialized(&p_declarator->type, p_declarator->p_object);
 
 
@@ -3738,6 +3754,9 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 */
 static bool flow_is_last_item_return(struct compound_statement* p_compound_statement)
 {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wflow-not-null"
+
     if (p_compound_statement &&
         p_compound_statement->block_item_list.tail &&
         p_compound_statement->block_item_list.tail->unlabeled_statement &&
@@ -3748,6 +3767,8 @@ static bool flow_is_last_item_return(struct compound_statement* p_compound_state
         return true;
     }
     return false;
+
+#pragma CAKE diagnostic pop
 }
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
@@ -3860,9 +3881,9 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wanalyzer-maybe-uninitialized" 
 
-struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
+_Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
 {
-    struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
+    _Opt struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
     if (p != NULL)
     {
         p->id = ctx->arena.size + 1;

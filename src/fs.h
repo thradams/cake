@@ -76,9 +76,11 @@ struct dirent* _Opt readdir(DIR* dirp);
 
 #else
 
-typedef struct __dirstream DIR;
-DIR * _Owner _Opt opendir (const char *__name);
-int closedir(DIR* _Owner dirp);
+//TODO fails on macos because it has a diferent declaration
+//typedef struct __dirstream DIR;
+//DIR * _Owner _Opt opendir (const char *__name);
+//int closedir(DIR* _Owner dirp);
+
 
 #define MAX_PATH 500
 

@@ -93,7 +93,7 @@ int main(int argc, char** argv)
 
     if (report.test_mode)
     {
-            return report.test_failed ? EXIT_FAILURE : EXIT_SUCCESS;
+        return report.test_failed ? EXIT_FAILURE : EXIT_SUCCESS;
     }
 
     return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;

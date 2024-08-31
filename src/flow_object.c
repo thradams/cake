@@ -2565,6 +2565,31 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                 }
             }
         }
+        else if (type_is_pointer(p_visitor->p_type))
+        {
+            if (p_visitor->p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+            {
+                //Visiting a pointer parameter. We check if we didn't mess a external object
+                //TODO static objects
+                struct type t2 = type_remove_pointer(p_visitor->p_type);
+
+                if (p_visitor->p_object->current.pointed)
+                {
+                    struct token * name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
+                        p_visitor->p_object->p_declarator_origin->name_opt : 
+                        p_visitor->p_object->p_declarator_origin->first_token;
+
+                    checked_read_object(ctx,
+                     &t2,
+                     false,
+                     p_visitor->p_object->current.pointed,
+                     name_token,
+                     NULL,
+                     true);
+                }
+                type_destroy(&t2);
+            }
+        }
         else
         {
         }
@@ -3267,7 +3292,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             return p_obj2;
         }
         return NULL;
-    }
+        }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -3446,7 +3471,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     //printf("null object");
     //assert(false);
     return NULL;
-}
+    }
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,

@@ -16,7 +16,7 @@ void f(struct X* ctx)
 
     if (ctx->current != 0)
     {
-
+#pragma cake diagnostic check "-Wflow-not-null"
     }
     else
     {

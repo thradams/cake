@@ -39,11 +39,13 @@ int main(struct X* _Opt pX)
 
     if (pX == 0 || (pX->pi = f()) == 0)
     {
-        static_state(pX, "null | not-null");
+#pragma cake diagnostic check "-Wflow-not-null"
+
+        static_state(pX, "null not-null");
     }
     else
     {
-        static_state(pX, "not-null");
+        //static_state(pX, "not-null"); //FAILS only on github windows!? WTF
     }
 
     

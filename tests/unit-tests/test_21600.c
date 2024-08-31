@@ -10,7 +10,9 @@ int main(void)
   
   f_const(buffer);  
 #pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
 
   f_non_const(buffer);  
   //now warning in flow mode, warning in safety mode
+  #pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
 }

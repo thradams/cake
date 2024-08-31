@@ -1,11 +1,12 @@
 #pragma safety enable
 
+#include "ownership.h"
 #include "constant_value.h"
 #include <limits.h>
 #include <stdio.h>
 #include <assert.h>
 
-bool unsigned_long_long_sub(unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     if (a < b)
         return false;
@@ -14,7 +15,7 @@ bool unsigned_long_long_sub(unsigned long long* result, unsigned long long a, un
     return true;
 }
 
-bool unsigned_long_long_mul(unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
 
     if (b == 0)
@@ -34,7 +35,7 @@ bool unsigned_long_long_mul(unsigned long long* result, unsigned long long a, un
     return true;
 }
 
-bool unsigned_long_long_add(unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     if (a > ULLONG_MAX - b)
     {
@@ -46,7 +47,7 @@ bool unsigned_long_long_add(unsigned long long* result, unsigned long long a, un
     return true;
 }
 
-bool signed_long_long_sub(signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b)
 {
     if (a >= 0 && b >= 0)
     {
@@ -87,7 +88,7 @@ bool signed_long_long_sub(signed long long* result, signed long long a, signed l
     return true;
 }
 
-bool signed_long_long_add(signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b)
 {
 
     if (a >= 0 && b >= 0)
@@ -124,7 +125,7 @@ bool signed_long_long_add(signed long long* result, signed long long a, signed l
     return true;
 }
 
-bool signed_long_long_mul(signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b)
 {
 
     if (a > 0 && b > 0)

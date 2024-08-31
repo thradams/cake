@@ -2322,11 +2322,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     case TYPE_SIGNED_SHORT:
                     case TYPE_UNSIGNED_SHORT:
                         assert(false); //they are promoted
+                        expression_delete(new_expression);
                         throw;
                         break;
 
                     case TYPE_NOT_CONSTANT:
                         assert(false); //they are promoted
+                        expression_delete(new_expression);
                         throw;
                         break;
 
@@ -2527,6 +2529,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
             }
 
+            type_destroy(&new_expression->type);
             new_expression->type = type_make_size_t();
             p_expression_node = new_expression;
 
@@ -2906,6 +2909,8 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       struct constant_value* result)
 {
 
+    struct type common_type = {0};
+
     try
     {
         if (new_expression->left == NULL || new_expression->right == NULL)
@@ -2962,7 +2967,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 .p_token_end = new_expression->right->last_token
             };
 
-            struct type common_type = type_common(&new_expression->left->type,
+            common_type = type_common(&new_expression->left->type,
                                                   &new_expression->right->type);
 
             enum constant_value_type vt = type_to_constant_value_type(&common_type);
@@ -3527,13 +3532,19 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             break;
 
             };
+
+         
         }
+
+        type_destroy(&common_type);
         *result = value;
         return 0;//ok
     }
     catch
     {
     }
+    
+    type_destroy(&common_type);
 
     struct constant_value empty = { 0 };
     *result = empty;
@@ -4008,6 +4019,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
                 }
             }
 
+            type_destroy(&new_expression->type);
             new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
@@ -4310,6 +4322,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             throw;
         }
 
+        type_destroy(&new_expression->type);
         new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
 
         if (!ctx->evaluation_is_disabled &&

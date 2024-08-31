@@ -58,11 +58,16 @@ double strtod(
     char**      _Opt _EndPtr
     );
 
+long double strtold(char const* _String,char** _Opt _EndPtr);
+
+
 unsigned long long strtoull(
     char const* _String,
     char**      _Opt _EndPtr,
     int         _Radix
     );
+
+float strtof(char const* _String, char** _Opt _EndPtr);
 
 //typedef unsigned long long time_t;
 //static time_t time(time_t* const _Opt _Time);
@@ -3119,9 +3124,11 @@ struct dirent* _Opt readdir(DIR* dirp);
 
 #else
 
-typedef struct __dirstream DIR;
-DIR * _Owner _Opt opendir (const char *__name);
-int closedir(DIR* _Owner dirp);
+//TODO fails on macos because it has a diferent declaration
+//typedef struct __dirstream DIR;
+//DIR * _Owner _Opt opendir (const char *__name);
+//int closedir(DIR* _Owner dirp);
+
 
 #define MAX_PATH 500
 
@@ -11661,7 +11668,7 @@ void print_help()
         WHITE "    " CAKE " source.c\n" RESET
         "    Compiles source.c and outputs /out/source.c\n"
         "\n"
-        WHITE "    " CAKE " -target=C11 source.c\n" RESET
+        WHITE "    " CAKE " -target=c11 source.c\n" RESET
         "    Compiles source.c and outputs C11 code at /out/source.c\n"
         "\n"
         WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
@@ -11690,7 +11697,7 @@ void print_help()
         "\n"
         LIGHTCYAN "  -direct-compilation   " RESET "output without macros/preprocessor parts\n"
         "\n"
-        LIGHTCYAN "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c2x, cxx) \n"
+        LIGHTCYAN "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c23, c2y, cxx) \n"
         "                        C99 is the default and C89 (ANSI C) is the minimum target \n"
         "\n"
         LIGHTCYAN "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
@@ -11845,17 +11852,17 @@ long double constant_value_to_long_double(const struct constant_value* a);
 bool constant_value_to_bool(const struct constant_value* a);
 
 //Oveflow checks
-bool unsigned_long_long_sub(unsigned long long* result, unsigned long long a, unsigned long long b);
-bool unsigned_long_long_mul(unsigned long long* result, unsigned long long a, unsigned long long b);
-bool unsigned_long_long_add(unsigned long long* result, unsigned long long a, unsigned long long b);
-bool signed_long_long_sub(signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_add(signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_mul(signed long long* result, signed long long a, signed long long b);
+bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
+bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
+bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
+bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b);
+bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b);
+bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b);
 
 
 #include <limits.h>
 
-bool unsigned_long_long_sub(unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     if (a < b)
         return false;
@@ -11864,7 +11871,7 @@ bool unsigned_long_long_sub(unsigned long long* result, unsigned long long a, un
     return true;
 }
 
-bool unsigned_long_long_mul(unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
 
     if (b == 0)
@@ -11884,7 +11891,7 @@ bool unsigned_long_long_mul(unsigned long long* result, unsigned long long a, un
     return true;
 }
 
-bool unsigned_long_long_add(unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     if (a > ULLONG_MAX - b)
     {
@@ -11896,7 +11903,7 @@ bool unsigned_long_long_add(unsigned long long* result, unsigned long long a, un
     return true;
 }
 
-bool signed_long_long_sub(signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b)
 {
     if (a >= 0 && b >= 0)
     {
@@ -11937,7 +11944,7 @@ bool signed_long_long_sub(signed long long* result, signed long long a, signed l
     return true;
 }
 
-bool signed_long_long_add(signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b)
 {
 
     if (a >= 0 && b >= 0)
@@ -11974,7 +11981,7 @@ bool signed_long_long_add(signed long long* result, signed long long a, signed l
     return true;
 }
 
-bool signed_long_long_mul(signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b)
 {
 
     if (a > 0 && b > 0)
@@ -17631,11 +17638,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     case TYPE_SIGNED_SHORT:
                     case TYPE_UNSIGNED_SHORT:
                         assert(false); //they are promoted
+                        expression_delete(new_expression);
                         throw;
                         break;
 
                     case TYPE_NOT_CONSTANT:
                         assert(false); //they are promoted
+                        expression_delete(new_expression);
                         throw;
                         break;
 
@@ -17836,6 +17845,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
             }
 
+            type_destroy(&new_expression->type);
             new_expression->type = type_make_size_t();
             p_expression_node = new_expression;
 
@@ -18215,6 +18225,8 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       struct constant_value* result)
 {
 
+    struct type common_type = {0};
+
     try
     {
         if (new_expression->left == NULL || new_expression->right == NULL)
@@ -18271,7 +18283,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 .p_token_end = new_expression->right->last_token
             };
 
-            struct type common_type = type_common(&new_expression->left->type,
+            common_type = type_common(&new_expression->left->type,
                                                   &new_expression->right->type);
 
             enum constant_value_type vt = type_to_constant_value_type(&common_type);
@@ -18836,13 +18848,19 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             break;
 
             };
+
+         
         }
+
+        type_destroy(&common_type);
         *result = value;
         return 0;//ok
     }
     catch
     {
     }
+    
+    type_destroy(&common_type);
 
     struct constant_value empty = { 0 };
     *result = empty;
@@ -19317,6 +19335,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
                 }
             }
 
+            type_destroy(&new_expression->type);
             new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
@@ -19619,6 +19638,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             throw;
         }
 
+        type_destroy(&new_expression->type);
         new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
 
         if (!ctx->evaluation_is_disabled &&
@@ -24577,6 +24597,31 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                 }
             }
         }
+        else if (type_is_pointer(p_visitor->p_type))
+        {
+            if (p_visitor->p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+            {
+                //Visiting a pointer parameter. We check if we didn't mess a external object
+                //TODO static objects
+                struct type t2 = type_remove_pointer(p_visitor->p_type);
+
+                if (p_visitor->p_object->current.pointed)
+                {
+                    struct token * name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
+                        p_visitor->p_object->p_declarator_origin->name_opt : 
+                        p_visitor->p_object->p_declarator_origin->first_token;
+
+                    checked_read_object(ctx,
+                     &t2,
+                     false,
+                     p_visitor->p_object->current.pointed,
+                     name_token,
+                     NULL,
+                     true);
+                }
+                type_destroy(&t2);
+            }
+        }
         else
         {
         }
@@ -25279,7 +25324,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             return p_obj2;
         }
         return NULL;
-    }
+        }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -25458,7 +25503,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     //printf("null object");
     //assert(false);
     return NULL;
-}
+    }
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,
@@ -25715,7 +25760,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.17"
+#define CAKE_VERSION "0.9.18"
 
 
 
@@ -39577,15 +39622,15 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 p_expression->declarator &&
                 p_expression->declarator->name_opt)
             {
-                //compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                  //  ctx->ctx,
-                    //p_expression->first_token, NULL, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
+                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->first_token, NULL, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
             }
             else
             {
-                //compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                  //  ctx->ctx,
-                    //p_expression->first_token, NULL, "using a uninitialized object");
+                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->first_token, NULL, "using a uninitialized object");
             }
         }
         else if (p_object && p_object->current.state & OBJECT_STATE_UNINITIALIZED)
@@ -39672,7 +39717,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
         }
         //object_destroy(&temp);
     }
-    }
+}
 
 static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_object* p)
 {
@@ -40230,6 +40275,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             struct true_false_set true_false_set_right = { 0 };
             flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
+
+            if (left_value == 0)
+            {
+                //0 == expression
+                //0 != expression
+                flow_check_pointer_used_as_bool(ctx, p_expression->right);
+            }
+
             //0 == expression            
             //1 == expression            
             true_false_set_swap(expr_true_false_set, &true_false_set_right);
@@ -40252,6 +40305,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             struct true_false_set true_false_set_left3 = { 0 };
             flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
+
+            if (right_value == 0)
+            {
+                //expression == 0
+                //expression != 0
+                flow_check_pointer_used_as_bool(ctx, p_expression->left);
+            }
 
             //expression == 0
             //expression == 1
@@ -40979,35 +41039,31 @@ static enum object_state parse_string_state(const char* s, bool* invalid)
     {
         if (isalpha(*p))
         {
+            int sz = 0;
             const char* start = p;
             while (isalpha(*p) || *p == '-')
             {
+                sz++;
                 p++;
             }
 
-            if (strncmp(start, "moved", p - start) == 0)
+            if (strncmp(start, "moved", sz) == 0)
                 e |= OBJECT_STATE_MOVED;
 
-            else if (strncmp(start, "null", p - start) == 0)
+            else if (strncmp(start, "null", sz) == 0)
                 e |= OBJECT_STATE_NULL;
-            else if (strncmp(start, "not-null", p - start) == 0)
+            else if (strncmp(start, "not-null", sz) == 0)
                 e |= OBJECT_STATE_NOT_NULL;
-            else if (strncmp(start, "maybe-null", p - start) == 0)
+            else if (strncmp(start, "maybe-null", sz) == 0)
                 e |= (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL);
-            else if (strncmp(start, "uninitialized", p - start) == 0)
+            else if (strncmp(start, "uninitialized", sz) == 0)
                 e |= OBJECT_STATE_UNINITIALIZED;
-            else if (strncmp(start, "zero", p - start) == 0)
+            else if (strncmp(start, "zero", sz) == 0)
                 e |= OBJECT_STATE_ZERO;
-            else if (strncmp(start, "not-zero", p - start) == 0)
+            else if (strncmp(start, "not-zero", sz) == 0)
                 e |= OBJECT_STATE_NOT_ZERO;
-            else if (strncmp(start, "any", p - start) == 0)
-                e |= (OBJECT_STATE_NOT_ZERO | OBJECT_STATE_ZERO);
-            //else if (strncmp(start, "moved", p - start) == 0)
-                //e |= OBJECT_STATE_MOVED;
-            else if (strncmp(start, "or", p - start) == 0) //or obsolte
-            {
-                //skiped
-            }
+            else if (strncmp(start, "any", sz) == 0)
+                e |= (OBJECT_STATE_NOT_ZERO | OBJECT_STATE_ZERO);            
             else
             {
                 *invalid = true;
@@ -41240,6 +41296,11 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 
 
             p_declarator->p_object = make_object(ctx, &p_declarator->type, p_declarator, NULL);
+            if (p_declarator->p_object == NULL)
+            {
+                throw;
+            }
+
             object_set_uninitialized(&p_declarator->type, p_declarator->p_object);
 
 
@@ -41542,6 +41603,9 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 */
 static bool flow_is_last_item_return(struct compound_statement* p_compound_statement)
 {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wflow-not-null"
+
     if (p_compound_statement &&
         p_compound_statement->block_item_list.tail &&
         p_compound_statement->block_item_list.tail->unlabeled_statement &&
@@ -41552,6 +41616,8 @@ static bool flow_is_last_item_return(struct compound_statement* p_compound_state
         return true;
     }
     return false;
+
+#pragma CAKE diagnostic pop
 }
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
@@ -41664,9 +41730,9 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wanalyzer-maybe-uninitialized" 
 
-struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
+_Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
 {
-    struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
+    _Opt struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
     if (p != NULL)
     {
         p->id = ctx->arena.size + 1;
@@ -41882,6 +41948,7 @@ const char* get_posix_error_message(int error)
 #ifndef _WIN32
     case  ENOTBLK:
         return "Block device required";
+#ifndef __APPLE__
     case  ECHRNG:
         return "Channel number out of range";
     case  EL2NSYNC:
@@ -41955,18 +42022,6 @@ const char* get_posix_error_message(int error)
         return "Attempting to link in too many shared libraries";
     case  ELIBEXEC:
         return "Cannot exec a shared library directly";
-    case  ESOCKTNOSUPPORT:
-        return "Socket type not supported";
-    case  EPFNOSUPPORT:
-        return "Protocol family not supported";
-    case  EHOSTDOWN:
-        return "Host is down";
-    case  ESHUTDOWN:
-        return "Cannot send after transport endpoint shutdown";
-    case  ETOOMANYREFS:
-        return "Too many references: cannot splice";
-    case  ESTALE:
-        return "Stale NFS file handle";
     case  EUCLEAN:
         return "Structure needs cleaning";
     case  ENOTNAM:
@@ -41983,6 +42038,21 @@ const char* get_posix_error_message(int error)
         return "No medium found";
     case  EMEDIUMTYPE:
         return "Wrong medium type";
+#endif
+
+    case  ESOCKTNOSUPPORT:
+        return "Socket type not supported";
+    case  EPFNOSUPPORT:
+        return "Protocol family not supported";
+    case  EHOSTDOWN:
+        return "Host is down";
+    case  ESHUTDOWN:
+        return "Cannot send after transport endpoint shutdown";
+    case  ETOOMANYREFS:
+        return "Too many references: cannot splice";
+    case  ESTALE:
+        return "Stale NFS file handle";
+
 #endif
     default:
         break;

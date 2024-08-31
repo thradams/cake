@@ -10,13 +10,16 @@ The C Programming language Second Edition 1988
 > _"As we said in the preface to the first edition, C "wears well as one's experience with it grows." With a decade more experience, we still feel that way."_
 
 
+
+
 # 🍰 Cake
+
+_Cake is made by C programmers for C programmers._
 
 Cake is a compiler front end written from scratch in C, designed from the C23 language specification.
 It allows you to translate newer versions of C, such as C23, to C99. Additionally, Cake provides a platform 
 for experimenting with new features for the C language, including extensions like lambdas, defer and static [object lifetime](ownership.html) checks.
 
-Cake also has a style checker (no idea why other compilers don't have it) and code formatter.
 
 # Web Playground
 
@@ -52,6 +55,11 @@ Open the Developer Command Prompt of visual studio. Go to the *src* directory an
 
 ```
 cl build.c && build
+```
+
+.. or with clang tool set.
+```
+clang build.c -o build.exe && build.exe
 ```
 
 This will build *cake.exe*, then run cake on its own source code.

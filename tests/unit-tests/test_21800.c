@@ -10,8 +10,9 @@ int main(void)
 
     f_const(a);
 #pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
-
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
 
     f(a);
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
 #pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
 }
