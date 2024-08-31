@@ -881,6 +881,8 @@ struct diagnostic
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
+void diagnostic_remove(struct diagnostic *d, enum diagnostic_id w);
+
 struct options
 {
     /*
@@ -11246,7 +11248,7 @@ s_warnings[] = {
     {W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
     {W_FLOW_LIFETIME_ENDED, "lifetime-ended"},
     {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
-    
+
     /////////////////////////////////////////////////////////////////////
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
@@ -11266,6 +11268,18 @@ s_warnings[] = {
 };
 
 _Static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64, "");
+
+void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
+{
+    if ((d->errors & (1ULL << w)) != 0)
+        d->errors &= ~(1ULL << w);
+
+    if ((d->warnings & (1ULL << w)) != 0)
+        d->warnings &= ~(1ULL << w);
+
+    if ((d->notes & (1ULL << w)) != 0)
+        d->notes &= ~(1ULL << w);
+}
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
@@ -11297,7 +11311,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
     case W_FLOW_NON_NULL:
     case W_FLOW_LIFETIME_ENDED:
-    case W_FLOW_DIVIZION_BY_ZERO:    
+    case W_FLOW_DIVIZION_BY_ZERO:
 
         return 2; /*returns 2 if it flow analysis*/
     default:
@@ -11884,6 +11898,8 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
 
 bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
+    *result = 0;
+
     if (a < b)
         return false;
 
@@ -11893,6 +11909,7 @@ bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long 
 
 bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
+    *result = 0;
 
     if (b == 0)
     {
@@ -11913,6 +11930,8 @@ bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long 
 
 bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
 {
+    *result = 0;
+
     if (a > ULLONG_MAX - b)
     {
         //a=2
@@ -11925,6 +11944,8 @@ bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long 
 
 bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b)
 {
+    *result = 0;
+
     if (a >= 0 && b >= 0)
     {
     }
@@ -11966,6 +11987,7 @@ bool signed_long_long_sub(_Out signed long long* result, signed long long a, sig
 
 bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b)
 {
+    *result = 0;
 
     if (a >= 0 && b >= 0)
     {
@@ -12003,6 +12025,7 @@ bool signed_long_long_add(_Out signed long long* result, signed long long a, sig
 
 bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b)
 {
+    *result = 0;
 
     if (a > 0 && b > 0)
     {
@@ -24648,8 +24671,8 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
                 if (p_visitor->p_object->current.pointed)
                 {
-                    struct token * name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
-                        p_visitor->p_object->p_declarator_origin->name_opt : 
+                    struct token* name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
+                        p_visitor->p_object->p_declarator_origin->name_opt :
                         p_visitor->p_object->p_declarator_origin->first_token;
 
                     checked_read_object(ctx,
@@ -24739,38 +24762,31 @@ static void flow_assignment_core(
 
         if (type_is_array(p_visitor_b->p_type))
         {
-            //array is uninitialized but...
-            //arrays are initialized pointers pointing to uninitialized objects
-            //
-            if (type_is_pointer_to_const(p_visitor_a->p_type))
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                char b_object_name[100] = { 0 };
-                object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                            ctx->ctx,
-                            NULL,
-                            p_b_marker,
-                    "'%s' may be used uninitialized", b_object_name);
-            }
-            else
-            {
-                if (ctx->ctx->options.ownership_enabled && assigment_type == ASSIGMENT_TYPE_PARAMETER)
+                struct type item_type = { 0 };
+
+                if (type_is_array(p_visitor_a->p_type))
+                    item_type = get_array_item_type(p_visitor_a->p_type);
+                else
+                    item_type = type_remove_pointer(p_visitor_a->p_type);
+
+                const bool cannot_be_uninitialized = 
+                    (ctx->ctx->options.ownership_enabled && !type_is_out(&item_type)) ||
+                    type_is_const(&item_type);
+
+                if (cannot_be_uninitialized)
                 {
-                    //parameter must point to _Out qualified ojbect
-                    //*b must be empty before copying to void* _Owner
-                    struct type b_pointed_type = type_remove_pointer(p_visitor_b->p_type);
-                    if (!type_is_out(&b_pointed_type))
-                    {
-                        char b_object_name[100] = { 0 };
-                        object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
-                        compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                                    ctx->ctx,
-                                    NULL,
-                                    p_b_marker,
-                            "uninitialized object '%s' passed to non-optional parameter", b_object_name);
-                    }
-                    type_destroy(&b_pointed_type);
+                    char b_object_name[100] = { 0 };
+                    object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
+                    compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                                ctx->ctx,
+                                NULL,
+                                p_b_marker,
+                        "uninitialized object '%s' passed to non-optional parameter", b_object_name);
                 }
+
+                type_destroy(&item_type);
             }
         }
         else
@@ -25365,7 +25381,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             return p_obj2;
         }
         return NULL;
-        }
+    }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -25544,7 +25560,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     //printf("null object");
     //assert(false);
     return NULL;
-    }
+            }
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,
@@ -29745,6 +29761,10 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, '{') != 0)
                 throw;
             p_enum_specifier->enumerator_list = enumerator_list(ctx, p_enum_specifier);
+
+            if (p_enum_specifier->enumerator_list.head == NULL)
+                throw;
+
             if (ctx->current->type == ',')
             {
                 parser_match(ctx);
@@ -29783,6 +29803,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
     }
     catch
     {
+        enum_specifier_delete(p_enum_specifier);
+        p_enum_specifier = NULL;
     }
 
     return p_enum_specifier;
@@ -29849,6 +29871,9 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
     }
     catch
     {
+        enumerator_list_destroy(&enumeratorlist);
+        enumeratorlist.head = NULL;
+        enumeratorlist.tail = NULL;
     }
 
     return enumeratorlist;
@@ -39457,18 +39482,6 @@ static void flow_visit_type_name(struct flow_visit_ctx* ctx, struct type_name* p
     */
 }
 
-static void flow_visit_argument_expression_list(struct flow_visit_ctx* ctx, struct argument_expression_list* p_argument_expression_list)
-{
-    struct argument_expression* _Opt p_argument_expression = p_argument_expression_list->head;
-    while (p_argument_expression)
-    {
-        struct true_false_set a = { 0 };
-        flow_visit_expression(ctx, p_argument_expression->expression, &a);
-        p_argument_expression = p_argument_expression->next;
-        true_false_set_destroy(&a);
-    }
-}
-
 static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct generic_selection* p_generic_selection)
 {
     if (p_generic_selection->expression)
@@ -39500,6 +39513,21 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
 
         while (p_current_argument && p_current_parameter_type)
         {
+
+            struct true_false_set a = { 0 };
+            
+            struct diagnostic temp =
+                ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
+
+            //we don´t report W_FLOW_UNINITIALIZED here because it is checked next.. (TODO parts of expression)
+            diagnostic_remove(&ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index], W_FLOW_UNINITIALIZED);
+
+            flow_visit_expression(ctx, p_current_argument->expression, &a);
+
+            ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = temp;
+
+            true_false_set_destroy(&a);
+
             struct flow_object* _Opt p_argument_object =
                 expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
 
@@ -39950,8 +39978,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
         struct true_false_set left_local = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_local);
-
-        flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
 
         //new function waiting all test to pass to become active
         compare_function_arguments3(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
@@ -41109,7 +41135,7 @@ static enum object_state parse_string_state(const char* s, bool* invalid)
             else if (strncmp(start, "not-zero", sz) == 0)
                 e |= OBJECT_STATE_NOT_ZERO;
             else if (strncmp(start, "any", sz) == 0)
-                e |= (OBJECT_STATE_NOT_ZERO | OBJECT_STATE_ZERO);            
+                e |= (OBJECT_STATE_NOT_ZERO | OBJECT_STATE_ZERO);
             else
             {
                 *invalid = true;
@@ -41407,12 +41433,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     if (p_declarator->p_object->pointed)
                     {
                         set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                    }
-                    type_destroy(&t2);
                 }
-#endif
+                    type_destroy(&t2);
             }
+#endif
         }
+    }
 
         /*if (p_declarator->pointer)
         {
@@ -41428,7 +41454,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         {
             flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
         }
-    }
+}
     catch
     {
     }

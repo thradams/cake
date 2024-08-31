@@ -244,6 +244,8 @@ struct diagnostic
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
+void diagnostic_remove(struct diagnostic *d, enum diagnostic_id w);
+
 struct options
 {
     /*

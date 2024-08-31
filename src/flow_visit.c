@@ -1562,18 +1562,6 @@ static void flow_visit_type_name(struct flow_visit_ctx* ctx, struct type_name* p
     */
 }
 
-static void flow_visit_argument_expression_list(struct flow_visit_ctx* ctx, struct argument_expression_list* p_argument_expression_list)
-{
-    struct argument_expression* _Opt p_argument_expression = p_argument_expression_list->head;
-    while (p_argument_expression)
-    {
-        struct true_false_set a = { 0 };
-        flow_visit_expression(ctx, p_argument_expression->expression, &a);
-        p_argument_expression = p_argument_expression->next;
-        true_false_set_destroy(&a);
-    }
-}
-
 static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct generic_selection* p_generic_selection)
 {
     if (p_generic_selection->expression)
@@ -1605,6 +1593,21 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
 
         while (p_current_argument && p_current_parameter_type)
         {
+
+            struct true_false_set a = { 0 };
+            
+            struct diagnostic temp =
+                ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
+
+            //we don´t report W_FLOW_UNINITIALIZED here because it is checked next.. (TODO parts of expression)
+            diagnostic_remove(&ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index], W_FLOW_UNINITIALIZED);
+
+            flow_visit_expression(ctx, p_current_argument->expression, &a);
+
+            ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = temp;
+
+            true_false_set_destroy(&a);
+
             struct flow_object* _Opt p_argument_object =
                 expression_get_object(ctx, p_current_argument->expression, nullable_enabled);
 
@@ -2055,8 +2058,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
         struct true_false_set left_local = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_local);
-
-        flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
 
         //new function waiting all test to pass to become active
         compare_function_arguments3(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
@@ -3214,7 +3215,7 @@ static enum object_state parse_string_state(const char* s, bool* invalid)
             else if (strncmp(start, "not-zero", sz) == 0)
                 e |= OBJECT_STATE_NOT_ZERO;
             else if (strncmp(start, "any", sz) == 0)
-                e |= (OBJECT_STATE_NOT_ZERO | OBJECT_STATE_ZERO);            
+                e |= (OBJECT_STATE_NOT_ZERO | OBJECT_STATE_ZERO);
             else
             {
                 *invalid = true;
@@ -3512,12 +3513,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     if (p_declarator->p_object->pointed)
                     {
                         set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                    }
-                    type_destroy(&t2);
                 }
-#endif
+                    type_destroy(&t2);
             }
+#endif
         }
+    }
 
         /*if (p_declarator->pointer)
         {
@@ -3533,7 +3534,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         {
             flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
         }
-    }
+}
     catch
     {
     }

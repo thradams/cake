@@ -71,7 +71,7 @@ s_warnings[] = {
     {W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
     {W_FLOW_LIFETIME_ENDED, "lifetime-ended"},
     {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
-    
+
     /////////////////////////////////////////////////////////////////////
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
@@ -91,6 +91,18 @@ s_warnings[] = {
 };
 
 _Static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64, "");
+
+void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
+{
+    if ((d->errors & (1ULL << w)) != 0)
+        d->errors &= ~(1ULL << w);
+
+    if ((d->warnings & (1ULL << w)) != 0)
+        d->warnings &= ~(1ULL << w);
+
+    if ((d->notes & (1ULL << w)) != 0)
+        d->notes &= ~(1ULL << w);
+}
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
@@ -122,7 +134,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
     case W_FLOW_NON_NULL:
     case W_FLOW_LIFETIME_ENDED:
-    case W_FLOW_DIVIZION_BY_ZERO:    
+    case W_FLOW_DIVIZION_BY_ZERO:
 
         return 2; /*returns 2 if it flow analysis*/
     default:

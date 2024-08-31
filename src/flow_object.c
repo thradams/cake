@@ -2575,8 +2575,8 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
                 if (p_visitor->p_object->current.pointed)
                 {
-                    struct token * name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
-                        p_visitor->p_object->p_declarator_origin->name_opt : 
+                    struct token* name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
+                        p_visitor->p_object->p_declarator_origin->name_opt :
                         p_visitor->p_object->p_declarator_origin->first_token;
 
                     checked_read_object(ctx,
@@ -2666,38 +2666,31 @@ static void flow_assignment_core(
 
         if (type_is_array(p_visitor_b->p_type))
         {
-            //array is uninitialized but...
-            //arrays are initialized pointers pointing to uninitialized objects
-            //
-            if (type_is_pointer_to_const(p_visitor_a->p_type))
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                char b_object_name[100] = { 0 };
-                object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                            ctx->ctx,
-                            NULL,
-                            p_b_marker,
-                    "'%s' may be used uninitialized", b_object_name);
-            }
-            else
-            {
-                if (ctx->ctx->options.ownership_enabled && assigment_type == ASSIGMENT_TYPE_PARAMETER)
+                struct type item_type = { 0 };
+
+                if (type_is_array(p_visitor_a->p_type))
+                    item_type = get_array_item_type(p_visitor_a->p_type);
+                else
+                    item_type = type_remove_pointer(p_visitor_a->p_type);
+
+                const bool cannot_be_uninitialized = 
+                    (ctx->ctx->options.ownership_enabled && !type_is_out(&item_type)) ||
+                    type_is_const(&item_type);
+
+                if (cannot_be_uninitialized)
                 {
-                    //parameter must point to _Out qualified ojbect
-                    //*b must be empty before copying to void* _Owner
-                    struct type b_pointed_type = type_remove_pointer(p_visitor_b->p_type);
-                    if (!type_is_out(&b_pointed_type))
-                    {
-                        char b_object_name[100] = { 0 };
-                        object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
-                        compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                                    ctx->ctx,
-                                    NULL,
-                                    p_b_marker,
-                            "uninitialized object '%s' passed to non-optional parameter", b_object_name);
-                    }
-                    type_destroy(&b_pointed_type);
+                    char b_object_name[100] = { 0 };
+                    object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
+                    compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                                ctx->ctx,
+                                NULL,
+                                p_b_marker,
+                        "uninitialized object '%s' passed to non-optional parameter", b_object_name);
                 }
+
+                type_destroy(&item_type);
             }
         }
         else
@@ -3292,7 +3285,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             return p_obj2;
         }
         return NULL;
-        }
+    }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -3471,7 +3464,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     //printf("null object");
     //assert(false);
     return NULL;
-    }
+            }
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,

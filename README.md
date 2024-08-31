@@ -57,7 +57,8 @@ Open the Developer Command Prompt of visual studio. Go to the *src* directory an
 cl build.c && build
 ```
 
-.. or with clang tool set.
+.. or with clang tool set
+
 ```
 clang build.c -o build.exe && build.exe
 ```

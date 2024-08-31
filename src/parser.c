@@ -3922,6 +3922,10 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, '{') != 0)
                 throw;
             p_enum_specifier->enumerator_list = enumerator_list(ctx, p_enum_specifier);
+
+            if (p_enum_specifier->enumerator_list.head == NULL)
+                throw;
+
             if (ctx->current->type == ',')
             {
                 parser_match(ctx);
@@ -3960,6 +3964,8 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
     }
     catch
     {
+        enum_specifier_delete(p_enum_specifier);
+        p_enum_specifier = NULL;
     }
 
     return p_enum_specifier;
@@ -4026,6 +4032,9 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
     }
     catch
     {
+        enumerator_list_destroy(&enumeratorlist);
+        enumeratorlist.head = NULL;
+        enumeratorlist.tail = NULL;
     }
 
     return enumeratorlist;
