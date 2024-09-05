@@ -246,11 +246,12 @@ int main()
 #ifdef TEST
            "-DTEST"
 #endif
+           " -Wall "
            " -D_DEFAULT_SOURCE " 
            " -Wno-unknown-pragmas "
            " -Wno-multichar "
            " -std=c17 "           
-           " -Wall "
+           
            " -o cake "
            CAKE_SOURCE_FILES " main.c ");           
 #endif
