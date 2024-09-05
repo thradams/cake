@@ -2636,7 +2636,7 @@ static void flow_assignment_core(
     bool a_type_is_nullable,
     struct object_visitor* p_visitor_a,
     struct object_visitor* p_visitor_b,
-    bool* set_argument_to_unkown)
+    bool* _Opt  set_argument_to_unkown)
 {
     if (p_visitor_a->p_object == NULL || p_visitor_b->p_object == NULL)
     {

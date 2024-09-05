@@ -57,21 +57,23 @@ Open the Developer Command Prompt of visual studio. Go to the *src* directory an
 cl build.c && build
 ```
 
-.. or with clang tool set
-
-```
-clang build.c -o build.exe && build.exe
-```
-
 This will build *cake.exe*, then run cake on its own source code.
 
 
-## GCC (Linux) build instructions
+## GCC on Linux build instructions
 Got to the *src* directory and type:
 
 ```
 gcc build.c -o build && ./build
 ```
+
+## Clang on Linux/Windows/MacOS build instructions
+Got to the *src* directory and type:
+
+```
+clang build.c -o build && ./build
+```
+
 
 To run unit tests windows/linux add *-DTEST* for instance:
 

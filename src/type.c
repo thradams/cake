@@ -764,17 +764,20 @@ bool type_is_character(const struct type* p_type)
 
 bool type_is_vla(const struct type* p_type)
 {
-    if (type_is_array(p_type))
+    const struct type* it = p_type;
+
+    while (type_is_array(it))
     {
-        if (p_type->array_num_elements_expression)
-        {
-            if (!constant_value_is_valid(&p_type->array_num_elements_expression->constant_value))
+        if (it->array_num_elements_expression)
+        {            
+            if (!constant_value_is_valid(&it->array_num_elements_expression->constant_value))
             {
-                //the expression is not constant so it is VLA
-                //
+                // int a[7][n]
+                //if any of the array is not constant then it is vla
                 return true;
             }
         }
+        it = it->next;
     }
     return false;
 }

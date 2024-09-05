@@ -181,6 +181,7 @@ enum diagnostic_id {
     C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT = 1360,
     C_MULTICHAR_ERROR = 1370,
     C_INVALID_TOKEN = 1380,
+    C_INVALID_ARGUMENT_NELEMENTSOF = 1390,
 };
 
 _Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");

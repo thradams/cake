@@ -416,7 +416,10 @@ enum token_type
     TK_KEYWORD_RETURN,
     TK_KEYWORD_SHORT,
     TK_KEYWORD_SIGNED,
+    
     TK_KEYWORD_SIZEOF,
+    TK_KEYWORD_NELEMENTSOF, //C2Y
+
     
     TK_KEYWORD_STATIC,
     TK_KEYWORD_STRUCT,
@@ -600,10 +603,9 @@ void stream_match(struct stream* stream);
 bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);
 
-struct token make_simple_token(char ch);
-enum token_type parse_number(const char* lexeme, char suffix[4], char erromsg[100]);
+enum token_type parse_number(const char* lexeme, char suffix[4], _Out char erromsg[100]);
 const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c);
-const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
+const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
 
 
 /*
@@ -818,6 +820,7 @@ enum diagnostic_id {
     C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT = 1360,
     C_MULTICHAR_ERROR = 1370,
     C_INVALID_TOKEN = 1380,
+    C_INVALID_ARGUMENT_NELEMENTSOF = 1390,
 };
 
 _Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");
@@ -2223,7 +2226,7 @@ static bool is_nonzero_digit(struct stream* stream)
     return stream->current[0] >= '1' && stream->current[0] <= '9';
 }
 
-enum token_type parse_number_core(struct stream* stream, char suffix[4], char errmsg[100])
+enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out char errmsg[100])
 {
     errmsg[0] = '\0';
 
@@ -2342,7 +2345,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], char er
     return type;
 }
 
-enum token_type parse_number(const char* lexeme, char suffix[4], char errmsg[100])
+enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errmsg[100])
 {
     struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
     return parse_number_core(&stream, suffix, errmsg);
@@ -2429,7 +2432,7 @@ static bool is_hex_digit(unsigned char c)
     return false;
 }
 
-const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
+const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
 {
     // TODO OVERFLOW CHECK
     if (*p == 'x')
@@ -2523,9 +2526,9 @@ const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigne
             *out_value = '"';
             break;
         default:
-            // assume this error is handled at tokenizer
+            // this is handled at tokenizer
             assert(false);
-            break;
+            return NULL;            
         }
         p++;
     }
@@ -13330,7 +13333,7 @@ struct type
     struct type* _Owner _Opt next;
 };
 
-const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
+const struct param_list* _Opt type_get_func_or_func_ptr_params(const struct type* p_type);
 
 struct param {
     struct type type;
@@ -13487,6 +13490,7 @@ enum expression_type
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
+    UNARY_EXPRESSION_NELEMENTSOF_TYPE,
 
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
@@ -14053,7 +14057,6 @@ int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 
-enum token_type parse_number(const char* lexeme, char suffix[4], char errormsg[100]);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -15954,7 +15957,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+                if (p == NULL) throw;
+            }
 
             if (*p != '\'')
             {
@@ -15984,7 +15990,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+                if (p == NULL) throw;
+            }
 
             if (*p != '\'')
             {
@@ -16014,7 +16023,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+                if (p == NULL) throw;
+            }
 
             if (*p != '\'')
             {
@@ -16055,11 +16067,12 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 {
                     throw;
                 }
-                if (c == '\\')
-                    p = escape_sequences_decode_opt(p, &c);
 
-                if (p == 0)
-                    break;
+                if (c == '\\')
+                {
+                    p = escape_sequences_decode_opt(p, &c);
+                    if (p == NULL) throw;
+                }
 
                 if (c < 0x80)
                 {
@@ -16113,9 +16126,11 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 }
 
                 if (c == '\\')
+                {
                     p = escape_sequences_decode_opt(p, &c);
-                if (p == 0)
-                    break;
+                    if (p == NULL) throw;
+                }
+
                 value = value * 256 + c;
                 if (value > INT_MAX)
                 {
@@ -16648,11 +16663,6 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
                 throw;
             }
             p_argument_expression_2->expression = p_assignment_expression_2;
-            if (p_argument_expression_2->expression == NULL)
-            {
-                argument_expression_delete(p_argument_expression_2);
-                throw;
-            }
 
             argument_expression_list_push(&list, p_argument_expression_2);
 
@@ -17113,7 +17123,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 "lvalue required as increment operand");
                 }
 
-                if (ctx->current == NULL) throw;
 
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
@@ -17171,9 +17180,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             }
             else
             {
-                if (ctx->current == NULL)
-                    throw;
-
                 struct token* _Opt p_last = previous_parser_token(ctx->current);
                 if (p_last == NULL)
                     throw; //unexpected
@@ -17379,6 +17385,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == '~' ||
         ctx->current->type == '!' ||
         ctx->current->type == TK_KEYWORD_SIZEOF ||
+        ctx->current->type == TK_KEYWORD_NELEMENTSOF ||
         ctx->current->type == TK_KEYWORD__ALIGNOF ||
         is_first_of_compiler_function(ctx);
 }
@@ -17493,8 +17500,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->type = type_dup(&new_expression->right->type);
             p_expression_node = new_expression;
         }
-        else if (ctx->current != NULL &&
-                 (ctx->current->type == '&' || ctx->current->type == '*' || ctx->current->type == '+' || ctx->current->type == '-' || ctx->current->type == '~' || ctx->current->type == '!'))
+        else if (ctx->current->type == '&' ||
+                 ctx->current->type == '*' ||
+                 ctx->current->type == '+' ||
+                 ctx->current->type == '-' ||
+                 ctx->current->type == '~' ||
+                 ctx->current->type == '!')
         {
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
@@ -17811,7 +17822,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = new_expression;
-        }
+            }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
@@ -17845,10 +17856,17 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 new_expression->type = make_size_t_type();
 
+                if (ctx->current == NULL)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->last_token = ctx->current;
+
                 if (parser_match_tk(ctx, ')') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -17897,6 +17915,122 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 {
                     new_expression->constant_value = constant_value_make_size_t(type_get_sizeof(&new_expression->right->type));
                 }
+            }
+
+            type_destroy(&new_expression->type);
+            new_expression->type = type_make_size_t();
+            p_expression_node = new_expression;
+
+            /*restore*/
+            ctx->evaluation_is_disabled = disable_evaluation_copy;
+        }
+        else if (ctx->current->type == TK_KEYWORD_NELEMENTSOF)//C2Y
+        {
+            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = true;
+            // defer would be nice here...
+
+
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
+            new_expression->first_token = ctx->current;
+
+            parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
+            new_expression->expression_type = UNARY_EXPRESSION_NELEMENTSOF_TYPE;
+
+            if (first_of_type_name_ahead(ctx))
+            {
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+                new_expression->type_name = type_name(ctx);
+                if (new_expression->type_name == NULL)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->type = make_size_t_type();
+                new_expression->last_token = ctx->current;
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (!type_is_array(&new_expression->type_name->declarator->type))
+                {
+                    compiler_diagnostic_message(C_INVALID_ARGUMENT_NELEMENTSOF,
+                        ctx,
+                        new_expression->type_name->first_token,
+                        NULL,
+                        "argument of nelementsof must be an array");
+
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+
+                int nelements = new_expression->type_name->declarator->type.num_of_elements;
+                if (nelements > 0)
+                    new_expression->constant_value = constant_value_make_size_t(nelements);
+
+            }
+            else
+            {
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+
+                new_expression->right = unary_expression(ctx);
+                if (new_expression->right == NULL)
+                {
+                    /*restore*/
+                    ctx->evaluation_is_disabled = disable_evaluation_copy;
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->last_token = ctx->current;
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (!type_is_array(&new_expression->right->type))
+                {
+                    compiler_diagnostic_message(C_INVALID_ARGUMENT_NELEMENTSOF,
+                        ctx,
+                        new_expression->right->first_token,
+                        NULL,
+                        "argument of nelementsof must be an array");
+
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+
+                int nelements = new_expression->right->type.num_of_elements;
+                if (nelements > 0)
+                {
+                    new_expression->constant_value = constant_value_make_size_t(nelements);
+                }
+                else
+                {
+                    //vla [n][2] but not vla[2][n]
+                }
+
             }
 
             type_destroy(&new_expression->type);
@@ -18063,13 +18197,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
             new_expression->right = expression(ctx);
 
-            /*if (constant_value_is_valid(&new_expression->right->constant_value) &&
-                !constant_value_to_bool(&new_expression->right->constant_value))
-            {
-                compiler_diagnostic_message(C_ERROR_STATIC_ASSERT_FAILED, ctx,
-                    new_expression->right->first_token, "assert failed");
-            }*/
-
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
@@ -18121,7 +18248,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (p_expression_node == NULL)
                 throw;
         }
-    }
+        }
     catch
     {
         expression_delete(p_expression_node);
@@ -18129,7 +18256,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
     }
 
     return p_expression_node;
-}
+    }
 
 struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 {
@@ -19250,7 +19377,6 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
 
             new_expression->first_token = ctx->current;
 
-
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -19264,7 +19390,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
             p_expression_node = NULL; /*MOVED*/
 
             new_expression->right = multiplicative_expression(ctx);
-            if (new_expression->left == NULL || new_expression->right == NULL)
+            if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
                 throw;
@@ -20084,8 +20210,6 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; // MOVED
-
-            assert(new_expression->left != NULL);
 
             const struct marker left_operand_marker = {
                       .p_token_begin = new_expression->left->first_token,
@@ -22093,7 +22217,8 @@ struct flow_visit_ctx
     
     int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
-    
+    bool inside_assert;
+
     int throw_join_state; /*state where throws are joined*/
     int break_join_state; /*state where breaks are joined*/
     int initial_state;    /*used to keep the original state*/
@@ -24732,7 +24857,7 @@ static void flow_assignment_core(
     bool a_type_is_nullable,
     struct object_visitor* p_visitor_a,
     struct object_visitor* p_visitor_b,
-    bool* set_argument_to_unkown)
+    bool* _Opt  set_argument_to_unkown)
 {
     if (p_visitor_a->p_object == NULL || p_visitor_b->p_object == NULL)
     {
@@ -25817,7 +25942,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.19"
+#define CAKE_VERSION "0.9.22"
 
 
 
@@ -26968,6 +27093,8 @@ enum token_type is_keyword(const char* text)
     case 'n':
         if (strcmp("nullptr", text) == 0)
             result = TK_KEYWORD_NULLPTR;
+        else if (strcmp("nelementsof", text) == 0)
+            result = TK_KEYWORD_NELEMENTSOF;
         break;
 
     case 'l':
@@ -28157,11 +28284,16 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             throw;
 
         struct token* _Opt tkname = NULL;
-        p_init_declarator->p_declarator = declarator(ctx,
+        
+        struct declarator* _Owner _Opt p_temp_declarator = declarator(ctx,
             NULL,
             p_declaration_specifiers,
             false,
             &tkname);
+
+        if (p_temp_declarator == NULL) throw;
+
+        p_init_declarator->p_declarator = p_temp_declarator;
 
         if (p_init_declarator->p_declarator == NULL)
             throw;
@@ -28424,25 +28556,32 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) &&
         !type_is_function(&p_init_declarator->p_declarator->type))
     {
-        int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
 
-        if (sz == -3)
+        if (type_is_vla(&p_init_declarator->p_declarator->type))
         {
-            /*type_get_sizeof returns -3 for VLAs*/
-        }
-        else if (sz < 0)
-        {
-            // clang warning: array 'c' assumed to have one element
-            // gcc "error: storage size of '%s' isn't known"
-            compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
-                ctx,
-                p_init_declarator->p_declarator->name_opt, NULL,
-                "storage size of '%s' isn't known",
-                p_init_declarator->p_declarator->name_opt->lexeme);
         }
         else
         {
-            // ok
+            int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+
+            if (sz == -3)
+            {
+                /*type_get_sizeof returns -3 for VLAs*/
+            }
+            else if (sz < 0)
+            {
+                // clang warning: array 'c' assumed to have one element
+                // gcc "error: storage size of '%s' isn't known"
+                compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
+                    ctx,
+                    p_init_declarator->p_declarator->name_opt, NULL,
+                    "storage size of '%s' isn't known",
+                    p_init_declarator->p_declarator->name_opt->lexeme);
+            }
+            else
+            {
+                // ok
+            }
         }
     }
 
@@ -32460,11 +32599,11 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
                 }
             }
         }
     }
+}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -36010,6 +36149,10 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 {
     switch (p_expression->expression_type)
     {
+    case EXPRESSION_TYPE_INVALID:
+        assert(false);
+        break;
+
     case PRIMARY_EXPRESSION__FUNC__:
         break;
 
@@ -36251,6 +36394,65 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         }
         break;
 
+    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
+
+        del(p_expression->first_token, p_expression->first_token);
+
+        struct tokenizer_ctx tctx = { 0 };
+
+
+        if (p_expression->right)
+        {
+            visit_expression(ctx, p_expression->right);
+
+            struct token_list l = { .head = p_expression->right->first_token,
+                                    .tail = p_expression->right->last_token };
+
+            char* _Owner _Opt exprstr = get_code_as_we_see(&l, true);
+            char buffer[200];
+            snprintf(buffer, sizeof buffer, "sizeof(%s)/sizeof((%s)[0])", exprstr, exprstr);
+
+            struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
+
+            token_list_insert_before(&ctx->ast.token_list,
+                p_expression->last_token,
+                &l2);
+
+            del(p_expression->right->first_token, p_expression->right->last_token);
+            free(exprstr);
+
+            token_list_destroy(&l2);
+        }
+
+        if (p_expression->type_name)
+        {
+            visit_type_name(ctx, p_expression->type_name);
+
+            if (constant_value_is_valid(&p_expression->constant_value))
+            {
+                int u = constant_value_to_unsigned_int(&p_expression->constant_value);
+
+                char buffer[50];
+                snprintf(buffer, sizeof buffer, "%d", u);
+
+                struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
+
+                token_list_insert_before(&ctx->ast.token_list,
+                    p_expression->last_token,
+                    &l2);
+
+                del(p_expression->type_name->first_token, p_expression->type_name->last_token);
+
+
+                token_list_destroy(&l2);
+            }
+            else
+            {
+                //error
+            }
+        }
+        break;
+
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
@@ -36390,6 +36592,11 @@ static void visit_compound_statement(struct visit_ctx* ctx, struct compound_stat
 //
 static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
+
+    if (p_iteration_statement->expression0)
+    {
+        visit_expression(ctx, p_iteration_statement->expression0);
+    }
 
     if (p_iteration_statement->expression1)
     {
@@ -38208,7 +38415,6 @@ static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx
                     continue;
                 }
 
-                const bool is_pointer = type_is_pointer(&a->data[i].p_expression->type);
                 const enum boolean_flag flag =
                     true_branch ?
                     a->data[i].true_branch_state :
@@ -39515,7 +39721,7 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
         {
 
             struct true_false_set a = { 0 };
-            
+
             struct diagnostic temp =
                 ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
 
@@ -40032,7 +40238,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         if (p_expression->right)
         {
             struct true_false_set true_false_set4 = { 0 };
-            flow_visit_expression(ctx, p_expression->right, &true_false_set4); //assert(p == 0);
+            bool old = ctx->inside_assert;
+            ctx->inside_assert = true;
+            flow_visit_expression(ctx, p_expression->right, &true_false_set4); //assert(p == 0);            
+            ctx->inside_assert = old;
             true_false_set_set_objects_to_true_branch(ctx, &true_false_set4, nullable_enabled);
             true_false_set_destroy(&true_false_set4);
         }
@@ -40070,6 +40279,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
+    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
 
@@ -40338,65 +40548,106 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case EQUALITY_EXPRESSION_NOT_EQUAL:
     case EQUALITY_EXPRESSION_EQUAL:
     {
-        const bool left_is_constant = constant_value_is_valid(&p_expression->left->constant_value);
-        const bool right_is_constant = constant_value_is_valid(&p_expression->right->constant_value);
-
-        if (left_is_constant)
+        long long value = 0;
+        struct expression* p_comp_expression = NULL;
+        if (constant_value_is_valid(&p_expression->left->constant_value) &&
+            !constant_value_is_valid(&p_expression->right->constant_value))
         {
-            const long long left_value = constant_value_to_signed_long_long(&p_expression->left->constant_value);
-
-            struct true_false_set true_false_set_right = { 0 };
-            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
-
-            if (left_value == 0)
-            {
-                //0 == expression
-                //0 != expression
-                flow_check_pointer_used_as_bool(ctx, p_expression->right);
-            }
-
-            //0 == expression            
-            //1 == expression            
-            true_false_set_swap(expr_true_false_set, &true_false_set_right);
-
-            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && left_value == 0)
-            {
-                true_false_set_invert(expr_true_false_set);
-            }
-            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && left_value != 0)
-            {
-                true_false_set_invert(expr_true_false_set);
-            }
-
-            true_false_set_destroy(&true_false_set_right);
+            value = constant_value_to_signed_long_long(&p_expression->left->constant_value);
+            p_comp_expression = p_expression->right;
+        }
+        else if (constant_value_is_valid(&p_expression->right->constant_value) &&
+                !constant_value_is_valid(&p_expression->left->constant_value))
+        {
+            value = constant_value_to_signed_long_long(&p_expression->right->constant_value);
+            p_comp_expression = p_expression->left;
         }
 
-        else if (right_is_constant)
+
+        if (p_comp_expression)
         {
-            const long long right_value = constant_value_to_signed_long_long(&p_expression->right->constant_value);
+            struct true_false_set true_false_set = { 0 };
+            flow_visit_expression(ctx, p_comp_expression, &true_false_set);
 
-            struct true_false_set true_false_set_left3 = { 0 };
-            flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
+            //constant == p_comp_expression  |  p_comp_expression == constant
+            //constant != p_comp_expression  |  p_comp_expression != constant
 
-            if (right_value == 0)
+            struct flow_object* _Opt p_object = expression_get_object(ctx, p_comp_expression, nullable_enabled);
+            if (p_object)
             {
-                //expression == 0
-                //expression != 0
-                flow_check_pointer_used_as_bool(ctx, p_expression->left);
+                struct marker marker = {
+                     .p_token_begin = p_comp_expression->first_token,
+                     .p_token_end = p_comp_expression->last_token
+                };
+
+
+                if ((flow_object_is_null(p_object) || flow_object_is_zero(p_object)) && value == 0)
+                {
+                    if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+                    {
+                        if (ctx->inside_assert)
+                        {
+                            /*
+                             assert checks in runtime the same state we have at compile time
+                             assert(p == NULL);
+                            */
+                        }
+                        else
+                        {
+                            //if (p == NULL) { } //warning  p is always null
+                            compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
+                        }
+                    }
+                    else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
+                    {
+                        /*
+                           runtime check is diferent from static state
+                           assert(p != NULL);
+                        */
+                        compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
+                    }
+                }
+                else if ((flow_object_is_not_null(p_object) || flow_object_is_not_zero(p_object)) && value == 0)
+                {
+                    if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+                    {
+                        /*
+                           runtime check is diferent from static state
+                           assert(p == NULL);
+                        */
+                        compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
+                    }
+                    else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
+                    {
+                        /*
+                           assert checks in runtime the same state we have at compile time
+                           assert(p != NULL);
+                        */
+                        if (ctx->inside_assert)
+                        {
+                            /*
+                             assert checks in runtime the same state we have at compile time
+                             assert(p == NULL);
+                            */
+                        }
+                        else
+                        {
+                            compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
+                        }
+                    }
+                }
             }
 
-            //expression == 0
-            //expression == 1
-            true_false_set_swap(expr_true_false_set, &true_false_set_left3);
-            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && right_value == 0)
+            true_false_set_swap(expr_true_false_set, &true_false_set);
+            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && value == 0)
             {
                 true_false_set_invert(expr_true_false_set);
             }
-            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && right_value != 0)
+            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && value != 0)
             {
                 true_false_set_invert(expr_true_false_set);
             }
-            true_false_set_destroy(&true_false_set_left3);
+            true_false_set_destroy(&true_false_set);
         }
         else
         {
@@ -40657,7 +40908,6 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     if (p_iteration_statement->expression1)
     {
-        //compute_true_false_set(p_iteration_statement->expression1, &true_false_set);
         flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     }
 
@@ -40699,6 +40949,9 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
+    if (p_iteration_statement->expression1 == NULL || p_iteration_statement->secondary_block == NULL)
+        return;
+
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     const int old_initial_state = ctx->initial_state;
@@ -40708,65 +40961,76 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     ctx->break_join_state = arena_add_empty_state(ctx, "break join");
 
     struct true_false_set true_false_set = { 0 };
+    
+    /*
+        we do like this to acumulate states.
 
-    if (p_iteration_statement->expression1)
+        if (expression)
+        {
+           statements...
+           if (expression)
+           {
+             statements...
+           }
+        }
+        break_exit:
+    */
+
+    //We do a visit but this is not conclusive..so we ignore warnings
+    ctx->ctx->options.diagnostic_stack_top_index++;
+    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
+    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].errors = 0;
+    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].notes = 0;
+    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);    
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
+    p_defer->p_iteration_statement = p_iteration_statement;
+    true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
+    //Second pass warning is ON
+    ctx->ctx->options.diagnostic_stack_top_index--;
+    
+    struct true_false_set true_false_set2 = { 0 };
+    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
+    true_false_set_destroy(&true_false_set2);
+
+    //visit secondary_block again
+    true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
+    flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+
+
+    const bool was_last_statement_inside_true_branch_return =
+        secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+
+    if (was_last_statement_inside_true_branch_return)
     {
-        //We do a visit but this is not conclusive..so we ignore warnings
-        ctx->ctx->options.diagnostic_stack_top_index++;
-        ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
-        ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].errors = 0;
-        ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].notes = 0;
-        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
-        ctx->ctx->options.diagnostic_stack_top_index--;
+        /*
+           while (p) { return; }
+        */
+        arena_restore_current_state_from(ctx, ctx->initial_state);
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+    }
+    else
+    {
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+        arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
+        arena_restore_current_state_from(ctx, ctx->break_join_state);
     }
 
-    if (p_iteration_statement->secondary_block)
-    {
-        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
-        p_defer->p_iteration_statement = p_iteration_statement;
-        true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
-
-        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
-
-
-        const bool was_last_statement_inside_true_branch_return =
-            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-
-        if (was_last_statement_inside_true_branch_return)
-        {
-            /*
-               while (p) { return; }
-            */
-            arena_restore_current_state_from(ctx, ctx->initial_state);
-            true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
-        }
-        else
-        {
-            true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
-            arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
-            arena_restore_current_state_from(ctx, ctx->break_join_state);
-        }
-
-        flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
-        flow_visit_ctx_pop_tail_block(ctx);
-    }
+    flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+    flow_visit_ctx_pop_tail_block(ctx);
 
     arena_remove_state(ctx, ctx->initial_state);
     arena_remove_state(ctx, ctx->break_join_state);
 
-    //Now we visit the expression again because we have the states
-    //at end of while that will be used again for the expression.
-    //At this time we print warnings
-    struct true_false_set true_false_set2 = { 0 };
-    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
 
     //restore
     ctx->initial_state = old_initial_state;
     ctx->break_join_state = old_break_join_state;
     true_false_set_destroy(&true_false_set);
-    true_false_set_destroy(&true_false_set2);
 }
 
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -41226,7 +41490,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 if (e != p_obj->current.state)
                 {
                     compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
-                    printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
+                    if (p_static_assert_declaration->string_literal_opt)
+                      printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
                     printf("current  :");
                     flow_object_print_state(p_obj);
                     printf("\n");
@@ -41433,12 +41698,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     if (p_declarator->p_object->pointed)
                     {
                         set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                }
+                    }
                     type_destroy(&t2);
-            }
+                }
 #endif
+            }
         }
-    }
 
         /*if (p_declarator->pointer)
         {
@@ -41454,11 +41719,11 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         {
             flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
         }
-}
+                }
     catch
     {
     }
-}
+            }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -43430,17 +43695,20 @@ bool type_is_character(const struct type* p_type)
 
 bool type_is_vla(const struct type* p_type)
 {
-    if (type_is_array(p_type))
+    const struct type* it = p_type;
+
+    while (type_is_array(it))
     {
-        if (p_type->array_num_elements_expression)
-        {
-            if (!constant_value_is_valid(&p_type->array_num_elements_expression->constant_value))
+        if (it->array_num_elements_expression)
+        {            
+            if (!constant_value_is_valid(&it->array_num_elements_expression->constant_value))
             {
-                //the expression is not constant so it is VLA
-                //
+                // int a[7][n]
+                //if any of the array is not constant then it is vla
                 return true;
             }
         }
+        it = it->next;
     }
     return false;
 }

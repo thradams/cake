@@ -288,7 +288,6 @@ static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx
                     continue;
                 }
 
-                const bool is_pointer = type_is_pointer(&a->data[i].p_expression->type);
                 const enum boolean_flag flag =
                     true_branch ?
                     a->data[i].true_branch_state :
@@ -1595,7 +1594,7 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
         {
 
             struct true_false_set a = { 0 };
-            
+
             struct diagnostic temp =
                 ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
 
@@ -2112,7 +2111,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         if (p_expression->right)
         {
             struct true_false_set true_false_set4 = { 0 };
-            flow_visit_expression(ctx, p_expression->right, &true_false_set4); //assert(p == 0);
+            bool old = ctx->inside_assert;
+            ctx->inside_assert = true;
+            flow_visit_expression(ctx, p_expression->right, &true_false_set4); //assert(p == 0);            
+            ctx->inside_assert = old;
             true_false_set_set_objects_to_true_branch(ctx, &true_false_set4, nullable_enabled);
             true_false_set_destroy(&true_false_set4);
         }
@@ -2150,6 +2152,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
+    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
 
@@ -2418,65 +2421,106 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case EQUALITY_EXPRESSION_NOT_EQUAL:
     case EQUALITY_EXPRESSION_EQUAL:
     {
-        const bool left_is_constant = constant_value_is_valid(&p_expression->left->constant_value);
-        const bool right_is_constant = constant_value_is_valid(&p_expression->right->constant_value);
-
-        if (left_is_constant)
+        long long value = 0;
+        struct expression* p_comp_expression = NULL;
+        if (constant_value_is_valid(&p_expression->left->constant_value) &&
+            !constant_value_is_valid(&p_expression->right->constant_value))
         {
-            const long long left_value = constant_value_to_signed_long_long(&p_expression->left->constant_value);
-
-            struct true_false_set true_false_set_right = { 0 };
-            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
-
-            if (left_value == 0)
-            {
-                //0 == expression
-                //0 != expression
-                flow_check_pointer_used_as_bool(ctx, p_expression->right);
-            }
-
-            //0 == expression            
-            //1 == expression            
-            true_false_set_swap(expr_true_false_set, &true_false_set_right);
-
-            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && left_value == 0)
-            {
-                true_false_set_invert(expr_true_false_set);
-            }
-            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && left_value != 0)
-            {
-                true_false_set_invert(expr_true_false_set);
-            }
-
-            true_false_set_destroy(&true_false_set_right);
+            value = constant_value_to_signed_long_long(&p_expression->left->constant_value);
+            p_comp_expression = p_expression->right;
+        }
+        else if (constant_value_is_valid(&p_expression->right->constant_value) &&
+                !constant_value_is_valid(&p_expression->left->constant_value))
+        {
+            value = constant_value_to_signed_long_long(&p_expression->right->constant_value);
+            p_comp_expression = p_expression->left;
         }
 
-        else if (right_is_constant)
+
+        if (p_comp_expression)
         {
-            const long long right_value = constant_value_to_signed_long_long(&p_expression->right->constant_value);
+            struct true_false_set true_false_set = { 0 };
+            flow_visit_expression(ctx, p_comp_expression, &true_false_set);
 
-            struct true_false_set true_false_set_left3 = { 0 };
-            flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
+            //constant == p_comp_expression  |  p_comp_expression == constant
+            //constant != p_comp_expression  |  p_comp_expression != constant
 
-            if (right_value == 0)
+            struct flow_object* _Opt p_object = expression_get_object(ctx, p_comp_expression, nullable_enabled);
+            if (p_object)
             {
-                //expression == 0
-                //expression != 0
-                flow_check_pointer_used_as_bool(ctx, p_expression->left);
+                struct marker marker = {
+                     .p_token_begin = p_comp_expression->first_token,
+                     .p_token_end = p_comp_expression->last_token
+                };
+
+
+                if ((flow_object_is_null(p_object) || flow_object_is_zero(p_object)) && value == 0)
+                {
+                    if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+                    {
+                        if (ctx->inside_assert)
+                        {
+                            /*
+                             assert checks in runtime the same state we have at compile time
+                             assert(p == NULL);
+                            */
+                        }
+                        else
+                        {
+                            //if (p == NULL) { } //warning  p is always null
+                            compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
+                        }
+                    }
+                    else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
+                    {
+                        /*
+                           runtime check is diferent from static state
+                           assert(p != NULL);
+                        */
+                        compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
+                    }
+                }
+                else if ((flow_object_is_not_null(p_object) || flow_object_is_not_zero(p_object)) && value == 0)
+                {
+                    if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+                    {
+                        /*
+                           runtime check is diferent from static state
+                           assert(p == NULL);
+                        */
+                        compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
+                    }
+                    else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
+                    {
+                        /*
+                           assert checks in runtime the same state we have at compile time
+                           assert(p != NULL);
+                        */
+                        if (ctx->inside_assert)
+                        {
+                            /*
+                             assert checks in runtime the same state we have at compile time
+                             assert(p == NULL);
+                            */
+                        }
+                        else
+                        {
+                            compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
+                        }
+                    }
+                }
             }
 
-            //expression == 0
-            //expression == 1
-            true_false_set_swap(expr_true_false_set, &true_false_set_left3);
-            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && right_value == 0)
+            true_false_set_swap(expr_true_false_set, &true_false_set);
+            if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL && value == 0)
             {
                 true_false_set_invert(expr_true_false_set);
             }
-            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && right_value != 0)
+            else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL && value != 0)
             {
                 true_false_set_invert(expr_true_false_set);
             }
-            true_false_set_destroy(&true_false_set_left3);
+            true_false_set_destroy(&true_false_set);
         }
         else
         {
@@ -2737,7 +2781,6 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     if (p_iteration_statement->expression1)
     {
-        //compute_true_false_set(p_iteration_statement->expression1, &true_false_set);
         flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     }
 
@@ -2779,6 +2822,9 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
+    if (p_iteration_statement->expression1 == NULL || p_iteration_statement->secondary_block == NULL)
+        return;
+
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     const int old_initial_state = ctx->initial_state;
@@ -2788,65 +2834,76 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     ctx->break_join_state = arena_add_empty_state(ctx, "break join");
 
     struct true_false_set true_false_set = { 0 };
+    
+    /*
+        we do like this to acumulate states.
 
-    if (p_iteration_statement->expression1)
+        if (expression)
+        {
+           statements...
+           if (expression)
+           {
+             statements...
+           }
+        }
+        break_exit:
+    */
+
+    //We do a visit but this is not conclusive..so we ignore warnings
+    ctx->ctx->options.diagnostic_stack_top_index++;
+    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
+    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].errors = 0;
+    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].notes = 0;
+    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);    
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
+    p_defer->p_iteration_statement = p_iteration_statement;
+    true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
+    //Second pass warning is ON
+    ctx->ctx->options.diagnostic_stack_top_index--;
+    
+    struct true_false_set true_false_set2 = { 0 };
+    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
+    true_false_set_destroy(&true_false_set2);
+
+    //visit secondary_block again
+    true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
+    flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+
+
+    const bool was_last_statement_inside_true_branch_return =
+        secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+
+    if (was_last_statement_inside_true_branch_return)
     {
-        //We do a visit but this is not conclusive..so we ignore warnings
-        ctx->ctx->options.diagnostic_stack_top_index++;
-        ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
-        ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].errors = 0;
-        ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].notes = 0;
-        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
-        ctx->ctx->options.diagnostic_stack_top_index--;
+        /*
+           while (p) { return; }
+        */
+        arena_restore_current_state_from(ctx, ctx->initial_state);
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+    }
+    else
+    {
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+        arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
+        arena_restore_current_state_from(ctx, ctx->break_join_state);
     }
 
-    if (p_iteration_statement->secondary_block)
-    {
-        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
-        p_defer->p_iteration_statement = p_iteration_statement;
-        true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
-
-        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
-
-
-        const bool was_last_statement_inside_true_branch_return =
-            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-
-        if (was_last_statement_inside_true_branch_return)
-        {
-            /*
-               while (p) { return; }
-            */
-            arena_restore_current_state_from(ctx, ctx->initial_state);
-            true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
-        }
-        else
-        {
-            true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
-            arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
-            arena_restore_current_state_from(ctx, ctx->break_join_state);
-        }
-
-        flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
-        flow_visit_ctx_pop_tail_block(ctx);
-    }
+    flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+    flow_visit_ctx_pop_tail_block(ctx);
 
     arena_remove_state(ctx, ctx->initial_state);
     arena_remove_state(ctx, ctx->break_join_state);
 
-    //Now we visit the expression again because we have the states
-    //at end of while that will be used again for the expression.
-    //At this time we print warnings
-    struct true_false_set true_false_set2 = { 0 };
-    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
 
     //restore
     ctx->initial_state = old_initial_state;
     ctx->break_join_state = old_break_join_state;
     true_false_set_destroy(&true_false_set);
-    true_false_set_destroy(&true_false_set2);
 }
 
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -3306,7 +3363,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 if (e != p_obj->current.state)
                 {
                     compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
-                    printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
+                    if (p_static_assert_declaration->string_literal_opt)
+                      printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
                     printf("current  :");
                     flow_object_print_state(p_obj);
                     printf("\n");
@@ -3513,12 +3571,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     if (p_declarator->p_object->pointed)
                     {
                         set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                }
+                    }
                     type_destroy(&t2);
-            }
+                }
 #endif
+            }
         }
-    }
 
         /*if (p_declarator->pointer)
         {
@@ -3534,11 +3592,11 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         {
             flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
         }
-}
+                }
     catch
     {
     }
-}
+            }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {

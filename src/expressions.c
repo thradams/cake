@@ -595,7 +595,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+                if (p == NULL) throw;
+            }
 
             if (*p != '\'')
             {
@@ -625,7 +628,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+                if (p == NULL) throw;
+            }
 
             if (*p != '\'')
             {
@@ -655,7 +661,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+                if (p == NULL) throw;
+            }
 
             if (*p != '\'')
             {
@@ -696,11 +705,12 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 {
                     throw;
                 }
-                if (c == '\\')
-                    p = escape_sequences_decode_opt(p, &c);
 
-                if (p == 0)
-                    break;
+                if (c == '\\')
+                {
+                    p = escape_sequences_decode_opt(p, &c);
+                    if (p == NULL) throw;
+                }
 
                 if (c < 0x80)
                 {
@@ -754,9 +764,11 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 }
 
                 if (c == '\\')
+                {
                     p = escape_sequences_decode_opt(p, &c);
-                if (p == 0)
-                    break;
+                    if (p == NULL) throw;
+                }
+
                 value = value * 256 + c;
                 if (value > INT_MAX)
                 {
@@ -1289,11 +1301,6 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
                 throw;
             }
             p_argument_expression_2->expression = p_assignment_expression_2;
-            if (p_argument_expression_2->expression == NULL)
-            {
-                argument_expression_delete(p_argument_expression_2);
-                throw;
-            }
 
             argument_expression_list_push(&list, p_argument_expression_2);
 
@@ -1754,7 +1761,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 "lvalue required as increment operand");
                 }
 
-                if (ctx->current == NULL) throw;
 
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
@@ -1812,9 +1818,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             }
             else
             {
-                if (ctx->current == NULL)
-                    throw;
-
                 struct token* _Opt p_last = previous_parser_token(ctx->current);
                 if (p_last == NULL)
                     throw; //unexpected
@@ -2020,6 +2023,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == '~' ||
         ctx->current->type == '!' ||
         ctx->current->type == TK_KEYWORD_SIZEOF ||
+        ctx->current->type == TK_KEYWORD_NELEMENTSOF ||
         ctx->current->type == TK_KEYWORD__ALIGNOF ||
         is_first_of_compiler_function(ctx);
 }
@@ -2134,8 +2138,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->type = type_dup(&new_expression->right->type);
             p_expression_node = new_expression;
         }
-        else if (ctx->current != NULL &&
-                 (ctx->current->type == '&' || ctx->current->type == '*' || ctx->current->type == '+' || ctx->current->type == '-' || ctx->current->type == '~' || ctx->current->type == '!'))
+        else if (ctx->current->type == '&' ||
+                 ctx->current->type == '*' ||
+                 ctx->current->type == '+' ||
+                 ctx->current->type == '-' ||
+                 ctx->current->type == '~' ||
+                 ctx->current->type == '!')
         {
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
@@ -2452,7 +2460,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = new_expression;
-        }
+            }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
@@ -2486,10 +2494,17 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 new_expression->type = make_size_t_type();
 
+                if (ctx->current == NULL)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->last_token = ctx->current;
+
                 if (parser_match_tk(ctx, ')') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -2538,6 +2553,122 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 {
                     new_expression->constant_value = constant_value_make_size_t(type_get_sizeof(&new_expression->right->type));
                 }
+            }
+
+            type_destroy(&new_expression->type);
+            new_expression->type = type_make_size_t();
+            p_expression_node = new_expression;
+
+            /*restore*/
+            ctx->evaluation_is_disabled = disable_evaluation_copy;
+        }
+        else if (ctx->current->type == TK_KEYWORD_NELEMENTSOF)//C2Y
+        {
+            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = true;
+            // defer would be nice here...
+
+
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
+            new_expression->first_token = ctx->current;
+
+            parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
+            new_expression->expression_type = UNARY_EXPRESSION_NELEMENTSOF_TYPE;
+
+            if (first_of_type_name_ahead(ctx))
+            {
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+                new_expression->type_name = type_name(ctx);
+                if (new_expression->type_name == NULL)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->type = make_size_t_type();
+                new_expression->last_token = ctx->current;
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (!type_is_array(&new_expression->type_name->declarator->type))
+                {
+                    compiler_diagnostic_message(C_INVALID_ARGUMENT_NELEMENTSOF,
+                        ctx,
+                        new_expression->type_name->first_token,
+                        NULL,
+                        "argument of nelementsof must be an array");
+
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+
+                int nelements = new_expression->type_name->declarator->type.num_of_elements;
+                if (nelements > 0)
+                    new_expression->constant_value = constant_value_make_size_t(nelements);
+
+            }
+            else
+            {
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+
+                new_expression->right = unary_expression(ctx);
+                if (new_expression->right == NULL)
+                {
+                    /*restore*/
+                    ctx->evaluation_is_disabled = disable_evaluation_copy;
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->last_token = ctx->current;
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (!type_is_array(&new_expression->right->type))
+                {
+                    compiler_diagnostic_message(C_INVALID_ARGUMENT_NELEMENTSOF,
+                        ctx,
+                        new_expression->right->first_token,
+                        NULL,
+                        "argument of nelementsof must be an array");
+
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+
+                int nelements = new_expression->right->type.num_of_elements;
+                if (nelements > 0)
+                {
+                    new_expression->constant_value = constant_value_make_size_t(nelements);
+                }
+                else
+                {
+                    //vla [n][2] but not vla[2][n]
+                }
+
             }
 
             type_destroy(&new_expression->type);
@@ -2704,13 +2835,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
             new_expression->right = expression(ctx);
 
-            /*if (constant_value_is_valid(&new_expression->right->constant_value) &&
-                !constant_value_to_bool(&new_expression->right->constant_value))
-            {
-                compiler_diagnostic_message(C_ERROR_STATIC_ASSERT_FAILED, ctx,
-                    new_expression->right->first_token, "assert failed");
-            }*/
-
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
@@ -2762,7 +2886,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (p_expression_node == NULL)
                 throw;
         }
-    }
+        }
     catch
     {
         expression_delete(p_expression_node);
@@ -2770,7 +2894,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
     }
 
     return p_expression_node;
-}
+    }
 
 struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 {
@@ -3891,7 +4015,6 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
 
             new_expression->first_token = ctx->current;
 
-
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -3905,7 +4028,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
             p_expression_node = NULL; /*MOVED*/
 
             new_expression->right = multiplicative_expression(ctx);
-            if (new_expression->left == NULL || new_expression->right == NULL)
+            if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
                 throw;
@@ -4725,8 +4848,6 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
             p_expression_node = NULL; // MOVED
-
-            assert(new_expression->left != NULL);
 
             const struct marker left_operand_marker = {
                       .p_token_begin = new_expression->left->first_token,

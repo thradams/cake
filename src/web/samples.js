@@ -791,7 +791,11 @@ int main() {
 
 sample["C2Y"] = [];
 sample["C2Y"]["if with initialization (Like C++17)"] =
-    `
+`
+/*
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm
+*/
+
 #include <stdio.h>
 
 int main()
@@ -822,8 +826,9 @@ int main()
 sample["C2Y"]["_Generic(type-name)"] =
 `
 /*
-  cake accepts type-name on _Generic expression 
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3214.pdf
 */
+
 int main(void)
 {
     const int * const p;
@@ -836,9 +841,36 @@ int main(void)
 
 `;
 
+sample["C2Y"]["nelementsof"] =
+`
+/*
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3325.pdf
+*/
+
+void f(int n)
+{
+  int v[123][n];
+  static_assert(nelementsof(v) == 123);
+}
+
+int main()
+{
+  int a[7][3];
+  int n = nelementsof(a);
+  static_assert(nelementsof(a) == 7);
+
+  int n2 = nelementsof(int [7][3]);
+  static_assert(nelementsof(int [2][3]) == 2);
+}
+
+`;
 
 sample["C2Y"]["defer inside try blocks"] =
-    `
+`
+/*
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm
+*/
+
 #include <stdio.h>
 
 int main()

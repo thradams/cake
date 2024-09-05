@@ -209,7 +209,7 @@ struct type
     struct type* _Owner _Opt next;
 };
 
-const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
+const struct param_list* _Opt type_get_func_or_func_ptr_params(const struct type* p_type);
 
 struct param {
     struct type type;

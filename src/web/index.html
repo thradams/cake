@@ -48,33 +48,36 @@
 <a href="#toc_5">MSVC build instructions</a>
 </li>
 <li>
-<a href="#toc_6">GCC (Linux) build instructions</a>
+<a href="#toc_6">GCC on Linux build instructions</a>
 </li>
 <li>
-<a href="#toc_7">Emscripten build instructions (web)</a>
+<a href="#toc_7">Clang on Linux/Windows/MacOS build instructions</a>
+</li>
+<li>
+<a href="#toc_8">Emscripten build instructions (web)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_8">Running cake at command line</a>
+<a href="#toc_9">Running cake at command line</a>
 </li>
 <li>
-<a href="#toc_9">Road map</a>
+<a href="#toc_10">Road map</a>
 </li>
 <li>
-<a href="#toc_10">References</a>
+<a href="#toc_11">References</a>
 </li>
 <li>
-<a href="#toc_11">Influenced by</a>
+<a href="#toc_12">Influenced by</a>
 </li>
 <li>
-<a href="#toc_12">Participating</a>
+<a href="#toc_13">Participating</a>
 </li>
 <li>
-<a href="#toc_13">How cake is developed?</a>
+<a href="#toc_14">How cake is developed?</a>
 </li>
 <li>
-<a href="#toc_14">Differences  from CFront</a>
+<a href="#toc_15">Differences  from CFront</a>
 </li>
 </ul>
 <p>The C Programming language 1978</p>
@@ -136,18 +139,20 @@ Cake can also be used as static analyzer, especially the new object lifetime ana
 <pre><code>cl build.c &amp;&amp; build
 </code></pre>
 
-<p>.. or with clang tool set</p>
-
-<pre><code>clang build.c -o build.exe &amp;&amp; build.exe
-</code></pre>
-
 <p>This will build <em>cake.exe</em>, then run cake on its own source code.</p>
 
-<h2 id="toc_6">GCC (Linux) build instructions</h2>
+<h2 id="toc_6">GCC on Linux build instructions</h2>
 
 <p>Got to the <em>src</em> directory and type:</p>
 
 <pre><code>gcc build.c -o build &amp;&amp; ./build
+</code></pre>
+
+<h2 id="toc_7">Clang on Linux/Windows/MacOS build instructions</h2>
+
+<p>Got to the <em>src</em> directory and type:</p>
+
+<pre><code>clang build.c -o build &amp;&amp; ./build
 </code></pre>
 
 <p>To run unit tests windows/linux add <em>-DTEST</em> for instance:</p>
@@ -155,7 +160,7 @@ Cake can also be used as static analyzer, especially the new object lifetime ana
 <pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<h2 id="toc_7">Emscripten build instructions (web)</h2>
+<h2 id="toc_8">Emscripten build instructions (web)</h2>
 
 <p>Emscripten <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
 
@@ -170,7 +175,7 @@ Cake can also be used as static analyzer, especially the new object lifetime ana
 
 <p>This will generate the <em>\src\Web\cake.js</em></p>
 
-<h1 id="toc_8">Running cake at command line</h1>
+<h1 id="toc_9">Running cake at command line</h1>
 
 <p>Make sure cake is on your system path.</p>
 
@@ -183,7 +188,7 @@ Cake can also be used as static analyzer, especially the new object lifetime ana
 
 <p>See <a href="manual.html">Manual</a></p>
 
-<h1 id="toc_9">Road map</h1>
+<h1 id="toc_10">Road map</h1>
 
 <ul>
 <li>Ownership static analysis</li>
@@ -191,7 +196,7 @@ Cake can also be used as static analyzer, especially the new object lifetime ana
 <li>Ownership specification</li>
 </ul>
 
-<h1 id="toc_10">References</h1>
+<h1 id="toc_11">References</h1>
 
 <p>How did we get here?</p>
 
@@ -214,14 +219,14 @@ Cake can also be used as static analyzer, especially the new object lifetime ana
 
 <p><a href="https://hackaday.com/2022/09/13/c23-programming-for-everyone/">https://hackaday.com/2022/09/13/c23-programming-for-everyone/</a></p>
 
-<h1 id="toc_11">Influenced by</h1>
+<h1 id="toc_12">Influenced by</h1>
 
 <ul>
 <li>Typescript</li>
 <li>Small C compilers</li>
 </ul>
 
-<h1 id="toc_12">Participating</h1>
+<h1 id="toc_13">Participating</h1>
 
 <p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
 
@@ -231,7 +236,7 @@ Cake can also be used as static analyzer, especially the new object lifetime ana
 
 <p><a href="https://discord.gg/YRekr2N65S">https://discord.gg/YRekr2N65S</a></p>
 
-<h1 id="toc_13">How cake is developed?</h1>
+<h1 id="toc_14">How cake is developed?</h1>
 
 <p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
 the includes of MSVC and it generates the <em>out</em> dir after build. </p>
@@ -241,7 +246,7 @@ the includes of MSVC and it generates the <em>out</em> dir after build. </p>
 <p>Cake source code is not using any extension so the output is the same of input. 
 This compilation is useful for tracking errors together with the unit tests.</p>
 
-<h1 id="toc_14">Differences  from CFront</h1>
+<h1 id="toc_15">Differences  from CFront</h1>
 
 <p>CFront was the original compiler for C++ which converted C++ to C. </p>
 

@@ -904,6 +904,10 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 {
     switch (p_expression->expression_type)
     {
+    case EXPRESSION_TYPE_INVALID:
+        assert(false);
+        break;
+
     case PRIMARY_EXPRESSION__FUNC__:
         break;
 
@@ -1145,6 +1149,65 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         }
         break;
 
+    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
+
+        del(p_expression->first_token, p_expression->first_token);
+
+        struct tokenizer_ctx tctx = { 0 };
+
+
+        if (p_expression->right)
+        {
+            visit_expression(ctx, p_expression->right);
+
+            struct token_list l = { .head = p_expression->right->first_token,
+                                    .tail = p_expression->right->last_token };
+
+            char* _Owner _Opt exprstr = get_code_as_we_see(&l, true);
+            char buffer[200];
+            snprintf(buffer, sizeof buffer, "sizeof(%s)/sizeof((%s)[0])", exprstr, exprstr);
+
+            struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
+
+            token_list_insert_before(&ctx->ast.token_list,
+                p_expression->last_token,
+                &l2);
+
+            del(p_expression->right->first_token, p_expression->right->last_token);
+            free(exprstr);
+
+            token_list_destroy(&l2);
+        }
+
+        if (p_expression->type_name)
+        {
+            visit_type_name(ctx, p_expression->type_name);
+
+            if (constant_value_is_valid(&p_expression->constant_value))
+            {
+                int u = constant_value_to_unsigned_int(&p_expression->constant_value);
+
+                char buffer[50];
+                snprintf(buffer, sizeof buffer, "%d", u);
+
+                struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
+
+                token_list_insert_before(&ctx->ast.token_list,
+                    p_expression->last_token,
+                    &l2);
+
+                del(p_expression->type_name->first_token, p_expression->type_name->last_token);
+
+
+                token_list_destroy(&l2);
+            }
+            else
+            {
+                //error
+            }
+        }
+        break;
+
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
@@ -1284,6 +1347,11 @@ static void visit_compound_statement(struct visit_ctx* ctx, struct compound_stat
 //
 static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
+
+    if (p_iteration_statement->expression0)
+    {
+        visit_expression(ctx, p_iteration_statement->expression0);
+    }
 
     if (p_iteration_statement->expression1)
     {

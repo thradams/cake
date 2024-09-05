@@ -1129,6 +1129,8 @@ enum token_type is_keyword(const char* text)
     case 'n':
         if (strcmp("nullptr", text) == 0)
             result = TK_KEYWORD_NULLPTR;
+        else if (strcmp("nelementsof", text) == 0)
+            result = TK_KEYWORD_NELEMENTSOF;
         break;
 
     case 'l':
@@ -2318,11 +2320,16 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             throw;
 
         struct token* _Opt tkname = NULL;
-        p_init_declarator->p_declarator = declarator(ctx,
+        
+        struct declarator* _Owner _Opt p_temp_declarator = declarator(ctx,
             NULL,
             p_declaration_specifiers,
             false,
             &tkname);
+
+        if (p_temp_declarator == NULL) throw;
+
+        p_init_declarator->p_declarator = p_temp_declarator;
 
         if (p_init_declarator->p_declarator == NULL)
             throw;
@@ -2585,25 +2592,32 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) &&
         !type_is_function(&p_init_declarator->p_declarator->type))
     {
-        int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
 
-        if (sz == -3)
+        if (type_is_vla(&p_init_declarator->p_declarator->type))
         {
-            /*type_get_sizeof returns -3 for VLAs*/
-        }
-        else if (sz < 0)
-        {
-            // clang warning: array 'c' assumed to have one element
-            // gcc "error: storage size of '%s' isn't known"
-            compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
-                ctx,
-                p_init_declarator->p_declarator->name_opt, NULL,
-                "storage size of '%s' isn't known",
-                p_init_declarator->p_declarator->name_opt->lexeme);
         }
         else
         {
-            // ok
+            int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+
+            if (sz == -3)
+            {
+                /*type_get_sizeof returns -3 for VLAs*/
+            }
+            else if (sz < 0)
+            {
+                // clang warning: array 'c' assumed to have one element
+                // gcc "error: storage size of '%s' isn't known"
+                compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
+                    ctx,
+                    p_init_declarator->p_declarator->name_opt, NULL,
+                    "storage size of '%s' isn't known",
+                    p_init_declarator->p_declarator->name_opt->lexeme);
+            }
+            else
+            {
+                // ok
+            }
         }
     }
 
@@ -6621,11 +6635,11 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
                 }
             }
         }
     }
+}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);

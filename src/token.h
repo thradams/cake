@@ -116,7 +116,10 @@ enum token_type
     TK_KEYWORD_RETURN,
     TK_KEYWORD_SHORT,
     TK_KEYWORD_SIGNED,
+    
     TK_KEYWORD_SIZEOF,
+    TK_KEYWORD_NELEMENTSOF, //C2Y
+
     
     TK_KEYWORD_STATIC,
     TK_KEYWORD_STRUCT,
@@ -300,7 +303,6 @@ void stream_match(struct stream* stream);
 bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);
 
-struct token make_simple_token(char ch);
-enum token_type parse_number(const char* lexeme, char suffix[4], char erromsg[100]);
+enum token_type parse_number(const char* lexeme, char suffix[4], _Out char erromsg[100]);
 const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c);
-const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
+const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);

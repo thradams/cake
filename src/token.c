@@ -1128,7 +1128,7 @@ static bool is_nonzero_digit(struct stream* stream)
     return stream->current[0] >= '1' && stream->current[0] <= '9';
 }
 
-enum token_type parse_number_core(struct stream* stream, char suffix[4], char errmsg[100])
+enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out char errmsg[100])
 {
     errmsg[0] = '\0';
 
@@ -1247,7 +1247,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], char er
     return type;
 }
 
-enum token_type parse_number(const char* lexeme, char suffix[4], char errmsg[100])
+enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errmsg[100])
 {
     struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
     return parse_number_core(&stream, suffix, errmsg);
@@ -1334,7 +1334,7 @@ static bool is_hex_digit(unsigned char c)
     return false;
 }
 
-const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
+const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
 {
     // TODO OVERFLOW CHECK
     if (*p == 'x')
@@ -1428,9 +1428,9 @@ const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigne
             *out_value = '"';
             break;
         default:
-            // assume this error is handled at tokenizer
+            // this is handled at tokenizer
             assert(false);
-            break;
+            return NULL;            
         }
         p++;
     }
