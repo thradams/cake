@@ -7331,7 +7331,8 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
 
-        if (p_secondary_block->statement &&
+        if (p_secondary_block &&
+            p_secondary_block->statement &&
             p_secondary_block->statement->unlabeled_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement &&
             p_secondary_block->statement->unlabeled_statement->expression_statement->expression_opt == NULL)

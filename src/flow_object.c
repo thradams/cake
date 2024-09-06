@@ -2767,7 +2767,7 @@ static void flow_assignment_core(
                        ctx->ctx,
                        NULL,
                        p_b_marker,
-                       "returning a possible null object '%s' to non-nullable pointer", buffer);
+                       "returning a possible null pointer '%s' to non-nullable pointer", buffer);
             }
             else
             {
@@ -2775,7 +2775,7 @@ static void flow_assignment_core(
                        ctx->ctx,
                        NULL,
                        p_b_marker,
-                       "assignment of possible null object '%s' to non-nullable pointer", buffer);
+                       "assignment of possible null pointer '%s' to non-nullable pointer", buffer);
             }
         }
     }
@@ -2987,7 +2987,6 @@ static void flow_assignment_core(
             if (a_type_is_view || !type_is_owner(p_visitor_a->p_type))
             {
                 p_visitor_a->p_object->current.state = p_visitor_b->p_object->current.state;
-                p_visitor_a->p_object->current.state &= ~OBJECT_STATE_MOVED;
             }
 
 

@@ -610,7 +610,7 @@ struct struct_or_union_specifier
     /*
     * Token que possui tag da struct
     */
-    struct token* tagtoken;
+    struct token* _Opt tagtoken;
 
     char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
@@ -1135,18 +1135,18 @@ struct iteration_statement
         "while" ( expression ) secondary-block
         "do" secondary-block "while" ( expression ) ;
         "for" ( expression _Opt ; expression _Opt ; expression _Opt ) secondary-block
-        "for" ( declaration expression _Opt ; expression _Opt ) secondary-block
-        "repeat" secondary-block  (extension)
+        "for" ( declaration expression _Opt ; expression _Opt ) secondary-block        
     */
 
     struct token* first_token;
     struct token* second_token; /*do {} while*/
 
-    struct secondary_block* _Owner _Opt secondary_block;
+    struct secondary_block* _Owner secondary_block;
+
     struct expression* _Owner _Opt expression1;
     struct expression* _Owner _Opt expression2;
     struct expression* _Owner _Opt expression0;
-    struct declaration* _Owner declaration;
+    struct declaration* _Owner _Opt declaration;
 };
 
 struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* ctx);
@@ -1197,7 +1197,7 @@ struct block_item
       label
     */
     struct token* first_token; //?necessary
-    struct declaration* _Owner declaration;
+    struct declaration* _Owner _Opt declaration;
     struct unlabeled_statement* _Owner _Opt unlabeled_statement;
     struct label* _Owner _Opt label;
 

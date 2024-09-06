@@ -497,7 +497,11 @@ bool token_is_blank(const struct token* p)
 struct token* _Opt token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
     struct token* _Owner _Opt clone = clone_token(pnew);
-    return token_list_add(list, clone);
+    
+    if (clone == NULL)
+        return NULL;
+
+    return token_list_add(list, clone);        
 }
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source)
@@ -999,29 +1003,6 @@ static void hexadecimal_digit_sequence(struct stream* stream)
     }
 }
 
-static bool first_of_unsigned_suffix(const struct stream* stream)
-{
-    /*
-     unsigned-suffix: one of
-       u U
-     */
-    return (stream->current[0] == 'u' ||
-        stream->current[0] == 'U');
-}
-
-static void unsigned_suffix_opt(struct stream* stream)
-{
-    /*
-   unsigned-suffix: one of
-     u U
-   */
-    if (stream->current[0] == 'u' ||
-        stream->current[0] == 'U')
-    {
-        stream_match(stream);
-    }
-}
-
 static void integer_suffix_opt(struct stream* stream, char suffix[4])
 {
     /*
@@ -1082,6 +1063,40 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
             stream_match(stream);
         }
     }
+///////////////MICROSOFT ////////////////////////
+    //TODO unit test
+    else if (stream->current[0] == 'i' &&
+             stream->current[1] == '8')
+    {
+        stream_match(stream);
+        stream_match(stream);
+        stream_match(stream);
+        suffix[0] = 'i';
+        suffix[1] = '8';
+    }
+    else if (stream->current[0] == 'i' &&
+             stream->current[1] == '3' &&
+             stream->current[2] == '2')
+    {
+        stream_match(stream);
+        stream_match(stream);
+        stream_match(stream);
+        suffix[0] = 'i';
+        suffix[1] = '3';
+        suffix[2] = '2';
+    }
+    else if (stream->current[0] == 'i' &&
+             stream->current[1] == '6' &&
+             stream->current[2] == '4')
+    {
+        stream_match(stream);
+        stream_match(stream);
+        stream_match(stream);
+        suffix[0] = 'i';
+        suffix[1] = '6';
+        suffix[2] = '4';
+    }
+ ///////////////MICROSOFT ////////////////////////
 }
 
 static void exponent_part_opt(struct stream* stream)

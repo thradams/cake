@@ -1233,18 +1233,18 @@ int get_char_type(const char* s)
 
     return 1;
 }
-/* 
+/*
   Returns the char byte size according with the literal suffix
 */
 int string_literal_char_byte_size(const char* s)
 {
     if (s[0] == 'u')
-    {        
+    {
         //must be followed by u8 but not checked here
     }
     else if (s[0] == 'U' || s[0] == 'L')
     {
-        return (int)sizeof(wchar_t);        
+        return (int)sizeof(wchar_t);
     }
 
     return 1;
@@ -1272,7 +1272,7 @@ int string_literal_byte_size_not_zero_included(const char* s)
         }
         else if (stream.current[0] == 'U' ||
             stream.current[0] == 'L')
-        {            
+        {
             stream_match(&stream);
         }
 
@@ -1501,7 +1501,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         p_new_token->line = line;
         p_new_token->col = col;
         token_list_add(&list, p_new_token);
-       
+
         assert(list.head != NULL);
     }
     catch
@@ -5083,6 +5083,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
     case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
     case TK_PRAGMA_END: return "TK_PRAGMA_END";
+    case TK_KEYWORD_NELEMENTSOF: return "TK_KEYWORD_NELEMENTSOF";
 
     }
     return "TK_X_MISSING_NAME";
@@ -5128,7 +5129,7 @@ int stringify(const char* input, int n, char output[])
 }
 
 
-void print_literal(const char* s)
+void print_literal(const char* _Opt s)
 {
     if (s == NULL)
     {
@@ -5186,6 +5187,10 @@ const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* 
 /*useful to debug visit.c*/
 void print_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
+    if (list->head == NULL || list->tail == NULL)
+    {
+        return;
+    }
 
     struct token* _Opt current = list->head;
     while (current && current != list->tail->next)
@@ -5221,14 +5226,12 @@ void print_code_as_we_see(const struct token_list* list, bool remove_comments)
 }
 const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
-    if (list->head == NULL)
+    if (list->head == NULL || list->tail == NULL)
         return NULL;
-
-    assert(list->tail != NULL);
 
     struct osstream ss = { 0 };
     struct token* _Opt current = list->head;
-    while (current != list->tail->next)
+    while (current && current != list->tail->next)
     {
         if (current->level == 0 &&
             !(current->flags & TK_FLAG_MACRO_EXPANDED) &&
@@ -5270,7 +5273,7 @@ const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool r
 
 const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list)
 {
-    if (list->head == NULL)
+    if (list->head == NULL || list->tail == NULL)
     {
         return NULL;
     }
@@ -5279,7 +5282,7 @@ const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list)
 
 
     struct token* _Opt current = list->head;
-    while (current != list->tail->next)
+    while (current && current != list->tail->next)
     {
         if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
             current->type != TK_BEGIN_OF_FILE &&
@@ -5439,8 +5442,6 @@ void print_preprocessed(const struct token* p_token)
 
 static bool is_screaming_case(const char* text)
 {
-    if (text == NULL)
-        return true;
 
     bool screaming_case = false;
 
@@ -5500,8 +5501,6 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
 }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
-
-
     if (!is_screaming_case(token->lexeme))
     {
         preprocessor_diagnostic_message(W_NOTE, ctx, token, "use SCREAMING_CASE for macros");

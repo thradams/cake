@@ -83,9 +83,9 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
             C_INVALID_TOKEN,
             ctx,
             token,
-            NULL,
+            "%s",
             errormsg);
-       return 0;
+        return 0;
     }
     struct constant_value  cv = { 0 };
     switch (type)
@@ -225,7 +225,13 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+                if (p == NULL)
+                {
+                    throw;
+                }
+            }
 
             if (*p != '\'')
             {
@@ -254,7 +260,13 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+                if (p == NULL)
+                {
+                    throw;
+                }
+            }
 
             if (*p != '\'')
             {
@@ -283,7 +295,14 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
             }
 
             if (c == '\\')
+            {
                 p = escape_sequences_decode_opt(p, &c);
+
+                if (p == NULL)
+                {
+                    throw;
+                }
+            }
 
             if (*p != '\'')
             {
@@ -323,10 +342,12 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
                     throw;
                 }
                 if (c == '\\')
+                {
                     p = escape_sequences_decode_opt(p, &c);
-
-                if (p == 0)
-                    break;
+                    if (p == NULL)
+                        throw;
+                }
+       
                 // TODO \u
                 value = value * 256 + c;
 #ifdef _WIN32
@@ -371,9 +392,13 @@ static struct constant_value char_constant_to_value(const char* s, char error_me
                 }
 
                 if (c == '\\')
+                {
                     p = escape_sequences_decode_opt(p, &c);
-                if (p == 0)
-                    break;
+                    if (p == NULL)
+                        throw;
+                }
+
+
                 if (c < 0x80)
                 {
                     value = value * 256 + c;

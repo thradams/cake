@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #include "ownership.h"
 #include <assert.h>
@@ -364,11 +364,8 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             }
             ss_fprintf(ss, "(");
 
-
-
-
             struct param* _Opt pa = p->params.head;
-
+            
             while (pa)
             {
                 struct osstream sslocal = { 0 };
@@ -764,9 +761,9 @@ bool type_is_character(const struct type* p_type)
 
 bool type_is_vla(const struct type* p_type)
 {
-    const struct type* it = p_type;
+    const struct type* _Opt it = p_type;
 
-    while (type_is_array(it))
+    while (it && type_is_array(it))
     {
         if (it->array_num_elements_expression)
         {            
@@ -1760,7 +1757,11 @@ struct type type_dup(const struct type* p_type)
         while (p)
         {
             struct type* _Owner _Opt p_new = calloc(1, sizeof(struct type));
-            if (p_new == NULL) throw;
+            if (p_new == NULL) 
+            {
+                type_list_destroy(&l);
+                throw;
+            }
 
             *p_new = *p;
 
@@ -1771,7 +1772,7 @@ struct type type_dup(const struct type* p_type)
             if (p->name_opt)
             {
                 //actually p_new->name_opt was not mine..
-                //static_set(p_new->name_opt, "uninitialized");
+                static_set(p_new->name_opt, "uninitialized");
                 p_new->name_opt = strdup(p->name_opt);
             }
 
@@ -1789,6 +1790,7 @@ struct type type_dup(const struct type* p_type)
                     struct param* _Owner _Opt p_new_param = calloc(1, sizeof * p_new_param);
                     if (p_new_param == NULL)
                     {
+                        type_list_destroy(&l);
                         type_delete(p_new);
                         throw;
                     }
@@ -2774,8 +2776,6 @@ void type_set_attributes_using_declarator(struct type* p_type, struct declarator
 
 void type_list_push_front(struct type_list* books, struct type* _Owner new_book)
 {
-    assert(books != NULL);
-    assert(new_book != NULL);
     assert(new_book->next == NULL);
 
     if (books->head == NULL)
@@ -2805,9 +2805,6 @@ void type_list_destroy(struct type_list* _Obj_owner p_type_list)
 
 void type_list_push_back(struct type_list* type_list, struct type* _Owner new_book)
 {
-    assert(type_list != NULL);
-    assert(new_book != NULL);
-
     if (type_list->tail == NULL)
     {
         assert(type_list->head == NULL);
@@ -2947,7 +2944,11 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
         while (pointer)
         {
             struct type* _Owner _Opt p_flat = calloc(1, sizeof(struct type));
-            if (p_flat == NULL) throw;
+            if (p_flat == NULL) 
+            {
+                type_list_destroy(&pointers);
+                throw;
+            }
 
             if (pointer->type_qualifier_list_opt)
             {

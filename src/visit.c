@@ -1163,7 +1163,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             struct token_list l = { .head = p_expression->right->first_token,
                                     .tail = p_expression->right->last_token };
 
-            char* _Owner _Opt exprstr = get_code_as_we_see(&l, true);
+            const char* _Owner _Opt exprstr = get_code_as_we_see(&l, true);
             char buffer[200];
             snprintf(buffer, sizeof buffer, "sizeof(%s)/sizeof((%s)[0])", exprstr, exprstr);
 
@@ -1174,7 +1174,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 &l2);
 
             del(p_expression->right->first_token, p_expression->right->last_token);
-            free(exprstr);
+            free((char* _Owner)exprstr);
 
             token_list_destroy(&l2);
         }
@@ -1281,13 +1281,13 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     {
         if (ctx->target < LANGUAGE_CAK)
         {
-            struct tokenizer_ctx tctx = { 0 };
+            struct tokenizer_ctx tctx2 = { 0 };
             struct token_list l2 = { 0 };
 
             if (constant_value_to_bool(&p_expression->constant_value))
-                l2 = tokenizer(&tctx, "1", NULL, 0, TK_FLAG_FINAL);
+                l2 = tokenizer(&tctx2, "1", NULL, 0, TK_FLAG_FINAL);
             else
-                l2 = tokenizer(&tctx, "0", NULL, 0, TK_FLAG_FINAL);
+                l2 = tokenizer(&tctx2, "0", NULL, 0, TK_FLAG_FINAL);
 
 
             token_list_insert_after(&ctx->ast.token_list,
@@ -2644,7 +2644,7 @@ int visit_tokens(struct visit_ctx* ctx)
                 {
                     char buffer[25];
                     snprintf(buffer, sizeof buffer, "((unsigned char)%s)", current->lexeme + 2);
-                    char* newlexeme = strdup(buffer);
+                    char* _Owner _Opt newlexeme = strdup(buffer);
                     if (newlexeme)
                     {
                         free(current->lexeme);
@@ -2662,7 +2662,7 @@ int visit_tokens(struct visit_ctx* ctx)
 
                     char buffer[25];
                     snprintf(buffer, sizeof buffer, "((unsigned short)%d)", c);
-                    char* newlexeme = strdup(buffer);
+                    char* _Opt _Owner newlexeme = strdup(buffer);
                     if (newlexeme)
                     {
                         free(current->lexeme);
@@ -2680,7 +2680,7 @@ int visit_tokens(struct visit_ctx* ctx)
 
                     char buffer[25];
                     snprintf(buffer, sizeof buffer, "%du", c);
-                    char* newlexeme = strdup(buffer);
+                    char* _Owner _Opt newlexeme = strdup(buffer);
                     if (newlexeme)
                     {
                         free(current->lexeme);

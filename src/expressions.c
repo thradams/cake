@@ -325,7 +325,8 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
 
             p_generic_association->p_type_name = type_name(ctx);
             if (p_generic_association->p_type_name == NULL) throw;
-            if (p_generic_association->p_type_name->declarator == NULL) throw;
+
+            assert(p_generic_association->p_type_name->declarator != NULL);
 
             ctx->inside_generic_association = old;
             p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);
@@ -864,6 +865,10 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             NULL,
             "integer literal is too large to be represented in any integer type");
         }
+
+        ///////////////MICROSOFT ////////////////////////
+        //TODO i64 etc
+        ////////////////////////////////////////////////
 
         if (suffix[0] == 'U')
         {
@@ -1415,7 +1420,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
-
+                p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
                 // the result of the subscription operator ([])
@@ -1484,7 +1489,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
-
+                p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
 
@@ -1536,7 +1541,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
-
+                p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
@@ -1745,6 +1750,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             }
             else if (ctx->current->type == '++')
             {
+                p_expression_node->last_token = ctx->current;
+
                 if (type_is_owner(&p_expression_node->type))
                 {
                     compiler_diagnostic_message(C_ERROR_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER,
@@ -1765,6 +1772,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
 
+                p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
 
@@ -1782,6 +1790,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             }
             else if (ctx->current->type == '--')
             {
+                p_expression_node->last_token = ctx->current;
+
                 if (type_is_owner(&p_expression_node->type))
                 {
                     compiler_diagnostic_message(C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
@@ -1800,6 +1810,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
+
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
@@ -2313,7 +2324,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                     case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
                     {
-                        long long a = constant_value_to_signed_long(&new_expression->right->constant_value);
+                        long long a = constant_value_to_signed_long_long(&new_expression->right->constant_value);
                         if (op == '-')
                             new_expression->constant_value = constant_value_make_signed_long_long(-a);
                         else
@@ -2323,7 +2334,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                     case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
                     {
-                        unsigned long long a = constant_value_to_unsigned_long(&new_expression->right->constant_value);
+                        unsigned long long a = constant_value_to_unsigned_long_long(&new_expression->right->constant_value);
 
                         if (op == '-')
                         {
@@ -2460,7 +2471,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = new_expression;
-            }
+        }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
@@ -2564,8 +2575,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_NELEMENTSOF)//C2Y
         {
-            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = true;
             // defer would be nice here...
 
 
@@ -2575,7 +2584,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
 
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
 
             new_expression->expression_type = UNARY_EXPRESSION_NELEMENTSOF_TYPE;
 
@@ -2594,6 +2607,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
 
                 new_expression->type = make_size_t_type();
+
+                if (ctx->current == NULL)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
                 new_expression->last_token = ctx->current;
 
                 if (parser_match_tk(ctx, ')') != 0)
@@ -2629,11 +2649,20 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
+                const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+                ctx->evaluation_is_disabled = true;
                 new_expression->right = unary_expression(ctx);
+                /*restore*/
+                ctx->evaluation_is_disabled = disable_evaluation_copy;
+
                 if (new_expression->right == NULL)
                 {
-                    /*restore*/
-                    ctx->evaluation_is_disabled = disable_evaluation_copy;
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (ctx->current == NULL)
+                {
                     expression_delete(new_expression);
                     throw;
                 }
@@ -2675,8 +2704,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->type = type_make_size_t();
             p_expression_node = new_expression;
 
-            /*restore*/
-            ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
         else if (
             ctx->current->type == TK_KEYWORD_IS_LVALUE ||
@@ -2886,7 +2913,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (p_expression_node == NULL)
                 throw;
         }
-        }
+    }
     catch
     {
         expression_delete(p_expression_node);
@@ -2894,7 +2921,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
     }
 
     return p_expression_node;
-    }
+}
 
 struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 {
@@ -3749,8 +3776,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
 
             new_expression->right = cast_expression(ctx);
 
-            if (new_expression->left == NULL ||
-                new_expression->right == NULL)
+            if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
                 throw;
