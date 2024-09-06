@@ -2161,6 +2161,40 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
             stream_match(stream);
         }
     }
+///////////////MICROSOFT ////////////////////////
+    //TODO unit test
+    else if (stream->current[0] == 'i' &&
+             stream->current[1] == '8')
+    {
+        stream_match(stream);
+        stream_match(stream);
+        stream_match(stream);
+        suffix[0] = 'i';
+        suffix[1] = '8';
+    }
+    else if (stream->current[0] == 'i' &&
+             stream->current[1] == '3' &&
+             stream->current[2] == '2')
+    {
+        stream_match(stream);
+        stream_match(stream);
+        stream_match(stream);
+        suffix[0] = 'i';
+        suffix[1] = '3';
+        suffix[2] = '2';
+    }
+    else if (stream->current[0] == 'i' &&
+             stream->current[1] == '6' &&
+             stream->current[2] == '4')
+    {
+        stream_match(stream);
+        stream_match(stream);
+        stream_match(stream);
+        suffix[0] = 'i';
+        suffix[1] = '6';
+        suffix[2] = '4';
+    }
+ ///////////////MICROSOFT ////////////////////////
 }
 
 static void exponent_part_opt(struct stream* stream)
@@ -16208,6 +16242,10 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             "integer literal is too large to be represented in any integer type");
         }
 
+        ///////////////MICROSOFT ////////////////////////
+        //TODO i64 etc
+        ////////////////////////////////////////////////
+
         if (suffix[0] == 'U')
         {
             /*fixing the type that fits the size*/
@@ -25968,7 +26006,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.22"
+#define CAKE_VERSION "0.9.23"
 
 
 
