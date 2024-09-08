@@ -110,7 +110,7 @@ cake source.c
 
 this will output *./out/source.c*
 
-See [Manual](manual.html)
+See [Manual](manual.md)
 
 
 
