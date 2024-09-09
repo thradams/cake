@@ -18,7 +18,7 @@ _Cake is made by C programmers for C programmers._
 
 Cake is a compiler front end written from scratch in C, designed from the C23 language specification.
 It allows you to translate newer versions of C, such as C23, to C99. Additionally, Cake provides a platform 
-for experimenting with new features for the C language, including extensions like lambdas, defer and static [object lifetime](ownership.html) checks.
+for experimenting with new features for the C language, including extensions like lambdas, defer and static [object lifetime](ownership.md) checks.
 
 
 # Web Playground
@@ -38,7 +38,7 @@ Cake can also be used as static analyzer, especially the new object lifetime ana
 * C23 preprocessor
 * C23 syntax analysis
 * C23 semantic analysis
-* Static [object lifetime](ownership.html) checks (Extension)
+* Static [object lifetime](ownership.md) checks (Extension)
 * Sarif output
 * C backend
 * AST 
@@ -110,15 +110,14 @@ cake source.c
 
 this will output *./out/source.c*
 
-See [Manual](manual.html)
+See [Manual](manual.md)
 
 
 
 # Road map
 
-* Ownership static analysis
+* Remove all warnings of cake source code in safe mode to validate the design and implementation
 * Fixes
-* Ownership specification
  
 # References
 

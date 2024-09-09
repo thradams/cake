@@ -236,8 +236,33 @@ rndr_link(hoedown_buffer *ob, const hoedown_buffer *content, const hoedown_buffe
 	HOEDOWN_BUFPUTSL(ob, "<a href=\"");
 
 	if (link && link->size)
-		escape_href(ob, link->data, link->size);
-
+	{
+		//thiago
+		//cake changed this ... .md links are renamed to .html
+        //
+		uint8_t buffer[200] = { 0 };
+        int i = 0;
+        for (i = 0; i < link->size; i++)
+        {
+            if (link->data[i] == '.' &&
+                link->data[i + 1] == 'm' &&
+                link->data[i + 2] == 'd')
+            {
+                buffer[i] = link->data[i];
+                buffer[i++] = 'h';
+                buffer[i++] = 't';
+                buffer[i++] = 'm';
+                buffer[i++] = 'l';
+                buffer[i++] = '\0';
+                break;
+            }
+            else
+            {
+                buffer[i] = link->data[i];
+            }
+        }
+		escape_href(ob, buffer, i);
+	}
 	if (title && title->size) {
 		HOEDOWN_BUFPUTSL(ob, "\" title=\"");
 		escape_html(ob, title->data, title->size);
