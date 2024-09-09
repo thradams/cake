@@ -248,12 +248,16 @@ rndr_link(hoedown_buffer *ob, const hoedown_buffer *content, const hoedown_buffe
                 link->data[i + 1] == 'm' &&
                 link->data[i + 2] == 'd')
             {
-                buffer[i] = link->data[i];
-                buffer[i++] = 'h';
-                buffer[i++] = 't';
-                buffer[i++] = 'm';
-                buffer[i++] = 'l';
-                buffer[i++] = '\0';
+				if (i +5 < sizeof buffer)
+				{
+					buffer[i] = link->data[i];
+					buffer[i+1] = 'h';
+					buffer[i+2] = 't';
+					buffer[i+3] = 'm';
+					buffer[i+4] = 'l';
+					buffer[i+5] = '\0';
+					i+=5;
+				}
                 break;
             }
             else
