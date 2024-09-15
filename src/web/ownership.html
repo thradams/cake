@@ -205,6 +205,24 @@ struct X * _Opt makeX(const char* name)
 
 <p>In this example, <code>struct X</code> has a <code>const</code> member <code>name</code>, which is non-nullable. Under normal conditions, modifying a <code>const</code> member after initialization would be disallowed. However, the <strong>mutable</strong> qualifier temporarily relaxes this rule during the object’s creation process, allowing modifications even to <code>const</code> members, and allowing a non-nullable pointer to be null before the object’s initialization completes.</p>
 
+<p>We also have an implicit contract for struct members. Generally, we assume that members are initialized, but we lack a qualifier to explicitly indicate &quot;initialized member.&quot; For instance, when using malloc, members are initially uninitialized, but they should receive a value before being used.</p>
+
+<pre><code class="language-c">struct X * _Opt makeX(const char* name)
+{
+  mutable struct X * p = malloc(sizeof *p);  
+  if (p == NULL) 
+    return NULL;
+  
+  char * _Opt temp = strdup(name);
+  if (temp == NULL)
+    return NULL;  
+
+  p-&gt;name = temp;  // OK!! name fixed
+
+  return p;
+}
+</code></pre>
+
 <h5>Transitional State:</h5>
 
 <p>During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraints—such as non-nullable pointers and immutability—are lifted. For example, in the <code>makeX</code> function, <code>p-&gt;name</code> can be set to <code>temp</code>, even though <code>name</code> is <code>const</code>. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.</p>
