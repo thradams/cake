@@ -26051,7 +26051,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.23"
+#define CAKE_VERSION "0.9.24"
 
 
 

@@ -165,6 +165,9 @@ Once the transitional phase is over and the object is returned, the contract tha
 
 This approach allows for more flexibility during object creation while maintaining strong contracts once the object is finalized, enhancing both safety and expressiveness in the code.
 
+
+OBS: mutable qualifier is not yet implemented in Cake. However, _Opt for structs is implemented.
+_
 ### Object lifetime checks  
 From the C23 standard:
 
