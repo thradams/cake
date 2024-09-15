@@ -158,7 +158,7 @@ Both languages have the concept of <code>constructor</code> for objects. So, for
 
 <p>In C, we don t have the concept of constructor, so the same approach cannot be  applied directly.</p>
 
-<p>Cake, have a mechanism using the qualifier ´_Opt´ before struct types to make all non-nullable members as nullable for a particular instance.</p>
+<p>Cake, have a mechanism using the qualifier Â´_OptÂ´ before struct types to make all non-nullable members as nullable for a particular instance.</p>
 
 <pre><code class="language-c">struct X {
   char * name; //non nullable
@@ -214,15 +214,15 @@ struct X * _Opt makeX(const char* name)
 }
 </code></pre>
 
-<p>In this example, <code>struct X</code> has a <code>const</code> member <code>name</code>, which is non-nullable. Under normal conditions, modifying a <code>const</code> member after initialization would be disallowed. However, the <strong>mutable</strong> qualifier temporarily relaxes this rule during the object’s creation process, allowing modifications even to <code>const</code> members, and allowing a non-nullable pointer to be null before the object’s initialization completes.</p>
+<p>In this example, <code>struct X</code> has a <code>const</code> member <code>name</code>, which is non-nullable. Under normal conditions, modifying a <code>const</code> member after initialization would be disallowed. However, the <strong>mutable</strong> qualifier temporarily relaxes this rule during the objectâ€™s creation process, allowing modifications even to <code>const</code> members, and allowing a non-nullable pointer to be null before the objectâ€™s initialization completes.</p>
 
 <h3 id="toc_4">Transitional State:</h3>
 
-<p>During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraints—such as non-nullable pointers and immutability—are lifted. For example, in the <code>makeX</code> function, <code>p-&gt;name</code> can be set to <code>temp</code>, even though <code>name</code> is <code>const</code>. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.</p>
+<p>During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraintsâ€”such as non-nullable pointers and immutabilityâ€”are lifted. For example, in the <code>makeX</code> function, <code>p-&gt;name</code> can be set to <code>temp</code>, even though <code>name</code> is <code>const</code>. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.</p>
 
 <h3 id="toc_5">Effect on the Final Object:</h3>
 
-<p>Once the transitional phase is over and the object is returned, the contract that governs the object (such as immutability of <code>name</code> and non-nullability of pointers) is fully reinstated. The <strong>mutable</strong> qualifier only applies within the scope of the constructor or destructor, ensuring that once the object is fully constructed, its state is valid and consistent with the type system’s rules.</p>
+<p>Once the transitional phase is over and the object is returned, the contract that governs the object (such as immutability of <code>name</code> and non-nullability of pointers) is fully reinstated. The <strong>mutable</strong> qualifier only applies within the scope of the constructor or destructor, ensuring that once the object is fully constructed, its state is valid and consistent with the type systemâ€™s rules.</p>
 
 <p>This approach allows for more flexibility during object creation while maintaining strong contracts once the object is finalized, enhancing both safety and expressiveness in the code.</p>
 

@@ -96,7 +96,7 @@ The other way to see this, is that during construction the non nullable pointer 
 
 In C, we don t have the concept of constructor, so the same approach cannot be  applied directly.
 
-Cake, have a mechanism using the qualifier ´_Opt´ before struct types to make all non-nullable members as nullable for a particular instance.
+Cake, have a mechanism using the qualifier Â´_OptÂ´ before struct types to make all non-nullable members as nullable for a particular instance.
 
 ```c  
 struct X {
@@ -155,13 +155,13 @@ struct X * _Opt makeX(const char* name)
 }
 ```
 
-In this example, `struct X` has a `const` member `name`, which is non-nullable. Under normal conditions, modifying a `const` member after initialization would be disallowed. However, the **mutable** qualifier temporarily relaxes this rule during the object’s creation process, allowing modifications even to `const` members, and allowing a non-nullable pointer to be null before the object’s initialization completes.
+In this example, `struct X` has a `const` member `name`, which is non-nullable. Under normal conditions, modifying a `const` member after initialization would be disallowed. However, the **mutable** qualifier temporarily relaxes this rule during the objectâ€™s creation process, allowing modifications even to `const` members, and allowing a non-nullable pointer to be null before the objectâ€™s initialization completes.
 
 ### Transitional State:  
-During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraints—such as non-nullable pointers and immutability—are lifted. For example, in the `makeX` function, `p->name` can be set to `temp`, even though `name` is `const`. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.
+During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraintsâ€”such as non-nullable pointers and immutabilityâ€”are lifted. For example, in the `makeX` function, `p->name` can be set to `temp`, even though `name` is `const`. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.
 
 ### Effect on the Final Object:
-Once the transitional phase is over and the object is returned, the contract that governs the object (such as immutability of `name` and non-nullability of pointers) is fully reinstated. The **mutable** qualifier only applies within the scope of the constructor or destructor, ensuring that once the object is fully constructed, its state is valid and consistent with the type system’s rules.
+Once the transitional phase is over and the object is returned, the contract that governs the object (such as immutability of `name` and non-nullability of pointers) is fully reinstated. The **mutable** qualifier only applies within the scope of the constructor or destructor, ensuring that once the object is fully constructed, its state is valid and consistent with the type systemâ€™s rules.
 
 This approach allows for more flexibility during object creation while maintaining strong contracts once the object is finalized, enhancing both safety and expressiveness in the code.
 
