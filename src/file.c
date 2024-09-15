@@ -1,4 +1,8 @@
-﻿
-int main(){
-    auto i = 9223372036854775807i64;
+﻿#pragma safety enable
+
+int main()
+{
+     int k = 0;
+     k--;
+     static_state(k, "not-zero");
 }

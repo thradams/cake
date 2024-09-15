@@ -4,6 +4,7 @@
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 #include "ownership.h"
 #include "flow_object.h"
@@ -777,13 +778,6 @@ void print_object_core(int ident,
 
         if (p_struct_or_union_specifier)
         {
-            if (p_visitor->p_object == NULL)
-            {
-                printf("%*c", ident, ' ');
-                printf("%s %s\n", previous_names, "-");
-                return;
-            }
-
             printf("%*c", ident + 1, ' ');
             printf("#%02d {\n", p_visitor->p_object->id);
 
@@ -2004,7 +1998,7 @@ void object_get_name(const struct type* p_type,
         for (int i = 0; i < 10; i++)
         {
             const char* ps = p->lexeme;
-            while (ps && *ps)
+            while (*ps)
             {
                 if (bytes_written < (out_size - 1))
                 {
@@ -2013,8 +2007,10 @@ void object_get_name(const struct type* p_type,
                 bytes_written++;
                 ps++;
             }
+
             if (p == p_object->p_expression_origin->last_token)
                 break;
+
             p = p->next;
         }
 

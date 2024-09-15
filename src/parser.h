@@ -83,7 +83,7 @@ struct  switch_value_list
 
 void switch_value_destroy(struct switch_value_list* _Obj_owner list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
-struct switch_value* switch_value_list_find(struct switch_value_list* list, long long value);
+struct switch_value* _Opt switch_value_list_find(struct switch_value_list* list, long long value);
 
 struct parser_ctx
 {
@@ -189,7 +189,7 @@ struct declaration_specifier
     struct declaration_specifier* _Owner _Opt next;
 };
 
-struct declaration_specifier* _Owner declaration_specifier(struct parser_ctx* ctx);
+struct declaration_specifier* _Owner _Opt declaration_specifier(struct parser_ctx* ctx);
 void declaration_specifier_delete(struct declaration_specifier* _Owner _Opt p);
 
 struct declaration_specifiers

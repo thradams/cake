@@ -4,6 +4,7 @@
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 /*
 
@@ -228,13 +229,13 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
     else
     {
         is_error =
-            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & (1ULL << w)) != 0;
+            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & (1ULL << w)) != 0;
 
         is_warning =
-            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
+            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & (1ULL << w)) != 0;
 
         is_note =
-            ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
+            ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
     }
 
 
@@ -1992,13 +1993,8 @@ enum token_type is_keyword(const char* text);
 
 struct token* _Opt preprocessor_look_ahead_core(struct token* p)
 {
-    if (p->next == NULL)
-    {
-        return NULL;
-    }
     struct token* _Opt current = p->next;
-    if (current == NULL)
-        return NULL;
+
     while (current &&
         (current->type == TK_BLANKS ||
             current->type == TK_PLACEMARKER ||
@@ -3349,13 +3345,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
                         r.tail->flags |= TK_FLAG_FINAL;
                         //#pragma GCC diagnostic push
-                        if (ctx->options.diagnostic_stack_top_index <
-                            sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
+                        if (ctx->options.diagnostic_stack.top_index <
+                            sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack.stack[0]))
                         {
-                            ctx->options.diagnostic_stack_top_index++;
+                            ctx->options.diagnostic_stack.top_index++;
 
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
-                                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index - 1];
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
+                                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
                         }
                     }
                     else if (input_list->head && strcmp(input_list->head->lexeme, "pop") == 0)
@@ -3363,9 +3359,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         //#pragma GCC diagnostic pop
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pop
                         r.tail->flags |= TK_FLAG_FINAL;
-                        if (ctx->options.diagnostic_stack_top_index > 0)
+                        if (ctx->options.diagnostic_stack.top_index > 0)
                         {
-                            ctx->options.diagnostic_stack_top_index--;
+                            ctx->options.diagnostic_stack.top_index--;
                         }
                     }
                     else if (input_list->head && strcmp(input_list->head->lexeme, "warning") == 0)
@@ -3382,7 +3378,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                             r.tail->flags |= TK_FLAG_FINAL;
 
                             unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                         }
                     }
                     else if (input_list->head && strcmp(input_list->head->lexeme, "ignore") == 0)
@@ -3396,7 +3392,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
                             unsigned long long w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
                         }
                     }
                 }
@@ -4612,7 +4608,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         return  ENOENT;
     }
     const enum diagnostic_id w =
-        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
+        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings;
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
@@ -4623,7 +4619,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     token_list_destroy(&l10);
 
     /*restore*/
-    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
+    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings = w;
 
     return  0;
 }
@@ -4635,10 +4631,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
       echo | gcc -dM -E -
     */
     const struct diagnostic w =
-        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
+        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
     /*we dont want warnings here*/
-    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
+    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
         (struct diagnostic){ 0 };
 
     static char mon[][4] = {
@@ -4895,7 +4891,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     token_list_destroy(&l10);
 
     /*restore*/
-    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] = w;
+    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = w;
 }
 
 

@@ -4,6 +4,7 @@
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 #include "ownership.h"
 #include <stdlib.h>
@@ -31,24 +32,32 @@ static void del(struct token* from, struct token* to)
 static struct token_list cut(struct token* from, struct token* to)
 {
     struct token_list l = { 0 };
-    struct token* _Opt p = from;
-    while (p)
+    try
     {
-        if (p->level == 0 &&
-            !(p->flags & TK_FLAG_MACRO_EXPANDED) &&
-            !(p->flags & TK_C_BACKEND_FLAG_HIDE) &&
-            p->type != TK_BEGIN_OF_FILE)
+        struct token* _Opt p = from;
+        while (p)
         {
-            struct token* _Owner clone = clone_token(p);
-            p->flags |= TK_C_BACKEND_FLAG_HIDE;
-            token_list_add(&l, clone);
+            if (p->level == 0 &&
+                !(p->flags & TK_FLAG_MACRO_EXPANDED) &&
+                !(p->flags & TK_C_BACKEND_FLAG_HIDE) &&
+                p->type != TK_BEGIN_OF_FILE)
+            {
+                struct token* _Owner _Opt clone = clone_token(p);
+                if (clone == NULL) throw;
+
+                p->flags |= TK_C_BACKEND_FLAG_HIDE;
+                token_list_add(&l, clone);
+                if (p == to)
+                    break;
+            }
+
             if (p == to)
                 break;
+            p = p->next;
         }
-
-        if (p == to)
-            break;
-        p = p->next;
+    }
+    catch
+    {
     }
     return l;
 }
@@ -285,16 +294,9 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
         }
         else if (p_unlabeled_statement->primary_block->iteration_statement)
         {
-            if (p_unlabeled_statement->primary_block->iteration_statement->secondary_block)
+            if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
             {
-                if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
-                {
-                    return true;
-                }
-            }
-            else
-            {
-                assert(false);
+                return true;
             }
         }
     }
@@ -304,7 +306,6 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
 bool find_label_statement(struct statement* statement, const char* label)
 {
     if (statement->labeled_statement &&
-        statement->labeled_statement->label &&
         statement->labeled_statement->label->p_identifier_opt)
     {
         if (strcmp(statement->labeled_statement->label->p_identifier_opt->lexeme, label) == 0)
@@ -324,19 +325,15 @@ static bool find_label_scope(struct defer_scope* deferblock, const char* label)
 {
     if (deferblock->p_iteration_statement)
     {
-        if (deferblock->p_iteration_statement->secondary_block)
-        {
-            if (find_label_statement(deferblock->p_iteration_statement->secondary_block->statement, label))
-                return true;
-        }
+
+        if (find_label_statement(deferblock->p_iteration_statement->secondary_block->statement, label))
+            return true;
+
     }
     else if (deferblock->p_selection_statement2)
     {
-        if (deferblock->p_selection_statement2->secondary_block)
-        {
-            if (find_label_statement(deferblock->p_selection_statement2->secondary_block->statement, label))
-                return true;
-        }
+        if (find_label_statement(deferblock->p_selection_statement2->secondary_block->statement, label))
+            return true;
 
         if (deferblock->p_selection_statement2->else_secondary_block_opt)
         {
@@ -346,11 +343,10 @@ static bool find_label_scope(struct defer_scope* deferblock, const char* label)
     }
     else if (deferblock->p_try_statement)
     {
-        if (deferblock->p_try_statement->secondary_block)
-        {
-            if (find_label_statement(deferblock->p_try_statement->secondary_block->statement, label))
-                return true;
-        }
+
+        if (find_label_statement(deferblock->p_try_statement->secondary_block->statement, label))
+            return true;
+
 
         if (deferblock->p_try_statement->catch_secondary_block_opt)
         {
@@ -455,16 +451,11 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
 
         p_defer->defer_statement = p_defer_statement;
 
-
-        if (p_defer_statement->secondary_block)
-        {
-            visit_secondary_block(ctx, p_defer_statement->secondary_block);
-        }
+        visit_secondary_block(ctx, p_defer_statement->secondary_block);
     }
     else //if (ctx->is_second_pass)
     {
-        if (p_defer_statement->secondary_block)
-            visit_secondary_block(ctx, p_defer_statement->secondary_block);
+        visit_secondary_block(ctx, p_defer_statement->secondary_block);
     }
 }
 
@@ -1164,7 +1155,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                                     .tail = p_expression->right->last_token };
 
             const char* _Owner _Opt exprstr = get_code_as_we_see(&l, true);
-            char buffer[200];
+            char buffer[200] = { 0 };
             snprintf(buffer, sizeof buffer, "sizeof(%s)/sizeof((%s)[0])", exprstr, exprstr);
 
             struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
@@ -1187,7 +1178,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             {
                 int u = constant_value_to_unsigned_int(&p_expression->constant_value);
 
-                char buffer[50];
+                char buffer[50] = { 0 };
                 snprintf(buffer, sizeof buffer, "%d", u);
 
                 struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
@@ -2531,8 +2522,10 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         {
             struct osstream ss = { 0 };
             print_block_defer(p_defer, &ss, true);
+
             if (ss.size > 0)
             {
+                assert(ss.c_str != NULL);
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
                 token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, &l);
@@ -2642,7 +2635,7 @@ int visit_tokens(struct visit_ctx* ctx)
             {
                 if (ctx->target < LANGUAGE_C23 && current->lexeme[0] == 'u' && current->lexeme[1] == '8')
                 {
-                    char buffer[25];
+                    char buffer[25] = { 0 };
                     snprintf(buffer, sizeof buffer, "((unsigned char)%s)", current->lexeme + 2);
                     char* _Owner _Opt newlexeme = strdup(buffer);
                     if (newlexeme)
@@ -2660,7 +2653,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     unsigned int c;
                     s = utf8_decode(s, &c);
 
-                    char buffer[25];
+                    char buffer[25] = { 0 };
                     snprintf(buffer, sizeof buffer, "((unsigned short)%d)", c);
                     char* _Opt _Owner newlexeme = strdup(buffer);
                     if (newlexeme)
@@ -2678,7 +2671,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     unsigned int c;
                     s = utf8_decode(s, &c);
 
-                    char buffer[25];
+                    char buffer[25] = { 0 };
                     snprintf(buffer, sizeof buffer, "%du", c);
                     char* _Owner _Opt newlexeme = strdup(buffer);
                     if (newlexeme)
@@ -2757,7 +2750,7 @@ int visit_tokens(struct visit_ctx* ctx)
             if (current->type == TK_PREPROCESSOR_LINE)
             {
                 struct token* first_preprocessor_token = current;
-                struct token* last_preprocessor_token = current;
+                struct token* _Opt last_preprocessor_token = current;
 
                 while (last_preprocessor_token)
                 {
@@ -2810,7 +2803,9 @@ int visit_tokens(struct visit_ctx* ctx)
                       change C23 #warning to comment
                     */
                     free(first_preprocessor_token->lexeme);
-                    first_preprocessor_token->lexeme = strdup("//#");
+                    char* _Opt _Owner temp = strdup("//#");
+                    if (temp == NULL) throw;
+                    first_preprocessor_token->lexeme = temp;
 
                     current = current->next;
                     continue;
@@ -2823,7 +2818,9 @@ int visit_tokens(struct visit_ctx* ctx)
                       change C23 #elifdef to #elif defined e #elifndef to C11
                     */
                     free(current->lexeme);
-                    current->lexeme = strdup("elif defined ");
+                    char* _Opt _Owner temp = strdup("elif defined ");
+                    if (temp == NULL) throw;
+                    current->lexeme = temp;
 
                     current = current->next;
                     continue;
@@ -2837,7 +2834,10 @@ int visit_tokens(struct visit_ctx* ctx)
                     */
 
                     free(current->lexeme);
-                    current->lexeme = strdup("elif ! defined ");
+                    char* _Owner _Opt temp = strdup("elif ! defined ");
+                    if (temp == NULL) throw;
+
+                    current->lexeme = temp;
 
                     current = current->next;
                     continue;
@@ -2869,7 +2869,10 @@ void visit(struct visit_ctx* ctx)
 
         if (ctx->insert_before_block_item.head != NULL)
         {
-            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, &ctx->insert_before_block_item);
+            if (p_declaration->first_token->prev)
+            {
+                token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, &ctx->insert_before_block_item);
+            }
         }
 
         /*
@@ -2877,7 +2880,10 @@ void visit(struct visit_ctx* ctx)
         */
         if (ctx->insert_before_declaration.head != NULL)
         {
-            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, &ctx->insert_before_declaration);
+            if (p_declaration->first_token->prev)
+            {
+                token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, &ctx->insert_before_declaration);
+            }
 
         }
 

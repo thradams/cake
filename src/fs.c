@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 #include "fs.h"
 #include <wchar.h>
@@ -181,7 +181,9 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
       letter that isn't valid or can't be found, or if the length of the
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
-    char* p = _fullpath(resolved_path, path, MAX_PATH);
+    #pragma CAKE diagnostic push
+    #pragma CAKE diagnostic ignored "-Wflow-not-null"
+    char* _Opt p = _fullpath(resolved_path, path, MAX_PATH);
     if (p)
     {
         char* p2 = resolved_path;
@@ -192,6 +194,8 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
             p2++;
         }
     }
+    #pragma CAKE diagnostic pop
+
     return p;
 }
 
@@ -200,11 +204,11 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
 int copy_file(const char* pathfrom, const char* pathto)
 {
 
-    FILE* _Owner fd_from = fopen(pathfrom, "rb");
+    FILE* _Owner _Opt fd_from = fopen(pathfrom, "rb");
     if (fd_from == NULL)
         return -1;
 
-    FILE* _Owner fd_to = fopen(pathto, "wb");
+    FILE* _Owner _Opt fd_to = fopen(pathto, "wb");
     if (fd_to == NULL)
     {
         fclose(fd_from);
@@ -296,7 +300,15 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
+#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
+
     DWORD r = GetModuleFileNameA(NULL, buffer, maxsize);
+
+#pragma CAKE diagnostic pop
+
     return r;
 }
 

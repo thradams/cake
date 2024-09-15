@@ -1,169 +1,169 @@
   
-Last Updated 12 July 2024
+Last Updated 15 Sept 2024
   
 This is a work in progress. Cake source is currently being used to validate the concepts. It's in the process of transitioning to include annotated nullable checks, which was the last feature added.  
 
 
 ## Abstract
   
-The objective is to statically check code and prevent bugs, including memory bugs. For this task, the compiler needs information that humans typically get from documentation or the implementation itself. Since the compiler doesn't read documentation and may not have access to the implementation, we need something at the interface level.
-
-To address this, new qualifiers have been created to extend the type system and insert information at function declarations. Ultimately, we still have the same language, but with an improved type system that checks new contracts.
-
+The objective is to statically check code and prevent bugs, including memory bugs like double free, null dereference and memory leaks. 
+New qualifiers have been created to extend the type system and insert information at function declarations. Ultimately, we still have the same language, but with an improved type system that checks new contracts.
 These new contracts can be ignored, the language **and existing code patterns** remains unmodified. 
 
 
 ## Concepts
 
-### Nullable pointers
+### Nullable Pointers
 
-Nullable pointers are part of the safety strategy to ensure that we don't dereference a null pointer.
+The concept of nullable pointers is introduced to refine the type system by explicitly indicating when pointers can or cannot be null. 
 
-For this task, a new qualifier \_Opt has been created to represent *"this pointer can be null"*.  
+Take, for instance, the standard function `strdup`:
+
+```c
+char * strdup(const char * src);
+```
+
+In this function, the argument `src` must reference a valid string. The function returns a pointer to a newly allocated string, or a null pointer if an error occurs.
+
+In Cake, the `_Opt` qualifier extends the type system by marking pointers that can be null. Only pointers qualified with `_Opt` are explicitly nullable, providing better clarity about which pointers may need null checks.
+
+The `_Opt` qualifier is placed similarly to `const`, after the `*` symbol. For example, the declaration of `strdup` in Cake would look like this:
+
+```c
+char * _Opt strdup(const char * src);
+```
+
+Static analysis tools need to know when these new rules for nullable pointers apply, particularly for unqualified pointers. This is managed through the `#pragma nullable enable` directive, which informs the compiler when to enforce these rules.
+
+#### Example 1: Warning for Non-Nullable Pointers
+
+```c
+#pragma nullable enable  
+int main(){
+  int * p = nullptr; // warning
+}
+```
+
+In this example, a warning is generated because `p` is non-nullable, yet it is being assigned `nullptr`. 
+
+#### Example 2: Converting Non-Nullable to Nullable
+
+The conversion from a non-nullable pointer to a nullable one is allowed, as shown below:
+
+```c
+#pragma nullable enable  
+char * get_name();  
+int main(){
+  char * _Opt s = get_name(); 
+}
+```
+
+Here, the return value of `get_name()` is non-nullable by default, but it is assigned to a nullable pointer `s`, which does not trigger any warnings.
+
+#### Example 3: Diagnostic for Nullable to Non-Nullable Conversion
+
+Consider the following case:
+
+```c
+#pragma nullable enable  
+  
+char * _Opt strdup(const char * src);  
  
-A pointer qualified with \_Opt is called nullable pointer. Pointers without \_Opt qualifier are not nullable. 
-
-The existing code does not have any \_Opt qualifiers, so we cannot assume that pointers without \_Opt are non-nullable.
-
-To facilitate code migration, a `#pragma nullable enabled/disable` has been created to inform where nullable checks are enabled.
-
-
-#### \#pragma nullable disabled
-
-All pointers are nullable. 
-
-```c
-#pragma nullable disable
-
-void f(int * p) 
-{
-   //p can be null
-   if (p)
-   {
-   }
-}
-int main()
-{
-   int * p = nullptr; //ok
-}
-```
-
-<button onclick="Try(this)">try</button>
-
-#### \#pragma nullable enabled
-
-All pointers are non-nullable, unless qualified with \_Opt. 
-
-```c
-#pragma nullable enable
-
-void f(int * p) 
-{
-   if (p)  //warning p is not-null
-   {
-   }
-}
+void f(char *s);  
 
 int main()
-{ 
-  int * p = nullptr; //warning p is non-nullable
-}
+{  
+   char * _Opt s1 = strdup("a");
+   f(s1); // warning
+} 
 ```
 
-<button onclick="Try(this)">try</button>
-
-**Rule:** A non-nullable pointer can be assigned to a nullable pointer.
-
-**Rule:** The null pointer constant cannot be assigned to a non-nullable pointer.
+In this scenario, `s1` is declared as nullable, but `f` expects a non-nullable argument. This triggers a warning, as the nullable pointer `s1` could potentially be null when passed to `f`. To resolve this warning, a null check is required:
 
 ```c
-#pragma nullable enable
-
-int * f();
-
-int main()
-{
-   int * p = f();
-   
-   //A non-nullable pointer can be assigned to a nullable pointer.
-   int * _Opt p2 = p; //ok
-
-   //The null pointer constant cannot be assigned to a non-nullable pointer.
-   int * p3 = nullptr; //warning
-}
+  if (s1)
+    f(s1); // ok
 ```
 
-<button onclick="Try(this)">try</button>
+This warning relies on flow analysis, which ensures that the potential nullability of pointers is checked before being passed to functions or assigned to non-nullable variables.
 
-**Rule:** A nullable pointer can be assigned to a non-nullable pointer if the flow analysis can confirm the state of the pointer is not null.
+## Non nullable members
 
-```c
-#pragma nullable enable
+The concept of nullable types is present in some language like C# and Typescript.
+Both languages have the concept of `constructor` for objects. So, for objects members, the compiler checks if after the constructor the non-nullable members have being assigned to a non null value.
 
-int * _Opt f();
+The other way to see this, is that during construction the non nullable pointer member can be null, before they receive a value.
 
-int main()
-{
-   int * _Opt p = f();
-   if (p)
-   {
-      //A nullable pointer can be assigned to a non-nullable pointer 
-      //if the flow analysis can confirm the state of the pointer is not null.
-      int * p2 = p; //ok
-   }
-}
-```
+In C, we don t have the concept of constructor, so the same approach cannot be  applied directly.
 
-<button onclick="Try(this)">try</button>
+Cake, have a mechanism using the qualifier ´_Opt´ before struct types to make all non-nullable members as nullable for a particular instance.
 
-When \_Opt qualifier is applied to structs it makes all member \_Opt.
-
-For instance:
-
-```c
-#pragma nullable enable
-
-void free(void * _Opt p);
-char * _Opt strdup();
-
-void print_name(const char* name);
-
+```c  
 struct X {
-  char * name;
-};
+  char * name; //non nullable
+};  
 
-void use_x(struct X * p)
+struct X * _Opt makeX(const char* name)
 {
-   //p->name is non-nullable here
-   print_name(p->name);
-}
+  _Opt struct X * p = calloc(1, sizeof * p);  
+  if (p == NULL) 
+    return NULL;
+  
+  char * _Opt temp = strdup(name);
+  if (temp == NULL)
+    return NULL;  
 
+  x->name = temp;    
+  return x;
+}
+```    
+  
+Just like in C# or Typescript, we cannot leave this function with a nullable member being null. But the particular instance of p is allowed to have nullable members.
+
+This is also useful to accept for some functions like destructor, partially constructed object.
+
+```c
 void x_destroy(_Opt struct X * p)
 {
-   //p->name is nullable here
-   free(p); //free accepts null
-}
-
-int main()
-{
-  _Opt struct X x = {0};
-  char * _Opt temp = strdup();
-  if (temp)
-  {
-    x.name = temp;
-    use_x(&x);
-  }
-  x_destroy(&x);
-}
-
+   free(p->name); //ok
+}  
 ```
 
-<button onclick="Try(this)">try</button>
+Note that this concept also could be applied for const members. 
 
-This can be used to implement destructors where the object can be partially 
-constructed in case of some error. 
-For other functions, like use_x, the object must be completely constructed, and in this case, name must not be null.
+The introduction of a **mutable** qualifier allows certain exceptions to the usual contract of immutability and non-nullability during transitional phases, such as in constructors and destructors. This means that objects marked as **mutable** can temporarily violate their normal constraints, such as modifying `const` members or assigning null to non-nullable pointers during these phases.
 
+Consider the following code example:
+
+```c  
+struct X {
+  const char * const name; // non-nullable
+};  
+
+struct X * _Opt makeX(const char* name)
+{
+  mutable struct X * p = calloc(1, sizeof *p);  
+  if (p == NULL) 
+    return NULL;
+  
+  char * _Opt temp = strdup(name);
+  if (temp == NULL)
+    return NULL;  
+
+  p->name = temp;  // OK!!
+  return p;
+}
+```
+
+In this example, `struct X` has a `const` member `name`, which is non-nullable. Under normal conditions, modifying a `const` member after initialization would be disallowed. However, the **mutable** qualifier temporarily relaxes this rule during the object’s creation process, allowing modifications even to `const` members, and allowing a non-nullable pointer to be null before the object’s initialization completes.
+
+### Transitional State:  
+During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraints—such as non-nullable pointers and immutability—are lifted. For example, in the `makeX` function, `p->name` can be set to `temp`, even though `name` is `const`. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.
+
+### Effect on the Final Object:
+Once the transitional phase is over and the object is returned, the contract that governs the object (such as immutability of `name` and non-nullability of pointers) is fully reinstated. The **mutable** qualifier only applies within the scope of the constructor or destructor, ensuring that once the object is fully constructed, its state is valid and consistent with the type system’s rules.
+
+This approach allows for more flexibility during object creation while maintaining strong contracts once the object is finalized, enhancing both safety and expressiveness in the code.
 
 ### Object lifetime checks  
 From the C23 standard:

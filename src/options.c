@@ -13,6 +13,27 @@
 #include <stdlib.h>
 
 
+int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
+{
+    int index = diagnostic_stack->top_index;
+    diagnostic_stack->top_index++;
+    diagnostic_stack->stack[diagnostic_stack->top_index].warnings = 0;
+    diagnostic_stack->stack[diagnostic_stack->top_index].errors = 0;
+    diagnostic_stack->stack[diagnostic_stack->top_index].notes = 0;
+    return index;
+}
+
+void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
+{
+    if (diagnostic_stack->top_index > 0)
+      diagnostic_stack->top_index--;
+    else
+    {
+        assert(false);
+    }
+}
+
+
 struct diagnostic default_diagnostic = {
       .warnings = (~0ULL) & ~(
         NULLABLE_DISABLE_REMOVED_WARNINGS |
@@ -217,9 +238,9 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->diagnostic_stack[0] = default_diagnostic;
+    options->diagnostic_stack.stack[0] = default_diagnostic;
 
-    options->diagnostic_stack[0].warnings &= ~(1ULL << W_STYLE);
+    options->diagnostic_stack.stack[0].warnings &= ~(1ULL << W_STYLE);
     //&~items;
 
 
@@ -376,7 +397,7 @@ int fill_options(struct options* options,
         {
             options->null_checks_enabled = false;
             unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-            options->diagnostic_stack[0].warnings &= ~w;
+            options->diagnostic_stack.stack[0].warnings &= ~w;
             continue;
         }
 
@@ -460,7 +481,7 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-Wall") == 0)
             {
-                options->diagnostic_stack[0].warnings = ~0ULL;
+                options->diagnostic_stack.stack[0].warnings = ~0ULL;
                 continue;
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
@@ -476,14 +497,14 @@ int fill_options(struct options* options,
 
             if (disable_warning)
             {
-                options->diagnostic_stack[0].warnings &= ~w;
+                options->diagnostic_stack.stack[0].warnings &= ~w;
             }
             else
             {
                 if (w == W_STYLE)
-                    options->diagnostic_stack[0].warnings |= w;
+                    options->diagnostic_stack.stack[0].warnings |= w;
                 else
-                    options->diagnostic_stack[0].notes |= w;
+                    options->diagnostic_stack.stack[0].notes |= w;
             }
             continue;
         }

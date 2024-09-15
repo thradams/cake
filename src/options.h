@@ -247,6 +247,16 @@ extern struct diagnostic default_diagnostic;
 
 void diagnostic_remove(struct diagnostic *d, enum diagnostic_id w);
 
+struct diagnostic_stack
+{
+    int top_index;
+    struct diagnostic stack[10];
+};
+
+int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack);
+void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
+
+
 struct options
 {
     /*
@@ -263,8 +273,7 @@ struct options
       #pragma CAKE diagnostic push
       #pragma CAKE diagnostic pop
     */
-    int diagnostic_stack_top_index;
-    struct diagnostic diagnostic_stack[10];
+    struct diagnostic_stack diagnostic_stack;
 
     enum style style;
 

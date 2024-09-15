@@ -130,7 +130,7 @@ Remove all comments from the output file
 output code as compiler sees it without macros.
 
 #### -target=standard      
-Output target C standard (c89, c99, c11, c2x, cxx)
+Output target C standard (c89, c99, c11, c23, c2y, cxx)
 C99 is the default and C89 (ANSI C) is the minimum target
 
 #### -dump-tokens            
@@ -157,7 +157,7 @@ Causes the compiler to output a list of the include files. The option also displ
 Enables all warnings
 
 #### -sarif               
-Generates sarif files
+Generates sarif files.
 Sarif Visual Studio plugin https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer
 
 #### -sarif-path               
@@ -175,8 +175,10 @@ Output is compatible with visual studio IDE. We can click on the error message a
 This option enables an static analysis of program flow. This is required for some
 ownership checks
 
-### -autoconfig
+### -auto-config
+
 Generates cakeconfig.h header. 
+
 On Windows, it must be generated inside the Visual Studio Command Prompt to read the INCLUDE variable.
 On Linux, it calls GCC with echo | gcc -v -E - 2>&1 and reads the output.
 
@@ -218,12 +220,6 @@ output
           ├── file2.c
 ```
 
-## Setting the path  
-This command is useful on windows to add the current path to system path. (This is not persistent)
-
-```
-set PATH=%PATH%;%CD%
-```
 
 ## Pre-defined macros
 
@@ -378,7 +374,7 @@ Not implemented
 ### C99 Universal character names (\u and \U)
 TODO
 
-###  C99 Hexadecimal floating constants
+### C99 Hexadecimal floating constants
 
 ```c
 double d = 0x1p+1;
@@ -655,8 +651,6 @@ int main(void)
 
 ###  C11 u' ' U' ' character constants
 
-//TODO
-
 ```c
  int i = U'ç';
  int i2 = u'ç';
@@ -665,9 +659,8 @@ int main(void)
 Becomes in < C11
 
 ```c
- //TODO
- int i = ((unsigned int)132);
- int i2 = ((short)121);
+ int i = 231u;
+ int i2 = ((unsigned short)231);
 ```
 
 Important: Cake assume source is utf8 encoded.
@@ -1347,7 +1340,7 @@ Becomes < C23
   
 ###  C23 \_\_VA_OPT\_\_
 Implemented.
-Requires #pragma expand. (TODO make the expansion automatic)
+Requires #pragma expand.
 
 ```c
 
@@ -1487,7 +1480,7 @@ int main() {
 }
 ```
 
-Becomes in C23, C11, C99, C89
+Becomes in < C2Y
 
 ```c
 #include <stdio.h>
@@ -1522,7 +1515,7 @@ int main()
    }
 }
 ```
-Becomes
+Becomes in < C2Y
 
 ```c
 #include <stdio.h>
@@ -1578,7 +1571,6 @@ jump-statement:
 try catch is a external block that we can jump off.
 
 try catch is a **LOCAL jump** this is on purpose not a limitation.
-
 
 catch block is optional.
 
@@ -1651,9 +1643,9 @@ pragma dir makes the preprocessor include the directory when searching for inclu
 ### Extension #pragma expand
 
 pragma expand tells the C back-end to not hide macro expansions. This is necessary when
-the compiler makes changes inside the macro code.
+the compiler makes changes inside macro expanded code.
 
-Sample:
+For instance:
 
 
 ```c
@@ -1727,25 +1719,67 @@ _is_scalar
 Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
 
 ```
-
-### Extension - Ownership checks
+Note: Type traits that can be easily created with \_Generic will be removed.
+_
+### Extension - Object lifetime checks
 
 See [ownership](ownership.html)
 
 
+### Extension assert built-in
 
-### Extension assert statement
+In cake assert is an built-in function.
+The reason is because it works as tips for flow analysis.
 
-In cake assert is an statement. The reason is because it works as tips for flow analysis 
-and these checks are checked in runtime in debug bugs.
-The different is that assert is also evaluated in release.
-That means the expression must be valid.
-To disable this extension use -disable-assert options. 
+For instance, in a linked list when `head` is null `tail` is also null,
+and `tail->next` always points to null.
 
-When cake reads GCC MSVC headers it overrides the macro assert to match the cake
-assert statement.
+Assertion will check these properties in runtime and also make 
+the static analysis assume that assert evaluates to true.
 
-## Versions
+```c
+
+void list_push_back(struct list* list,
+                    struct item* _Owner p_item)
+{
+   if (list->head == NULL) {
+      list->head = p_item;
+   }
+   else {
+      assert(list->tail != nullptr);
+      assert(list->tail->next == nullptr);
+      list->tail->next = p_item;
+   }
+   list->tail = p_item;
+}
+```
+
+
+However, `assert` is not a "blind override command." In situations like:
+
+```c
+    int i = 0;
+    assert(i != 0);
+```
+
+In situations where static analysis can identify two or more possible states, 
+assert works as a state selector, similar to what happens in if statements but without the scope.
+
+```c
+    void f(int * _Opt p)
+    {
+        if (p != NULL) {
+           //p is not null here...
+        }
+    }
+    
+    void f2(int * _Opt p)
+    {
+        assert(p != NULL);
+        //we assume p is not null here...        
+    }
+```
+
 
 
 

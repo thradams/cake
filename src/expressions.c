@@ -4,6 +4,7 @@
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 #include "ownership.h"
 #include <limits.h>

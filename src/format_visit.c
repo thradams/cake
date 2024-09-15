@@ -2,6 +2,7 @@
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
+#pragma safety enable
 
 #include "ownership.h"
 #include "format_visit.h"
@@ -18,80 +19,94 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
     * Before this token we must have a indentation and before indentation a new line.
     * If we don't have it we need to insert.
     */
-
-    if (token && token->level == 0)
+    try
     {
-        struct token* previous_token = token->prev;
-        if (previous_token)
+        if (token->level == 0)
         {
-            if (previous_token->type == TK_BLANKS)
+            struct token* _Opt previous_token = token->prev;
+            if (previous_token)
             {
-                char blanks[50] = { 0 };
-                if (ctx->indentation > 0)
-                    snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
-
-                /*only adjust the number of spaces*/
-                free(previous_token->lexeme);
-                previous_token->lexeme = strdup(blanks);
-
-                struct token* previous_previous_token =
-                    previous_token->prev;
-
-                if (previous_previous_token->type != TK_NEWLINE)
+                if (previous_token->type == TK_BLANKS)
                 {
+                    char blanks[50] = { 0 };
+                    if (ctx->indentation > 0)
+                        snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
+
+                    /*only adjust the number of spaces*/
+                    free(previous_token->lexeme);
+                    char* _Opt _Owner spc = strdup(blanks);
+                    if (spc == NULL) throw;
+                    previous_token->lexeme = spc;
+
+                    struct token* _Opt previous_previous_token = previous_token->prev;
+
+                    if (previous_previous_token &&
+                        previous_previous_token->type != TK_NEWLINE)
+                    {
+                        struct tokenizer_ctx tctx = { 0 };
+                        struct token_list list = tokenizer(&tctx, "\n", NULL, 0, TK_FLAG_NONE);
+                        token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);
+                        token_list_destroy(&list);
+                    }
+                }
+                else if (previous_token->type != TK_NEWLINE)
+                {
+                    char blanks[50] = { 0 };
+                    if (ctx->indentation > 0)
+                    {
+                        snprintf(blanks, sizeof blanks, "\n%*c", (ctx->indentation * 4), ' ');
+                    }
+                    else
+                    {
+                        snprintf(blanks, sizeof blanks, "\n");
+                    }
+
                     struct tokenizer_ctx tctx = { 0 };
-                    struct token_list list = tokenizer(&tctx, "\n", NULL, 0, TK_FLAG_NONE);
-                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);
+                    struct token_list list = tokenizer(&tctx, blanks, NULL, 0, TK_FLAG_NONE);
+                    token_list_insert_after(&ctx->ast.token_list, previous_token, &list);
                     token_list_destroy(&list);
                 }
             }
-            else if (previous_token->type != TK_NEWLINE)
-            {
-                char blanks[50] = {0};
-                if (ctx->indentation > 0)
-                {
-                    snprintf(blanks, sizeof blanks, "\n%*c", (ctx->indentation * 4), ' ');
-                }
-                else
-                {
-                    snprintf(blanks, sizeof blanks, "\n");
-                }
-
-                struct tokenizer_ctx tctx = { 0 };
-                struct token_list list = tokenizer(&tctx, blanks, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, previous_token, &list);
-                token_list_destroy(&list);
-            }
         }
+    }
+    catch
+    {
     }
 }
 
 void ajust_if_begin(struct token* token, struct format_visit_ctx* ctx)
 {
-    /*
-    * if we have 
-      newline blancks
-      then we ident
-    */
-    if (token && token->level == 0)
+    try
     {
-        struct token* previous_token = token->prev;
-        if (previous_token && previous_token->type == TK_BLANKS)
+        /*
+        * if we have
+          newline blancks
+          then we ident
+        */
+        if (token->level == 0)
         {
-            struct token* previous_previous_token =
-                previous_token->prev;
-            if (previous_previous_token &&
-                previous_previous_token->type == TK_NEWLINE)
+            struct token* _Opt previous_token = token->prev;
+            if (previous_token && previous_token->type == TK_BLANKS)
             {
-                char blanks[50] = { 0 };
-                if (ctx->indentation > 0)
-                    snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
+                struct token* _Opt previous_previous_token = previous_token->prev;
+                if (previous_previous_token &&
+                    previous_previous_token->type == TK_NEWLINE)
+                {
+                    char blanks[50] = { 0 };
+                    if (ctx->indentation > 0)
+                        snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
 
-                /*only adjust the number of spaces*/
-                free(previous_token->lexeme);
-                previous_token->lexeme = strdup(blanks);
+                    /*only adjust the number of spaces*/
+                    free(previous_token->lexeme);
+                    char* _Opt _Owner spc = strdup(blanks);
+                    if (spc == NULL) throw;
+                    previous_token->lexeme = spc;
+                }
             }
         }
+    }
+    catch
+    {
     }
 }
 
@@ -114,32 +129,33 @@ static void format_visit_statement(struct format_visit_ctx* ctx, struct statemen
 
 static void format_visit_selection_statement(struct format_visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
-    if (p_selection_statement->secondary_block)
+
+    ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
+
+    if (p_selection_statement->secondary_block->statement->unlabeled_statement &&
+        p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
+        p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
+    {
+        format_visit_statement(ctx, p_selection_statement->secondary_block->statement);
+    }
+    else
     {
         ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
 
-        if (p_selection_statement->secondary_block->statement &&
-            p_selection_statement->secondary_block->statement->unlabeled_statement &&
-            p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
-            p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
-        {
-            format_visit_statement(ctx, p_selection_statement->secondary_block->statement);
-        }
-        else
-        {
-            ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
-
-            format_visit_statement(ctx, p_selection_statement->secondary_block->statement);            
-        }        
+        format_visit_statement(ctx, p_selection_statement->secondary_block->statement);
     }
+
 
     if (p_selection_statement->else_secondary_block_opt)
     {
-        ajust_line_and_identation(p_selection_statement->else_token_opt, ctx);
+        if (p_selection_statement->else_token_opt)
+        {
+            ajust_line_and_identation(p_selection_statement->else_token_opt, ctx);
+        }
+
         ajust_line_and_identation(p_selection_statement->else_secondary_block_opt->first_token, ctx);
 
-        if (p_selection_statement->else_secondary_block_opt->statement &&
-            p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement &&
+        if (p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement &&
             p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement->primary_block &&
             p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement->primary_block->compound_statement)
         {
@@ -147,8 +163,8 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
             format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement);
         }
         else
-        {            
-            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement);         
+        {
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement);
         }
     }
 
@@ -200,16 +216,13 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
         ajust_line_and_identation(p_iteration_statement->second_token, ctx);
     }
 
-    if (p_iteration_statement->secondary_block)
-    {
-        format_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-    }
+
+    format_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 }
 
 static void format_visit_try_statement(struct format_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
-    if (p_try_statement->secondary_block)
-        format_visit_secondary_block(ctx, p_try_statement->secondary_block);
+    format_visit_secondary_block(ctx, p_try_statement->secondary_block);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -258,10 +271,10 @@ static void format_visit_expression_statement(struct format_visit_ctx* ctx, stru
 
 static void format_visit_labeled_statement(struct format_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)
 {
-    ajust_line_and_identation(p_labeled_statement->label->p_identifier_opt, ctx);
+    if (p_labeled_statement->label->p_identifier_opt)
+        ajust_line_and_identation(p_labeled_statement->label->p_identifier_opt, ctx);
 
-    if (p_labeled_statement->statement)
-        format_visit_statement(ctx, p_labeled_statement->statement);
+    format_visit_statement(ctx, p_labeled_statement->statement);
 }
 
 static void format_visit_unlabeled_statement(struct format_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
@@ -304,7 +317,7 @@ static void format_visit_block_item(struct format_visit_ctx* ctx, struct block_i
 
 static void format_visit_block_item_list(struct format_visit_ctx* ctx, struct block_item_list* p_block_item_list)
 {
-    struct block_item* p_block_item = p_block_item_list->head;
+    struct block_item* _Opt p_block_item = p_block_item_list->head;
     while (p_block_item)
     {
         format_visit_block_item(ctx, p_block_item);
@@ -321,7 +334,7 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
 
     ctx->indentation++;
     /*fix comments anything that is not part of AST*/
-    struct token* tk = p_compound_statement->first_token;
+    struct token* _Opt tk = p_compound_statement->first_token;
     while (tk)
     {
         if (tk->type == TK_LINE_COMMENT ||
@@ -364,7 +377,7 @@ static void format_visit_declaration(struct format_visit_ctx* ctx, struct declar
 
 void format_visit(struct format_visit_ctx* ctx)
 {
-    struct declaration* p_declaration = ctx->ast.declaration_list.head;
+    struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)
     {
         format_visit_declaration(ctx, p_declaration);

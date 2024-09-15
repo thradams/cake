@@ -4,6 +4,7 @@
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 #include "ownership.h"
 #include <assert.h>
@@ -836,10 +837,8 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
 
     //lets find the begin of line
     const struct token* p_line_begin = p_token;
-    while (p_line_begin && p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
-    {
-        if (p_line_begin->prev == NULL)
-            break;
+    while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
+    {        
         p_line_begin = p_line_begin->prev;
     }
 
@@ -1285,8 +1284,10 @@ enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errms
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c)
+const unsigned char* _Opt utf8_decode(const unsigned char* s, _Out unsigned int* c)
 {
+    *c = 0; //out
+
     if (s[0] == '\0')
     {
         *c = 0;

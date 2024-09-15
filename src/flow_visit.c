@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 #include "ownership.h"
 
@@ -1592,14 +1592,14 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
             struct true_false_set a = { 0 };
 
             struct diagnostic temp =
-                ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
+                ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index];
 
             //we don´t report W_FLOW_UNINITIALIZED here because it is checked next.. (TODO parts of expression)
-            diagnostic_remove(&ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index], W_FLOW_UNINITIALIZED);
+            diagnostic_remove(&ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index], W_FLOW_UNINITIALIZED);
 
             flow_visit_expression(ctx, p_current_argument->expression, &a);
 
-            ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = temp;
+            ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index] = temp;
 
             true_false_set_destroy(&a);
 
@@ -2030,10 +2030,25 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
-    case POSTFIX_INCREMENT:
-        break;
+    case POSTFIX_INCREMENT:        
     case POSTFIX_DECREMENT:
+          struct flow_object* const _Opt p_object = expression_get_object(ctx, p_expression->left, nullable_enabled);
+          if (p_object)
+          {
+              if (flow_object_is_null(p_object))
+              {
+                  //p_object->current.state &= ~OBJECT_STATE_NULL;
+                  p_object->current.state = OBJECT_STATE_NOT_NULL;
+              }
+              else if (flow_object_is_zero(p_object))
+              {
+                  //p_object->current.state &= ~OBJECT_STATE_ZERO;
+                  p_object->current.state = OBJECT_STATE_NOT_ZERO;
+              }
+          }
+          flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         break;
+
     case POSTFIX_ARRAY:
     {
         flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
@@ -2208,6 +2223,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case ASSIGNMENT_EXPRESSION:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         struct true_false_set left_set = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_set);
         true_false_set_swap(expr_true_false_set, &left_set);
@@ -2869,10 +2887,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     */
 
     //We do a visit but this is not conclusive..so we ignore warnings
-    ctx->ctx->options.diagnostic_stack_top_index++;
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].errors = 0;
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].notes = 0;
+    diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
     flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     if (p_defer == NULL)
@@ -2887,7 +2902,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
     //Second pass warning is ON
-    ctx->ctx->options.diagnostic_stack_top_index--;
+    diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
     struct true_false_set true_false_set2 = { 0 };
     flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
@@ -2974,19 +2989,19 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
             flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
         }
 
+        //TODO we need to merge states inside loops
 
-
+        //Disable warning because the state is temporary..missing a visit
+        diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
         if (p_iteration_statement->secondary_block)
         {
             struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
             p_defer->p_iteration_statement = p_iteration_statement;
             flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-            flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
-
-            flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
             flow_visit_ctx_pop_tail_block(ctx);
         }
+        diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
+
 
         if (p_iteration_statement->expression2)
         {
@@ -3073,6 +3088,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
                 if (p_object)
                 {
+                    assert(ctx->p_return_type != NULL);
                     struct flow_object* _Opt p_dest_object =
                         make_object(ctx, ctx->p_return_type, NULL, p_jump_statement->expression_opt);
 
@@ -3080,7 +3096,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                     {
                         throw;
                     }
-
+                    
+                    assert(ctx->p_return_type != NULL);
                     object_set_zero(ctx->p_return_type, p_dest_object);
 
                     struct marker a_marker = {
@@ -3091,6 +3108,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                        .p_token_begin = p_jump_statement->expression_opt->first_token,
                        .p_token_end = p_jump_statement->expression_opt->last_token,
                     };
+
+                    assert(ctx->p_return_type != NULL);
 
                     flow_check_assignment(ctx,
                      p_jump_statement->expression_opt->first_token,

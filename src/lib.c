@@ -5,6 +5,7 @@
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 
 
@@ -24,6 +25,14 @@ void free(void* _Owner _Opt ptr);
 void* _Owner _Opt malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 char* _Owner _Opt strdup(const char* src);
+
+inline char* _Opt strrchr(char* const _String, int const _Ch);
+
+int snprintf(
+        _Out char*       const _Buffer,
+        size_t      const _BufferCount,
+        char const* const _Format,
+        ...);
 
 long strtol(
     char const* _String,
@@ -604,7 +613,7 @@ bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Out char erromsg[100]);
-const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c);
+const unsigned char* _Opt utf8_decode(const unsigned char* s, _Out unsigned int* c);
 const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
 
 
@@ -886,6 +895,16 @@ extern struct diagnostic default_diagnostic;
 
 void diagnostic_remove(struct diagnostic *d, enum diagnostic_id w);
 
+struct diagnostic_stack
+{
+    int top_index;
+    struct diagnostic stack[10];
+};
+
+int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack);
+void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
+
+
 struct options
 {
     /*
@@ -902,8 +921,7 @@ struct options
       #pragma CAKE diagnostic push
       #pragma CAKE diagnostic pop
     */
-    int diagnostic_stack_top_index;
-    struct diagnostic diagnostic_stack[10];
+    struct diagnostic_stack diagnostic_stack;
 
     enum style style;
 
@@ -1934,10 +1952,8 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
 
     //lets find the begin of line
     const struct token* p_line_begin = p_token;
-    while (p_line_begin && p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
-    {
-        if (p_line_begin->prev == NULL)
-            break;
+    while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
+    {        
         p_line_begin = p_line_begin->prev;
     }
 
@@ -2383,8 +2399,10 @@ enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errms
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt utf8_decode(const unsigned char* s, unsigned int* c)
+const unsigned char* _Opt utf8_decode(const unsigned char* s, _Out unsigned int* c)
 {
+    *c = 0; //out
+
     if (s[0] == '\0')
     {
         *c = 0;
@@ -3035,6 +3053,7 @@ void c_clrscr()
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 /*
 
@@ -3373,13 +3392,13 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
     else
     {
         is_error =
-            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & (1ULL << w)) != 0;
+            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & (1ULL << w)) != 0;
 
         is_warning =
-            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
+            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & (1ULL << w)) != 0;
 
         is_note =
-            ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
+            ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
     }
 
 
@@ -5137,13 +5156,8 @@ enum token_type is_keyword(const char* text);
 
 struct token* _Opt preprocessor_look_ahead_core(struct token* p)
 {
-    if (p->next == NULL)
-    {
-        return NULL;
-    }
     struct token* _Opt current = p->next;
-    if (current == NULL)
-        return NULL;
+
     while (current &&
         (current->type == TK_BLANKS ||
             current->type == TK_PLACEMARKER ||
@@ -6494,13 +6508,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
                         r.tail->flags |= TK_FLAG_FINAL;
                         //#pragma GCC diagnostic push
-                        if (ctx->options.diagnostic_stack_top_index <
-                            sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
+                        if (ctx->options.diagnostic_stack.top_index <
+                            sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack.stack[0]))
                         {
-                            ctx->options.diagnostic_stack_top_index++;
+                            ctx->options.diagnostic_stack.top_index++;
 
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
-                                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index - 1];
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
+                                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
                         }
                     }
                     else if (input_list->head && strcmp(input_list->head->lexeme, "pop") == 0)
@@ -6508,9 +6522,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         //#pragma GCC diagnostic pop
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pop
                         r.tail->flags |= TK_FLAG_FINAL;
-                        if (ctx->options.diagnostic_stack_top_index > 0)
+                        if (ctx->options.diagnostic_stack.top_index > 0)
                         {
-                            ctx->options.diagnostic_stack_top_index--;
+                            ctx->options.diagnostic_stack.top_index--;
                         }
                     }
                     else if (input_list->head && strcmp(input_list->head->lexeme, "warning") == 0)
@@ -6527,7 +6541,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                             r.tail->flags |= TK_FLAG_FINAL;
 
                             unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                         }
                     }
                     else if (input_list->head && strcmp(input_list->head->lexeme, "ignore") == 0)
@@ -6541,7 +6555,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
                             unsigned long long w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
                         }
                     }
                 }
@@ -7757,7 +7771,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         return  ENOENT;
     }
     const enum diagnostic_id w =
-        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
+        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings;
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
@@ -7768,7 +7782,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     token_list_destroy(&l10);
 
     /*restore*/
-    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
+    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings = w;
 
     return  0;
 }
@@ -7780,10 +7794,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
       echo | gcc -dM -E -
     */
     const struct diagnostic w =
-        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
+        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
     /*we dont want warnings here*/
-    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
+    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
         (struct diagnostic){ 0 };
 
     static char mon[][4] = {
@@ -8040,7 +8054,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     token_list_destroy(&l10);
 
     /*restore*/
-    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] = w;
+    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = w;
 }
 
 
@@ -9917,7 +9931,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 
 
@@ -10084,7 +10098,9 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
       letter that isn't valid or can't be found, or if the length of the
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
-    char* p = _fullpath(resolved_path, path, MAX_PATH);
+    #pragma CAKE diagnostic push
+    #pragma CAKE diagnostic ignored "-Wflow-not-null"
+    char* _Opt p = _fullpath(resolved_path, path, MAX_PATH);
     if (p)
     {
         char* p2 = resolved_path;
@@ -10095,6 +10111,8 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
             p2++;
         }
     }
+    #pragma CAKE diagnostic pop
+
     return p;
 }
 
@@ -10103,11 +10121,11 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
 int copy_file(const char* pathfrom, const char* pathto)
 {
 
-    FILE* _Owner fd_from = fopen(pathfrom, "rb");
+    FILE* _Owner _Opt fd_from = fopen(pathfrom, "rb");
     if (fd_from == NULL)
         return -1;
 
-    FILE* _Owner fd_to = fopen(pathto, "wb");
+    FILE* _Owner _Opt fd_to = fopen(pathto, "wb");
     if (fd_to == NULL)
     {
         fclose(fd_from);
@@ -10199,7 +10217,15 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
+#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
+
     DWORD r = GetModuleFileNameA(NULL, buffer, maxsize);
+
+#pragma CAKE diagnostic pop
+
     return r;
 }
 
@@ -11207,6 +11233,27 @@ char* _Owner read_file(const char* path)
 
 
 
+int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
+{
+    int index = diagnostic_stack->top_index;
+    diagnostic_stack->top_index++;
+    diagnostic_stack->stack[diagnostic_stack->top_index].warnings = 0;
+    diagnostic_stack->stack[diagnostic_stack->top_index].errors = 0;
+    diagnostic_stack->stack[diagnostic_stack->top_index].notes = 0;
+    return index;
+}
+
+void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
+{
+    if (diagnostic_stack->top_index > 0)
+      diagnostic_stack->top_index--;
+    else
+    {
+        assert(false);
+    }
+}
+
+
 struct diagnostic default_diagnostic = {
       .warnings = (~0ULL) & ~(
         NULLABLE_DISABLE_REMOVED_WARNINGS |
@@ -11411,9 +11458,9 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->diagnostic_stack[0] = default_diagnostic;
+    options->diagnostic_stack.stack[0] = default_diagnostic;
 
-    options->diagnostic_stack[0].warnings &= ~(1ULL << W_STYLE);
+    options->diagnostic_stack.stack[0].warnings &= ~(1ULL << W_STYLE);
     //&~items;
 
 
@@ -11570,7 +11617,7 @@ int fill_options(struct options* options,
         {
             options->null_checks_enabled = false;
             unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-            options->diagnostic_stack[0].warnings &= ~w;
+            options->diagnostic_stack.stack[0].warnings &= ~w;
             continue;
         }
 
@@ -11654,7 +11701,7 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-Wall") == 0)
             {
-                options->diagnostic_stack[0].warnings = ~0ULL;
+                options->diagnostic_stack.stack[0].warnings = ~0ULL;
                 continue;
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
@@ -11670,14 +11717,14 @@ int fill_options(struct options* options,
 
             if (disable_warning)
             {
-                options->diagnostic_stack[0].warnings &= ~w;
+                options->diagnostic_stack.stack[0].warnings &= ~w;
             }
             else
             {
                 if (w == W_STYLE)
-                    options->diagnostic_stack[0].warnings |= w;
+                    options->diagnostic_stack.stack[0].warnings |= w;
                 else
-                    options->diagnostic_stack[0].notes |= w;
+                    options->diagnostic_stack.stack[0].notes |= w;
             }
             continue;
         }
@@ -13129,6 +13176,7 @@ struct constant_value constant_value_cast(enum constant_value_type t, const stru
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 
 
@@ -13987,7 +14035,7 @@ struct  switch_value_list
 
 void switch_value_destroy(struct switch_value_list* _Obj_owner list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
-struct switch_value* switch_value_list_find(struct switch_value_list* list, long long value);
+struct switch_value* _Opt switch_value_list_find(struct switch_value_list* list, long long value);
 
 struct parser_ctx
 {
@@ -14093,7 +14141,7 @@ struct declaration_specifier
     struct declaration_specifier* _Owner _Opt next;
 };
 
-struct declaration_specifier* _Owner declaration_specifier(struct parser_ctx* ctx);
+struct declaration_specifier* _Owner _Opt declaration_specifier(struct parser_ctx* ctx);
 void declaration_specifier_delete(struct declaration_specifier* _Owner _Opt p);
 
 struct declaration_specifiers
@@ -22242,6 +22290,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 
 
@@ -23063,13 +23112,6 @@ void print_object_core(int ident,
 
         if (p_struct_or_union_specifier)
         {
-            if (p_visitor->p_object == NULL)
-            {
-                printf("%*c", ident, ' ');
-                printf("%s %s\n", previous_names, "-");
-                return;
-            }
-
             printf("%*c", ident + 1, ' ');
             printf("#%02d {\n", p_visitor->p_object->id);
 
@@ -24290,7 +24332,7 @@ void object_get_name(const struct type* p_type,
         for (int i = 0; i < 10; i++)
         {
             const char* ps = p->lexeme;
-            while (ps && *ps)
+            while (*ps)
             {
                 if (bytes_written < (out_size - 1))
                 {
@@ -24299,8 +24341,10 @@ void object_get_name(const struct type* p_type,
                 bytes_written++;
                 ps++;
             }
+
             if (p == p_object->p_expression_origin->last_token)
                 break;
+
             p = p->next;
         }
 
@@ -25976,6 +26020,7 @@ void print_object_line(struct flow_object* p_object, int extra_cols)
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 
 
@@ -26101,9 +26146,9 @@ static bool parser_is_diagnostic_enabled(const struct parser_ctx* ctx, enum diag
     if (w > W_NOTE)
         return true;
 
-    return ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & w) != 0) ||
-        ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & w) != 0) ||
-        ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & w) != 0);
+    return ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & w) != 0) ||
+        ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & w) != 0) ||
+        ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & w) != 0);
 }
 
 static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
@@ -26113,11 +26158,13 @@ static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
     if (token->level == 0 &&
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
         token->type == '{' &&
+        token->prev &&
         parser_is_diagnostic_enabled(ctx, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
         {
             if (token->prev->type == TK_BLANKS &&
+                token->prev->prev &&
                 token->prev->prev->type == TK_NEWLINE)
             {
             }
@@ -26136,6 +26183,8 @@ static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
     if (token->level == 0 &&
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
         token->type == '}' &&
+        token->prev &&
+        token->prev->prev &&
         parser_is_diagnostic_enabled(ctx, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
@@ -26159,6 +26208,7 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
     if (token->level == 0 &&
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
         token->type == '{' &&
+        token->prev &&
         parser_is_diagnostic_enabled(ctx, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
@@ -26399,13 +26449,13 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     else
     {
         is_error =
-            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & (1ULL << w)) != 0;
+            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & (1ULL << w)) != 0;
 
         is_warning =
-            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
+            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & (1ULL << w)) != 0;
 
         is_note =
-            ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
+            ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
     }
 
     if (is_error)
@@ -26626,8 +26676,6 @@ bool first_of_function_specifier(const struct parser_ctx* ctx)
 
 bool first_of_enum_specifier_token(const struct token* token)
 {
-    if (token == NULL)
-        return false;
     return token->type == TK_KEYWORD_ENUM;
 }
 
@@ -26697,8 +26745,6 @@ bool first_of_struct_or_union(const struct parser_ctx* ctx)
 
 bool first_of_type_qualifier_token(const struct token* p_token)
 {
-    if (p_token == NULL)
-        return false;
 
     return p_token->type == TK_KEYWORD_CONST ||
         p_token->type == TK_KEYWORD_RESTRICT ||
@@ -26832,8 +26878,6 @@ struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char
 
 bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
 {
-    if (p_token == NULL)
-        return false;
 
     if (p_token->type != TK_IDENTIFIER)
     {
@@ -26895,8 +26939,7 @@ bool first_of_type_name(const struct parser_ctx* ctx)
 
 bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p_token)
 {
-    if (p_token == NULL)
-        return false;
+
 
     // if (ctx->)
     return p_token->type == TK_KEYWORD_VOID ||
@@ -27064,7 +27107,7 @@ bool first_of_designator(const struct parser_ctx* ctx)
 
 struct token* _Opt previous_parser_token(const struct token* token)
 {
-    if (token == NULL || token->prev == NULL)
+    if (token->prev == NULL)
     {
         return NULL;
     }
@@ -27352,7 +27395,7 @@ static void token_promote(const struct parser_ctx* ctx, struct token* token)
     }
     else if (token->type == TK_PPNUMBER)
     {
-        char errormsg[100];
+        char errormsg[100] = { 0 };
         char suffix[4] = { 0 };
         token->type = parse_number(token->lexeme, suffix, errormsg);
         if (token->type == TK_NONE)
@@ -27454,12 +27497,12 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 if (ctx->current && strcmp(ctx->current->lexeme, "push") == 0)
                 {
                     // #pragma GCC diagnostic push
-                    if (ctx->options.diagnostic_stack_top_index <
-                        sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
+                    if (ctx->options.diagnostic_stack.top_index <
+                        sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack.stack[0]))
                     {
-                        ctx->options.diagnostic_stack_top_index++;
-                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index - 1];
+                        ctx->options.diagnostic_stack.top_index++;
+                        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
                     }
                     ctx->current = ctx->current->next;
                     pragma_skip_blanks(ctx);
@@ -27467,9 +27510,9 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 else if (ctx->current && strcmp(ctx->current->lexeme, "pop") == 0)
                 {
                     // #pragma CAKE diagnostic pop
-                    if (ctx->options.diagnostic_stack_top_index > 0)
+                    if (ctx->options.diagnostic_stack.top_index > 0)
                     {
-                        ctx->options.diagnostic_stack_top_index--;
+                        ctx->options.diagnostic_stack.top_index--;
                     }
                     ctx->current = ctx->current->next;
                     pragma_skip_blanks(ctx);
@@ -27489,20 +27532,18 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 
                     if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
                     {
-                        if (ctx->current == NULL) throw;
-
                         unsigned long long w = get_warning_bit_mask(ctx->current->lexeme + 1 /*+ 2*/);
 
-                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+                        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+                        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+                        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
 
                         if (is_error)
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors |= w;
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors |= w;
                         else if (is_warning)
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                         else if (is_note)
-                            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes |= w;
+                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
                     }
                 }
                 else if (ctx->current &&
@@ -27528,7 +27569,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                                 // lets remove this error/warning/info from the final report.
 
                                 int t =
-                                    get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                    get_diagnostic_type(&ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index],
                                         id);
                                 if (t == 3)
                                     ctx->p_report->error_count--;
@@ -27845,6 +27886,9 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 
         while (first_of_declaration_specifier(ctx))
         {
+            if (ctx->current == NULL)
+                throw;
+
             if (ctx->current->flags & TK_FLAG_IDENTIFIER_IS_TYPEDEF)
             {
                 if (p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
@@ -27909,6 +27953,8 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             assert(p_declaration_specifiers->p_attribute_specifier_sequence_opt == NULL);
             p_declaration_specifiers->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
+            if (ctx->current == NULL) throw;
+
             if (ctx->current->type == TK_IDENTIFIER &&
                 p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
             {
@@ -27924,11 +27970,8 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
         }
         p_declaration_specifiers->last_token = previous_parser_token(ctx->current);
 
-        if (p_declaration_specifiers)
-        {
-            // int main() { static int i; } // i is not automatic
-            final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
-        }
+        // int main() { static int i; } // i is not automatic
+        final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
 
         p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
 
@@ -28118,7 +28161,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
             check_func_open_brace_style(ctx, ctx->current);
 
-            struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
+            struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
             if (p_function_body == NULL)
@@ -28137,7 +28180,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 */
 
                 /*we are going to visit the function again.. lets put the same diagnostic state*/
-                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] = before_function_diagnostics;
+                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
 
                 struct flow_visit_ctx ctx2 = { 0 };
                 ctx2.ctx = ctx;
@@ -28348,7 +28391,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             throw;
 
         struct token* _Opt tkname = NULL;
-        
+
         struct declarator* _Owner _Opt p_temp_declarator = declarator(ctx,
             NULL,
             p_declaration_specifiers,
@@ -28358,9 +28401,6 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         if (p_temp_declarator == NULL) throw;
 
         p_init_declarator->p_declarator = p_temp_declarator;
-
-        if (p_init_declarator->p_declarator == NULL)
-            throw;
         p_init_declarator->p_declarator->name_opt = tkname;
 
         if (tkname == NULL)
@@ -29118,6 +29158,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
     else if (ctx->current->type == TK_KEYWORD__BITINT)
     {
         //TODO
+        type_specifier_delete(p_type_specifier);
         return NULL;
     }
     else if (ctx->current->type == TK_IDENTIFIER)
@@ -30624,9 +30665,10 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
                 const bool evaluation_is_disabled = ctx->evaluation_is_disabled;
                 ctx->evaluation_is_disabled = false;
                 p_array_declarator->assignment_expression = assignment_expression(ctx);
-                if (p_array_declarator->assignment_expression == NULL) throw;
+                
                 /*restore*/
                 ctx->evaluation_is_disabled = evaluation_is_disabled;
+
                 if (p_array_declarator->assignment_expression == NULL)
                     throw;
             }
@@ -30726,8 +30768,6 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             p_pointer = calloc(1, sizeof(struct pointer));
             if (p_pointer == NULL)
                 throw;
-
-
 
             p = p_pointer;
             parser_match(ctx);
@@ -31602,21 +31642,21 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "push") == 0)
         {
             // #pragma GCC diagnostic push
-            if (ctx->options.diagnostic_stack_top_index <
-                sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
+            if (ctx->options.diagnostic_stack.top_index <
+                sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack.stack[0]))
             {
-                ctx->options.diagnostic_stack_top_index++;
-                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index - 1];
+                ctx->options.diagnostic_stack.top_index++;
+                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
+                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
             }
             p_pragma_token = p_pragma_token->next;
         }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "pop") == 0)
         {
             // #pragma CAKE diagnostic pop
-            if (ctx->options.diagnostic_stack_top_index > 0)
+            if (ctx->options.diagnostic_stack.top_index > 0)
             {
-                ctx->options.diagnostic_stack_top_index--;
+                ctx->options.diagnostic_stack.top_index--;
             }
             p_pragma_token = pragma_match(p_pragma_token);
         }
@@ -31637,16 +31677,16 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
 
                 unsigned long long w = get_warning_bit_mask(p_pragma_token->lexeme + 1 /*+ 2*/);
 
-                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
 
                 if (is_error)
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors |= w;
+                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors |= w;
                 else if (is_warning)
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                 else if (is_note)
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes |= w;
+                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
             }
         }
         else if (p_pragma_token &&
@@ -31674,7 +31714,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
                             // lets remove this error/warning/info from the final report.
                             found = true;
                             int t =
-                                get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                get_diagnostic_type(&ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index],
                                     id);
                             if (t == 3)
                                 ctx->p_report->error_count--;
@@ -31712,11 +31752,11 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
         {
             unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
 
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
             ctx->options.null_checks_enabled = true;
             ctx->options.flow_analysis = true; //also enable flow analysis
         }
@@ -31724,9 +31764,9 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         {
             unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
 
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
 
 
             // Dereference warnings : Disabled
@@ -31745,11 +31785,11 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         {
             unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
 
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
 
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
 
             ctx->options.ownership_enabled = true;
             ctx->options.flow_analysis = true; //also enable flow analysis
@@ -31759,9 +31799,9 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         {
             unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
 
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
 
             ctx->options.ownership_enabled = false;
         }
@@ -31786,11 +31826,11 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
         {
             unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
 
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
             ctx->options.null_checks_enabled = true;
             ctx->options.flow_analysis = true; //also enable flow analysis
 
@@ -31800,9 +31840,9 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         {
             unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
 
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
-            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
 
             ctx->options.null_checks_enabled = false;
             ctx->options.ownership_enabled = false;
@@ -32663,11 +32703,11 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
+                    }
                 }
             }
         }
     }
-}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -32866,7 +32906,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
         if (p_compound_statement == NULL)
             throw;
 
-        p_compound_statement->diagnostic_flags = ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
+        p_compound_statement->diagnostic_flags = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
         scope_list_push(&ctx->scopes, &block_scope);
 
@@ -33180,7 +33220,11 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wmissing-destructor"    
-        p_try_statement->secondary_block = secondary_block(ctx);
+
+        struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+        if (p_secondary_block == NULL) throw;
+
+        p_try_statement->secondary_block = p_secondary_block;
 #pragma cake diagnostic pop
 
         /*restores the previous one*/
@@ -33192,7 +33236,11 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             parser_match(ctx);
 
             assert(p_try_statement->catch_secondary_block_opt == NULL);
+
+
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
+            if (p_try_statement->catch_secondary_block_opt == NULL) throw;
+
         }
         p_try_statement->last_token = ctx->previous;
     }
@@ -33391,7 +33439,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
                 if (p_enum_specifier)
                 {
-                    struct enumerator* p = p_enum_specifier->enumerator_list.head;
+                    struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
                     while (p)
                     {
                         struct switch_value* p_used = switch_value_list_find(&switch_value_list, constant_value_to_signed_long_long(&p->value));
@@ -33415,19 +33463,28 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         switch_value_destroy(&switch_value_list);
 
-        if (p_selection_statement->secondary_block == NULL)
-            throw;
-
         if (is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE)
         {
             p_selection_statement->else_token_opt = ctx->current;
             parser_match(ctx);
             assert(p_selection_statement->else_secondary_block_opt == NULL);
-            p_selection_statement->else_secondary_block_opt = secondary_block(ctx);
+
+            struct secondary_block* _Owner _Opt p_secondary_block2 = secondary_block(ctx);
+            if (p_secondary_block2 == NULL) throw;
+
+            p_selection_statement->else_secondary_block_opt = p_secondary_block2;
         }
 
+        if (ctx->current == NULL)
+        {
+            throw;
+        }
+        struct token* _Opt p_tk = previous_parser_token(ctx->current);
+        if (p_tk == NULL) {
+            throw;
+        }
 
-        p_selection_statement->last_token = previous_parser_token(ctx->current);
+        p_selection_statement->last_token = p_tk;
     }
     catch
     {
@@ -33442,8 +33499,8 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
 struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
 {
-    if (ctx->current == NULL) return
-        NULL;
+    if (ctx->current == NULL)
+        return NULL;
 
     struct defer_statement* _Owner _Opt p_defer_statement = calloc(1, sizeof(struct defer_statement));
     try
@@ -33455,7 +33512,13 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
         {
             p_defer_statement->first_token = ctx->current;
             parser_match(ctx);
-            p_defer_statement->secondary_block = secondary_block(ctx);
+
+            struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+            if (p_secondary_block == NULL) throw;
+
+            p_defer_statement->secondary_block = p_secondary_block;
+            if (ctx->previous == NULL) throw;
+
             p_defer_statement->last_token = ctx->previous;
         }
     }
@@ -33501,7 +33564,15 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
         if (ctx->current->type == TK_KEYWORD_DO)
         {
             parser_match(ctx);
-            p_iteration_statement->secondary_block = secondary_block(ctx);
+
+            struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+            if (p_secondary_block == NULL) throw;
+
+            p_iteration_statement->secondary_block = p_secondary_block;
+
+            if (ctx->current == NULL)
+                throw;
+
             p_iteration_statement->second_token = ctx->current;
 
             if (parser_match_tk(ctx, TK_KEYWORD_WHILE) != 0)
@@ -33524,7 +33595,9 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             p_iteration_statement->expression1 = expression(ctx);
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
-            p_iteration_statement->secondary_block = secondary_block(ctx);
+            struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+            if (p_secondary_block == NULL) throw;
+            p_iteration_statement->secondary_block = p_secondary_block;
         }
         else if (ctx->current->type == TK_KEYWORD_FOR)
         {
@@ -33537,6 +33610,14 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 scope_list_push(&ctx->scopes, &for_scope);
 
                 p_iteration_statement->declaration = declaration(ctx, NULL, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+
+                if (ctx->current == NULL)
+                {
+                    scope_list_pop(&ctx->scopes);
+                    scope_destroy(&for_scope);
+                    throw;
+                }
+
                 if (ctx->current->type != ';')
                 {
                     p_iteration_statement->expression1 = expression(ctx);
@@ -33550,6 +33631,14 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
 
                 if (parser_match_tk(ctx, ';') != 0)
                 {
+                    scope_list_pop(&ctx->scopes);
+                    scope_destroy(&for_scope);
+                    throw;
+                }
+
+                if (ctx->current == NULL)
+                {
+                    scope_list_pop(&ctx->scopes);
                     scope_destroy(&for_scope);
                     throw;
                 }
@@ -33559,11 +33648,20 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
 
                 if (parser_match_tk(ctx, ')') != 0)
                 {
+                    scope_list_pop(&ctx->scopes);
                     scope_destroy(&for_scope);
                     throw;
                 }
 
-                p_iteration_statement->secondary_block = secondary_block(ctx);
+                struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+                if (p_secondary_block == NULL)
+                {
+                    scope_list_pop(&ctx->scopes);
+                    scope_destroy(&for_scope);
+                    throw;
+                }
+
+                p_iteration_statement->secondary_block = p_secondary_block;
 
                 scope_list_pop(&ctx->scopes);
 
@@ -33578,20 +33676,39 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                  *   }
                  */
 
+                if (ctx->current == NULL)
+                    throw;
+
                 if (ctx->current->type != ';')
                     p_iteration_statement->expression0 = expression(ctx);
                 if (parser_match_tk(ctx, ';') != 0)
                     throw;
+
+                if (ctx->current == NULL)
+                    throw;
+
                 if (ctx->current->type != ';')
                     p_iteration_statement->expression1 = expression(ctx);
+
                 if (parser_match_tk(ctx, ';') != 0)
                     throw;
+
+                if (ctx->current == NULL)
+                    throw;
+
                 if (ctx->current->type != ')')
                     p_iteration_statement->expression2 = expression(ctx);
+
                 if (parser_match_tk(ctx, ')') != 0)
                     throw;
 
-                p_iteration_statement->secondary_block = secondary_block(ctx);
+                if (ctx->current == NULL)
+                    throw;
+
+                struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+                if (p_secondary_block == NULL) throw;
+
+                p_iteration_statement->secondary_block = p_secondary_block;
             }
         }
     }
@@ -33673,6 +33790,9 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
             const struct token* const p_return_token = ctx->current;
             parser_match(ctx);
 
+            if (ctx->current == NULL)
+                throw;
+
             if (ctx->current->type != ';')
             {
                 p_jump_statement->expression_opt = expression(ctx);
@@ -33753,6 +33873,9 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
         p_expression_statement->p_attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx);
 
+        if (ctx->current == NULL)
+            throw;
+
         if (ctx->current->type != ';')
         {
             p_expression_statement->expression_opt = expression(ctx);
@@ -33827,9 +33950,6 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
     try
     {
         if (p_condition == NULL)
-            throw;
-
-        if (ctx->current == NULL)
             throw;
 
         p_condition->first_token = ctx->current;
@@ -34612,7 +34732,7 @@ int compile_many_files(const char* file_name,
     struct report* report)
 {
     const char* const file_name_name = basename(file_name);
-    const char* const file_name_extension = strrchr(file_name_name, '.');
+    const char* _Opt const file_name_extension = strrchr(file_name_name, '.');
 
     if (file_name_extension == NULL)
     {
@@ -34650,7 +34770,7 @@ int compile_many_files(const char* file_name,
         else
         {
             const char* const file_name_iter = basename(dp->d_name);
-            const char* const file_extension = strrchr(file_name_iter, '.');
+            const char* _Opt const file_extension = strrchr(file_name_iter, '.');
 
             if (file_name_extension &&
                 file_extension &&
@@ -35068,9 +35188,6 @@ static bool is_all_upper(const char* text)
 
 static bool is_snake_case(const char* text)
 {
-    if (text == NULL)
-        return true;
-
     if (!(*text >= 'a' && *text <= 'z'))
     {
         return false;
@@ -35095,9 +35212,6 @@ static bool is_snake_case(const char* text)
 
 static bool is_camel_case(const char* text)
 {
-    if (text == NULL)
-        return true;
-
     if (!(*text >= 'a' && *text <= 'z'))
     {
         return false;
@@ -35121,9 +35235,6 @@ static bool is_camel_case(const char* text)
 
 static bool is_pascal_case(const char* text)
 {
-    if (text == NULL)
-        return true;
-
     if (!(text[0] >= 'A' && text[0] <= 'Z'))
     {
         /*first letter uppepr case*/
@@ -35198,9 +35309,6 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 {
-    if (token == NULL)
-        return;
-
     if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
     {
         return;
@@ -35321,6 +35429,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 */
 
 //#pragma safety enable
+#pragma ownership enable
 
 
 /*imagine tou press DEL key*/
@@ -35341,24 +35450,32 @@ static void del(struct token* from, struct token* to)
 static struct token_list cut(struct token* from, struct token* to)
 {
     struct token_list l = { 0 };
-    struct token* _Opt p = from;
-    while (p)
+    try
     {
-        if (p->level == 0 &&
-            !(p->flags & TK_FLAG_MACRO_EXPANDED) &&
-            !(p->flags & TK_C_BACKEND_FLAG_HIDE) &&
-            p->type != TK_BEGIN_OF_FILE)
+        struct token* _Opt p = from;
+        while (p)
         {
-            struct token* _Owner clone = clone_token(p);
-            p->flags |= TK_C_BACKEND_FLAG_HIDE;
-            token_list_add(&l, clone);
+            if (p->level == 0 &&
+                !(p->flags & TK_FLAG_MACRO_EXPANDED) &&
+                !(p->flags & TK_C_BACKEND_FLAG_HIDE) &&
+                p->type != TK_BEGIN_OF_FILE)
+            {
+                struct token* _Owner _Opt clone = clone_token(p);
+                if (clone == NULL) throw;
+
+                p->flags |= TK_C_BACKEND_FLAG_HIDE;
+                token_list_add(&l, clone);
+                if (p == to)
+                    break;
+            }
+
             if (p == to)
                 break;
+            p = p->next;
         }
-
-        if (p == to)
-            break;
-        p = p->next;
+    }
+    catch
+    {
     }
     return l;
 }
@@ -35595,16 +35712,9 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
         }
         else if (p_unlabeled_statement->primary_block->iteration_statement)
         {
-            if (p_unlabeled_statement->primary_block->iteration_statement->secondary_block)
+            if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
             {
-                if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
-                {
-                    return true;
-                }
-            }
-            else
-            {
-                assert(false);
+                return true;
             }
         }
     }
@@ -35614,7 +35724,6 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
 bool find_label_statement(struct statement* statement, const char* label)
 {
     if (statement->labeled_statement &&
-        statement->labeled_statement->label &&
         statement->labeled_statement->label->p_identifier_opt)
     {
         if (strcmp(statement->labeled_statement->label->p_identifier_opt->lexeme, label) == 0)
@@ -35634,19 +35743,15 @@ static bool find_label_scope(struct defer_scope* deferblock, const char* label)
 {
     if (deferblock->p_iteration_statement)
     {
-        if (deferblock->p_iteration_statement->secondary_block)
-        {
-            if (find_label_statement(deferblock->p_iteration_statement->secondary_block->statement, label))
-                return true;
-        }
+
+        if (find_label_statement(deferblock->p_iteration_statement->secondary_block->statement, label))
+            return true;
+
     }
     else if (deferblock->p_selection_statement2)
     {
-        if (deferblock->p_selection_statement2->secondary_block)
-        {
-            if (find_label_statement(deferblock->p_selection_statement2->secondary_block->statement, label))
-                return true;
-        }
+        if (find_label_statement(deferblock->p_selection_statement2->secondary_block->statement, label))
+            return true;
 
         if (deferblock->p_selection_statement2->else_secondary_block_opt)
         {
@@ -35656,11 +35761,10 @@ static bool find_label_scope(struct defer_scope* deferblock, const char* label)
     }
     else if (deferblock->p_try_statement)
     {
-        if (deferblock->p_try_statement->secondary_block)
-        {
-            if (find_label_statement(deferblock->p_try_statement->secondary_block->statement, label))
-                return true;
-        }
+
+        if (find_label_statement(deferblock->p_try_statement->secondary_block->statement, label))
+            return true;
+
 
         if (deferblock->p_try_statement->catch_secondary_block_opt)
         {
@@ -35765,16 +35869,11 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
 
         p_defer->defer_statement = p_defer_statement;
 
-
-        if (p_defer_statement->secondary_block)
-        {
-            visit_secondary_block(ctx, p_defer_statement->secondary_block);
-        }
+        visit_secondary_block(ctx, p_defer_statement->secondary_block);
     }
     else //if (ctx->is_second_pass)
     {
-        if (p_defer_statement->secondary_block)
-            visit_secondary_block(ctx, p_defer_statement->secondary_block);
+        visit_secondary_block(ctx, p_defer_statement->secondary_block);
     }
 }
 
@@ -36474,7 +36573,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                                     .tail = p_expression->right->last_token };
 
             const char* _Owner _Opt exprstr = get_code_as_we_see(&l, true);
-            char buffer[200];
+            char buffer[200] = { 0 };
             snprintf(buffer, sizeof buffer, "sizeof(%s)/sizeof((%s)[0])", exprstr, exprstr);
 
             struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
@@ -36497,7 +36596,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             {
                 int u = constant_value_to_unsigned_int(&p_expression->constant_value);
 
-                char buffer[50];
+                char buffer[50] = { 0 };
                 snprintf(buffer, sizeof buffer, "%d", u);
 
                 struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
@@ -37841,8 +37940,10 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         {
             struct osstream ss = { 0 };
             print_block_defer(p_defer, &ss, true);
+
             if (ss.size > 0)
             {
+                assert(ss.c_str != NULL);
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
                 token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, &l);
@@ -37952,7 +38053,7 @@ int visit_tokens(struct visit_ctx* ctx)
             {
                 if (ctx->target < LANGUAGE_C23 && current->lexeme[0] == 'u' && current->lexeme[1] == '8')
                 {
-                    char buffer[25];
+                    char buffer[25] = { 0 };
                     snprintf(buffer, sizeof buffer, "((unsigned char)%s)", current->lexeme + 2);
                     char* _Owner _Opt newlexeme = strdup(buffer);
                     if (newlexeme)
@@ -37970,7 +38071,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     unsigned int c;
                     s = utf8_decode(s, &c);
 
-                    char buffer[25];
+                    char buffer[25] = { 0 };
                     snprintf(buffer, sizeof buffer, "((unsigned short)%d)", c);
                     char* _Opt _Owner newlexeme = strdup(buffer);
                     if (newlexeme)
@@ -37988,7 +38089,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     unsigned int c;
                     s = utf8_decode(s, &c);
 
-                    char buffer[25];
+                    char buffer[25] = { 0 };
                     snprintf(buffer, sizeof buffer, "%du", c);
                     char* _Owner _Opt newlexeme = strdup(buffer);
                     if (newlexeme)
@@ -38067,7 +38168,7 @@ int visit_tokens(struct visit_ctx* ctx)
             if (current->type == TK_PREPROCESSOR_LINE)
             {
                 struct token* first_preprocessor_token = current;
-                struct token* last_preprocessor_token = current;
+                struct token* _Opt last_preprocessor_token = current;
 
                 while (last_preprocessor_token)
                 {
@@ -38120,7 +38221,9 @@ int visit_tokens(struct visit_ctx* ctx)
                       change C23 #warning to comment
                     */
                     free(first_preprocessor_token->lexeme);
-                    first_preprocessor_token->lexeme = strdup("//#");
+                    char* _Opt _Owner temp = strdup("//#");
+                    if (temp == NULL) throw;
+                    first_preprocessor_token->lexeme = temp;
 
                     current = current->next;
                     continue;
@@ -38133,7 +38236,9 @@ int visit_tokens(struct visit_ctx* ctx)
                       change C23 #elifdef to #elif defined e #elifndef to C11
                     */
                     free(current->lexeme);
-                    current->lexeme = strdup("elif defined ");
+                    char* _Opt _Owner temp = strdup("elif defined ");
+                    if (temp == NULL) throw;
+                    current->lexeme = temp;
 
                     current = current->next;
                     continue;
@@ -38147,7 +38252,10 @@ int visit_tokens(struct visit_ctx* ctx)
                     */
 
                     free(current->lexeme);
-                    current->lexeme = strdup("elif ! defined ");
+                    char* _Owner _Opt temp = strdup("elif ! defined ");
+                    if (temp == NULL) throw;
+
+                    current->lexeme = temp;
 
                     current = current->next;
                     continue;
@@ -38179,7 +38287,10 @@ void visit(struct visit_ctx* ctx)
 
         if (ctx->insert_before_block_item.head != NULL)
         {
-            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, &ctx->insert_before_block_item);
+            if (p_declaration->first_token->prev)
+            {
+                token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, &ctx->insert_before_block_item);
+            }
         }
 
         /*
@@ -38187,7 +38298,10 @@ void visit(struct visit_ctx* ctx)
         */
         if (ctx->insert_before_declaration.head != NULL)
         {
-            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, &ctx->insert_before_declaration);
+            if (p_declaration->first_token->prev)
+            {
+                token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, &ctx->insert_before_declaration);
+            }
 
         }
 
@@ -38206,7 +38320,7 @@ void visit(struct visit_ctx* ctx)
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 
 
@@ -39784,14 +39898,14 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
             struct true_false_set a = { 0 };
 
             struct diagnostic temp =
-                ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
+                ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index];
 
             //we don´t report W_FLOW_UNINITIALIZED here because it is checked next.. (TODO parts of expression)
-            diagnostic_remove(&ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index], W_FLOW_UNINITIALIZED);
+            diagnostic_remove(&ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index], W_FLOW_UNINITIALIZED);
 
             flow_visit_expression(ctx, p_current_argument->expression, &a);
 
-            ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = temp;
+            ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index] = temp;
 
             true_false_set_destroy(&a);
 
@@ -40222,10 +40336,25 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
-    case POSTFIX_INCREMENT:
-        break;
+    case POSTFIX_INCREMENT:        
     case POSTFIX_DECREMENT:
+          struct flow_object* const _Opt p_object = expression_get_object(ctx, p_expression->left, nullable_enabled);
+          if (p_object)
+          {
+              if (flow_object_is_null(p_object))
+              {
+                  //p_object->current.state &= ~OBJECT_STATE_NULL;
+                  p_object->current.state = OBJECT_STATE_NOT_NULL;
+              }
+              else if (flow_object_is_zero(p_object))
+              {
+                  //p_object->current.state &= ~OBJECT_STATE_ZERO;
+                  p_object->current.state = OBJECT_STATE_NOT_ZERO;
+              }
+          }
+          flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         break;
+
     case POSTFIX_ARRAY:
     {
         flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
@@ -40400,6 +40529,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case ASSIGNMENT_EXPRESSION:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         struct true_false_set left_set = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_set);
         true_false_set_swap(expr_true_false_set, &left_set);
@@ -41061,10 +41193,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     */
 
     //We do a visit but this is not conclusive..so we ignore warnings
-    ctx->ctx->options.diagnostic_stack_top_index++;
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].errors = 0;
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].notes = 0;
+    diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
     flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     if (p_defer == NULL)
@@ -41079,7 +41208,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
     //Second pass warning is ON
-    ctx->ctx->options.diagnostic_stack_top_index--;
+    diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
     struct true_false_set true_false_set2 = { 0 };
     flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
@@ -41166,19 +41295,19 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
             flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
         }
 
+        //TODO we need to merge states inside loops
 
-
+        //Disable warning because the state is temporary..missing a visit
+        diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
         if (p_iteration_statement->secondary_block)
         {
             struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
             p_defer->p_iteration_statement = p_iteration_statement;
             flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-            flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
-
-            flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
             flow_visit_ctx_pop_tail_block(ctx);
         }
+        diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
+
 
         if (p_iteration_statement->expression2)
         {
@@ -41265,6 +41394,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
                 if (p_object)
                 {
+                    assert(ctx->p_return_type != NULL);
                     struct flow_object* _Opt p_dest_object =
                         make_object(ctx, ctx->p_return_type, NULL, p_jump_statement->expression_opt);
 
@@ -41272,7 +41402,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                     {
                         throw;
                     }
-
+                    
+                    assert(ctx->p_return_type != NULL);
                     object_set_zero(ctx->p_return_type, p_dest_object);
 
                     struct marker a_marker = {
@@ -41283,6 +41414,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                        .p_token_begin = p_jump_statement->expression_opt->first_token,
                        .p_token_end = p_jump_statement->expression_opt->last_token,
                     };
+
+                    assert(ctx->p_return_type != NULL);
 
                     flow_check_assignment(ctx,
                      p_jump_statement->expression_opt->first_token,
@@ -42697,6 +42830,7 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
+#pragma safety enable
 
 
 
@@ -42707,80 +42841,94 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
     * Before this token we must have a indentation and before indentation a new line.
     * If we don't have it we need to insert.
     */
-
-    if (token && token->level == 0)
+    try
     {
-        struct token* previous_token = token->prev;
-        if (previous_token)
+        if (token->level == 0)
         {
-            if (previous_token->type == TK_BLANKS)
+            struct token* _Opt previous_token = token->prev;
+            if (previous_token)
             {
-                char blanks[50] = { 0 };
-                if (ctx->indentation > 0)
-                    snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
-
-                /*only adjust the number of spaces*/
-                free(previous_token->lexeme);
-                previous_token->lexeme = strdup(blanks);
-
-                struct token* previous_previous_token =
-                    previous_token->prev;
-
-                if (previous_previous_token->type != TK_NEWLINE)
+                if (previous_token->type == TK_BLANKS)
                 {
+                    char blanks[50] = { 0 };
+                    if (ctx->indentation > 0)
+                        snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
+
+                    /*only adjust the number of spaces*/
+                    free(previous_token->lexeme);
+                    char* _Opt _Owner spc = strdup(blanks);
+                    if (spc == NULL) throw;
+                    previous_token->lexeme = spc;
+
+                    struct token* _Opt previous_previous_token = previous_token->prev;
+
+                    if (previous_previous_token &&
+                        previous_previous_token->type != TK_NEWLINE)
+                    {
+                        struct tokenizer_ctx tctx = { 0 };
+                        struct token_list list = tokenizer(&tctx, "\n", NULL, 0, TK_FLAG_NONE);
+                        token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);
+                        token_list_destroy(&list);
+                    }
+                }
+                else if (previous_token->type != TK_NEWLINE)
+                {
+                    char blanks[50] = { 0 };
+                    if (ctx->indentation > 0)
+                    {
+                        snprintf(blanks, sizeof blanks, "\n%*c", (ctx->indentation * 4), ' ');
+                    }
+                    else
+                    {
+                        snprintf(blanks, sizeof blanks, "\n");
+                    }
+
                     struct tokenizer_ctx tctx = { 0 };
-                    struct token_list list = tokenizer(&tctx, "\n", NULL, 0, TK_FLAG_NONE);
-                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);
+                    struct token_list list = tokenizer(&tctx, blanks, NULL, 0, TK_FLAG_NONE);
+                    token_list_insert_after(&ctx->ast.token_list, previous_token, &list);
                     token_list_destroy(&list);
                 }
             }
-            else if (previous_token->type != TK_NEWLINE)
-            {
-                char blanks[50] = {0};
-                if (ctx->indentation > 0)
-                {
-                    snprintf(blanks, sizeof blanks, "\n%*c", (ctx->indentation * 4), ' ');
-                }
-                else
-                {
-                    snprintf(blanks, sizeof blanks, "\n");
-                }
-
-                struct tokenizer_ctx tctx = { 0 };
-                struct token_list list = tokenizer(&tctx, blanks, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, previous_token, &list);
-                token_list_destroy(&list);
-            }
         }
+    }
+    catch
+    {
     }
 }
 
 void ajust_if_begin(struct token* token, struct format_visit_ctx* ctx)
 {
-    /*
-    * if we have 
-      newline blancks
-      then we ident
-    */
-    if (token && token->level == 0)
+    try
     {
-        struct token* previous_token = token->prev;
-        if (previous_token && previous_token->type == TK_BLANKS)
+        /*
+        * if we have
+          newline blancks
+          then we ident
+        */
+        if (token->level == 0)
         {
-            struct token* previous_previous_token =
-                previous_token->prev;
-            if (previous_previous_token &&
-                previous_previous_token->type == TK_NEWLINE)
+            struct token* _Opt previous_token = token->prev;
+            if (previous_token && previous_token->type == TK_BLANKS)
             {
-                char blanks[50] = { 0 };
-                if (ctx->indentation > 0)
-                    snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
+                struct token* _Opt previous_previous_token = previous_token->prev;
+                if (previous_previous_token &&
+                    previous_previous_token->type == TK_NEWLINE)
+                {
+                    char blanks[50] = { 0 };
+                    if (ctx->indentation > 0)
+                        snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
 
-                /*only adjust the number of spaces*/
-                free(previous_token->lexeme);
-                previous_token->lexeme = strdup(blanks);
+                    /*only adjust the number of spaces*/
+                    free(previous_token->lexeme);
+                    char* _Opt _Owner spc = strdup(blanks);
+                    if (spc == NULL) throw;
+                    previous_token->lexeme = spc;
+                }
             }
         }
+    }
+    catch
+    {
     }
 }
 
@@ -42803,32 +42951,33 @@ static void format_visit_statement(struct format_visit_ctx* ctx, struct statemen
 
 static void format_visit_selection_statement(struct format_visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
-    if (p_selection_statement->secondary_block)
+
+    ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
+
+    if (p_selection_statement->secondary_block->statement->unlabeled_statement &&
+        p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
+        p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
+    {
+        format_visit_statement(ctx, p_selection_statement->secondary_block->statement);
+    }
+    else
     {
         ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
 
-        if (p_selection_statement->secondary_block->statement &&
-            p_selection_statement->secondary_block->statement->unlabeled_statement &&
-            p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
-            p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
-        {
-            format_visit_statement(ctx, p_selection_statement->secondary_block->statement);
-        }
-        else
-        {
-            ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
-
-            format_visit_statement(ctx, p_selection_statement->secondary_block->statement);            
-        }        
+        format_visit_statement(ctx, p_selection_statement->secondary_block->statement);
     }
+
 
     if (p_selection_statement->else_secondary_block_opt)
     {
-        ajust_line_and_identation(p_selection_statement->else_token_opt, ctx);
+        if (p_selection_statement->else_token_opt)
+        {
+            ajust_line_and_identation(p_selection_statement->else_token_opt, ctx);
+        }
+
         ajust_line_and_identation(p_selection_statement->else_secondary_block_opt->first_token, ctx);
 
-        if (p_selection_statement->else_secondary_block_opt->statement &&
-            p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement &&
+        if (p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement &&
             p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement->primary_block &&
             p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement->primary_block->compound_statement)
         {
@@ -42836,8 +42985,8 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
             format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement);
         }
         else
-        {            
-            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement);         
+        {
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement);
         }
     }
 
@@ -42889,16 +43038,13 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
         ajust_line_and_identation(p_iteration_statement->second_token, ctx);
     }
 
-    if (p_iteration_statement->secondary_block)
-    {
-        format_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-    }
+
+    format_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 }
 
 static void format_visit_try_statement(struct format_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
-    if (p_try_statement->secondary_block)
-        format_visit_secondary_block(ctx, p_try_statement->secondary_block);
+    format_visit_secondary_block(ctx, p_try_statement->secondary_block);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -42947,10 +43093,10 @@ static void format_visit_expression_statement(struct format_visit_ctx* ctx, stru
 
 static void format_visit_labeled_statement(struct format_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)
 {
-    ajust_line_and_identation(p_labeled_statement->label->p_identifier_opt, ctx);
+    if (p_labeled_statement->label->p_identifier_opt)
+        ajust_line_and_identation(p_labeled_statement->label->p_identifier_opt, ctx);
 
-    if (p_labeled_statement->statement)
-        format_visit_statement(ctx, p_labeled_statement->statement);
+    format_visit_statement(ctx, p_labeled_statement->statement);
 }
 
 static void format_visit_unlabeled_statement(struct format_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
@@ -42993,7 +43139,7 @@ static void format_visit_block_item(struct format_visit_ctx* ctx, struct block_i
 
 static void format_visit_block_item_list(struct format_visit_ctx* ctx, struct block_item_list* p_block_item_list)
 {
-    struct block_item* p_block_item = p_block_item_list->head;
+    struct block_item* _Opt p_block_item = p_block_item_list->head;
     while (p_block_item)
     {
         format_visit_block_item(ctx, p_block_item);
@@ -43010,7 +43156,7 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
 
     ctx->indentation++;
     /*fix comments anything that is not part of AST*/
-    struct token* tk = p_compound_statement->first_token;
+    struct token* _Opt tk = p_compound_statement->first_token;
     while (tk)
     {
         if (tk->type == TK_LINE_COMMENT ||
@@ -43053,7 +43199,7 @@ static void format_visit_declaration(struct format_visit_ctx* ctx, struct declar
 
 void format_visit(struct format_visit_ctx* ctx)
 {
-    struct declaration* p_declaration = ctx->ast.declaration_list.head;
+    struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)
     {
         format_visit_declaration(ctx, p_declaration);
