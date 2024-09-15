@@ -87,7 +87,7 @@ In this scenario, `s1` is declared as nullable, but `f` expects a non-nullable a
 
 This warning relies on flow analysis, which ensures that the potential nullability of pointers is checked before being passed to functions or assigned to non-nullable variables.
 
-## Non nullable members
+#### Non nullable members
 
 The concept of nullable types is present in some language like C# and Typescript.
 Both languages have the concept of `constructor` for objects. So, for objects members, the compiler checks if after the constructor the non-nullable members have being assigned to a non null value.
@@ -96,7 +96,7 @@ The other way to see this, is that during construction the non nullable pointer 
 
 In C, we don t have the concept of constructor, so the same approach cannot be  applied directly.
 
-Cake, have a mechanism using the qualifier ´_Opt´ before struct types to make all non-nullable members as nullable for a particular instance.
+Cake, have a mechanism using the qualifier `_Opt` before struct types to make all non-nullable members as nullable for a particular instance.
 
 ```c  
 struct X {
@@ -157,17 +157,18 @@ struct X * _Opt makeX(const char* name)
 
 In this example, `struct X` has a `const` member `name`, which is non-nullable. Under normal conditions, modifying a `const` member after initialization would be disallowed. However, the **mutable** qualifier temporarily relaxes this rule during the object’s creation process, allowing modifications even to `const` members, and allowing a non-nullable pointer to be null before the object’s initialization completes.
 
-### Transitional State:  
+##### Transitional State:  
 During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraints—such as non-nullable pointers and immutability—are lifted. For example, in the `makeX` function, `p->name` can be set to `temp`, even though `name` is `const`. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.
 
-### Effect on the Final Object:
+##### Effect on the Final Object:
 Once the transitional phase is over and the object is returned, the contract that governs the object (such as immutability of `name` and non-nullability of pointers) is fully reinstated. The **mutable** qualifier only applies within the scope of the constructor or destructor, ensuring that once the object is fully constructed, its state is valid and consistent with the type system’s rules.
 
 This approach allows for more flexibility during object creation while maintaining strong contracts once the object is finalized, enhancing both safety and expressiveness in the code.
 
 
 OBS: mutable qualifier is not yet implemented in Cake. However, _Opt for structs is implemented.
-_
+
+
 ### Object lifetime checks  
 From the C23 standard:
 
