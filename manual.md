@@ -1449,6 +1449,38 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
 ## C2Y Transformations
 
+### Obsolete implicitly octal literals
+
+
+```c
+
+static_assert(0o52 == 052);
+static_assert(0O52 == 052);
+static_assert(0O52 == 42);
+
+int main()
+{
+    int i = 0o52;
+}
+
+```
+
+Becomes in < C2Y (prefix is removed)
+
+```c
+
+static_assert(052 == 052);
+static_assert(052 == 052);
+static_assert(052 == 42);
+
+int main()
+{
+    int i = 052;
+}
+
+```
+
+
 ###  Extension - defer
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm

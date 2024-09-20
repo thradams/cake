@@ -592,11 +592,8 @@ static bool flow_find_label_scope(struct flow_visit_ctx* ctx, struct flow_defer_
 {
     if (deferblock->p_iteration_statement)
     {
-        if (deferblock->p_iteration_statement->secondary_block)
-        {
-            if (flow_find_label_statement(ctx, deferblock->p_iteration_statement->secondary_block->statement, label))
-                return true;
-        }
+        if (flow_find_label_statement(ctx, deferblock->p_iteration_statement->secondary_block->statement, label))
+            return true;
     }
     else if (deferblock->p_selection_statement)
     {
@@ -826,6 +823,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                     struct flow_object_state* _Owner _Opt p_new_state = calloc(1, sizeof * p_new_state);
                     if (p_new_state == NULL) throw;
 
+                    p_new_state->dbg_name = "merged";
                     p_new_state->state_number = state_number;
                     objects_view_push_back(&p_new_state->alternatives, object->current.pointed);
                     objects_view_push_back(&p_new_state->alternatives, it->pointed);
@@ -849,6 +847,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                             struct flow_object_state* _Owner _Opt p_child_new_state = calloc(1, sizeof * p_child_new_state);
                             if (p_child_new_state == NULL) throw;
 
+                            p_child_new_state->dbg_name = "merged";
                             p_child_new_state->state_number = state_number;
                             p_child_new_state->state = child1->current.state | it->state;
                             objects_view_push_back(&p_child_new_state->alternatives, child1);
@@ -938,155 +937,168 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
 {
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
-    flow_visit_declarator(ctx, p_init_declarator->p_declarator);
-
-    if (p_init_declarator->initializer)
+    try
     {
-        if (p_init_declarator->initializer->assignment_expression)
+        flow_visit_declarator(ctx, p_init_declarator->p_declarator);
+
+        if (p_init_declarator->initializer)
         {
-            struct true_false_set a = { 0 };
-            flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression, &a);
-            true_false_set_destroy(&a);
-        }
-        else
-        {
-            if (p_init_declarator->initializer->braced_initializer)
+            if (p_init_declarator->initializer->assignment_expression)
             {
-                flow_visit_bracket_initializer_list(ctx,
-                    p_init_declarator->initializer->braced_initializer);
+                struct true_false_set a = { 0 };
+                flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression, &a);
+                true_false_set_destroy(&a);
             }
             else
             {
-                assert(false);
+                if (p_init_declarator->initializer->braced_initializer)
+                {
+                    flow_visit_bracket_initializer_list(ctx,
+                        p_init_declarator->initializer->braced_initializer);
+                }
+                else
+                {
+                    assert(false);
+                }
             }
         }
-    }
 
-    if (p_init_declarator->p_declarator->type.category != TYPE_CATEGORY_FUNCTION)
-    {
-        if (p_init_declarator->initializer &&
-            p_init_declarator->initializer->assignment_expression)
+        if (p_init_declarator->p_declarator->type.category != TYPE_CATEGORY_FUNCTION)
         {
-
-
-            struct flow_object* _Opt p_right_object =
-                expression_get_object(ctx, p_init_declarator->initializer->assignment_expression, nullable_enabled);
-
-            if (p_right_object)
+            if (p_init_declarator->initializer &&
+                p_init_declarator->initializer->assignment_expression)
             {
+                struct flow_object* _Opt p_right_object =
+                    expression_get_object(ctx, p_init_declarator->initializer->assignment_expression, nullable_enabled);
+
+                if (p_right_object)
+                {
+                    struct marker a_marker = {
+                        .p_token_begin = p_init_declarator->p_declarator->first_token_opt,
+                        .p_token_end = p_init_declarator->p_declarator->last_token_opt,
+                    };
+
+                    struct marker b_marker = {
+                        .p_token_begin = p_init_declarator->initializer->assignment_expression->first_token,
+                        .p_token_end = p_init_declarator->initializer->assignment_expression->last_token,
+                    };
+
+                    flow_check_assignment(ctx,
+                                        p_init_declarator->initializer->assignment_expression->first_token,
+                                        &a_marker,
+                                        &b_marker,
+                                        ASSIGMENT_TYPE_OBJECTS,
+                                        false,
+                                        type_is_view(&p_init_declarator->p_declarator->type),
+                                        type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
+                                        &p_init_declarator->p_declarator->type,
+                                        p_init_declarator->p_declarator->p_object,
+                                        &p_init_declarator->initializer->assignment_expression->type,
+                                        p_right_object,
+                                        NULL);
+                }
+                //cast?
+                if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
+                {
+                    struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
+                    struct flow_object* _Opt po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
+                    object_set_pointer(p_init_declarator->p_declarator->p_object, po);
+                    type_destroy(&t);
+                    p_init_declarator->p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
+                }
+                else if (expression_is_calloc(p_init_declarator->initializer->assignment_expression))
+                {
+                    struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
+                    struct flow_object* _Opt po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
+                    if (po == NULL)
+                    {
+                        type_destroy(&t);
+                        throw;
+                    }
+
+                    object_set_zero(&t, po);
+                    object_set_pointer(p_init_declarator->p_declarator->p_object, po);
+                    type_destroy(&t);
+                    p_init_declarator->p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
+                }
+
+                //object_destroy(&temp_obj);
+            }
+            else  if (p_init_declarator->initializer &&
+                p_init_declarator->initializer->braced_initializer)
+            {
+                struct flow_object* _Opt po = make_object(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
+                if (po == NULL)
+                {
+                    throw;
+                }
+
+                braced_initializer_set_object(p_init_declarator->initializer->braced_initializer,
+                    &p_init_declarator->p_declarator->type,
+                    po);
+
                 struct marker a_marker = {
-                    .p_token_begin = p_init_declarator->p_declarator->first_token,
-                    .p_token_end = p_init_declarator->p_declarator->last_token,
+                  .p_token_begin = p_init_declarator->p_declarator->first_token_opt,
+                  .p_token_end = p_init_declarator->p_declarator->last_token_opt,
                 };
-
                 struct marker b_marker = {
-                    .p_token_begin = p_init_declarator->initializer->assignment_expression->first_token,
-                    .p_token_end = p_init_declarator->initializer->assignment_expression->last_token,
+                    .p_token_begin = p_init_declarator->initializer->braced_initializer->first_token,
+                    .p_token_end = p_init_declarator->initializer->braced_initializer->last_token,
                 };
 
+
+                struct flow_object* _Opt p_right_object = po;
                 flow_check_assignment(ctx,
-                                    p_init_declarator->initializer->assignment_expression->first_token,
-                                    &a_marker,
-                                    &b_marker,
-                                    ASSIGMENT_TYPE_OBJECTS,
-                                    false,
-                                    type_is_view(&p_init_declarator->p_declarator->type),
-                                    type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
-                                    &p_init_declarator->p_declarator->type,
-                                    p_init_declarator->p_declarator->p_object,
-                                    &p_init_declarator->initializer->assignment_expression->type,
-                                    p_right_object,
-                                    NULL);
-            }
-            //cast?
-            if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
-            {
-                struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                struct flow_object* _Opt po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
-                object_set_pointer(p_init_declarator->p_declarator->p_object, po);
-                type_destroy(&t);
-                p_init_declarator->p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
-            }
-            else if (expression_is_calloc(p_init_declarator->initializer->assignment_expression))
-            {
-
-                struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                struct flow_object* _Opt po = make_object(ctx, &t, p_init_declarator->p_declarator, NULL);
-                object_set_zero(&t, po);
-                object_set_pointer(p_init_declarator->p_declarator->p_object, po);
-                type_destroy(&t);
-                p_init_declarator->p_declarator->p_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
-            }
-
-            //object_destroy(&temp_obj);
-        }
-        else  if (p_init_declarator->initializer &&
-            p_init_declarator->initializer->braced_initializer)
-        {
-            struct flow_object* _Opt po = make_object(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
-
-            braced_initializer_set_object(p_init_declarator->initializer->braced_initializer,
-                &p_init_declarator->p_declarator->type,
-                po);
-
-            struct marker a_marker = {
-              .p_token_begin = p_init_declarator->p_declarator->first_token,
-              .p_token_end = p_init_declarator->p_declarator->last_token,
-            };
-            struct marker b_marker = {
-                .p_token_begin = p_init_declarator->initializer->braced_initializer->first_token,
-                .p_token_end = p_init_declarator->initializer->braced_initializer->last_token,
-            };
-
-
-            struct flow_object* _Opt p_right_object = po;
-            flow_check_assignment(ctx,
-                                   p_init_declarator->p_declarator->first_token,
-                                   &a_marker,
-                                   &b_marker,
-                                   ASSIGMENT_TYPE_OBJECTS,
-                                   false,
-                                   type_is_view(&p_init_declarator->p_declarator->type),
-                                   type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
-                                   &p_init_declarator->p_declarator->type,
-                                   p_init_declarator->p_declarator->p_object,
-                                   &p_init_declarator->p_declarator->type,
-                                   p_right_object,
-                                   NULL);
-            //object_destroy(&o);
-        }
-        else
-        {
-            //struct object * po = make_object(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
-
-            if (p_init_declarator->p_declarator->declaration_specifiers &&
-                (
-                    (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) ||
-                    (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
-                    )
-                )
-            {
-                object_set_zero(&p_init_declarator->p_declarator->type, p_init_declarator->p_declarator->p_object);
+                                       p_init_declarator->p_declarator->first_token_opt,
+                                       &a_marker,
+                                       &b_marker,
+                                       ASSIGMENT_TYPE_OBJECTS,
+                                       false,
+                                       type_is_view(&p_init_declarator->p_declarator->type),
+                                       type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
+                                       &p_init_declarator->p_declarator->type,
+                                       p_init_declarator->p_declarator->p_object,
+                                       &p_init_declarator->p_declarator->type,
+                                       p_right_object,
+                                       NULL);
+                //object_destroy(&o);
             }
             else
             {
-                object_set_uninitialized(&p_init_declarator->p_declarator->type, p_init_declarator->p_declarator->p_object);
+                //struct object * po = make_object(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
+
+                if (p_init_declarator->p_declarator->declaration_specifiers &&
+                    (
+                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) ||
+                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+                        )
+                    )
+                {
+                    object_set_zero(&p_init_declarator->p_declarator->type, p_init_declarator->p_declarator->p_object);
+                }
+                else
+                {
+                    object_set_uninitialized(&p_init_declarator->p_declarator->type, p_init_declarator->p_declarator->p_object);
+                }
+                //struct object* p_right_object = po;
+                //object_assignment3(ctx,
+                  //                     p_init_declarator->p_declarator->first_token,
+                    //                   ASSIGMENT_TYPE_OBJECTS,
+                      //                 false,
+                        //               type_is_view(&p_init_declarator->p_declarator->type),
+                          //             type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
+                            //           &p_init_declarator->p_declarator->type,
+                              //         p_init_declarator->p_declarator->p_object,
+                                //       &p_init_declarator->p_declarator->type,
+                                  //     p_right_object);
+                //object_destroy(&o);
             }
-            //struct object* p_right_object = po;
-            //object_assignment3(ctx,
-              //                     p_init_declarator->p_declarator->first_token,
-                //                   ASSIGMENT_TYPE_OBJECTS,
-                  //                 false,
-                    //               type_is_view(&p_init_declarator->p_declarator->type),
-                      //             type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
-                        //           &p_init_declarator->p_declarator->type,
-                          //         p_init_declarator->p_declarator->p_object,
-                            //       &p_init_declarator->p_declarator->type,
-                              //     p_right_object);
-            //object_destroy(&o);
         }
     }
-
+    catch
+    {
+        //some unexpected error
+    }
 }
 
 
@@ -1170,6 +1182,9 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
+    if (p_defer == NULL)
+        return;
+
     p_defer->p_selection_statement = p_selection_statement;
 
     if (p_selection_statement->p_init_statement &&
@@ -1183,15 +1198,18 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     struct true_false_set true_false_set = { 0 };
 
-    if (p_selection_statement->condition->expression)
+    if (p_selection_statement->condition &&
+        p_selection_statement->condition->expression)
     {
         flow_check_pointer_used_as_bool(ctx, p_selection_statement->condition->expression);
         flow_visit_expression(ctx, p_selection_statement->condition->expression, &true_false_set);
     }
 
-    if (p_selection_statement->condition->p_init_declarator)
+    if (p_selection_statement->condition &&
+        p_selection_statement->condition->p_init_declarator)
+    {
         flow_visit_init_declarator(ctx, p_selection_statement->condition->p_init_declarator);
-
+    }
 
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
 
@@ -1205,10 +1223,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
 
     true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
-    if (p_selection_statement->secondary_block)
-    {
-        flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
-    }
+    flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
 
 
     const bool true_branch_ends_with_jump =
@@ -1337,11 +1352,8 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
 
         p_defer->p_try_statement = p_try_statement;
 
-        if (p_try_statement->secondary_block)
-        {
-            flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-            arena_set_state_from_current(ctx, original_state_number); //state of end of secondary block
-        }
+        flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
+        arena_set_state_from_current(ctx, original_state_number); //state of end of secondary block
 
         if (p_try_statement->catch_secondary_block_opt)
         {
@@ -1391,16 +1403,18 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
     const int old_initial_state = ctx->initial_state;
     const int old_break_join_state = ctx->break_join_state;
 
+    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
+    if (p_defer == NULL)
+    {
+        return;
+    }
+
     ctx->initial_state = arena_add_copy_of_current_state(ctx, "original");
     ctx->break_join_state = arena_add_empty_state(ctx, "break join");
 
-    struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement = p_selection_statement;
 
-    if (p_selection_statement->secondary_block)
-    {
-        flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
-    }
+    flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
 
     bool reached_the_end = !secondary_block_ends_with_jump(p_selection_statement->secondary_block);
 
@@ -1463,11 +1477,6 @@ static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, stru
 
 static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initializer* p_initializer)
 {
-    if (p_initializer->p_attribute_specifier_sequence_opt)
-    {
-        flow_visit_attribute_specifier_sequence(ctx, p_initializer->p_attribute_specifier_sequence_opt);
-    }
-
     if (p_initializer->designation)
     {
         flow_visit_designation(ctx, p_initializer->designation);
@@ -1547,7 +1556,7 @@ static void flow_visit_type_name(struct flow_visit_ctx* ctx, struct type_name* p
 {
 
     flow_visit_specifier_qualifier_list(ctx, p_type_name->specifier_qualifier_list, &p_type_name->type);
-    flow_visit_declarator(ctx, p_type_name->declarator);
+    flow_visit_declarator(ctx, p_type_name->abstract_declarator);
 
 
     /*
@@ -1710,10 +1719,17 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
                     const bool argument_type_is_nullable =
                         type_is_nullable(&pointed_type, ctx->ctx->options.null_checks_enabled);
 
-                    object_set_unknown(&pointed_type,
-                                       argument_type_is_nullable,
-                                       p_argument_object->current.pointed,
-                                       ctx->ctx->options.null_checks_enabled);
+                    if (p_argument_object->current.pointed)
+                    {
+                        object_set_unknown(&pointed_type,
+                                           argument_type_is_nullable,
+                                           p_argument_object->current.pointed,
+                                           ctx->ctx->options.null_checks_enabled);
+                    }
+                    else
+                    {
+                        assert(false);
+                    }
                 }
 
                 type_destroy(&pointed_type);
@@ -1790,7 +1806,10 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 {
                     compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
-                        p_expression->declarator->name_opt, NULL, "object '%s' can be uninitialized ", p_expression->declarator->name_opt->lexeme);
+                        p_expression->first_token,
+                        NULL,
+                        "object '%s' can be uninitialized ",
+                        p_expression->declarator->name_opt->lexeme);
                 }
                 else
                 {
@@ -1889,12 +1908,9 @@ static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_objec
 
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
 {
-    if (p_expression == NULL)
-        return;
     true_false_set_clear(expr_true_false_set); //_Out
 
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-
 
     switch (p_expression->expression_type)
     {
@@ -1920,6 +1936,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     break;
 
     case PRIMARY_EXPRESSION_PARENTESIS:
+        assert(p_expression->right != NULL);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         break;
 
@@ -1930,19 +1947,18 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case PRIMARY_EXPRESSION_GENERIC:
+        assert(p_expression->generic_selection != NULL);
         flow_visit_generic_selection(ctx, p_expression->generic_selection);
         break;
 
     case POSTFIX_DOT:
     {
+        assert(p_expression->left != NULL);
+
         struct true_false_set left_set = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_set);
-        struct true_false_set right_set = { 0 };
-        flow_visit_expression(ctx, p_expression->right, &right_set);
 
         true_false_set_destroy(&left_set);
-        true_false_set_destroy(&right_set);
-
 
         struct true_false_set_item item;
         item.p_expression = p_expression;
@@ -1954,6 +1970,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case POSTFIX_ARROW:
     {
+        assert(p_expression->left != NULL);
+
         struct true_false_set left_set = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_set);
         true_false_set_destroy(&left_set);
@@ -2030,27 +2048,34 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
-    case POSTFIX_INCREMENT:        
+    case POSTFIX_INCREMENT:
     case POSTFIX_DECREMENT:
-          struct flow_object* const _Opt p_object = expression_get_object(ctx, p_expression->left, nullable_enabled);
-          if (p_object)
-          {
-              if (flow_object_is_null(p_object))
-              {
-                  //p_object->current.state &= ~OBJECT_STATE_NULL;
-                  p_object->current.state = OBJECT_STATE_NOT_NULL;
-              }
-              else if (flow_object_is_zero(p_object))
-              {
-                  //p_object->current.state &= ~OBJECT_STATE_ZERO;
-                  p_object->current.state = OBJECT_STATE_NOT_ZERO;
-              }
-          }
-          flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
-        break;
+    {
+        assert(p_expression->left != NULL);
+
+        struct flow_object* const _Opt p_object = expression_get_object(ctx, p_expression->left, nullable_enabled);
+        if (p_object)
+        {
+            if (flow_object_is_null(p_object))
+            {
+                //p_object->current.state &= ~OBJECT_STATE_NULL;
+                p_object->current.state = OBJECT_STATE_NOT_NULL;
+            }
+            else if (flow_object_is_zero(p_object))
+            {
+                //p_object->current.state &= ~OBJECT_STATE_ZERO;
+                p_object->current.state = OBJECT_STATE_NOT_ZERO;
+            }
+        }
+        flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
+    }
+    break;
 
     case POSTFIX_ARRAY:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         true_false_set_clear(expr_true_false_set);
@@ -2066,6 +2091,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case POSTFIX_FUNCTION_CALL:
     {
+        assert(p_expression->left != NULL);
+
         struct true_false_set left_local = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_local);
 
@@ -2076,30 +2103,36 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     break;
 
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
-
-
+        assert(p_expression->compound_statement != NULL);
         flow_visit_compound_statement(ctx, p_expression->compound_statement);
 
         break;
 
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
 
-        if (p_expression->type_name)
-        {
-            flow_visit_type_name(ctx, p_expression->type_name);
-        }
+        assert(p_expression->left == NULL);
+        assert(p_expression->right == NULL);
+        assert(p_expression->type_name != NULL);
+        assert(p_expression->braced_initializer != NULL);
+
+        flow_visit_type_name(ctx, p_expression->type_name);
 
         flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
 
         struct flow_object* _Opt temp2 = make_object(ctx, &p_expression->type, NULL, p_expression);
-        object_swap(temp2, p_expression->type_name->declarator->p_object);
-        //object_destroy(&temp2);
+        if (temp2 == NULL)
+        {
+            return;
+        }
 
-        //TODO the state of object depends of the initializer        
-        object_set_zero(&p_expression->type, p_expression->type_name->declarator->p_object);
+        if (p_expression->type_name->abstract_declarator->p_object)
+        {
+            object_swap(temp2, p_expression->type_name->abstract_declarator->p_object);
+            //object_destroy(&temp2);
 
-        assert(p_expression->left == NULL);
-        assert(p_expression->right == NULL);
+            //TODO the state of object depends of the initializer        
+            object_set_zero(&p_expression->type, p_expression->type_name->abstract_declarator->p_object);
+        }
 
         break;
 
@@ -2153,10 +2186,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case UNARY_EXPRESSION_NEG:
     case UNARY_EXPRESSION_PLUS:
+        assert(p_expression->right != NULL);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         break;
 
     case UNARY_EXPRESSION_NOT:
+        assert(p_expression->right != NULL);
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         true_false_set_invert(expr_true_false_set);
@@ -2172,6 +2207,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case UNARY_EXPRESSION_ADDRESSOF:
     {
+
         if (p_expression->type_name)
         {
             /*sizeof*/
@@ -2182,6 +2218,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case UNARY_EXPRESSION_CONTENT:
     {
+        assert(p_expression->right != NULL);
+
         struct flow_object* _Opt p_object0 = expression_get_object(ctx, p_expression->right, nullable_enabled);
 
         if (p_object0 && p_object0->current.state == OBJECT_STATE_UNINITIALIZED)
@@ -2209,14 +2247,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
         }
 
-
-        if (p_expression->right)
-        {
-            struct true_false_set local_true_false = { 0 };
-            flow_visit_expression(ctx, p_expression->right, &local_true_false);
-            /*empty set*/
-            true_false_set_destroy(&local_true_false);
-        }
+        struct true_false_set local_true_false = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &local_true_false);
+        /*empty set*/
+        true_false_set_destroy(&local_true_false);
     }
     break;
 
@@ -2241,6 +2275,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         //struct object temp_obj2 = { 0 };
         struct flow_object* const _Opt p_dest_object = expression_get_object(ctx, p_expression->left, nullable_enabled);
 
+        if (p_dest_object == NULL || p_right_object == NULL)
+        {
+            //assert(false);
+            return;
+        }
         struct marker a_marker = {
           .p_token_begin = p_expression->left->first_token,
           .p_token_end = p_expression->left->last_token
@@ -2275,6 +2314,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
             struct flow_object* _Opt po = make_object(ctx, &t, NULL, p_expression->left);
+            if (po == NULL)
+            {
+                type_destroy(&t);
+                return;
+            }
             object_set_pointer(p_dest_object, po);
             type_destroy(&t);
             p_dest_object->current.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
@@ -2283,6 +2327,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
             struct flow_object* _Opt po = make_object(ctx, &t, NULL, p_expression->left);
+            if (po == NULL)
+            {
+                type_destroy(&t);
+                return;
+            }
             object_set_zero(&t, po);
             object_set_pointer(p_dest_object, po);
             type_destroy(&t);
@@ -2295,39 +2344,34 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     break;
     case MULTIPLICATIVE_EXPRESSION_DIV:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         struct true_false_set left_set = { 0 };
         struct true_false_set right_set = { 0 };
 
-        if (p_expression->left)
-        {
-            flow_visit_expression(ctx, p_expression->left, &left_set);
-        }
+        flow_visit_expression(ctx, p_expression->left, &left_set);
 
-        if (p_expression->right)
+        struct flow_object* _Opt p_object = expression_get_object(ctx, p_expression->right, ctx->ctx->options.null_checks_enabled);
+        if (p_object)
         {
-            struct flow_object* _Opt p_object = expression_get_object(ctx, p_expression->right, ctx->ctx->options.null_checks_enabled);
-            if (p_object)
+            if (flow_object_can_be_zero(p_object))
             {
-                if (flow_object_can_be_zero(p_object))
-                {
-                    compiler_diagnostic_message(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
-                }
+                compiler_diagnostic_message(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
             }
-
-            /*
-                                   true_set               false_set
-                 b / a             b_true_set a_true_set  a_true_set
-                 0 / a             -                      a_true_set a_true_set
-            */
-
-
-            flow_visit_expression(ctx, p_expression->right, &right_set);
-
-            true_false_set_merge(expr_true_false_set, &left_set, &right_set,
-                MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE,
-                MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE);
-
         }
+
+        /*
+                               true_set               false_set
+             b / a             b_true_set a_true_set  a_true_set
+             0 / a             -                      a_true_set a_true_set
+        */
+
+        flow_visit_expression(ctx, p_expression->right, &right_set);
+        true_false_set_merge(expr_true_false_set, &left_set, &right_set,
+            MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE,
+            MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_B_TRUE);
+
         true_false_set_destroy(&left_set);
         true_false_set_destroy(&right_set);
     }
@@ -2361,6 +2405,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case RELATIONAL_EXPRESSION_BIGGER_THAN:
     case RELATIONAL_EXPRESSION_LESS_THAN:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         //TODO a > 1
         //     a > -1 etc...
 
@@ -2435,6 +2482,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case EQUALITY_EXPRESSION_NOT_EQUAL:
     case EQUALITY_EXPRESSION_EQUAL:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         long long value = 0;
         struct expression* _Opt p_comp_expression = NULL;
         if (constant_value_is_valid(&p_expression->left->constant_value) &&
@@ -2560,6 +2610,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case LOGICAL_OR_EXPRESSION:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         flow_check_pointer_used_as_bool(ctx, p_expression->left);
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
@@ -2624,6 +2677,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case LOGICAL_AND_EXPRESSION:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         flow_check_pointer_used_as_bool(ctx, p_expression->left);
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
@@ -2690,30 +2746,28 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case INCLUSIVE_OR_EXPRESSION:
     {
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
         // A | B
         struct true_false_set true_false_set = { 0 };
-        if (p_expression->left)
-        {
-            flow_visit_expression(ctx, p_expression->left, &true_false_set);
-        }
-        if (p_expression->right)
-        {
-            flow_visit_expression(ctx, p_expression->right, &true_false_set);
-        }
+
+        flow_visit_expression(ctx, p_expression->left, &true_false_set);
+        flow_visit_expression(ctx, p_expression->right, &true_false_set);
+
         true_false_set_destroy(&true_false_set);
     }
     break;
 
     case AND_EXPRESSION:
     case EXCLUSIVE_OR_EXPRESSION:
-        if (p_expression->left)
-        {
-            flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
-        }
-        if (p_expression->right)
-        {
-            flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
-        }
+
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
+        flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
+        flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
+
 
         break;
 
@@ -2731,12 +2785,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case CONDITIONAL_EXPRESSION:
     {
-        if (p_expression->condition_expr == NULL ||
-            p_expression->left == NULL ||
-            p_expression->right == NULL)
-        {
-            break;
-        }
+        assert(p_expression->condition_expr != NULL);
+        assert(p_expression->right != NULL);
+        assert(p_expression->left != NULL);
+
 
         struct true_false_set true_false_set = { 0 };
 
@@ -2892,7 +2944,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
     if (p_defer == NULL)
     {
-        //tODO
+        true_false_set_destroy(&true_false_set);
         return;
     }
 
@@ -2993,13 +3045,15 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
         //Disable warning because the state is temporary..missing a visit
         diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
-        if (p_iteration_statement->secondary_block)
-        {
-            struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
-            p_defer->p_iteration_statement = p_iteration_statement;
-            flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-            flow_visit_ctx_pop_tail_block(ctx);
-        }
+
+        struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+            throw;
+
+        p_defer->p_iteration_statement = p_iteration_statement;
+        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+        flow_visit_ctx_pop_tail_block(ctx);
+
         diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
 
@@ -3013,18 +3067,17 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         /*we visit again*/
         if (!b_secondary_block_ends_with_jump)
         {
-            struct flow_defer_scope* _Opt p_defer = flow_visit_ctx_push_tail_block(ctx);
-            if (p_defer == NULL) throw;
+            struct flow_defer_scope* _Opt p_defer2 = flow_visit_ctx_push_tail_block(ctx);
+            if (p_defer2 == NULL) throw;
 
-            p_defer->p_iteration_statement = p_iteration_statement;
+            p_defer2->p_iteration_statement = p_iteration_statement;
             flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
-            flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+            flow_exit_block_visit(ctx, p_defer2, p_iteration_statement->secondary_block->last_token);
 
-            flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+            flow_end_of_storage_visit(ctx, p_defer2, p_iteration_statement->secondary_block->last_token);
             flow_visit_ctx_pop_tail_block(ctx);
         }
-
 
     }
     catch
@@ -3055,12 +3108,15 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
+    assert(ctx->tail_block != NULL);
+
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
     try
     {
         if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
         {
             arena_merge_current_state_with_state_number(ctx, ctx->throw_join_state);
+            assert(ctx->tail_block != NULL);
             check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
@@ -3096,7 +3152,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                     {
                         throw;
                     }
-                    
+
                     assert(ctx->p_return_type != NULL);
                     object_set_zero(ctx->p_return_type, p_dest_object);
 
@@ -3137,15 +3193,21 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 }
 
             }
+
+            assert(ctx->tail_block != NULL);
             flow_exit_function_visit(ctx, ctx->tail_block, p_jump_statement->first_token);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
         {
+
             check_all_defer_until_iter(ctx, ctx->tail_block, p_jump_statement->first_token);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK)
         {
+            assert(ctx->tail_block != NULL);
             arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
+
+            assert(ctx->tail_block != NULL);
             flow_exit_iteration_or_switch_statement_visit(ctx, ctx->tail_block, p_jump_statement->first_token);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
@@ -3171,6 +3233,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
             arena_merge_current_state_with_state_number(ctx, label_state_number);
 
+            assert(ctx->tail_block != NULL);
             check_all_defer_until_label(ctx, ctx->tail_block, p_jump_statement->label->lexeme, p_jump_statement->first_token);
         }
         else
@@ -3505,11 +3568,11 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
     {
         struct parameter_declaration* _Opt parameter = NULL;
 
-        if (p_direct_declarator->function_declarator->parameter_type_list_opt)
+        if (p_direct_declarator->function_declarator->parameter_type_list_opt &&
+            p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
         {
             parameter = p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
-
 
         ctx->parameter_list++;
 
@@ -3648,12 +3711,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     if (p_declarator->p_object->pointed)
                     {
                         set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                    }
+                }
                     type_destroy(&t2);
-                }
-#endif
-                }
             }
+#endif
+        }
+    }
 
         /*if (p_declarator->pointer)
         {
@@ -3669,11 +3732,11 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         {
             flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
         }
-        }
+}
     catch
     {
     }
-    }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -4022,6 +4085,7 @@ _Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
     _Opt struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
     if (p != NULL)
     {
+        p->current.dbg_name = "current";
         p->id = ctx->arena.size + 1;
         if (objects_push_back(&ctx->arena, p) != 0)
         {

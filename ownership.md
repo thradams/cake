@@ -25,7 +25,7 @@ char * strdup(const char * src);
 
 In this function, the argument `src` must reference a valid string. The function returns a pointer to a newly allocated string, or a null pointer if an error occurs.
 
-In Cake, the `_Opt` qualifier extends the type system by marking pointers that can be null. Only pointers qualified with `_Opt` are explicitly nullable, providing better clarity about which pointers may need null checks.
+The `_Opt` qualifier extends the type system by marking pointers that can be null. Only pointers qualified with `_Opt` are explicitly nullable, providing better clarity about which pointers may need null checks.
 
 The `_Opt` qualifier is placed similarly to `const`, after the `*` symbol. For example, the declaration of `strdup` in Cake would look like this:
 
@@ -44,6 +44,8 @@ int main(){
 }
 ```
 
+<button onclick="Try(this)">try</button>
+
 In this example, a warning is generated because `p` is non-nullable, yet it is being assigned `nullptr`. 
 
 #### Example 2: Converting Non-Nullable to Nullable
@@ -57,6 +59,8 @@ int main(){
   char * _Opt s = get_name(); 
 }
 ```
+
+<button onclick="Try(this)">try</button>
 
 Here, the return value of `get_name()` is non-nullable by default, but it is assigned to a nullable pointer `s`, which does not trigger any warnings.
 
@@ -77,6 +81,8 @@ int main()
    f(s1); // warning
 } 
 ```
+
+<button onclick="Try(this)">try</button>
 
 In this scenario, `s1` is declared as nullable, but `f` expects a non-nullable argument. This triggers a warning, as the nullable pointer `s1` could potentially be null when passed to `f`. To resolve this warning, a null check is required:
 
@@ -118,6 +124,8 @@ struct X * _Opt makeX(const char* name)
 }
 ```    
   
+ <button onclick="Try(this)">try</button>
+
 Just like in C# or Typescript, we cannot leave this function with a nullable member being null. But the particular instance of p is allowed to have nullable members.
 
 This is also useful to accept for some functions like destructor, partially constructed object.
@@ -1107,11 +1115,11 @@ int main()
 <button onclick="Try(this)">try</button>
 
 
-### assert is a statement
+### assert is a built-in function
 
-When possible we can use assert that works both as static information and runtime check in debug.
-
-Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know `list->tail->next` is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.
+Consider the following sample where we have a linked list. 
+Each node has owner pointer to next. 
+The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know `list->tail->next` is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.
 
 **Listing 22 shows the usage of assert.** 
 
@@ -1133,15 +1141,20 @@ struct list {
 
 void list_append(struct list* list, struct node* _Owner node)
 {
-  if (list->head == NULL) {
-      list->head = node;
-   }
-   else {
-      
-      //list->tail->next is always null
-      assert(list->tail->next == 0);
+  if (list->head == NULL) 
+  {
+     list->head = node;
+  }
+  else
+  {      
 
-      list->tail->next = node;
+     //list->tail is not null. (becuase it is only null if head is also null)
+     assert(list->tail != 0);         
+
+     //next is always null becuase it is the last node
+     assert(list->tail->next == 0);
+
+     list->tail->next = node;
    }
    list->tail = node;
 }

@@ -865,6 +865,22 @@ int main()
 
 `;
 
+
+sample["C2Y"]["Obsolete implicitly octal literals"] =
+`
+//https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
+
+static_assert(0o52 == 052);
+static_assert(0O52 == 052);
+static_assert(0O52 == 42);
+
+int main()
+{
+    int i = 0o52;
+}
+`;
+
+
 sample["C2Y"]["defer inside try blocks"] =
 `
 /*
@@ -2196,4 +2212,32 @@ void f(enum E1 e)
     }
 }
 int main(){}
+`;
+
+sample["Find the bug"]["Bug #10"] =
+`
+#pragma safety enable
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct person {
+    char* _Opt _Owner name;
+};
+
+void set(struct person* p, char* name) {
+    free(p->name);
+    char* _Opt _Owner temp = strdup(name);
+    if (temp == NULL) return;
+    p->name = temp;
+}
+
+int main() {
+    struct person p = {0};
+    set(&p, "a");
+    printf("%s", p.name);
+    free(p.name);
+    return 0;
+}
 `;

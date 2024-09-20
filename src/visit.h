@@ -11,12 +11,12 @@ struct defer_scope
 {
     struct defer_statement* _Opt defer_statement; // defer 
     struct try_statement* _Opt p_try_statement; //try
-    struct selection_statement* _Opt p_selection_statement2; //if swith
+    struct selection_statement* _Opt p_selection_statement; //if swith
     struct iteration_statement* _Opt p_iteration_statement; //for do while
     struct statement* _Opt p_statement; //
     struct compound_statement* _Opt p_function_body;
-    struct defer_scope* _Owner lastchild;
-
+    
+    struct defer_scope* _Owner _Opt lastchild;
     struct defer_scope* _Owner _Opt previous;
 };
 void defer_scope_delete(struct defer_scope * _Owner _Opt p);
@@ -42,7 +42,7 @@ struct visit_ctx
     struct token_list insert_before_block_item;
     _View struct ast ast;
     enum language_version target;
-    struct defer_scope* _Owner tail_block;
+    struct defer_scope* _Owner _Opt tail_block;
 };
 
 void visit(struct visit_ctx* ctx);

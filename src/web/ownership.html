@@ -47,7 +47,7 @@
 <a href="#toc_4">Flow analysis</a>
 <ul>
 <li>
-<a href="#toc_5">assert is a statement</a>
+<a href="#toc_5">assert is a built-in function</a>
 </li>
 </ul>
 </li>
@@ -81,7 +81,7 @@ These new contracts can be ignored, the language <strong>and existing code patte
 
 <p>In this function, the argument <code>src</code> must reference a valid string. The function returns a pointer to a newly allocated string, or a null pointer if an error occurs.</p>
 
-<p>In Cake, the <code>_Opt</code> qualifier extends the type system by marking pointers that can be null. Only pointers qualified with <code>_Opt</code> are explicitly nullable, providing better clarity about which pointers may need null checks.</p>
+<p>The <code>_Opt</code> qualifier extends the type system by marking pointers that can be null. Only pointers qualified with <code>_Opt</code> are explicitly nullable, providing better clarity about which pointers may need null checks.</p>
 
 <p>The <code>_Opt</code> qualifier is placed similarly to <code>const</code>, after the <code>*</code> symbol. For example, the declaration of <code>strdup</code> in Cake would look like this:</p>
 
@@ -98,6 +98,8 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>In this example, a warning is generated because <code>p</code> is non-nullable, yet it is being assigned <code>nullptr</code>. </p>
 
 <h4>Example 2: Converting Non-Nullable to Nullable</h4>
@@ -110,6 +112,8 @@ int main(){
   char * _Opt s = get_name(); 
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>Here, the return value of <code>get_name()</code> is non-nullable by default, but it is assigned to a nullable pointer <code>s</code>, which does not trigger any warnings.</p>
 
@@ -129,6 +133,8 @@ int main()
    f(s1); // warning
 } 
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>In this scenario, <code>s1</code> is declared as nullable, but <code>f</code> expects a non-nullable argument. This triggers a warning, as the nullable pointer <code>s1</code> could potentially be null when passed to <code>f</code>. To resolve this warning, a null check is required:</p>
 
@@ -167,6 +173,8 @@ struct X * _Opt makeX(const char* name)
   return x;
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>Just like in C# or Typescript, we cannot leave this function with a nullable member being null. But the particular instance of p is allowed to have nullable members.</p>
 
@@ -1125,11 +1133,11 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_5">assert is a statement</h3>
+<h3 id="toc_5">assert is a built-in function</h3>
 
-<p>When possible we can use assert that works both as static information and runtime check in debug.</p>
-
-<p>Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know <code>list-&gt;tail-&gt;next</code> is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.</p>
+<p>Consider the following sample where we have a linked list. 
+Each node has owner pointer to next. 
+The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know <code>list-&gt;tail-&gt;next</code> is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.</p>
 
 <p><strong>Listing 22 shows the usage of assert.</strong> </p>
 
@@ -1150,15 +1158,20 @@ struct list {
 
 void list_append(struct list* list, struct node* _Owner node)
 {
-  if (list-&gt;head == NULL) {
-      list-&gt;head = node;
-   }
-   else {
-      
-      //list-&gt;tail-&gt;next is always null
-      assert(list-&gt;tail-&gt;next == 0);
+  if (list-&gt;head == NULL) 
+  {
+     list-&gt;head = node;
+  }
+  else
+  {      
 
-      list-&gt;tail-&gt;next = node;
+     //list-&gt;tail is not null. (becuase it is only null if head is also null)
+     assert(list-&gt;tail != 0);         
+
+     //next is always null becuase it is the last node
+     assert(list-&gt;tail-&gt;next == 0);
+
+     list-&gt;tail-&gt;next = node;
    }
    list-&gt;tail = node;
 }

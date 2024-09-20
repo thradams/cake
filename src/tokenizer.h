@@ -50,7 +50,7 @@ struct preprocessor_ctx
 };
 void preprocessor_ctx_destroy( struct preprocessor_ctx* _Obj_owner p);
 
-bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...);
 
 
 struct tokenizer_ctx
@@ -62,7 +62,7 @@ struct tokenizer_ctx
 
 struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
 void add_standard_macros(struct preprocessor_ctx* ctx);
-struct include_dir* include_dir_add(struct include_dir_list* list, const char* path);
+struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const char* path);
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 struct token_list  copy_replacement_list(const struct token_list* list);
@@ -77,7 +77,7 @@ struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list);
 void remove_line_continuation(char* s);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 
-void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* append);
+void token_list_insert_after(struct token_list* list, struct token* _Opt after, struct token_list* append);
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list);
 void token_list_paste_string_after(struct token_list* list,
     struct token* after,

@@ -3,7 +3,8 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
+#pragma safety enable
 
 #include "ownership.h"
 #include <assert.h>

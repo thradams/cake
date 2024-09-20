@@ -3,8 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
-#pragma ownership enable
+#pragma safety enable
 
 #include "ownership.h"
 #include "flow_object.h"
@@ -411,11 +410,6 @@ void objects_view_merge(struct objects_view* dest, const struct objects_view* so
 
 void objects_view_copy(struct objects_view* dest, const struct objects_view* source)
 {
-    if (source == NULL)
-    {
-        objects_view_clear(dest);
-        return;
-    }
     objects_view_reserve(dest, source->size);
     for (int i = 0; i < source->size; i++)
     {
@@ -614,6 +608,11 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                                 if (tag && has_name(tag, &l))
                                 {
                                     struct flow_object* _Opt member_obj = arena_new_object(ctx);
+                                    if (member_obj == NULL)
+                                    {
+                                        throw;
+                                    }
+
                                     member_obj->parent = p_object;
 
                                     member_obj->p_expression_origin = p_expression_origin;
@@ -623,13 +622,17 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                                 }
                                 else
                                 {
-
-
                                     struct flow_object* p_member_obj =
-                                        make_object_core(ctx, &p_member_declarator->declarator->type,
+                                        make_object_core(ctx,
+                                            &p_member_declarator->declarator->type,
                                             &l,
                                             p_declarator_opt,
                                             p_expression_origin);
+
+                                    if (p_member_obj == NULL)
+                                    {
+                                        throw;
+                                    }
                                     p_member_obj->parent = p_object;
                                     objects_view_push_back(&p_object->members, p_member_obj);
                                 }
@@ -648,15 +651,20 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                             t.category = TYPE_CATEGORY_ITSELF;
                             t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                             t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
                             struct flow_object* _Opt member_obj = make_object_core(ctx, &t, &l, p_declarator_opt, p_expression_origin);
-                            if (member_obj != NULL)
+                            if (member_obj == NULL)
                             {
-                                for (int k = 0; k < member_obj->members.size; k++)
-                                {
-                                    objects_view_push_back(&p_object->members, member_obj->members.data[k]);
-                                    member_obj->members.data[k] = NULL;
-                                }
+                                type_destroy(&t);
+                                throw;
                             }
+
+                            for (int k = 0; k < member_obj->members.size; k++)
+                            {
+                                objects_view_push_back(&p_object->members, member_obj->members.data[k]);
+                                member_obj->members.data[k] = NULL;
+                            }
+
                             type_destroy(&t);
                         }
                     }
@@ -684,8 +692,8 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
         p_object->current.state = OBJECT_STATE_UNINITIALIZED;
     }
     catch
-    {
-
+    {        
+        p_object = NULL;
     }
     return p_object;
 }
@@ -762,11 +770,7 @@ void print_object_core(int ident,
     bool is_pointer,
     bool short_version,
     unsigned int visit_number)
-{
-    if (p_visitor->p_object == NULL)
-    {
-        return;
-    }
+{    
     if (p_visitor->p_object->visit_number == visit_number) return;
     p_visitor->p_object->visit_number = visit_number;
 
@@ -803,7 +807,7 @@ void print_object_core(int ident,
                             else
                                 snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
-                            struct object_visitor  visitor = { 0 };
+                            struct object_visitor visitor = { 0 };
                             visitor.p_type = &p_member_declarator->declarator->type;
                             visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
@@ -1114,16 +1118,9 @@ void object_get_name(const struct type* p_type,
 
 
 void print_object(struct type* p_type, struct flow_object* p_object, bool short_version)
-{
-    if (p_object == NULL)
-    {
-        printf("null object");
-        return;
-    }
+{    
     char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
-
-
 
     struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
@@ -2486,7 +2483,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
         const char* name = previous_names;
         const struct token* _Opt position = NULL;
         if (p_visitor->p_object->p_declarator_origin)
-            position = p_visitor->p_object->p_declarator_origin->name_opt ? p_visitor->p_object->p_declarator_origin->name_opt : p_visitor->p_object->p_declarator_origin->first_token;
+            position = p_visitor->p_object->p_declarator_origin->name_opt ? p_visitor->p_object->p_declarator_origin->name_opt : p_visitor->p_object->p_declarator_origin->first_token_opt;
         else if (p_visitor->p_object->p_expression_origin)
             position = p_visitor->p_object->p_expression_origin->first_token;
         else
@@ -2573,7 +2570,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                 {
                     struct token* name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
                         p_visitor->p_object->p_declarator_origin->name_opt :
-                        p_visitor->p_object->p_declarator_origin->first_token;
+                        p_visitor->p_object->p_declarator_origin->first_token_opt;
 
                     checked_read_object(ctx,
                      &t2,
@@ -2671,7 +2668,7 @@ static void flow_assignment_core(
                 else
                     item_type = type_remove_pointer(p_visitor_a->p_type);
 
-                const bool cannot_be_uninitialized = 
+                const bool cannot_be_uninitialized =
                     (ctx->ctx->options.ownership_enabled && !type_is_out(&item_type)) ||
                     type_is_const(&item_type);
 
@@ -2755,7 +2752,7 @@ static void flow_assignment_core(
                        ctx->ctx,
                        NULL,
                        p_b_marker,
-                       "passing a possible null object '%s' to non-nullable pointer parameter", buffer);
+                       "passing a possible null pointer '%s' to non-nullable pointer parameter", buffer);
             }
             else if (assigment_type == ASSIGMENT_TYPE_RETURN)
             {
@@ -3316,7 +3313,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     }
     else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
     {
-        return p_expression->type_name->declarator->p_object;
+        return p_expression->type_name->abstract_declarator->p_object;
     }
     else if (p_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
     {
@@ -3459,7 +3456,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     //printf("null object");
     //assert(false);
     return NULL;
-            }
+}
 
 void flow_check_assignment(
     struct flow_visit_ctx* ctx,

@@ -3,8 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
-#pragma ownership enable
+#pragma safety enable
 
 #include "ownership.h"
 #include <limits.h>
@@ -327,10 +326,10 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
             p_generic_association->p_type_name = type_name(ctx);
             if (p_generic_association->p_type_name == NULL) throw;
 
-            assert(p_generic_association->p_type_name->declarator != NULL);
+            assert(p_generic_association->p_type_name->abstract_declarator != NULL);
 
             ctx->inside_generic_association = old;
-            p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);
+            p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->abstract_declarator);
         }
         else
         {
@@ -514,7 +513,7 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
         }
         else if (p_generic_selection->type_name)
         {
-            p_type = &p_generic_selection->type_name->declarator->type;
+            p_type = &p_generic_selection->type_name->abstract_declarator->type;
         }
         else
         {
@@ -817,7 +816,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         s++;
     }
 
-    char errormsg[100];
+    char errormsg[100] = {0};
     char suffix[4] = { 0 };
     enum token_type r = parse_number(buffer, suffix, errormsg);
     if (r == TK_NONE)
@@ -845,7 +844,16 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             value = strtoull(buffer, NULL, 10);
             break;
         case TK_COMPILER_OCTAL_CONSTANT:
-            value = strtoull(buffer + 1, NULL, 8);
+            if (buffer[1] == 'o' || buffer[1] == 'O')
+            {       
+                //C2Y
+                //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
+                value = strtoull(buffer + 2, NULL, 8);
+            }
+            else
+            {
+                value = strtoull(buffer + 1, NULL, 8);
+            }            
             break;
         case TK_COMPILER_HEXADECIMAL_CONSTANT:
             value = strtoull(buffer + 2, NULL, 16);
@@ -1876,14 +1884,14 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
 
         p_expression_node->type_name = p_type_name; /*MOVED*/
         p_type_name = NULL; /*MOVED*/
-        p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+        p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
 
-        if (type_is_function(&p_expression_node->type_name->declarator->type))
+        if (type_is_function(&p_expression_node->type_name->abstract_declarator->type))
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
             struct scope* parameters_scope =
-                &p_expression_node->type_name->declarator->direct_declarator->function_declarator->parameters_scope;
+                &p_expression_node->type_name->abstract_declarator->direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
             p_expression_node->compound_statement = function_body(ctx);
@@ -1953,7 +1961,7 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
             if (p_expression_node->type_name == NULL)
                 throw;
 
-            p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+            p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
 
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
@@ -2528,13 +2536,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
                 else
                 {
-                    if (type_is_vla(&new_expression->type_name->declarator->type))
+                    if (type_is_vla(&new_expression->type_name->abstract_declarator->type))
                     {
                         //not constant
                     }
                     else
                     {
-                        new_expression->constant_value = constant_value_make_size_t(type_get_sizeof(&new_expression->type_name->declarator->type));
+                        new_expression->constant_value = constant_value_make_size_t(type_get_sizeof(&new_expression->type_name->abstract_declarator->type));
                     }
                 }
             }
@@ -2623,7 +2631,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                if (!type_is_array(&new_expression->type_name->declarator->type))
+                if (!type_is_array(&new_expression->type_name->abstract_declarator->type))
                 {
                     compiler_diagnostic_message(C_INVALID_ARGUMENT_NELEMENTSOF,
                         ctx,
@@ -2636,7 +2644,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
 
 
-                int nelements = new_expression->type_name->declarator->type.num_of_elements;
+                int nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
                 if (nelements > 0)
                     new_expression->constant_value = constant_value_make_size_t(nelements);
 
@@ -2769,7 +2777,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     new_expression = NULL;
                     throw;
                 }
-                p_type = &new_expression->type_name->declarator->type;
+                p_type = &new_expression->type_name->abstract_declarator->type;
             }
             else
             {
@@ -3012,7 +3020,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                 }
 
                 type_destroy(&p_expression_node->type);
-                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
 
                 if (!ctx->evaluation_is_disabled &&
                     constant_value_is_valid(&p_expression_node->left->constant_value))
@@ -5093,11 +5101,6 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
                 }
             }
 
-            if (p_expression_node->right == NULL)
-            {
-                throw;
-            }
-
             /*same type of the last expression*/
             type_destroy(&p_expression_node->type);
             p_expression_node->type = type_dup(&p_expression_node->right->type);
@@ -5548,7 +5551,7 @@ void check_assigment(struct parser_ctx* ctx,
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 p_b_expression->first_token, NULL,
-                "cannot assign a temporary _Owner to no-_Owner object.");
+                "cannot assign a temporary owner to non-owner object.");
             type_destroy(&lvalue_right_type);
             type_destroy(&t2);
             return;

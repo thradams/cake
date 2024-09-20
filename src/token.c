@@ -3,8 +3,8 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
-#pragma ownership enable
+#pragma safety enable
+
 
 #include "ownership.h"
 #include <assert.h>
@@ -88,7 +88,7 @@ void token_range_add_show(struct token* first, struct token* last)
 void token_range_remove_flag(struct token* first, struct token* last, enum token_flags flag)
 {
     for (struct token* _Opt current = first;
-        current != last->next;
+        current && current != last->next;
         current = current->next)
     {
         current->flags = current->flags & ~flag;
@@ -98,7 +98,7 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag)
 {
     for (struct token* _Opt current = first;
-        current != last->next;
+        current && current != last->next;
         current = current->next)
     {
         current->flags |= flag;
@@ -291,7 +291,7 @@ void token_list_paste_string_before(struct token_list* list,
 }
 
 
-void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
+void token_list_insert_after(struct token_list* token_list, struct token* _Opt after, struct token_list* append_list)
 {
     if (append_list->head == NULL)
         return;
@@ -350,6 +350,9 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
     }
     else
     {
+        assert(list->tail != NULL);
+        assert(list->tail->next == NULL);
+
         pnew->prev = list->tail;
         list->tail->next = pnew;
         list->tail = pnew;
@@ -498,11 +501,11 @@ bool token_is_blank(const struct token* p)
 struct token* _Opt token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
     struct token* _Owner _Opt clone = clone_token(pnew);
-    
+
     if (clone == NULL)
         return NULL;
 
-    return token_list_add(list, clone);        
+    return token_list_add(list, clone);
 }
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source)
@@ -511,6 +514,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     {
         return;
     }
+
     if (dest->head == NULL)
     {
         dest->head = source->head;
@@ -518,6 +522,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     }
     else
     {
+        assert(source->tail != NULL);
         assert(source->tail->next == NULL);
         source->tail->next = dest->head;
         dest->head = source->head;
@@ -576,7 +581,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 
     struct token_list r = { 0 };
 
-    struct token* before_first = first->prev;
+    struct token* _Opt before_first = first->prev;
     struct token* _Owner _Opt after_last = last->next; /*MOVED*/
     last->next = NULL; /*MOVED*/
 
@@ -586,7 +591,6 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     r.head = (struct token* _Owner)first;
     first->prev = NULL;
     r.tail = last;
-
 
 
     return r;
@@ -630,13 +634,6 @@ void print_list(struct token_list* list)
 
 void print_literal2(const char* s)
 {
-    if (s == NULL)
-    {
-        //printf("`");
-        //printf("`");
-        return;
-    }
-    //printf("`");
     while (*s)
     {
         switch (*s)
@@ -838,7 +835,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
     //lets find the begin of line
     const struct token* p_line_begin = p_token;
     while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
-    {        
+    {
         p_line_begin = p_line_begin->prev;
     }
 
@@ -849,6 +846,8 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
     //only expand macros if the error is inside
     const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
+    if (!visual_studio_ouput_format)
+      COLOR_ESC_PRINT(printf(LIGHTBLUE));
 
     const struct token* _Opt p_item = p_line_begin;
     while (p_item)
@@ -856,7 +855,19 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         if (!visual_studio_ouput_format)
         {
             if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
+            {
                 COLOR_ESC_PRINT(printf(DARKGRAY));
+            }
+            else if (p_item->type >= TK_KEYWORD_AUTO && 
+                     p_item->type <= TK_KEYWORD_IS_INTEGRAL)
+            {
+                COLOR_ESC_PRINT(printf(BLUE));
+            }
+            else if (p_item->type == TK_COMMENT || 
+                     p_item->type == TK_LINE_COMMENT)
+            {
+                COLOR_ESC_PRINT(printf(YELLOW));
+            }
         }
 
         if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
@@ -870,9 +881,8 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         }
 
         if (!visual_studio_ouput_format)
-        {
-            if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
-                COLOR_ESC_PRINT(printf(RESET));
+        {            
+            COLOR_ESC_PRINT(printf(RESET));
         }
 
         if (p_item->type == TK_NEWLINE)
@@ -1062,8 +1072,8 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
             stream_match(stream);
         }
     }
-///////////////MICROSOFT ////////////////////////
-    //TODO unit test
+    ///////////////MICROSOFT ////////////////////////
+        //TODO unit test
     else if (stream->current[0] == 'i' &&
              stream->current[1] == '8')
     {
@@ -1095,7 +1105,7 @@ static void integer_suffix_opt(struct stream* stream, char suffix[4])
         suffix[1] = '6';
         suffix[2] = '4';
     }
- ///////////////MICROSOFT ////////////////////////
+    ///////////////MICROSOFT ////////////////////////
 }
 
 static void exponent_part_opt(struct stream* stream)
@@ -1219,6 +1229,14 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
         type = TK_COMPILER_OCTAL_CONSTANT;
 
         stream_match(stream);
+
+        if (stream->current[0] == 'O' || stream->current[0] == 'o')
+        {
+            //C2Y
+            //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
+            stream_match(stream);
+        }
+
         while (is_octal_digit(stream))
         {
             stream_match(stream);
@@ -1401,6 +1419,7 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
     {
         // octal digit
         p++;
+
         int result = 0;
         while ((*p >= '0' && *p <= '7'))
         {
@@ -1446,7 +1465,7 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         default:
             // this is handled at tokenizer
             assert(false);
-            return NULL;            
+            return NULL;
         }
         p++;
     }

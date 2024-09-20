@@ -145,7 +145,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 struct token* _Opt previous_parser_token(const struct token* token);
 struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
 struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
-struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt * _Opt ppscope_opt);
 
 struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
 
@@ -222,7 +222,7 @@ struct declaration_specifiers
 };
 
 void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p);
-struct declaration_specifiers* _Owner declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
+struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
 void declaration_specifiers_delete(struct declaration_specifiers* _Owner _Opt p);
 void declaration_specifiers_add(struct declaration_specifiers* p, struct declaration_specifier* _Owner item);
 
@@ -484,7 +484,7 @@ struct condition {
       as init_declarator when we are trying to parse init-statement or condition that
       are very similar
     */
-    struct init_declarator* _Owner p_init_declarator;
+    struct init_declarator* _Owner _Opt p_init_declarator;
 
     struct token* first_token;
     struct token* last_token;
@@ -507,7 +507,7 @@ struct init_statement
 };
 
 void init_statement_delete(struct init_statement* _Owner _Opt p);
-struct init_statement* _Owner init_statement(struct parser_ctx* ctx, bool ignore_semicolon);
+struct init_statement* _Owner _Opt init_statement(struct parser_ctx* ctx, bool ignore_semicolon);
 
 struct atomic_type_specifier
 {
@@ -661,16 +661,10 @@ struct initializer
        braced-initializer
     */
     struct token* first_token;
-    struct designation* _Owner designation; /*auxiliar para list??*/
+    struct designation* _Owner _Opt designation; /*auxiliar para list??*/
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct expression* _Owner _Opt assignment_expression;
-    struct initializer* _Owner _Opt  next;
-
-    /*
-       cake extension
-       int * p = [[cake::move]] p2;
-    */
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct initializer* _Owner _Opt  next;    
 };
 
 struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx);
@@ -685,8 +679,8 @@ struct declarator
         pointer _Opt direct-declarator
     */
 
-    struct token* first_token;
-    struct token* last_token;
+    struct token* _Opt first_token_opt;
+    struct token* _Opt last_token_opt;
 
 
     struct pointer* _Owner _Opt pointer;
@@ -715,8 +709,8 @@ struct declarator;
 void print_declarator(struct osstream* ss, struct declarator* declarator, bool is_abstract);
 
 struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
-    const struct specifier_qualifier_list* specifier_qualifier_list,
-    struct declaration_specifiers* declaration_specifiers,
+    const struct specifier_qualifier_list* _Opt specifier_qualifier_list,
+    struct declaration_specifiers* _Opt declaration_specifiers,
     bool abstract_acceptable,
     struct token** pptokenname);
 
@@ -775,8 +769,8 @@ struct direct_declarator
 void direct_declarator_delete(struct direct_declarator* _Owner _Opt p);
 
 struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
-    const struct specifier_qualifier_list* specifier_qualifier_list,
-    struct declaration_specifiers* declaration_specifiers,
+    const struct specifier_qualifier_list* _Opt specifier_qualifier_list,
+    struct declaration_specifiers* _Opt declaration_specifiers,
     bool abstract_acceptable,
     struct token** pptoken_name
 );
@@ -830,8 +824,8 @@ struct parameter_declaration
 {
     /*
      parameter-declaration:
-      attribute-specifier-sequence _Opt declaration-specifiers declarator
-      attribute-specifier-sequence _Opt declaration-specifiers abstract-declarator _Opt
+      attribute-specifier-sequence opt declaration-specifiers declarator
+      attribute-specifier-sequence opt declaration-specifiers abstract-declarator opt
     */
     struct attribute_specifier_sequence* _Owner _Opt  attribute_specifier_sequence_opt;
 
@@ -847,13 +841,13 @@ struct type_name
 {
     /*
      type-name:
-       specifier-qualifier-list abstract-declarator _Opt
+       specifier-qualifier-list abstract-declarator opt
     */
 
     struct token* first_token;
     struct token* last_token;
     struct specifier_qualifier_list* _Owner specifier_qualifier_list;
-    struct declarator* _Owner declarator;
+    struct declarator* _Owner abstract_declarator; //TODO OPT
     struct type type;
 };
 
@@ -980,7 +974,7 @@ struct member_declaration
 {
     /*
      member-declaration:
-       attribute-specifier-sequence _Opt specifier-qualifier-list member-declarator-list _Opt ;
+       attribute-specifier-sequence opt specifier-qualifier-list member-declarator-list opt ;
        static_assert-declaration
     */
     struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list;
