@@ -26087,7 +26087,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.24"
+#define CAKE_VERSION "0.9.25"
 
 
 
@@ -40899,7 +40899,7 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
                     }
                     else
                     {
-                        assert(false);
+                        //assert(false);
                     }
                 }
 

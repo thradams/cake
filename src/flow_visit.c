@@ -1728,7 +1728,7 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
                     }
                     else
                     {
-                        assert(false);
+                        //assert(false);
                     }
                 }
 
