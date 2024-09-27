@@ -103,13 +103,8 @@ struct macro
 };
 
 
-void delete_macro(struct macro* _Owner _Opt macro);
+void macro_delete(struct macro* _Owner _Opt macro);
 
-static void delete_macro_void(void* _Owner _Opt p)
-{
-    struct macro* _Owner _Opt p_macro = p;
-    delete_macro(p_macro);
-}
 
 void include_dir_list_destroy(struct include_dir_list* _Obj_owner list)
 {
@@ -125,7 +120,7 @@ void include_dir_list_destroy(struct include_dir_list* _Obj_owner list)
 
 void preprocessor_ctx_destroy(struct preprocessor_ctx* _Obj_owner p)
 {
-    owner_hashmap_destroy(&p->macros, delete_macro_void);
+    hashmap_destroy(&p->macros);
     include_dir_list_destroy(&p->include_dir);
     hashmap_destroy(&p->pragma_once_map);
     token_list_destroy(&p->input_list);
@@ -488,12 +483,9 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
         }
 
         macro->name = name_local;
-        struct macro* _Owner _Opt previous = (struct macro* _Owner)owner_hashmap_set(&ctx->macros, name, (void* _Owner) macro, 0);
-        if (previous)
-        {
-            delete_macro(previous);
-            previous = NULL;
-        }
+        struct hash_item_set item = {.p_macro = macro};
+        hashmap_set(&ctx->macros, name, &item);
+        hash_item_set_destroy(&item);        
     }
     catch
     {
@@ -699,7 +691,7 @@ void macro_parameters_delete(struct macro_parameter* _Owner _Opt parameters)
     }
 }
 
-void delete_macro(struct macro* _Owner _Opt macro)
+void macro_delete(struct macro* _Owner _Opt macro)
 {
     if (macro)
     {
@@ -721,11 +713,11 @@ void delete_macro(struct macro* _Owner _Opt macro)
 
 struct macro* _Opt find_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct owner_map_entry* _Opt p_entry = owner_hashmap_find(&ctx->macros, name);
+    struct map_entry* _Opt p_entry = hashmap_find(&ctx->macros, name);
     if (p_entry == NULL)
         return NULL;
 
-    return p_entry->p;
+    return p_entry->data.p_macro;
 }
 
 void stream_print_line(struct stream* stream)
@@ -2594,7 +2586,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
 
         if (is_active)
         {
-            result = (owner_hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL) ? 1 : 0;
+            result = (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL) ? 1 : 0;
         }
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
     }
@@ -2605,7 +2597,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
 
         if (is_active)
         {
-            result = (owner_hashmap_find(&ctx->macros, input_list->head->lexeme) == NULL) ? 1 : 0;
+            result = (hashmap_find(&ctx->macros, input_list->head->lexeme) == NULL) ? 1 : 0;
         }
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
     }
@@ -3110,7 +3102,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token* macro_name_token = input_list->head;
 
 
-            if (owner_hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
+            if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
             {
                 //printf("warning: '%s' macro redefined at %s %d\n",
                   //     input_list->head->lexeme,
@@ -3208,15 +3200,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (macro_name_token)
                 naming_convention_macro(ctx, macro_name_token);
 
-            struct macro* _Owner _Opt previous =
-                owner_hashmap_set(&ctx->macros, macro->name, (void* _Owner)macro, 0);
-
-            if (previous)
-            {
-                delete_macro(previous);
-                previous = NULL;
-            }
-
+            struct hash_item_set item = {.p_macro = macro};
+            hashmap_set(&ctx->macros, macro->name, &item);
+            hash_item_set_destroy(&item);
         }
         else if (strcmp(input_list->head->lexeme, "undef") == 0)
         {
@@ -3226,11 +3212,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             skip_blanks_level(ctx, &r, input_list, level);
 
-            struct macro* _Owner _Opt macro = (struct macro* _Owner _Opt) owner_hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
+            struct macro* _Owner _Opt macro = (struct macro* _Owner _Opt) hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
             if (macro)
             {
-                delete_macro(macro);
+                macro_delete(macro);
                 match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             }
             else
@@ -3307,7 +3293,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 if (input_list->head && strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1, 0);
+                    struct hash_item_set item = {0};
+                    item.number = 1;
+                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, &item);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                     r.tail->flags |= TK_FLAG_FINAL;
                 }
@@ -4256,7 +4244,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     else if (r.tail &&
                         r.tail->type == '(')
                     {
-                        struct token* previous = r.tail->prev;
+                        struct token* _Opt previous = r.tail->prev;
                         if (previous != NULL &&
                             previous->type == TK_IDENTIFIER &&
                             strcmp(previous->lexeme, "defined") == 0)
@@ -4304,7 +4292,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 {
                     //Esconde a macro e os argumentos
                     for (struct token* _Opt current = arguments.tokens.head;
-                        current != arguments.tokens.tail->next;
+                        current && current != arguments.tokens.tail->next;
                         current = current->next)
                     {
                         current->flags |= TK_C_BACKEND_FLAG_HIDE;
@@ -4313,7 +4301,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     //mostra a expansao da macro
                     /*teste de expandir so algumas macros*/
                     for (struct token* _Opt current = start_macro.head;
-                        current != start_macro.tail->next;
+                        current && current != start_macro.tail->next;
                         current = current->next)
                     {
                         current->flags &= ~(TK_FLAG_MACRO_EXPANDED | TK_FLAG_SLICED | TK_FLAG_LINE_CONTINUATION);
@@ -4547,7 +4535,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 }
 
 
-static void mark_macros_as_used(struct owner_hash_map* map)
+static void mark_macros_as_used(struct hash_map* map)
 {
     /*
      *  Objetivo era alertar macros nao usadas...
@@ -4557,11 +4545,11 @@ static void mark_macros_as_used(struct owner_hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct owner_map_entry* _Opt pentry = map->table[i];
+            struct map_entry* _Opt pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct macro* macro = pentry->p;
+                struct macro* macro = pentry->data.p_macro;
                 macro->usage = 1;
                 pentry = pentry->next;
             }
@@ -4569,7 +4557,7 @@ static void mark_macros_as_used(struct owner_hash_map* map)
     }
 }
 
-void check_unused_macros(const struct owner_hash_map* map)
+void check_unused_macros(const struct hash_map* map)
 {
     /*
      *  Objetivo era alertar macros nao usadas...
@@ -4579,11 +4567,11 @@ void check_unused_macros(const struct owner_hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct owner_map_entry* _Opt pentry = map->table[i];
+            struct map_entry* _Opt pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct macro* macro = pentry->p;
+                struct macro* macro = pentry->data.p_macro;
                 if (macro->usage == 0)
                 {
                     //TODO adicionar conceito meu codigo , codigo de outros nao vou colocar erro
@@ -5486,9 +5474,9 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
 {
     for (int i = 0; i < prectx->macros.capacity; i++)
     {
-        struct owner_map_entry* _Opt entry = prectx->macros.table[i];
+        struct map_entry* _Opt entry = prectx->macros.table[i];
         if (entry == NULL) continue;
-        struct macro* macro = entry->p;
+        struct macro* macro = entry->data.p_macro;
         printf("#define %s", macro->name);
         if (macro->is_function)
         {

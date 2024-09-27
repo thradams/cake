@@ -1014,25 +1014,25 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
 
             if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
-                struct enumerator* p_enumerator = p_entry->p;
+                struct enumerator* p_enumerator = p_entry->data.p_enumerator;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = p_enumerator->value;
 
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
             }
             else if (p_entry &&
-                     (p_entry->type == TAG_TYPE_ONLY_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
+                     (p_entry->type == TAG_TYPE_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
             {
                 struct declarator* _Opt p_declarator = NULL;
                 struct init_declarator* _Opt p_init_declarator = NULL;
                 if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
-                    p_init_declarator = p_entry->p;
+                    p_init_declarator = p_entry->data.p_init_declarator;
                     p_declarator = p_init_declarator->p_declarator;
                 }
                 else
                 {
-                    p_declarator = p_entry->p;
+                    p_declarator = p_entry->data.p_declarator;
                 }
 
                 if (type_is_deprecated(&p_declarator->type))

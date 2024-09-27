@@ -472,7 +472,7 @@ struct condition {
 
       condition :
        expression
-       attribute-specifier-seq _Opt decl-specifier-seq declarator initializer
+       attribute-specifier-seq opt decl-specifier-seq declarator initializer
     */
     struct expression* _Owner _Opt expression;
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
@@ -547,10 +547,18 @@ struct enum_specifier
        : specifier-qualifier-lis
 
      enum-specifier:
-       "enum" attribute-specifier-sequence _Opt identifier _Opt enum-type-specifier _Opt  { enumerator-list }
-       "enum" attribute-specifier-sequence _Opt identifier _Opt enum-type-specifier _Opt  { enumerator-list , }
-       "enum" identifier enum-type-specifier _Opt
+       "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list }
+       "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list , }
+       "enum" identifier enum-type-specifier opt
     */
+
+    /*
+       If has_shared_ownership is 
+        - true,  both AST and some map are sharing the ownership
+        - false, only AST OR and some map have the ownership
+    */
+    bool has_shared_ownership;
+
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
     struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list;
 
@@ -565,6 +573,8 @@ struct enum_specifier
 };
 
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx*);
+
+struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p);
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 
@@ -595,10 +605,12 @@ struct member_declarator* _Opt find_member_declarator(struct member_declaration_
 struct struct_or_union_specifier
 {
     /*
-     struct-or-union-specifier:
-       struct-or-union attribute-specifier-sequence _Opt identifier _Opt { member-declaration-list }
-       struct-or-union attribute-specifier-sequence _Opt identifier
+       If has_shared_ownership is 
+        - true,  both AST and some map are sharing the ownership
+        - false, only AST OR and some map have the ownership
     */
+    bool has_shared_ownership;
+
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
     struct member_declaration_list member_declaration_list;
 
@@ -630,6 +642,7 @@ struct struct_or_union_specifier
 };
 
 struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct parser_ctx* ctx);
+struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struct struct_or_union_specifier* p);
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt  p);
 
 bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
@@ -643,11 +656,20 @@ struct init_declarator
         declarator = initializer
     */
 
+    /*
+       If has_shared_ownership is 
+        - true,  both AST and some map are sharing the ownership
+        - false, only AST OR and some map have the ownership
+    */
+    bool has_shared_ownership;
+
     struct declarator* _Owner p_declarator;
     struct initializer* _Owner _Opt initializer;
     struct init_declarator* _Owner _Opt next;
 };
 
+
+struct init_declarator* _Owner init_declarator_add_ref(struct init_declarator* p);
 void init_declarator_delete(struct init_declarator* _Owner _Opt p);
 struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers
@@ -679,6 +701,12 @@ struct declarator
         pointer _Opt direct-declarator
     */
 
+    /*
+       If has_shared_ownership is 
+        - true,  both AST and Map are sharing the ownership
+        - false, only AST OR Map have the ownership
+    */
+    bool has_shared_ownership;
     struct token* _Opt first_token_opt;
     struct token* _Opt last_token_opt;
 
@@ -714,15 +742,16 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
     bool abstract_acceptable,
     struct token** pptokenname);
 
+struct declarator* _Owner declarator_add_ref(struct declarator* p);
 void declarator_delete(struct declarator* _Owner _Opt  p);
 struct array_declarator
 {
     /*
      array-declarator:
-        direct-declarator [ type-qualifier-list _Opt assignment-expression _Opt ]
-        direct-declarator [ "static" type-qualifier-list _Opt assignment-expression ]
+        direct-declarator [ type-qualifier-list opt assignment-expression opt ]
+        direct-declarator [ "static" type-qualifier-list opt assignment-expression ]
         direct-declarator [ type-qualifier-list "static" assignment-expression ]
-        direct-declarator [ type-qualifier-listopt * ]
+        direct-declarator [ type-qualifier-list opt * ]
     */
     struct direct_declarator* _Owner _Opt direct_declarator;
     struct expression* _Owner _Opt  assignment_expression;
@@ -754,10 +783,10 @@ struct direct_declarator
 {
     /*
      direct-declarator:
-        identifier attribute-specifier-sequence _Opt
+        identifier attribute-specifier-sequence opt
         ( declarator )
-        array-declarator attribute-specifier-sequence _Opt
-        function-declarator attribute-specifier-sequence _Opt
+        array-declarator attribute-specifier-sequence opt
+        function-declarator attribute-specifier-sequence opt
     */
     struct token* _Opt name_opt;
     struct declarator* _Owner _Opt declarator;
@@ -795,8 +824,8 @@ struct pointer
 {
     /*
      pointer:
-        * attribute-specifier-sequence _Opt type-qualifier-list _Opt
-        * attribute-specifier-sequence _Opt type-qualifier-list _Opt pointer
+        * attribute-specifier-sequence opt type-qualifier-list opt
+        * attribute-specifier-sequence opt type-qualifier-list opt pointer
     */
     struct attribute_specifier_sequence* _Owner _Opt  attribute_specifier_sequence_opt;
     struct type_qualifier_list* _Owner _Opt type_qualifier_list_opt;
@@ -1390,6 +1419,13 @@ struct enumerator
         enumeration-constant attribute-specifier-sequence _Opt = constant-expression
     */
 
+    /*
+       If has_shared_ownership is 
+        - true,  both AST and some map are sharing the ownership
+        - false, only AST OR and some map have the ownership
+    */
+    bool has_shared_ownership;
+
     struct token* token;
     struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt;
 
@@ -1405,6 +1441,7 @@ struct enumerator
 };
 
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long* p_enumerator_value);
+struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(struct enumerator* _Owner _Opt  p);
 
 struct attribute_argument_clause

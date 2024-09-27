@@ -301,7 +301,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
         assert(append_list->tail != NULL);
         assert(append_list->tail->next == NULL);
         append_list->tail->next = token_list->head;
-        token_list->head->prev = append_list->tail;
+        token_list->head->prev = append_list->tail; //TODO empty case
 
         token_list->head = append_list->head;
         append_list->head->prev = NULL;
@@ -363,7 +363,7 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
 
 }
 
-int is_digit(const struct stream* p)
+inline int is_digit(const struct stream* p)
 {
     /*
      digit : one of
@@ -559,19 +559,21 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 struct token* _Owner _Opt clone_token(struct token* p)
 {
     struct token* _Owner _Opt token = calloc(1, sizeof * token);
-    if (token)
+    if (token == NULL)
+        return NULL;
+
+    char* _Owner _Opt lexeme = strdup(p->lexeme);
+    if (lexeme == NULL)
     {
-        char* _Owner _Opt lexeme = strdup(p->lexeme);
-        if (lexeme == NULL)
-        {
-            free(token);
-            return NULL;
-        }
-        *token = *p;
-        token->lexeme = lexeme;
-        token->next = NULL;
-        token->prev = NULL;
+        free(token);
+        return NULL;
     }
+
+    *token = *p;
+    token->lexeme = lexeme;
+    token->next = NULL;
+    token->prev = NULL;
+
     return token;
 }
 
@@ -847,7 +849,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
     const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
     if (!visual_studio_ouput_format)
-      COLOR_ESC_PRINT(printf(LIGHTBLUE));
+        COLOR_ESC_PRINT(printf(LIGHTBLUE));
 
     const struct token* _Opt p_item = p_line_begin;
     while (p_item)
@@ -858,12 +860,12 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             {
                 COLOR_ESC_PRINT(printf(DARKGRAY));
             }
-            else if (p_item->type >= TK_KEYWORD_AUTO && 
+            else if (p_item->type >= TK_KEYWORD_AUTO &&
                      p_item->type <= TK_KEYWORD_IS_INTEGRAL)
             {
                 COLOR_ESC_PRINT(printf(BLUE));
             }
-            else if (p_item->type == TK_COMMENT || 
+            else if (p_item->type == TK_COMMENT ||
                      p_item->type == TK_LINE_COMMENT)
             {
                 COLOR_ESC_PRINT(printf(YELLOW));
@@ -881,7 +883,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         }
 
         if (!visual_studio_ouput_format)
-        {            
+        {
             COLOR_ESC_PRINT(printf(RESET));
         }
 
@@ -1281,7 +1283,13 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errmsg[100])
 {
-    struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
+    struct stream stream = {
+    .source = lexeme,
+    .current = lexeme,
+    .line = 1,
+    .col = 1,
+    .path = "parse_number"
+    };
     return parse_number_core(&stream, suffix, errmsg);
 }
 

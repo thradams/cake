@@ -35,7 +35,7 @@ struct preprocessor_ctx
 {
     struct options options;
     enum preprocessor_ctx_flags flags;
-    struct owner_hash_map macros;
+    struct hash_map macros;
     struct include_dir_list include_dir;
 
     /*map of pragma once already included files*/
@@ -96,7 +96,7 @@ void print_tokens(const struct token* _Opt p_token);
 void print_preprocessed(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
-void check_unused_macros(const struct owner_hash_map* map);
+void check_unused_macros(const struct hash_map* map);
 
 char* _Owner _Opt read_file(const char* path);
 const char* get_token_name(enum token_type tk);

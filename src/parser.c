@@ -742,7 +742,7 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
         if (p_entry &&
             p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
         {
-            best = p_entry->p;
+            best = p_entry->data.p_enum_specifier;
             if (best->enumerator_list.head != NULL)
                 return best; // OK bem completo
             else
@@ -765,7 +765,7 @@ struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct par
         if (p_entry &&
             p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
         {
-            p = p_entry->p;
+            p = p_entry->data.p_struct_or_union_specifier;
             break;
         }
         scope = scope->previous;
@@ -781,12 +781,12 @@ struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char
     {
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
-            struct init_declarator* p_init_declarator = p_entry->p;
+            struct init_declarator* p_init_declarator = p_entry->data.p_init_declarator;
             return (struct declarator*)p_init_declarator->p_declarator;
         }
-        else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
+        else if (p_entry->type == TAG_TYPE_DECLARATOR)
         {
-            return p_entry->p;
+            return p_entry->data.p_declarator;
         }
     }
 
@@ -798,7 +798,7 @@ struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char
     struct map_entry* _Opt p_entry = find_variables(ctx, lexeme, ppscope_opt);
 
     if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
-        return p_entry->p;
+        return p_entry->data.p_enumerator;
 
     return NULL;
 }
@@ -2323,16 +2323,28 @@ struct declaration_specifier* _Owner _Opt declaration_specifier(struct parser_ct
     return p_declaration_specifier;
 }
 
+struct init_declarator* _Owner init_declarator_add_ref(struct init_declarator* p)
+{
+    p->has_shared_ownership = true;
+    return (struct init_declarator* _Owner)p;
+}
+
 void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 {
     if (p)
     {
+        if (p->has_shared_ownership)
+        {
+            p->has_shared_ownership = false;
+            return;
+        }
         initializer_delete(p->initializer);
         declarator_delete(p->p_declarator);
         assert(p->next == NULL);
         free(p);
     }
 }
+
 struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers)
 {
@@ -2341,6 +2353,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
        declarator
        declarator = initializer
     */
+
     struct init_declarator* _Owner _Opt p_init_declarator = NULL;
     try
     {
@@ -2350,15 +2363,16 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         struct token* _Opt tkname = NULL;
 
-        struct declarator* _Owner _Opt p_temp_declarator = declarator(ctx,
-            NULL,
-            p_declaration_specifiers,
-            false,
-            &tkname);
+        {
+            struct declarator* _Owner _Opt p_temp_declarator = declarator(ctx,
+                NULL,
+                p_declaration_specifiers,
+                false,
+                &tkname);
+            if (p_temp_declarator == NULL) throw;
+            p_init_declarator->p_declarator = p_temp_declarator;
+        }
 
-        if (p_temp_declarator == NULL) throw;
-
-        p_init_declarator->p_declarator = p_temp_declarator;
         p_init_declarator->p_declarator->name_opt = tkname;
 
         if (tkname == NULL)
@@ -2385,6 +2399,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 #pragma cake diagnostic pop
 
         }
+
+
 
         const char* name = p_init_declarator->p_declarator->name_opt->lexeme;
         if (name)
@@ -2438,7 +2454,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator, TAG_TYPE_INIT_DECLARATOR);
+                    struct hash_item_set item = { 0 };
+                    item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
+                    hashmap_set(&ctx->scopes.tail->variables, name, &item);
+                    hash_item_set_destroy(&item);
 
                     /*global scope no warning...*/
                     if (out_scope->scope_level != 0)
@@ -2454,7 +2473,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             else
             {
                 /*first time we see this declarator*/
-                hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator, TAG_TYPE_INIT_DECLARATOR);
+                struct hash_item_set item = { 0 };
+                item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
+                hashmap_set(&ctx->scopes.tail->variables, name, &item);
+                hash_item_set_destroy(&item);
             }
         }
         else
@@ -2467,6 +2489,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         if (ctx->current->type == '=')
         {
             parser_match(ctx);
+
+            assert(p_init_declarator->initializer == NULL);
             p_init_declarator->initializer = initializer(ctx);
 
             if (p_init_declarator->initializer == NULL)
@@ -3277,10 +3301,22 @@ bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_s
     return get_complete_struct_or_union_specifier(p_struct_or_union_specifier) != NULL;
 }
 
+struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struct struct_or_union_specifier* p)
+{
+    p->has_shared_ownership = true;
+    return (struct struct_or_union_specifier* _Owner) p;
+}
+
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt p)
 {
     if (p)
     {
+        if (p->has_shared_ownership > 0)
+        {
+            p->has_shared_ownership = false;
+            return;
+        }
+
         member_declaration_list_destroy(&p->member_declaration_list);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         free(p);
@@ -3289,6 +3325,7 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _
 
 struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct parser_ctx* ctx)
 {
+
     struct struct_or_union_specifier* _Owner _Opt p_struct_or_union_specifier = NULL;
     try
     {
@@ -3335,7 +3372,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 /*this tag already exist in this scope*/
                 if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
                 {
-                    p_first_tag_in_this_scope = p_entry->p;
+                    p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
                     p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
                 }
                 else
@@ -3353,9 +3390,14 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 struct struct_or_union_specifier* _Opt p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
                 if (p_first_tag_previous_scopes == NULL)
                 {
-                    /*tag not found, so it is the first appearence*/
+                    /*tag not found, so it is the first appearance*/
+
                     p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-                    hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
+
+                    struct hash_item_set item = { 0 };
+                    item.p_struct_or_union_specifier = struct_or_union_specifier_add_ref(p_struct_or_union_specifier);
+                    hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, &item);
+                    hash_item_set_destroy(&item);
                 }
                 else
                 {
@@ -3373,7 +3415,12 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             s_anonymous_struct_count++;
             p_struct_or_union_specifier->has_anonymous_tag = true;
             p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-            hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
+
+
+            struct hash_item_set item = { 0 };
+            item.p_struct_or_union_specifier = struct_or_union_specifier_add_ref(p_struct_or_union_specifier);
+            hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, &item);
+            hash_item_set_destroy(&item);
         }
 
         if (ctx->current->type == '{')
@@ -4016,10 +4063,21 @@ const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifi
     return NULL;
 }
 
+struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p)
+{
+    p->has_shared_ownership = true;
+    return (struct enum_specifier* _Owner)p;
+}
+
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
 {
     if (p)
     {
+        if (p->has_shared_ownership > 0)
+        {
+            p->has_shared_ownership = false;
+            return;
+        }
         specifier_qualifier_list_delete(p->specifier_qualifier_list);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         enumerator_list_destroy(&p->enumerator_list);
@@ -4044,6 +4102,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         { enumerator-list , }
         enum identifier enum-type-specifier _Opt
     */
+    struct hash_item_set item = { 0 };
     struct enum_specifier* _Owner _Opt p_enum_specifier = NULL;
     try
     {
@@ -4129,8 +4188,11 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, '}') != 0)
                 throw;
 
-            hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
+            struct hash_item_set item = {0};
+            item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
+            hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
             p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+            hash_item_set_destroy(&item);
         }
         else
         {
@@ -4145,8 +4207,11 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             else
             {
                 //nao existe lugar nenhum vamos adicionar
-                hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
+                struct hash_item_set item = {0};
+                item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
+                hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
                 p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+                hash_item_set_destroy(&item);
             }
 
             //if (!has_identifier)
@@ -4236,10 +4301,21 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
     return enumeratorlist;
 }
 
+struct enumerator* _Owner enumerator_add_ref(struct enumerator* p)
+{
+    p->has_shared_ownership = true;
+    return (struct enumerator* _Owner) p;
+}
+
 void enumerator_delete(struct enumerator* _Owner _Opt p)
 {
     if (p)
     {
+        if (p->has_shared_ownership > 0)
+        {
+            p->has_shared_ownership = false;
+            return;
+        }
         assert(p->next == NULL);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         expression_delete(p->constant_expression_opt);
@@ -4253,6 +4329,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     long long* p_next_enumerator_value)
 {
     // TODO VALUE
+    struct hash_item_set item = { 0 };
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try
     {
@@ -4274,7 +4351,11 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
         p_enumerator->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         p_enumerator->token = name;
-        hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, p_enumerator, TAG_TYPE_ENUMERATOR);
+
+        struct hash_item_set item = { 0 };
+        item.p_enumerator = enumerator_add_ref(p_enumerator);
+        hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, &item);
+        hash_item_set_destroy(&item);
 
         if (ctx->current == NULL)
         {
@@ -4529,10 +4610,21 @@ struct function_specifier* _Owner _Opt function_specifier(struct parser_ctx* ctx
     return p_function_specifier;
 }
 
+struct declarator* _Owner declarator_add_ref(struct declarator* p)
+{
+    p->has_shared_ownership = true;
+    return (struct declarator* _Owner)p;
+}
+
 void declarator_delete(struct declarator* _Owner _Opt p)
 {
     if (p)
     {
+        if (p->has_shared_ownership > 0)
+        {
+            p->has_shared_ownership = false;
+            return;
+        }
         type_destroy(&p->type);
         direct_declarator_delete(p->direct_declarator);
         pointer_delete(p->pointer);
@@ -4722,6 +4814,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
             else
             {
                 p_direct_declarator2->function_declarator = function_declarator(p_direct_declarator, ctx);
+                if (p_direct_declarator2->function_declarator == NULL) throw;
             }
             p_direct_declarator = p_direct_declarator2;
         }
@@ -4904,6 +4997,8 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
             scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
             p_function_declarator->parameter_type_list_opt = parameter_type_list(ctx);
             scope_list_pop(&ctx->scopes);
+            if (p_function_declarator->parameter_type_list_opt == NULL)
+                throw;
         }
         if (parser_match_tk(ctx, ')') != 0)
             throw;
@@ -5088,6 +5183,8 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
         // parameter_list ',' '...'
         p_parameter_type_list->parameter_list = parameter_list(ctx);
 
+        if (p_parameter_type_list->parameter_list == NULL) throw;
+
         if (p_parameter_type_list->parameter_list &&
             p_parameter_type_list->parameter_list->head ==
             p_parameter_type_list->parameter_list->tail)
@@ -5110,6 +5207,8 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
     }
     catch
     {
+        parameter_type_list_delete(p_parameter_type_list);
+        p_parameter_type_list = NULL;
     }
 
     return p_parameter_type_list;
@@ -5130,7 +5229,7 @@ void parameter_list_add(struct parameter_list* list, struct parameter_declaratio
     list->tail = p_item;
 }
 
-void parameter_list_delete(struct parameter_list* _Owner p)
+void parameter_list_delete(struct parameter_list* _Owner _Opt p)
 {
     if (p)
     {
@@ -5145,6 +5244,7 @@ void parameter_list_delete(struct parameter_list* _Owner p)
         free(p);
     }
 }
+
 struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
 {
     /*
@@ -5192,6 +5292,8 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
     }
     catch
     {
+        parameter_list_delete(p_parameter_list);
+        p_parameter_list = NULL;
     }
     return p_parameter_list;
 }
@@ -5211,6 +5313,8 @@ void parameter_declaration_delete(struct parameter_declaration* _Owner _Opt p)
 
 struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ctx* ctx)
 {
+
+
     struct parameter_declaration* _Owner _Opt p_parameter_declaration = calloc(1, sizeof(struct parameter_declaration));
     try
     {
@@ -5265,12 +5369,15 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         // assert ctx->current_scope->variables parametrosd
         if (p_parameter_declaration->declarator->name_opt)
         {
+            struct hash_item_set item = { 0 };
+            item.p_declarator = declarator_add_ref(p_parameter_declaration->declarator);
+
             // parametro void nao te name
             hashmap_set(&ctx->scopes.tail->variables,
                 p_parameter_declaration->declarator->name_opt->lexeme,
-                p_parameter_declaration->declarator,
-                TAG_TYPE_ONLY_DECLARATOR);
+                &item);
             // print_scope(ctx->current_scope);
+            hash_item_set_destroy(&item);
         }
     }
     catch
@@ -7336,7 +7443,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
             while (entry)
             {
 
-                if (entry->type != TAG_TYPE_ONLY_DECLARATOR &&
+                if (entry->type != TAG_TYPE_DECLARATOR &&
                     entry->type != TAG_TYPE_INIT_DECLARATOR)
                 {
                     entry = entry->next;
@@ -7347,12 +7454,12 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                 struct init_declarator* _Opt p_init_declarator = NULL;
                 if (entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
-                    p_init_declarator = entry->p;
+                    p_init_declarator = entry->data.p_init_declarator;
                     p_declarator = p_init_declarator->p_declarator;
                 }
                 else
                 {
-                    p_declarator = entry->p;
+                    p_declarator = entry->data.p_declarator;
                 }
 
                 if (p_declarator)
@@ -8410,12 +8517,10 @@ void condition_delete(struct condition* _Owner _Opt p_condition)
 
 struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
 {
-
-
     /*
     condition :
        expression
-       attribute-specifier-seq _Opt decl-specifier-seq declarator initializer
+       attribute-specifier-seq opt decl-specifier-seq declarator initializer
     */
     struct condition* _Owner _Opt p_condition = NULL;
     try
@@ -8431,21 +8536,24 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
         if (first_of_declaration_specifier(ctx))
         {
             p_condition->p_attribute_specifier_sequence_opt = attribute_specifier_sequence(ctx);
+
             p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+            if (p_condition->p_declaration_specifiers == NULL)
+                throw;
 
             struct init_declarator* _Owner _Opt p_init_declarator =
                 init_declarator(ctx, p_condition->p_declaration_specifiers);
 
             if (p_init_declarator == NULL)
-            {
                 throw;
-            }
+
             p_condition->p_init_declarator = p_init_declarator;
         }
         else
         {
             p_condition->expression = expression(ctx);
-            if (p_condition->expression == NULL) throw;
+            if (p_condition->expression == NULL) 
+                throw;
         }
 
         if (ctx->current == NULL)
@@ -8599,7 +8707,7 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
         while (entry)
         {
 
-            if (entry->type != TAG_TYPE_ONLY_DECLARATOR &&
+            if (entry->type != TAG_TYPE_DECLARATOR &&
                 entry->type != TAG_TYPE_INIT_DECLARATOR)
             {
                 entry = entry->next;
@@ -8610,12 +8718,12 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
             struct init_declarator* _Opt p_init_declarator = NULL;
             if (entry->type == TAG_TYPE_INIT_DECLARATOR)
             {
-                p_init_declarator = entry->p;
+                p_init_declarator = entry->data.p_init_declarator;
                 p_declarator = p_init_declarator->p_declarator;
             }
             else
             {
-                p_declarator = entry->p;
+                p_declarator = entry->data.p_declarator;
             }
 
             if (p_declarator &&
@@ -8886,7 +8994,7 @@ int generate_config_file(const char* configpath)
                     path[len - 1] = '\0';
 
                 fprintf(outfile, "#pragma dir \"%s\"\n", p);
-            }
+}
         }
 
         fprintf(outfile, "\n");
@@ -8946,7 +9054,7 @@ int generate_config_file(const char* configpath)
             p++;
         }
 #endif
-    }
+        }
     catch
     {
     }
@@ -8959,7 +9067,7 @@ int generate_config_file(const char* configpath)
         printf("successfully generated\n");
     }
     return error;
-}
+    }
 
 int compile_one_file(const char* file_name,
     struct options* options,
@@ -9370,11 +9478,11 @@ static int create_multiple_paths(const char* root, const char* outdir)
                 printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
                 return er;
             }
-        }
+    }
         if (*p == '\0')
             break;
         p++;
-    }
+}
     return 0;
 #else
     return -1;
