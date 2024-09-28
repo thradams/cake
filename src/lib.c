@@ -3231,6 +3231,9 @@ const char* get_posix_error_message(int error);
 
 bool path_is_relative(const char* path);
 bool path_is_absolute(const char* path);
+void path_normalize(char* path);
+bool path_is_normalized(const char* path);
+
 
 
 
@@ -3552,27 +3555,50 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
     return NULL;
 }
 
+/*
+  We must ensure we have always the same representation for path when searching and inserting
+  at pragma once map
+*/
+
+static int pragma_once_add(struct preprocessor_ctx* ctx, const char* path)
+{
+    assert(path_is_absolute(path));
+    assert(path_is_normalized(path));
+    struct hash_item_set item = { 0 };
+    item.number = 1;
+    hashmap_set(&ctx->pragma_once_map, path, &item /*in out*/);
+    hash_item_set_destroy(&item);
+}
+
+static bool pragma_once_already_included(struct preprocessor_ctx* ctx, const char* path)
+{
+    assert(path_is_absolute(path));
+    assert(path_is_normalized(path));
+    return hashmap_find(&ctx->pragma_once_map, path) != NULL;
+}
 
 const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx,
     const char* path, /*as in include*/
     const char* current_file_dir, /*this is the dir of the file that includes*/
+    bool is_angle_bracket_form,
     bool* p_already_included, /*_Out file alread included pragma once*/
     char full_path_out[], /*this is the final full path of the file*/
     int full_path_out_size)
-{
-
+{  
+    char newpath[200] = { 0 };
     full_path_out[0] = '\0';
 
     if (path_is_absolute(path))
     {
-        //todo realpath
-        if (hashmap_find(&ctx->pragma_once_map, path) != NULL)
+        snprintf(newpath, sizeof newpath, "%s", path);
+        path_normalize(newpath);
+        if (pragma_once_already_included(ctx, newpath))
         {
             *p_already_included = true;
             return NULL;
         }
 
-        char* _Owner _Opt content = read_file(path);
+        char* _Owner _Opt content = read_file(newpath);
         if (content != NULL)
         {
             snprintf(full_path_out, full_path_out_size, "%s", path);
@@ -3582,10 +3608,20 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
     }
 
 
+    char* _Owner _Opt content = NULL;
 
-    char newpath[200] = { 0 };
-    snprintf(newpath, sizeof newpath, "%s/%s", current_file_dir, path);
+    if (!is_angle_bracket_form)
+    {
+        /*
+          For the angle-bracket form #include <file>, the preprocessor’s default
+          behavior is to look only in the standard system directories.
+        */
 
+        //https://gcc.gnu.org/onlinedocs/cpp/Search-Path.html
+        //https://learn.microsoft.com/en-us/cpp/preprocessor/hash-include-directive-c-cpp?view=msvc-170
+
+        snprintf(newpath, sizeof newpath, "%s/%s", current_file_dir, path);
+        
 #ifdef __EMSCRIPTEN__
     /*realpath returns empty on emscriptem*/
     snprintf(full_path_out, full_path_out_size, "%s", newpath);
@@ -3594,18 +3630,22 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
         full_path_out[0] = '\0';
 #endif
 
+        path_normalize(full_path_out);
+        
 
-    if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
-    {
-        *p_already_included = true;
-        return NULL;
+        if (pragma_once_already_included(ctx, full_path_out))
+        {
+            *p_already_included = true;
+            return NULL;
+        }
+
+        if (full_path_out[0] != '\0')
+        {
+            content = read_file(full_path_out);
+        }
+        if (content != NULL)
+            return content;
     }
-
-    char* _Owner _Opt content = read_file(full_path_out);
-    if (content != NULL)
-        return content;
-
-
     struct include_dir* _Opt current = ctx->include_dir.head;
     while (current)
     {
@@ -3619,7 +3659,8 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
             snprintf(full_path_out, full_path_out_size, "%s/%s", current->path, path);
         }
 
-        if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
+        path_normalize(full_path_out);
+        if (pragma_once_already_included(ctx, full_path_out))
         {
             *p_already_included = true;
             return NULL;
@@ -3666,9 +3707,9 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
         }
 
         macro->name = name_local;
-        struct hash_item_set item = {.p_macro = macro};
+        struct hash_item_set item = { .p_macro = macro };
         hashmap_set(&ctx->macros, name, &item);
-        hash_item_set_destroy(&item);        
+        hash_item_set_destroy(&item);
     }
     catch
     {
@@ -4673,7 +4714,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         token_list_add(&list, p_new_token);
 
         assert(list.head != NULL);
-    }
+        }
     catch
     {
     }
@@ -4682,7 +4723,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         fclose(file);
 
     return list;
-}
+    }
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -4738,13 +4779,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             if (p_new == NULL)
                 throw;
 
-#ifdef _WINDOWS_
-            //windows have case insensive paths
-            for (char* p = p_new->lexeme; *p; p++)
-            {
-                *p = (char)tolower(*p);
-            }
-#endif
+            path_normalize(p_new->lexeme);
             p_new->level = level;
             p_first = token_list_add(&list, p_new);
         }
@@ -5341,6 +5376,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
                 char path[100] = { 0 };
+                bool is_angle_bracket_form = false;
 
                 if (input_list->head->type == TK_STRING_LITERAL)
                 {
@@ -5349,6 +5385,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 }
                 else
                 {
+                    is_angle_bracket_form = true;
                     token_list_pop_front(input_list); //pop <
 
                     while (input_list->head->type != '>')
@@ -5368,6 +5405,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* _Owner _Opt s = find_and_read_include_file(ctx,
                     path,
                     fullpath,
+                    is_angle_bracket_form,
                     &already_included,
                     full_path_result,
                     sizeof full_path_result);
@@ -6084,7 +6122,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //include
             skip_blanks_level(ctx, &r, input_list, level);
             char path[100] = { 0 };
-
+            bool is_angle_bracket_form = false;
             if (input_list->head->type == TK_STRING_LITERAL)
             {
                 strcat(path, input_list->head->lexeme);
@@ -6092,6 +6130,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             else
             {
+                is_angle_bracket_form = true;
                 while (input_list->head->type != '>')
                 {
                     strcat(path, input_list->head->lexeme);
@@ -6123,6 +6162,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             const char* _Owner _Opt content = find_and_read_include_file(ctx,
                 path + 1,
                 current_file_dir,
+                is_angle_bracket_form,
                 &already_included,
                 full_path_result,
                 sizeof full_path_result);
@@ -6383,7 +6423,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (macro_name_token)
                 naming_convention_macro(ctx, macro_name_token);
 
-            struct hash_item_set item = {.p_macro = macro};
+            struct hash_item_set item = { .p_macro = macro };
             hashmap_set(&ctx->macros, macro->name, &item);
             hash_item_set_destroy(&item);
         }
@@ -6476,9 +6516,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 if (input_list->head && strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    struct hash_item_set item = {0};
-                    item.number = 1;
-                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, &item);
+                    pragma_once_add(ctx, input_list->head->token_origin->lexeme);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                     r.tail->flags |= TK_FLAG_FINAL;
                 }
@@ -6955,8 +6993,8 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                         throw;
                     }
                     struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
-                    
-                    if (p_new_token == NULL) 
+
+                    if (p_new_token == NULL)
                     {
                         free(s);
                         token_list_destroy(&argumentlist);
@@ -9996,6 +10034,42 @@ caso nao tenha este arquivos apt-get install uuid-dev
 
 
 
+bool path_is_normalized(const char* path)
+{
+#ifdef _WINDOWS_
+    for (char* p = path; *p; p++)
+    {
+        char before = *p;
+        *p = (char)tolower(*p);
+        if (before != *p)
+            return false;
+
+        if (*p == '\\')
+        {
+            return false;
+        }
+    }
+    return true;
+#else
+    return true;
+#endif
+}
+
+void path_normalize(char* path)
+{
+#ifdef _WINDOWS_
+    for (char* p = path; *p; p++)
+    {
+        *p = (char)tolower(*p);
+        if (*p == '\\')
+        {
+            *p = '/';
+        }
+    }
+#else
+
+#endif
+}
 
 bool path_is_absolute(const char* path)
 {
@@ -10130,8 +10204,8 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
       letter that isn't valid or can't be found, or if the length of the
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
-    #pragma CAKE diagnostic push
-    #pragma CAKE diagnostic ignored "-Wflow-not-null"
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wflow-not-null"
     char* _Opt p = _fullpath(resolved_path, path, MAX_PATH);
     if (p)
     {
@@ -10143,7 +10217,7 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
             p2++;
         }
     }
-    #pragma CAKE diagnostic pop
+#pragma CAKE diagnostic pop
 
     return p;
 }
@@ -10288,19 +10362,19 @@ int get_self_path(char* buffer, int maxsize)
 #if !defined __EMSCRIPTEN__
 
 /* Find the last occurrence of c1 or c2 in s. */
-char * _Opt strrchr_ex (const char *s, int c1, int c2)
+char* _Opt strrchr_ex(const char* s, int c1, int c2)
 {
-  const char * _Opt last = NULL;
-  const char * p = s;
-  while (*p)
-  {
-    if (*p == c1 || *p == c2)
+    const char* _Opt last = NULL;
+    const char* p = s;
+    while (*p)
     {
-        last = p;
+        if (*p == c1 || *p == c2)
+        {
+            last = p;
+        }
+        p++;
     }
-    p++;
-  }
-  return (char*)last;
+    return (char*)last;
 }
 
 char* basename(const char* filename)
@@ -10991,239 +11065,239 @@ const char* file_limits_h =
 "";
 
 const char* file_locale_h =
- "#pragma once\n"
- "typedef int wchar_t;\n"
- "// Locale categories\n"
- "#define LC_ALL          0\n"
- "#define LC_COLLATE      1\n"
- "#define LC_CTYPE        2\n"
- "#define LC_MONETARY     3\n"
- "#define LC_NUMERIC      4\n"
- "#define LC_TIME         5\n"
- "\n"
- "#define LC_MIN          LC_ALL\n"
- "#define LC_MAX          LC_TIME\n"
- "\n"
- "// Locale convention structure\n"
- "struct lconv\n"
- "{\n"
- "    char*    decimal_point;\n"
- "    char*    thousands_sep;\n"
- "    char*    grouping;\n"
- "    char*    int_curr_symbol;\n"
- "    char*    currency_symbol;\n"
- "    char*    mon_decimal_point;\n"
- "    char*    mon_thousands_sep;\n"
- "    char*    mon_grouping;\n"
- "    char*    positive_sign;\n"
- "    char*    negative_sign;\n"
- "    char     int_frac_digits;\n"
- "    char     frac_digits;\n"
- "    char     p_cs_precedes;\n"
- "    char     p_sep_by_space;\n"
- "    char     n_cs_precedes;\n"
- "    char     n_sep_by_space;\n"
- "    char     p_sign_posn;\n"
- "    char     n_sign_posn;\n"
- "    wchar_t* _W_decimal_point;\n"
- "    wchar_t* _W_thousands_sep;\n"
- "    wchar_t* _W_int_curr_symbol;\n"
- "    wchar_t* _W_currency_symbol;\n"
- "    wchar_t* _W_mon_decimal_point;\n"
- "    wchar_t* _W_mon_thousands_sep;\n"
- "    wchar_t* _W_positive_sign;\n"
- "    wchar_t* _W_negative_sign;\n"
- "};\n"
- "\n"
- "struct tm;\n"
- "\n"
- "    char* setlocale(\n"
- "        int         _Category,\n"
- "        char const* _Locale\n"
- "        );\n"
- "\n"
- "    struct lconv* localeconv(void);\n"
- "";
+"#pragma once\n"
+"typedef int wchar_t;\n"
+"// Locale categories\n"
+"#define LC_ALL          0\n"
+"#define LC_COLLATE      1\n"
+"#define LC_CTYPE        2\n"
+"#define LC_MONETARY     3\n"
+"#define LC_NUMERIC      4\n"
+"#define LC_TIME         5\n"
+"\n"
+"#define LC_MIN          LC_ALL\n"
+"#define LC_MAX          LC_TIME\n"
+"\n"
+"// Locale convention structure\n"
+"struct lconv\n"
+"{\n"
+"    char*    decimal_point;\n"
+"    char*    thousands_sep;\n"
+"    char*    grouping;\n"
+"    char*    int_curr_symbol;\n"
+"    char*    currency_symbol;\n"
+"    char*    mon_decimal_point;\n"
+"    char*    mon_thousands_sep;\n"
+"    char*    mon_grouping;\n"
+"    char*    positive_sign;\n"
+"    char*    negative_sign;\n"
+"    char     int_frac_digits;\n"
+"    char     frac_digits;\n"
+"    char     p_cs_precedes;\n"
+"    char     p_sep_by_space;\n"
+"    char     n_cs_precedes;\n"
+"    char     n_sep_by_space;\n"
+"    char     p_sign_posn;\n"
+"    char     n_sign_posn;\n"
+"    wchar_t* _W_decimal_point;\n"
+"    wchar_t* _W_thousands_sep;\n"
+"    wchar_t* _W_int_curr_symbol;\n"
+"    wchar_t* _W_currency_symbol;\n"
+"    wchar_t* _W_mon_decimal_point;\n"
+"    wchar_t* _W_mon_thousands_sep;\n"
+"    wchar_t* _W_positive_sign;\n"
+"    wchar_t* _W_negative_sign;\n"
+"};\n"
+"\n"
+"struct tm;\n"
+"\n"
+"    char* setlocale(\n"
+"        int         _Category,\n"
+"        char const* _Locale\n"
+"        );\n"
+"\n"
+"    struct lconv* localeconv(void);\n"
+"";
 
 
-const char* file_wchar_h = 
- "#pragma once\n"
- "\n"
- "#define WCHAR_MIN 0x0000\n"
- "#define WCHAR_MAX 0xffff\n"
- "typedef long unsigned int size_t;\n"
- "typedef int wchar_t;\n"
- "\n"
- "typedef struct\n"
- "{\n"
- "  int __count;\n"
- "  union\n"
- "  {\n"
- "    unsigned int __wch;\n"
- "    char __wchb[4];\n"
- "  } __value;\n"
- "} __mbstate_t;\n"
- "\n"
- "typedef __mbstate_t mbstate_t;\n"
- "struct _IO_FILE;\n"
- "typedef struct _IO_FILE __FILE;\n"
- "struct _IO_FILE;\n"
- "typedef struct _IO_FILE FILE;\n"
- "struct __locale_struct\n"
- "{\n"
- "\n"
- "  struct __locale_data *__locales[13];\n"
- "\n"
- "  const unsigned short int *__ctype_b;\n"
- "  const int *__ctype_tolower;\n"
- "  const int *__ctype_toupper;\n"
- "\n"
- "  const char *__names[13];\n"
- "};\n"
- "\n"
- "typedef struct __locale_struct *__locale_t;\n"
- "\n"
- "typedef __locale_t locale_t;\n"
- "\n"
- "struct tm;\n"
- "\n"
- "extern wchar_t *wcscpy (wchar_t *__restrict __dest,\n"
- "   const wchar_t *__restrict __src);\n"
-  "\n"
- "extern wchar_t *wcsncpy (wchar_t *__restrict __dest,\n"
- "    const wchar_t *__restrict __src, size_t __n);\n"
-  "\n"
- "extern wchar_t *wcscat (wchar_t *__restrict __dest,\n"
- "   const wchar_t *__restrict __src);\n"
-  "\n"
- "extern wchar_t *wcsncat (wchar_t *__restrict __dest,\n"
- "    const wchar_t *__restrict __src, size_t __n);\n"
- "\n"
- "extern int wcscmp (const wchar_t *__s1, const wchar_t *__s2);\n"
- "\n"
- "extern int wcsncmp (const wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
-  "\n"
- "extern int wcscasecmp (const wchar_t *__s1, const wchar_t *__s2);\n"
- "\n"
- "extern int wcsncasecmp (const wchar_t *__s1, const wchar_t *__s2,\n"
- "   size_t __n) ;\n"
- "\n"
- "extern int wcscasecmp_l (const wchar_t *__s1, const wchar_t *__s2,\n"
- "    locale_t __loc) ;\n"
- "\n"
- "extern int wcsncasecmp_l (const wchar_t *__s1, const wchar_t *__s2,\n"
- "     size_t __n, locale_t __loc) ;\n"
- "\n"
- "extern int wcscoll (const wchar_t *__s1, const wchar_t *__s2);\n"
- "\n"
- "extern size_t wcsxfrm (wchar_t *__restrict __s1,\n"
- "         const wchar_t *__restrict __s2, size_t __n);\n"
- "\n"
- "extern int wcscoll_l (const wchar_t *__s1, const wchar_t *__s2,\n"
- "        locale_t __loc) ;\n"
- "\n"
- "extern size_t wcsxfrm_l (wchar_t *__s1, const wchar_t *__s2,\n"
- "    size_t __n, locale_t __loc) ;\n"
- "\n"
- "extern wchar_t *wcsdup (const wchar_t *__s) ;\n"
- "extern wchar_t *wcschr (const wchar_t *__wcs, wchar_t __wc);\n"
- "extern wchar_t *wcsrchr (const wchar_t *__wcs, wchar_t __wc);\n"
- "extern size_t wcscspn (const wchar_t *__wcs, const wchar_t *__reject);\n"
-  "\n"
- "extern size_t wcsspn (const wchar_t *__wcs, const wchar_t *__accept);\n"
- "extern wchar_t *wcspbrk (const wchar_t *__wcs, const wchar_t *__accept);\n"
- "extern wchar_t *wcsstr (const wchar_t *__haystack, const wchar_t *__needle);\n"
- "\n"
- "extern wchar_t *wcstok (wchar_t *__restrict __s,\n"
- "   const wchar_t *__restrict __delim,\n"
- "   wchar_t **__restrict __ptr);\n"
- "\n"
- "extern size_t wcslen (const wchar_t *__s);\n"
- "extern size_t wcsnlen (const wchar_t *__s, size_t __maxlen);\n"
- "extern wchar_t *wmemchr (const wchar_t *__s, wchar_t __c, size_t __n);\n"
- "\n"
- "extern int wmemcmp (const wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
- "\n"
- "extern wchar_t *wmemcpy (wchar_t *__restrict __s1,\n"
- "    const wchar_t *__restrict __s2, size_t __n) ;\n"
- "\n"
- "extern wchar_t *wmemmove (wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
- "\n"
- "extern wchar_t *wmemset (wchar_t *__s, wchar_t __c, size_t __n);\n"
- 
- "extern wint_t btowc (int __c);\n"
- "\n"
- "extern int wctob (wint_t __c);\n"
- "\n"
- "extern int mbsinit (const mbstate_t *__ps);\n"
- "\n"
- "extern size_t mbrtowc (wchar_t *__restrict __pwc,\n"
- "         const char *__restrict __s, size_t __n,\n"
- "         mbstate_t *__restrict __p) ;\n"
- "\n"
- "extern size_t wcrtomb (char *__restrict __s, wchar_t __wc,\n"
- "         mbstate_t *__restrict __ps);\n"
- "\n"
- "extern size_t __mbrlen (const char *__restrict __s, size_t __n,\n"
- "   mbstate_t *__restrict __ps) ;\n"
- "extern size_t mbrlen (const char *__restrict __s, size_t __n,\n"
- "        mbstate_t *__restrict __ps) ;\n"
- 
- "extern size_t mbsrtowcs (wchar_t *__restrict __dst,\n"
- "    const char **__restrict __src, size_t __len,\n"
- "    mbstate_t *__restrict __ps) ;\n"
- "\n"
- "extern size_t wcsrtombs (char *__restrict __dst,\n"
- "    const wchar_t **__restrict __src, size_t __len,\n"
- "    mbstate_t *__restrict __ps) ;\n"
- "\n"
- "extern size_t mbsnrtowcs (wchar_t *__restrict __dst,\n"
- "     const char **__restrict __src, size_t __nmc,\n"
- "     size_t __len, mbstate_t *__restrict __ps) ;\n"
- "\n"
- "extern size_t wcsnrtombs (char *__restrict __dst,\n"
- "     const wchar_t **__restrict __src,\n"
- "     size_t __nwc, size_t __len,\n"
- "     mbstate_t *__restrict __ps) ;\n"
- 
- "extern double wcstod (const wchar_t *__restrict __nptr,\n"
- "        wchar_t **__restrict __endptr) ;\n"
- "\n"
- "extern float wcstof (const wchar_t *__restrict __nptr,\n"
- "       wchar_t **__restrict __endptr) ;\n"
- "extern long double wcstold (const wchar_t *__restrict __nptr,\n"
- "       wchar_t **__restrict __endptr) ;\n"
-  "extern long int wcstol (const wchar_t *__restrict __nptr,\n"
- "   wchar_t **__restrict __endptr, int __base) ;\n"
- "\n"
- "extern unsigned long int wcstoul (const wchar_t *__restrict __nptr,\n"
- "      wchar_t **__restrict __endptr, int __base);\n"
- "\n"
- "extern long long int wcstoll (const wchar_t *__restrict __nptr,\n"
- "         wchar_t **__restrict __endptr, int __base);\n"
-  "\n"
- "extern unsigned long long int wcstoull (const wchar_t *__restrict __nptr,\n"
- "     wchar_t **__restrict __endptr,\n"
- "     int __base) ;\n"
- 
- "extern wchar_t *wcpcpy (wchar_t *__restrict __dest,\n"
- "   const wchar_t *__restrict __src) ;\n"
- "\n"
- "extern wchar_t *wcpncpy (wchar_t *__restrict __dest,\n"
- "    const wchar_t *__restrict __src, size_t __n);\n"
- "extern __FILE *open_wmemstream (wchar_t **__bufloc, size_t *__sizeloc);\n"
- "\n"
- "extern int fwide (__FILE *__fp, int __mode);\n"
- "\n"
- "extern int fwprintf (__FILE *__restrict __stream,\n"
- "       const wchar_t *__restrict __format, ...);\n"
- "extern int wprintf (const wchar_t *__restrict __format, ...);\n"
- "\n"
- "extern int swprintf (wchar_t *__restrict __s, size_t __n,\n"
- "       const wchar_t *__restrict __format, ...);\n"
- "\n"
- "\n";
- //TODO incomplete
+const char* file_wchar_h =
+"#pragma once\n"
+"\n"
+"#define WCHAR_MIN 0x0000\n"
+"#define WCHAR_MAX 0xffff\n"
+"typedef long unsigned int size_t;\n"
+"typedef int wchar_t;\n"
+"\n"
+"typedef struct\n"
+"{\n"
+"  int __count;\n"
+"  union\n"
+"  {\n"
+"    unsigned int __wch;\n"
+"    char __wchb[4];\n"
+"  } __value;\n"
+"} __mbstate_t;\n"
+"\n"
+"typedef __mbstate_t mbstate_t;\n"
+"struct _IO_FILE;\n"
+"typedef struct _IO_FILE __FILE;\n"
+"struct _IO_FILE;\n"
+"typedef struct _IO_FILE FILE;\n"
+"struct __locale_struct\n"
+"{\n"
+"\n"
+"  struct __locale_data *__locales[13];\n"
+"\n"
+"  const unsigned short int *__ctype_b;\n"
+"  const int *__ctype_tolower;\n"
+"  const int *__ctype_toupper;\n"
+"\n"
+"  const char *__names[13];\n"
+"};\n"
+"\n"
+"typedef struct __locale_struct *__locale_t;\n"
+"\n"
+"typedef __locale_t locale_t;\n"
+"\n"
+"struct tm;\n"
+"\n"
+"extern wchar_t *wcscpy (wchar_t *__restrict __dest,\n"
+"   const wchar_t *__restrict __src);\n"
+"\n"
+"extern wchar_t *wcsncpy (wchar_t *__restrict __dest,\n"
+"    const wchar_t *__restrict __src, size_t __n);\n"
+"\n"
+"extern wchar_t *wcscat (wchar_t *__restrict __dest,\n"
+"   const wchar_t *__restrict __src);\n"
+"\n"
+"extern wchar_t *wcsncat (wchar_t *__restrict __dest,\n"
+"    const wchar_t *__restrict __src, size_t __n);\n"
+"\n"
+"extern int wcscmp (const wchar_t *__s1, const wchar_t *__s2);\n"
+"\n"
+"extern int wcsncmp (const wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
+"\n"
+"extern int wcscasecmp (const wchar_t *__s1, const wchar_t *__s2);\n"
+"\n"
+"extern int wcsncasecmp (const wchar_t *__s1, const wchar_t *__s2,\n"
+"   size_t __n) ;\n"
+"\n"
+"extern int wcscasecmp_l (const wchar_t *__s1, const wchar_t *__s2,\n"
+"    locale_t __loc) ;\n"
+"\n"
+"extern int wcsncasecmp_l (const wchar_t *__s1, const wchar_t *__s2,\n"
+"     size_t __n, locale_t __loc) ;\n"
+"\n"
+"extern int wcscoll (const wchar_t *__s1, const wchar_t *__s2);\n"
+"\n"
+"extern size_t wcsxfrm (wchar_t *__restrict __s1,\n"
+"         const wchar_t *__restrict __s2, size_t __n);\n"
+"\n"
+"extern int wcscoll_l (const wchar_t *__s1, const wchar_t *__s2,\n"
+"        locale_t __loc) ;\n"
+"\n"
+"extern size_t wcsxfrm_l (wchar_t *__s1, const wchar_t *__s2,\n"
+"    size_t __n, locale_t __loc) ;\n"
+"\n"
+"extern wchar_t *wcsdup (const wchar_t *__s) ;\n"
+"extern wchar_t *wcschr (const wchar_t *__wcs, wchar_t __wc);\n"
+"extern wchar_t *wcsrchr (const wchar_t *__wcs, wchar_t __wc);\n"
+"extern size_t wcscspn (const wchar_t *__wcs, const wchar_t *__reject);\n"
+"\n"
+"extern size_t wcsspn (const wchar_t *__wcs, const wchar_t *__accept);\n"
+"extern wchar_t *wcspbrk (const wchar_t *__wcs, const wchar_t *__accept);\n"
+"extern wchar_t *wcsstr (const wchar_t *__haystack, const wchar_t *__needle);\n"
+"\n"
+"extern wchar_t *wcstok (wchar_t *__restrict __s,\n"
+"   const wchar_t *__restrict __delim,\n"
+"   wchar_t **__restrict __ptr);\n"
+"\n"
+"extern size_t wcslen (const wchar_t *__s);\n"
+"extern size_t wcsnlen (const wchar_t *__s, size_t __maxlen);\n"
+"extern wchar_t *wmemchr (const wchar_t *__s, wchar_t __c, size_t __n);\n"
+"\n"
+"extern int wmemcmp (const wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
+"\n"
+"extern wchar_t *wmemcpy (wchar_t *__restrict __s1,\n"
+"    const wchar_t *__restrict __s2, size_t __n) ;\n"
+"\n"
+"extern wchar_t *wmemmove (wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
+"\n"
+"extern wchar_t *wmemset (wchar_t *__s, wchar_t __c, size_t __n);\n"
+
+"extern wint_t btowc (int __c);\n"
+"\n"
+"extern int wctob (wint_t __c);\n"
+"\n"
+"extern int mbsinit (const mbstate_t *__ps);\n"
+"\n"
+"extern size_t mbrtowc (wchar_t *__restrict __pwc,\n"
+"         const char *__restrict __s, size_t __n,\n"
+"         mbstate_t *__restrict __p) ;\n"
+"\n"
+"extern size_t wcrtomb (char *__restrict __s, wchar_t __wc,\n"
+"         mbstate_t *__restrict __ps);\n"
+"\n"
+"extern size_t __mbrlen (const char *__restrict __s, size_t __n,\n"
+"   mbstate_t *__restrict __ps) ;\n"
+"extern size_t mbrlen (const char *__restrict __s, size_t __n,\n"
+"        mbstate_t *__restrict __ps) ;\n"
+
+"extern size_t mbsrtowcs (wchar_t *__restrict __dst,\n"
+"    const char **__restrict __src, size_t __len,\n"
+"    mbstate_t *__restrict __ps) ;\n"
+"\n"
+"extern size_t wcsrtombs (char *__restrict __dst,\n"
+"    const wchar_t **__restrict __src, size_t __len,\n"
+"    mbstate_t *__restrict __ps) ;\n"
+"\n"
+"extern size_t mbsnrtowcs (wchar_t *__restrict __dst,\n"
+"     const char **__restrict __src, size_t __nmc,\n"
+"     size_t __len, mbstate_t *__restrict __ps) ;\n"
+"\n"
+"extern size_t wcsnrtombs (char *__restrict __dst,\n"
+"     const wchar_t **__restrict __src,\n"
+"     size_t __nwc, size_t __len,\n"
+"     mbstate_t *__restrict __ps) ;\n"
+
+"extern double wcstod (const wchar_t *__restrict __nptr,\n"
+"        wchar_t **__restrict __endptr) ;\n"
+"\n"
+"extern float wcstof (const wchar_t *__restrict __nptr,\n"
+"       wchar_t **__restrict __endptr) ;\n"
+"extern long double wcstold (const wchar_t *__restrict __nptr,\n"
+"       wchar_t **__restrict __endptr) ;\n"
+"extern long int wcstol (const wchar_t *__restrict __nptr,\n"
+"   wchar_t **__restrict __endptr, int __base) ;\n"
+"\n"
+"extern unsigned long int wcstoul (const wchar_t *__restrict __nptr,\n"
+"      wchar_t **__restrict __endptr, int __base);\n"
+"\n"
+"extern long long int wcstoll (const wchar_t *__restrict __nptr,\n"
+"         wchar_t **__restrict __endptr, int __base);\n"
+"\n"
+"extern unsigned long long int wcstoull (const wchar_t *__restrict __nptr,\n"
+"     wchar_t **__restrict __endptr,\n"
+"     int __base) ;\n"
+
+"extern wchar_t *wcpcpy (wchar_t *__restrict __dest,\n"
+"   const wchar_t *__restrict __src) ;\n"
+"\n"
+"extern wchar_t *wcpncpy (wchar_t *__restrict __dest,\n"
+"    const wchar_t *__restrict __src, size_t __n);\n"
+"extern __FILE *open_wmemstream (wchar_t **__bufloc, size_t *__sizeloc);\n"
+"\n"
+"extern int fwide (__FILE *__fp, int __mode);\n"
+"\n"
+"extern int fwprintf (__FILE *__restrict __stream,\n"
+"       const wchar_t *__restrict __format, ...);\n"
+"extern int wprintf (const wchar_t *__restrict __format, ...);\n"
+"\n"
+"extern int swprintf (wchar_t *__restrict __s, size_t __n,\n"
+"       const wchar_t *__restrict __format, ...);\n"
+"\n"
+"\n";
+//TODO incomplete
 
 
 char* _Owner read_file(const char* path)
@@ -11248,7 +11322,7 @@ char* _Owner read_file(const char* path)
         return strdup(file_locale_h);
     else if (strcmp(path, "c:/wchar.h") == 0)
         return strdup(file_wchar_h);
-        
+
     return NULL;
 }
 #endif
@@ -14530,9 +14604,9 @@ struct enum_specifier
        : specifier-qualifier-lis
 
      enum-specifier:
-       "enum" attribute-specifier-sequence _Opt identifier _Opt enum-type-specifier _Opt  { enumerator-list }
-       "enum" attribute-specifier-sequence _Opt identifier _Opt enum-type-specifier _Opt  { enumerator-list , }
-       "enum" identifier enum-type-specifier _Opt
+       "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list }
+       "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list , }
+       "enum" identifier enum-type-specifier opt
     */
 
     /*
@@ -14731,10 +14805,10 @@ struct array_declarator
 {
     /*
      array-declarator:
-        direct-declarator [ type-qualifier-list _Opt assignment-expression _Opt ]
-        direct-declarator [ "static" type-qualifier-list _Opt assignment-expression ]
+        direct-declarator [ type-qualifier-list opt assignment-expression opt ]
+        direct-declarator [ "static" type-qualifier-list opt assignment-expression ]
         direct-declarator [ type-qualifier-list "static" assignment-expression ]
-        direct-declarator [ type-qualifier-listopt * ]
+        direct-declarator [ type-qualifier-list opt * ]
     */
     struct direct_declarator* _Owner _Opt direct_declarator;
     struct expression* _Owner _Opt  assignment_expression;
@@ -14766,10 +14840,10 @@ struct direct_declarator
 {
     /*
      direct-declarator:
-        identifier attribute-specifier-sequence _Opt
+        identifier attribute-specifier-sequence opt
         ( declarator )
-        array-declarator attribute-specifier-sequence _Opt
-        function-declarator attribute-specifier-sequence _Opt
+        array-declarator attribute-specifier-sequence opt
+        function-declarator attribute-specifier-sequence opt
     */
     struct token* _Opt name_opt;
     struct declarator* _Owner _Opt declarator;
@@ -14807,8 +14881,8 @@ struct pointer
 {
     /*
      pointer:
-        * attribute-specifier-sequence _Opt type-qualifier-list _Opt
-        * attribute-specifier-sequence _Opt type-qualifier-list _Opt pointer
+        * attribute-specifier-sequence opt type-qualifier-list opt
+        * attribute-specifier-sequence opt type-qualifier-list opt pointer
     */
     struct attribute_specifier_sequence* _Owner _Opt  attribute_specifier_sequence_opt;
     struct type_qualifier_list* _Owner _Opt type_qualifier_list_opt;
@@ -31364,7 +31438,7 @@ void parameter_list_add(struct parameter_list* list, struct parameter_declaratio
     list->tail = p_item;
 }
 
-void parameter_list_delete(struct parameter_list* _Owner p)
+void parameter_list_delete(struct parameter_list* _Owner _Opt p)
 {
     if (p)
     {
@@ -31379,6 +31453,7 @@ void parameter_list_delete(struct parameter_list* _Owner p)
         free(p);
     }
 }
+
 struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
 {
     /*

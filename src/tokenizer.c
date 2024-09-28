@@ -369,27 +369,50 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
     return NULL;
 }
 
+/*
+  We must ensure we have always the same representation for path when searching and inserting
+  at pragma once map
+*/
+
+static int pragma_once_add(struct preprocessor_ctx* ctx, const char* path)
+{
+    assert(path_is_absolute(path));
+    assert(path_is_normalized(path));
+    struct hash_item_set item = { 0 };
+    item.number = 1;
+    hashmap_set(&ctx->pragma_once_map, path, &item /*in out*/);
+    hash_item_set_destroy(&item);
+}
+
+static bool pragma_once_already_included(struct preprocessor_ctx* ctx, const char* path)
+{
+    assert(path_is_absolute(path));
+    assert(path_is_normalized(path));
+    return hashmap_find(&ctx->pragma_once_map, path) != NULL;
+}
 
 const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx,
     const char* path, /*as in include*/
     const char* current_file_dir, /*this is the dir of the file that includes*/
+    bool is_angle_bracket_form,
     bool* p_already_included, /*_Out file alread included pragma once*/
     char full_path_out[], /*this is the final full path of the file*/
     int full_path_out_size)
-{
-
+{  
+    char newpath[200] = { 0 };
     full_path_out[0] = '\0';
 
     if (path_is_absolute(path))
     {
-        //todo realpath
-        if (hashmap_find(&ctx->pragma_once_map, path) != NULL)
+        snprintf(newpath, sizeof newpath, "%s", path);
+        path_normalize(newpath);
+        if (pragma_once_already_included(ctx, newpath))
         {
             *p_already_included = true;
             return NULL;
         }
 
-        char* _Owner _Opt content = read_file(path);
+        char* _Owner _Opt content = read_file(newpath);
         if (content != NULL)
         {
             snprintf(full_path_out, full_path_out_size, "%s", path);
@@ -399,10 +422,20 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
     }
 
 
+    char* _Owner _Opt content = NULL;
 
-    char newpath[200] = { 0 };
-    snprintf(newpath, sizeof newpath, "%s/%s", current_file_dir, path);
+    if (!is_angle_bracket_form)
+    {
+        /*
+          For the angle-bracket form #include <file>, the preprocessor’s default
+          behavior is to look only in the standard system directories.
+        */
 
+        //https://gcc.gnu.org/onlinedocs/cpp/Search-Path.html
+        //https://learn.microsoft.com/en-us/cpp/preprocessor/hash-include-directive-c-cpp?view=msvc-170
+
+        snprintf(newpath, sizeof newpath, "%s/%s", current_file_dir, path);
+        
 #ifdef __EMSCRIPTEN__
     /*realpath returns empty on emscriptem*/
     snprintf(full_path_out, full_path_out_size, "%s", newpath);
@@ -411,18 +444,22 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
         full_path_out[0] = '\0';
 #endif
 
+        path_normalize(full_path_out);
+        
 
-    if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
-    {
-        *p_already_included = true;
-        return NULL;
+        if (pragma_once_already_included(ctx, full_path_out))
+        {
+            *p_already_included = true;
+            return NULL;
+        }
+
+        if (full_path_out[0] != '\0')
+        {
+            content = read_file(full_path_out);
+        }
+        if (content != NULL)
+            return content;
     }
-
-    char* _Owner _Opt content = read_file(full_path_out);
-    if (content != NULL)
-        return content;
-
-
     struct include_dir* _Opt current = ctx->include_dir.head;
     while (current)
     {
@@ -436,7 +473,8 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
             snprintf(full_path_out, full_path_out_size, "%s/%s", current->path, path);
         }
 
-        if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
+        path_normalize(full_path_out);
+        if (pragma_once_already_included(ctx, full_path_out))
         {
             *p_already_included = true;
             return NULL;
@@ -483,9 +521,9 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
         }
 
         macro->name = name_local;
-        struct hash_item_set item = {.p_macro = macro};
+        struct hash_item_set item = { .p_macro = macro };
         hashmap_set(&ctx->macros, name, &item);
-        hash_item_set_destroy(&item);        
+        hash_item_set_destroy(&item);
     }
     catch
     {
@@ -1490,7 +1528,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         token_list_add(&list, p_new_token);
 
         assert(list.head != NULL);
-    }
+        }
     catch
     {
     }
@@ -1499,7 +1537,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         fclose(file);
 
     return list;
-}
+    }
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -1555,13 +1593,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             if (p_new == NULL)
                 throw;
 
-#ifdef _WINDOWS_
-            //windows have case insensive paths
-            for (char* p = p_new->lexeme; *p; p++)
-            {
-                *p = (char)tolower(*p);
-            }
-#endif
+            path_normalize(p_new->lexeme);
             p_new->level = level;
             p_first = token_list_add(&list, p_new);
         }
@@ -2158,6 +2190,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
                 char path[100] = { 0 };
+                bool is_angle_bracket_form = false;
 
                 if (input_list->head->type == TK_STRING_LITERAL)
                 {
@@ -2166,6 +2199,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 }
                 else
                 {
+                    is_angle_bracket_form = true;
                     token_list_pop_front(input_list); //pop <
 
                     while (input_list->head->type != '>')
@@ -2185,6 +2219,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* _Owner _Opt s = find_and_read_include_file(ctx,
                     path,
                     fullpath,
+                    is_angle_bracket_form,
                     &already_included,
                     full_path_result,
                     sizeof full_path_result);
@@ -2901,7 +2936,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //include
             skip_blanks_level(ctx, &r, input_list, level);
             char path[100] = { 0 };
-
+            bool is_angle_bracket_form = false;
             if (input_list->head->type == TK_STRING_LITERAL)
             {
                 strcat(path, input_list->head->lexeme);
@@ -2909,6 +2944,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             else
             {
+                is_angle_bracket_form = true;
                 while (input_list->head->type != '>')
                 {
                     strcat(path, input_list->head->lexeme);
@@ -2940,6 +2976,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             const char* _Owner _Opt content = find_and_read_include_file(ctx,
                 path + 1,
                 current_file_dir,
+                is_angle_bracket_form,
                 &already_included,
                 full_path_result,
                 sizeof full_path_result);
@@ -3200,7 +3237,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (macro_name_token)
                 naming_convention_macro(ctx, macro_name_token);
 
-            struct hash_item_set item = {.p_macro = macro};
+            struct hash_item_set item = { .p_macro = macro };
             hashmap_set(&ctx->macros, macro->name, &item);
             hash_item_set_destroy(&item);
         }
@@ -3293,9 +3330,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 if (input_list->head && strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    struct hash_item_set item = {0};
-                    item.number = 1;
-                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, &item);
+                    pragma_once_add(ctx, input_list->head->token_origin->lexeme);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                     r.tail->flags |= TK_FLAG_FINAL;
                 }
@@ -3772,8 +3807,8 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                         throw;
                     }
                     struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
-                    
-                    if (p_new_token == NULL) 
+
+                    if (p_new_token == NULL)
                     {
                         free(s);
                         token_list_destroy(&argumentlist);

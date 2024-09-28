@@ -107,3 +107,5 @@ const char* get_posix_error_message(int error);
 
 bool path_is_relative(const char* path);
 bool path_is_absolute(const char* path);
+void path_normalize(char* path);
+bool path_is_normalized(const char* path);
