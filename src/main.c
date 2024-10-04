@@ -58,6 +58,17 @@ int main(int argc, char** argv)
 {
     enable_vt_mode();
 
+#if 0
+    //Help debug emscript on desktop 
+    //MOCKFILES needs to be defined
+    const char* source = 
+        "#include <stdio.h>\n";
+
+    char* _Owner _Opt r =
+        CompileText("", source);
+    return;
+#endif
+
     //-msvc-output 
 
     /*
