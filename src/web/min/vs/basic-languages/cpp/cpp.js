@@ -17,7 +17,7 @@ define("vs/basic-languages/cpp/cpp", ["require", "require"], (require) => {
                 "_Owner", "_Out", "_Opt", "assert", "_Generic", "_View", "_Obj_owner",
                 "static_debug", "static_state", "static_set",
                 //C2Y
-                "nelementsof",
+                "_Lengthof",
                 "defer",
                 //cake extensions
                 //C23

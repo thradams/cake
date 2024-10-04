@@ -49,12 +49,12 @@ struct map_entry {
 
     union {
         size_t number;
-        struct enum_specifier* p_enum_specifier;
-        struct enumerator* p_enumerator;
-        struct struct_or_union_specifier* p_struct_or_union_specifier;
-        struct declarator* p_declarator;
-        struct init_declarator* p_init_declarator;
-        struct macro* p_macro;
+        struct enum_specifier* _Opt _Owner p_enum_specifier;
+        struct enumerator* _Opt _Owner p_enumerator;
+        struct struct_or_union_specifier* _Opt _Owner p_struct_or_union_specifier;
+        struct declarator* _Opt _Owner p_declarator;
+        struct init_declarator* _Opt _Owner p_init_declarator;
+        struct macro* _Opt _Owner p_macro;
     } data;
     
 };

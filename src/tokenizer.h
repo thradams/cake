@@ -50,6 +50,7 @@ struct preprocessor_ctx
 };
 void preprocessor_ctx_destroy( struct preprocessor_ctx* _Obj_owner p);
 
+void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_ctx* ctx);
 bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...);
 
 

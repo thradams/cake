@@ -742,6 +742,8 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
         if (p_entry &&
             p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
         {
+            assert(p_entry->data.p_enum_specifier != NULL);
+
             best = p_entry->data.p_enum_specifier;
             if (best->enumerator_list.head != NULL)
                 return best; // OK bem completo
@@ -765,6 +767,7 @@ struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct par
         if (p_entry &&
             p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
         {
+            assert(p_entry->data.p_struct_or_union_specifier != NULL);
             p = p_entry->data.p_struct_or_union_specifier;
             break;
         }
@@ -781,6 +784,7 @@ struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char
     {
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
+            assert(p_entry->data.p_init_declarator != NULL);
             struct init_declarator* p_init_declarator = p_entry->data.p_init_declarator;
             return (struct declarator*)p_init_declarator->p_declarator;
         }
@@ -844,7 +848,6 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* t
 
 bool first_of_type_name_ahead(const struct parser_ctx* ctx)
 {
-
     if (ctx->current == NULL)
         return false;
 
@@ -1125,8 +1128,6 @@ enum token_type is_keyword(const char* text)
     case 'n':
         if (strcmp("nullptr", text) == 0)
             result = TK_KEYWORD_NULLPTR;
-        else if (strcmp("nelementsof", text) == 0)
-            result = TK_KEYWORD_NELEMENTSOF;
         break;
 
     case 'l':
@@ -1219,6 +1220,8 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_View", text) == 0)
             result = TK_KEYWORD__VIEW; /*extension*/
 
+        else if (strcmp("_Lengthof", text) == 0)
+            result = TK_KEYWORD__LENGTHOF; /*C2Y*/
 
         /*TRAITS EXTENSION*/
         else if (strcmp("_is_lvalue", text) == 0)
@@ -1350,7 +1353,7 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
 }
 
 
-static struct token* _Opt pragma_match(struct token* p_current)
+static struct token* _Opt pragma_match(const struct token* p_current)
 {
     struct token* _Opt p_token = p_current->next;
     while (p_token && p_token->type == TK_BLANKS)
@@ -1376,7 +1379,10 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type == TK_PRAGMA)
         {
@@ -1554,6 +1560,11 @@ void parser_match(struct parser_ctx* ctx)
     ctx->previous = ctx->current;
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx);
+}
+
+void unexpected_end_of_file(struct parser_ctx* ctx)
+{
+    compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file");
 }
 
 NODISCARD
@@ -1812,7 +1823,10 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
         while (first_of_declaration_specifier(ctx))
         {
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             if (ctx->current->flags & TK_FLAG_IDENTIFIER_IS_TYPEDEF)
             {
@@ -1877,7 +1891,11 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             assert(p_declaration_specifiers->p_attribute_specifier_sequence_opt == NULL);
             p_declaration_specifiers->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             if (ctx->current->type == TK_IDENTIFIER &&
                 p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
@@ -1938,6 +1956,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
     {
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -1983,6 +2002,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
 
                 if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     throw;
                 }
 
@@ -1994,6 +2014,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
 
                 if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     throw;
                 }
 
@@ -2055,7 +2076,10 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx);
@@ -2106,6 +2130,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 throw;
             }
             check_func_open_brace_style(ctx, ctx->current);
@@ -2201,6 +2226,7 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
 
     if (ctx->current == NULL)
     {
+        unexpected_end_of_file(ctx);
         attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
         return NULL;
     }
@@ -2237,7 +2263,11 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
 
         p_simple_declaration->init_declarator_list = init_declarator_list(ctx, p_simple_declaration->p_declaration_specifiers);
 
-        if (ctx->current == NULL) throw;
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
         struct token* _Opt prev = previous_parser_token(ctx->current);
         if (prev == NULL) throw;
@@ -2335,9 +2365,14 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
     {
         if (p->has_shared_ownership)
         {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wmissing-destructor"
+            struct init_declarator* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
             return;
+#pragma CAKE diagnostic pop
         }
+
         initializer_delete(p->initializer);
         declarator_delete(p->p_declarator);
         assert(p->next == NULL);
@@ -2401,11 +2436,12 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
 
 
-
-        const char* name = p_init_declarator->p_declarator->name_opt->lexeme;
+        const char* _Opt name = p_init_declarator->p_declarator->name_opt->lexeme;
         if (name)
         {
             assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
+
+            assert(ctx->scopes.tail != NULL);
 
             /*
               Checking naming conventions
@@ -2433,6 +2469,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             if (previous)
             {
                 assert(out_scope != NULL);
+                assert(ctx->scopes.tail != NULL);
 
                 if (out_scope->scope_level == ctx->scopes.tail->scope_level)
                 {
@@ -2484,7 +2521,11 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             assert(false);
         }
 
-        if (ctx->current == NULL) throw;
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
         if (ctx->current->type == '=')
         {
@@ -2795,7 +2836,10 @@ struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parse
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_storage_class_specifier = calloc(1, sizeof(struct storage_class_specifier));
         if (p_storage_class_specifier == NULL)
@@ -2813,7 +2857,7 @@ struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parse
         case TK_KEYWORD_CONSTEXPR:
 
             p_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
-            if (ctx->scopes.tail->scope_level == 0)
+            if (ctx->scopes.tail && ctx->scopes.tail->scope_level == 0)
                 p_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
             break;
         case TK_KEYWORD_STATIC:
@@ -2901,7 +2945,10 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_typeof_specifier = calloc(1, sizeof(struct typeof_specifier));
         if (p_typeof_specifier == NULL)
@@ -2950,7 +2997,10 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
         p_typeof_specifier->type.name_opt = NULL;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_typeof_specifier->last_token = ctx->current;
         if (parser_match_tk(ctx, ')') != 0) throw;
@@ -3026,7 +3076,10 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_type_specifier = calloc(1, sizeof * p_type_specifier);
         if (p_type_specifier == NULL)
@@ -3313,8 +3366,12 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _
     {
         if (p->has_shared_ownership > 0)
         {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wmissing-destructor"
+            struct struct_or_union_specifier* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
             return;
+#pragma CAKE diagnostic pop           
         }
 
         member_declaration_list_destroy(&p->member_declaration_list);
@@ -3330,7 +3387,10 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
         if (p_struct_or_union_specifier == NULL)
@@ -3353,6 +3413,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -3372,6 +3433,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 /*this tag already exist in this scope*/
                 if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
                 {
+                    assert(p_entry->data.p_struct_or_union_specifier != NULL);
                     p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
                     p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
                 }
@@ -3421,6 +3483,12 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             item.p_struct_or_union_specifier = struct_or_union_specifier_add_ref(p_struct_or_union_specifier);
             hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, &item);
             hash_item_set_destroy(&item);
+        }
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
         }
 
         if (ctx->current->type == '{')
@@ -3535,6 +3603,7 @@ struct member_declarator* _Owner _Opt member_declarator(
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -3593,6 +3662,7 @@ void member_declarator_list_delete(struct member_declarator_list* _Owner _Opt p)
         free(p);
     }
 }
+
 struct member_declarator_list* _Owner _Opt member_declarator_list(
     struct parser_ctx* ctx,
     struct struct_or_union_specifier* p_struct_or_union_specifier,
@@ -3610,6 +3680,7 @@ struct member_declarator_list* _Owner _Opt member_declarator_list(
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -3617,15 +3688,16 @@ struct member_declarator_list* _Owner _Opt member_declarator_list(
         {
             parser_match(ctx);
 
-            if (ctx->current == NULL)
-            {
-                throw;
-            }
-
             struct member_declarator* _Opt _Owner p_member_declarator2 = member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list);
             if (p_member_declarator2 == NULL) throw;
 
             member_declarator_list_add(p_member_declarator_list, p_member_declarator2);
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
         }
     }
     catch
@@ -3722,6 +3794,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
     {
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -3747,6 +3820,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
 
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 throw;
             }
 
@@ -3786,9 +3860,12 @@ struct member_declarator* _Opt find_member_declarator(struct member_declaration_
 
             while (p_member_declarator)
             {
-                if (p_member_declarator->declarator->name_opt && strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
+                if (p_member_declarator->declarator)
                 {
-                    return p_member_declarator;
+                    if (p_member_declarator->declarator->name_opt && strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
+                    {
+                        return p_member_declarator;
+                    }
                 }
 
                 (*p_member_index)++;
@@ -3831,7 +3908,8 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
     }
     else if (p_specifier_qualifier_list->typedef_declarator)
     {
-        print_item(ss, first, p_specifier_qualifier_list->typedef_declarator->name_opt->lexeme);
+        if (p_specifier_qualifier_list->typedef_declarator->name_opt)
+            print_item(ss, first, p_specifier_qualifier_list->typedef_declarator->name_opt->lexeme);
     }
     else
     {
@@ -3886,7 +3964,10 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
         }
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_specifier_qualifier_list = calloc(1, sizeof(struct specifier_qualifier_list));
         if (p_specifier_qualifier_list == NULL)
@@ -4075,9 +4156,14 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
     {
         if (p->has_shared_ownership > 0)
         {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wmissing-destructor"
+            struct enum_specifier* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
             return;
+#pragma CAKE diagnostic pop
         }
+
         specifier_qualifier_list_delete(p->specifier_qualifier_list);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         enumerator_list_destroy(&p->enumerator_list);
@@ -4102,12 +4188,15 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         { enumerator-list , }
         enum identifier enum-type-specifier _Opt
     */
-    struct hash_item_set item = { 0 };
+
     struct enum_specifier* _Owner _Opt p_enum_specifier = NULL;
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
         if (p_enum_specifier == NULL)
@@ -4120,6 +4209,12 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         p_enum_specifier->attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx);
 
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
         if (ctx->current->type == TK_IDENTIFIER)
         {
@@ -4137,6 +4232,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -4156,6 +4252,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -4177,6 +4274,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 throw;
             }
 
@@ -4188,7 +4286,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, '}') != 0)
                 throw;
 
-            struct hash_item_set item = {0};
+            struct hash_item_set item = { 0 };
             item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
             hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
             p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
@@ -4207,7 +4305,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             else
             {
                 //nao existe lugar nenhum vamos adicionar
-                struct hash_item_set item = {0};
+                struct hash_item_set item = { 0 };
                 item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
                 hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
                 p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
@@ -4313,8 +4411,12 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
     {
         if (p->has_shared_ownership > 0)
         {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wmissing-destructor"
+            struct enumerator* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
             return;
+#pragma CAKE diagnostic pop
         }
         assert(p->next == NULL);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
@@ -4328,13 +4430,15 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
     long long* p_next_enumerator_value)
 {
-    // TODO VALUE
-    struct hash_item_set item = { 0 };
+    // TODO VALUE    
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_enumerator = calloc(1, sizeof(struct enumerator));
         if (p_enumerator == NULL)
@@ -4359,12 +4463,14 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
         if (ctx->current->type == '=')
         {
             parser_match(ctx);
+            assert(p_enumerator->constant_expression_opt == NULL);
             p_enumerator->constant_expression_opt = constant_expression(ctx, true);
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
@@ -4403,6 +4509,7 @@ struct alignment_specifier* _Owner _Opt alignment_specifier(struct parser_ctx* c
     {
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -4453,6 +4560,7 @@ struct atomic_type_specifier* _Owner _Opt atomic_type_specifier(struct parser_ct
     {
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -4488,7 +4596,10 @@ struct atomic_type_specifier* _Owner _Opt atomic_type_specifier(struct parser_ct
 struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
+    {
+        unexpected_end_of_file(ctx);
         return NULL;
+    }
 
     struct type_qualifier* _Owner _Opt p_type_qualifier = calloc(1, sizeof * p_type_qualifier);
 
@@ -4587,7 +4698,10 @@ struct function_specifier* _Owner _Opt function_specifier(struct parser_ctx* ctx
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type == TK_KEYWORD__NORETURN)
         {
@@ -4622,9 +4736,14 @@ void declarator_delete(struct declarator* _Owner _Opt p)
     {
         if (p->has_shared_ownership > 0)
         {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wmissing-destructor"
+            struct declarator* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
             return;
+#pragma CAKE diagnostic pop            
         }
+
         type_destroy(&p->type);
         direct_declarator_delete(p->direct_declarator);
         pointer_delete(p->pointer);
@@ -4648,7 +4767,10 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_declarator = calloc(1, sizeof(struct declarator));
         if (p_declarator == NULL) throw;
@@ -4659,7 +4781,10 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
         if (p_declarator->direct_declarator == NULL) throw;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current != p_declarator->first_token_opt)
         {
@@ -4744,7 +4869,10 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_direct_declarator = calloc(1, sizeof(struct direct_declarator));
         if (p_direct_declarator == NULL) throw;
@@ -4814,7 +4942,12 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
             else
             {
                 p_direct_declarator2->function_declarator = function_declarator(p_direct_declarator, ctx);
-                if (p_direct_declarator2->function_declarator == NULL) throw;
+                p_direct_declarator = NULL; //MOVED
+                if (p_direct_declarator2->function_declarator == NULL)
+                {
+                    direct_declarator_delete(p_direct_declarator2);
+                    throw;
+                }
             }
             p_direct_declarator = p_direct_declarator2;
         }
@@ -4877,6 +5010,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -4895,6 +5029,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -4924,6 +5059,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
         {
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 throw;
             }
 
@@ -4990,7 +5126,10 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
             throw;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type != ')')
         {
@@ -5195,7 +5334,11 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
             }
         }
 
-        if (ctx->current == NULL) throw;
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
         /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
         if (ctx->current->type == '...')
@@ -5273,6 +5416,7 @@ struct parameter_list* _Owner _Opt parameter_list(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 throw;
             }
 
@@ -5372,10 +5516,13 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             struct hash_item_set item = { 0 };
             item.p_declarator = declarator_add_ref(p_parameter_declaration->declarator);
 
+            assert(p_parameter_declaration->declarator->name_opt != NULL); //add_ref will not change that
+
             // parametro void nao te name
             hashmap_set(&ctx->scopes.tail->variables,
                 p_parameter_declaration->declarator->name_opt->lexeme,
                 &item);
+
             // print_scope(ctx->current_scope);
             hash_item_set_destroy(&item);
         }
@@ -5596,6 +5743,7 @@ struct type_name* _Owner _Opt type_name(struct parser_ctx* ctx)
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -5635,7 +5783,10 @@ struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_bracket_initializer_list = calloc(1, sizeof(struct braced_initializer));
 
@@ -5647,7 +5798,10 @@ struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx
             throw;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type != '}')
         {
@@ -5689,7 +5843,10 @@ struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_initializer = calloc(1, sizeof(struct initializer));
         if (p_initializer == NULL)
@@ -5700,10 +5857,12 @@ struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx)
         if (ctx->current->type == '{')
         {
             p_initializer->braced_initializer = braced_initializer(ctx);
+            if (p_initializer->braced_initializer == NULL) throw;
         }
         else
         {
             p_initializer->assignment_expression = assignment_expression(ctx);
+            if (p_initializer->assignment_expression == NULL) throw;
         }
     }
     catch
@@ -5757,7 +5916,10 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             return NULL;
+        }
 
         p_initializer_list = calloc(1, sizeof(struct initializer_list));
         if (p_initializer_list == NULL)
@@ -5792,7 +5954,10 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
             parser_match(ctx);
 
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             if (ctx->current->type == '}')
                 break; // follow
@@ -5949,7 +6114,10 @@ struct designator* _Owner _Opt designator(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_designator = calloc(1, sizeof(struct designator));
         if (p_designator == NULL)
@@ -6238,7 +6406,10 @@ struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_pragma_declaration = calloc(1, sizeof(struct pragma_declaration));
         if (p_pragma_declaration == NULL)
@@ -6246,13 +6417,17 @@ struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx
 
         p_pragma_declaration->first_token = ctx->current;
         parser_match(ctx);
+
         while (ctx->current && ctx->current->type != TK_PRAGMA_END)
         {
             ctx->current = ctx->current->next;
         }
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_pragma_declaration->last_token = ctx->current;
         parser_match(ctx);
@@ -6280,6 +6455,7 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
     {
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -6311,7 +6487,10 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
         p_static_assert_declaration->constant_expression = p_constant_expression;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type == ',')
         {
@@ -6325,7 +6504,10 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
             throw;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_static_assert_declaration->last_token = ctx->current;
         if (parser_match_tk(ctx, ';') != 0)
@@ -6391,7 +6573,10 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (first_of_attribute_specifier(ctx))
         {
@@ -6465,13 +6650,17 @@ void attribute_specifier_delete(struct attribute_specifier* _Owner _Opt p)
         free(p);
     }
 }
+
 struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* ctx)
 {
     struct attribute_specifier* _Owner _Opt p_attribute_specifier = NULL;
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_attribute_specifier = calloc(1, sizeof(struct attribute_specifier));
         if (p_attribute_specifier == NULL)
@@ -6495,7 +6684,10 @@ struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* c
             throw;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_attribute_specifier->last_token = ctx->current;
         if (parser_match_tk(ctx, ']') != 0)
@@ -6546,6 +6738,7 @@ void attribute_list_destroy(struct attribute_list* _Obj_owner p)
         item = next;
     }
 }
+
 void attribute_list_delete(struct attribute_list* _Owner p)
 {
     if (p)
@@ -6579,7 +6772,10 @@ struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx)
             }
 
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             if (ctx->current->type == ',')
             {
@@ -6620,7 +6816,12 @@ struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
         // attribute_token attribute_argument_clause_opt
         p_attribute->attribute_token = p_attribute_token;
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
+
+
 
         p_attribute->attributes_flags = p_attribute->attribute_token->attributes_flags;
         if (ctx->current->type == '(') // first
@@ -6654,7 +6855,10 @@ struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_attribute_token = calloc(1, sizeof(struct attribute_token));
         if (p_attribute_token == NULL)
@@ -6709,7 +6913,11 @@ struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
             compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, attr_token, NULL, "expected identifier");
         }
 
-        if (ctx->current == NULL) throw;
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
         if (ctx->current->type == '::')
         {
@@ -6720,7 +6928,10 @@ struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
             }
 
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             if (token_is_identifier_or_keyword(ctx->current->type))
             {
@@ -6761,6 +6972,7 @@ void attribute_argument_clause_delete(struct attribute_argument_clause* _Owner _
         free(p);
     }
 }
+
 struct attribute_argument_clause* _Owner _Opt  attribute_argument_clause(struct parser_ctx* ctx)
 {
     struct attribute_argument_clause* _Owner _Opt p_attribute_argument_clause = calloc(1, sizeof(struct attribute_argument_clause));
@@ -6798,6 +7010,7 @@ void balanced_token_sequence_delete(struct balanced_token_sequence* _Owner _Opt 
         free(p);
     }
 }
+
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx)
 {
     struct balanced_token_sequence* _Owner _Opt p_balanced_token_sequence = calloc(1, sizeof(struct balanced_token_sequence));
@@ -6860,6 +7073,7 @@ void statement_delete(struct statement* _Owner _Opt p)
         free(p);
     }
 }
+
 struct statement* _Owner _Opt statement(struct parser_ctx* ctx)
 {
     struct statement* _Owner _Opt p_statement = calloc(1, sizeof(struct statement));
@@ -6946,7 +7160,11 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
     struct secondary_block* _Owner _Opt p_secondary_block = NULL;
     try
     {
-        if (ctx->current == NULL) throw;
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
         check_open_brace_style(ctx, ctx->current);
 
@@ -6955,7 +7173,10 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
             throw;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_secondary_block->first_token = ctx->current;
 
@@ -7037,6 +7258,7 @@ void secondary_block_delete(struct secondary_block* _Owner _Opt p)
         free(p);
     }
 }
+
 void primary_block_delete(struct primary_block* _Owner _Opt p)
 {
     if (p)
@@ -7221,6 +7443,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
                 throw;
             }
 
+
             parser_match(ctx);
             p_label->constant_expression = constant_expression(ctx, true);
             if (p_label->constant_expression == NULL)
@@ -7400,7 +7623,10 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_compound_statement = calloc(1, sizeof(struct compound_statement));
 
@@ -7416,7 +7642,10 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
             throw;
 
         if (ctx->current == NULL)
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file");
             throw;
+        }
 
         if (ctx->current->type != '}')
         {
@@ -7427,7 +7656,10 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
         }
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_compound_statement->last_token = ctx->current;
         if (parser_match_tk(ctx, '}') != 0)
@@ -7488,6 +7720,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
         compound_statement_delete(p_compound_statement);
         p_compound_statement = NULL;
     }
+
     scope_list_pop(&ctx->scopes);
 
     scope_destroy(&block_scope);
@@ -7585,7 +7818,10 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_block_item = calloc(1, sizeof(struct block_item));
         if (p_block_item == NULL)
@@ -7600,6 +7836,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
             throw;
         }
@@ -7620,7 +7857,10 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
             parser_match(ctx);
 
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             if (ctx->current->type == '{')
             {
@@ -7645,7 +7885,10 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
             }
 
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             if (ctx->current->type == ';')
                 parser_match(ctx);
@@ -7733,7 +7976,10 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_try_statement = calloc(1, sizeof(struct try_statement));
 
@@ -7765,7 +8011,10 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
         ctx->p_current_try_statement_opt = try_statement_copy_opt;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type == TK_KEYWORD_CATCH)
         {
@@ -7830,6 +8079,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
     {
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -7855,6 +8105,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -7880,6 +8131,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -7952,6 +8204,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -8049,8 +8302,10 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
+
         struct token* _Opt p_tk = previous_parser_token(ctx->current);
         if (p_tk == NULL)
         {
@@ -8076,7 +8331,10 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_defer_statement = calloc(1, sizeof(struct defer_statement));
 
@@ -8131,7 +8389,10 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_iteration_statement = calloc(1, sizeof(struct iteration_statement));
 
@@ -8149,7 +8410,10 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             p_iteration_statement->secondary_block = p_secondary_block;
 
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             p_iteration_statement->second_token = ctx->current;
 
@@ -8191,6 +8455,9 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
 
                 if (ctx->current == NULL)
                 {
+
+                    unexpected_end_of_file(ctx);
+
                     scope_list_pop(&ctx->scopes);
                     scope_destroy(&for_scope);
                     throw;
@@ -8216,6 +8483,9 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
 
                 if (ctx->current == NULL)
                 {
+
+                    unexpected_end_of_file(ctx);
+
                     scope_list_pop(&ctx->scopes);
                     scope_destroy(&for_scope);
                     throw;
@@ -8255,7 +8525,10 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                  */
 
                 if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
                     throw;
+                }
 
                 if (ctx->current->type != ';')
                     p_iteration_statement->expression0 = expression(ctx);
@@ -8263,7 +8536,10 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                     throw;
 
                 if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
                     throw;
+                }
 
                 if (ctx->current->type != ';')
                     p_iteration_statement->expression1 = expression(ctx);
@@ -8272,7 +8548,10 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                     throw;
 
                 if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
                     throw;
+                }
 
                 if (ctx->current->type != ')')
                     p_iteration_statement->expression2 = expression(ctx);
@@ -8281,7 +8560,10 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                     throw;
 
                 if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
                     throw;
+                }
 
                 struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
                 if (p_secondary_block == NULL) throw;
@@ -8325,7 +8607,10 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_jump_statement = calloc(1, sizeof(struct jump_statement));
 
@@ -8339,7 +8624,10 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
             parser_match(ctx);
 
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             p_jump_statement->label = ctx->current;
             if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
@@ -8372,7 +8660,10 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
             parser_match(ctx);
 
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
 
             if (ctx->current->type != ';')
             {
@@ -8413,6 +8704,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
 
@@ -8455,7 +8747,10 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
             attribute_specifier_sequence_opt(ctx);
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type != ';')
         {
@@ -8526,7 +8821,10 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_condition = calloc(1, sizeof * p_condition);
         if (p_condition == NULL)
@@ -8552,12 +8850,15 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
         else
         {
             p_condition->expression = expression(ctx);
-            if (p_condition->expression == NULL) 
+            if (p_condition->expression == NULL)
                 throw;
         }
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         struct token* _Opt previous = previous_parser_token(ctx->current);
 
@@ -8718,6 +9019,7 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
             struct init_declarator* _Opt p_init_declarator = NULL;
             if (entry->type == TAG_TYPE_INIT_DECLARATOR)
             {
+                assert(entry->data.p_init_declarator != NULL);
                 p_init_declarator = entry->data.p_init_declarator;
                 p_declarator = p_init_declarator->p_declarator;
             }
@@ -8816,10 +9118,10 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
             token_list_destroy(&l1);
             token_list_destroy(&r);
             continue;
-        }
-    }
+                }
+            }
     return 0;
-}
+        }
 
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
@@ -8994,7 +9296,7 @@ int generate_config_file(const char* configpath)
                     path[len - 1] = '\0';
 
                 fprintf(outfile, "#pragma dir \"%s\"\n", p);
-}
+            }
         }
 
         fprintf(outfile, "\n");
@@ -9054,7 +9356,7 @@ int generate_config_file(const char* configpath)
             p++;
         }
 #endif
-        }
+    }
     catch
     {
     }
@@ -9067,7 +9369,7 @@ int generate_config_file(const char* configpath)
         printf("successfully generated\n");
     }
     return error;
-    }
+}
 
 int compile_one_file(const char* file_name,
     struct options* options,
@@ -9157,6 +9459,9 @@ int compile_one_file(const char* file_name,
         }
 
         tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
+
+        if (tctx.n_errors > 0)
+            throw;
 
         if (options->dump_tokens)
         {
@@ -9280,7 +9585,7 @@ int compile_one_file(const char* file_name,
                 report->error_count++;
             }
             free(content_expected);
-        }
+            }
 
         if (report->fatal_error_expected != 0)
         {
@@ -9305,7 +9610,7 @@ int compile_one_file(const char* file_name,
             report->test_succeeded++;
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }
-    }
+        }
 
     token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
@@ -9316,7 +9621,7 @@ int compile_one_file(const char* file_name,
     preprocessor_ctx_destroy(&prectx);
 
     return report->error_count > 0;
-}
+    }
 
 int compile_many_files(const char* file_name,
     struct options* options,
@@ -9478,11 +9783,11 @@ static int create_multiple_paths(const char* root, const char* outdir)
                 printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
                 return er;
             }
-    }
+        }
         if (*p == '\0')
             break;
         p++;
-}
+    }
     return 0;
 #else
     return -1;

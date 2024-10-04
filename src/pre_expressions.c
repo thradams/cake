@@ -438,6 +438,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
     {
         if (ctx->current == NULL)
         {
+            pre_unexpected_end_of_file(ctx->input_list.tail, ctx);
             throw;
         }
 
@@ -668,7 +669,7 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx, struct pre_exp
             pre_match(ctx);
             if (ctx->current == NULL)
             {
-                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED_END_OF_FILE, ctx, p_op_token, "unexpected end of file");
+                pre_unexpected_end_of_file(ctx->input_list.tail, ctx);
                 throw;
             }
             long long left_value = ectx->value;

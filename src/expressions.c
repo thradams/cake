@@ -182,9 +182,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
 bool is_enumeration_constant(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
-    {
         return false;
-    }
 
     if (ctx->current->type != TK_IDENTIFIER)
     {
@@ -301,7 +299,10 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_generic_association = calloc(1, sizeof * p_generic_association);
         if (p_generic_association == NULL)
@@ -315,7 +316,11 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
         }
         else if (first_of_type_name(ctx))
         {
@@ -348,6 +353,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
 
         if (ctx->current == NULL)
         {
+            unexpected_end_of_file(ctx);
             throw;
         }
         p_generic_association->last_token = ctx->current;
@@ -375,12 +381,19 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
         generic_assoc_list_add(&list, p_generic_association);
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         while (ctx->current->type == ',')
         {
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             struct generic_association* _Owner _Opt p_generic_association2 = generic_association(ctx);
             if (p_generic_association2 == NULL)
@@ -388,7 +401,10 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
 
             generic_assoc_list_add(&list, p_generic_association2);
             if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
                 throw;
+            }
         }
     }
     catch
@@ -464,7 +480,11 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
     struct generic_selection* _Owner _Opt p_generic_selection = NULL;
     try
     {
-        if (ctx->current == NULL) throw;
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
         p_generic_selection = calloc(1, sizeof * p_generic_selection);
         if (p_generic_selection == NULL)
@@ -541,7 +561,11 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
 
         type_destroy(&lvalue_type);
 
-        if (ctx->current == NULL) throw;
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
         p_generic_selection->last_token = ctx->current;
 
         if (parser_match_tk(ctx, ')') != 0)
@@ -565,7 +589,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_expression_node = calloc(1, sizeof * p_expression_node);
         if (p_expression_node == NULL)
@@ -781,7 +808,11 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
         }
 
         parser_match(ctx);
-        if (ctx->current == NULL) throw;
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
         // warning: character constant too long for its type
     }
@@ -796,7 +827,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled)
 {
     if (ctx->current == NULL)
+    {
+        unexpected_end_of_file(ctx);
         return 1;
+    }
 
     struct token* token = ctx->current;
 
@@ -816,7 +850,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         s++;
     }
 
-    char errormsg[100] = {0};
+    char errormsg[100] = { 0 };
     char suffix[4] = { 0 };
     enum token_type r = parse_number(buffer, suffix, errormsg);
     if (r == TK_NONE)
@@ -845,7 +879,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             break;
         case TK_COMPILER_OCTAL_CONSTANT:
             if (buffer[1] == 'o' || buffer[1] == 'O')
-            {       
+            {
                 //C2Y
                 //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
                 value = strtoull(buffer + 2, NULL, 8);
@@ -853,7 +887,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             else
             {
                 value = strtoull(buffer + 1, NULL, 8);
-            }            
+            }
             break;
         case TK_COMPILER_HEXADECIMAL_CONSTANT:
             value = strtoull(buffer + 2, NULL, 16);
@@ -995,7 +1029,10 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
     */
 
     if (ctx->current == NULL)
+    {
+        unexpected_end_of_file(ctx);
         return NULL;
+    }
 
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
@@ -1014,6 +1051,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
 
             if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
+                assert(p_entry->data.p_enumerator != NULL);
                 struct enumerator* p_enumerator = p_entry->data.p_enumerator;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = p_enumerator->value;
@@ -1034,6 +1072,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 {
                     p_declarator = p_entry->data.p_declarator;
                 }
+
+                assert(p_declarator != NULL);
 
                 if (type_is_deprecated(&p_declarator->type))
                 {
@@ -1088,7 +1128,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 throw;
             }
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
         }
         else if (ctx->current->type == TK_STRING_LITERAL)
         {
@@ -1123,7 +1167,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 //"part1" "part2" TODO check different types
                 number_of_bytes += string_literal_byte_size_not_zero_included(ctx->current->lexeme);
                 parser_match(ctx);
-                if (ctx->current == NULL) throw;
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    throw;
+                }
             }
             p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type);
         }
@@ -1150,7 +1198,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->type.type_qualifier_flags = 0;
 
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
         }
         else if (ctx->current->type == TK_KEYWORD_NULLPTR)
         {
@@ -1169,7 +1221,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->type.type_qualifier_flags = 0;
 
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
         }
         else if (is_integer_or_floating_constant(ctx->current->type))
         {
@@ -1184,7 +1240,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/);
 
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
         }
         else if (ctx->current->type == TK_KEYWORD__GENERIC)
         {
@@ -1220,7 +1280,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PARENTESIS;
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             p_expression_node->right = expression(ctx);
             if (p_expression_node->right == NULL)
@@ -1229,7 +1293,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
 
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             p_expression_node->last_token = ctx->current;
             if (parser_match_tk(ctx, ')') != 0)
@@ -1298,12 +1366,19 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
         argument_expression_list_push(&list, p_argument_expression);
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         while (ctx->current->type == ',')
         {
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             struct argument_expression* _Owner _Opt p_argument_expression_2 = calloc(1, sizeof * p_argument_expression_2);
             if (p_argument_expression_2 == NULL)
@@ -1320,7 +1395,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
-                //unexpected end of file
+                unexpected_end_of_file(ctx);
                 throw;
             }
         }
@@ -1454,6 +1529,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
+
+                    unexpected_end_of_file(ctx);
+
                     expression_delete(p_expression_node_new);
                     throw;
                 }
@@ -1516,6 +1594,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
+
+                    unexpected_end_of_file(ctx);
+
                     expression_delete(p_expression_node_new);
                     p_expression_node_new = NULL;
                     throw;
@@ -1561,6 +1642,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
+
+                    unexpected_end_of_file(ctx);
+
                     expression_delete(p_expression_node_new);
                     p_expression_node_new = NULL;
                     throw;
@@ -1789,6 +1873,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     expression_delete(p_expression_node_new);
                     p_expression_node_new = NULL;
                     throw;
@@ -1828,6 +1913,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     expression_delete(p_expression_node_new);
                     p_expression_node_new = NULL;
                     throw;
@@ -1983,7 +2069,11 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
                 p_expression_node->braced_initializer = braced_initializer(ctx);
                 if (p_expression_node->braced_initializer == NULL) throw;
-                if (ctx->current == NULL) throw;
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    throw;
+                }
 
                 p_expression_node->last_token = ctx->current;
             }
@@ -2033,6 +2123,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
+
     return first_of_postfix_expression(ctx) ||
         ctx->current->type == '++' ||
         ctx->current->type == '--' ||
@@ -2043,7 +2134,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == '~' ||
         ctx->current->type == '!' ||
         ctx->current->type == TK_KEYWORD_SIZEOF ||
-        ctx->current->type == TK_KEYWORD_NELEMENTSOF ||
+        ctx->current->type == TK_KEYWORD__LENGTHOF ||
         ctx->current->type == TK_KEYWORD__ALIGNOF ||
         is_first_of_compiler_function(ctx);
 }
@@ -2112,24 +2203,25 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 {
     /*
     unary-expression:
-      postfix-expression
-      ++ unary-expression
-      -- unary-expression
+        postfix-expression
+        ++ unary-expression
+        -- unary-expression
+        unary-operator cast-expression
+        sizeof unary-expression
+        sizeof ( type-name )
+        _Lengthof unary-expression   //C2Y
+        _Lengthof ( type-name )      //C2Y
+        alignof ( type-name )
+    */
 
-      one of (& * + - ~ !) cast-expression
-
-      sizeof unary-expression
-      sizeof ( type-name )
-      _Alignof ( type-name )
-
-
-
-      */
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
@@ -2145,6 +2237,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             if (ctx->current == NULL)
             {
+
+                unexpected_end_of_file(ctx);
+
                 expression_delete(new_expression);
                 throw;
             }
@@ -2176,6 +2271,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 throw;
             }
@@ -2488,7 +2584,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             // defer would be nice here...
 
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
@@ -2516,6 +2616,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     expression_delete(new_expression);
                     throw;
                 }
@@ -2582,7 +2683,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             /*restore*/
             ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
-        else if (ctx->current->type == TK_KEYWORD_NELEMENTSOF)//C2Y
+        else if (ctx->current->type == TK_KEYWORD__LENGTHOF)//C2Y
         {
             // defer would be nice here...
 
@@ -2595,6 +2696,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 throw;
             }
@@ -2619,6 +2721,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     expression_delete(new_expression);
                     throw;
                 }
@@ -2637,7 +2740,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         ctx,
                         new_expression->type_name->first_token,
                         NULL,
-                        "argument of nelementsof must be an array");
+                        "argument of _Lengthof must be an array");
 
                     expression_delete(new_expression);
                     throw;
@@ -2672,6 +2775,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     expression_delete(new_expression);
                     throw;
                 }
@@ -2690,7 +2794,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         ctx,
                         new_expression->right->first_token,
                         NULL,
-                        "argument of nelementsof must be an array");
+                        "argument of _Lengthof must be an array");
 
                     expression_delete(new_expression);
                     throw;
@@ -2713,6 +2817,67 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->type = type_make_size_t();
             p_expression_node = new_expression;
 
+        }
+
+        else if (ctx->current->type == TK_KEYWORD_ASSERT)
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
+            new_expression->expression_type = UNARY_EXPRESSION_ASSERT;
+            new_expression->first_token = ctx->current;
+
+            parser_match(ctx);
+
+            if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->right = expression(ctx);
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            return new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
+            new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
+            new_expression->first_token = ctx->current;
+            parser_match(ctx);
+
+            if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->type_name = type_name(ctx);
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            if (!ctx->evaluation_is_disabled)
+            {
+                new_expression->constant_value = constant_value_make_size_t(type_get_alignof(&new_expression->type_name->type));
+            }
+            new_expression->type = type_make_int();
+
+            assert(ctx->previous != NULL);
+            new_expression->last_token = ctx->previous;
+
+            p_expression_node = new_expression;
         }
         else if (
             ctx->current->type == TK_KEYWORD_IS_LVALUE ||
@@ -2741,6 +2906,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 new_expression = NULL;
                 throw;
@@ -2765,6 +2931,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 if (ctx->current == NULL)
                 {
+
+                    unexpected_end_of_file(ctx);
+
                     expression_delete(new_expression);
                     new_expression = NULL;
                     throw;
@@ -2853,69 +3022,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             /*restore*/
             ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
-        else if (ctx->current->type == TK_KEYWORD_ASSERT)
-        {
-            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
-
-            new_expression->expression_type = UNARY_EXPRESSION_ASSERT;
-            new_expression->first_token = ctx->current;
-
-            parser_match(ctx);
-
-            if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
-            {
-                expression_delete(new_expression);
-                new_expression = NULL;
-                throw;
-            }
-            new_expression->right = expression(ctx);
-
-            if (parser_match_tk(ctx, ')') != 0)
-            {
-                expression_delete(new_expression);
-                new_expression = NULL;
-                throw;
-            }
-            return new_expression;
-        }
-        else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
-        {
-            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
-
-            new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
-            new_expression->first_token = ctx->current;
-            parser_match(ctx);
-
-            if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
-            {
-                expression_delete(new_expression);
-                new_expression = NULL;
-                throw;
-            }
-            new_expression->type_name = type_name(ctx);
-            if (parser_match_tk(ctx, ')') != 0)
-            {
-                expression_delete(new_expression);
-                new_expression = NULL;
-                throw;
-            }
-
-            if (!ctx->evaluation_is_disabled)
-            {
-                new_expression->constant_value = constant_value_make_size_t(type_get_alignof(&new_expression->type_name->type));
-            }
-            new_expression->type = type_make_int();
-
-            assert(ctx->previous != NULL);
-            new_expression->last_token = ctx->previous;
-
-            p_expression_node = new_expression;
-        }
-        else if (ctx->current->type == TK_KEYWORD__ALIGNAS)
-        {
-        }
         else // if (is_first_of_primary_expression(ctx))
         {
             p_expression_node = postfix_expression(ctx);
@@ -2947,7 +3053,10 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (first_of_type_name_ahead(ctx))
         {
@@ -2976,7 +3085,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
-                //unexpected end of file
+                unexpected_end_of_file(ctx);
                 throw;
             }
 
@@ -3059,7 +3168,10 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
         }
 
         if (ctx->current == NULL || ctx->previous == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_expression_node->last_token = ctx->previous;
     }
@@ -3759,6 +3871,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 throw;
             }
@@ -3851,6 +3964,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 new_expression = NULL;
                 throw;
@@ -4054,6 +4168,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 new_expression = NULL;
                 throw;
@@ -4132,7 +4247,11 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
@@ -4148,6 +4267,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 new_expression = NULL;
                 throw;
@@ -4298,7 +4418,11 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
 
             struct token* operator_token = ctx->current;
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             if (operator_token->type == '==')
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
@@ -4314,6 +4438,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 throw;
             }
 
@@ -4368,7 +4493,11 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
         while (ctx->current != NULL && ctx->current->type == '&')
         {
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
@@ -4423,7 +4552,11 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
                (ctx->current->type == '^'))
         {
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
@@ -4629,7 +4762,11 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
         {
             struct token* operator_token = ctx->current;
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -4692,7 +4829,11 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
                (ctx->current->type == '&&'))
         {
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -4775,7 +4916,11 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
 
 
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -4873,7 +5018,11 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
 
             const struct token* const op_token = ctx->current;
             parser_match(ctx);
-            if (ctx->current == NULL) throw;
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -5059,21 +5208,31 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
     try
     {
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         p_expression_node = assignment_expression(ctx);
         if (p_expression_node == NULL)
             throw;
 
         if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
         if (ctx->current->type == ',')
         {
             while (ctx->current->type == ',')
             {
                 parser_match(ctx);
-                if (ctx->current == NULL) throw;
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    throw;
+                }
 
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL)
@@ -5096,7 +5255,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
 
                 if (ctx->current == NULL)
                 {
-                    //unexpected end of file
+                    unexpected_end_of_file(ctx);
                     throw;
                 }
             }
@@ -5183,6 +5342,9 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             parser_match(ctx); //?
             if (ctx->current == NULL)
             {
+
+                unexpected_end_of_file(ctx);
+
                 expression_delete(p_conditional_expression);
                 throw;
             }
@@ -5198,6 +5360,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             parser_match(ctx); //:
             if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(p_conditional_expression);
                 throw;
             }

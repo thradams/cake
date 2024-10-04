@@ -50,14 +50,15 @@ caso nao tenha este arquivos apt-get install uuid-dev
 bool path_is_normalized(const char* path)
 {
 #ifdef _WINDOWS_
-    for (char* p = path; *p; p++)
+    for (const char* p = path; *p; p++)
     {
-        char before = *p;
-        *p = (char)tolower(*p);
-        if (before != *p)
+        int before = *p;
+        int after = tolower(*p);
+        
+        if (before != after)
             return false;
 
-        if (*p == '\\')
+        if (after == '\\')
         {
             return false;
         }

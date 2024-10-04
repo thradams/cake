@@ -118,7 +118,7 @@ enum token_type
     TK_KEYWORD_SIGNED,
     
     TK_KEYWORD_SIZEOF,
-    TK_KEYWORD_NELEMENTSOF, //C2Y
+    TK_KEYWORD__LENGTHOF, //C2Y
 
     
     TK_KEYWORD_STATIC,
@@ -256,7 +256,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 void token_list_append_list(struct token_list* dest, struct token_list* source);
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
-char* _Owner token_list_join_tokens(struct token_list* list, bool bliteral);
+char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);
 bool token_is_blank(const struct token* _Opt p);
 bool token_is_identifier_or_keyword(enum token_type t);

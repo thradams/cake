@@ -53,7 +53,7 @@ struct objects {
 void objects_clear(struct objects* p);
 void objects_destroy(struct objects* _Obj_owner p);
 int objects_push_back(struct objects* p, struct flow_object* _Owner p_object);
-const struct flow_object* objects_find(const struct objects* p, const struct flow_object* p_object);
+const struct flow_object* _Opt objects_find(const struct objects* p, const struct flow_object* p_object);
 
 
 struct objects_view {

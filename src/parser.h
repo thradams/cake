@@ -137,7 +137,7 @@ void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx);
 
 
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
-
+void unexpected_end_of_file(struct parser_ctx* ctx);
 void parser_match(struct parser_ctx* ctx);
 NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);

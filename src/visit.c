@@ -1527,9 +1527,10 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
 
         if (constant_expression)
         {
-            assert(ctx->tail_block != NULL);
             struct osstream ss0 = { 0 };
-            print_all_defer_until_end(ctx->tail_block, &ss0);
+
+            if (ctx->tail_block)
+              print_all_defer_until_end(ctx->tail_block, &ss0);
 
             if (ss0.size > 0)
             {

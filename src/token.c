@@ -578,17 +578,20 @@ struct token* _Owner _Opt clone_token(struct token* p)
 }
 
 
-struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last) /*unchecked*/
+struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last)
 {
+    //first and last are tokens inserted at list.
 
     struct token_list r = { 0 };
 
     struct token* _Opt before_first = first->prev;
     struct token* _Owner _Opt after_last = last->next; /*MOVED*/
     last->next = NULL; /*MOVED*/
+    if (before_first)
+      before_first->next = after_last;
 
-    before_first->next = after_last;
-    after_last->prev = before_first;
+    if (after_last)
+      after_last->prev = before_first;
 
     r.head = (struct token* _Owner)first;
     first->prev = NULL;
@@ -819,140 +822,150 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
 void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format)
 {
 
-    const struct token* p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
-
-    if (p_token == NULL)
-        return;
-
-    const int line = p_marker->line;
-
-    if (!visual_studio_ouput_format)
-        COLOR_ESC_PRINT(printf(RESET));
-
-    char nbuffer[20] = { 0 };
-    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
-    printf(" %s |", nbuffer);
-
-
-    //lets find the begin of line
-    const struct token* p_line_begin = p_token;
-    while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
+    try
     {
-        p_line_begin = p_line_begin->prev;
-    }
+        const struct token* _Opt p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
 
+        if (p_token == NULL)
+            throw;
 
-    const struct token* p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
-    const struct token* p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
-
-    //only expand macros if the error is inside
-    const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
-
-    if (!visual_studio_ouput_format)
-        COLOR_ESC_PRINT(printf(LIGHTBLUE));
-
-    const struct token* _Opt p_item = p_line_begin;
-    while (p_item)
-    {
-        if (!visual_studio_ouput_format)
-        {
-            if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
-            {
-                COLOR_ESC_PRINT(printf(DARKGRAY));
-            }
-            else if (p_item->type >= TK_KEYWORD_AUTO &&
-                     p_item->type <= TK_KEYWORD_IS_INTEGRAL)
-            {
-                COLOR_ESC_PRINT(printf(BLUE));
-            }
-            else if (p_item->type == TK_COMMENT ||
-                     p_item->type == TK_LINE_COMMENT)
-            {
-                COLOR_ESC_PRINT(printf(YELLOW));
-            }
-        }
-
-        if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
-        {
-            const char* p = p_item->lexeme;
-            while (*p)
-            {
-                putc(*p, stdout);
-                p++;
-            }
-        }
+        const int line = p_marker->line;
 
         if (!visual_studio_ouput_format)
-        {
             COLOR_ESC_PRINT(printf(RESET));
+
+        char nbuffer[20] = { 0 };
+        int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
+        printf(" %s |", nbuffer);
+
+
+        //lets find the begin of line
+        const struct token* p_line_begin = p_token;
+        while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
+        {
+            p_line_begin = p_line_begin->prev;
         }
 
-        if (p_item->type == TK_NEWLINE)
-            break;
-        p_item = p_item->next;
-    }
 
-    if (!visual_studio_ouput_format)
-        COLOR_ESC_PRINT(printf(RESET));
+        const struct token* _Opt p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
+        const struct token* _Opt p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
 
-    if (p_item == NULL) printf("\n");
+        if (p_token_begin == NULL) 
+            throw;
 
-    printf(" %*s |", n, " ");
-    bool complete = false;
-    int start_col = 1;
-    int end_col = 1;
-    bool onoff = false;
-    p_item = p_line_begin;
-    while (p_item)
-    {
-        if (p_item == p_token_begin)
+
+        //only expand macros if the error is inside
+        const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
+
+        if (!visual_studio_ouput_format)
+            COLOR_ESC_PRINT(printf(LIGHTBLUE));
+
+        const struct token* _Opt p_item = p_line_begin;
+        while (p_item)
         {
             if (!visual_studio_ouput_format)
-                COLOR_ESC_PRINT(printf(LIGHTGREEN));
-            onoff = true;
-            end_col = start_col;
-        }
-
-        if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
-        {
-            const char* p = p_item->lexeme;
-            while (*p)
             {
-
-                if (onoff)
+                if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
                 {
-                    putc('~', stdout);
-                    end_col++;
+                    COLOR_ESC_PRINT(printf(DARKGRAY));
                 }
-                else
+                else if (p_item->type >= TK_KEYWORD_AUTO &&
+                         p_item->type <= TK_KEYWORD_IS_INTEGRAL)
                 {
-                    putc(' ', stdout);
-                    if (!complete) start_col++;
+                    COLOR_ESC_PRINT(printf(BLUE));
                 }
-                p++;
+                else if (p_item->type == TK_COMMENT ||
+                         p_item->type == TK_LINE_COMMENT)
+                {
+                    COLOR_ESC_PRINT(printf(YELLOW));
+                }
             }
-        }
 
-        if (p_item->type == TK_NEWLINE)
-            break;
+            if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
+            {
+                const char* p = p_item->lexeme;
+                while (*p)
+                {
+                    putc(*p, stdout);
+                    p++;
+                }
+            }
 
-        if (p_item == p_token_end)
-        {
-            complete = true;
-            onoff = false;
             if (!visual_studio_ouput_format)
+            {
                 COLOR_ESC_PRINT(printf(RESET));
+            }
+
+            if (p_item->type == TK_NEWLINE)
+                break;
+            p_item = p_item->next;
         }
 
-        p_item = p_item->next;
+        if (!visual_studio_ouput_format)
+            COLOR_ESC_PRINT(printf(RESET));
+
+        if (p_item == NULL) printf("\n");
+
+        printf(" %*s |", n, " ");
+        bool complete = false;
+        int start_col = 1;
+        int end_col = 1;
+        bool onoff = false;
+        p_item = p_line_begin;
+        while (p_item)
+        {
+            if (p_item == p_token_begin)
+            {
+                if (!visual_studio_ouput_format)
+                    COLOR_ESC_PRINT(printf(LIGHTGREEN));
+                onoff = true;
+                end_col = start_col;
+            }
+
+            if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
+            {
+                const char* p = p_item->lexeme;
+                while (*p)
+                {
+
+                    if (onoff)
+                    {
+                        putc('~', stdout);
+                        end_col++;
+                    }
+                    else
+                    {
+                        putc(' ', stdout);
+                        if (!complete) start_col++;
+                    }
+                    p++;
+                }
+            }
+
+            if (p_item->type == TK_NEWLINE)
+                break;
+
+            if (p_item == p_token_end)
+            {
+                complete = true;
+                onoff = false;
+                if (!visual_studio_ouput_format)
+                    COLOR_ESC_PRINT(printf(RESET));
+            }
+
+            p_item = p_item->next;
+        }
+
+        if (!visual_studio_ouput_format)
+            COLOR_ESC_PRINT(printf(RESET));
+
+        printf("\n");
+        p_marker->start_col = start_col;
+        p_marker->end_col = end_col;
     }
-
-    if (!visual_studio_ouput_format)
-        COLOR_ESC_PRINT(printf(RESET));
-
-    printf("\n");
-    p_marker->start_col = start_col;
-    p_marker->end_col = end_col;
+    catch
+    {
+    }
 }
 
 static void digit_sequence(struct stream* stream)
@@ -1481,3 +1494,14 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
     return p;
 }
 
+#ifdef TEST
+
+void token_list_remove_get_test()
+{
+    struct token_list list = {0};
+    struct token * pnew = calloc(1, sizeof * pnew);
+    token_list_add(&list, pnew);
+    struct token_list r  = token_list_remove_get(&list, pnew, pnew);
+}
+
+#endif

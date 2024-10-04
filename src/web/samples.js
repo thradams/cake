@@ -841,26 +841,26 @@ int main(void)
 
 `;
 
-sample["C2Y"]["nelementsof"] =
+sample["C2Y"]["_Lengthof"] =
 `
 /*
-  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3325.pdf
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf
 */
 
 void f(int n)
 {
   int v[123][n];
-  static_assert(nelementsof(v) == 123);
+  static_assert(_Lengthof(v) == 123);
 }
 
 int main()
 {
   int a[7][3];
-  int n = nelementsof(a);
-  static_assert(nelementsof(a) == 7);
+  int n = _Lengthof(a);
+  static_assert(_Lengthof(a) == 7);
 
-  int n2 = nelementsof(int [7][3]);
-  static_assert(nelementsof(int [2][3]) == 2);
+  int n2 = _Lengthof(int [7][3]);
+  static_assert(_Lengthof(int [2][3]) == 2);
 }
 
 `;
