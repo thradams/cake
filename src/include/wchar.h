@@ -1,70 +1,172 @@
-
 #pragma once
 
- int fwprintf(FILE * restrict stream, const wchar_t * restrict format, ...);
- int fwscanf(FILE * restrict stream, const wchar_t * restrict format, ...);
- int swprintf(wchar_t * restrict s, size_t n, const wchar_t * restrict format,   ...);
- int swscanf(const wchar_t * restrict s, const wchar_t * restrict format, ...);
- int vfwprintf(FILE * restrict stream, const wchar_t * restrict format,  va_list arg);
- int vfwscanf(FILE * restrict stream, const wchar_t * restrict format, va_list arg);
- int vswprintf(wchar_t * restrict s, size_t n, const wchar_t * restrict format, va_list arg);
- int vswscanf(const wchar_t * restrict s, const wchar_t * restrict format, va_list arg);
- int vwprintf(const wchar_t * restrict format, va_list arg);
- int vwscanf(const wchar_t * restrict format, va_list arg);
- int wprintf(const wchar_t * restrict format, ...);
- int wscanf(const wchar_t * restrict format, ...);
+#define WCHAR_MIN 0x0000
+#define WCHAR_MAX 0xffff
+typedef long unsigned int size_t;
+typedef int wchar_t;
 
- wint_t fgetwc(FILE *stream);
- wchar_t *fgetws(wchar_t * restrict s, int n, FILE * restrict stream);
- wint_t fputwc(wchar_t c, FILE *stream);
- int fputws(const wchar_t * restrict s, FILE * restrict stream);
- int fwide(FILE *stream, int mode);
- wint_t getwc(FILE *stream);
- wint_t getwchar(void);
- wint_t putwc(wchar_t c, FILE *stream);
- wint_t putwchar(wchar_t c);
- wint_t ungetwc(wint_t c, FILE *stream);
- long int wcstol(const wchar_t * restrict nptr, wchar_t ** restrict endptr,
-       int base);
- long long int wcstoll(const wchar_t * restrict nptr, wchar_t ** restrict endptr,
-       int base);
- unsigned long int wcstoul(const wchar_t * restrict nptr,
-       wchar_t ** restrict endptr, int base);
- unsigned long long int wcstoull(const wchar_t * restrict nptr,
-       wchar_t ** restrict endptr, int base);
- wchar_t *wcscpy(wchar_t * restrict s1, const wchar_t * restrict s2);
- wchar_t *wcsncpy(wchar_t * restrict s1, const wchar_t * restrict s2, size_t n);
- wchar_t *wmemcpy(wchar_t * restrict s1, const wchar_t * restrict s2, size_t n);
- wchar_t *wmemmove(wchar_t *s1, const wchar_t *s2, size_t n);
- wchar_t *wcscat(wchar_t * restrict s1, const wchar_t * restrict s2);
- wchar_t *wcsncat(wchar_t * restrict s1, const wchar_t * restrict s2, size_t n);
- int wcscmp(const wchar_t *s1, const wchar_t *s2);
- int wcscoll(const wchar_t *s1, const wchar_t *s2);
- int wcsncmp(const wchar_t *s1, const wchar_t *s2, size_t n);
- size_t wcsxfrm(wchar_t * restrict s1, const wchar_t * restrict s2, size_t n);
- int wmemcmp(const wchar_t *s1, const wchar_t *s2, size_t n);
- QWchar_t *wcschr(QWchar_t *s, wchar_t c);
- size_t wcscspn(const wchar_t *s1, const wchar_t *s2);
- QWchar_t *wcspbrk(QWchar_t *s1, const wchar_t *s2);
- QWchar_t *wcsrchr(QWchar_t *s, wchar_t c);
- size_t wcsspn(const wchar_t *s1, const wchar_t *s2);
- QWchar_t *wcsstr(QWchar_t *s1, const wchar_t *s2);
- wchar_t *wcstok(wchar_t * restrict s1, const wchar_t * restrict s2,
-       wchar_t ** restrict ptr);
- QWchar_t *wmemchr(QWchar_t *s, wchar_t c, size_t n);
- size_t wcslen(const wchar_t *s);
- wchar_t *wmemset(wchar_t *s, wchar_t c, size_t n);
- size_t wcsftime(wchar_t * restrict s, size_t maxsize,
-       const wchar_t * restrict format, const struct tm * restrict timeptr);
- wint_t btowc(int c);
- int wctob(wint_t c);
-  int mbsinit(const mbstate_t *ps);
- size_t mbrlen(const char * restrict s, size_t n, mbstate_t * restrict ps);
- size_t mbrtowc(wchar_t * restrict pwc, const char * restrict s, size_t n,
-       mbstate_t * restrict ps);
- size_t wcrtomb(char * restrict s, wchar_t wc, mbstate_t * restrict ps);
- size_t mbsrtowcs(wchar_t * restrict dst, const char ** restrict src, size_t len,
-       mbstate_t * restrict ps);
- size_t wcsrtombs(char * restrict dst, const wchar_t ** restrict src, size_t len,
-       mbstate_t * restrict ps);
+typedef struct
+{
+  int __count;
+  union
+  {
+    unsigned int __wch;
+    char __wchb[4];
+  } __value;
+} __mbstate_t;
+
+typedef __mbstate_t mbstate_t;
+struct _IO_FILE;
+typedef struct _IO_FILE __FILE;
+struct _IO_FILE;
+typedef struct _IO_FILE FILE;
+struct __locale_struct
+{
+
+  struct __locale_data *__locales[13];
+
+  const unsigned short int *__ctype_b;
+  const int *__ctype_tolower;
+  const int *__ctype_toupper;
+
+  const char *__names[13];
+};
+
+typedef struct __locale_struct *__locale_t;
+
+typedef __locale_t locale_t;
+
+struct tm;
+
+extern wchar_t *wcscpy (wchar_t *__restrict __dest,
+   const wchar_t *__restrict __src);
+
+extern wchar_t *wcsncpy (wchar_t *__restrict __dest,
+    const wchar_t *__restrict __src, size_t __n);
+
+extern wchar_t *wcscat (wchar_t *__restrict __dest,
+   const wchar_t *__restrict __src);
+
+extern wchar_t *wcsncat (wchar_t *__restrict __dest,
+    const wchar_t *__restrict __src, size_t __n);
+
+extern int wcscmp (const wchar_t *__s1, const wchar_t *__s2);
+
+extern int wcsncmp (const wchar_t *__s1, const wchar_t *__s2, size_t __n);
+
+extern int wcscasecmp (const wchar_t *__s1, const wchar_t *__s2);
+
+extern int wcsncasecmp (const wchar_t *__s1, const wchar_t *__s2,
+   size_t __n) ;
+
+extern int wcscasecmp_l (const wchar_t *__s1, const wchar_t *__s2,
+    locale_t __loc) ;
+
+extern int wcsncasecmp_l (const wchar_t *__s1, const wchar_t *__s2,
+     size_t __n, locale_t __loc) ;
+
+extern int wcscoll (const wchar_t *__s1, const wchar_t *__s2);
+
+extern size_t wcsxfrm (wchar_t *__restrict __s1,
+         const wchar_t *__restrict __s2, size_t __n);
+
+extern int wcscoll_l (const wchar_t *__s1, const wchar_t *__s2,
+        locale_t __loc) ;
+
+extern size_t wcsxfrm_l (wchar_t *__s1, const wchar_t *__s2,
+    size_t __n, locale_t __loc) ;
+
+extern wchar_t *wcsdup (const wchar_t *__s) ;
+extern wchar_t *wcschr (const wchar_t *__wcs, wchar_t __wc);
+extern wchar_t *wcsrchr (const wchar_t *__wcs, wchar_t __wc);
+extern size_t wcscspn (const wchar_t *__wcs, const wchar_t *__reject);
+
+extern size_t wcsspn (const wchar_t *__wcs, const wchar_t *__accept);
+extern wchar_t *wcspbrk (const wchar_t *__wcs, const wchar_t *__accept);
+extern wchar_t *wcsstr (const wchar_t *__haystack, const wchar_t *__needle);
+
+extern wchar_t *wcstok (wchar_t *__restrict __s,
+   const wchar_t *__restrict __delim,
+   wchar_t **__restrict __ptr);
+
+extern size_t wcslen (const wchar_t *__s);
+extern size_t wcsnlen (const wchar_t *__s, size_t __maxlen);
+extern wchar_t *wmemchr (const wchar_t *__s, wchar_t __c, size_t __n);
+
+extern int wmemcmp (const wchar_t *__s1, const wchar_t *__s2, size_t __n);
+
+extern wchar_t *wmemcpy (wchar_t *__restrict __s1,
+    const wchar_t *__restrict __s2, size_t __n) ;
+
+extern wchar_t *wmemmove (wchar_t *__s1, const wchar_t *__s2, size_t __n);
+
+extern wchar_t *wmemset (wchar_t *__s, wchar_t __c, size_t __n);
+extern wint_t btowc (int __c);
+
+extern int wctob (wint_t __c);
+
+extern int mbsinit (const mbstate_t *__ps);
+
+extern size_t mbrtowc (wchar_t *__restrict __pwc,
+         const char *__restrict __s, size_t __n,
+         mbstate_t *__restrict __p) ;
+
+extern size_t wcrtomb (char *__restrict __s, wchar_t __wc,
+         mbstate_t *__restrict __ps);
+
+extern size_t __mbrlen (const char *__restrict __s, size_t __n,
+   mbstate_t *__restrict __ps) ;
+extern size_t mbrlen (const char *__restrict __s, size_t __n,
+        mbstate_t *__restrict __ps) ;
+extern size_t mbsrtowcs (wchar_t *__restrict __dst,
+    const char **__restrict __src, size_t __len,
+    mbstate_t *__restrict __ps) ;
+
+extern size_t wcsrtombs (char *__restrict __dst,
+    const wchar_t **__restrict __src, size_t __len,
+    mbstate_t *__restrict __ps) ;
+
+extern size_t mbsnrtowcs (wchar_t *__restrict __dst,
+     const char **__restrict __src, size_t __nmc,
+     size_t __len, mbstate_t *__restrict __ps) ;
+
+extern size_t wcsnrtombs (char *__restrict __dst,
+     const wchar_t **__restrict __src,
+     size_t __nwc, size_t __len,
+     mbstate_t *__restrict __ps) ;
+extern double wcstod (const wchar_t *__restrict __nptr,
+        wchar_t **__restrict __endptr) ;
+
+extern float wcstof (const wchar_t *__restrict __nptr,
+       wchar_t **__restrict __endptr) ;
+extern long double wcstold (const wchar_t *__restrict __nptr,
+       wchar_t **__restrict __endptr) ;
+extern long int wcstol (const wchar_t *__restrict __nptr,
+   wchar_t **__restrict __endptr, int __base) ;
+
+extern unsigned long int wcstoul (const wchar_t *__restrict __nptr,
+      wchar_t **__restrict __endptr, int __base);
+
+extern long long int wcstoll (const wchar_t *__restrict __nptr,
+         wchar_t **__restrict __endptr, int __base);
+
+extern unsigned long long int wcstoull (const wchar_t *__restrict __nptr,
+     wchar_t **__restrict __endptr,
+     int __base) ;
+extern wchar_t *wcpcpy (wchar_t *__restrict __dest,
+   const wchar_t *__restrict __src) ;
+
+extern wchar_t *wcpncpy (wchar_t *__restrict __dest,
+    const wchar_t *__restrict __src, size_t __n);
+extern __FILE *open_wmemstream (wchar_t **__bufloc, size_t *__sizeloc);
+
+extern int fwide (__FILE *__fp, int __mode);
+
+extern int fwprintf (__FILE *__restrict __stream,
+       const wchar_t *__restrict __format, ...);
+extern int wprintf (const wchar_t *__restrict __format, ...);
+
+extern int swprintf (wchar_t *__restrict __s, size_t __n,
+       const wchar_t *__restrict __format, ...);
+
 

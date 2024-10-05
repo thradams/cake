@@ -1,11 +1,9 @@
-
 #pragma once
-
 
 int* _errno(void);
 #define errno (*_errno())
 
-// Error codes
+
 #define EPERM           1
 #define ENOENT          2
 #define ESRCH           3
@@ -42,20 +40,10 @@ int* _errno(void);
 #define ENOSYS          40
 #define ENOTEMPTY       41
 
-// Error codes used in the Secure CRT functions
-#ifndef RC_INVOKED
-#define _SECURECRT_ERRCODE_VALUES_DEFINED
-#define EINVAL          22
-#define ERANGE          34
-#define EILSEQ          42
-#define STRUNCATE       80
-#endif
 
 // Support EDEADLOCK for compatibility with older Microsoft C versions
 #define EDEADLOCK       EDEADLK
 
-// POSIX Supplement
-#ifndef _CRT_NO_POSIX_ERROR_CODES
 #define EADDRINUSE      100
 #define EADDRNOTAVAIL   101
 #define EAFNOSUPPORT    102
@@ -97,7 +85,4 @@ int* _errno(void);
 #define ETIMEDOUT       138
 #define ETXTBSY         139
 #define EWOULDBLOCK     140
-#endif // _CRT_NO_POSIX_ERROR_CODES
-
-
 

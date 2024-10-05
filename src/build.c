@@ -4,6 +4,10 @@
  WINDOWS
    cl -DTEST build.c && build
 
+   Debugging on windows: 
+   cl /Zi build.c
+   devenv /DebugExe  build.exe
+
  LINUX/MACOS
    gcc  build.c -o build && ./build
  */
@@ -139,7 +143,8 @@ int main()
 
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe");
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe");
-
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c  ../fs.c ../error.c " OUT_OPT "../embed.exe");
+    
     echo_chdir("./hoedown");
 
     execute_cmd(CC HOEDOWN_SOURCE_FILES OUT_OPT "../../hoedown.exe");
@@ -157,6 +162,8 @@ int main()
     execute_cmd(RUN "maketest.exe unit_test.c " CAKE_SOURCE_FILES);
 
     remove("maketest.exe");
+
+    execute_cmd(RUN "embed.exe \"./include\" " );
 
     execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_SOURCE_FILES);
     remove("amalgamator.exe");

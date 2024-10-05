@@ -10359,7 +10359,7 @@ bool path_is_normalized(const char* path)
     {
         int before = *p;
         int after = tolower(*p);
-        
+
         if (before != after)
             return false;
 
@@ -10789,835 +10789,871 @@ char* _Owner _Opt read_file(const char* const path)
 
 #else
 
-static const char* file_assert_h =
-"\n"
-"#ifdef NDEBUG\n"
-"#define assert(...) ((void)0)"
-"#else"
-"#define assert(...) assert(__VA_ARGS__)\n"
-"#endif\n"
-"\n"
-"";
+/*
+   used in web build
+   embeded standard headers from .\include\
+   the tool embed creates the .include version of each file 
+   in .\include\
+*/
 
-
-static const char* file_stdio_h =
-"#pragma once\n"
-"#define _IOFBF 0x0000\n"
-"#define _IOLBF 0x0040\n"
-"#define _IONBF 0x0004\n"
-"\n"
-"#define BUFSIZ  512\n"
-"\n"
-"#define EOF    (-1)\n"
-"\n"
-"#define FILENAME_MAX    260\n"
-"#define FOPEN_MAX       20\n"
-"\n"
-"#define L_tmpnam   260 // _MAX_PATH\n"
-"\n"
-"/* Seek method constants */\n"
-"\n"
-"#define SEEK_CUR    1\n"
-"#define SEEK_END    2\n"
-"#define SEEK_SET    0\n"
-"\n"
-"\n"
-"#define TMP_MAX         2147483647\n"
-"\n"
-"\n"
-"\n"
-"typedef long long fpos_t;\n"
-"typedef int FILE;\n"
-"\n"
-"extern FILE* stdin;\n"
-"extern FILE* stdout;\n"
-"extern FILE* stderr;\n"
-"\n"
-"typedef int size_t;\n"
-"typedef void* va_list;\n"
-"int remove(const char* filename);\n"
-"int rename(const char* old, const char* news);\n"
-"FILE* _Opt tmpfile(void);\n"
-"char* tmpnam(char* s);\n"
-"#if defined(__STDC_OWNERSHIP__) \n"
-"int fclose(FILE* _Owner stream);\n"
-"#else\n"
-"int fclose(FILE* stream);\n"
-"#endif\n"
-"int fflush(FILE* stream);\n"
-"#if defined(__STDC_OWNERSHIP__) \n"
-"FILE* _Owner _Opt fopen(const char* restrict filename, const char* restrict mode);\n"
-"FILE* _Owner _Opt freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
-"#else\n"
-"FILE* fopen(const char* restrict filename, const char* restrict mode);\n"
-"FILE* freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
-"#endif\n"
-"void setbuf(FILE* restrict stream, char* restrict buf);\n"
-"int setvbuf(FILE* restrict stream, char* restrict buf, int mode, size_t size);\n"
-"int fprintf(FILE* restrict stream, const char* restrict format, ...);\n"
-"int fscanf(FILE* restrict stream, const char* restrict format, ...);\n"
-"int printf(const char* restrict format, ...);\n"
-"int scanf(const char* restrict format, ...);\n"
-"int snprintf(char* restrict s, size_t n, const char* restrict format, ...);\n"
-"int sprintf(char* restrict s, const char* restrict format, ...);\n"
-"int sscanf(const char* restrict s, const char* restrict format, ...);\n"
-"int vfprintf(FILE* restrict stream, const char* restrict format, va_list arg);\n"
-"int vfscanf(FILE* restrict stream, const char* restrict format, va_list arg);\n"
-"int vprintf(const char* restrict format, va_list arg);\n"
-"int vscanf(const char* restrict format, va_list arg);\n"
-"int puts(const char* str);\n"
-"int fputs(const char* restrict s, FILE* restrict stream);\n"
-"int getc(FILE* stream);\n"
-"int getchar(void);\n"
-"int putc(int c, FILE* stream);\n"
-"int putchar(int c);\n"
-"int puts(const char* s);\n"
-"int ungetc(int c, FILE* stream);\n"
-"int fgetc(FILE* stream);\n"
-"size_t fread(void* restrict ptr, size_t size, size_t nmemb, FILE* restrict stream);\n"
-"size_t fwrite(const void* restrict ptr, size_t size, size_t nmemb, FILE* restrict stream);\n"
-"int fgetpos(FILE* restrict stream, fpos_t* restrict pos);\n"
-"int fseek(FILE* stream, long int offset, int whence);\n"
-"int fsetpos(FILE* stream, const fpos_t* pos);\n"
-"long int ftell(FILE* stream);\n"
-"void rewind(FILE* stream);\n"
-"void clearerr(FILE* stream);\n"
-"int feof(FILE* stream);\n"
-"int ferror(FILE* stream);\n"
-"void perror(const char* s);\n"
-"\n"
-"\n"
-"\n"
-"#ifndef NULL\n"
-"#define NULL ((void*)0)\n"
-"#endif\n"
-"";
-
-static const char* file_errno_h =
-"#pragma once\n"
-"\n"
-"int* _errno(void);\n"
-"#define errno (*_errno())\n"
-"\n"
-"\n"
-"#define EPERM           1\n"
-"#define ENOENT          2\n"
-"#define ESRCH           3\n"
-"#define EINTR           4\n"
-"#define EIO             5\n"
-"#define ENXIO           6\n"
-"#define E2BIG           7\n"
-"#define ENOEXEC         8\n"
-"#define EBADF           9\n"
-"#define ECHILD          10\n"
-"#define EAGAIN          11\n"
-"#define ENOMEM          12\n"
-"#define EACCES          13\n"
-"#define EFAULT          14\n"
-"#define EBUSY           16\n"
-"#define EEXIST          17\n"
-"#define EXDEV           18\n"
-"#define ENODEV          19\n"
-"#define ENOTDIR         20\n"
-"#define EISDIR          21\n"
-"#define ENFILE          23\n"
-"#define EMFILE          24\n"
-"#define ENOTTY          25\n"
-"#define EFBIG           27\n"
-"#define ENOSPC          28\n"
-"#define ESPIPE          29\n"
-"#define EROFS           30\n"
-"#define EMLINK          31\n"
-"#define EPIPE           32\n"
-"#define EDOM            33\n"
-"#define EDEADLK         36\n"
-"#define ENAMETOOLONG    38\n"
-"#define ENOLCK          39\n"
-"#define ENOSYS          40\n"
-"#define ENOTEMPTY       41\n"
-"\n"
-"\n"
-"// Support EDEADLOCK for compatibility with older Microsoft C versions\n"
-"#define EDEADLOCK       EDEADLK\n"
-"\n"
-"#define EADDRINUSE      100\n"
-"#define EADDRNOTAVAIL   101\n"
-"#define EAFNOSUPPORT    102\n"
-"#define EALREADY        103\n"
-"#define EBADMSG         104\n"
-"#define ECANCELED       105\n"
-"#define ECONNABORTED    106\n"
-"#define ECONNREFUSED    107\n"
-"#define ECONNRESET      108\n"
-"#define EDESTADDRREQ    109\n"
-"#define EHOSTUNREACH    110\n"
-"#define EIDRM           111\n"
-"#define EINPROGRESS     112\n"
-"#define EISCONN         113\n"
-"#define ELOOP           114\n"
-"#define EMSGSIZE        115\n"
-"#define ENETDOWN        116\n"
-"#define ENETRESET       117\n"
-"#define ENETUNREACH     118\n"
-"#define ENOBUFS         119\n"
-"#define ENODATA         120\n"
-"#define ENOLINK         121\n"
-"#define ENOMSG          122\n"
-"#define ENOPROTOOPT     123\n"
-"#define ENOSR           124\n"
-"#define ENOSTR          125\n"
-"#define ENOTCONN        126\n"
-"#define ENOTRECOVERABLE 127\n"
-"#define ENOTSOCK        128\n"
-"#define ENOTSUP         129\n"
-"#define EOPNOTSUPP      130\n"
-"#define EOTHER          131\n"
-"#define EOVERFLOW       132\n"
-"#define EOWNERDEAD      133\n"
-"#define EPROTO          134\n"
-"#define EPROTONOSUPPORT 135\n"
-"#define EPROTOTYPE      136\n"
-"#define ETIME           137\n"
-"#define ETIMEDOUT       138\n"
-"#define ETXTBSY         139\n"
-"#define EWOULDBLOCK     140\n"
-"\n"
-"";
+static const char file_assert_h[] = {
 
 
 
-static const char* file_string_h =
-" \n"
-"typedef int errno_t;\n"
-"typedef unsigned long long size_t;\n"
-"typedef unsigned long long rsize_t;\n"
-"typedef unsigned short wchar_t;\n"
-"void* memchr(void const* _Buf, int _Val, size_t _MaxCount);\n"
-"int memcmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
-"void* memcpy(void* _Dst, void const* _Src, size_t _Size);\n"
-"void* memmove(void* _Dst, void const* _Src, size_t _Size);\n"
-"void* memset(void* _Dst, int _Val, size_t _Size);\n"
-"char* strchr(char const* _Str, int _Val);\n"
-"char *strcpy(_Out char *restrict dest, const char *restrict src );\n"
-"char* strrchr(char const* _Str, int _Ch);\n"
-"char* strstr(char const* _Str, char const* _SubStr);\n"
-"wchar_t* wcschr(wchar_t const* _Str, wchar_t _Ch);\n"
-"wchar_t* wcsrchr(wchar_t const* _Str, wchar_t _Ch);\n"
-"wchar_t* wcsstr(wchar_t const* _Str, wchar_t const* _SubStr);\n"
-"static inline errno_t memcpy_s(void* const _Destination, rsize_t const _DestinationSize, void const* const _Source, rsize_t const _SourceSize);\n"
-"static inline errno_t memmove_s(void* const _Destination, rsize_t const _DestinationSize, void const* const _Source, rsize_t const _SourceSize);\n"
-"int _memicmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
-"void* memccpy(void* _Dst, void const* _Src, int _Val, size_t _Size);\n"
-"int memicmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
-"errno_t wcscat_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source);\n"
-"errno_t wcscpy_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source);\n"
-"errno_t wcsncat_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source, rsize_t _MaxCount);\n"
-"errno_t wcsncpy_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source, rsize_t _MaxCount);\n"
-"wchar_t* wcstok_s(wchar_t* _String, wchar_t const* _Delimiter, wchar_t** _Context);\n"
-"wchar_t* _wcsdup(wchar_t const* _String);\n"
-"wchar_t* wcscat(wchar_t* _Destination, wchar_t const* _Source); int wcscmp(wchar_t const* _String1, wchar_t const* _String2);\n"
-"wchar_t* wcscpy(wchar_t* _Destination, wchar_t const* _Source); size_t wcscspn(wchar_t const* _String, wchar_t const* _Control);\n"
-"size_t wcslen(wchar_t const* _String);\n"
-"size_t wcsnlen(wchar_t const* _Source, size_t _MaxCount);\n"
-"static inline size_t wcsnlen_s(wchar_t const* _Source, size_t _MaxCount);\n"
-"wchar_t* wcsncat(wchar_t* _Destination, wchar_t const* _Source, size_t _Count);\n"
-"int wcsncmp(wchar_t const* _String1, wchar_t const* _String2, size_t _MaxCount);\n"
-"wchar_t* wcsncpy(wchar_t* _Destination, wchar_t const* _Source, size_t _Count);\n"
-"wchar_t* wcspbrk(wchar_t const* _String, wchar_t const* _Control);\n"
-"size_t wcsspn(wchar_t const* _String, wchar_t const* _Control);\n"
-"wchar_t* wcstok(wchar_t* _String, wchar_t const* _Delimiter, wchar_t** _Context);\n"
-"size_t wcsxfrm(wchar_t* _Destination, wchar_t const* _Source, size_t _MaxCount);\n"
-"int wcscoll(wchar_t const* _String1, wchar_t const* _String2);\n"
-"wchar_t* wcsdup(wchar_t const* _String);\n"
-"int wcsicmp(wchar_t const* _String1, wchar_t const* _String2);\n"
-"int wcsnicmp(wchar_t const* _String1, wchar_t const* _String2, size_t _MaxCount);\n"
-"wchar_t* wcsnset(wchar_t* _String, wchar_t _Value, size_t _MaxCount);\n"
-"wchar_t* wcsrev(wchar_t* _String);\n"
-"wchar_t* wcsset(wchar_t* _String, wchar_t _Value);\n"
-"wchar_t* wcslwr(wchar_t* _String); wchar_t* wcsupr(wchar_t* _String);\n"
-"int wcsicoll(wchar_t const* _String1, wchar_t const* _String2);\n"
-"char* strtok_s(char* _String, char const* _Delimiter, char** _Context);\n"
-"void* _memccpy(void* _Dst, void const* _Src, int _Val, size_t _MaxCount);\n"
-"char* strcat(char* _Destination, char const* _Source);\n"
-"int strcmp(char const* _Str1, char const* _Str2);\n"
-"int strcoll(char const* _String1, char const* _String2);\n"
-"char* strerror(int _ErrorMessage);\n"
-"size_t strlen(char const* _Str);\n"
-"char* strncat(char* _Destination, char const* _Source, size_t _Count);\n"
-"int strncmp(char const* _Str1, char const* _Str2, size_t _MaxCount);\n"
-"char* strncpy(char* _Destination, char const* _Source, size_t _Count);\n"
-"size_t strnlen(char const* _String, size_t _MaxCount);\n"
-"static inline size_t strnlen_s(char const* _String, size_t _MaxCount);\n"
-"char* strpbrk(char const* _Str, char const* _Control);\n"
-"size_t strspn(char const* _Str, char const* _Control);\n"
-"char* strtok(char* _String, char const* _Delimiter);\n"
-"#if defined(__STDC_OWNERSHIP__) \n"
-"char* _Owner _Opt strdup(char const* _String);\n"
-"#else\n"
-"char* strdup(char const* _String);\n"
-"#endif\n"
-"int strcmpi(char const* _String1, char const* _String2);\n"
-"int stricmp(char const* _String1, char const* _String2);\n"
-"char* strlwr(char* _String);\n"
-"int strnicmp(char const* _String1, char const* _String2, size_t _MaxCount);\n"
-"char* strnset(char* _String, int _Value, size_t _MaxCount);\n"
-"char* strrev(char* _String);\n"
-"char* strset(char* _String, int _Value); char* strupr(char* _String);";
+35,105,102,100,101,102,32,78,68,69,66,85,71,10,35,100,101,102,105,110,101,32,97,115,115
+,101,114,116,40,46,46,46,41,32,40,40,118,111,105,100,41,48,41,10,35,101,108,115,101,10
+,35,100,101,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46,41,32,97,115,115,101,114
+,116,40,95,95,86,65,95,65,82,71,83,95,95,41,10,35,101,110,100,105,102,10
+};
+
+static const char file_stdio_h[] = {
 
 
-static const char* file_math_h
-=
-"#pragma once\n"
-"\n"
-"double acos(double __x);\n"
-"double asin(double __x);\n"
-"double atan(double __x);\n"
-"double atan2(double __y, double __x);\n"
-"double cos(double __x);\n"
-"double sin(double __x);\n"
-"double tan(double __x);\n"
-"double cosh(double __x);\n"
-"double sinh(double __x);\n"
-"double tanh(double __x);\n"
-"double acosh(double __x);\n"
-"double asinh(double __x);\n"
-"double atanh(double __x);\n"
-"double exp(double __x);\n"
-"double frexp(double __x, int* __exponent);\n"
-"double ldexp(double __x, int __exponent);\n"
-"double log(double __x);\n"
-"double log10(double __x);\n"
-"double modf(double __x, double* __iptr);\n"
-"double expm1(double __x);\n"
-"double log1p(double __x);\n"
-"double logb(double __x);\n"
-"double exp2(double __x);\n"
-"double log2(double __x);\n"
-"double pow(double __x, double __y);\n"
-"double sqrt(double __x);\n"
-"double hypot(double __x, double __y);\n"
-"double cbrt(double __x);\n"
-"double ceil(double __x);\n"
-"double fabs(double __x);\n"
-"double floor(double __x);\n"
-"double fmod(double __x, double __y);\n"
-"int isinf(double __value);\n"
-"int finite(double __value);\n"
-"double drem(double __x, double __y);\n"
-"double significand(double __x);\n"
-"double copysign(double __x, double __y);\n"
-"double nan(const char* __tagb);\n"
-"int isnan(double __value);\n"
-"double j0(double);\n"
-"double j1(double);\n"
-"double jn(int, double);\n"
-"double y0(double);\n"
-"double y1(double);\n"
-"double yn(int, double);\n"
-"double erf(double);\n"
-"double erfc(double);\n"
-"double lgamma(double);\n"
-"double tgamma(double);\n"
-"double gamma(double);\n"
-"double lgamma_r(double, int* __signgamp);\n"
-"double rint(double __x);\n"
-"double nextafter(double __x, double __y);\n"
-"double nexttoward(double __x, long double __y);\n"
-"double remainder(double __x, double __y);\n"
-"double scalbn(double __x, int __n);\n"
-"int ilogb(double __x);\n"
-"double scalbln(double __x, long int __n);\n"
-"double nearbyint(double __x);\n"
-"double round(double __x);\n"
-"double trunc(double __x);\n"
-"double remquo(double __x, double __y, int* __quo);\n"
-"long int lrint(double __x);\n"
-"long long int llround(double __x);\n"
-"double fdim(double __x, double __y);\n"
-"double fmax(double __x, double __y);\n"
-"double fmin(double __x, double __y);\n"
-"double fma(double __x, double __y, double __z);\n"
-"double scalb(double __x, double __n);\n"
-"float acosf(float __x);\n"
-"float asinf(float __x);\n"
-"float atanf(float __x);\n"
-"float atan2f(float __y, float __x);\n"
-"float cosf(float __x);\n"
-"float sinf(float __x);\n"
-"float tanf(float __x);\n"
-"float coshf(float __x);\n"
-"float sinhf(float __x);\n"
-"float tanhf(float __x);\n"
-"float acoshf(float __x);\n"
-"float asinhf(float __x);\n"
-"float atanhf(float __x);\n"
-"float expf(float __x);\n"
-"float frexpf(float __x, int* __exponent);\n"
-"float ldexpf(float __x, int __exponent);\n"
-"float logf(float __x);\n"
-"float log10f(float __x); float __log10f(float __x);\n"
-"float modff(float __x, float* __iptr);\n"
-"float expm1f(float __x);\n"
-"float log1pf(float __x);\n"
-"float logbf(float __x);\n"
-"float exp2f(float __x);\n"
-"float log2f(float __x);\n"
-"float powf(float __x, float __y);\n"
-"float sqrtf(float __x);\n"
-"float hypotf(float __x, float __y);\n"
-"float cbrtf(float __x);\n"
-"float ceilf(float __x);\n"
-"float fabsf(float __x);\n"
-"float floorf(float __x);\n"
-"float fmodf(float __x, float __y); \n"
-"int isinff(float __value);\n"
-"int finitef(float __value);\n"
-"float dremf(float __x, float __y);\n"
-"float significandf(float __x); \n"
-"float copysignf(float __x, float __y); \n"
-"float nanf(const char* __tagb); \n"
-"int isnanf(float __value);\n"
-"float j0f(float); \n"
-"float j1f(float); \n"
-"float jnf(int, float); \n"
-"float y0f(float); \n"
-"float y1f(float); \n"
-"float ynf(int, float); \n"
-"float erff(float); \n"
-"float erfcf(float);\n"
-"float lgammaf(float);\n"
-"float tgammaf(float);\n"
-"float gammaf(float); \n"
-"float lgammaf_r(float, int* __signgamp); \n"
-"float rintf(float __x); \n"
-"float nextafterf(float __x, float __y); \n"
-"float nexttowardf(float __x, long double __y); \n"
-"float remainderf(float __x, float __y); \n"
-"float scalbnf(float __x, int __n); \n"
-"int ilogbf(float __x); \n"
-"float scalblnf(float __x, long int __n); \n"
-"float nearbyintf(float __x); \n"
-"float roundf(float __x); \n"
-"float truncf(float __x); \n"
-"float remquof(float __x, float __y, int* __quo); \n"
-"long int lrintf(float __x); \n"
-"long long int llroundf(float __x); \n"
-"float fdimf(float __x, float __y);\n"
-"float fmaxf(float __x, float __y); \n"
-"float fminf(float __x, float __y);\n"
-"float fmaf(float __x, float __y, float __z); \n"
-"float scalbf(float __x, float __n); \n"
-"long double acosl(long double __x); \n"
-"long double asinl(long double __x); \n"
-"long double atanl(long double __x); \n"
-"long double atan2l(long double __y, long double __x); \n"
-"long double cosl(long double __x); \n"
-"long double sinl(long double __x); \n"
-"long double tanl(long double __x); \n"
-"long double coshl(long double __x);\n"
-"long double sinhl(long double __x);\n"
-"long double tanhl(long double __x);\n"
-"long double acoshl(long double __x); \n"
-"long double asinhl(long double __x); \n"
-"long double atanhl(long double __x); \n"
-"long double expl(long double __x); \n"
-"long double frexpl(long double __x, int* __exponent); \n"
-"long double ldexpl(long double __x, int __exponent); \n"
-"long double logl(long double __x); \n"
-"long double log10l(long double __x); \n"
-"long double modfl(long double __x, long double* __iptr); \n"
-"long double expm1l(long double __x); \n"
-"long double log1pl(long double __x); \n"
-"long double logbl(long double __x); \n"
-"long double exp2l(long double __x); \n"
-"long double log2l(long double __x); \n"
-"long double powl(long double __x, long double __y); \n"
-"long double sqrtl(long double __x); \n"
-"long double hypotl(long double __x, long double __y); \n"
-"long double cbrtl(long double __x); \n"
-"long double ceill(long double __x); \n"
-"long double fabsl(long double __x); \n"
-"long double floorl(long double __x);\n"
-"long double fmodl(long double __x, long double __y); \n"
-"int isinfl(long double __value);\n"
-"int finitel(long double __value);\n"
-"long double dreml(long double __x, long double __y); \n"
-"long double significandl(long double __x); \n"
-"long double copysignl(long double __x, long double __y); \n"
-"long double nanl(const char* __tagb); \n"
-"int isnanl(long double __value);\n"
-"long double j0l(long double); \n"
-"long double j1l(long double); \n"
-"long double jnl(int, long double);\n"
-"long double y0l(long double); \n"
-"long double y1l(long double); \n"
-"long double ynl(int, long double);\n"
-"long double erfl(long double); \n"
-"long double erfcl(long double);\n"
-"long double lgammal(long double); \n"
-"long double tgammal(long double); \n"
-"long double gammal(long double); \n"
-"long double lgammal_r(long double, int* __signgamp); \n"
-"long double rintl(long double __x); \n"
-"long double nextafterl(long double __x, long double __y); \n"
-"long double nexttowardl(long double __x, long double __y);\n"
-"long double remainderl(long double __x, long double __y); \n"
-"long double scalbnl(long double __x, int __n); \n"
-"int ilogbl(long double __x); \n"
-"long double scalblnl(long double __x, long int __n); \n"
-"long double nearbyintl(long double __x);\n"
-"long double roundl(long double __x);\n"
-"long double truncl(long double __x);\n"
-"long double remquol(long double __x, long double __y, int* __quo);\n"
-"long int lrintl(long double __x);\n"
-"long long int llroundl(long double __x);\n"
-"long double fdiml(long double __x, long double __y);\n"
-"long double fmaxl(long double __x, long double __y);\n"
-"long double fminl(long double __x, long double __y);\n"
-"long double fmal(long double __x, long double __y, long double __z);\n"
-"long double scalbl(long double __x, long double __n);\n"
-"";
 
-static const char* file_stdlib_h =
-"typedef long long fpos_t;\n"
-"typedef unsigned size_t;\n"
-"\n"
-"#define EXIT_SUCCESS 0\n"
-"#define EXIT_FAILURE 1\n"
-"#define NULL ((void*)0)\n"
-"typedef int wchar_t;\n"
-"[[nodiscard]] double atof(const char* nptr);\n"
-"[[nodiscard]] int atoi(const char* nptr);\n"
-"[[nodiscard]] long int atol(const char* nptr);\n"
-"[[nodiscard]] long long int atoll(const char* nptr);\n"
-"double strtod(const char* restrict nptr, char** restrict endptr);\n"
-"float strtof(const char* restrict nptr, char** restrict endptr);\n"
-"long double strtold(const char* restrict nptr, char** restrict endptr);\n"
-"long int strtol(const char* restrict nptr, char** restrict endptr, int base);\n"
-"long long int strtoll(const char* restrict nptr, char** restrict endptr, int base);\n"
-"unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int base);\n"
-"unsigned long long int strtoull(const char* restrict nptr, char** restrict endptr, int base);\n"
-"int rand(void);\n"
-"void srand(unsigned int seed);\n"
-"void* aligned_alloc(size_t alignment, size_t size);\n"
-"#if defined(__STDC_OWNERSHIP__) \n"
-"[[nodiscard]] void* _Owner _Opt calloc(size_t nmemb, size_t size);\n"
-"void free(void* _Owner _Opt ptr);\n"
-"[[nodiscard]] void* _Owner _Opt malloc(size_t size);\n"
-"[[nodiscard]] void* _Owner _Opt realloc(void* _Opt ptr, size_t size);\n"
-"#else\n"
-"[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
-"void free(void* ptr);\n"
-"[[nodiscard]] void* malloc(size_t size);\n"
-"[[nodiscard]] void* realloc(void* ptr, size_t size);\n"
-"#endif\n"
-"[[noreturn]] void abort(void);\n"
-"int atexit(void (*func)(void));\n"
-"int at_quick_exit(void (*func)(void));\n"
-"[[noreturn]] void exit(int status);\n"
-"[[noreturn]] void _Exit(int status);\n"
-"char* getenv(const char* name);\n"
-"[[noreturn]] void quick_exit(int status);\n"
-"int system(const char* string);";
+35,112,114,97,103,109,97,32,111,110,99,101,10,35,100,101,102,105,110,101,32,95,73,79,70
+,66,70,32,48,120,48,48,48,48,10,35,100,101,102,105,110,101,32,95,73,79,76,66,70,32
+,48,120,48,48,52,48,10,35,100,101,102,105,110,101,32,95,73,79,78,66,70,32,48,120,48
+,48,48,52,10,10,35,100,101,102,105,110,101,32,66,85,70,83,73,90,32,32,53,49,50,10
+,10,35,100,101,102,105,110,101,32,69,79,70,32,32,32,32,40,45,49,41,10,10,35,100,101
+,102,105,110,101,32,70,73,76,69,78,65,77,69,95,77,65,88,32,32,32,32,50,54,48,10
+,35,100,101,102,105,110,101,32,70,79,80,69,78,95,77,65,88,32,32,32,32,32,32,32,50
+,48,10,10,35,100,101,102,105,110,101,32,76,95,116,109,112,110,97,109,32,32,32,50,54,48
+,32,47,47,32,95,77,65,88,95,80,65,84,72,10,10,47,42,32,83,101,101,107,32,109,101
+,116,104,111,100,32,99,111,110,115,116,97,110,116,115,32,42,47,10,10,35,100,101,102,105,110
+,101,32,83,69,69,75,95,67,85,82,32,32,32,32,49,10,35,100,101,102,105,110,101,32,83
+,69,69,75,95,69,78,68,32,32,32,32,50,10,35,100,101,102,105,110,101,32,83,69,69,75
+,95,83,69,84,32,32,32,32,48,10,10,10,35,100,101,102,105,110,101,32,84,77,80,95,77
+,65,88,32,32,32,32,32,32,32,32,32,50,49,52,55,52,56,51,54,52,55,10,10,10,10
+,116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103,32,102,112,111,115,95,116,59
+,10,116,121,112,101,100,101,102,32,105,110,116,32,70,73,76,69,59,10,10,101,120,116,101,114
+,110,32,70,73,76,69,42,32,115,116,100,105,110,59,10,101,120,116,101,114,110,32,70,73,76
+,69,42,32,115,116,100,111,117,116,59,10,101,120,116,101,114,110,32,70,73,76,69,42,32,115
+,116,100,101,114,114,59,10,10,116,121,112,101,100,101,102,32,105,110,116,32,115,105,122,101,95
+,116,59,10,116,121,112,101,100,101,102,32,118,111,105,100,42,32,118,97,95,108,105,115,116,59
+,10,105,110,116,32,114,101,109,111,118,101,40,99,111,110,115,116,32,99,104,97,114,42,32,102
+,105,108,101,110,97,109,101,41,59,10,105,110,116,32,114,101,110,97,109,101,40,99,111,110,115
+,116,32,99,104,97,114,42,32,111,108,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32
+,110,101,119,115,41,59,10,70,73,76,69,42,32,95,79,112,116,32,116,109,112,102,105,108,101
+,40,118,111,105,100,41,59,10,99,104,97,114,42,32,116,109,112,110,97,109,40,99,104,97,114
+,42,32,115,41,59,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95,83,84,68,67,95
+,79,87,78,69,82,83,72,73,80,95,95,41,32,10,105,110,116,32,102,99,108,111,115,101,40
+,70,73,76,69,42,32,95,79,119,110,101,114,32,115,116,114,101,97,109,41,59,10,35,101,108
+,115,101,10,105,110,116,32,102,99,108,111,115,101,40,70,73,76,69,42,32,115,116,114,101,97
+,109,41,59,10,35,101,110,100,105,102,10,105,110,116,32,102,102,108,117,115,104,40,70,73,76
+,69,42,32,115,116,114,101,97,109,41,59,10,35,105,102,32,100,101,102,105,110,101,100,40,95
+,95,83,84,68,67,95,79,87,78,69,82,83,72,73,80,95,95,41,32,10,70,73,76,69,42
+,32,95,79,119,110,101,114,32,95,79,112,116,32,102,111,112,101,110,40,99,111,110,115,116,32
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108,101,110,97,109,101,44,32
+,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,109,111,100,101
+,41,59,10,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112,116,32,102,114,101,111
+,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,102,105,108,101,110,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,109,111,100,101,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99
+,116,32,115,116,114,101,97,109,41,59,10,35,101,108,115,101,10,70,73,76,69,42,32,102,111
+,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,102,105,108,101,110,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,109,111,100,101,41,59,10,70,73,76,69,42,32,102,114,101,111,112,101
+,110,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105
+,108,101,110,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
+,105,99,116,32,109,111,100,101,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32
+,115,116,114,101,97,109,41,59,10,35,101,110,100,105,102,10,118,111,105,100,32,115,101,116,98
+,117,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44
+,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,98,117,102,41,59,10,105,110,116
+,32,115,101,116,118,98,117,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115
+,116,114,101,97,109,44,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,98,117,102
+,44,32,105,110,116,32,109,111,100,101,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59
+,10,105,110,116,32,102,112,114,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105
+,99,116,32,115,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101
+,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32
+,102,115,99,97,110,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114
+,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,112,114,105,110,116,102
+,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114
+,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,115,99,97,110,102,40,99,111,110,115
+,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32
+,46,46,46,41,59,10,105,110,116,32,115,110,112,114,105,110,116,102,40,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,115,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110
+,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44
+,32,46,46,46,41,59,10,105,110,116,32,115,112,114,105,110,116,102,40,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114
+,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116
+,32,115,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
+,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105
+,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,10,105,110,116,32,118,102,112,114
+,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97
+,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102
+,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105,110,116,32
+,118,102,115,99,97,110,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116
+,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,10,105
+,110,116,32,118,112,114,105,110,116,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101
+,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114
+,103,41,59,10,105,110,116,32,118,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114
+,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115
+,116,32,97,114,103,41,59,10,105,110,116,32,112,117,116,115,40,99,111,110,115,116,32,99,104
+,97,114,42,32,115,116,114,41,59,10,105,110,116,32,102,112,117,116,115,40,99,111,110,115,116
+,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,70,73,76,69,42,32
+,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59,10,105,110,116,32,103,101,116
+,99,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,103,101,116,99
+,104,97,114,40,118,111,105,100,41,59,10,105,110,116,32,112,117,116,99,40,105,110,116,32,99
+,44,32,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,112,117,116,99
+,104,97,114,40,105,110,116,32,99,41,59,10,105,110,116,32,112,117,116,115,40,99,111,110,115
+,116,32,99,104,97,114,42,32,115,41,59,10,105,110,116,32,117,110,103,101,116,99,40,105,110
+,116,32,99,44,32,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102
+,103,101,116,99,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,10,115,105,122,101,95
+,116,32,102,114,101,97,100,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,112,116
+,114,44,32,115,105,122,101,95,116,32,115,105,122,101,44,32,115,105,122,101,95,116,32,110,109
+,101,109,98,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97
+,109,41,59,10,115,105,122,101,95,116,32,102,119,114,105,116,101,40,99,111,110,115,116,32,118
+,111,105,100,42,32,114,101,115,116,114,105,99,116,32,112,116,114,44,32,115,105,122,101,95,116
+,32,115,105,122,101,44,32,115,105,122,101,95,116,32,110,109,101,109,98,44,32,70,73,76,69
+,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102
+,103,101,116,112,111,115,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114
+,101,97,109,44,32,102,112,111,115,95,116,42,32,114,101,115,116,114,105,99,116,32,112,111,115
+,41,59,10,105,110,116,32,102,115,101,101,107,40,70,73,76,69,42,32,115,116,114,101,97,109
+,44,32,108,111,110,103,32,105,110,116,32,111,102,102,115,101,116,44,32,105,110,116,32,119,104
+,101,110,99,101,41,59,10,105,110,116,32,102,115,101,116,112,111,115,40,70,73,76,69,42,32
+,115,116,114,101,97,109,44,32,99,111,110,115,116,32,102,112,111,115,95,116,42,32,112,111,115
+,41,59,10,108,111,110,103,32,105,110,116,32,102,116,101,108,108,40,70,73,76,69,42,32,115
+,116,114,101,97,109,41,59,10,118,111,105,100,32,114,101,119,105,110,100,40,70,73,76,69,42
+,32,115,116,114,101,97,109,41,59,10,118,111,105,100,32,99,108,101,97,114,101,114,114,40,70
+,73,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,101,111,102,40,70,73
+,76,69,42,32,115,116,114,101,97,109,41,59,10,105,110,116,32,102,101,114,114,111,114,40,70
+,73,76,69,42,32,115,116,114,101,97,109,41,59,10,118,111,105,100,32,112,101,114,114,111,114
+,40,99,111,110,115,116,32,99,104,97,114,42,32,115,41,59,10,10,10,10,35,105,102,110,100
+,101,102,32,78,85,76,76,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111
+,105,100,42,41,48,41,10,35,101,110,100,105,102,10
+};
 
-static const char* file_stddef_h =
-"\n"
-"#define unreachable() do {} while(0) \n"
-"typedef long int ptrdiff_t;\n"
-"typedef long unsigned int size_t;\n"
-"typedef int wchar_t;\n"
-"typedef struct {\n"
-"  long long __max_align_ll;\n"
-"  long double __max_align_ld;\n"
-"} max_align_t;\n"
-"\n"
-"typedef typeof(nullptr) nullptr_t;\n"
-"\n";
+static const char file_errno_h[] = {
 
 
-const char* file_limits_h =
-"//\n"
-"#pragma once\n"
-"#define CHAR_BIT      8\n"
-"#define SCHAR_MIN   (-128)\n"
-"#define SCHAR_MAX     127\n"
-"#define UCHAR_MAX     0xff\n"
-"\n"
-"#ifndef _CHAR_UNSIGNED\n"
-"    #define CHAR_MIN    SCHAR_MIN\n"
-"    #define CHAR_MAX    SCHAR_MAX\n"
-"#else\n"
-"    #define CHAR_MIN    0\n"
-"    #define CHAR_MAX    UCHAR_MAX\n"
-"#endif\n"
-"\n"
-"#define MB_LEN_MAX    5\n"
-"#define SHRT_MIN    (-32768)\n"
-"#define SHRT_MAX      32767\n"
-"#define USHRT_MAX     0xffff\n"
-"#define INT_MIN     (-2147483647 - 1)\n"
-"#define INT_MAX       2147483647\n"
-"#define UINT_MAX      0xffffffff\n"
-"#define LONG_MIN    (-2147483647L - 1)\n"
-"#define LONG_MAX      2147483647L\n"
-"#define ULONG_MAX     0xffffffffUL\n"
-"#define LLONG_MAX     9223372036854775807i64\n"
-"#define LLONG_MIN   (-9223372036854775807i64 - 1)\n"
-"#define ULLONG_MAX    0xffffffffffffffffui64\n"
-"\n"
-"#define _I8_MIN     (-127i8 - 1)\n"
-"#define _I8_MAX       127i8\n"
-"#define _UI8_MAX      0xffui8\n"
-"\n"
-"#define _I16_MIN    (-32767i16 - 1)\n"
-"#define _I16_MAX      32767i16\n"
-"#define _UI16_MAX     0xffffui16\n"
-"\n"
-"#define _I32_MIN    (-2147483647i32 - 1)\n"
-"#define _I32_MAX      2147483647i32\n"
-"#define _UI32_MAX     0xffffffffui32\n"
-"\n"
-"#define _I64_MIN    (-9223372036854775807i64 - 1)\n"
-"#define _I64_MAX      9223372036854775807i64\n"
-"#define _UI64_MAX     0xffffffffffffffffui64\n"
-"        #define SIZE_MAX 0xffffffff\n"
-"";
 
-const char* file_locale_h =
-"#pragma once\n"
-"typedef int wchar_t;\n"
-"// Locale categories\n"
-"#define LC_ALL          0\n"
-"#define LC_COLLATE      1\n"
-"#define LC_CTYPE        2\n"
-"#define LC_MONETARY     3\n"
-"#define LC_NUMERIC      4\n"
-"#define LC_TIME         5\n"
-"\n"
-"#define LC_MIN          LC_ALL\n"
-"#define LC_MAX          LC_TIME\n"
-"\n"
-"// Locale convention structure\n"
-"struct lconv\n"
-"{\n"
-"    char*    decimal_point;\n"
-"    char*    thousands_sep;\n"
-"    char*    grouping;\n"
-"    char*    int_curr_symbol;\n"
-"    char*    currency_symbol;\n"
-"    char*    mon_decimal_point;\n"
-"    char*    mon_thousands_sep;\n"
-"    char*    mon_grouping;\n"
-"    char*    positive_sign;\n"
-"    char*    negative_sign;\n"
-"    char     int_frac_digits;\n"
-"    char     frac_digits;\n"
-"    char     p_cs_precedes;\n"
-"    char     p_sep_by_space;\n"
-"    char     n_cs_precedes;\n"
-"    char     n_sep_by_space;\n"
-"    char     p_sign_posn;\n"
-"    char     n_sign_posn;\n"
-"    wchar_t* _W_decimal_point;\n"
-"    wchar_t* _W_thousands_sep;\n"
-"    wchar_t* _W_int_curr_symbol;\n"
-"    wchar_t* _W_currency_symbol;\n"
-"    wchar_t* _W_mon_decimal_point;\n"
-"    wchar_t* _W_mon_thousands_sep;\n"
-"    wchar_t* _W_positive_sign;\n"
-"    wchar_t* _W_negative_sign;\n"
-"};\n"
-"\n"
-"struct tm;\n"
-"\n"
-"    char* setlocale(\n"
-"        int         _Category,\n"
-"        char const* _Locale\n"
-"        );\n"
-"\n"
-"    struct lconv* localeconv(void);\n"
-"";
+35,112,114,97,103,109,97,32,111,110,99,101,10,10,105,110,116,42,32,95,101,114,114,110,111
+,40,118,111,105,100,41,59,10,35,100,101,102,105,110,101,32,101,114,114,110,111,32,40,42,95
+,101,114,114,110,111,40,41,41,10,10,10,35,100,101,102,105,110,101,32,69,80,69,82,77,32
+,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,69,78,79,69,78
+,84,32,32,32,32,32,32,32,32,32,32,50,10,35,100,101,102,105,110,101,32,69,83,82,67
+,72,32,32,32,32,32,32,32,32,32,32,32,51,10,35,100,101,102,105,110,101,32,69,73,78
+,84,82,32,32,32,32,32,32,32,32,32,32,32,52,10,35,100,101,102,105,110,101,32,69,73
+,79,32,32,32,32,32,32,32,32,32,32,32,32,32,53,10,35,100,101,102,105,110,101,32,69
+,78,88,73,79,32,32,32,32,32,32,32,32,32,32,32,54,10,35,100,101,102,105,110,101,32
+,69,50,66,73,71,32,32,32,32,32,32,32,32,32,32,32,55,10,35,100,101,102,105,110,101
+,32,69,78,79,69,88,69,67,32,32,32,32,32,32,32,32,32,56,10,35,100,101,102,105,110
+,101,32,69,66,65,68,70,32,32,32,32,32,32,32,32,32,32,32,57,10,35,100,101,102,105
+,110,101,32,69,67,72,73,76,68,32,32,32,32,32,32,32,32,32,32,49,48,10,35,100,101
+,102,105,110,101,32,69,65,71,65,73,78,32,32,32,32,32,32,32,32,32,32,49,49,10,35
+,100,101,102,105,110,101,32,69,78,79,77,69,77,32,32,32,32,32,32,32,32,32,32,49,50
+,10,35,100,101,102,105,110,101,32,69,65,67,67,69,83,32,32,32,32,32,32,32,32,32,32
+,49,51,10,35,100,101,102,105,110,101,32,69,70,65,85,76,84,32,32,32,32,32,32,32,32
+,32,32,49,52,10,35,100,101,102,105,110,101,32,69,66,85,83,89,32,32,32,32,32,32,32
+,32,32,32,32,49,54,10,35,100,101,102,105,110,101,32,69,69,88,73,83,84,32,32,32,32
+,32,32,32,32,32,32,49,55,10,35,100,101,102,105,110,101,32,69,88,68,69,86,32,32,32
+,32,32,32,32,32,32,32,32,49,56,10,35,100,101,102,105,110,101,32,69,78,79,68,69,86
+,32,32,32,32,32,32,32,32,32,32,49,57,10,35,100,101,102,105,110,101,32,69,78,79,84
+,68,73,82,32,32,32,32,32,32,32,32,32,50,48,10,35,100,101,102,105,110,101,32,69,73
+,83,68,73,82,32,32,32,32,32,32,32,32,32,32,50,49,10,35,100,101,102,105,110,101,32
+,69,78,70,73,76,69,32,32,32,32,32,32,32,32,32,32,50,51,10,35,100,101,102,105,110
+,101,32,69,77,70,73,76,69,32,32,32,32,32,32,32,32,32,32,50,52,10,35,100,101,102
+,105,110,101,32,69,78,79,84,84,89,32,32,32,32,32,32,32,32,32,32,50,53,10,35,100
+,101,102,105,110,101,32,69,70,66,73,71,32,32,32,32,32,32,32,32,32,32,32,50,55,10
+,35,100,101,102,105,110,101,32,69,78,79,83,80,67,32,32,32,32,32,32,32,32,32,32,50
+,56,10,35,100,101,102,105,110,101,32,69,83,80,73,80,69,32,32,32,32,32,32,32,32,32
+,32,50,57,10,35,100,101,102,105,110,101,32,69,82,79,70,83,32,32,32,32,32,32,32,32
+,32,32,32,51,48,10,35,100,101,102,105,110,101,32,69,77,76,73,78,75,32,32,32,32,32
+,32,32,32,32,32,51,49,10,35,100,101,102,105,110,101,32,69,80,73,80,69,32,32,32,32
+,32,32,32,32,32,32,32,51,50,10,35,100,101,102,105,110,101,32,69,68,79,77,32,32,32
+,32,32,32,32,32,32,32,32,32,51,51,10,35,100,101,102,105,110,101,32,69,68,69,65,68
+,76,75,32,32,32,32,32,32,32,32,32,51,54,10,35,100,101,102,105,110,101,32,69,78,65
+,77,69,84,79,79,76,79,78,71,32,32,32,32,51,56,10,35,100,101,102,105,110,101,32,69
+,78,79,76,67,75,32,32,32,32,32,32,32,32,32,32,51,57,10,35,100,101,102,105,110,101
+,32,69,78,79,83,89,83,32,32,32,32,32,32,32,32,32,32,52,48,10,35,100,101,102,105
+,110,101,32,69,78,79,84,69,77,80,84,89,32,32,32,32,32,32,32,52,49,10,10,10,47
+,47,32,83,117,112,112,111,114,116,32,69,68,69,65,68,76,79,67,75,32,102,111,114,32,99
+,111,109,112,97,116,105,98,105,108,105,116,121,32,119,105,116,104,32,111,108,100,101,114,32,77
+,105,99,114,111,115,111,102,116,32,67,32,118,101,114,115,105,111,110,115,10,35,100,101,102,105
+,110,101,32,69,68,69,65,68,76,79,67,75,32,32,32,32,32,32,32,69,68,69,65,68,76
+,75,10,10,35,100,101,102,105,110,101,32,69,65,68,68,82,73,78,85,83,69,32,32,32,32
+,32,32,49,48,48,10,35,100,101,102,105,110,101,32,69,65,68,68,82,78,79,84,65,86,65
+,73,76,32,32,32,49,48,49,10,35,100,101,102,105,110,101,32,69,65,70,78,79,83,85,80
+,80,79,82,84,32,32,32,32,49,48,50,10,35,100,101,102,105,110,101,32,69,65,76,82,69
+,65,68,89,32,32,32,32,32,32,32,32,49,48,51,10,35,100,101,102,105,110,101,32,69,66
+,65,68,77,83,71,32,32,32,32,32,32,32,32,32,49,48,52,10,35,100,101,102,105,110,101
+,32,69,67,65,78,67,69,76,69,68,32,32,32,32,32,32,32,49,48,53,10,35,100,101,102
+,105,110,101,32,69,67,79,78,78,65,66,79,82,84,69,68,32,32,32,32,49,48,54,10,35
+,100,101,102,105,110,101,32,69,67,79,78,78,82,69,70,85,83,69,68,32,32,32,32,49,48
+,55,10,35,100,101,102,105,110,101,32,69,67,79,78,78,82,69,83,69,84,32,32,32,32,32
+,32,49,48,56,10,35,100,101,102,105,110,101,32,69,68,69,83,84,65,68,68,82,82,69,81
+,32,32,32,32,49,48,57,10,35,100,101,102,105,110,101,32,69,72,79,83,84,85,78,82,69
+,65,67,72,32,32,32,32,49,49,48,10,35,100,101,102,105,110,101,32,69,73,68,82,77,32
+,32,32,32,32,32,32,32,32,32,32,49,49,49,10,35,100,101,102,105,110,101,32,69,73,78
+,80,82,79,71,82,69,83,83,32,32,32,32,32,49,49,50,10,35,100,101,102,105,110,101,32
+,69,73,83,67,79,78,78,32,32,32,32,32,32,32,32,32,49,49,51,10,35,100,101,102,105
+,110,101,32,69,76,79,79,80,32,32,32,32,32,32,32,32,32,32,32,49,49,52,10,35,100
+,101,102,105,110,101,32,69,77,83,71,83,73,90,69,32,32,32,32,32,32,32,32,49,49,53
+,10,35,100,101,102,105,110,101,32,69,78,69,84,68,79,87,78,32,32,32,32,32,32,32,32
+,49,49,54,10,35,100,101,102,105,110,101,32,69,78,69,84,82,69,83,69,84,32,32,32,32
+,32,32,32,49,49,55,10,35,100,101,102,105,110,101,32,69,78,69,84,85,78,82,69,65,67
+,72,32,32,32,32,32,49,49,56,10,35,100,101,102,105,110,101,32,69,78,79,66,85,70,83
+,32,32,32,32,32,32,32,32,32,49,49,57,10,35,100,101,102,105,110,101,32,69,78,79,68
+,65,84,65,32,32,32,32,32,32,32,32,32,49,50,48,10,35,100,101,102,105,110,101,32,69
+,78,79,76,73,78,75,32,32,32,32,32,32,32,32,32,49,50,49,10,35,100,101,102,105,110
+,101,32,69,78,79,77,83,71,32,32,32,32,32,32,32,32,32,32,49,50,50,10,35,100,101
+,102,105,110,101,32,69,78,79,80,82,79,84,79,79,80,84,32,32,32,32,32,49,50,51,10
+,35,100,101,102,105,110,101,32,69,78,79,83,82,32,32,32,32,32,32,32,32,32,32,32,49
+,50,52,10,35,100,101,102,105,110,101,32,69,78,79,83,84,82,32,32,32,32,32,32,32,32
+,32,32,49,50,53,10,35,100,101,102,105,110,101,32,69,78,79,84,67,79,78,78,32,32,32
+,32,32,32,32,32,49,50,54,10,35,100,101,102,105,110,101,32,69,78,79,84,82,69,67,79
+,86,69,82,65,66,76,69,32,49,50,55,10,35,100,101,102,105,110,101,32,69,78,79,84,83
+,79,67,75,32,32,32,32,32,32,32,32,49,50,56,10,35,100,101,102,105,110,101,32,69,78
+,79,84,83,85,80,32,32,32,32,32,32,32,32,32,49,50,57,10,35,100,101,102,105,110,101
+,32,69,79,80,78,79,84,83,85,80,80,32,32,32,32,32,32,49,51,48,10,35,100,101,102
+,105,110,101,32,69,79,84,72,69,82,32,32,32,32,32,32,32,32,32,32,49,51,49,10,35
+,100,101,102,105,110,101,32,69,79,86,69,82,70,76,79,87,32,32,32,32,32,32,32,49,51
+,50,10,35,100,101,102,105,110,101,32,69,79,87,78,69,82,68,69,65,68,32,32,32,32,32
+,32,49,51,51,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,32,32,32,32,32,32
+,32,32,32,32,49,51,52,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,78,79,83
+,85,80,80,79,82,84,32,49,51,53,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79
+,84,89,80,69,32,32,32,32,32,32,49,51,54,10,35,100,101,102,105,110,101,32,69,84,73
+,77,69,32,32,32,32,32,32,32,32,32,32,32,49,51,55,10,35,100,101,102,105,110,101,32
+,69,84,73,77,69,68,79,85,84,32,32,32,32,32,32,32,49,51,56,10,35,100,101,102,105
+,110,101,32,69,84,88,84,66,83,89,32,32,32,32,32,32,32,32,32,49,51,57,10,35,100
+,101,102,105,110,101,32,69,87,79,85,76,68,66,76,79,67,75,32,32,32,32,32,49,52,48
+,10,10
+};
+
+static const char file_string_h[] = {
 
 
-const char* file_wchar_h =
-"#pragma once\n"
-"\n"
-"#define WCHAR_MIN 0x0000\n"
-"#define WCHAR_MAX 0xffff\n"
-"typedef long unsigned int size_t;\n"
-"typedef int wchar_t;\n"
-"\n"
-"typedef struct\n"
-"{\n"
-"  int __count;\n"
-"  union\n"
-"  {\n"
-"    unsigned int __wch;\n"
-"    char __wchb[4];\n"
-"  } __value;\n"
-"} __mbstate_t;\n"
-"\n"
-"typedef __mbstate_t mbstate_t;\n"
-"struct _IO_FILE;\n"
-"typedef struct _IO_FILE __FILE;\n"
-"struct _IO_FILE;\n"
-"typedef struct _IO_FILE FILE;\n"
-"struct __locale_struct\n"
-"{\n"
-"\n"
-"  struct __locale_data *__locales[13];\n"
-"\n"
-"  const unsigned short int *__ctype_b;\n"
-"  const int *__ctype_tolower;\n"
-"  const int *__ctype_toupper;\n"
-"\n"
-"  const char *__names[13];\n"
-"};\n"
-"\n"
-"typedef struct __locale_struct *__locale_t;\n"
-"\n"
-"typedef __locale_t locale_t;\n"
-"\n"
-"struct tm;\n"
-"\n"
-"extern wchar_t *wcscpy (wchar_t *__restrict __dest,\n"
-"   const wchar_t *__restrict __src);\n"
-"\n"
-"extern wchar_t *wcsncpy (wchar_t *__restrict __dest,\n"
-"    const wchar_t *__restrict __src, size_t __n);\n"
-"\n"
-"extern wchar_t *wcscat (wchar_t *__restrict __dest,\n"
-"   const wchar_t *__restrict __src);\n"
-"\n"
-"extern wchar_t *wcsncat (wchar_t *__restrict __dest,\n"
-"    const wchar_t *__restrict __src, size_t __n);\n"
-"\n"
-"extern int wcscmp (const wchar_t *__s1, const wchar_t *__s2);\n"
-"\n"
-"extern int wcsncmp (const wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
-"\n"
-"extern int wcscasecmp (const wchar_t *__s1, const wchar_t *__s2);\n"
-"\n"
-"extern int wcsncasecmp (const wchar_t *__s1, const wchar_t *__s2,\n"
-"   size_t __n) ;\n"
-"\n"
-"extern int wcscasecmp_l (const wchar_t *__s1, const wchar_t *__s2,\n"
-"    locale_t __loc) ;\n"
-"\n"
-"extern int wcsncasecmp_l (const wchar_t *__s1, const wchar_t *__s2,\n"
-"     size_t __n, locale_t __loc) ;\n"
-"\n"
-"extern int wcscoll (const wchar_t *__s1, const wchar_t *__s2);\n"
-"\n"
-"extern size_t wcsxfrm (wchar_t *__restrict __s1,\n"
-"         const wchar_t *__restrict __s2, size_t __n);\n"
-"\n"
-"extern int wcscoll_l (const wchar_t *__s1, const wchar_t *__s2,\n"
-"        locale_t __loc) ;\n"
-"\n"
-"extern size_t wcsxfrm_l (wchar_t *__s1, const wchar_t *__s2,\n"
-"    size_t __n, locale_t __loc) ;\n"
-"\n"
-"extern wchar_t *wcsdup (const wchar_t *__s) ;\n"
-"extern wchar_t *wcschr (const wchar_t *__wcs, wchar_t __wc);\n"
-"extern wchar_t *wcsrchr (const wchar_t *__wcs, wchar_t __wc);\n"
-"extern size_t wcscspn (const wchar_t *__wcs, const wchar_t *__reject);\n"
-"\n"
-"extern size_t wcsspn (const wchar_t *__wcs, const wchar_t *__accept);\n"
-"extern wchar_t *wcspbrk (const wchar_t *__wcs, const wchar_t *__accept);\n"
-"extern wchar_t *wcsstr (const wchar_t *__haystack, const wchar_t *__needle);\n"
-"\n"
-"extern wchar_t *wcstok (wchar_t *__restrict __s,\n"
-"   const wchar_t *__restrict __delim,\n"
-"   wchar_t **__restrict __ptr);\n"
-"\n"
-"extern size_t wcslen (const wchar_t *__s);\n"
-"extern size_t wcsnlen (const wchar_t *__s, size_t __maxlen);\n"
-"extern wchar_t *wmemchr (const wchar_t *__s, wchar_t __c, size_t __n);\n"
-"\n"
-"extern int wmemcmp (const wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
-"\n"
-"extern wchar_t *wmemcpy (wchar_t *__restrict __s1,\n"
-"    const wchar_t *__restrict __s2, size_t __n) ;\n"
-"\n"
-"extern wchar_t *wmemmove (wchar_t *__s1, const wchar_t *__s2, size_t __n);\n"
-"\n"
-"extern wchar_t *wmemset (wchar_t *__s, wchar_t __c, size_t __n);\n"
 
-"extern wint_t btowc (int __c);\n"
-"\n"
-"extern int wctob (wint_t __c);\n"
-"\n"
-"extern int mbsinit (const mbstate_t *__ps);\n"
-"\n"
-"extern size_t mbrtowc (wchar_t *__restrict __pwc,\n"
-"         const char *__restrict __s, size_t __n,\n"
-"         mbstate_t *__restrict __p) ;\n"
-"\n"
-"extern size_t wcrtomb (char *__restrict __s, wchar_t __wc,\n"
-"         mbstate_t *__restrict __ps);\n"
-"\n"
-"extern size_t __mbrlen (const char *__restrict __s, size_t __n,\n"
-"   mbstate_t *__restrict __ps) ;\n"
-"extern size_t mbrlen (const char *__restrict __s, size_t __n,\n"
-"        mbstate_t *__restrict __ps) ;\n"
+32,10,116,121,112,101,100,101,102,32,105,110,116,32,101,114,114,110,111,95,116,59,10,116,121
+,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32
+,115,105,122,101,95,116,59,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32
+,108,111,110,103,32,108,111,110,103,32,114,115,105,122,101,95,116,59,10,116,121,112,101,100,101
+,102,32,117,110,115,105,103,110,101,100,32,115,104,111,114,116,32,119,99,104,97,114,95,116,59
+,10,118,111,105,100,42,32,109,101,109,99,104,114,40,118,111,105,100,32,99,111,110,115,116,42
+,32,95,66,117,102,44,32,105,110,116,32,95,86,97,108,44,32,115,105,122,101,95,116,32,95
+,77,97,120,67,111,117,110,116,41,59,10,105,110,116,32,109,101,109,99,109,112,40,118,111,105
+,100,32,99,111,110,115,116,42,32,95,66,117,102,49,44,32,118,111,105,100,32,99,111,110,115
+,116,42,32,95,66,117,102,50,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10
+,118,111,105,100,42,32,109,101,109,99,112,121,40,118,111,105,100,42,32,95,68,115,116,44,32
+,118,111,105,100,32,99,111,110,115,116,42,32,95,83,114,99,44,32,115,105,122,101,95,116,32
+,95,83,105,122,101,41,59,10,118,111,105,100,42,32,109,101,109,109,111,118,101,40,118,111,105
+,100,42,32,95,68,115,116,44,32,118,111,105,100,32,99,111,110,115,116,42,32,95,83,114,99
+,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,118,111,105,100,42,32,109,101
+,109,115,101,116,40,118,111,105,100,42,32,95,68,115,116,44,32,105,110,116,32,95,86,97,108
+,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,99,104,97,114,42,32,115,116
+,114,99,104,114,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,44,32,105,110
+,116,32,95,86,97,108,41,59,10,99,104,97,114,32,42,115,116,114,99,112,121,40,95,79,117
+,116,32,99,104,97,114,32,42,114,101,115,116,114,105,99,116,32,100,101,115,116,44,32,99,111
+,110,115,116,32,99,104,97,114,32,42,114,101,115,116,114,105,99,116,32,115,114,99,32,41,59
+,10,99,104,97,114,42,32,115,116,114,114,99,104,114,40,99,104,97,114,32,99,111,110,115,116
+,42,32,95,83,116,114,44,32,105,110,116,32,95,67,104,41,59,10,99,104,97,114,42,32,115
+,116,114,115,116,114,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,44,32,99
+,104,97,114,32,99,111,110,115,116,42,32,95,83,117,98,83,116,114,41,59,10,119,99,104,97
+,114,95,116,42,32,119,99,115,99,104,114,40,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,116,114,44,32,119,99,104,97,114,95,116,32,95,67,104,41,59,10,119,99,104
+,97,114,95,116,42,32,119,99,115,114,99,104,114,40,119,99,104,97,114,95,116,32,99,111,110
+,115,116,42,32,95,83,116,114,44,32,119,99,104,97,114,95,116,32,95,67,104,41,59,10,119
+,99,104,97,114,95,116,42,32,119,99,115,115,116,114,40,119,99,104,97,114,95,116,32,99,111
+,110,115,116,42,32,95,83,116,114,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42
+,32,95,83,117,98,83,116,114,41,59,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32
+,101,114,114,110,111,95,116,32,109,101,109,99,112,121,95,115,40,118,111,105,100,42,32,99,111
+,110,115,116,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116
+,32,99,111,110,115,116,32,95,68,101,115,116,105,110,97,116,105,111,110,83,105,122,101,44,32
+,118,111,105,100,32,99,111,110,115,116,42,32,99,111,110,115,116,32,95,83,111,117,114,99,101
+,44,32,114,115,105,122,101,95,116,32,99,111,110,115,116,32,95,83,111,117,114,99,101,83,105
+,122,101,41,59,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,101,114,114,110,111,95
+,116,32,109,101,109,109,111,118,101,95,115,40,118,111,105,100,42,32,99,111,110,115,116,32,95
+,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116,32,99,111,110,115
+,116,32,95,68,101,115,116,105,110,97,116,105,111,110,83,105,122,101,44,32,118,111,105,100,32
+,99,111,110,115,116,42,32,99,111,110,115,116,32,95,83,111,117,114,99,101,44,32,114,115,105
+,122,101,95,116,32,99,111,110,115,116,32,95,83,111,117,114,99,101,83,105,122,101,41,59,10
+,105,110,116,32,95,109,101,109,105,99,109,112,40,118,111,105,100,32,99,111,110,115,116,42,32
+,95,66,117,102,49,44,32,118,111,105,100,32,99,111,110,115,116,42,32,95,66,117,102,50,44
+,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10,118,111,105,100,42,32,109,101,109
+,99,99,112,121,40,118,111,105,100,42,32,95,68,115,116,44,32,118,111,105,100,32,99,111,110
+,115,116,42,32,95,83,114,99,44,32,105,110,116,32,95,86,97,108,44,32,115,105,122,101,95
+,116,32,95,83,105,122,101,41,59,10,105,110,116,32,109,101,109,105,99,109,112,40,118,111,105
+,100,32,99,111,110,115,116,42,32,95,66,117,102,49,44,32,118,111,105,100,32,99,111,110,115
+,116,42,32,95,66,117,102,50,44,32,115,105,122,101,95,116,32,95,83,105,122,101,41,59,10
+,101,114,114,110,111,95,116,32,119,99,115,99,97,116,95,115,40,119,99,104,97,114,95,116,42
+,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116,32,95,83
+,105,122,101,73,110,87,111,114,100,115,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,111,117,114,99,101,41,59,10,101,114,114,110,111,95,116,32,119,99,115,99,112
+,121,95,115,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110
+,44,32,114,115,105,122,101,95,116,32,95,83,105,122,101,73,110,87,111,114,100,115,44,32,119
+,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,41,59,10,101
+,114,114,110,111,95,116,32,119,99,115,110,99,97,116,95,115,40,119,99,104,97,114,95,116,42
+,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105,122,101,95,116,32,95,83
+,105,122,101,73,110,87,111,114,100,115,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,111,117,114,99,101,44,32,114,115,105,122,101,95,116,32,95,77,97,120,67,111
+,117,110,116,41,59,10,101,114,114,110,111,95,116,32,119,99,115,110,99,112,121,95,115,40,119
+,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,114,115,105
+,122,101,95,116,32,95,83,105,122,101,73,110,87,111,114,100,115,44,32,119,99,104,97,114,95
+,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,114,115,105,122,101,95,116
+,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115
+,116,111,107,95,115,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,44,32,119
+,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,68,101,108,105,109,105,116,101,114,44
+,32,119,99,104,97,114,95,116,42,42,32,95,67,111,110,116,101,120,116,41,59,10,119,99,104
+,97,114,95,116,42,32,95,119,99,115,100,117,112,40,119,99,104,97,114,95,116,32,99,111,110
+,115,116,42,32,95,83,116,114,105,110,103,41,59,10,119,99,104,97,114,95,116,42,32,119,99
+,115,99,97,116,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105,111
+,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101
+,41,59,32,105,110,116,32,119,99,115,99,109,112,40,119,99,104,97,114,95,116,32,99,111,110
+,115,116,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110
+,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,119,99,104,97,114,95,116,42,32,119
+,99,115,99,112,121,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116,105
+,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99
+,101,41,59,32,115,105,122,101,95,116,32,119,99,115,99,115,112,110,40,119,99,104,97,114,95
+,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116
+,32,99,111,110,115,116,42,32,95,67,111,110,116,114,111,108,41,59,10,115,105,122,101,95,116
+,32,119,99,115,108,101,110,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83
+,116,114,105,110,103,41,59,10,115,105,122,101,95,116,32,119,99,115,110,108,101,110,40,119,99
+,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122
+,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,115,116,97,116,105,99,32,105,110
+,108,105,110,101,32,115,105,122,101,95,116,32,119,99,115,110,108,101,110,95,115,40,119,99,104
+,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122,101
+,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99,104,97,114,95,116,42,32,119
+,99,115,110,99,97,116,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110,97,116
+,105,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111,117,114
+,99,101,44,32,115,105,122,101,95,116,32,95,67,111,117,110,116,41,59,10,105,110,116,32,119
+,99,115,110,99,109,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116
+,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116
+,114,105,110,103,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59
+,10,119,99,104,97,114,95,116,42,32,119,99,115,110,99,112,121,40,119,99,104,97,114,95,116
+,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,119,99,104,97,114,95,116,32,99
+,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95,116,32,95,67,111
+,117,110,116,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,112,98,114,107,40,119,99
+,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104
+,97,114,95,116,32,99,111,110,115,116,42,32,95,67,111,110,116,114,111,108,41,59,10,115,105
+,122,101,95,116,32,119,99,115,115,112,110,40,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42
+,32,95,67,111,110,116,114,111,108,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,116
+,111,107,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97
+,114,95,116,32,99,111,110,115,116,42,32,95,68,101,108,105,109,105,116,101,114,44,32,119,99
+,104,97,114,95,116,42,42,32,95,67,111,110,116,101,120,116,41,59,10,115,105,122,101,95,116
+,32,119,99,115,120,102,114,109,40,119,99,104,97,114,95,116,42,32,95,68,101,115,116,105,110
+,97,116,105,111,110,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,111
+,117,114,99,101,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10
+,105,110,116,32,119,99,115,99,111,108,108,40,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116
+,42,32,95,83,116,114,105,110,103,50,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115
+,100,117,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105,110
+,103,41,59,10,105,110,116,32,119,99,115,105,99,109,112,40,119,99,104,97,114,95,116,32,99
+,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99
+,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,105,110,116,32,119,99,115,110
+,105,99,109,112,40,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105
+,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115,116,42,32,95,83,116,114,105
+,110,103,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119
+,99,104,97,114,95,116,42,32,119,99,115,110,115,101,116,40,119,99,104,97,114,95,116,42,32
+,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,95,86,97,108,117,101,44,32
+,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,119,99,104,97,114,95
+,116,42,32,119,99,115,114,101,118,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110
+,103,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,115,101,116,40,119,99,104,97,114
+,95,116,42,32,95,83,116,114,105,110,103,44,32,119,99,104,97,114,95,116,32,95,86,97,108
+,117,101,41,59,10,119,99,104,97,114,95,116,42,32,119,99,115,108,119,114,40,119,99,104,97
+,114,95,116,42,32,95,83,116,114,105,110,103,41,59,32,119,99,104,97,114,95,116,42,32,119
+,99,115,117,112,114,40,119,99,104,97,114,95,116,42,32,95,83,116,114,105,110,103,41,59,10
+,105,110,116,32,119,99,115,105,99,111,108,108,40,119,99,104,97,114,95,116,32,99,111,110,115
+,116,42,32,95,83,116,114,105,110,103,49,44,32,119,99,104,97,114,95,116,32,99,111,110,115
+,116,42,32,95,83,116,114,105,110,103,50,41,59,10,99,104,97,114,42,32,115,116,114,116,111
+,107,95,115,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,32,99
+,111,110,115,116,42,32,95,68,101,108,105,109,105,116,101,114,44,32,99,104,97,114,42,42,32
+,95,67,111,110,116,101,120,116,41,59,10,118,111,105,100,42,32,95,109,101,109,99,99,112,121
+,40,118,111,105,100,42,32,95,68,115,116,44,32,118,111,105,100,32,99,111,110,115,116,42,32
+,95,83,114,99,44,32,105,110,116,32,95,86,97,108,44,32,115,105,122,101,95,116,32,95,77
+,97,120,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,99,97,116,40,99,104
+,97,114,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,99,104,97,114,32,99,111
+,110,115,116,42,32,95,83,111,117,114,99,101,41,59,10,105,110,116,32,115,116,114,99,109,112
+,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,49,44,32,99,104,97,114,32
+,99,111,110,115,116,42,32,95,83,116,114,50,41,59,10,105,110,116,32,115,116,114,99,111,108
+,108,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,99
+,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10,99,104,97
+,114,42,32,115,116,114,101,114,114,111,114,40,105,110,116,32,95,69,114,114,111,114,77,101,115
+,115,97,103,101,41,59,10,115,105,122,101,95,116,32,115,116,114,108,101,110,40,99,104,97,114
+,32,99,111,110,115,116,42,32,95,83,116,114,41,59,10,99,104,97,114,42,32,115,116,114,110
+,99,97,116,40,99,104,97,114,42,32,95,68,101,115,116,105,110,97,116,105,111,110,44,32,99
+,104,97,114,32,99,111,110,115,116,42,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95
+,116,32,95,67,111,117,110,116,41,59,10,105,110,116,32,115,116,114,110,99,109,112,40,99,104
+,97,114,32,99,111,110,115,116,42,32,95,83,116,114,49,44,32,99,104,97,114,32,99,111,110
+,115,116,42,32,95,83,116,114,50,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117
+,110,116,41,59,10,99,104,97,114,42,32,115,116,114,110,99,112,121,40,99,104,97,114,42,32
+,95,68,101,115,116,105,110,97,116,105,111,110,44,32,99,104,97,114,32,99,111,110,115,116,42
+,32,95,83,111,117,114,99,101,44,32,115,105,122,101,95,116,32,95,67,111,117,110,116,41,59
+,10,115,105,122,101,95,116,32,115,116,114,110,108,101,110,40,99,104,97,114,32,99,111,110,115
+,116,42,32,95,83,116,114,105,110,103,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111
+,117,110,116,41,59,10,115,116,97,116,105,99,32,105,110,108,105,110,101,32,115,105,122,101,95
+,116,32,115,116,114,110,108,101,110,95,115,40,99,104,97,114,32,99,111,110,115,116,42,32,95
+,83,116,114,105,110,103,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41
+,59,10,99,104,97,114,42,32,115,116,114,112,98,114,107,40,99,104,97,114,32,99,111,110,115
+,116,42,32,95,83,116,114,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,67,111,110
+,116,114,111,108,41,59,10,115,105,122,101,95,116,32,115,116,114,115,112,110,40,99,104,97,114
+,32,99,111,110,115,116,42,32,95,83,116,114,44,32,99,104,97,114,32,99,111,110,115,116,42
+,32,95,67,111,110,116,114,111,108,41,59,10,99,104,97,114,42,32,115,116,114,116,111,107,40
+,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,32,99,111,110,115,116
+,42,32,95,68,101,108,105,109,105,116,101,114,41,59,10,35,105,102,32,100,101,102,105,110,101
+,100,40,95,95,83,84,68,67,95,79,87,78,69,82,83,72,73,80,95,95,41,32,10,99,104
+,97,114,42,32,95,79,119,110,101,114,32,95,79,112,116,32,115,116,114,100,117,112,40,99,104
+,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,41,59,10,35,101,108,115,101
+,10,99,104,97,114,42,32,115,116,114,100,117,112,40,99,104,97,114,32,99,111,110,115,116,42
+,32,95,83,116,114,105,110,103,41,59,10,35,101,110,100,105,102,10,105,110,116,32,115,116,114
+,99,109,112,105,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49
+,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10
+,105,110,116,32,115,116,114,105,99,109,112,40,99,104,97,114,32,99,111,110,115,116,42,32,95
+,83,116,114,105,110,103,49,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114
+,105,110,103,50,41,59,10,99,104,97,114,42,32,115,116,114,108,119,114,40,99,104,97,114,42
+,32,95,83,116,114,105,110,103,41,59,10,105,110,116,32,115,116,114,110,105,99,109,112,40,99
+,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,99,104,97,114
+,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,44,32,115,105,122,101,95,116,32
+,95,77,97,120,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,110,115,101,116
+,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,105,110,116,32,95,86,97,108,117
+,101,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,99,104,97
+,114,42,32,115,116,114,114,101,118,40,99,104,97,114,42,32,95,83,116,114,105,110,103,41,59
+,10,99,104,97,114,42,32,115,116,114,115,101,116,40,99,104,97,114,42,32,95,83,116,114,105
+,110,103,44,32,105,110,116,32,95,86,97,108,117,101,41,59,32,99,104,97,114,42,32,115,116
+,114,117,112,114,40,99,104,97,114,42,32,95,83,116,114,105,110,103,41,59
+};
 
-"extern size_t mbsrtowcs (wchar_t *__restrict __dst,\n"
-"    const char **__restrict __src, size_t __len,\n"
-"    mbstate_t *__restrict __ps) ;\n"
-"\n"
-"extern size_t wcsrtombs (char *__restrict __dst,\n"
-"    const wchar_t **__restrict __src, size_t __len,\n"
-"    mbstate_t *__restrict __ps) ;\n"
-"\n"
-"extern size_t mbsnrtowcs (wchar_t *__restrict __dst,\n"
-"     const char **__restrict __src, size_t __nmc,\n"
-"     size_t __len, mbstate_t *__restrict __ps) ;\n"
-"\n"
-"extern size_t wcsnrtombs (char *__restrict __dst,\n"
-"     const wchar_t **__restrict __src,\n"
-"     size_t __nwc, size_t __len,\n"
-"     mbstate_t *__restrict __ps) ;\n"
+static const char file_math_h[] = {
 
-"extern double wcstod (const wchar_t *__restrict __nptr,\n"
-"        wchar_t **__restrict __endptr) ;\n"
-"\n"
-"extern float wcstof (const wchar_t *__restrict __nptr,\n"
-"       wchar_t **__restrict __endptr) ;\n"
-"extern long double wcstold (const wchar_t *__restrict __nptr,\n"
-"       wchar_t **__restrict __endptr) ;\n"
-"extern long int wcstol (const wchar_t *__restrict __nptr,\n"
-"   wchar_t **__restrict __endptr, int __base) ;\n"
-"\n"
-"extern unsigned long int wcstoul (const wchar_t *__restrict __nptr,\n"
-"      wchar_t **__restrict __endptr, int __base);\n"
-"\n"
-"extern long long int wcstoll (const wchar_t *__restrict __nptr,\n"
-"         wchar_t **__restrict __endptr, int __base);\n"
-"\n"
-"extern unsigned long long int wcstoull (const wchar_t *__restrict __nptr,\n"
-"     wchar_t **__restrict __endptr,\n"
-"     int __base) ;\n"
 
-"extern wchar_t *wcpcpy (wchar_t *__restrict __dest,\n"
-"   const wchar_t *__restrict __src) ;\n"
-"\n"
-"extern wchar_t *wcpncpy (wchar_t *__restrict __dest,\n"
-"    const wchar_t *__restrict __src, size_t __n);\n"
-"extern __FILE *open_wmemstream (wchar_t **__bufloc, size_t *__sizeloc);\n"
-"\n"
-"extern int fwide (__FILE *__fp, int __mode);\n"
-"\n"
-"extern int fwprintf (__FILE *__restrict __stream,\n"
-"       const wchar_t *__restrict __format, ...);\n"
-"extern int wprintf (const wchar_t *__restrict __format, ...);\n"
-"\n"
-"extern int swprintf (wchar_t *__restrict __s, size_t __n,\n"
-"       const wchar_t *__restrict __format, ...);\n"
-"\n"
-"\n";
-//TODO incomplete
 
+10,35,112,114,97,103,109,97,32,111,110,99,101,10,10,100,111,117,98,108,101,32,97,99,111
+,115,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,97,115,105
+,110,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,97,116,97
+,110,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,97,116,97
+,110,50,40,100,111,117,98,108,101,32,95,95,121,44,32,100,111,117,98,108,101,32,95,95,120
+,41,59,10,100,111,117,98,108,101,32,99,111,115,40,100,111,117,98,108,101,32,95,95,120,41
+,59,10,100,111,117,98,108,101,32,115,105,110,40,100,111,117,98,108,101,32,95,95,120,41,59
+,10,100,111,117,98,108,101,32,116,97,110,40,100,111,117,98,108,101,32,95,95,120,41,59,10
+,100,111,117,98,108,101,32,99,111,115,104,40,100,111,117,98,108,101,32,95,95,120,41,59,10
+,100,111,117,98,108,101,32,115,105,110,104,40,100,111,117,98,108,101,32,95,95,120,41,59,10
+,100,111,117,98,108,101,32,116,97,110,104,40,100,111,117,98,108,101,32,95,95,120,41,59,10
+,100,111,117,98,108,101,32,97,99,111,115,104,40,100,111,117,98,108,101,32,95,95,120,41,59
+,10,100,111,117,98,108,101,32,97,115,105,110,104,40,100,111,117,98,108,101,32,95,95,120,41
+,59,10,100,111,117,98,108,101,32,97,116,97,110,104,40,100,111,117,98,108,101,32,95,95,120
+,41,59,10,100,111,117,98,108,101,32,101,120,112,40,100,111,117,98,108,101,32,95,95,120,41
+,59,10,100,111,117,98,108,101,32,102,114,101,120,112,40,100,111,117,98,108,101,32,95,95,120
+,44,32,105,110,116,42,32,95,95,101,120,112,111,110,101,110,116,41,59,10,100,111,117,98,108
+,101,32,108,100,101,120,112,40,100,111,117,98,108,101,32,95,95,120,44,32,105,110,116,32,95
+,95,101,120,112,111,110,101,110,116,41,59,10,100,111,117,98,108,101,32,108,111,103,40,100,111
+,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,49,48,40,100
+,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,109,111,100,102,40,100
+,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,42,32,95,95,105,112,116,114
+,41,59,10,100,111,117,98,108,101,32,101,120,112,109,49,40,100,111,117,98,108,101,32,95,95
+,120,41,59,10,100,111,117,98,108,101,32,108,111,103,49,112,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,98,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,101,120,112,50,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,108,111,103,50,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,112,111,119,40,100,111,117,98,108,101,32,95,95
+,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,115,113
+,114,116,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,104,121
+,112,111,116,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95
+,121,41,59,10,100,111,117,98,108,101,32,99,98,114,116,40,100,111,117,98,108,101,32,95,95
+,120,41,59,10,100,111,117,98,108,101,32,99,101,105,108,40,100,111,117,98,108,101,32,95,95
+,120,41,59,10,100,111,117,98,108,101,32,102,97,98,115,40,100,111,117,98,108,101,32,95,95
+,120,41,59,10,100,111,117,98,108,101,32,102,108,111,111,114,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,102,109,111,100,40,100,111,117,98,108,101,32,95
+,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,105,110,116,32,105,115,105,110
+,102,40,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,105,110,116,32,102,105
+,110,105,116,101,40,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,100,111,117
+,98,108,101,32,100,114,101,109,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98
+,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,115,105,103,110,105,102,105,99,97
+,110,100,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,99,111
+,112,121,115,105,103,110,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101
+,32,95,95,121,41,59,10,100,111,117,98,108,101,32,110,97,110,40,99,111,110,115,116,32,99
+,104,97,114,42,32,95,95,116,97,103,98,41,59,10,105,110,116,32,105,115,110,97,110,40,100
+,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,100,111,117,98,108,101,32,106,48
+,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,106,49,40,100,111,117,98,108
+,101,41,59,10,100,111,117,98,108,101,32,106,110,40,105,110,116,44,32,100,111,117,98,108,101
+,41,59,10,100,111,117,98,108,101,32,121,48,40,100,111,117,98,108,101,41,59,10,100,111,117
+,98,108,101,32,121,49,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,121,110
+,40,105,110,116,44,32,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,101,114,102
+,40,100,111,117,98,108,101,41,59,10,100,111,117,98,108,101,32,101,114,102,99,40,100,111,117
+,98,108,101,41,59,10,100,111,117,98,108,101,32,108,103,97,109,109,97,40,100,111,117,98,108
+,101,41,59,10,100,111,117,98,108,101,32,116,103,97,109,109,97,40,100,111,117,98,108,101,41
+,59,10,100,111,117,98,108,101,32,103,97,109,109,97,40,100,111,117,98,108,101,41,59,10,100
+,111,117,98,108,101,32,108,103,97,109,109,97,95,114,40,100,111,117,98,108,101,44,32,105,110
+,116,42,32,95,95,115,105,103,110,103,97,109,112,41,59,10,100,111,117,98,108,101,32,114,105
+,110,116,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108,101,32,110,101
+,120,116,97,102,116,101,114,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108
+,101,32,95,95,121,41,59,10,100,111,117,98,108,101,32,110,101,120,116,116,111,119,97,114,100
+,40,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32
+,95,95,121,41,59,10,100,111,117,98,108,101,32,114,101,109,97,105,110,100,101,114,40,100,111
+,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111
+,117,98,108,101,32,115,99,97,108,98,110,40,100,111,117,98,108,101,32,95,95,120,44,32,105
+,110,116,32,95,95,110,41,59,10,105,110,116,32,105,108,111,103,98,40,100,111,117,98,108,101
+,32,95,95,120,41,59,10,100,111,117,98,108,101,32,115,99,97,108,98,108,110,40,100,111,117
+,98,108,101,32,95,95,120,44,32,108,111,110,103,32,105,110,116,32,95,95,110,41,59,10,100
+,111,117,98,108,101,32,110,101,97,114,98,121,105,110,116,40,100,111,117,98,108,101,32,95,95
+,120,41,59,10,100,111,117,98,108,101,32,114,111,117,110,100,40,100,111,117,98,108,101,32,95
+,95,120,41,59,10,100,111,117,98,108,101,32,116,114,117,110,99,40,100,111,117,98,108,101,32
+,95,95,120,41,59,10,100,111,117,98,108,101,32,114,101,109,113,117,111,40,100,111,117,98,108
+,101,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,44,32,105,110,116,42,32,95
+,95,113,117,111,41,59,10,108,111,110,103,32,105,110,116,32,108,114,105,110,116,40,100,111,117
+,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,108
+,108,114,111,117,110,100,40,100,111,117,98,108,101,32,95,95,120,41,59,10,100,111,117,98,108
+,101,32,102,100,105,109,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101
+,32,95,95,121,41,59,10,100,111,117,98,108,101,32,102,109,97,120,40,100,111,117,98,108,101
+,32,95,95,120,44,32,100,111,117,98,108,101,32,95,95,121,41,59,10,100,111,117,98,108,101
+,32,102,109,105,110,40,100,111,117,98,108,101,32,95,95,120,44,32,100,111,117,98,108,101,32
+,95,95,121,41,59,10,100,111,117,98,108,101,32,102,109,97,40,100,111,117,98,108,101,32,95
+,95,120,44,32,100,111,117,98,108,101,32,95,95,121,44,32,100,111,117,98,108,101,32,95,95
+,122,41,59,10,100,111,117,98,108,101,32,115,99,97,108,98,40,100,111,117,98,108,101,32,95
+,95,120,44,32,100,111,117,98,108,101,32,95,95,110,41,59,10,102,108,111,97,116,32,97,99
+,111,115,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,97,115,105
+,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,97,116,97,110
+,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,97,116,97,110,50
+,102,40,102,108,111,97,116,32,95,95,121,44,32,102,108,111,97,116,32,95,95,120,41,59,10
+,102,108,111,97,116,32,99,111,115,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108
+,111,97,116,32,115,105,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97
+,116,32,116,97,110,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32
+,99,111,115,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,115
+,105,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,116,97
+,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,97,99,111
+,115,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,97,115,105
+,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,97,116,97
+,110,104,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,101,120,112
+,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,102,114,101,120,112
+,102,40,102,108,111,97,116,32,95,95,120,44,32,105,110,116,42,32,95,95,101,120,112,111,110
+,101,110,116,41,59,10,102,108,111,97,116,32,108,100,101,120,112,102,40,102,108,111,97,116,32
+,95,95,120,44,32,105,110,116,32,95,95,101,120,112,111,110,101,110,116,41,59,10,102,108,111
+,97,116,32,108,111,103,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116
+,32,108,111,103,49,48,102,40,102,108,111,97,116,32,95,95,120,41,59,32,102,108,111,97,116
+,32,95,95,108,111,103,49,48,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111
+,97,116,32,109,111,100,102,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116
+,42,32,95,95,105,112,116,114,41,59,10,102,108,111,97,116,32,101,120,112,109,49,102,40,102
+,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108,111,103,49,112,102,40,102
+,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108,111,103,98,102,40,102,108
+,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,101,120,112,50,102,40,102,108,111
+,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,108,111,103,50,102,40,102,108,111,97
+,116,32,95,95,120,41,59,10,102,108,111,97,116,32,112,111,119,102,40,102,108,111,97,116,32
+,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116,32,115,113
+,114,116,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102,108,111,97,116,32,104,121,112
+,111,116,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41
+,59,10,102,108,111,97,116,32,99,98,114,116,102,40,102,108,111,97,116,32,95,95,120,41,59
+,10,102,108,111,97,116,32,99,101,105,108,102,40,102,108,111,97,116,32,95,95,120,41,59,10
+,102,108,111,97,116,32,102,97,98,115,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102
+,108,111,97,116,32,102,108,111,111,114,102,40,102,108,111,97,116,32,95,95,120,41,59,10,102
+,108,111,97,116,32,102,109,111,100,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111
+,97,116,32,95,95,121,41,59,32,10,105,110,116,32,105,115,105,110,102,102,40,102,108,111,97
+,116,32,95,95,118,97,108,117,101,41,59,10,105,110,116,32,102,105,110,105,116,101,102,40,102
+,108,111,97,116,32,95,95,118,97,108,117,101,41,59,10,102,108,111,97,116,32,100,114,101,109
+,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10
+,102,108,111,97,116,32,115,105,103,110,105,102,105,99,97,110,100,102,40,102,108,111,97,116,32
+,95,95,120,41,59,32,10,102,108,111,97,116,32,99,111,112,121,115,105,103,110,102,40,102,108
+,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,32,10,102,108,111
+,97,116,32,110,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,95,95,116,97,103
+,98,41,59,32,10,105,110,116,32,105,115,110,97,110,102,40,102,108,111,97,116,32,95,95,118
+,97,108,117,101,41,59,10,102,108,111,97,116,32,106,48,102,40,102,108,111,97,116,41,59,32
+,10,102,108,111,97,116,32,106,49,102,40,102,108,111,97,116,41,59,32,10,102,108,111,97,116
+,32,106,110,102,40,105,110,116,44,32,102,108,111,97,116,41,59,32,10,102,108,111,97,116,32
+,121,48,102,40,102,108,111,97,116,41,59,32,10,102,108,111,97,116,32,121,49,102,40,102,108
+,111,97,116,41,59,32,10,102,108,111,97,116,32,121,110,102,40,105,110,116,44,32,102,108,111
+,97,116,41,59,32,10,102,108,111,97,116,32,101,114,102,102,40,102,108,111,97,116,41,59,32
+,10,102,108,111,97,116,32,101,114,102,99,102,40,102,108,111,97,116,41,59,10,102,108,111,97
+,116,32,108,103,97,109,109,97,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,116
+,103,97,109,109,97,102,40,102,108,111,97,116,41,59,10,102,108,111,97,116,32,103,97,109,109
+,97,102,40,102,108,111,97,116,41,59,32,10,102,108,111,97,116,32,108,103,97,109,109,97,102
+,95,114,40,102,108,111,97,116,44,32,105,110,116,42,32,95,95,115,105,103,110,103,97,109,112
+,41,59,32,10,102,108,111,97,116,32,114,105,110,116,102,40,102,108,111,97,116,32,95,95,120
+,41,59,32,10,102,108,111,97,116,32,110,101,120,116,97,102,116,101,114,102,40,102,108,111,97
+,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,32,10,102,108,111,97,116
+,32,110,101,120,116,116,111,119,97,114,100,102,40,102,108,111,97,116,32,95,95,120,44,32,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,32,10,102,108,111,97,116,32,114
+,101,109,97,105,110,100,101,114,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97
+,116,32,95,95,121,41,59,32,10,102,108,111,97,116,32,115,99,97,108,98,110,102,40,102,108
+,111,97,116,32,95,95,120,44,32,105,110,116,32,95,95,110,41,59,32,10,105,110,116,32,105
+,108,111,103,98,102,40,102,108,111,97,116,32,95,95,120,41,59,32,10,102,108,111,97,116,32
+,115,99,97,108,98,108,110,102,40,102,108,111,97,116,32,95,95,120,44,32,108,111,110,103,32
+,105,110,116,32,95,95,110,41,59,32,10,102,108,111,97,116,32,110,101,97,114,98,121,105,110
+,116,102,40,102,108,111,97,116,32,95,95,120,41,59,32,10,102,108,111,97,116,32,114,111,117
+,110,100,102,40,102,108,111,97,116,32,95,95,120,41,59,32,10,102,108,111,97,116,32,116,114
+,117,110,99,102,40,102,108,111,97,116,32,95,95,120,41,59,32,10,102,108,111,97,116,32,114
+,101,109,113,117,111,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95
+,95,121,44,32,105,110,116,42,32,95,95,113,117,111,41,59,32,10,108,111,110,103,32,105,110
+,116,32,108,114,105,110,116,102,40,102,108,111,97,116,32,95,95,120,41,59,32,10,108,111,110
+,103,32,108,111,110,103,32,105,110,116,32,108,108,114,111,117,110,100,102,40,102,108,111,97,116
+,32,95,95,120,41,59,32,10,102,108,111,97,116,32,102,100,105,109,102,40,102,108,111,97,116
+,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116,32,102
+,109,97,120,102,40,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121
+,41,59,32,10,102,108,111,97,116,32,102,109,105,110,102,40,102,108,111,97,116,32,95,95,120
+,44,32,102,108,111,97,116,32,95,95,121,41,59,10,102,108,111,97,116,32,102,109,97,102,40
+,102,108,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,121,44,32,102,108,111
+,97,116,32,95,95,122,41,59,32,10,102,108,111,97,116,32,115,99,97,108,98,102,40,102,108
+,111,97,116,32,95,95,120,44,32,102,108,111,97,116,32,95,95,110,41,59,32,10,108,111,110
+,103,32,100,111,117,98,108,101,32,97,99,111,115,108,40,108,111,110,103,32,100,111,117,98,108
+,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,97,115,105,110
+,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103
+,32,100,111,117,98,108,101,32,97,116,97,110,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,97,116,97,110,50
+,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,44,32,108,111,110,103,32,100
+,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32
+,99,111,115,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108
+,111,110,103,32,100,111,117,98,108,101,32,115,105,110,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,116,97,110
+,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103
+,32,100,111,117,98,108,101,32,99,111,115,104,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,115,105,110,104,108,40
+,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111
+,117,98,108,101,32,116,97,110,104,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,97,99,111,115,104,108,40,108,111
+,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117
+,98,108,101,32,97,115,105,110,104,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,97,116,97,110,104,108,40,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111
+,117,98,108,101,32,101,120,112,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
+,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,102,114,101,120,112,108,40,108,111
+,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,105,110,116,42,32,95,95,101,120,112
+,111,110,101,110,116,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,108,100,101,120
+,112,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,105,110,116,32,95
+,95,101,120,112,111,110,101,110,116,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32
+,108,111,103,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108
+,111,110,103,32,100,111,117,98,108,101,32,108,111,103,49,48,108,40,108,111,110,103,32,100,111
+,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,109
+,111,100,102,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110
+,103,32,100,111,117,98,108,101,42,32,95,95,105,112,116,114,41,59,32,10,108,111,110,103,32
+,100,111,117,98,108,101,32,101,120,112,109,49,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,108,111,103,49,112
+,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103
+,32,100,111,117,98,108,101,32,108,111,103,98,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,101,120,112,50,108
+,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32
+,100,111,117,98,108,101,32,108,111,103,50,108,40,108,111,110,103,32,100,111,117,98,108,101,32
+,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,112,111,119,108,40,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,121,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,115,113,114
+,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110
+,103,32,100,111,117,98,108,101,32,104,121,112,111,116,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59
+,32,10,108,111,110,103,32,100,111,117,98,108,101,32,99,98,114,116,108,40,108,111,110,103,32
+,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101
+,32,99,101,105,108,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32
+,10,108,111,110,103,32,100,111,117,98,108,101,32,102,97,98,115,108,40,108,111,110,103,32,100
+,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32
+,102,108,111,111,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10
+,108,111,110,103,32,100,111,117,98,108,101,32,102,109,111,100,108,40,108,111,110,103,32,100,111
+,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121
+,41,59,32,10,105,110,116,32,105,115,105,110,102,108,40,108,111,110,103,32,100,111,117,98,108
+,101,32,95,95,118,97,108,117,101,41,59,10,105,110,116,32,102,105,110,105,116,101,108,40,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,100,114,101,109,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,32,10
+,108,111,110,103,32,100,111,117,98,108,101,32,115,105,103,110,105,102,105,99,97,110,100,108,40
+,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,32,10,108,111,110,103,32,100
+,111,117,98,108,101,32,99,111,112,121,115,105,103,110,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59
+,32,10,108,111,110,103,32,100,111,117,98,108,101,32,110,97,110,108,40,99,111,110,115,116,32
+,99,104,97,114,42,32,95,95,116,97,103,98,41,59,32,10,105,110,116,32,105,115,110,97,110
+,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,118,97,108,117,101,41,59,10,108
+,111,110,103,32,100,111,117,98,108,101,32,106,48,108,40,108,111,110,103,32,100,111,117,98,108
+,101,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,106,49,108,40,108,111,110,103
+,32,100,111,117,98,108,101,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,106,110
+,108,40,105,110,116,44,32,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,121,48,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59
+,32,10,108,111,110,103,32,100,111,117,98,108,101,32,121,49,108,40,108,111,110,103,32,100,111
+,117,98,108,101,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,121,110,108,40,105
+,110,116,44,32,108,111,110,103,32,100,111,117,98,108,101,41,59,10,108,111,110,103,32,100,111
+,117,98,108,101,32,101,114,102,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,32,10
+,108,111,110,103,32,100,111,117,98,108,101,32,101,114,102,99,108,40,108,111,110,103,32,100,111
+,117,98,108,101,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,108,103,97,109,109,97
+,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59,32,10,108,111,110,103,32,100,111,117
+,98,108,101,32,116,103,97,109,109,97,108,40,108,111,110,103,32,100,111,117,98,108,101,41,59
+,32,10,108,111,110,103,32,100,111,117,98,108,101,32,103,97,109,109,97,108,40,108,111,110,103
+,32,100,111,117,98,108,101,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,108,103
+,97,109,109,97,108,95,114,40,108,111,110,103,32,100,111,117,98,108,101,44,32,105,110,116,42
+,32,95,95,115,105,103,110,103,97,109,112,41,59,32,10,108,111,110,103,32,100,111,117,98,108
+,101,32,114,105,110,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59
+,32,10,108,111,110,103,32,100,111,117,98,108,101,32,110,101,120,116,97,102,116,101,114,108,40
+,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117
+,98,108,101,32,95,95,121,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,110,101
+,120,116,116,111,119,97,114,100,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120
+,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103,32
+,100,111,117,98,108,101,32,114,101,109,97,105,110,100,101,114,108,40,108,111,110,103,32,100,111
+,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121
+,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,115,99,97,108,98,110,108,40,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,105,110,116,32,95,95,110,41,59
+,32,10,105,110,116,32,105,108,111,103,98,108,40,108,111,110,103,32,100,111,117,98,108,101,32
+,95,95,120,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,115,99,97,108,98,108
+,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32
+,105,110,116,32,95,95,110,41,59,32,10,108,111,110,103,32,100,111,117,98,108,101,32,110,101
+,97,114,98,121,105,110,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41
+,59,10,108,111,110,103,32,100,111,117,98,108,101,32,114,111,117,110,100,108,40,108,111,110,103
+,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
+,32,116,114,117,110,99,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59
+,10,108,111,110,103,32,100,111,117,98,108,101,32,114,101,109,113,117,111,108,40,108,111,110,103
+,32,100,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32
+,95,95,121,44,32,105,110,116,42,32,95,95,113,117,111,41,59,10,108,111,110,103,32,105,110
+,116,32,108,114,105,110,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41
+,59,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,108,108,114,111,117,110,100,108,40
+,108,111,110,103,32,100,111,117,98,108,101,32,95,95,120,41,59,10,108,111,110,103,32,100,111
+,117,98,108,101,32,102,100,105,109,108,40,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,102,109,97,120,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41,59,10,108
+,111,110,103,32,100,111,117,98,108,101,32,102,109,105,110,108,40,108,111,110,103,32,100,111,117
+,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,121,41
+,59,10,108,111,110,103,32,100,111,117,98,108,101,32,102,109,97,108,40,108,111,110,103,32,100
+,111,117,98,108,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,121,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,122,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,115,99,97,108,98,108,40,108,111,110,103,32,100,111,117,98,108
+,101,32,95,95,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,95,95,110,41,59,10
+};
+
+static const char file_stdlib_h[] = {
+
+
+
+116,121,112,101,100,101,102,32,108,111,110,103,32,108,111,110,103,32,102,112,111,115,95,116,59
+,10,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,115,105,122,101,95,116,59
+,10,10,35,100,101,102,105,110,101,32,69,88,73,84,95,83,85,67,67,69,83,83,32,48,10
+,35,100,101,102,105,110,101,32,69,88,73,84,95,70,65,73,76,85,82,69,32,49,10,35,100
+,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48,41,10,116,121,112
+,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10,91,91,110,111,100,105,115
+,99,97,114,100,93,93,32,100,111,117,98,108,101,32,97,116,111,102,40,99,111,110,115,116,32
+,99,104,97,114,42,32,110,112,116,114,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93
+,93,32,105,110,116,32,97,116,111,105,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112
+,116,114,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,105
+,110,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41
+,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,108,111,110,103
+,32,105,110,116,32,97,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112
+,116,114,41,59,10,100,111,117,98,108,101,32,115,116,114,116,111,100,40,99,111,110,115,116,32
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114
+,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,10,102,108,111,97
+,116,32,115,116,114,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
+,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99
+,116,32,101,110,100,112,116,114,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,115,116
+,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101
+,110,100,112,116,114,41,59,10,108,111,110,103,32,105,110,116,32,115,116,114,116,111,108,40,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44
+,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32
+,105,110,116,32,98,97,115,101,41,59,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32
+,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
+,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116
+,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,117,110,115,105,103
+,110,101,100,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,40,99,111,110,115
+,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104
+,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116
+,32,98,97,115,101,41,59,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110
+,103,32,105,110,116,32,115,116,114,116,111,117,108,108,40,99,111,110,115,116,32,99,104,97,114
+,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114
+,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41
+,59,10,105,110,116,32,114,97,110,100,40,118,111,105,100,41,59,10,118,111,105,100,32,115,114
+,97,110,100,40,117,110,115,105,103,110,101,100,32,105,110,116,32,115,101,101,100,41,59,10,118
+,111,105,100,42,32,97,108,105,103,110,101,100,95,97,108,108,111,99,40,115,105,122,101,95,116
+,32,97,108,105,103,110,109,101,110,116,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59
+,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95,83,84,68,67,95,79,87,78,69,82
+,83,72,73,80,95,95,41,32,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111
+,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,99,97,108,108,111,99,40,115,105
+,122,101,95,116,32,110,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59
+,10,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32,95,79,119,110,101,114,32,95
+,79,112,116,32,112,116,114,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118
+,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,109,97,108,108,111,99,40,115
+,105,122,101,95,116,32,115,105,122,101,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93
+,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,114,101,97,108,108
+,111,99,40,118,111,105,100,42,32,95,79,112,116,32,112,116,114,44,32,115,105,122,101,95,116
+,32,115,105,122,101,41,59,10,35,101,108,115,101,10,91,91,110,111,100,105,115,99,97,114,100
+,93,93,32,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109
+,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,118,111,105,100,32,102
+,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,10,91,91,110,111,100,105,115,99,97
+,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108,111,99,40,115,105,122,101,95,116,32
+,115,105,122,101,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100
+,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115,105,122,101
+,95,116,32,115,105,122,101,41,59,10,35,101,110,100,105,102,10,91,91,110,111,114,101,116,117
+,114,110,93,93,32,118,111,105,100,32,97,98,111,114,116,40,118,111,105,100,41,59,10,105,110
+,116,32,97,116,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105
+,100,41,41,59,10,105,110,116,32,97,116,95,113,117,105,99,107,95,101,120,105,116,40,118,111
+,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,10,91,91,110,111,114,101
+,116,117,114,110,93,93,32,118,111,105,100,32,101,120,105,116,40,105,110,116,32,115,116,97,116
+,117,115,41,59,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,95,69
+,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,99,104,97,114,42,32,103,101
+,116,101,110,118,40,99,111,110,115,116,32,99,104,97,114,42,32,110,97,109,101,41,59,10,91
+,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,113,117,105,99,107,95,101,120
+,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,105,110,116,32,115,121,115,116,101
+,109,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,105,110,103,41,59
+};
+
+static const char file_stddef_h[] = {
+
+
+
+10,35,100,101,102,105,110,101,32,117,110,114,101,97,99,104,97,98,108,101,40,41,32,100,111
+,32,123,125,32,119,104,105,108,101,40,48,41,32,10,116,121,112,101,100,101,102,32,108,111,110
+,103,32,105,110,116,32,112,116,114,100,105,102,102,95,116,59,10,116,121,112,101,100,101,102,32
+,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,32,115,105,122,101,95,116,59
+,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59,10,116,121,112
+,101,100,101,102,32,115,116,114,117,99,116,32,123,10,32,32,108,111,110,103,32,108,111,110,103
+,32,95,95,109,97,120,95,97,108,105,103,110,95,108,108,59,10,32,32,108,111,110,103,32,100
+,111,117,98,108,101,32,95,95,109,97,120,95,97,108,105,103,110,95,108,100,59,10,125,32,109
+,97,120,95,97,108,105,103,110,95,116,59,10,10,116,121,112,101,100,101,102,32,116,121,112,101
+,111,102,40,110,117,108,108,112,116,114,41,32,110,117,108,108,112,116,114,95,116,59,10,10
+};
+
+static const char file_limits_h[] = {
+    #include "include\limits.h.include"
+};
+
+static const char file_locale_h[] = {
+
+
+
+35,112,114,97,103,109,97,32,111,110,99,101,10,116,121,112,101,100,101,102,32,105,110,116,32
+,119,99,104,97,114,95,116,59,10,47,47,32,76,111,99,97,108,101,32,99,97,116,101,103,111
+,114,105,101,115,10,35,100,101,102,105,110,101,32,76,67,95,65,76,76,32,32,32,32,32,32
+,32,32,32,32,48,10,35,100,101,102,105,110,101,32,76,67,95,67,79,76,76,65,84,69,32
+,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,76,67,95,67,84,89,80,69,32,32
+,32,32,32,32,32,32,50,10,35,100,101,102,105,110,101,32,76,67,95,77,79,78,69,84,65
+,82,89,32,32,32,32,32,51,10,35,100,101,102,105,110,101,32,76,67,95,78,85,77,69,82
+,73,67,32,32,32,32,32,32,52,10,35,100,101,102,105,110,101,32,76,67,95,84,73,77,69
+,32,32,32,32,32,32,32,32,32,53,10,10,35,100,101,102,105,110,101,32,76,67,95,77,73
+,78,32,32,32,32,32,32,32,32,32,32,76,67,95,65,76,76,10,35,100,101,102,105,110,101
+,32,76,67,95,77,65,88,32,32,32,32,32,32,32,32,32,32,76,67,95,84,73,77,69,10
+,10,47,47,32,76,111,99,97,108,101,32,99,111,110,118,101,110,116,105,111,110,32,115,116,114
+,117,99,116,117,114,101,10,115,116,114,117,99,116,32,108,99,111,110,118,10,123,10,32,32,32
+,32,99,104,97,114,42,32,32,32,32,100,101,99,105,109,97,108,95,112,111,105,110,116,59,10
+,32,32,32,32,99,104,97,114,42,32,32,32,32,116,104,111,117,115,97,110,100,115,95,115,101
+,112,59,10,32,32,32,32,99,104,97,114,42,32,32,32,32,103,114,111,117,112,105,110,103,59
+,10,32,32,32,32,99,104,97,114,42,32,32,32,32,105,110,116,95,99,117,114,114,95,115,121
+,109,98,111,108,59,10,32,32,32,32,99,104,97,114,42,32,32,32,32,99,117,114,114,101,110
+,99,121,95,115,121,109,98,111,108,59,10,32,32,32,32,99,104,97,114,42,32,32,32,32,109
+,111,110,95,100,101,99,105,109,97,108,95,112,111,105,110,116,59,10,32,32,32,32,99,104,97
+,114,42,32,32,32,32,109,111,110,95,116,104,111,117,115,97,110,100,115,95,115,101,112,59,10
+,32,32,32,32,99,104,97,114,42,32,32,32,32,109,111,110,95,103,114,111,117,112,105,110,103
+,59,10,32,32,32,32,99,104,97,114,42,32,32,32,32,112,111,115,105,116,105,118,101,95,115
+,105,103,110,59,10,32,32,32,32,99,104,97,114,42,32,32,32,32,110,101,103,97,116,105,118
+,101,95,115,105,103,110,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,105,110,116,95
+,102,114,97,99,95,100,105,103,105,116,115,59,10,32,32,32,32,99,104,97,114,32,32,32,32
+,32,102,114,97,99,95,100,105,103,105,116,115,59,10,32,32,32,32,99,104,97,114,32,32,32
+,32,32,112,95,99,115,95,112,114,101,99,101,100,101,115,59,10,32,32,32,32,99,104,97,114
+,32,32,32,32,32,112,95,115,101,112,95,98,121,95,115,112,97,99,101,59,10,32,32,32,32
+,99,104,97,114,32,32,32,32,32,110,95,99,115,95,112,114,101,99,101,100,101,115,59,10,32
+,32,32,32,99,104,97,114,32,32,32,32,32,110,95,115,101,112,95,98,121,95,115,112,97,99
+,101,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,112,95,115,105,103,110,95,112,111
+,115,110,59,10,32,32,32,32,99,104,97,114,32,32,32,32,32,110,95,115,105,103,110,95,112
+,111,115,110,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,100,101,99,105
+,109,97,108,95,112,111,105,110,116,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95
+,87,95,116,104,111,117,115,97,110,100,115,95,115,101,112,59,10,32,32,32,32,119,99,104,97
+,114,95,116,42,32,95,87,95,105,110,116,95,99,117,114,114,95,115,121,109,98,111,108,59,10
+,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,99,117,114,114,101,110,99,121,95
+,115,121,109,98,111,108,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,109
+,111,110,95,100,101,99,105,109,97,108,95,112,111,105,110,116,59,10,32,32,32,32,119,99,104
+,97,114,95,116,42,32,95,87,95,109,111,110,95,116,104,111,117,115,97,110,100,115,95,115,101
+,112,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95,112,111,115,105,116,105
+,118,101,95,115,105,103,110,59,10,32,32,32,32,119,99,104,97,114,95,116,42,32,95,87,95
+,110,101,103,97,116,105,118,101,95,115,105,103,110,59,10,125,59,10,10,115,116,114,117,99,116
+,32,116,109,59,10,10,32,32,32,32,99,104,97,114,42,32,115,101,116,108,111,99,97,108,101
+,40,10,32,32,32,32,32,32,32,32,105,110,116,32,32,32,32,32,32,32,32,32,95,67,97
+,116,101,103,111,114,121,44,10,32,32,32,32,32,32,32,32,99,104,97,114,32,99,111,110,115
+,116,42,32,95,76,111,99,97,108,101,10,32,32,32,32,32,32,32,32,41,59,10,10,32,32
+,32,32,115,116,114,117,99,116,32,108,99,111,110,118,42,32,108,111,99,97,108,101,99,111,110
+,118,40,118,111,105,100,41,59,10
+};
+
+const char file_wchar_h[] = {
+  #include "include\wchar.h.include"
+};
 
 char* _Owner read_file(const char* path)
 {
