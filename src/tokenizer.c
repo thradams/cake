@@ -1471,7 +1471,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         }
 #else
         /*web versions only text files that are included*/
-        char* textfile = read_file(filename_opt);
+        char* textfile = read_file(filename_opt, true);
         if (textfile == NULL)
         {
             preprocessor_diagnostic_message(C_ERROR_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
@@ -2180,6 +2180,12 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 skip_blanks(ctx, &r, input_list);
 
 
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
                 struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
                 struct token* _Owner _Opt p_new_token = token_list_pop_front_get(input_list);
                 if (p_new_token == NULL)
@@ -2213,7 +2219,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 if (has_parentesis)
                 {
                     if (input_list->head == NULL)
+                    {
                         throw;
+                    }
 
                     if (input_list->head->type != ')')
                     {
@@ -2240,7 +2248,10 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 bool is_angle_bracket_form = false;
 
                 if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
                     throw;
+                }
 
                 if (input_list->head->type == TK_STRING_LITERAL)
                 {
@@ -2253,7 +2264,10 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     token_list_pop_front(input_list); //pop <
 
                     if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(r.tail, ctx);
                         throw;
+                    }
 
                     while (input_list->head->type != '>')
                     {
@@ -2261,7 +2275,10 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                         token_list_pop_front(input_list); //pop (
 
                         if (input_list->head == NULL)
+                        {
+                            pre_unexpected_end_of_file(r.tail, ctx);
                             throw;
+                        }
                     }
                     token_list_pop_front(input_list); //pop >
                 }
@@ -2311,12 +2328,23 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 token_list_pop_front(input_list); //pop (
                 skip_blanks(ctx, &r, input_list);
 
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
 
                 char path[100] = { 0 };
                 while (input_list->head->type != ')')
                 {
                     strcat(path, input_list->head->lexeme);
                     token_list_pop_front(input_list); //pop (
+
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(r.tail, ctx);
+                        throw;
+                    }
                 }
                 token_list_pop_front(input_list); //pop >
 
@@ -2374,7 +2402,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
             }
             else
             {
-                token_list_add(&r, token_list_pop_front_get(input_list));
+                struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
+                if (tk)
+                    token_list_add(&r, tk);
             }
         }
     }
@@ -2503,6 +2533,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
           Let's remove TK_FLAG_LINE_CONTINUATION from the original token
           to avoid warning inside constant expressions
         */
+        assert(r.tail != NULL);
         r.tail->flags &= ~TK_FLAG_LINE_CONTINUATION;
     }
 
@@ -2567,7 +2598,7 @@ void match_level(struct token_list* dest, struct token_list* input_list, int lev
         }
     }
     else
-        token_list_pop_front(input_list); //deletar
+        token_list_pop_front(input_list);
 }
 
 
@@ -2599,7 +2630,7 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
             if (INCLUDE_ALL || level == 0)
                 token_list_add(dest, token_list_pop_front_get(input_list));
             else
-                token_list_pop_front(input_list); //deletar
+                token_list_pop_front(input_list);
         }
     }
     catch
@@ -2635,6 +2666,13 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //ifdef
             skip_blanks_level(ctx, &r, input_list, level);
+
+            if (input_list->head == NULL)
+            {
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
+
             if (is_active)
             {
                 struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
@@ -2649,6 +2687,13 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //ifndef
             skip_blanks_level(ctx, &r, input_list, level);
+
+            if (input_list->head == NULL)
+            {
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
+
             if (is_active)
             {
                 struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
@@ -2929,6 +2974,7 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
             pre_unexpected_end_of_file(r.tail, ctx);
             throw;
         }
+
 
         if (input_list->head->type == TK_PREPROCESSOR_LINE &&
             preprocessor_token_ahead_is_identifier(input_list->head, "else"))
@@ -3300,11 +3346,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
               # embed pp-tokens new-line
             */
 
-            if (input_list->head == NULL)
-            {
-                throw;
-            }
-
             const struct token* const p_embed_token = input_list->head;
 
             match_token_level(p_list, input_list, TK_IDENTIFIER, level, ctx); //embed
@@ -3314,7 +3355,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (input_list->head == NULL)
             {
-
                 throw;
             }
 
@@ -3347,6 +3387,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     prematch_level(p_list, input_list, level);
                     if (input_list->head == NULL)
                     {
+                        pre_unexpected_end_of_file(p_list->tail, ctx);
                         throw;
                     }
                 }
@@ -3420,6 +3461,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (input_list->head == NULL)
             {
+                macro_delete(macro);
                 pre_unexpected_end_of_file(r.tail, ctx);
                 throw;
             }
@@ -3435,14 +3477,21 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                       // input_list->head->line);
             }
 
+            char* _Owner _Opt temp = strdup(input_list->head->lexeme);
+            if (temp == NULL)
+            {
+                macro_delete(macro);
+                throw;
+            }
             assert(macro->name == NULL);
-            macro->name = strdup(input_list->head->lexeme);
+            macro->name = temp;
 
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //nome da macro
 
             if (input_list->head == NULL)
             {
+                macro_delete(macro);
                 pre_unexpected_end_of_file(r.tail, ctx);
                 throw;
             }
@@ -3451,15 +3500,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             //p = preprocessor_match_token(p, is_active, level, false, IDENTIFIER); /*name*/
             if (input_list->head->type == '(')
             {
-
                 macro->is_function = true;
-
 
                 match_token_level(&r, input_list, '(', level, ctx);
                 skip_blanks_level(ctx, &r, input_list, level);
 
                 if (input_list->head == NULL)
                 {
+                    macro_delete(macro);
                     pre_unexpected_end_of_file(r.tail, ctx);
                     throw;
                 }
@@ -3469,10 +3517,19 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                     if (p_macro_parameter == NULL)
                     {
+                        macro_delete(macro);
                         throw;
                     }
 
-                    p_macro_parameter->name = strdup("__VA_ARGS__");
+                    char* _Owner _Opt temp = strdup("__VA_ARGS__");
+                    if (temp == NULL)
+                    {
+                        macro_delete(macro);
+                        macro_parameters_delete(p_macro_parameter);
+                        throw;
+                    }
+
+                    p_macro_parameter->name = temp;
                     macro->parameters = p_macro_parameter;
 
                     // assert(false);
@@ -3495,6 +3552,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     skip_blanks_level(ctx, &r, input_list, level);
                     if (input_list->head == NULL)
                     {
+                        macro_delete(macro);
                         pre_unexpected_end_of_file(r.tail, ctx);
                         throw;
                     }
@@ -3504,8 +3562,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                         if (p_macro_parameter == NULL) throw;
 
-                        p_macro_parameter->name = strdup("__VA_ARGS__");
-                        struct macro_parameter* p_last = macro->parameters;
+                        char* _Owner _Opt temp = strdup("__VA_ARGS__");
+                        if (temp == NULL)
+                        {
+                            macro_delete(macro);
+                            macro_parameters_delete(p_macro_parameter);
+                            throw;
+                        }
+
+                        p_macro_parameter->name = temp;
+                        struct macro_parameter* _Opt p_last = macro->parameters;
                         assert(p_last != NULL);
                         while (p_last->next)
                         {
@@ -3526,6 +3592,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             skip_blanks_level(ctx, &r, input_list, level);
             if (input_list->head == NULL)
             {
+                macro_delete(macro);
                 pre_unexpected_end_of_file(r.tail, ctx);
                 throw;
             }
@@ -3544,8 +3611,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                     if (p_macro_parameter == NULL) throw;
-
-                    p_macro_parameter->name = strdup("__VA_ARGS__");
+                    char* _Owner _Opt temp = strdup("__VA_ARGS__");
+                    if (temp == NULL)
+                    {
+                        macro_delete(macro);
+                        macro_parameters_delete(p_macro_parameter);
+                        throw;
+                    }
+                    p_macro_parameter->name = temp;
                     macro->parameters = p_macro_parameter;
 
                     token_list_destroy(&macro->replacement_list);
@@ -3554,8 +3627,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 }
             }
 
-            if (macro_name_token)
-                naming_convention_macro(ctx, macro_name_token);
+            naming_convention_macro(ctx, macro_name_token);
 
             struct hash_item_set item = { .p_macro = macro };
             hashmap_set(&ctx->macros, macro->name, &item);
@@ -3635,29 +3707,58 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                pragma declaration
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-            r.tail->type = TK_PRAGMA;
-            r.tail->flags |= TK_FLAG_FINAL;
+
+            if (r.tail)
+            {
+                r.tail->type = TK_PRAGMA;
+                r.tail->flags |= TK_FLAG_FINAL;
+            }
             skip_blanks_level(ctx, &r, input_list, level);
+
+            if (input_list->head == NULL)
+            {
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
 
             if (input_list->head->type == TK_IDENTIFIER)
             {
                 if (strcmp(input_list->head->lexeme, "CAKE") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-                    r.tail->flags |= TK_FLAG_FINAL;
+                    if (r.tail)
+                    {
+                        r.tail->flags |= TK_FLAG_FINAL;
+                    }
                     skip_blanks_level(ctx, &r, input_list, level);
                 }
 
-                if (input_list->head && strcmp(input_list->head->lexeme, "once") == 0)
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
+                if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
                     pragma_once_add(ctx, input_list->head->token_origin->lexeme);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                    r.tail->flags |= TK_FLAG_FINAL;
+                    if (r.tail)
+                    {
+                        r.tail->flags |= TK_FLAG_FINAL;
+                    }
                 }
-                else if (input_list->head && strcmp(input_list->head->lexeme, "dir") == 0)
+                else if (strcmp(input_list->head->lexeme, "dir") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                     skip_blanks_level(ctx, &r, input_list, level);
+
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(r.tail, ctx);
+                        throw;
+                    }
+
                     if (input_list->head->type != TK_STRING_LITERAL)
                     {
                         preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, input_list->head, "expected string");
@@ -3668,13 +3769,24 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
                     include_dir_add(&ctx->include_dir, path);
                     match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//pragma
-                    r.tail->flags |= TK_FLAG_FINAL;
+                    if (r.tail)
+                    {
+                        r.tail->flags |= TK_FLAG_FINAL;
+                    }
                 }
-                else if (input_list->head && strcmp(input_list->head->lexeme, "expand") == 0)
+                else if (strcmp(input_list->head->lexeme, "expand") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                    r.tail->flags |= TK_FLAG_FINAL;
+                    if (r.tail)
+                        r.tail->flags |= TK_FLAG_FINAL;
+
                     skip_blanks_level(ctx, &r, input_list, level);
+
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(r.tail, ctx);
+                        throw;
+                    }
 
                     struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
                     if (macro)
@@ -3684,25 +3796,43 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                 }
-                else if (input_list->head && strcmp(input_list->head->lexeme, "nullchecks") == 0)
+                else if (strcmp(input_list->head->lexeme, "nullchecks") == 0)
                 {
                     assert(false);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
+                    assert(r.tail != NULL);
                     r.tail->flags |= TK_FLAG_FINAL;
+
                     skip_blanks_level(ctx, &r, input_list, level);
                     ctx->options.null_checks_enabled = true;
                 }
 
-                if (input_list->head && strcmp(input_list->head->lexeme, "diagnostic") == 0)
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
+                if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                    assert(r.tail != NULL);
                     r.tail->flags |= TK_FLAG_FINAL;
+
                     skip_blanks_level(ctx, &r, input_list, level);
 
-                    if (input_list->head && strcmp(input_list->head->lexeme, "push") == 0)
+                    if (input_list->head == NULL)
+                    {
+                        pre_unexpected_end_of_file(r.tail, ctx);
+                        throw;
+                    }
+
+                    if (strcmp(input_list->head->lexeme, "push") == 0)
                     {
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                        assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
+
                         //#pragma GCC diagnostic push
                         if (ctx->options.diagnostic_stack.top_index <
                             sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack.stack[0]))
@@ -3713,39 +3843,44 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                                 ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
                         }
                     }
-                    else if (input_list->head && strcmp(input_list->head->lexeme, "pop") == 0)
+                    else if (strcmp(input_list->head->lexeme, "pop") == 0)
                     {
                         //#pragma GCC diagnostic pop
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pop
+                        assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
                         if (ctx->options.diagnostic_stack.top_index > 0)
                         {
                             ctx->options.diagnostic_stack.top_index--;
                         }
                     }
-                    else if (input_list->head && strcmp(input_list->head->lexeme, "warning") == 0)
+                    else if (strcmp(input_list->head->lexeme, "warning") == 0)
                     {
                         //#pragma CAKE diagnostic warning "-Wenum-compare"
 
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
+                        assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
                         skip_blanks_level(ctx, &r, input_list, level);
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
                             match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
+                            assert(r.tail != NULL);
                             r.tail->flags |= TK_FLAG_FINAL;
 
                             unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                         }
                     }
-                    else if (input_list->head && strcmp(input_list->head->lexeme, "ignore") == 0)
+                    else if (strcmp(input_list->head->lexeme, "ignore") == 0)
                     {
                         //#pragma CAKE diagnostic ignore "-Wenum-compare"
 
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//ignore
+                        assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
+
                         skip_blanks_level(ctx, &r, input_list, level);
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
@@ -3760,6 +3895,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
+            assert(r.tail != NULL);
             r.tail->type = TK_PRAGMA_END;
             r.tail->flags |= TK_FLAG_FINAL;
             token_list_destroy(&r7);
@@ -4031,6 +4167,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                     p_new_token->lexeme = temp;
                     p_new_token->type = TK_PLACEMARKER;
                     token_list_add(&newlist, p_new_token);
+                    assert(newlist.head != NULL);
                     newlist.head->flags = r.tail->flags;
                 }
                 /*
@@ -4858,6 +4995,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             prematch(&r, input_list);
                             if (is_final)
                             {
+                                assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
                         }
@@ -4866,6 +5004,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             if (is_final)
                             {
                                 prematch(&r, input_list);
+                                assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
                             else
