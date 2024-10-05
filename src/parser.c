@@ -757,7 +757,7 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
     return best; // mesmo que nao seja tao completo vamos retornar.
 }
 
-struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme)
+struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(const struct parser_ctx* ctx, const char* lexeme)
 {
     struct struct_or_union_specifier* _Opt p = NULL;
     struct scope* _Opt scope = ctx->scopes.tail;
@@ -1535,7 +1535,6 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
     {
-
         if (ctx->current->type == TK_PRAGMA)
         {
             /*only active block have TK_PRAGMA*/
@@ -2435,6 +2434,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         }
 
+        //init declarators have names
+        assert(p_init_declarator->p_declarator->name_opt != NULL);
 
         const char* _Opt name = p_init_declarator->p_declarator->name_opt->lexeme;
         if (name)
@@ -2685,7 +2686,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                             p_init_declarator->p_declarator->first_token_opt, NULL,
                             "static or type qualifiers are not allowed in non-parameter array declarator");
                     }
-                    else
+                    else if (p_init_declarator->initializer)
                     {
                         compiler_diagnostic_message(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
                         ctx,
@@ -2704,7 +2705,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         p_init_declarator->p_declarator->first_token_opt, NULL,
                         "_Obj_owner qualifier can only be used with pointers");
                 }
-                else
+                else if (p_init_declarator->initializer)
                 {
                     compiler_diagnostic_message(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
                     ctx,
@@ -4088,6 +4089,7 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* _Owner _Op
         free(p);
     }
 }
+
 struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier(struct parser_ctx* ctx)
 {
     struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier = NULL;
@@ -4209,7 +4211,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         p_enum_specifier->attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx);
 
-
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -4219,7 +4220,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         if (ctx->current->type == TK_IDENTIFIER)
         {
             snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "%s", ctx->current->lexeme);
-
 
             p_enum_specifier->tag_token = ctx->current;
             parser_match(ctx);
@@ -4318,8 +4318,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 //throw;
             //}
         }
-
-
     }
     catch
     {
@@ -4552,6 +4550,7 @@ void atomic_type_specifier_delete(struct atomic_type_specifier* _Owner _Opt p)
         free(p);
     }
 }
+
 struct atomic_type_specifier* _Owner _Opt atomic_type_specifier(struct parser_ctx* ctx)
 {
     //'_Atomic' '(' type_name ')'
@@ -4762,7 +4761,6 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
       pointer_opt direct-declarator
     */
 
-
     struct declarator* _Owner _Opt p_declarator = NULL;
     try
     {
@@ -4793,7 +4791,6 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
         else
         {
             /*empty declarator*/
-
             p_declarator->last_token_opt = p_declarator->first_token_opt;
             p_declarator->first_token_opt = NULL; /*this is the way we can know...first is null*/
         }
@@ -4837,6 +4834,7 @@ void function_declarator_delete(struct function_declarator* _Owner _Opt p)
         free(p);
     }
 }
+
 void direct_declarator_delete(struct direct_declarator* _Owner _Opt p)
 {
     if (p)
@@ -4849,6 +4847,7 @@ void direct_declarator_delete(struct direct_declarator* _Owner _Opt p)
         free(p);
     }
 }
+
 struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt p_specifier_qualifier_list,
     struct declaration_specifiers* _Opt p_declaration_specifiers,
@@ -5173,6 +5172,7 @@ void pointer_delete(struct pointer* _Owner _Opt p)
         free(p);
     }
 }
+
 struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
 {
     struct pointer* _Owner _Opt p = NULL;
@@ -5320,12 +5320,10 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
 
         // parameter_list
         // parameter_list ',' '...'
-        p_parameter_type_list->parameter_list = parameter_list(ctx);
-
+        p_parameter_type_list->parameter_list = parameter_list(ctx);        
         if (p_parameter_type_list->parameter_list == NULL) throw;
 
-        if (p_parameter_type_list->parameter_list &&
-            p_parameter_type_list->parameter_list->head ==
+        if (p_parameter_type_list->parameter_list->head ==
             p_parameter_type_list->parameter_list->tail)
         {
             if (type_is_void(&p_parameter_type_list->parameter_list->head->declarator->type))
@@ -5641,7 +5639,9 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
             print_declaration_specifiers(ss, p_parameter_declaration->declaration_specifiers);
             ss_fprintf(ss, " ");
-            print_declarator(ss, p_parameter_declaration->declarator, is_abstract);
+
+            if (p_parameter_declaration->declarator)
+              print_declarator(ss, p_parameter_declaration->declarator, is_abstract);
 
             p_parameter_declaration = p_parameter_declaration->next;
         }
@@ -5771,6 +5771,7 @@ void braced_initializer_delete(struct braced_initializer* _Owner _Opt p)
         free(p);
     }
 }
+
 struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx)
 {
     /*
@@ -6000,6 +6001,7 @@ void designation_delete(struct designation* _Owner _Opt p)
         free(p);
     }
 }
+
 struct designation* _Owner _Opt designation(struct parser_ctx* ctx)
 {
     // designator_list '='
@@ -6059,6 +6061,7 @@ void designator_list_delete(struct designator_list* _Owner _Opt p)
         free(p);
     }
 }
+
 struct designator_list* _Owner _Opt designator_list(struct parser_ctx* ctx)
 {
     // designator
@@ -6739,7 +6742,7 @@ void attribute_list_destroy(struct attribute_list* _Obj_owner p)
     }
 }
 
-void attribute_list_delete(struct attribute_list* _Owner p)
+void attribute_list_delete(struct attribute_list* _Owner _Opt p)
 {
     if (p)
     {

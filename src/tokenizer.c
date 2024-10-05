@@ -3611,14 +3611,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                     if (p_macro_parameter == NULL) throw;
-                    char* _Owner _Opt temp = strdup("__VA_ARGS__");
-                    if (temp == NULL)
+                    char* _Owner _Opt temp2 = strdup("__VA_ARGS__");
+                    if (temp2 == NULL)
                     {
                         macro_delete(macro);
                         macro_parameters_delete(p_macro_parameter);
                         throw;
                     }
-                    p_macro_parameter->name = temp;
+                    p_macro_parameter->name = temp2;
                     macro->parameters = p_macro_parameter;
 
                     token_list_destroy(&macro->replacement_list);
@@ -3961,7 +3961,14 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 {
                     throw;
                 }
-                p_argument->name = strdup(p_current_parameter->name);
+                char* _Owner _Opt name_temp = strdup(p_current_parameter->name);
+                if (name_temp == NULL)
+                {
+                    macro_argument_delete(p_argument);
+                    throw;
+                }
+
+                p_argument->name = name_temp;
                 argument_list_add(&macro_argument_list, p_argument);
             }
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
@@ -3972,8 +3979,15 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         {
             throw;
         }
+        char* _Opt _Owner temp2 = strdup(p_current_parameter->name);
+        if (temp2 == NULL)
+        {
+            macro_argument_delete(p_argument);
+            throw;
+        }
 
-        p_argument->name = strdup(p_current_parameter->name);
+        p_argument->name = temp2;
+
         while (input_list->head != NULL)
         {
             if (input_list->head->type == '(')
@@ -3997,14 +4011,21 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     {
                         if (strcmp(p_current_parameter->name, "__VA_ARGS__") == 0)
                         {
-                            //adicionamos este argumento como sendo vazio
+                            //we add this argument as being empty
                             p_argument = calloc(1, sizeof(struct macro_argument));
                             if (p_argument == NULL)
                             {
                                 throw;
                             }
 
-                            p_argument->name = strdup(p_current_parameter->name);
+                            char* _Owner _Opt argument_name = strdup(p_current_parameter->name);
+                            if (argument_name == NULL)
+                            {
+                                macro_argument_delete(p_argument);
+                                throw;
+                            }
+
+                            p_argument->name = argument_name;
 
                             argument_list_add(&macro_argument_list, p_argument);
                             p_argument = NULL; //MOVED
@@ -4015,7 +4036,6 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                             throw;
                         }
                     }
-
 
                     break;
                 }
@@ -4052,7 +4072,14 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         p_argument = NULL; //DELETED
                         throw;
                     }
-                    p_argument->name = strdup(p_current_parameter->name);
+
+                    char * temp3 = strdup(p_current_parameter->name);
+                    if (temp3 == NULL)
+                    {
+                        macro_argument_delete(p_argument);
+                        throw;
+                    }
+                    p_argument->name = temp3;
                 }
             }
             else
@@ -4453,9 +4480,9 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
 
                 if (ctx->conditional_inclusion)
                 {
-                    /*
-                     Quando estamos expandindo em condinonal inclusion o defined macro ou defined (macro)
-                     não é expandido e é considerado depois
+                    /* 
+                        When we are expanding in conditional inclusion the defined macro or defined (macro) 
+                        is not expanded and is considered later 
                     */
                     if (r.tail &&
                         r.tail->type == TK_IDENTIFIER &&
@@ -4970,6 +4997,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     if (is_final)
                     {
                         prematch(&r, input_list);
+                        assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
                     }
                     else
@@ -7152,7 +7180,7 @@ int test_line_continuation()
 
 
     return 0;
-}
+        }
 
 int stringify_test()
 {

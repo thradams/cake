@@ -147,7 +147,7 @@ struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char
 struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
 struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt * _Opt ppscope_opt);
 
-struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
+struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(const struct parser_ctx* ctx, const char* lexeme);
 
 void print_scope(struct scope_list* e);
 
@@ -282,7 +282,7 @@ struct attribute_specifier_sequence
     struct attribute_specifier* _Owner _Opt head;
     struct attribute_specifier* _Opt tail;
 };
-struct attribute_specifier_sequence* _Owner attribute_specifier_sequence_opt(struct parser_ctx* ctx);
+struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_opt(struct parser_ctx* ctx);
 void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* _Owner _Opt p);
 void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list, struct attribute_specifier* _Owner p_item);
 
