@@ -2144,7 +2144,7 @@ size_t type_get_sizeof(const struct type* p_type)
         else
         {
             if (type_is_vla(p_type))
-                return -3;
+                return (size_t)-3;
 
             int arraysize = p_type->num_of_elements;
             struct type type = get_array_item_type(p_type);
@@ -2228,12 +2228,12 @@ size_t type_get_sizeof(const struct type* p_type)
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
         if (p_type->struct_or_union_specifier == NULL)
-            return -2;
+            return (size_t)-2;
 
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        if (p_complete == NULL) return -2;
+        if (p_complete == NULL) return (size_t)-2;
 
         return get_sizeof_struct(p_complete);
     }
@@ -2245,7 +2245,7 @@ size_t type_get_sizeof(const struct type* p_type)
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
     {
-        return -3;
+        return (size_t)-3;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
@@ -2274,7 +2274,7 @@ size_t type_get_sizeof(const struct type* p_type)
     }
 
     assert(false);
-    return -1;
+    return (size_t)-1;
 }
 
 void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)

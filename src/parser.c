@@ -9415,7 +9415,7 @@ int compile_one_file(const char* file_name,
         prectx.options = *options;
         append_msvc_include_dir(&prectx);
 
-        content = read_file(file_name);
+        content = read_file(file_name, true /*append new line*/);
         if (content == NULL)
         {
             report->error_count++;
@@ -9576,7 +9576,7 @@ int compile_one_file(const char* file_name,
         //lets check if the generated file is the expected
         char buf[MYMAX_PATH] = { 0 };
         snprintf(buf, sizeof buf, "%s.txt", file_name);
-        char* _Owner _Opt content_expected = read_file(buf);
+        char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/);
         if (content_expected)
         {
             if (s && strcmp(content_expected, s) != 0)

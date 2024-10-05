@@ -420,7 +420,7 @@ char* dirname(char* path)
 
 #ifndef MOCKFILES
 
-char* _Owner _Opt read_file(const char* const path)
+char* _Owner _Opt read_file(const char* const path, bool append_newline)
 {
     char* _Owner _Opt data = NULL;
     FILE* _Owner _Opt file = NULL;
@@ -429,7 +429,13 @@ char* _Owner _Opt read_file(const char* const path)
     if (stat(path, &info) != 0)
         return NULL;
 
-    const int mem_size_bytes = sizeof(char) * info.st_size + 3 /*BOM*/ + 1 /* \0 */;
+    int mem_size_bytes = sizeof(char) * info.st_size + 1 /* \0 */ + 1 /*newline*/;
+    
+    if (mem_size_bytes < 4)
+    {
+        //we always read 3 chars even if file is small
+        mem_size_bytes = 4; //BOM + /0
+    }
 
     data = malloc(mem_size_bytes);
     if (data == NULL)
@@ -462,21 +468,35 @@ char* _Owner _Opt read_file(const char* const path)
         return NULL;
     }
 
+    size_t bytes_read_part2 = 0;
+
     /* check byte order mark (BOM) */
     if ((unsigned char)data[0] == (unsigned char)0xEF &&
         (unsigned char)data[1] == (unsigned char)0xBB &&
         (unsigned char)data[2] == (unsigned char)0xBF)
     {
-        /* in this case we skip this BOM */
-        size_t bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
-        data[bytes_read_part2] = 0;
-
-        fclose(file);
-        return data;
+        /* in this case we skip this BOM, reading again*/
+        bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
+    }
+    else
+    {
+        bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
+        bytes_read_part2 = bytes_read_part2 + 3;
     }
 
-    size_t bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
-    data[bytes_read_part2 + 3] = 0;
+    data[bytes_read_part2] = 0;
+    if (append_newline && data[bytes_read_part2 - 1] != '\n')
+    {
+        /*
+        A source file that is not empty shall end in a new-line character, which shall not 
+        be immediately preceded by a backslash character before any such splicing takes place.
+        */
+        data[bytes_read_part2] = '\n';
+
+        //we already allocated an extra char for this
+        assert(bytes_read_part2+1 < mem_size_bytes);
+        data[bytes_read_part2+1] = '\0'; 
+    }
 
     fclose(file);
     return data;
@@ -487,7 +507,7 @@ char* _Owner _Opt read_file(const char* const path)
 /*
    used in web build
    embeded standard headers from .\include\
-   the tool embed creates the .include version of each file 
+   the tool embed creates the .include version of each file
    in .\include\
 */
 
@@ -531,7 +551,7 @@ const char file_wchar_h[] = {
   #include "include\wchar.h.include"
 };
 
-char* _Owner read_file(const char* path)
+char* _Owner read_file(const char* path, bool append_newline)
 {
     if (strcmp(path, "c:/stdio.h") == 0)
         return strdup(file_stdio_h);

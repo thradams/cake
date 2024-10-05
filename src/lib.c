@@ -304,7 +304,7 @@ struct map_entry {
 };
 
 struct hash_map {
-    struct map_entry* _Owner* _Owner _Opt table;
+    struct map_entry* _Owner _Opt * _Owner _Opt table;
     int capacity;
     int  size;
 };
@@ -1141,7 +1141,7 @@ const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
 void check_unused_macros(const struct hash_map* map);
 
-char* _Owner _Opt read_file(const char* path);
+//char* _Owner _Opt read_file(const char* path);
 const char* get_token_name(enum token_type tk);
 void print_all_macros(const struct preprocessor_ctx* prectx);
 
@@ -3247,7 +3247,7 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path);
 
 int get_self_path(char* buffer, int maxsize);
 
-char* _Owner _Opt read_file(const char* path);
+char* _Owner _Opt read_file(const char* path, bool append_newline);
 char* dirname(char* path);
 char* basename(const char* filename);
 
@@ -3623,7 +3623,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
             return NULL;
         }
 
-        char* _Owner _Opt content = read_file(newpath);
+        char* _Owner _Opt content = read_file(newpath, true);
         if (content != NULL)
         {
             snprintf(full_path_out, full_path_out_size, "%s", path);
@@ -3666,7 +3666,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
 
         if (full_path_out[0] != '\0')
         {
-            content = read_file(full_path_out);
+            content = read_file(full_path_out, true);
         }
         if (content != NULL)
             return content;
@@ -3695,7 +3695,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
             return NULL;
         }
 
-        content = read_file(full_path_out);
+        content = read_file(full_path_out, true);
         if (content != NULL)
         {
             return content;
@@ -5375,6 +5375,12 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 token_list_pop_front(input_list);
                 skip_blanks(ctx, &r, input_list);
 
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
                 bool has_parentesis = false;
                 if (input_list->head->type == '(')
                 {
@@ -5675,7 +5681,9 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-        token_list_add(&r, token_list_pop_front_get(input_list));
+        struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
+        assert(tk != NULL); //because the list is not empty
+        token_list_add(&r, tk);
     }
     return r;
 }
@@ -5696,7 +5704,9 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-        token_list_add(&r, token_list_pop_front_get(input_list));
+        struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
+        assert(tk != NULL); //because the list is not empty
+        token_list_add(&r, tk);
 
         /*
           We call preprocessor that emmit warnings if line continuation
@@ -5760,7 +5770,13 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 void match_level(struct token_list* dest, struct token_list* input_list, int level)
 {
     if (INCLUDE_ALL || level == 0)
-        token_list_add(dest, token_list_pop_front_get(input_list));
+    {
+        struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
+        if (tk)
+        {
+            token_list_add(dest, tk);
+        }
+    }
     else
         token_list_pop_front(input_list); //deletar
 }
@@ -5997,8 +6013,10 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
         }
 
         token_list_append_list(&r, &r2);
+
         if (elif_result)
             already_found_elif_true = true;
+
         if (input_list->head->type == TK_PREPROCESSOR_LINE &&
             (
                 preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
@@ -6117,7 +6135,11 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
         }
 
         if (input_list->head == NULL)
+        {
+            token_list_destroy(&r2);
+            pre_unexpected_end_of_file(r.tail, ctx);
             throw;
+        }
 
         if (input_list->head->type == TK_PREPROCESSOR_LINE &&
             preprocessor_token_ahead_is_identifier(input_list->head, "else"))
@@ -6314,7 +6336,6 @@ static bool is_empty_assert(struct token_list* replacement_list)
 
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
-    assert(input_list->head != NULL);
 
     /*
         control-line:
@@ -6346,9 +6367,22 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             return r;
         }
 
+        if (input_list->head == NULL)
+        {
+            pre_unexpected_end_of_file(r.tail, ctx);
+            throw;
+        }
+
         struct token* const ptoken = input_list->head;
         match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
+
+        if (input_list->head == NULL)
+        {
+            pre_unexpected_end_of_file(r.tail, ctx);
+            throw;
+        }
+
         if (strcmp(input_list->head->lexeme, "include") == 0)
         {
             /*
@@ -6356,6 +6390,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //include
             skip_blanks_level(ctx, &r, input_list, level);
+
+            if (input_list->head == NULL)
+            {
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
+
             char path[100] = { 0 };
             bool is_angle_bracket_form = false;
             if (input_list->head->type == TK_STRING_LITERAL)
@@ -6365,12 +6406,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             else
             {
-                if (input_list->head == NULL)
-                {
-                    pre_unexpected_end_of_file(r.tail, ctx);
-                    throw;
-                }
-
                 is_angle_bracket_form = true;
                 while (input_list->head->type != '>')
                 {
@@ -6387,13 +6422,17 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 prematch_level(&r, input_list, level);
             }
 
-            if (input_list->head)
+
+            while (input_list->head->type != TK_NEWLINE)
             {
-                while (input_list->head->type != TK_NEWLINE)
+                prematch_level(&r, input_list, level);
+                if (input_list->head == NULL)
                 {
-                    prematch_level(&r, input_list, level);
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
                 }
             }
+
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
             path[strlen(path) - 1] = '\0';
@@ -6486,6 +6525,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (input_list->head == NULL)
             {
+
                 throw;
             }
 
@@ -6589,6 +6629,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             // printf("define %s\n%s : %d\n", input_list->head->lexeme, input_list->head->token_origin->lexeme, input_list->head->line);
 
+            if (input_list->head == NULL)
+            {
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
+
             struct token* macro_name_token = input_list->head;
 
 
@@ -6608,7 +6654,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (input_list->head == NULL)
             {
-                //preprocessor line ended without new line
+                pre_unexpected_end_of_file(r.tail, ctx);
                 throw;
             }
 
@@ -6622,6 +6668,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 match_token_level(&r, input_list, '(', level, ctx);
                 skip_blanks_level(ctx, &r, input_list, level);
+
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
                 if (input_list->head->type == '...')
                 {
                     struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
@@ -6967,11 +7020,22 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
         match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
+
+        if (input_list->head == NULL)
+        {
+            pre_unexpected_end_of_file(macro_argument_list.tokens.tail, ctx);
+            throw;
+        }
+
         if (input_list->head->type == ')')
         {
             if (macro->parameters != NULL)
             {
                 struct macro_argument* _Owner _Opt  p_argument = calloc(1, sizeof(struct macro_argument));
+                if (p_argument == NULL)
+                {
+                    throw;
+                }
                 p_argument->name = strdup(p_current_parameter->name);
                 argument_list_add(&macro_argument_list, p_argument);
             }
@@ -6979,6 +7043,11 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             return macro_argument_list;
         }
         struct macro_argument* _Owner _Opt p_argument = calloc(1, sizeof(struct macro_argument));
+        if (p_argument == NULL)
+        {
+            throw;
+        }
+
         p_argument->name = strdup(p_current_parameter->name);
         while (input_list->head != NULL)
         {
@@ -7005,7 +7074,13 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         {
                             //adicionamos este argumento como sendo vazio
                             p_argument = calloc(1, sizeof(struct macro_argument));
+                            if (p_argument == NULL)
+                            {
+                                throw;
+                            }
+
                             p_argument->name = strdup(p_current_parameter->name);
+
                             argument_list_add(&macro_argument_list, p_argument);
                             p_argument = NULL; //MOVED
                         }
@@ -7039,6 +7114,11 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     p_argument = NULL; /*MOVED*/
 
                     p_argument = calloc(1, sizeof(struct macro_argument));
+                    if (p_argument == NULL)
+                    {
+                        throw;
+                    }
+
                     p_current_parameter = p_current_parameter->next;
                     if (p_current_parameter == NULL)
                     {
@@ -7521,9 +7601,9 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
 }
 
 /*
-  Faz a comparação ignorando a continuacao da linha
-  TODO fazer uma revisão geral aonde se usa strcmp em lexeme
-  e trocar por esta.
+Performs the comparison ignoring the continuation of the line
+TODO do a general review where strcmp is used in lexeme
+and replace it with this one.
 */
 int lexeme_cmp(const char* s1, const char* s2)
 {
@@ -7589,16 +7669,19 @@ void remove_line_continuation(char* s)
 
 struct token_list  copy_replacement_list(const struct token_list* list)
 {
-    //Faz uma copia dos tokens fazendo um trim no iniico e fim
-    //qualquer espaco coments etcc vira um unico  espaco
+    //Makes a copy of the tokens by trimming the beginning and end 
+    //any space in comments etc. becomes a single space
+
     struct token_list r = { 0 };
     struct token* _Opt current = list->head;
-    //sai de cima de todos brancos iniciais
+
+    //get off all initial whites
     while (current && token_is_blank(current))
     {
         current = current->next;
     }
-    //remover flag de espaco antes se tiver
+
+    //remove space flag before if present
     bool is_first = true;
 
     for (; current;)
@@ -7635,7 +7718,7 @@ struct token_list  copy_replacement_list(const struct token_list* list)
 
 struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin)
 {
-    /*macros de conteudo dinamico*/
+    /*dynamic content macros*/
     if (strcmp(macro->name, "__LINE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
@@ -8090,6 +8173,7 @@ static void mark_macros_as_used(struct hash_map* map)
 
             while (pentry != NULL)
             {
+                assert(pentry->data.p_macro != NULL);
                 struct macro* macro = pentry->data.p_macro;
                 macro->usage = 1;
                 pentry = pentry->next;
@@ -8112,6 +8196,8 @@ void check_unused_macros(const struct hash_map* map)
 
             while (pentry != NULL)
             {
+                assert(pentry->data.p_macro != NULL);
+
                 struct macro* macro = pentry->data.p_macro;
                 if (macro->usage == 0)
                 {
@@ -8132,14 +8218,14 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
 
     snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s" CAKE_CFG_FNAME, local_cakeconfig_path);
 
-    char* _Owner _Opt str = read_file(local_cakeconfig_path);
+    char* _Owner _Opt str = read_file(local_cakeconfig_path, true);
     while (str == NULL)
     {
         dirname(local_cakeconfig_path);
         dirname(local_cakeconfig_path);
         if (local_cakeconfig_path[0] == '\0')
             break;
-        str = read_file(local_cakeconfig_path);
+        str = read_file(local_cakeconfig_path, true);
     }
 
 
@@ -8152,7 +8238,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         dirname(executable_path);
         char root_cakeconfig_path[MAX_PATH] = { 0 };
         snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
-        str = read_file(root_cakeconfig_path);
+        str = read_file(root_cakeconfig_path, true);
     }
 
     if (str == NULL)
@@ -8234,10 +8320,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __STDC_OWNERSHIP__ 1\n"
         "#define _W_DIVIZION_BY_ZERO_ 29\n"
 
-        
+
 #ifdef __EMSCRIPTEN__
-   //include dir on emscripten
-   "#pragma dir \"c:/\"\n"
+        //include dir on emscripten
+        "#pragma dir \"c:/\"\n"
 #endif
 
 #ifdef _WIN32
@@ -9019,6 +9105,8 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
     {
         struct map_entry* _Opt entry = prectx->macros.table[i];
         if (entry == NULL) continue;
+        assert(entry->data.p_macro != NULL);
+
         struct macro* macro = entry->data.p_macro;
         printf("#define %s", macro->name);
         if (macro->is_function)
@@ -9302,7 +9390,7 @@ int test_preprocessor_in_out(const char* input, const char* output)
 int test_preprocessor_in_out_using_file(const char* fileName)
 {
     int res = 0;
-    const char* input = normalize_line_end(read_file(fileName));
+    const char* input = normalize_line_end(read_file(fileName, true));
     char* output = 0;
     if (input)
     {
@@ -10725,7 +10813,7 @@ char* dirname(char* path)
 
 #ifndef MOCKFILES
 
-char* _Owner _Opt read_file(const char* const path)
+char* _Owner _Opt read_file(const char* const path, bool append_newline)
 {
     char* _Owner _Opt data = NULL;
     FILE* _Owner _Opt file = NULL;
@@ -10734,7 +10822,7 @@ char* _Owner _Opt read_file(const char* const path)
     if (stat(path, &info) != 0)
         return NULL;
 
-    const int mem_size_bytes = sizeof(char) * info.st_size + 3 /*BOM*/ + 1 /* \0 */;
+    const int mem_size_bytes = sizeof(char) * info.st_size + 1 /* \0 */ + 1 /*newline*/;
 
     data = malloc(mem_size_bytes);
     if (data == NULL)
@@ -10767,21 +10855,35 @@ char* _Owner _Opt read_file(const char* const path)
         return NULL;
     }
 
+    size_t bytes_read_part2 = 0;
+
     /* check byte order mark (BOM) */
     if ((unsigned char)data[0] == (unsigned char)0xEF &&
         (unsigned char)data[1] == (unsigned char)0xBB &&
         (unsigned char)data[2] == (unsigned char)0xBF)
     {
-        /* in this case we skip this BOM */
-        size_t bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
-        data[bytes_read_part2] = 0;
-
-        fclose(file);
-        return data;
+        /* in this case we skip this BOM, reading again*/
+        bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
+    }
+    else
+    {
+        bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
+        bytes_read_part2 = bytes_read_part2 + 3;
     }
 
-    size_t bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
-    data[bytes_read_part2 + 3] = 0;
+    data[bytes_read_part2] = 0;
+    if (append_newline && data[bytes_read_part2 - 1] != '\n')
+    {
+        /*
+        A source file that is not empty shall end in a new-line character, which shall not 
+        be immediately preceded by a backslash character before any such splicing takes place.
+        */
+        data[bytes_read_part2] = '\n';
+
+        //we already allocated an extra char for this
+        assert(bytes_read_part2+1 < mem_size_bytes);
+        data[bytes_read_part2+1] = '\0'; 
+    }
 
     fclose(file);
     return data;
@@ -10792,7 +10894,7 @@ char* _Owner _Opt read_file(const char* const path)
 /*
    used in web build
    embeded standard headers from .\include\
-   the tool embed creates the .include version of each file 
+   the tool embed creates the .include version of each file
    in .\include\
 */
 
@@ -11202,27 +11304,27 @@ static const char file_string_h[] = {
 ,32,99,111,110,115,116,42,32,95,83,116,114,44,32,99,104,97,114,32,99,111,110,115,116,42
 ,32,95,67,111,110,116,114,111,108,41,59,10,99,104,97,114,42,32,115,116,114,116,111,107,40
 ,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,32,99,111,110,115,116
-,42,32,95,68,101,108,105,109,105,116,101,114,41,59,10,35,105,102,32,100,101,102,105,110,101
-,100,40,95,95,83,84,68,67,95,79,87,78,69,82,83,72,73,80,95,95,41,32,10,99,104
-,97,114,42,32,95,79,119,110,101,114,32,95,79,112,116,32,115,116,114,100,117,112,40,99,104
-,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,41,59,10,35,101,108,115,101
-,10,99,104,97,114,42,32,115,116,114,100,117,112,40,99,104,97,114,32,99,111,110,115,116,42
-,32,95,83,116,114,105,110,103,41,59,10,35,101,110,100,105,102,10,105,110,116,32,115,116,114
-,99,109,112,105,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49
-,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41,59,10
-,105,110,116,32,115,116,114,105,99,109,112,40,99,104,97,114,32,99,111,110,115,116,42,32,95
-,83,116,114,105,110,103,49,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114
-,105,110,103,50,41,59,10,99,104,97,114,42,32,115,116,114,108,119,114,40,99,104,97,114,42
-,32,95,83,116,114,105,110,103,41,59,10,105,110,116,32,115,116,114,110,105,99,109,112,40,99
-,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,99,104,97,114
-,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,44,32,115,105,122,101,95,116,32
-,95,77,97,120,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,110,115,101,116
-,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,105,110,116,32,95,86,97,108,117
-,101,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,99,104,97
-,114,42,32,115,116,114,114,101,118,40,99,104,97,114,42,32,95,83,116,114,105,110,103,41,59
-,10,99,104,97,114,42,32,115,116,114,115,101,116,40,99,104,97,114,42,32,95,83,116,114,105
-,110,103,44,32,105,110,116,32,95,86,97,108,117,101,41,59,32,99,104,97,114,42,32,115,116
-,114,117,112,114,40,99,104,97,114,42,32,95,83,116,114,105,110,103,41,59
+,42,32,95,68,101,108,105,109,105,116,101,114,41,59,10,10,35,105,102,32,100,101,102,105,110
+,101,100,40,95,95,83,84,68,67,95,79,87,78,69,82,83,72,73,80,95,95,41,32,10,99
+,104,97,114,42,32,95,79,119,110,101,114,32,95,79,112,116,32,115,116,114,100,117,112,40,99
+,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,41,59,10,35,101,108,115
+,101,10,99,104,97,114,42,32,115,116,114,100,117,112,40,99,104,97,114,32,99,111,110,115,116
+,42,32,95,83,116,114,105,110,103,41,59,10,35,101,110,100,105,102,10,10,105,110,116,32,115
+,116,114,99,109,112,105,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110
+,103,49,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,41
+,59,10,105,110,116,32,115,116,114,105,99,109,112,40,99,104,97,114,32,99,111,110,115,116,42
+,32,95,83,116,114,105,110,103,49,44,32,99,104,97,114,32,99,111,110,115,116,42,32,95,83
+,116,114,105,110,103,50,41,59,10,99,104,97,114,42,32,115,116,114,108,119,114,40,99,104,97
+,114,42,32,95,83,116,114,105,110,103,41,59,10,105,110,116,32,115,116,114,110,105,99,109,112
+,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,49,44,32,99,104
+,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,50,44,32,115,105,122,101,95
+,116,32,95,77,97,120,67,111,117,110,116,41,59,10,99,104,97,114,42,32,115,116,114,110,115
+,101,116,40,99,104,97,114,42,32,95,83,116,114,105,110,103,44,32,105,110,116,32,95,86,97
+,108,117,101,44,32,115,105,122,101,95,116,32,95,77,97,120,67,111,117,110,116,41,59,10,99
+,104,97,114,42,32,115,116,114,114,101,118,40,99,104,97,114,42,32,95,83,116,114,105,110,103
+,41,59,10,99,104,97,114,42,32,115,116,114,115,101,116,40,99,104,97,114,42,32,95,83,116
+,114,105,110,103,44,32,105,110,116,32,95,86,97,108,117,101,41,59,32,99,104,97,114,42,32
+,115,116,114,117,112,114,40,99,104,97,114,42,32,95,83,116,114,105,110,103,41,59
 };
 
 static const char file_math_h[] = {
@@ -11524,70 +11626,70 @@ static const char file_stdlib_h[] = {
 ,32,115,105,122,101,95,116,59,10,10,35,100,101,102,105,110,101,32,69,88,73,84,95,83,85
 ,67,67,69,83,83,32,48,10,35,100,101,102,105,110,101,32,69,88,73,84,95,70,65,73,76
 ,85,82,69,32,49,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100
-,42,41,48,41,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116,59
-,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,100,111,117,98,108,101,32,97,116,111
-,102,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,10,91,91,110,111
-,100,105,115,99,97,114,100,93,93,32,105,110,116,32,97,116,111,105,40,99,111,110,115,116,32
-,99,104,97,114,42,32,110,112,116,114,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93
-,93,32,108,111,110,103,32,105,110,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104,97
-,114,42,32,110,112,116,114,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108
-,111,110,103,32,108,111,110,103,32,105,110,116,32,97,116,111,108,108,40,99,111,110,115,116,32
-,99,104,97,114,42,32,110,112,116,114,41,59,10,100,111,117,98,108,101,32,115,116,114,116,111
-,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112
-,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116
-,114,41,59,10,102,108,111,97,116,32,115,116,114,116,111,102,40,99,111,110,115,116,32,99,104
+,42,41,48,41,10,10,116,121,112,101,100,101,102,32,105,110,116,32,119,99,104,97,114,95,116
+,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,100,111,117,98,108,101,32,97,116
+,111,102,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,10,91,91,110
+,111,100,105,115,99,97,114,100,93,93,32,105,110,116,32,97,116,111,105,40,99,111,110,115,116
+,32,99,104,97,114,42,32,110,112,116,114,41,59,10,91,91,110,111,100,105,115,99,97,114,100
+,93,93,32,108,111,110,103,32,105,110,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104
+,97,114,42,32,110,112,116,114,41,59,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32
+,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97,116,111,108,108,40,99,111,110,115,116
+,32,99,104,97,114,42,32,110,112,116,114,41,59,10,100,111,117,98,108,101,32,115,116,114,116
+,111,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110
+,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112
+,116,114,41,59,10,102,108,111,97,116,32,115,116,114,116,111,102,40,99,111,110,115,116,32,99
+,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42
+,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,10,108,111,110,103,32
+,100,111,117,98,108,101,32,115,116,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114
+,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114
+,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,10,108,111,110,103,32,105,110,116
+,32,115,116,114,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
+,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116
+,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,108,111,110,103,32
+,108,111,110,103,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104
 ,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42
-,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,10,108,111,110,103,32,100
-,111,117,98,108,101,32,115,116,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114,42
-,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101
-,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,10,108,111,110,103,32,105,110,116,32
-,115,116,114,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105
-,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32
-,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,108,111,110,103,32,108
-,111,110,103,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104,97
-,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32
-,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101
-,41,59,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,115,116,114,116
-,111,117,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
-,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100
-,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,117,110,115,105,103,110,101,100,32
-,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,108,40,99,111
-,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32
-,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105
-,110,116,32,98,97,115,101,41,59,10,105,110,116,32,114,97,110,100,40,118,111,105,100,41,59
-,10,118,111,105,100,32,115,114,97,110,100,40,117,110,115,105,103,110,101,100,32,105,110,116,32
-,115,101,101,100,41,59,10,118,111,105,100,42,32,97,108,105,103,110,101,100,95,97,108,108,111
-,99,40,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,44,32,115,105,122,101,95
-,116,32,115,105,122,101,41,59,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95,83,84
-,68,67,95,79,87,78,69,82,83,72,73,80,95,95,41,32,10,91,91,110,111,100,105,115,99
-,97,114,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,99
-,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109,98,44,32,115,105,122,101,95
-,116,32,115,105,122,101,41,59,10,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32
-,95,79,119,110,101,114,32,95,79,112,116,32,112,116,114,41,59,10,91,91,110,111,100,105,115
-,99,97,114,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32
-,109,97,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,91,91,110,111
-,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79
-,112,116,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,95,79,112,116,32,112,116,114
-,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,35,101,108,115,101,10,91,91,110
-,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,99,97,108,108,111,99,40,115
-,105,122,101,95,116,32,110,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41
-,59,10,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,10,91
-,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108,111,99
-,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,91,91,110,111,100,105,115,99,97,114
-,100,93,93,32,118,111,105,100,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112
-,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,35,101,110,100,105,102,10
-,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,97,98,111,114,116,40,118
-,111,105,100,41,59,10,105,110,116,32,97,116,101,120,105,116,40,118,111,105,100,32,40,42,102
-,117,110,99,41,40,118,111,105,100,41,41,59,10,105,110,116,32,97,116,95,113,117,105,99,107
-,95,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41
-,59,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,101,120,105,116,40
-,105,110,116,32,115,116,97,116,117,115,41,59,10,91,91,110,111,114,101,116,117,114,110,93,93
-,32,118,111,105,100,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10
-,99,104,97,114,42,32,103,101,116,101,110,118,40,99,111,110,115,116,32,99,104,97,114,42,32
-,110,97,109,101,41,59,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32
-,113,117,105,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,105
-,110,116,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114
-,105,110,103,41,59,10
+,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115
+,101,41,59,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,115,116,114
+,116,111,117,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110
+,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,117,110,115,105,103,110,101,100
+,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,108,40,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44
+,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32
+,105,110,116,32,98,97,115,101,41,59,10,105,110,116,32,114,97,110,100,40,118,111,105,100,41
+,59,10,118,111,105,100,32,115,114,97,110,100,40,117,110,115,105,103,110,101,100,32,105,110,116
+,32,115,101,101,100,41,59,10,118,111,105,100,42,32,97,108,105,103,110,101,100,95,97,108,108
+,111,99,40,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,44,32,115,105,122,101
+,95,116,32,115,105,122,101,41,59,10,10,35,105,102,32,100,101,102,105,110,101,100,40,95,95
+,83,84,68,67,95,79,87,78,69,82,83,72,73,80,95,95,41,32,10,91,91,110,111,100,105
+,115,99,97,114,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116
+,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109,98,44,32,115,105,122
+,101,95,116,32,115,105,122,101,41,59,10,118,111,105,100,32,102,114,101,101,40,118,111,105,100
+,42,32,95,79,119,110,101,114,32,95,79,112,116,32,112,116,114,41,59,10,91,91,110,111,100
+,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112
+,116,32,109,97,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,91,91
+,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32
+,95,79,112,116,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,95,79,112,116,32,112
+,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,35,101,108,115,101,10,91
+,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,99,97,108,108,111,99
+,40,115,105,122,101,95,116,32,110,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122
+,101,41,59,10,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59
+,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108
+,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,91,91,110,111,100,105,115,99
+,97,114,100,93,93,32,118,111,105,100,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42
+,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,35,101,110,100,105
+,102,10,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,97,98,111,114
+,116,40,118,111,105,100,41,59,10,105,110,116,32,97,116,101,120,105,116,40,118,111,105,100,32
+,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,10,105,110,116,32,97,116,95,113,117
+,105,99,107,95,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105
+,100,41,41,59,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,101,120
+,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,91,91,110,111,114,101,116,117,114
+,110,93,93,32,118,111,105,100,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116,117,115
+,41,59,10,99,104,97,114,42,32,103,101,116,101,110,118,40,99,111,110,115,116,32,99,104,97
+,114,42,32,110,97,109,101,41,59,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111
+,105,100,32,113,117,105,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41
+,59,10,105,110,116,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114,42,32
+,115,116,114,105,110,103,41,59,10
 };
 
 static const char file_stddef_h[] = {
@@ -11675,7 +11777,7 @@ const char file_wchar_h[] = {
   #include "include\wchar.h.include"
 };
 
-char* _Owner read_file(const char* path)
+char* _Owner read_file(const char* path, bool append_newline)
 {
     if (strcmp(path, "c:/stdio.h") == 0)
         return strdup(file_stdio_h);
@@ -36228,7 +36330,7 @@ int compile_one_file(const char* file_name,
         prectx.options = *options;
         append_msvc_include_dir(&prectx);
 
-        content = read_file(file_name);
+        content = read_file(file_name, true /*append new line*/);
         if (content == NULL)
         {
             report->error_count++;
@@ -36389,7 +36491,7 @@ int compile_one_file(const char* file_name,
         //lets check if the generated file is the expected
         char buf[MYMAX_PATH] = { 0 };
         snprintf(buf, sizeof buf, "%s.txt", file_name);
-        char* _Owner _Opt content_expected = read_file(buf);
+        char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/);
         if (content_expected)
         {
             if (s && strcmp(content_expected, s) != 0)
@@ -47391,7 +47493,7 @@ size_t type_get_sizeof(const struct type* p_type)
         else
         {
             if (type_is_vla(p_type))
-                return -3;
+                return (size_t)-3;
 
             int arraysize = p_type->num_of_elements;
             struct type type = get_array_item_type(p_type);
@@ -47475,12 +47577,12 @@ size_t type_get_sizeof(const struct type* p_type)
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
         if (p_type->struct_or_union_specifier == NULL)
-            return -2;
+            return (size_t)-2;
 
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        if (p_complete == NULL) return -2;
+        if (p_complete == NULL) return (size_t)-2;
 
         return get_sizeof_struct(p_complete);
     }
@@ -47492,7 +47594,7 @@ size_t type_get_sizeof(const struct type* p_type)
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
     {
-        return -3;
+        return (size_t)-3;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
@@ -47521,7 +47623,7 @@ size_t type_get_sizeof(const struct type* p_type)
     }
 
     assert(false);
-    return -1;
+    return (size_t)-1;
 }
 
 void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)

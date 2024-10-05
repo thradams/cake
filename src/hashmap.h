@@ -60,7 +60,7 @@ struct map_entry {
 };
 
 struct hash_map {
-    struct map_entry* _Owner* _Owner _Opt table;
+    struct map_entry* _Owner _Opt * _Owner _Opt table;
     int capacity;
     int  size;
 };

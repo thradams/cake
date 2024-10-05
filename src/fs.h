@@ -98,7 +98,7 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path);
 
 int get_self_path(char* buffer, int maxsize);
 
-char* _Owner _Opt read_file(const char* path);
+char* _Owner _Opt read_file(const char* path, bool append_newline);
 char* dirname(char* path);
 char* basename(const char* filename);
 

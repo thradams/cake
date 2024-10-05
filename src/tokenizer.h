@@ -99,7 +99,6 @@ const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
 void check_unused_macros(const struct hash_map* map);
 
-char* _Owner _Opt read_file(const char* path);
 const char* get_token_name(enum token_type tk);
 void print_all_macros(const struct preprocessor_ctx* prectx);
 
