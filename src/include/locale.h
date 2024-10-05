@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 #pragma once
 typedef int wchar_t;
 // Locale categories
@@ -14,16 +19,16 @@ typedef int wchar_t;
 // Locale convention structure
 struct lconv
 {
-    char*    decimal_point;
-    char*    thousands_sep;
-    char*    grouping;
-    char*    int_curr_symbol;
-    char*    currency_symbol;
-    char*    mon_decimal_point;
-    char*    mon_thousands_sep;
-    char*    mon_grouping;
-    char*    positive_sign;
-    char*    negative_sign;
+    char* decimal_point;
+    char* thousands_sep;
+    char* grouping;
+    char* int_curr_symbol;
+    char* currency_symbol;
+    char* mon_decimal_point;
+    char* mon_thousands_sep;
+    char* mon_grouping;
+    char* positive_sign;
+    char* negative_sign;
     char     int_frac_digits;
     char     frac_digits;
     char     p_cs_precedes;
@@ -44,9 +49,9 @@ struct lconv
 
 struct tm;
 
-    char* setlocale(
-        int         _Category,
-        char const* _Locale
-        );
+char* setlocale(
+    int         _Category,
+    char const* _Locale
+);
 
-    struct lconv* localeconv(void);
+struct lconv* localeconv(void);

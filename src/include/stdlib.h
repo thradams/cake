@@ -1,9 +1,15 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 typedef long long fpos_t;
 typedef unsigned size_t;
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 #define NULL ((void*)0)
+
 typedef int wchar_t;
 [[nodiscard]] double atof(const char* nptr);
 [[nodiscard]] int atoi(const char* nptr);
@@ -19,6 +25,7 @@ unsigned long long int strtoull(const char* restrict nptr, char** restrict endpt
 int rand(void);
 void srand(unsigned int seed);
 void* aligned_alloc(size_t alignment, size_t size);
+
 #if defined(__STDC_OWNERSHIP__) 
 [[nodiscard]] void* _Owner _Opt calloc(size_t nmemb, size_t size);
 void free(void* _Owner _Opt ptr);
@@ -30,6 +37,7 @@ void free(void* ptr);
 [[nodiscard]] void* malloc(size_t size);
 [[nodiscard]] void* realloc(void* ptr, size_t size);
 #endif
+
 [[noreturn]] void abort(void);
 int atexit(void (*func)(void));
 int at_quick_exit(void (*func)(void));

@@ -1,3 +1,8 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
 //
 #pragma once
 #define CHAR_BIT      8
@@ -6,11 +11,11 @@
 #define UCHAR_MAX     0xff
 
 #ifndef _CHAR_UNSIGNED
-    #define CHAR_MIN    SCHAR_MIN
-    #define CHAR_MAX    SCHAR_MAX
+#define CHAR_MIN    SCHAR_MIN
+#define CHAR_MAX    SCHAR_MAX
 #else
-    #define CHAR_MIN    0
-    #define CHAR_MAX    UCHAR_MAX
+#define CHAR_MIN    0
+#define CHAR_MAX    UCHAR_MAX
 #endif
 
 #define MB_LEN_MAX    5
@@ -42,4 +47,4 @@
 #define _I64_MIN    (-9223372036854775807i64 - 1)
 #define _I64_MAX      9223372036854775807i64
 #define _UI64_MAX     0xffffffffffffffffui64
-        #define SIZE_MAX 0xffffffff
+#define SIZE_MAX 0xffffffff

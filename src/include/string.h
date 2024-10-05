@@ -62,11 +62,13 @@ static inline size_t strnlen_s(char const* _String, size_t _MaxCount);
 char* strpbrk(char const* _Str, char const* _Control);
 size_t strspn(char const* _Str, char const* _Control);
 char* strtok(char* _String, char const* _Delimiter);
+
 #if defined(__STDC_OWNERSHIP__) 
 char* _Owner _Opt strdup(char const* _String);
 #else
 char* strdup(char const* _String);
 #endif
+
 int strcmpi(char const* _String1, char const* _String2);
 int stricmp(char const* _String1, char const* _String2);
 char* strlwr(char* _String);

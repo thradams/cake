@@ -1,3 +1,7 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
 
 #define unreachable() do {} while(0) 
 typedef long int ptrdiff_t;
