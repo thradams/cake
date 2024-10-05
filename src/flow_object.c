@@ -622,7 +622,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                                 }
                                 else
                                 {
-                                    struct flow_object* p_member_obj =
+                                    struct flow_object* _Opt p_member_obj =
                                         make_object_core(ctx,
                                             &p_member_declarator->declarator->type,
                                             &l,
@@ -1121,7 +1121,7 @@ void print_object(struct type* p_type, struct flow_object* p_object, bool short_
     char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
 
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     print_object_core(0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
@@ -1159,7 +1159,7 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
                                 object_set_uninitialized_core(&visitor);
@@ -1220,7 +1220,7 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
 
 void object_set_uninitialized(struct type* p_type, struct flow_object* p_object)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_uninitialized_core(&visitor);
@@ -1362,7 +1362,7 @@ static void object_set_moved_core(struct object_visitor* p_visitor)
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
                                 object_set_moved_core(&visitor);
@@ -1410,7 +1410,7 @@ static void object_set_moved_core(struct object_visitor* p_visitor)
 
 void object_set_moved(struct type* p_type, struct flow_object* p_object)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_moved_core(&visitor);
@@ -1451,7 +1451,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
@@ -1514,7 +1514,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
         {
             struct type t2 = type_remove_pointer(p_visitor->p_type);
             bool t2_is_nullable = type_is_nullable(&t2, nullable_enabled);
-            struct object_visitor visitor = { 0 };
+            _Opt struct object_visitor visitor = { 0 };
             visitor.p_type = &t2;
             visitor.p_object = pointed;
 
@@ -1532,7 +1532,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
 
 void object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_unknown_core(&visitor, t_is_nullable, s_visit_number++, nullable_enabled);
@@ -1692,7 +1692,7 @@ void object_set_zero_core(struct object_visitor* p_visitor)
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
                                 object_set_zero_core(&visitor);
@@ -1737,7 +1737,7 @@ void object_set_zero_core(struct object_visitor* p_visitor)
 
 void object_set_zero(struct type* p_type, struct flow_object* p_object)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_zero_core(&visitor);
@@ -1772,7 +1772,7 @@ void object_set_end_of_lifetime_core(struct object_visitor* p_visitor)
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
                                 object_set_end_of_lifetime_core(&visitor);
@@ -1810,7 +1810,7 @@ void object_set_end_of_lifetime_core(struct object_visitor* p_visitor)
 
 void object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_object)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_end_of_lifetime_core(&visitor);
@@ -2001,7 +2001,7 @@ void object_get_name(const struct type* p_type,
     else if (p_object->p_expression_origin)
     {
         int bytes_written = 0;
-        struct token* p = p_object->p_expression_origin->first_token;
+        struct token* _Opt p = p_object->p_expression_origin->first_token;
         for (int i = 0; i < 10; i++)
         {
             const char* ps = p->lexeme;
@@ -2291,7 +2291,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
 
             if (p_visitor->p_object->current.pointed)
             {
-                struct object_visitor  visitor = { 0 };
+                _Opt struct object_visitor  visitor = { 0 };
                 visitor.p_type = &t2;
                 visitor.p_object = p_visitor->p_object->current.pointed;
 
@@ -2358,7 +2358,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
 
     object_get_name(p_type, p_object, name, sizeof name);
 
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_object = p_object;
     visitor.p_type = p_type;
 
@@ -2448,7 +2448,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
                             const bool member_is_view = type_is_view(&p_member_declarator->declarator->type);
 
-                            struct object_visitor  visitor = { 0 };
+                            _Opt struct object_visitor visitor = { 0 };
                             visitor.p_type = &p_member_declarator->declarator->type;
                             visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
@@ -2544,7 +2544,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
             if (p_visitor->p_object->current.pointed)
             {
-                struct object_visitor visitor = { 0 };
+                _Opt struct object_visitor visitor = { 0 };
                 visitor.p_type = &t2;
                 visitor.p_object = p_visitor->p_object->current.pointed;
                 flow_end_of_block_visit_core(ctx, &visitor, b_type_is_view, position, buffer, visit_number);
@@ -2585,7 +2585,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
                 if (p_visitor->p_object->current.pointed)
                 {
-                    struct token* name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
+                    struct token* _Opt name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
                         p_visitor->p_object->p_declarator_origin->name_opt :
                         p_visitor->p_object->p_declarator_origin->first_token_opt;
 
@@ -2614,7 +2614,7 @@ void flow_end_of_block_visit(struct flow_visit_ctx* ctx,
     const struct token* position_token,
     const char* previous_names)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     flow_end_of_block_visit_core(ctx,
@@ -3060,12 +3060,12 @@ static void flow_assignment_core(
                             if (p_visitor_a->member_index < p_visitor_a->p_object->members.size &&
                                 p_visitor_b->member_index < p_visitor_b->p_object->members.size)
                             {
-                                struct object_visitor visitor_a = { 0 };
+                                _Opt struct object_visitor visitor_a = { 0 };
                                 visitor_a.p_type = &p_a_member_declarator->declarator->type;
                                 visitor_a.p_object = p_visitor_a->p_object->members.data[p_visitor_a->member_index];
 
 
-                                struct object_visitor visitor_b = { 0 };
+                                _Opt struct object_visitor visitor_b = { 0 };
                                 visitor_b.p_type = &p_b_member_declarator->declarator->type;
                                 visitor_b.p_object = p_visitor_b->p_object->members.data[p_visitor_b->member_index];
 
@@ -3161,6 +3161,8 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             if (p_expression->declarator->declaration_specifiers &&
                 p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
             {
+                assert(p_expression->declarator->p_object != NULL);
+
                 //External objects are added to the arena on-demand
                 if (objects_find(&ctx->arena, p_expression->declarator->p_object) == NULL)
                 {
@@ -3220,7 +3222,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         {
             assert(p_expression->left != NULL);
 
-            struct flow_object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
+            struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
             if (p_obj)
             {
                 if (p_expression->member_index < p_obj->members.size)
@@ -3335,7 +3337,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         }
         else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
         {
-            struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+            struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
 
             const bool is_nullable = type_is_nullable(&p_expression->type, nullable_enabled);
@@ -3387,7 +3389,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         {
             assert(p_expression->left != NULL);
 
-            struct flow_object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
+            struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
 
             //
             //

@@ -2791,7 +2791,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_typ
     {
         const unsigned int hash = string_hash(key);
         struct map_entry** pp_entry = &map->table[hash % map->capacity];
-        struct map_entry* p_entry = *pp_entry;
+        struct map_entry* _Opt p_entry = *pp_entry;
 
         for (; p_entry != NULL; p_entry = p_entry->next)
         {
@@ -2832,7 +2832,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 {
     int result = 0;
 
-    void* p = NULL;
+    void* _Opt p = NULL;
     enum tag type = TAG_TYPE_NUMBER;
     if (item->p_declarator)
     {
@@ -2925,7 +2925,14 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
 
                 p_new_entry->type = type;
-                p_new_entry->key = strdup(key);
+                
+                char * _Opt _Owner temp_key = strdup(key);
+                if (temp_key == NULL)
+                {
+                    throw;
+                }
+
+                p_new_entry->key = temp_key;
                 p_new_entry->next = map->table[index];
                 map->table[index] = p_new_entry;
                 map->size++;
@@ -6731,15 +6738,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         throw;
                     }
 
-                    char* _Owner _Opt temp = strdup("__VA_ARGS__");
-                    if (temp == NULL)
+                    char* _Owner _Opt temp2 = strdup("__VA_ARGS__");
+                    if (temp2 == NULL)
                     {
                         macro_delete(macro);
                         macro_parameters_delete(p_macro_parameter);
                         throw;
                     }
 
-                    p_macro_parameter->name = temp;
+                    p_macro_parameter->name = temp2;
                     macro->parameters = p_macro_parameter;
 
                     // assert(false);
@@ -6772,15 +6779,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                         if (p_macro_parameter == NULL) throw;
 
-                        char* _Owner _Opt temp = strdup("__VA_ARGS__");
-                        if (temp == NULL)
+                        char* _Owner _Opt temp3 = strdup("__VA_ARGS__");
+                        if (temp3 == NULL)
                         {
                             macro_delete(macro);
                             macro_parameters_delete(p_macro_parameter);
                             throw;
                         }
 
-                        p_macro_parameter->name = temp;
+                        p_macro_parameter->name = temp3;
                         struct macro_parameter* _Opt p_last = macro->parameters;
                         assert(p_last != NULL);
                         while (p_last->next)
@@ -14799,7 +14806,7 @@ struct  switch_value_list
 
 void switch_value_destroy(struct switch_value_list* _Obj_owner list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
-struct switch_value* _Opt switch_value_list_find(struct switch_value_list* list, long long value);
+struct switch_value* _Opt switch_value_list_find(const struct switch_value_list* list, long long value);
 
 struct parser_ctx
 {
@@ -14849,7 +14856,7 @@ struct parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx);
+void parser_ctx_destroy(_Opt struct parser_ctx* _Obj_owner ctx);
 
 
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
@@ -15456,7 +15463,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt specifier_qualifier_list,
     struct declaration_specifiers* _Opt declaration_specifiers,
     bool abstract_acceptable,
-    struct token** pptokenname);
+    struct token** _Opt pptokenname);
 
 struct declarator* _Owner declarator_add_ref(struct declarator* p);
 void declarator_delete(struct declarator* _Owner _Opt  p);
@@ -15517,7 +15524,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt specifier_qualifier_list,
     struct declaration_specifiers* _Opt declaration_specifiers,
     bool abstract_acceptable,
-    struct token** pptoken_name
+    struct token** _Opt pptoken_name
 );
 
 struct parameter_type_list
@@ -19193,6 +19200,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             switch (traits_token->type)
             {
             case TK_KEYWORD_IS_LVALUE:
+                assert(new_expression->right != NULL);
                 new_expression->constant_value = constant_value_make_signed_int(expression_is_lvalue(new_expression->right));
                 break;
 
@@ -23919,7 +23927,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                                 }
                                 else
                                 {
-                                    struct flow_object* p_member_obj =
+                                    struct flow_object* _Opt p_member_obj =
                                         make_object_core(ctx,
                                             &p_member_declarator->declarator->type,
                                             &l,
@@ -24418,7 +24426,7 @@ void print_object(struct type* p_type, struct flow_object* p_object, bool short_
     char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
 
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     print_object_core(0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
@@ -24456,7 +24464,7 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
                                 object_set_uninitialized_core(&visitor);
@@ -24517,7 +24525,7 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
 
 void object_set_uninitialized(struct type* p_type, struct flow_object* p_object)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_uninitialized_core(&visitor);
@@ -24659,7 +24667,7 @@ static void object_set_moved_core(struct object_visitor* p_visitor)
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
                                 object_set_moved_core(&visitor);
@@ -24707,7 +24715,7 @@ static void object_set_moved_core(struct object_visitor* p_visitor)
 
 void object_set_moved(struct type* p_type, struct flow_object* p_object)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_moved_core(&visitor);
@@ -24748,7 +24756,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
@@ -24811,7 +24819,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
         {
             struct type t2 = type_remove_pointer(p_visitor->p_type);
             bool t2_is_nullable = type_is_nullable(&t2, nullable_enabled);
-            struct object_visitor visitor = { 0 };
+            _Opt struct object_visitor visitor = { 0 };
             visitor.p_type = &t2;
             visitor.p_object = pointed;
 
@@ -24829,7 +24837,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
 
 void object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_unknown_core(&visitor, t_is_nullable, s_visit_number++, nullable_enabled);
@@ -24989,7 +24997,7 @@ void object_set_zero_core(struct object_visitor* p_visitor)
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
                                 object_set_zero_core(&visitor);
@@ -25034,7 +25042,7 @@ void object_set_zero_core(struct object_visitor* p_visitor)
 
 void object_set_zero(struct type* p_type, struct flow_object* p_object)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_zero_core(&visitor);
@@ -25069,7 +25077,7 @@ void object_set_end_of_lifetime_core(struct object_visitor* p_visitor)
                         {
                             if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                struct object_visitor visitor = { 0 };
+                                _Opt struct object_visitor visitor = { 0 };
                                 visitor.p_type = &p_member_declarator->declarator->type;
                                 visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
                                 object_set_end_of_lifetime_core(&visitor);
@@ -25107,7 +25115,7 @@ void object_set_end_of_lifetime_core(struct object_visitor* p_visitor)
 
 void object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_object)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     object_set_end_of_lifetime_core(&visitor);
@@ -25298,7 +25306,7 @@ void object_get_name(const struct type* p_type,
     else if (p_object->p_expression_origin)
     {
         int bytes_written = 0;
-        struct token* p = p_object->p_expression_origin->first_token;
+        struct token* _Opt p = p_object->p_expression_origin->first_token;
         for (int i = 0; i < 10; i++)
         {
             const char* ps = p->lexeme;
@@ -25588,7 +25596,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
 
             if (p_visitor->p_object->current.pointed)
             {
-                struct object_visitor  visitor = { 0 };
+                _Opt struct object_visitor  visitor = { 0 };
                 visitor.p_type = &t2;
                 visitor.p_object = p_visitor->p_object->current.pointed;
 
@@ -25655,7 +25663,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
 
     object_get_name(p_type, p_object, name, sizeof name);
 
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_object = p_object;
     visitor.p_type = p_type;
 
@@ -25745,7 +25753,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
                             const bool member_is_view = type_is_view(&p_member_declarator->declarator->type);
 
-                            struct object_visitor  visitor = { 0 };
+                            _Opt struct object_visitor visitor = { 0 };
                             visitor.p_type = &p_member_declarator->declarator->type;
                             visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
@@ -25841,7 +25849,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
             if (p_visitor->p_object->current.pointed)
             {
-                struct object_visitor visitor = { 0 };
+                _Opt struct object_visitor visitor = { 0 };
                 visitor.p_type = &t2;
                 visitor.p_object = p_visitor->p_object->current.pointed;
                 flow_end_of_block_visit_core(ctx, &visitor, b_type_is_view, position, buffer, visit_number);
@@ -25882,7 +25890,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
 
                 if (p_visitor->p_object->current.pointed)
                 {
-                    struct token* name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
+                    struct token* _Opt name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
                         p_visitor->p_object->p_declarator_origin->name_opt :
                         p_visitor->p_object->p_declarator_origin->first_token_opt;
 
@@ -25911,7 +25919,7 @@ void flow_end_of_block_visit(struct flow_visit_ctx* ctx,
     const struct token* position_token,
     const char* previous_names)
 {
-    struct object_visitor visitor = { 0 };
+    _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     flow_end_of_block_visit_core(ctx,
@@ -26357,12 +26365,12 @@ static void flow_assignment_core(
                             if (p_visitor_a->member_index < p_visitor_a->p_object->members.size &&
                                 p_visitor_b->member_index < p_visitor_b->p_object->members.size)
                             {
-                                struct object_visitor visitor_a = { 0 };
+                                _Opt struct object_visitor visitor_a = { 0 };
                                 visitor_a.p_type = &p_a_member_declarator->declarator->type;
                                 visitor_a.p_object = p_visitor_a->p_object->members.data[p_visitor_a->member_index];
 
 
-                                struct object_visitor visitor_b = { 0 };
+                                _Opt struct object_visitor visitor_b = { 0 };
                                 visitor_b.p_type = &p_b_member_declarator->declarator->type;
                                 visitor_b.p_object = p_visitor_b->p_object->members.data[p_visitor_b->member_index];
 
@@ -26458,6 +26466,8 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             if (p_expression->declarator->declaration_specifiers &&
                 p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
             {
+                assert(p_expression->declarator->p_object != NULL);
+
                 //External objects are added to the arena on-demand
                 if (objects_find(&ctx->arena, p_expression->declarator->p_object) == NULL)
                 {
@@ -26517,7 +26527,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         {
             assert(p_expression->left != NULL);
 
-            struct flow_object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
+            struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
             if (p_obj)
             {
                 if (p_expression->member_index < p_obj->members.size)
@@ -26632,7 +26642,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         }
         else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
         {
-            struct flow_object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+            struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
 
             const bool is_nullable = type_is_nullable(&p_expression->type, nullable_enabled);
@@ -26684,7 +26694,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
         {
             assert(p_expression->left != NULL);
 
-            struct flow_object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
+            struct flow_object* _Opt p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
 
             //
             //
@@ -27348,7 +27358,7 @@ void switch_value_list_push(struct switch_value_list* list, struct switch_value*
     }
 }
 
-struct switch_value* _Opt switch_value_list_find(struct switch_value_list* list, long long value)
+struct switch_value* _Opt switch_value_list_find(const struct switch_value_list* list, long long value)
 {
     struct switch_value* _Opt p = list->head;
     while (p)
@@ -27362,7 +27372,7 @@ struct switch_value* _Opt switch_value_list_find(struct switch_value_list* list,
     return NULL;
 }
 
-void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx)
+void parser_ctx_destroy(_Opt struct parser_ctx* _Obj_owner ctx)
 {
     if (ctx->sarif_file)
     {
@@ -28489,8 +28499,8 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
 
-                // Isso nao esta funcionando pois esta informao precisa estar na AST.
-                // pois eh usada em um segundo passo.
+                // This is not working because this information needs to be in the AST. 
+                // because it is used in a second step.
                 bool onoff = false;
                 if (ctx->current && strcmp(ctx->current->lexeme, "ON") == 0)
                 {
@@ -28735,7 +28745,7 @@ int final_specifier(struct parser_ctx* ctx, enum type_specifier_flags* flags)
     {
         if (!type_specifier_is_integer(*flags))
         {
-            // se nao especificou nada vira integer
+            // if you didn't specify anything, it becomes integer
             (*flags) |= TYPE_SPECIFIER_INT;
         }
     }
@@ -29196,6 +29206,8 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                     return 0;
                 }
             */
+            
+            assert(p_declaration->init_declarator_list.head != NULL); //because functions definitions have names
 
             struct declarator* inner = p_declaration->init_declarator_list.head->p_declarator;
             for (;;)
@@ -29289,7 +29301,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                  *  The objetive of this visit is to initialize global objects.
                  *  It also executes static_debug
                  */
-                struct flow_visit_ctx ctx2 = { 0 };
+                _Opt struct flow_visit_ctx ctx2 = { 0 };
                 ctx2.ctx = ctx;
                 flow_start_visit_declaration(&ctx2, p_declaration);
                 flow_visit_ctx_destroy(&ctx2);
@@ -30047,9 +30059,19 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
         const bool is_typeof_unqual = ctx->current->type == TK_KEYWORD_TYPEOF_UNQUAL;
         parser_match(ctx);
         if (parser_match_tk(ctx, '(') != 0)
+        {
             throw;
+        }
 
-        p_typeof_specifier->typeof_specifier_argument = typeof_specifier_argument(ctx);
+        struct typeof_specifier_argument* _Owner _Opt p_typeof_specifier_argument = 
+            typeof_specifier_argument(ctx);
+
+        if (p_typeof_specifier_argument == NULL)
+        {            
+            throw;
+        }
+
+        p_typeof_specifier->typeof_specifier_argument = p_typeof_specifier_argument;
         if (p_typeof_specifier->typeof_specifier_argument == NULL)
             throw;
 
@@ -30826,7 +30848,7 @@ void member_declaration_list_destroy(struct member_declaration_list* _Obj_owner 
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
-    struct member_declaration_list list = { 0 };
+    _Opt struct member_declaration_list list = { 0 };
     // member_declaration
     // member_declaration_list member_declaration
 
@@ -31841,7 +31863,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt p_specifier_qualifier_list_opt,
     struct declaration_specifiers* _Opt p_declaration_specifiers_opt,
     bool abstract_acceptable,
-    struct token** pp_token_name)
+    struct token** _Opt pp_token_name_opt)
 {
     /*
       declarator:
@@ -31862,7 +31884,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
         p_declarator->first_token_opt = ctx->current;
         p_declarator->pointer = pointer_opt(ctx);
-        p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list_opt, p_declaration_specifiers_opt, abstract_acceptable, pp_token_name);
+        p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list_opt, p_declaration_specifiers_opt, abstract_acceptable, pp_token_name_opt);
         if (p_declarator->direct_declarator == NULL) throw;
 
         if (ctx->current == NULL)
@@ -31939,15 +31961,15 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt p_specifier_qualifier_list,
     struct declaration_specifiers* _Opt p_declaration_specifiers,
     bool abstract_acceptable,
-    struct token** pptoken_name)
+    struct token** _Opt pp_token_name_opt)
 {
     /*
     direct-declarator:
-     identifier attribute-specifier-sequenceopt
+     identifier attribute-specifier-sequence opt
      ( declarator )
 
-     array-declarator attribute-specifier-sequenceopt
-     function-declarator attribute-specifier-sequenceopt
+     array-declarator attribute-specifier-sequence opt
+     function-declarator attribute-specifier-sequence opt
     */
 
 
@@ -31970,9 +31992,9 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
         if (ctx->current->type == TK_IDENTIFIER)
         {
             p_direct_declarator->name_opt = ctx->current;
-            if (pptoken_name != NULL)
+            if (pp_token_name_opt != NULL)
             {
-                *pptoken_name = ctx->current;
+                *pp_token_name_opt = ctx->current;
             }
 
             parser_match(ctx);
@@ -31999,7 +32021,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
                         p_specifier_qualifier_list,
                         p_declaration_specifiers,
                         abstract_acceptable,
-                        pptoken_name);
+                        pp_token_name_opt);
 
                 if (p_declarator_temp == NULL)
                     throw;
@@ -32149,7 +32171,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
                 throw;
             }
 
-            // opcional
+            // optional
             if (ctx->current->type == '*')
             {
                 parser_match(ctx);
@@ -32186,8 +32208,10 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
     return p_array_declarator;
 }
 
-struct function_declarator* _Owner _Opt function_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx)
+struct function_declarator* _Owner _Opt function_declarator(struct direct_declarator* _Owner p_direct_declaratorArg, struct parser_ctx* ctx)
 {
+    struct direct_declarator* _Owner _Opt p_direct_declarator = p_direct_declaratorArg; //MOVED
+
     struct function_declarator* _Owner _Opt p_function_declarator = calloc(1, sizeof(struct function_declarator));
     try
     {
@@ -32563,7 +32587,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         p_parameter_declaration->declaration_specifiers = p_declaration_specifiers;
 
 
-        struct token* p_token_name = NULL;
+        struct token* _Opt p_token_name = NULL;
 
         p_parameter_declaration->declarator = declarator(ctx,
             /*specifier_qualifier_list*/ NULL,
@@ -33486,18 +33510,16 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             ctx->options.flow_analysis = false;
         }
     }
-
 }
 
 struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx)
-{
-    assert(ctx->current->type == TK_PRAGMA);
+{    
     struct pragma_declaration* _Owner _Opt p_pragma_declaration = NULL;
     try
     {
-        if (ctx->current == NULL)
+        if (ctx->current == NULL || ctx->current->type != TK_PRAGMA)
         {
-            unexpected_end_of_file(ctx);
+            assert(false);
             throw;
         }
 
@@ -34593,9 +34615,17 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
                     }
                 }
 
+                if (ctx->p_current_selection_statement == NULL)
+                {
+                    //unexpected because we have case inside switch
+                    throw;
+                }
+
                 const struct enum_specifier* _Opt p_enum_specifier = NULL;
 
-                if (ctx->p_current_selection_statement->condition->expression->type.enum_specifier)
+                if (ctx->p_current_selection_statement->condition &&
+                    ctx->p_current_selection_statement->condition->expression &&
+                    ctx->p_current_selection_statement->condition->expression->type.enum_specifier)
                 {
                     p_enum_specifier = get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
                 }
@@ -34622,6 +34652,12 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
+            if (ctx->p_switch_value_list == NULL)
+            {
+                //unexpected
+                throw;
+            }
+
             if (ctx->p_switch_value_list->p_default)
             {
                 //two defaults?
@@ -34776,6 +34812,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                 struct init_declarator* _Opt p_init_declarator = NULL;
                 if (entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
+                    assert(entry->data.p_init_declarator != NULL);
                     p_init_declarator = entry->data.p_init_declarator;
                     p_declarator = p_init_declarator->p_declarator;
                 }
@@ -34790,7 +34827,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                     if (!type_is_maybe_unused(&p_declarator->type) &&
                         p_declarator->num_uses == 0)
                     {
-                        if (p_declarator->name_opt->token_origin->level == 0)
+                        if (p_declarator->name_opt && p_declarator->name_opt->token_origin->level == 0)
                         {
                             compiler_diagnostic_message(W_UNUSED_VARIABLE,
                                 ctx,
@@ -34948,6 +34985,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
+                attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
                 unexpected_end_of_file(ctx);
                 throw;
             }
@@ -34976,6 +35014,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
+                attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
                 unexpected_end_of_file(ctx);
                 throw;
             }
@@ -34995,7 +35034,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
             struct init_declarator* _Opt p = p_block_item->declaration->init_declarator_list.head;
             while (p)
             {
-                if (p->p_declarator && p->p_declarator->name_opt)
+                if (p->p_declarator->name_opt)
                 {
                     naming_convention_local_var(ctx, p->p_declarator->name_opt, &p->p_declarator->type);
                 }
@@ -35345,7 +35384,8 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             {
                 const struct enum_specifier* _Opt p_enum_specifier = NULL;
 
-                if (ctx->p_current_selection_statement->condition &&
+                if (ctx->p_current_selection_statement &&
+                    ctx->p_current_selection_statement->condition &&
                     ctx->p_current_selection_statement->condition->expression &&
                     ctx->p_current_selection_statement->condition->expression->type.enum_specifier)
                 {
@@ -36271,7 +36311,7 @@ const char* _Owner _Opt format_code(struct options* options, const char* content
     add_standard_macros(&prectx);
 
     struct report report = { 0 };
-    struct parser_ctx ctx = { 0 };
+    _Opt struct parser_ctx ctx = { 0 };
     ctx.options = *options;
     ctx.p_report = &report;
     struct tokenizer_ctx tctx = { 0 };
@@ -36485,7 +36525,7 @@ int compile_one_file(const char* file_name,
 
     const char* _Owner _Opt s = NULL;
 
-    struct parser_ctx ctx = { 0 };
+    _Opt struct parser_ctx ctx = { 0 };
     struct visit_ctx visit_ctx = { 0 };
     struct tokenizer_ctx tctx = { 0 };
     struct token_list tokens = { 0 };
@@ -37008,7 +37048,9 @@ struct ast get_ast(struct options* options,
 
     struct preprocessor_ctx prectx = { 0 };
 
-    struct parser_ctx ctx = { .p_report = report };
+    _Opt struct parser_ctx ctx = { 0 };
+    ctx.p_report = report;
+
     try
     {
         prectx.options = *options;
@@ -39472,7 +39514,8 @@ static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_de
 }
 static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration)
 {
-    if (p_member_declaration->member_declarator_list_opt)
+    if (p_member_declaration->member_declarator_list_opt &&
+        p_member_declaration->specifier_qualifier_list)
     {
         visit_specifier_qualifier_list(ctx,
             p_member_declaration->specifier_qualifier_list,
@@ -41548,6 +41591,8 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                         .p_token_begin = p_init_declarator->initializer->assignment_expression->first_token,
                         .p_token_end = p_init_declarator->initializer->assignment_expression->last_token,
                     };
+
+                    assert(p_init_declarator->p_declarator->p_object != NULL);
 
                     flow_check_assignment(ctx,
                                         p_init_declarator->initializer->assignment_expression->first_token,

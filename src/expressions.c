@@ -2974,6 +2974,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             switch (traits_token->type)
             {
             case TK_KEYWORD_IS_LVALUE:
+                assert(new_expression->right != NULL);
                 new_expression->constant_value = constant_value_make_signed_int(expression_is_lvalue(new_expression->right));
                 break;
 

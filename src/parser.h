@@ -83,7 +83,7 @@ struct  switch_value_list
 
 void switch_value_destroy(struct switch_value_list* _Obj_owner list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
-struct switch_value* _Opt switch_value_list_find(struct switch_value_list* list, long long value);
+struct switch_value* _Opt switch_value_list_find(const struct switch_value_list* list, long long value);
 
 struct parser_ctx
 {
@@ -133,7 +133,7 @@ struct parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx);
+void parser_ctx_destroy(_Opt struct parser_ctx* _Obj_owner ctx);
 
 
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
@@ -740,7 +740,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt specifier_qualifier_list,
     struct declaration_specifiers* _Opt declaration_specifiers,
     bool abstract_acceptable,
-    struct token** pptokenname);
+    struct token** _Opt pptokenname);
 
 struct declarator* _Owner declarator_add_ref(struct declarator* p);
 void declarator_delete(struct declarator* _Owner _Opt  p);
@@ -801,7 +801,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt specifier_qualifier_list,
     struct declaration_specifiers* _Opt declaration_specifiers,
     bool abstract_acceptable,
-    struct token** pptoken_name
+    struct token** _Opt pptoken_name
 );
 
 struct parameter_type_list

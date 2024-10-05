@@ -2065,7 +2065,8 @@ static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_de
 }
 static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration)
 {
-    if (p_member_declaration->member_declarator_list_opt)
+    if (p_member_declaration->member_declarator_list_opt &&
+        p_member_declaration->specifier_qualifier_list)
     {
         visit_specifier_qualifier_list(ctx,
             p_member_declaration->specifier_qualifier_list,

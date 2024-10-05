@@ -113,7 +113,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_typ
     {
         const unsigned int hash = string_hash(key);
         struct map_entry** pp_entry = &map->table[hash % map->capacity];
-        struct map_entry* p_entry = *pp_entry;
+        struct map_entry* _Opt p_entry = *pp_entry;
 
         for (; p_entry != NULL; p_entry = p_entry->next)
         {
@@ -154,7 +154,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 {
     int result = 0;
 
-    void* p = NULL;
+    void* _Opt p = NULL;
     enum tag type = TAG_TYPE_NUMBER;
     if (item->p_declarator)
     {
@@ -247,7 +247,14 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
 
                 p_new_entry->type = type;
-                p_new_entry->key = strdup(key);
+                
+                char * _Opt _Owner temp_key = strdup(key);
+                if (temp_key == NULL)
+                {
+                    throw;
+                }
+
+                p_new_entry->key = temp_key;
                 p_new_entry->next = map->table[index];
                 map->table[index] = p_new_entry;
                 map->size++;

@@ -983,6 +983,8 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                         .p_token_end = p_init_declarator->initializer->assignment_expression->last_token,
                     };
 
+                    assert(p_init_declarator->p_declarator->p_object != NULL);
+
                     flow_check_assignment(ctx,
                                         p_init_declarator->initializer->assignment_expression->first_token,
                                         &a_marker,

@@ -3521,15 +3521,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         throw;
                     }
 
-                    char* _Owner _Opt temp = strdup("__VA_ARGS__");
-                    if (temp == NULL)
+                    char* _Owner _Opt temp2 = strdup("__VA_ARGS__");
+                    if (temp2 == NULL)
                     {
                         macro_delete(macro);
                         macro_parameters_delete(p_macro_parameter);
                         throw;
                     }
 
-                    p_macro_parameter->name = temp;
+                    p_macro_parameter->name = temp2;
                     macro->parameters = p_macro_parameter;
 
                     // assert(false);
@@ -3562,15 +3562,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                         if (p_macro_parameter == NULL) throw;
 
-                        char* _Owner _Opt temp = strdup("__VA_ARGS__");
-                        if (temp == NULL)
+                        char* _Owner _Opt temp3 = strdup("__VA_ARGS__");
+                        if (temp3 == NULL)
                         {
                             macro_delete(macro);
                             macro_parameters_delete(p_macro_parameter);
                             throw;
                         }
 
-                        p_macro_parameter->name = temp;
+                        p_macro_parameter->name = temp3;
                         struct macro_parameter* _Opt p_last = macro->parameters;
                         assert(p_last != NULL);
                         while (p_last->next)
