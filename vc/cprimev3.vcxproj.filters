@@ -19,9 +19,6 @@
     <ClCompile Include="..\src\fs.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\hash.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\hashmap.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -76,9 +73,6 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\fs.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\hash.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\hashmap.h">

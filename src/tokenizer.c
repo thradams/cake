@@ -1296,10 +1296,12 @@ int string_literal_char_byte_size(const char* s)
 int string_literal_byte_size_not_zero_included(const char* s)
 {
 
-    struct stream stream = { .source = s,
-        .current = s,
-        .line = 1,
-        .col = 1 };
+    _Opt struct stream stream = { .source = s };
+    
+    stream.current = s;
+    stream.line = 1;
+    stream.col = 1;
+    stream.path = "";
 
     int size = 0;
     const int charsize = string_literal_char_byte_size(s);
@@ -3561,7 +3563,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     if (input_list->head->type == '...')
                     {
                         struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                        if (p_macro_parameter == NULL) 
+                        if (p_macro_parameter == NULL)
                         {
                             macro_delete(macro);
                             throw;
@@ -3615,7 +3617,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     macro_parameters_delete(macro->parameters);
 
                     struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                    if (p_macro_parameter == NULL) 
+                    if (p_macro_parameter == NULL)
                     {
                         macro_delete(macro);
                         throw;
@@ -3653,7 +3655,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             skip_blanks_level(ctx, &r, input_list, level);
 
             if (input_list->head == NULL)
-            {                
+            {
                 pre_unexpected_end_of_file(r.tail, ctx);
                 throw;
             }
@@ -4050,7 +4052,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
                     argument_list_add(&macro_argument_list, p_argument);
                     p_argument = NULL; //MOVED
-                    
+
                     if (p_current_parameter->next != NULL)
                     {
                         p_current_parameter = p_current_parameter->next;
@@ -4082,7 +4084,6 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         }
                     }
 
-                    p_current_parameter = NULL;
                     break;
                 }
                 else
@@ -4109,7 +4110,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     {
                         throw;
                     }
-                    
+
                     if (p_current_parameter->next == NULL)
                     {
                         preprocessor_diagnostic_message(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_argument_list.tokens.tail, "too many arguments provided to function-like macro invocation\n");

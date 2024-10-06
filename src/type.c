@@ -13,7 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "error.h"
-#include "hash.h"
+
 #include "parser.h"
 #include "type.h"
 

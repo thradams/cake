@@ -66,11 +66,11 @@ void add_standard_macros(struct preprocessor_ctx* ctx);
 struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const char* path);
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
-struct token_list  copy_replacement_list(const struct token_list* list);
+struct token_list copy_replacement_list(const struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* _Obj_owner source);
 void print_list(struct token_list* list);
-void token_list_destroy( struct token_list* _Obj_owner list);
+void token_list_destroy(_Opt  struct token_list* _Obj_owner list);
 bool token_is_blank(const struct token* p);
 void token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);

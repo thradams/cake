@@ -646,7 +646,7 @@ struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struc
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt  p);
 
 bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
-struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
+struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(const struct struct_or_union_specifier* p_struct_or_union_specifier);
 
 struct init_declarator
 {

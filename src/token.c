@@ -210,7 +210,7 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     }
 }
 
-void token_list_destroy(struct token_list* _Obj_owner list)
+void token_list_destroy(_Opt struct token_list* _Obj_owner list)
 {
     struct token* _Owner _Opt p = list->head;
     while (p)
@@ -294,7 +294,19 @@ void token_list_paste_string_before(struct token_list* list,
 void token_list_insert_after(struct token_list* token_list, struct token* _Opt after, struct token_list* append_list)
 {
     if (append_list->head == NULL)
+    {
+        return;//nothing to append
+    }
+
+    if (token_list->head == NULL)
+    {        
+        assert(after == NULL);
+        token_list->head = append_list->head;
+        token_list->tail = append_list->tail;
+        append_list->head = NULL;
+        append_list->tail = NULL;
         return;
+    }
 
     if (after == NULL)
     {
@@ -327,7 +339,6 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
 
     append_list->head = NULL;
     append_list->tail = NULL;
-
 }
 
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list)
@@ -1296,16 +1307,14 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errmsg[100])
 {
-    struct stream stream = {
-    .source = lexeme,
-    .current = lexeme,
-    .line = 1,
-    .col = 1,
-    .path = "parse_number"
-    };
+    struct stream stream = {.source = lexeme};    
+    
+    stream.current = lexeme;
+    stream.line = 1;
+    stream.col = 1;
+    stream.path = "";
     return parse_number_core(&stream, suffix, errmsg);
 }
-
 
 /*
     https://en.wikipedia.org/wiki/UTF-8

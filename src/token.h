@@ -287,7 +287,7 @@ void print_position(const char* path, int line, int col, bool msvc_format);
 
 struct stream
 {
-    const char* source;
+    const char* const source;
     const char* current;
     int line;
     int col;

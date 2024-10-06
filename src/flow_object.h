@@ -193,8 +193,8 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool is_nullable,
     struct flow_object* p_object,
-    const struct token* position_token,
-    const struct marker* p_marker,
+    const struct token* _Opt position_token,
+    const struct marker* _Opt p_marker,
     bool check_pointed_object);
 
 
@@ -206,7 +206,7 @@ void flow_end_of_block_visit(struct flow_visit_ctx* ctx,
     const char* previous_names);
 
 
-bool object_is_expansible(const struct flow_object* p_object);
+bool object_is_expansible(const struct flow_object* _Opt p_object);
 void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct flow_object* p_object);
 void object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to);
 

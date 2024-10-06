@@ -1065,6 +1065,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 struct init_declarator* _Opt p_init_declarator = NULL;
                 if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
+                    assert(p_entry->data.p_init_declarator != NULL);
                     p_init_declarator = p_entry->data.p_init_declarator;
                     p_declarator = p_init_declarator->p_declarator;
                 }

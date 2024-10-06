@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include "hashmap.h"
-#include "hash.h"
+
 #include "error.h"
 #include <assert.h>
 #ifdef _WIN32
@@ -21,6 +21,24 @@
 #if defined _MSC_VER
 #include <crtdbg.h>
 #endif
+
+static unsigned int string_hash(const char* key)
+{
+    // hash key to unsigned int value by pseudorandomizing transform
+    // (algorithm copied from STL char hash in xfunctional)
+    unsigned int hash_val = 2166136261U;
+    unsigned int first = 0;
+    unsigned int last = (unsigned int)strlen(key);
+    unsigned int stride = 1 + last / 10;
+
+    for (; first < last; first += stride)
+    {
+        hash_val = 16777619U * hash_val ^ (unsigned int)key[first];
+    }
+
+    return (hash_val);
+}
+
 
 void map_entry_delete(struct map_entry* _Owner _Opt p)
 {
@@ -137,8 +155,6 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_typ
     return NULL;
 }
 
-
-
 void hash_item_set_destroy(struct hash_item_set* _Obj_owner p)
 {
     declarator_delete(p->p_declarator);
@@ -242,15 +258,14 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
                 p_new_entry->hash = hash;
 
-
                 p_new_entry->data.p_declarator = (void*)p;
-
 
                 p_new_entry->type = type;
                 
                 char * _Opt _Owner temp_key = strdup(key);
                 if (temp_key == NULL)
                 {
+                    map_entry_delete(p_new_entry); 
                     throw;
                 }
 

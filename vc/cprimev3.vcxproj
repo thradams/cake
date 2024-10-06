@@ -34,7 +34,6 @@
     <ClCompile Include="..\src\flow_visit.c" />
     <ClCompile Include="..\src\format_visit.c" />
     <ClCompile Include="..\src\fs.c" />
-    <ClCompile Include="..\src\hash.c" />
     <ClCompile Include="..\src\hashmap.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\options.c" />
@@ -54,7 +53,6 @@
     <ClInclude Include="..\src\flow_visit.h" />
     <ClInclude Include="..\src\format_visit.h" />
     <ClInclude Include="..\src\fs.h" />
-    <ClInclude Include="..\src\hash.h" />
     <ClInclude Include="..\src\hashmap.h" />
     <ClInclude Include="..\src\options.h" />
     <ClInclude Include="..\src\osstream.h" />

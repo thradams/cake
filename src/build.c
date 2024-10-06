@@ -22,7 +22,6 @@
     " parser.h "          \
     " error.h "           \
     " fs.h "              \
-    " hash.h "            \
     " flow_object.h "     \
     " hashmap.h "         \
     " osstream.h "        \
@@ -38,7 +37,6 @@
 
 #define CAKE_SOURCE_FILES \
     " token.c "           \
-    " hash.c "            \
     " hashmap.c "         \
     " console.c "         \
     " tokenizer.c "       \

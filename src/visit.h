@@ -19,7 +19,7 @@ struct defer_scope
     struct defer_scope* _Owner _Opt lastchild;
     struct defer_scope* _Owner _Opt previous;
 };
-void defer_scope_delete(struct defer_scope * _Owner _Opt p);
+
 struct visit_ctx
 {
     /*

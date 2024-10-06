@@ -2621,8 +2621,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
 
                     if (p_init_declarator->p_declarator->direct_declarator &&
-                        p_init_declarator->p_declarator->direct_declarator->array_declarator != NULL ||
-                        p_init_declarator->p_declarator->direct_declarator->function_declarator != NULL)
+                        (p_init_declarator->p_declarator->direct_declarator->array_declarator != NULL ||
+                            p_init_declarator->p_declarator->direct_declarator->function_declarator != NULL))
                     {
                         compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
                         throw;
@@ -3335,7 +3335,7 @@ const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_
     return NULL;
 }
 
-struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(const struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     /*
       The way cake find the complete struct is using one pass.. for this task is uses double indirection.
@@ -3530,8 +3530,21 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             if (p_struct_or_union_specifier->tagtoken)
                 naming_convention_struct_tag(ctx, p_struct_or_union_specifier->tagtoken);
 
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
             struct token* firsttoken = ctx->current;
             parser_match(ctx);
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
             if (ctx->current->type != '}') /*not official extensions yet..missing sizeof etc*/
             {
 #pragma cake diagnostic push
@@ -3542,9 +3555,17 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 //we cannot have an empty struct
                 if (p_struct_or_union_specifier->member_declaration_list.head == NULL) throw;
             }
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
             p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
             p_struct_or_union_specifier->last_token = ctx->current;
             p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
+
             if (parser_match_tk(ctx, '}') != 0)
                 throw;
         }
@@ -4164,7 +4185,7 @@ const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifi
     if (p_enum_specifier->enumerator_list.head == NULL)
     {
         return NULL;
-    }
+}
 
     struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
     while (p)
@@ -4418,8 +4439,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
                     throw;
                 enumerator_list_add(&enumeratorlist, p_enumerator);
             }
+            }
         }
-    }
     catch
     {
         enumerator_list_destroy(&enumeratorlist);
@@ -4428,7 +4449,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
     }
 
     return enumeratorlist;
-}
+    }
 
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p)
 {
@@ -5139,9 +5160,9 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
     return p_array_declarator;
 }
 
-struct function_declarator* _Owner _Opt function_declarator(struct direct_declarator* _Owner p_direct_declaratorArg, struct parser_ctx* ctx)
+struct function_declarator* _Owner _Opt function_declarator(struct direct_declarator* _Owner p_direct_declarator_arg, struct parser_ctx* ctx)
 {
-    struct direct_declarator* _Owner _Opt p_direct_declarator = p_direct_declaratorArg; //MOVED
+    struct direct_declarator* _Owner _Opt p_direct_declarator = p_direct_declarator_arg; //MOVED
 
     struct function_declarator* _Owner _Opt p_function_declarator = calloc(1, sizeof(struct function_declarator));
     try
@@ -7437,9 +7458,9 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 #endif
                     }
                 }
-                    }
-                }
             }
+        }
+    }
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -7447,7 +7468,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
     }
 
     return p_unlabeled_statement;
-        }
+}
 
 void label_delete(struct label* _Owner _Opt p)
 {
@@ -9346,7 +9367,7 @@ int generate_config_file(const char* configpath)
             if (in_include_section && strstr(path, "End of search list.") != NULL)
             {
                 break;
-            }
+}
             // Print the include directories
             if (in_include_section)
             {
@@ -9849,12 +9870,12 @@ static int create_multiple_paths(const char* root, const char* outdir)
         if (*p == '\0')
             break;
         p++;
-    }
+        }
     return 0;
 #else
     return -1;
 #endif
-}
+    }
 
 int compile(int argc, const char** argv, struct report* report)
 {

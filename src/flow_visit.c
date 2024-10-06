@@ -214,10 +214,8 @@ void true_false_set_merge(struct true_false_set* result,
     {
         const struct true_false_set_item* p_item_a = &a->data[i];
 
-        struct true_false_set_item new_item =
-        {
-         .p_expression = p_item_a->p_expression
-        };
+        _Opt struct true_false_set_item new_item = {0};
+        new_item.p_expression = p_item_a->p_expression;
 
         if (options_true & MERGE_OPTIONS_A_TRUE)
             new_item.true_branch_state |= p_item_a->true_branch_state;
@@ -243,7 +241,7 @@ void true_false_set_merge(struct true_false_set* result,
         if (index == -1)
         {
             index = result->size;
-            struct true_false_set_item item2 = { 0 };
+            _Opt struct true_false_set_item item2 = { 0 };
             item2.p_expression = p_item_b->p_expression;
             true_false_set_push_back(result, &item2);
         }
@@ -1928,7 +1926,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
-        struct true_false_set_item item;
+        _Opt struct true_false_set_item item = {0};
         item.p_expression = p_expression;
         item.true_branch_state = BOOLEAN_FLAG_TRUE;
         item.false_branch_state = BOOLEAN_FLAG_FALSE;
@@ -2655,7 +2653,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (index == -1)
             {
                 index = expr_true_false_set->size;
-                struct true_false_set_item item4 = { 0 };
+                _Opt struct true_false_set_item item4 = { 0 };
                 true_false_set_push_back(expr_true_false_set, &item4);
             }
 
@@ -2706,7 +2704,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             const struct true_false_set_item* p_item_left = &left_set.data[i];
 
-            struct true_false_set_item left_and_right = { 0 };
+            _Opt struct true_false_set_item left_and_right = { 0 };
             left_and_right.p_expression = p_item_left->p_expression;
 
             left_and_right.true_branch_state |= p_item_left->true_branch_state;
@@ -2724,6 +2722,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 index = expr_true_false_set->size;
                 struct true_false_set_item item2 = { 0 };
+                //item2.p_expression //????
                 true_false_set_push_back(expr_true_false_set, &item2);
             }
 

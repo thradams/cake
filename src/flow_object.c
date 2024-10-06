@@ -575,11 +575,11 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                 struct member_declaration* _Opt p_member_declaration =
                     p_struct_or_union_specifier->member_declaration_list.head;
 
-                struct object_name_list l =
-                {
-                 .name = p_struct_or_union_specifier->tag_name,
-                 .previous = list
-                };
+                _Opt struct object_name_list l = { 0 };
+
+                l.name = p_struct_or_union_specifier->tag_name;
+                l.previous = list;
+
 
                 //int member_index = 0;
                 while (p_member_declaration)
@@ -806,7 +806,7 @@ void print_object_core(int ident,
                             else
                                 snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
-                            struct object_visitor visitor = { 0 };
+                            _Opt struct object_visitor visitor = { 0 };
                             visitor.p_type = &p_member_declarator->declarator->type;
                             visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
@@ -1587,7 +1587,7 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
                 }
                 else if (p_member_declaration->specifier_qualifier_list != NULL)
                 {
-                     //TODO!!!
+                    //TODO!!!
                 }
                 p_member_declaration = p_member_declaration->next;
             }
@@ -1608,7 +1608,7 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
                 struct type t2 = type_remove_pointer(p_type);
                 object_set_deleted_core(&t2, pointed, visit_number);
                 type_destroy(&t2);
-}
+            }
         }
 #endif
     }
@@ -2079,7 +2079,7 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
             }
             else if (p_member_declaration->specifier_qualifier_list != NULL)
             {
-                assert(false) ;//tODO
+                assert(false);//tODO
             }
             p_member_declaration = p_member_declaration->next;
         }
@@ -2101,11 +2101,11 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                         p_object->current.ref.data[i],
                         position_token,
                         visit_number);
-        }
+                }
 #endif
                 type_destroy(&t2);
-    }
-}
+            }
+        }
 
         if (p_object->current.state & OBJECT_STATE_MOVED)
         {
@@ -2158,11 +2158,11 @@ void checked_moved(struct flow_visit_ctx* ctx,
     s_visit_number++);
 }
 
-void checked_read_object_core(struct flow_visit_ctx* ctx,
+static void checked_read_object_core(struct flow_visit_ctx* ctx,
     struct object_visitor* p_visitor,
     bool is_nullable,
-    const struct token* position_token,
-    const struct marker* p_marker,
+    const struct token* _Opt position_token_opt,
+    const struct marker* _Opt p_marker_opt,
     bool check_pointed_object,
     const char* previous_names,
     unsigned int visit_number)
@@ -2211,7 +2211,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                         else
                             snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
-                        struct object_visitor  visitor = { 0 };
+                        _Opt struct object_visitor  visitor = { 0 };
                         visitor.p_type = &p_member_declarator->declarator->type;
                         visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
@@ -2219,8 +2219,8 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                         checked_read_object_core(ctx,
                             &visitor,
                             is_nullable,
-                            position_token,
-                            p_marker,
+                            position_token_opt,
+                            p_marker_opt,
                             check_pointed_object,
                             buffer,
                             visit_number);
@@ -2252,8 +2252,8 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                 checked_read_object_core(ctx,
                         p_visitor,
                         is_nullable,
-                        position_token,
-                        p_marker,
+                        position_token_opt,
+                        p_marker_opt,
                         check_pointed_object,
                         buffer,
                         visit_number);
@@ -2278,7 +2278,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                 ctx->ctx,
                 NULL,
-                p_marker,
+                p_marker_opt,
                 "non-nullable pointer '%s' may be null",
                 previous_names);
         }
@@ -2298,8 +2298,8 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                 checked_read_object_core(ctx,
                     &visitor,
                     is_nullable,
-                    position_token,
-                    p_marker,
+                    position_token_opt,
+                    p_marker_opt,
                     true,
                     previous_names,
                     visit_number);
@@ -2319,7 +2319,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
             {
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
-                    position_token, NULL,
+                    position_token_opt, NULL,
                     "uninitialized object '%s'",
                     previous_names);
             }
@@ -2349,8 +2349,8 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool is_nullable,
     struct flow_object* p_object,
-    const struct token* position_token,
-    const struct marker* p_marker,
+    const struct token* _Opt position_token,
+    const struct marker* _Opt p_marker_opt,
     bool check_pointed_object)
 {
     const char* _Owner _Opt s = NULL;
@@ -2366,7 +2366,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     &visitor,
     is_nullable,
     position_token,
-    p_marker,
+    p_marker_opt,
     check_pointed_object,
     name,
     s_visit_number++);
@@ -3184,7 +3184,12 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
             struct flow_object* _Opt p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
 
-            object_set_pointer(p_object, expression_get_object(ctx, p_expression->right, nullable_enabled));
+            struct flow_object* _Opt p_object_pointed =
+                expression_get_object(ctx, p_expression->right, nullable_enabled);
+
+            if (p_object_pointed)
+                object_set_pointer(p_object, p_object_pointed);
+
             p_object->current.state = OBJECT_STATE_NOT_NULL;
             p_object->is_temporary = true;
             return p_object;
