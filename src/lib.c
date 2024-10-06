@@ -835,6 +835,7 @@ enum diagnostic_id {
     C_ERROR_EXPRESSION_ERROR = 1170,
     C_ERROR_PREPROCESSOR_C_ERROR_DIRECTIVE = 1180,
     C_ERROR_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO = 1190,
+    C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO = 1191,
     C_ERROR_PREPROCESSOR_MACRO_INVALID_ARG = 1200,
     C_ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT = 1210,
     C_ERROR_ADDRESS_OF_REGISTER = 1220,
@@ -6060,6 +6061,7 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
 
         if (input_list->head == NULL)
         {
+            token_list_destroy(&r2);
             throw;
         }
 
@@ -6777,7 +6779,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     if (input_list->head->type == '...')
                     {
                         struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                        if (p_macro_parameter == NULL) throw;
+                        if (p_macro_parameter == NULL) 
+                        {
+                            macro_delete(macro);
+                            throw;
+                        }
 
                         char* _Owner _Opt temp3 = strdup("__VA_ARGS__");
                         if (temp3 == NULL)
@@ -6827,7 +6833,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     macro_parameters_delete(macro->parameters);
 
                     struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                    if (p_macro_parameter == NULL) throw;
+                    if (p_macro_parameter == NULL) 
+                    {
+                        macro_delete(macro);
+                        throw;
+                    }
+
                     char* _Owner _Opt temp2 = strdup("__VA_ARGS__");
                     if (temp2 == NULL)
                     {
@@ -6846,7 +6857,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             naming_convention_macro(ctx, macro_name_token);
 
-            struct hash_item_set item = { .p_macro = macro };
+            struct hash_item_set item = { 0 };
+            item.p_macro = macro;
             hashmap_set(&ctx->macros, macro->name, &item);
             hash_item_set_destroy(&item);
         }
@@ -6857,6 +6869,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             skip_blanks_level(ctx, &r, input_list, level);
+
+            if (input_list->head == NULL)
+            {                
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
 
             struct macro* _Owner _Opt macro = (struct macro* _Owner _Opt) hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
@@ -7142,25 +7160,38 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
     struct macro* macro,
     struct token_list* input_list, int level)
 {
-    assert(input_list->head != NULL);
 
     struct macro_argument_list macro_argument_list = { 0 };
+
     try
     {
-        assert(input_list->head->type == TK_IDENTIFIER); //nome da macro
+        if (input_list->head == NULL)
+        {
+            throw;
+        }
+
+        assert(input_list->head->type == TK_IDENTIFIER);//macro name
         const struct token* const macro_name_token = input_list->head;
 
-        match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //NOME DA MACRO
+        match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //MACRO NAME
+
         if (!macro->is_function)
         {
-            //se nao eh funcao so faz isso e retorna o nome da macro
+            //This function is also called for non function like macros.
+            //In this case we return empty
             return macro_argument_list;
         }
 
-        struct macro_parameter* _Opt p_current_parameter = macro->parameters;
+
         int count = 1;
+
+        //skip spaces after macro name
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
+
+        //macro is a function
         match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
+
+        //skip spaces after (
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
 
         if (input_list->head == NULL)
@@ -7171,6 +7202,10 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 
         if (input_list->head->type == ')')
         {
+            /*
+               empty argument list
+            */
+
             if (macro->parameters != NULL)
             {
                 struct macro_argument* _Owner _Opt  p_argument = calloc(1, sizeof(struct macro_argument));
@@ -7178,6 +7213,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 {
                     throw;
                 }
+                struct macro_parameter* p_current_parameter = macro->parameters;
                 char* _Owner _Opt name_temp = strdup(p_current_parameter->name);
                 if (name_temp == NULL)
                 {
@@ -7191,11 +7227,21 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
             return macro_argument_list;
         }
+
+        if (macro->parameters == NULL)
+        {
+            //we have a non empty argument list, calling a macro without parameters
+            preprocessor_diagnostic_message(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too many arguments provided to function-like macro invocation\n");
+            throw;
+        }
+
+        struct macro_parameter* p_current_parameter = macro->parameters;
         struct macro_argument* _Owner _Opt p_argument = calloc(1, sizeof(struct macro_argument));
         if (p_argument == NULL)
         {
             throw;
         }
+
         char* _Opt _Owner temp2 = strdup(p_current_parameter->name);
         if (temp2 == NULL)
         {
@@ -7205,6 +7251,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 
         p_argument->name = temp2;
 
+        //collect next arguments...
         while (input_list->head != NULL)
         {
             if (input_list->head->type == '(')
@@ -7221,11 +7268,10 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
                     argument_list_add(&macro_argument_list, p_argument);
                     p_argument = NULL; //MOVED
-
-                    p_current_parameter = p_current_parameter->next;
-
-                    if (p_current_parameter != NULL)
+                    
+                    if (p_current_parameter->next != NULL)
                     {
+                        p_current_parameter = p_current_parameter->next;
                         if (strcmp(p_current_parameter->name, "__VA_ARGS__") == 0)
                         {
                             //we add this argument as being empty
@@ -7254,6 +7300,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         }
                     }
 
+                    p_current_parameter = NULL;
                     break;
                 }
                 else
@@ -7280,17 +7327,18 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     {
                         throw;
                     }
-
-                    p_current_parameter = p_current_parameter->next;
-                    if (p_current_parameter == NULL)
+                    
+                    if (p_current_parameter->next == NULL)
                     {
-                        preprocessor_diagnostic_message(C_ERROR_PREPROCESSOR_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
+                        preprocessor_diagnostic_message(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_argument_list.tokens.tail, "too many arguments provided to function-like macro invocation\n");
                         macro_argument_delete(p_argument);
                         p_argument = NULL; //DELETED
                         throw;
                     }
 
-                    char * temp3 = strdup(p_current_parameter->name);
+                    p_current_parameter = p_current_parameter->next;
+
+                    char* _Opt _Owner temp3 = strdup(p_current_parameter->name);
                     if (temp3 == NULL)
                     {
                         macro_argument_delete(p_argument);
@@ -7697,9 +7745,9 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
 
                 if (ctx->conditional_inclusion)
                 {
-                    /* 
-                        When we are expanding in conditional inclusion the defined macro or defined (macro) 
-                        is not expanded and is considered later 
+                    /*
+                        When we are expanding in conditional inclusion the defined macro or defined (macro)
+                        is not expanded and is considered later
                     */
                     if (r.tail &&
                         r.tail->type == TK_IDENTIFIER &&
@@ -7960,7 +8008,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     try
     {
         assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
-        struct macro_expanded macro_expanded = { 0 };
+        _Opt struct macro_expanded macro_expanded = { 0 };
         macro_expanded.name = macro->name;
         macro_expanded.p_previous = p_list_of_macro_expanded_opt;
         if (macro->is_function)
@@ -10149,6 +10197,18 @@ void empty_and_no_args()
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
+void empty_and_args()
+{
+    const char* input =
+        "#define F() 1\n"
+        "F(1)";
+    const char* output =
+        "1"
+        ;
+    int code = test_preprocessor_in_out(input, output);
+    assert(code != 0);
+}
+
 void test4()
 {
     const char* input =
@@ -10438,7 +10498,7 @@ int test_line_continuation()
 
 
     return 0;
-        }
+}
 
 int stringify_test()
 {
@@ -15320,7 +15380,7 @@ struct member_declaration_list
 };
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
-void member_declaration_list_destroy(struct member_declaration_list* _Obj_owner p);
+void member_declaration_list_destroy(_Opt struct member_declaration_list* _Obj_owner p);
 void member_declaration_list_add(struct member_declaration_list* list, struct member_declaration* _Owner p_item);
 
 struct member_declarator* _Opt find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
@@ -27075,7 +27135,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.29"
+#define CAKE_VERSION "0.9.30"
 
 
 
@@ -28875,7 +28935,6 @@ void declaration_specifiers_delete(struct declaration_specifiers* _Owner _Opt p)
 
 void declaration_specifiers_add(struct declaration_specifiers* list, struct declaration_specifier* _Owner p_item)
 {
-
     if (list->head == NULL)
     {
         list->head = p_item;
@@ -29206,7 +29265,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                     return 0;
                 }
             */
-            
+
             assert(p_declaration->init_declarator_list.head != NULL); //because functions definitions have names
 
             struct declarator* inner = p_declaration->init_declarator_list.head->p_declarator;
@@ -29231,6 +29290,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 unexpected_end_of_file(ctx);
                 throw;
             }
+
             check_func_open_brace_style(ctx, ctx->current);
 
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
@@ -29262,7 +29322,9 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
             struct parameter_declaration* _Opt parameter = NULL;
 
-            if (p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
+            if (p_declaration->init_declarator_list.head &&
+                p_declaration->init_declarator_list.head->p_declarator->direct_declarator &&
+                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
             {
@@ -29457,18 +29519,21 @@ struct init_declarator* _Owner init_declarator_add_ref(struct init_declarator* p
     return (struct init_declarator* _Owner)p;
 }
 
+#ifdef __CAKE__
+void init_declarator_sink(struct init_declarator* _Owner _Opt p); //just declaration
+#else
+void init_declarator_sink(struct init_declarator* _Owner _Opt p) {}
+#endif
+
 void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 {
     if (p)
     {
         if (p->has_shared_ownership)
         {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wmissing-destructor"
-            struct init_declarator* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
+            init_declarator_sink(p);
             return;
-#pragma CAKE diagnostic pop
         }
 
         initializer_delete(p->initializer);
@@ -30063,17 +30128,15 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
             throw;
         }
 
-        struct typeof_specifier_argument* _Owner _Opt p_typeof_specifier_argument = 
+        struct typeof_specifier_argument* _Owner _Opt p_typeof_specifier_argument =
             typeof_specifier_argument(ctx);
 
         if (p_typeof_specifier_argument == NULL)
-        {            
+        {
             throw;
         }
 
         p_typeof_specifier->typeof_specifier_argument = p_typeof_specifier_argument;
-        if (p_typeof_specifier->typeof_specifier_argument == NULL)
-            throw;
 
         if (p_typeof_specifier->typeof_specifier_argument->expression)
         {
@@ -30470,18 +30533,21 @@ struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struc
     return (struct struct_or_union_specifier* _Owner) p;
 }
 
+#ifdef __CAKE__
+void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Opt p); //just declaration
+#else
+void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Opt p) {}
+#endif
+
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt p)
 {
     if (p)
     {
         if (p->has_shared_ownership > 0)
         {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wmissing-destructor"
-            struct struct_or_union_specifier* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
+            struct_or_union_specifier_sink(p);
             return;
-#pragma CAKE diagnostic pop           
         }
 
         member_declaration_list_destroy(&p->member_declaration_list);
@@ -30834,7 +30900,7 @@ void member_declaration_list_add(struct member_declaration_list* list, struct me
     list->tail = p_item;
 }
 
-void member_declaration_list_destroy(struct member_declaration_list* _Obj_owner p)
+void member_declaration_list_destroy(_Opt struct member_declaration_list* _Obj_owner p)
 {
     struct member_declaration* _Owner _Opt item = p->head;
     while (item)
@@ -30927,6 +30993,11 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
             p_member_declaration->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
             p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
+
+            if (p_member_declaration->specifier_qualifier_list == NULL)
+            {
+                throw;
+            }
 
             if (ctx->current == NULL)
             {
@@ -31154,6 +31225,12 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
             specifier_qualifier_list_add(p_specifier_qualifier_list, p_type_specifier_qualifier);
         }
 
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
         final_specifier(ctx, &p_specifier_qualifier_list->type_specifier_flags);
         struct token* _Opt p_previous_parser_token = previous_parser_token(ctx->current);
         if (p_previous_parser_token == NULL) throw;
@@ -31261,18 +31338,21 @@ struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p)
     return (struct enum_specifier* _Owner)p;
 }
 
+#ifdef __CAKE__
+void enum_specifier_delete_sink(struct enum_specifier* _Owner _Opt p); //just declaration
+#else
+void enum_specifier_delete_sink(struct enum_specifier* _Owner _Opt p) {}
+#endif
+
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
 {
     if (p)
     {
         if (p->has_shared_ownership > 0)
         {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wmissing-destructor"
-            struct enum_specifier* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
+            enum_specifier_delete_sink(p);
             return;
-#pragma CAKE diagnostic pop
         }
 
         specifier_qualifier_list_delete(p->specifier_qualifier_list);
@@ -31512,19 +31592,23 @@ struct enumerator* _Owner enumerator_add_ref(struct enumerator* p)
     return (struct enumerator* _Owner) p;
 }
 
+#ifdef __CAKE__
+void enumerator_sink(struct enumerator* _Owner _Opt p); //just declaration
+#else
+void enumerator_sink(struct enumerator* _Owner _Opt p) {}
+#endif
+
 void enumerator_delete(struct enumerator* _Owner _Opt p)
 {
     if (p)
     {
         if (p->has_shared_ownership > 0)
         {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wmissing-destructor"
-            struct enumerator* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
+            enumerator_sink(p);
             return;
-#pragma CAKE diagnostic pop
         }
+
         assert(p->next == NULL);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         expression_delete(p->constant_expression_opt);
@@ -31837,6 +31921,12 @@ struct declarator* _Owner declarator_add_ref(struct declarator* p)
     p->has_shared_ownership = true;
     return (struct declarator* _Owner)p;
 }
+#ifdef __CAKE__
+void declarator_sink(struct declarator* _Owner _Opt p); //just declaration
+#else
+void declarator_sink(struct declarator* _Owner _Opt p) {}
+#endif
+
 
 void declarator_delete(struct declarator* _Owner _Opt p)
 {
@@ -31844,12 +31934,9 @@ void declarator_delete(struct declarator* _Owner _Opt p)
     {
         if (p->has_shared_ownership > 0)
         {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wmissing-destructor"
-            struct declarator* _Owner _Opt temp = p;
             p->has_shared_ownership = false;
+            declarator_sink(p);
             return;
-#pragma CAKE diagnostic pop            
         }
 
         type_destroy(&p->type);
@@ -32431,7 +32518,7 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
 
         // parameter_list
         // parameter_list ',' '...'
-        p_parameter_type_list->parameter_list = parameter_list(ctx);        
+        p_parameter_type_list->parameter_list = parameter_list(ctx);
         if (p_parameter_type_list->parameter_list == NULL) throw;
 
         if (p_parameter_type_list->parameter_list->head ==
@@ -32752,7 +32839,7 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
             ss_fprintf(ss, " ");
 
             if (p_parameter_declaration->declarator)
-              print_declarator(ss, p_parameter_declaration->declarator, is_abstract);
+                print_declarator(ss, p_parameter_declaration->declarator, is_abstract);
 
             p_parameter_declaration = p_parameter_declaration->next;
         }
@@ -32812,6 +32899,7 @@ void type_name_delete(struct type_name* _Owner _Opt p)
         free(p);
     }
 }
+
 struct type_name* _Owner _Opt type_name(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
@@ -33513,7 +33601,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
 }
 
 struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx)
-{    
+{
     struct pragma_declaration* _Owner _Opt p_pragma_declaration = NULL;
     try
     {
@@ -33932,8 +34020,6 @@ struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
             unexpected_end_of_file(ctx);
             throw;
         }
-
-
 
         p_attribute->attributes_flags = p_attribute->attribute_token->attributes_flags;
         if (ctx->current->type == '(') // first
@@ -34384,7 +34470,7 @@ void primary_block_delete(struct primary_block* _Owner _Opt p)
     }
 }
 
-bool first_of_primary_block(const struct parser_ctx* ctx)
+static bool first_of_primary_block(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -34507,9 +34593,9 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 #endif
                     }
                 }
+                    }
+                }
             }
-        }
-    }
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -34517,7 +34603,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
     }
 
     return p_unlabeled_statement;
-}
+        }
 
 void label_delete(struct label* _Owner _Opt p)
 {
@@ -34548,6 +34634,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_CASE)
         {
+
             if (ctx->p_current_selection_statement == NULL ||
                 ctx->p_current_selection_statement->condition == NULL)
             {
@@ -34572,6 +34659,8 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
                 throw;
             }
 
+
+
             struct switch_value* _Opt p_switch_value = switch_value_list_find(ctx->p_switch_value_list, case_value);
 
             if (p_switch_value)
@@ -34581,6 +34670,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
                         p_label->constant_expression->first_token, NULL,
                         "duplicate case value '%lld'", case_value);
 
+                assert(p_switch_value->p_label->constant_expression != NULL); //because case have values
                 compiler_diagnostic_message(W_LOCATION,
                     ctx,
                     p_switch_value->p_label->constant_expression->first_token, NULL, "previous declaration");
@@ -34594,10 +34684,9 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
             newvalue->value = case_value;
             switch_value_list_push(ctx->p_switch_value_list, newvalue);
 
-            if (p_label->constant_expression &&
-            ctx->p_current_selection_statement &&
-            ctx->p_current_selection_statement->condition &&
-            ctx->p_current_selection_statement->condition->expression)
+            if (ctx->p_current_selection_statement &&
+                ctx->p_current_selection_statement->condition &&
+                ctx->p_current_selection_statement->condition->expression)
             {
                 if (type_is_enum(&ctx->p_current_selection_statement->condition->expression->type))
                 {
@@ -34857,7 +34946,6 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
 
 void block_item_list_add(struct block_item_list* list, struct block_item* _Owner p_item)
 {
-
     if (list->head == NULL)
     {
         list->head = p_item;
@@ -36248,10 +36336,10 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
             token_list_destroy(&l1);
             token_list_destroy(&r);
             continue;
-                }
-            }
-    return 0;
         }
+    }
+    return 0;
+}
 
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
@@ -36715,7 +36803,7 @@ int compile_one_file(const char* file_name,
                 report->error_count++;
             }
             free(content_expected);
-            }
+        }
 
         if (report->fatal_error_expected != 0)
         {
@@ -36740,7 +36828,7 @@ int compile_one_file(const char* file_name,
             report->test_succeeded++;
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }
-        }
+    }
 
     token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
@@ -36751,7 +36839,7 @@ int compile_one_file(const char* file_name,
     preprocessor_ctx_destroy(&prectx);
 
     return report->error_count > 0;
-    }
+}
 
 int compile_many_files(const char* file_name,
     struct options* options,
@@ -37150,7 +37238,6 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
         }
         else
         {
-
             ast = get_ast(&options, "c:/main.c", content, report);
             if (report->error_count > 0)
                 throw;

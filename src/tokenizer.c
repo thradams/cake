@@ -2843,6 +2843,7 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
 
         if (input_list->head == NULL)
         {
+            token_list_destroy(&r2);
             throw;
         }
 
@@ -3560,7 +3561,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     if (input_list->head->type == '...')
                     {
                         struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                        if (p_macro_parameter == NULL) throw;
+                        if (p_macro_parameter == NULL) 
+                        {
+                            macro_delete(macro);
+                            throw;
+                        }
 
                         char* _Owner _Opt temp3 = strdup("__VA_ARGS__");
                         if (temp3 == NULL)
@@ -3610,7 +3615,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     macro_parameters_delete(macro->parameters);
 
                     struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                    if (p_macro_parameter == NULL) throw;
+                    if (p_macro_parameter == NULL) 
+                    {
+                        macro_delete(macro);
+                        throw;
+                    }
+
                     char* _Owner _Opt temp2 = strdup("__VA_ARGS__");
                     if (temp2 == NULL)
                     {
@@ -3629,7 +3639,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             naming_convention_macro(ctx, macro_name_token);
 
-            struct hash_item_set item = { .p_macro = macro };
+            struct hash_item_set item = { 0 };
+            item.p_macro = macro;
             hashmap_set(&ctx->macros, macro->name, &item);
             hash_item_set_destroy(&item);
         }
@@ -3640,6 +3651,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             skip_blanks_level(ctx, &r, input_list, level);
+
+            if (input_list->head == NULL)
+            {                
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
 
             struct macro* _Owner _Opt macro = (struct macro* _Owner _Opt) hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
@@ -3925,25 +3942,38 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
     struct macro* macro,
     struct token_list* input_list, int level)
 {
-    assert(input_list->head != NULL);
 
     struct macro_argument_list macro_argument_list = { 0 };
+
     try
     {
-        assert(input_list->head->type == TK_IDENTIFIER); //nome da macro
+        if (input_list->head == NULL)
+        {
+            throw;
+        }
+
+        assert(input_list->head->type == TK_IDENTIFIER);//macro name
         const struct token* const macro_name_token = input_list->head;
 
-        match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //NOME DA MACRO
+        match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //MACRO NAME
+
         if (!macro->is_function)
         {
-            //se nao eh funcao so faz isso e retorna o nome da macro
+            //This function is also called for non function like macros.
+            //In this case we return empty
             return macro_argument_list;
         }
 
-        struct macro_parameter* _Opt p_current_parameter = macro->parameters;
+
         int count = 1;
+
+        //skip spaces after macro name
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
+
+        //macro is a function
         match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
+
+        //skip spaces after (
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
 
         if (input_list->head == NULL)
@@ -3954,6 +3984,10 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 
         if (input_list->head->type == ')')
         {
+            /*
+               empty argument list
+            */
+
             if (macro->parameters != NULL)
             {
                 struct macro_argument* _Owner _Opt  p_argument = calloc(1, sizeof(struct macro_argument));
@@ -3961,6 +3995,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 {
                     throw;
                 }
+                struct macro_parameter* p_current_parameter = macro->parameters;
                 char* _Owner _Opt name_temp = strdup(p_current_parameter->name);
                 if (name_temp == NULL)
                 {
@@ -3974,11 +4009,21 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
             return macro_argument_list;
         }
+
+        if (macro->parameters == NULL)
+        {
+            //we have a non empty argument list, calling a macro without parameters
+            preprocessor_diagnostic_message(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too many arguments provided to function-like macro invocation\n");
+            throw;
+        }
+
+        struct macro_parameter* p_current_parameter = macro->parameters;
         struct macro_argument* _Owner _Opt p_argument = calloc(1, sizeof(struct macro_argument));
         if (p_argument == NULL)
         {
             throw;
         }
+
         char* _Opt _Owner temp2 = strdup(p_current_parameter->name);
         if (temp2 == NULL)
         {
@@ -3988,6 +4033,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 
         p_argument->name = temp2;
 
+        //collect next arguments...
         while (input_list->head != NULL)
         {
             if (input_list->head->type == '(')
@@ -4004,11 +4050,10 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
                     argument_list_add(&macro_argument_list, p_argument);
                     p_argument = NULL; //MOVED
-
-                    p_current_parameter = p_current_parameter->next;
-
-                    if (p_current_parameter != NULL)
+                    
+                    if (p_current_parameter->next != NULL)
                     {
+                        p_current_parameter = p_current_parameter->next;
                         if (strcmp(p_current_parameter->name, "__VA_ARGS__") == 0)
                         {
                             //we add this argument as being empty
@@ -4037,6 +4082,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         }
                     }
 
+                    p_current_parameter = NULL;
                     break;
                 }
                 else
@@ -4063,17 +4109,18 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     {
                         throw;
                     }
-
-                    p_current_parameter = p_current_parameter->next;
-                    if (p_current_parameter == NULL)
+                    
+                    if (p_current_parameter->next == NULL)
                     {
-                        preprocessor_diagnostic_message(C_ERROR_PREPROCESSOR_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
+                        preprocessor_diagnostic_message(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_argument_list.tokens.tail, "too many arguments provided to function-like macro invocation\n");
                         macro_argument_delete(p_argument);
                         p_argument = NULL; //DELETED
                         throw;
                     }
 
-                    char * temp3 = strdup(p_current_parameter->name);
+                    p_current_parameter = p_current_parameter->next;
+
+                    char* _Opt _Owner temp3 = strdup(p_current_parameter->name);
                     if (temp3 == NULL)
                     {
                         macro_argument_delete(p_argument);
@@ -4480,9 +4527,9 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
 
                 if (ctx->conditional_inclusion)
                 {
-                    /* 
-                        When we are expanding in conditional inclusion the defined macro or defined (macro) 
-                        is not expanded and is considered later 
+                    /*
+                        When we are expanding in conditional inclusion the defined macro or defined (macro)
+                        is not expanded and is considered later
                     */
                     if (r.tail &&
                         r.tail->type == TK_IDENTIFIER &&
@@ -4743,7 +4790,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     try
     {
         assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
-        struct macro_expanded macro_expanded = { 0 };
+        _Opt struct macro_expanded macro_expanded = { 0 };
         macro_expanded.name = macro->name;
         macro_expanded.p_previous = p_list_of_macro_expanded_opt;
         if (macro->is_function)
@@ -6891,6 +6938,18 @@ void empty_and_no_args()
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
+void empty_and_args()
+{
+    const char* input =
+        "#define F() 1\n"
+        "F(1)";
+    const char* output =
+        "1"
+        ;
+    int code = test_preprocessor_in_out(input, output);
+    assert(code != 0);
+}
+
 void test4()
 {
     const char* input =
@@ -7180,7 +7239,7 @@ int test_line_continuation()
 
 
     return 0;
-        }
+}
 
 int stringify_test()
 {

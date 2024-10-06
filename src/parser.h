@@ -597,7 +597,7 @@ struct member_declaration_list
 };
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
-void member_declaration_list_destroy(struct member_declaration_list* _Obj_owner p);
+void member_declaration_list_destroy(_Opt struct member_declaration_list* _Obj_owner p);
 void member_declaration_list_add(struct member_declaration_list* list, struct member_declaration* _Owner p_item);
 
 struct member_declarator* _Opt find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
