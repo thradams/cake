@@ -78,3 +78,4 @@ src/cake
 /tests/unit-tests/failing/_Out
 
 compile_commands.json
+.cache
