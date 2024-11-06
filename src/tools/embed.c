@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <fs.h>
+#include <stdlib.h>
 #include <string.h>
 
 int embed(const char* filename)

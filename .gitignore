@@ -76,3 +76,6 @@ src/cake
 /vc/cake/x64/Debug
 /vc/cake/DebugTest
 /tests/unit-tests/failing/_Out
+
+compile_commands.json
+.cache
