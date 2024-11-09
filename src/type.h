@@ -276,6 +276,8 @@ bool type_is_decimal32(const struct type* p_type);
 bool type_is_long_double(const struct type* p_type);
 bool type_is_double(const struct type* p_type);
 bool type_is_float(const struct type* p_type);
+bool type_is_int(const struct type* p_type);
+bool type_is_unsigned_int(const struct type* p_type);
 
 bool type_is_vla(const struct type* p_type);
 

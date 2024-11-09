@@ -8,7 +8,7 @@
 #include "type.h"
 #include  "tokenizer.h"
 #include "ownership.h"
-#include "constant_value.h"
+#include "object.h"
 
 struct parser_ctx;
 
@@ -169,7 +169,7 @@ struct expression
     enum expression_type expression_type;
     struct type type;
 
-    struct constant_value constant_value;
+    struct object object;
 
     struct type_name* _Owner _Opt type_name;
 

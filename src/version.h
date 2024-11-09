@@ -5,5 +5,6 @@
 
 #pragma once
 
-#define CAKE_VERSION "0.9.30"
+#define CAKE_VERSION "0.9.32"
+
 

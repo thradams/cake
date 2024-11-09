@@ -29,7 +29,7 @@
     " token.h "           \
     " type.h "            \
     " pre_expressions.h " \
-    " constant_value.c "  \
+    " object.h "  \
     " expressions.h "     \
     " visit.h "           \
     " format_visit.h "
@@ -43,7 +43,7 @@
     " osstream.c "        \
     " fs.c "              \
     " options.c "         \
-    " constant_value.c "  \
+    " object.c "          \
     " expressions.c "     \
     " pre_expressions.c " \
     " flow_object.c "     \

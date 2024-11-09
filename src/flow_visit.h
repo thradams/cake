@@ -40,7 +40,7 @@ struct flow_visit_ctx
     int break_join_state; /*state where breaks are joined*/
     int initial_state;    /*used to keep the original state*/
 
-    struct objects arena;
+    struct flow_objects arena;
 
     struct label_state labels[100]; //max 100 labels in a function (case not included)
     int labels_size;

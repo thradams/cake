@@ -48,6 +48,7 @@ struct preprocessor_ctx
     int n_warnings;
     int n_errors;    
 };
+
 void preprocessor_ctx_destroy( struct preprocessor_ctx* _Obj_owner p);
 
 void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_ctx* ctx);

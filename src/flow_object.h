@@ -18,7 +18,7 @@ struct flow_visit_ctx;
 extern unsigned int s_visit_number; //creates a unique number
 
 
-enum object_state
+enum flow_state
 {
     /*
        Not applicable. The state cannot be used.
@@ -27,47 +27,47 @@ enum object_state
        and the merge it is not a problem
        merge with nothing then
     */
-    OBJECT_STATE_NOT_APPLICABLE = 0,
+    FLOW_OBJECT_STATE_NOT_APPLICABLE = 0,
 
-    OBJECT_STATE_UNINITIALIZED = 1 << 0,
+    FLOW_OBJECT_STATE_UNINITIALIZED = 1 << 0,
 
-    OBJECT_STATE_NULL = 1 << 1,
-    OBJECT_STATE_NOT_NULL = 1 << 2,
+    FLOW_OBJECT_STATE_NULL = 1 << 1,
+    FLOW_OBJECT_STATE_NOT_NULL = 1 << 2,
 
     //means not-null moved at same time
-    OBJECT_STATE_MOVED = 1 << 3,
+    FLOW_OBJECT_STATE_MOVED = 1 << 3,
 
-    OBJECT_STATE_ZERO = 1 << 5,
-    OBJECT_STATE_NOT_ZERO = 1 << 6,
+    FLOW_OBJECT_STATE_ZERO = 1 << 5,
+    FLOW_OBJECT_STATE_NOT_ZERO = 1 << 6,
 
-    OBJECT_STATE_LIFE_TIME_ENDED = 1 << 7,
+    FLOW_OBJECT_STATE_LIFE_TIME_ENDED = 1 << 7,
 };
 
 
-struct objects {
+struct flow_objects {
     struct flow_object* _Owner* _Owner _Opt data;
     int size;
     int capacity;
 };
 
-void objects_clear(struct objects* p);
-void objects_destroy(struct objects* _Obj_owner p);
-int objects_push_back(struct objects* p, struct flow_object* _Owner p_object);
-const struct flow_object* _Opt objects_find(const struct objects* p, const struct flow_object* p_object);
+void flow_objects_clear(struct flow_objects* p);
+void flow_objects_destroy(struct flow_objects* _Obj_owner p);
+int flow_objects_push_back(struct flow_objects* p, struct flow_object* _Owner p_object);
+const struct flow_object* _Opt flow_objects_find(const struct flow_objects* p, const struct flow_object* p_object);
 
 
-struct objects_view {
+struct flow_objects_view {
     struct flow_object** _Owner _Opt data;
     int size;
     int capacity;
 };
 
-void objects_view_destroy(struct objects_view* _Obj_owner p);
-int objects_view_push_back(struct objects_view* p, struct flow_object* p_object);
-bool objects_view_find(const struct objects_view* p, const struct flow_object* p_object);
-void objects_view_copy(struct objects_view* dest, const struct objects_view* source);
-void objects_view_merge(struct objects_view* dest, const struct objects_view* source);
-void objects_view_clear(struct objects_view* p);
+void objects_view_destroy(struct flow_objects_view* _Obj_owner p);
+int objects_view_push_back(struct flow_objects_view* p, struct flow_object* p_object);
+bool objects_view_find(const struct flow_objects_view* p, const struct flow_object* p_object);
+void objects_view_copy(struct flow_objects_view* dest, const struct flow_objects_view* source);
+void objects_view_merge(struct flow_objects_view* dest, const struct flow_objects_view* source);
+void objects_view_clear(struct flow_objects_view* p);
 
 
 struct flow_object_state {
@@ -75,8 +75,8 @@ struct flow_object_state {
     int state_number;
 
     struct flow_object* _Opt pointed;
-    enum object_state state;
-    struct objects_view alternatives;
+    enum flow_state state;
+    struct flow_objects_view alternatives;
     struct flow_object_state* _Owner _Opt next;
 };
 
@@ -98,7 +98,7 @@ struct flow_object
     const struct declarator* _Opt p_declarator_origin;
     const struct expression* _Opt p_expression_origin;
 
-    struct objects_view members;
+    struct flow_objects_view members;
 
     struct flow_object_state current;
 
@@ -139,33 +139,33 @@ void flow_object_print_state(struct flow_object* p);
 
 void object_set_pointer(struct flow_object* p_object, struct flow_object* p_object2);
 
-void object_destroy(struct flow_object* _Obj_owner p);
-void object_delete(struct flow_object* _Owner _Opt p);
-void object_swap(struct flow_object* a, struct flow_object* b);
+void flow_object_destroy(struct flow_object* _Obj_owner p);
+void flow_object_delete(struct flow_object* _Owner _Opt p);
+void flow_object_swap(struct flow_object* a, struct flow_object* b);
 void print_object_line(struct flow_object* p_object, int cols);
-void print_object_state_to_str(enum object_state e, char str[], int sz);
+void print_object_state_to_str(enum flow_state e, char str[], int sz);
 
 struct declarator;
-struct flow_object* _Opt make_object(struct flow_visit_ctx* ctx,
+struct flow_object* _Opt make_flow_object(struct flow_visit_ctx* ctx,
                                      struct type* p_type,
                                      const struct declarator* _Opt p_declarator_opt,
                                      const struct expression* _Opt p_expression_origin);
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number);
-struct token* object_get_token(const struct flow_object* object);
-void object_remove_state(struct flow_object* object, int state_number);
+struct token* flow_object_get_token(const struct flow_object* object);
+void flow_object_remove_state(struct flow_object* object, int state_number);
 
 
-int object_restore_current_state_from(struct flow_object* object, int state_number);
+int flow_object_restore_current_state_from(struct flow_object* object, int state_number);
 
-void object_merge_state(struct flow_object* pdest, struct flow_object* object1, struct flow_object* object2);
+void flow_object_merge_state(struct flow_object* pdest, struct flow_object* object1, struct flow_object* object2);
 
 
 struct flow_visit_ctx;
 struct token;
 
 
-void print_object(struct type* p_type, struct flow_object* p_object, bool short_version);
+void print_flow_object(struct type* p_type, struct flow_object* p_object, bool short_version);
 
 struct marker;
 
@@ -181,12 +181,12 @@ void flow_check_assignment(struct flow_visit_ctx* ctx,
     struct type* p_b_type, struct flow_object* p_b_object,
     bool * _Opt set_argument_to_unkown);
 
-void object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_object);
-void object_set_zero(struct type* p_type, struct flow_object* p_object);
-void object_set_uninitialized(struct type* p_type, struct flow_object* p_object);
-void object_set_moved(struct type* p_type, struct flow_object* p_object);
+void flow_object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_object);
+void flow_object_set_zero(struct type* p_type, struct flow_object* p_object);
+void flow_object_set_uninitialized(struct type* p_type, struct flow_object* p_object);
+void flow_object_set_moved(struct type* p_type, struct flow_object* p_object);
 
-void object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled);
+void flow_object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled);
 
 
 void checked_read_object(struct flow_visit_ctx* ctx,
@@ -206,8 +206,8 @@ void flow_end_of_block_visit(struct flow_visit_ctx* ctx,
     const char* previous_names);
 
 
-bool object_is_expansible(const struct flow_object* _Opt p_object);
-void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct flow_object* p_object);
-void object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to);
+bool flow_object_is_expansible(const struct flow_object* _Opt p_object);
+void flow_object_expand_pointer(struct flow_visit_ctx* ctx, struct type* p_type, struct flow_object* p_object);
+void flow_object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to);
 
-struct flow_object* _Opt expression_get_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled);
+struct flow_object* _Opt expression_get_flow_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled);

@@ -83,7 +83,7 @@ enum diagnostic_id {
     
     
     W_EMPTY_STATEMENT,
-    W_NOT_DEFINED53,
+    W_ERROR_INCOMPATIBLE_TYPES,
     W_NOT_DEFINED54,
     W_NOT_DEFINED55,
     W_NOT_DEFINED56,
@@ -106,6 +106,7 @@ enum diagnostic_id {
        We can have 1..638 warning bits, because the first error starts at 640.
     */
     
+
     C_ERROR_INVALID_QUALIFIER_FOR_POINTER = 640,
     C_ERROR_UNEXPECTED = 650,
     C_ERROR_TOO_MANY_ARGUMENTS = 660,

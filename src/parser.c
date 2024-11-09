@@ -27,7 +27,7 @@
 #include <Windows.h>
 #endif
 #include "version.h"
-#include "constant_value.h"
+#include "object.h"
 
 #if defined _MSC_VER && !defined __POCC__
 #include <crtdbg.h>
@@ -2204,7 +2204,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             if (ctx->options.flow_analysis)
             {
                 /*
-                 *  The objetive of this visit is to initialize global objects.
+                 *  The objetive of this visit is to initialize global flow_objects.
                  *  It also executes static_debug
                  */
                 _Opt struct flow_visit_ctx ctx2 = { 0 };
@@ -2387,6 +2387,12 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
     }
 }
 
+static void initializer_init(struct parser_ctx* ctx,
+                                    struct type* p_current_object_type,
+                                    struct object* p_current_object,
+                                    struct initializer* braced_initializer,
+    bool is_constant);
+
 struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers)
 {
@@ -2415,12 +2421,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             p_init_declarator->p_declarator = p_temp_declarator;
         }
 
-        p_init_declarator->p_declarator->name_opt = tkname;
-
         if (tkname == NULL)
         {
-            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "empty declarator name?? unexpected");
-            return p_init_declarator;
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "init declarator must have a name");
+            throw;
         }
 
         p_init_declarator->p_declarator->declaration_specifiers = p_declaration_specifiers;
@@ -2434,101 +2438,80 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-#pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wmissing-destructor"
             assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
             p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
-#pragma cake diagnostic pop
-
         }
 
-        //init declarators have names
-        assert(p_init_declarator->p_declarator->name_opt != NULL);
+        assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
-        const char* _Opt name = p_init_declarator->p_declarator->name_opt->lexeme;
-        if (name)
+        assert(ctx->scopes.tail != NULL);
+
+        /*
+          Checking naming conventions
+        */
+        if (ctx->scopes.tail->scope_level == 0)
         {
-            assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
+            naming_convention_global_var(ctx,
+                tkname,
+                &p_init_declarator->p_declarator->type,
+                p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
+        }
 
+        /////////////////////////////////////////////////////////////////////////////
+        const char* name = p_init_declarator->p_declarator->name_opt->lexeme;
+        struct scope* _Opt out_scope = NULL;
+        struct declarator* _Opt previous = find_declarator(ctx, name, &out_scope);
+        if (previous)
+        {
+            assert(out_scope != NULL);
             assert(ctx->scopes.tail != NULL);
 
-            /*
-              Checking naming conventions
-            */
-            if (ctx->scopes.tail->scope_level == 0)
+            if (out_scope->scope_level == ctx->scopes.tail->scope_level)
             {
-                if (type_is_function(&p_init_declarator->p_declarator->type))
+                if (out_scope->scope_level == 0)
                 {
-                    naming_convention_global_var(ctx,
-                        tkname,
-                        &p_init_declarator->p_declarator->type,
-                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
-                }
-                else
-                {
-                    naming_convention_global_var(ctx,
-                        tkname,
-                        &p_init_declarator->p_declarator->type,
-                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
-                }
-            }
-
-            struct scope* _Opt out_scope = NULL;
-            struct declarator* _Opt previous = find_declarator(ctx, name, &out_scope);
-            if (previous)
-            {
-                assert(out_scope != NULL);
-                assert(ctx->scopes.tail != NULL);
-
-                if (out_scope->scope_level == ctx->scopes.tail->scope_level)
-                {
-                    if (out_scope->scope_level == 0)
+                    /*file scope*/
+                    if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, true))
                     {
-                        /*file scope*/
-                        if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, true))
-                        {
-                            // TODO failing on windows headers
-                            // parser_seterror_with_token(ctx, p_init_declarator->declarator->name, "redeclaration of  '%s' with diferent types", previous->name->lexeme);
-                            // parser_set_info_with_token(ctx, previous->name, "previous declaration");
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic_message(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration");
-                        compiler_diagnostic_message(W_NOTE, ctx, previous->name_opt, NULL, "previous declaration");
+                        // TODO failing on windows headers
+                        // parser_seterror_with_token(ctx, p_init_declarator->declarator->name, "redeclaration of  '%s' with diferent types", previous->name->lexeme);
+                        // parser_set_info_with_token(ctx, previous->name, "previous declaration");
                     }
                 }
                 else
                 {
-                    struct hash_item_set item = { 0 };
-                    item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-                    hashmap_set(&ctx->scopes.tail->variables, name, &item);
-                    hash_item_set_destroy(&item);
-
-                    /*global scope no warning...*/
-                    if (out_scope->scope_level != 0)
-                    {
-                        /*but redeclaration at function scope we show warning*/
-                        if (compiler_diagnostic_message(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", name))
-                        {
-                            compiler_diagnostic_message(W_NOTE, ctx, previous->first_token_opt, NULL, "previous declaration is here");
-                        }
-                    }
+                    compiler_diagnostic_message(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration");
+                    compiler_diagnostic_message(W_NOTE, ctx, previous->name_opt, NULL, "previous declaration");
                 }
             }
             else
             {
-                /*first time we see this declarator*/
                 struct hash_item_set item = { 0 };
                 item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
                 hashmap_set(&ctx->scopes.tail->variables, name, &item);
                 hash_item_set_destroy(&item);
+
+                /*global scope no warning...*/
+                if (out_scope->scope_level != 0)
+                {
+                    /*but redeclaration at function scope we show warning*/
+                    if (compiler_diagnostic_message(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", name))
+                    {
+                        compiler_diagnostic_message(W_NOTE, ctx, previous->first_token_opt, NULL, "previous declaration is here");
+                    }
+                }
             }
         }
         else
         {
-            assert(false);
+            /*first time we see this declarator*/
+            struct hash_item_set item = { 0 };
+            item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
+            hashmap_set(&ctx->scopes.tail->variables, name, &item);
+            hash_item_set_destroy(&item);
         }
+        /////////////////////////////////////////////////////////////////////////////
+
 
         if (ctx->current == NULL)
         {
@@ -2550,45 +2533,31 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
             if (p_init_declarator->initializer->braced_initializer)
             {
-                if (type_is_array(&p_init_declarator->p_declarator->type))
+                if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
                 {
-                    const int sz = p_init_declarator->p_declarator->type.num_of_elements;
-                    if (sz == 0)
-                    {
-                        /*int a[] = {1, 2, 3}*/
-                        int braced_initializer_size = 0;
-
-                        if (p_init_declarator->initializer->braced_initializer->initializer_list)
-                        {
-                            braced_initializer_size = p_init_declarator->initializer->braced_initializer->initializer_list->size;
-                        }
-                        else
-                        {
-                            /*
-                               char s[] = {};
-                               warning: zero size arrays are an extension [-Wzero-length-array]
-                            */
-                        }
-
-                        p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
-                    }
-                    else
-                    {
-                        if (p_init_declarator->initializer->braced_initializer->initializer_list &&
-                            p_init_declarator->initializer->braced_initializer->initializer_list->size > sz)
-                        {
-                            if (p_init_declarator->p_declarator->first_token_opt)
-                            {
-                                compiler_diagnostic_message(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "initializer for array is too long");
-                            }
-                        }
-                    }
+                    compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
+                    throw;
                 }
 
-                /*
-                  Fixing the type of auto declarator
-                  ??
-                */
+                struct object* _Owner _Opt p_object = make_object_ptr(&p_init_declarator->p_declarator->type);
+                if (p_object == NULL)
+                {
+                    compiler_diagnostic_message(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                    throw;
+                }
+                p_init_declarator->p_declarator->object = *p_object;
+                free(p_object);
+
+                bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
+                    p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
+
+                initializer_init(ctx,
+                             &p_init_declarator->p_declarator->type,
+                             &p_init_declarator->p_declarator->object,
+                             p_init_declarator->initializer,
+                             is_constant);
+                //printf("\n");
+                //object_print_to_debug(&p_init_declarator->p_declarator->object);
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
@@ -2627,6 +2596,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
                         throw;
                     }
+
                     if (p_init_declarator->p_declarator->pointer != NULL)
                     {
                         compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
@@ -2658,6 +2628,25 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
                 check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_OBJECTS);
+
+
+                struct object* _Owner _Opt p_object = make_object_ptr(&p_init_declarator->p_declarator->type);
+                if (p_object == NULL)
+                {
+                    throw;
+                }
+                p_init_declarator->p_declarator->object = *p_object;
+                free(p_object);
+
+
+                bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
+                    p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
+
+                initializer_init(ctx,
+                                 &p_init_declarator->p_declarator->type,
+                                 &p_init_declarator->p_declarator->object,
+                                 p_init_declarator->initializer,
+                                 is_constant);
             }
         }
         else
@@ -3890,7 +3879,9 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
     return p_member_declaration;
 }
 
-struct member_declarator* _Opt find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index)
+struct member_declarator* _Opt find_member_declarator(struct member_declaration_list* list,
+    const char* name,
+    int* p_member_index)
 {
     if (list->head == NULL)
         return NULL;
@@ -4185,12 +4176,12 @@ const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifi
     if (p_enum_specifier->enumerator_list.head == NULL)
     {
         return NULL;
-}
+    }
 
     struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
     while (p)
     {
-        if (constant_value_to_signed_long_long(&p->value) == value)
+        if (object_to_signed_long_long(&p->value) == value)
             return p;
         p = p->next;
     }
@@ -4439,8 +4430,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
                     throw;
                 enumerator_list_add(&enumeratorlist, p_enumerator);
             }
-            }
         }
+    }
     catch
     {
         enumerator_list_destroy(&enumeratorlist);
@@ -4449,7 +4440,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
     }
 
     return enumeratorlist;
-    }
+}
 
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p)
 {
@@ -4530,13 +4521,13 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             p_enumerator->constant_expression_opt = constant_expression(ctx, true);
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
-            p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
-            *p_next_enumerator_value = constant_value_to_signed_long_long(&p_enumerator->value);
+            p_enumerator->value = p_enumerator->constant_expression_opt->object;
+            *p_next_enumerator_value = object_to_signed_long_long(&p_enumerator->value);
             (*p_next_enumerator_value)++; // TODO overflow  and size check
         }
         else
         {
-            p_enumerator->value = constant_value_make_signed_long_long(*p_next_enumerator_value);
+            p_enumerator->value = object_make_signed_long_long(*p_next_enumerator_value);
             (*p_next_enumerator_value)++; // TODO overflow  and size check
         }
     }
@@ -4862,6 +4853,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
         p_declarator = NULL;
     }
 
+
     return p_declarator;
 }
 
@@ -5038,9 +5030,9 @@ unsigned long long array_declarator_get_size(const struct array_declarator* p_ar
 {
     if (p_array_declarator->assignment_expression)
     {
-        if (constant_value_is_valid(&p_array_declarator->assignment_expression->constant_value))
+        if (object_has_constant_value(&p_array_declarator->assignment_expression->object))
         {
-            return constant_value_to_unsigned_long_long(&p_array_declarator->assignment_expression->constant_value);
+            return object_to_unsigned_long_long(&p_array_declarator->assignment_expression->object);
         }
     }
     return 0;
@@ -5887,10 +5879,8 @@ void initializer_delete(struct initializer* _Owner _Opt p)
 {
     if (p)
     {
-        assert(p->next == NULL);
         expression_delete(p->assignment_expression);
         braced_initializer_delete(p->braced_initializer);
-        designation_delete(p->designation);
         free(p);
     }
 }
@@ -5938,7 +5928,7 @@ struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx)
     return p_initializer;
 }
 
-void initializer_list_add(struct initializer_list* list, struct initializer* _Owner p_item)
+void initializer_list_add(struct initializer_list* list, struct initializer_list_item* _Owner p_item)
 {
     if (list->head == NULL)
     {
@@ -5953,16 +5943,26 @@ void initializer_list_add(struct initializer_list* list, struct initializer* _Ow
     list->tail = p_item;
 }
 
+void initializer_list_item_delete(struct initializer_list_item* _Owner _Opt p)
+{
+    if (p)
+    {
+        designation_delete(p->designation);
+        initializer_delete(p->initializer);
+        free(p);
+    }
+}
+
 void initializer_list_delete(struct initializer_list* _Owner _Opt p)
 {
     if (p)
     {
-        struct initializer* _Owner _Opt item = p->head;
+        struct initializer_list_item* _Owner _Opt item = p->head;
         while (item)
         {
-            struct initializer* _Owner _Opt next = item->next;
+            struct initializer_list_item* _Owner _Opt next = item->next;
             item->next = NULL;
-            initializer_delete(item);
+            initializer_list_item_delete(item);
             item = next;
         }
         free(p);
@@ -5986,11 +5986,18 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
             return NULL;
         }
 
+
         p_initializer_list = calloc(1, sizeof(struct initializer_list));
         if (p_initializer_list == NULL)
             throw;
 
         p_initializer_list->first_token = ctx->current;
+
+
+        struct initializer_list_item* _Owner _Opt p_initializer_list_item = calloc(1, sizeof * p_initializer_list_item);
+        if (p_initializer_list_item == NULL)
+            throw;
+
 
         struct designation* _Owner _Opt p_designation = NULL;
         if (first_of_designator(ctx))
@@ -5998,6 +6005,7 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
             p_designation = designation(ctx);
             if (p_designation == NULL)
                 throw;
+            p_initializer_list_item->designation = p_designation;
         }
 
         struct initializer* _Owner _Opt p_initializer = initializer(ctx);
@@ -6008,11 +6016,12 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
             throw;
         }
 
-        assert(p_initializer->designation == NULL);
-        p_initializer->designation = p_designation;
+        p_initializer_list_item->initializer = p_initializer;
 
-        initializer_list_add(p_initializer_list, p_initializer);
-        p_initializer_list->size++;
+
+        initializer_list_add(p_initializer_list, p_initializer_list_item);
+        p_initializer_list_item = NULL; //MOVED
+        //p_initializer_list->size++;
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
@@ -6027,6 +6036,10 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
             if (ctx->current->type == '}')
                 break; // follow
 
+            p_initializer_list_item = calloc(1, sizeof * p_initializer_list_item);
+            if (p_initializer_list_item == NULL)
+                throw;
+
             struct designation* _Owner _Opt p_designation2 = NULL;
             if (first_of_designator(ctx))
             {
@@ -6034,6 +6047,7 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
                 if (p_designation2 == NULL)
                     throw;
             }
+            p_initializer_list_item->designation = p_designation2;
 
             struct initializer* _Owner _Opt p_initializer2 = initializer(ctx);
             if (p_initializer2 == NULL)
@@ -6041,11 +6055,10 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
                 designation_delete(p_designation2);
                 throw;
             }
+            p_initializer_list_item->initializer = p_initializer2;
 
-            assert(p_initializer2->designation == NULL);
-            p_initializer2->designation = p_designation2;
-
-            initializer_list_add(p_initializer_list, p_initializer2);
+            initializer_list_add(p_initializer_list, p_initializer_list_item);
+            p_initializer_list_item = NULL; //MOVED
             p_initializer_list->size++;
         }
     }
@@ -6201,6 +6214,8 @@ struct designator* _Owner _Opt designator(struct parser_ctx* ctx)
         else if (ctx->current->type == '.')
         {
             parser_match(ctx);
+
+            p_designator->token = ctx->current;
             if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
                 throw;
         }
@@ -6580,16 +6595,16 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
 
         if (position->type == TK_KEYWORD__STATIC_ASSERT)
         {
-            if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
+            if (!object_to_bool(&p_static_assert_declaration->constant_expression->object))
             {
                 if (p_static_assert_declaration->string_literal_opt)
                 {
-                    compiler_diagnostic_message(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "_Static_assert failed %s\n",
+                    compiler_diagnostic_message(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "static_assert failed %s\n",
                         p_static_assert_declaration->string_literal_opt->lexeme);
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "_Static_assert failed");
+                    compiler_diagnostic_message(C_ERROR_STATIC_ASSERT_FAILED, ctx, position, NULL, "static_assert failed");
                 }
             }
         }
@@ -7516,7 +7531,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
 
-            const long long case_value = constant_value_to_signed_long_long(&p_label->constant_expression->constant_value);
+            const long long case_value = object_to_signed_long_long(&p_label->constant_expression->object);
 
             if (ctx->p_switch_value_list == NULL)
             {
@@ -8294,7 +8309,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         if (parser_match_tk(ctx, ')') != 0)
             throw;
 
-        //if (constant_value_is_valid(&p_selection_statement->init_statement_expression->constant_value))
+        //if (object_has_constant_value(&p_selection_statement->init_statement_expression->object))
         //{
             //compiler_diagnostic_message(W_CONDITIONAL_IS_CONSTANT, ctx, p_selection_statement->init_statement_expression->first_token, "conditional expression is constant");
         //}
@@ -8350,7 +8365,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
                     while (p)
                     {
-                        struct switch_value* _Opt p_used = switch_value_list_find(&switch_value_list, constant_value_to_signed_long_long(&p->value));
+                        struct switch_value* _Opt p_used = switch_value_list_find(&switch_value_list, object_to_signed_long_long(&p->value));
 
                         if (p_used == NULL)
                         {
@@ -9367,7 +9382,7 @@ int generate_config_file(const char* configpath)
             if (in_include_section && strstr(path, "End of search list.") != NULL)
             {
                 break;
-}
+            }
             // Print the include directories
             if (in_include_section)
             {
@@ -9870,12 +9885,12 @@ static int create_multiple_paths(const char* root, const char* outdir)
         if (*p == '\0')
             break;
         p++;
-        }
+    }
     return 0;
 #else
     return -1;
 #endif
-    }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -10404,3 +10419,453 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
         compiler_diagnostic_message(W_STYLE, ctx, token, NULL, "use snake_case for arguments");
     }
 }
+
+static void designation_to_string(struct parser_ctx* ctx, struct designation* designation, char buffer[], int sz)
+{
+    buffer[0] = '\0';//out
+    try
+    {
+        struct designator* _Opt designator = designation->designator_list->head;
+        while (designator)
+        {
+            if (designator->constant_expression_opt)
+            {
+                if (!object_has_constant_value(&designator->constant_expression_opt->object))
+                {
+                    throw;
+                }
+
+                unsigned long long index =
+                    object_to_unsigned_long_long(&designator->constant_expression_opt->object);
+
+                snprintf(buffer, sz, "%s[%llu]", buffer, index);
+            }
+            else if (designator->token)
+            {
+                //TODO diminiar sz
+                snprintf(buffer, sz, "%s.%s", buffer, designator->token->lexeme);
+            }
+
+            designator = designator->next;
+        }
+    }
+    catch
+    {
+    }
+}
+
+
+
+static void initializer_init(struct parser_ctx* ctx,
+                                    struct type* p_type,   /*in (in/out for arrays [])*/
+                                    struct object* object, /*in (in/out for arrays [])*/
+                                    struct initializer* initializer, /*rtocar para initializer item??*/
+                                    bool is_constant);
+
+/*
+                       ---- p_designator_opt
+                       |
+                       v
+         { 1   ,    .x.y = 2           , 3 ,  .z = 4  }
+               |                      |
+               |-----*pp_initializer--|
+
+         |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+               object/type
+    */
+static void initializer_init_deep(struct parser_ctx* ctx,
+                              struct type* p_type,   /*in (in/out for arrays [])*/
+                              struct object* object, /*in (in/out for arrays [])*/
+                              struct designator* _Opt p_designator_opt,
+                              struct initializer_list_item** pp_initializer, /*item to be consumed*/
+                              bool is_constant)
+{
+    assert(object != NULL);
+    try
+    {
+        if (type_is_scalar(p_type))
+        {
+            struct initializer_list_item* p_initializer = *pp_initializer;
+            assert(p_designator_opt == NULL);
+
+            if (p_initializer->initializer->assignment_expression != NULL)
+            {
+                object_set(object, &p_initializer->initializer->assignment_expression->object, is_constant);
+                *pp_initializer = p_initializer->next; //consumed
+            }
+            return;
+        }
+
+        if ((*pp_initializer)->designation &&
+            p_designator_opt == NULL)
+        {
+            //end of line for designator
+            //
+            struct initializer_list_item* p_initializer = *pp_initializer;
+            initializer_init(ctx, p_type, object, p_initializer->initializer, is_constant);
+            *pp_initializer = p_initializer->next;
+            return;
+        }
+
+        if (type_is_struct_or_union(p_type))
+        {
+            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
+                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+            if (p_struct_or_union_specifier == NULL)
+                throw;
+
+            struct member_declaration* _Opt p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            struct member_declarator* _Opt p_member_declarator = NULL;
+            if (p_member_declaration)
+                p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+
+            struct object* member_obj = object->members;
+
+            if (p_designator_opt)
+            {
+                const char* name = p_designator_opt->token->lexeme;
+
+                while (p_member_declaration)
+                {
+                    if (p_member_declaration->member_declarator_list_opt)
+                    {
+                        p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+
+                        while (p_member_declarator)
+                        {
+                            if (p_member_declarator->declarator)
+                            {
+                                if (p_member_declarator->declarator->name_opt && strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
+                                {
+                                    initializer_init_deep(ctx,
+                                                      &p_member_declarator->declarator->type,
+                                                      member_obj,
+                                                      p_designator_opt->next,
+                                                      pp_initializer,
+                                                      is_constant);
+
+                                    if (pp_initializer == NULL || *pp_initializer == NULL)
+                                        return;
+
+                                    if ((*pp_initializer)->designation != NULL)
+                                    {
+                                        //temos que voltar para onde comecou {}
+                                        return;
+                                    }
+
+                                    member_obj = member_obj->next;
+                                    p_member_declarator = p_member_declarator->next;
+                                    if (p_member_declarator == NULL)
+                                    {
+                                        p_member_declaration = p_member_declaration->next;
+
+                                        if (p_member_declaration && p_member_declaration->member_declarator_list_opt)
+                                        {
+                                            p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+                                        }
+                                    }
+                                    goto exit_loop;
+                                }
+                            }
+                            member_obj = member_obj->next;
+                            p_member_declarator = p_member_declarator->next;
+                        }
+                    }
+                    else
+                    {
+                        if (p_member_declaration->specifier_qualifier_list &&
+                            p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                        {
+                            //struct member_declaration_list* p_member_declaration_list =
+                              //  &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
+
+                            //if (p_member_declarator)
+                              //  return p_member_declarator;
+                        }
+                    }
+                    p_member_declaration = p_member_declaration->next;
+                }
+            }
+
+            if (pp_initializer == NULL)
+                return;
+
+            if ((*pp_initializer)->designation != NULL)
+                return;
+        exit_loop:
+
+            // Se esta vindo do designation continua do proximo.
+            // Senao  ele esta apontando para os primeiros
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            initializer_init_deep(ctx,
+                                              &p_member_declarator->declarator->type,
+                                              member_obj,
+                                              NULL,
+                                              pp_initializer,
+                                              is_constant);
+
+                            if (pp_initializer == NULL || *pp_initializer == NULL)
+                                return; //acabaram os initializers
+
+                            if ((*pp_initializer)->designation != NULL)
+                                return;
+                        }
+                        member_obj = member_obj->next;
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                else
+                {
+                    if (p_member_declaration->specifier_qualifier_list &&
+                        p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    {
+                        //struct member_declaration_list* p_member_declaration_list =
+                          //  &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
+
+                        //p_member_declarator = find_member_declarator(p_member_declaration_list, name, p_member_index);
+                        //if (p_member_declarator)
+                          //  return p_member_declarator;
+                    }
+                }
+
+                p_member_declaration = p_member_declaration->next;
+            }
+
+            if (pp_initializer && *pp_initializer)
+            {
+                //sobrou initializers
+                //printf("a");
+                //break;
+            }
+            return;
+        }
+
+        if (type_is_array(p_type))
+        {
+            const bool compute_array_size = p_type->array_num_elements_expression == NULL;
+            long long index = -1;
+            int max_index = -1;
+            struct type array_item_type = get_array_item_type(p_type);
+            struct initializer_list_item* p_initializer = *pp_initializer;
+            struct object* member_obj = object->members;
+
+            if (p_designator_opt)
+            {
+
+                if (p_designator_opt->constant_expression_opt)
+                {
+                    index = object_to_signed_long_long(&p_designator_opt->constant_expression_opt->object);
+
+
+
+                    if (index > max_index)
+                    {
+                        max_index = index;
+                        if (compute_array_size)
+                        {
+                            member_obj = object_extend_array_to_index(&array_item_type, object, max_index, is_constant);
+                        }
+                    }
+
+                    member_obj = object_get_member(object, index);
+                    if (member_obj == NULL)
+                    {
+                        throw;
+                    }
+                    initializer_init_deep(ctx,
+                                      &array_item_type,
+                                      member_obj,
+                                      p_designator_opt->next,
+                                      pp_initializer,
+                                      is_constant);
+
+                    if (pp_initializer == NULL || *pp_initializer == NULL)
+                    {
+                        goto exit_array_label;
+                    }
+
+                    if ((*pp_initializer)->designation != NULL)
+                    {
+                        goto exit_array_label;
+                    }
+                    //continua
+                    member_obj = member_obj->next;
+                    index++;
+                }
+            }
+
+            if (compute_array_size && index == -1)
+            {
+                index = 0;
+                max_index = 0;
+                member_obj = object_extend_array_to_index(&array_item_type, object, 0, is_constant);
+
+            }
+
+            for (;;)//while (member_obj)
+            {
+                if (pp_initializer == NULL || *pp_initializer == NULL)
+                {
+                    goto exit_array_label;
+                }
+
+                initializer_init(ctx,
+                              &array_item_type,
+                              member_obj,
+                              (*pp_initializer)->initializer,
+                              is_constant);
+
+                *pp_initializer = (*pp_initializer)->next;
+                if (pp_initializer == NULL || *pp_initializer == NULL)
+                {
+                    goto exit_array_label;
+                }
+
+                if ((*pp_initializer)->designation != NULL)
+                {
+                    goto exit_array_label;
+                }
+
+                index++;
+                member_obj = member_obj->next;
+
+                if (compute_array_size)
+                {
+                    if (member_obj == NULL)
+                    {
+                        max_index = index;
+                        member_obj = object_extend_array_to_index(&array_item_type, object, max_index, is_constant);
+
+                    }
+                }
+                else
+                {
+                    if (member_obj == NULL)
+                        break;
+                }
+            }
+
+        exit_array_label:
+            //
+            if (compute_array_size)
+                p_type->num_of_elements = max_index + 1;
+        }
+
+    }
+    catch
+    {
+    }
+}
+
+static void initializer_init(struct parser_ctx* ctx,
+                             struct type* p_type,   /*in (in/out for arrays [])*/
+                             struct object* object, /*in (in/out for arrays [])*/
+                             struct initializer* initializer, /*rtocar para initializer item??*/
+                             bool is_constant)
+{
+    try
+    {
+        //TODO verificar repedicao desncessaria?
+        object_default_initialization(object, is_constant);
+
+
+        if (type_is_scalar(p_type))
+        {
+            /*
+              The initializer for a scalar shall be a single expression, optionally enclosed in braces, or it shall be
+              an empty initializer. If the initializer is not the empty initializer, the initial value of the object is
+              that of the expression (after conversion); the same type constraints and conversions as for simple
+              assignment apply, taking the type of the scalar to be the unqualified version of its declared type.
+            */
+            if (initializer->assignment_expression != NULL)
+            {
+                object_set(object, &initializer->assignment_expression->object, is_constant);
+            }
+            else if (initializer->braced_initializer)
+            {
+                //{{{}}}
+                initializer_init(ctx,
+                                 p_type,   /*in (in/out for arrays [])*/
+                                 object, /*in (in/out for arrays [])*/
+                                 initializer->braced_initializer->initializer_list->head->initializer,
+                                 is_constant);
+            }
+
+            return;
+        }
+
+        /*
+        The rest of this subclause deals with initializers for objects that have aggregate or union type.
+        */
+
+        if (initializer->assignment_expression != NULL)
+        {
+            if (type_is_array(p_type))
+            {
+                if (p_type->array_num_elements_expression == NULL)
+                {
+                    //char s[] = "123";
+
+                    struct type array_item_type = get_array_item_type(p_type);
+                    p_type->num_of_elements = initializer->assignment_expression->type.num_of_elements;
+                    object_extend_array_to_index(&array_item_type, object, p_type->num_of_elements-1, is_constant);
+                    
+                    type_destroy(&array_item_type);
+                }
+            }
+            //must have the same type
+            object_set(object, &initializer->assignment_expression->object, is_constant);
+        }
+        else
+        {
+            if (initializer->braced_initializer->initializer_list == NULL)
+            {
+                //default initialization.. ja foi feito
+                return; //
+            }
+            struct initializer_list_item* p_initializer_list_item = initializer->braced_initializer->initializer_list->head;
+            while (p_initializer_list_item)
+            {
+                struct designator* designator = NULL;
+                if (p_initializer_list_item->designation &&
+                    p_initializer_list_item->designation->designator_list)
+                {
+                    designator =
+                        p_initializer_list_item->designation->designator_list->head;
+                }
+
+                initializer_init_deep(ctx,
+                                  p_type,   /*in (in/out for arrays [])*/
+                                  object, /*in (in/out for arrays [])*/
+                                  designator,
+                                  &p_initializer_list_item,
+                                  is_constant);
+
+
+                if (p_initializer_list_item &&
+                    p_initializer_list_item->designation == NULL)
+                {
+                    //sobrou, mais initializer do que partes
+                    break;
+                }
+                //quando sai aqui é pq tem um designation
+                //caso controle ele fica lah consumindo tudo
+            }
+        }
+    }
+    catch
+    {
+    }
+}
+
+

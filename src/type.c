@@ -89,8 +89,6 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     return *first;
 }
 
-
-
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags)
 {
 
@@ -366,7 +364,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             ss_fprintf(ss, "(");
 
             struct param* _Opt pa = p->params.head;
-            
+
             while (pa)
             {
                 struct osstream sslocal = { 0 };
@@ -767,8 +765,8 @@ bool type_is_vla(const struct type* p_type)
     while (it && type_is_array(it))
     {
         if (it->array_num_elements_expression)
-        {            
-            if (!constant_value_is_valid(&it->array_num_elements_expression->constant_value))
+        {
+            if (!object_has_constant_value(&it->array_num_elements_expression->object))
             {
                 // int a[7][n]
                 //if any of the array is not constant then it is vla
@@ -826,6 +824,32 @@ bool type_is_double(const struct type* p_type)
     }
     return false;
 }
+
+bool type_is_int(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return  false;
+
+    if ((p_type->type_specifier_flags == (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_SIGNED)) ||
+        (p_type->type_specifier_flags == TYPE_SPECIFIER_INT))
+    {
+        return true;
+    }
+    return false;
+}
+
+bool type_is_unsigned_int(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return  false;
+
+    if (p_type->type_specifier_flags == (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED))
+    {
+        return true;
+    }
+    return false;
+}
+
 
 bool type_is_float(const struct type* p_type)
 {
@@ -946,7 +970,7 @@ bool type_is_scalar(const struct type* p_type)
     if (type_is_arithmetic(p_type))
         return true;
 
-    if (type_is_pointer_or_array(p_type))
+    if (type_is_pointer(p_type))
         return true;
 
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
@@ -1758,7 +1782,7 @@ struct type type_dup(const struct type* p_type)
         while (p)
         {
             struct type* _Owner _Opt p_new = calloc(1, sizeof(struct type));
-            if (p_new == NULL) 
+            if (p_new == NULL)
             {
                 type_list_destroy(&l);
                 throw;
@@ -2555,9 +2579,11 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
     {
 
 
-        if (pa->num_of_elements != pb->num_of_elements) return false;
+        if (pa->num_of_elements != pb->num_of_elements) 
+            return false;
 
-        if (pa->category != pb->category) return false;
+        if (pa->category != pb->category)
+            return false;
 
         if (pa->enum_specifier &&
             pb->enum_specifier &&
@@ -2583,7 +2609,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         }
 
         //if (pa->name_opt != pb->name_opt) return false;
-        if (pa->static_array != pb->static_array) return false;
+        if (pa->static_array != pb->static_array) 
+            return false;
 
         if (pa->category == TYPE_CATEGORY_FUNCTION)
         {
@@ -2945,7 +2972,7 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
         while (pointer)
         {
             struct type* _Owner _Opt p_flat = calloc(1, sizeof(struct type));
-            if (p_flat == NULL) 
+            if (p_flat == NULL)
             {
                 type_list_destroy(&pointers);
                 throw;
@@ -3094,9 +3121,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         {
             struct declarator* _Opt p_typedef_declarator =
                 declarator_get_typedef_declarator(pdeclarator);
-            
-            if (p_typedef_declarator == NULL) 
-            {   
+
+            if (p_typedef_declarator == NULL)
+            {
                 type_list_destroy(&list);
                 throw;
             }

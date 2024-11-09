@@ -44,64 +44,6 @@
 #endif
 
 
-enum constant_value_type type_to_constant_value_type(const struct type* type)
-{
-    if (type_is_pointer(type))
-    {
-#if defined(_WIN64) || defined(__x86_64__) 
-        return TYPE_UNSIGNED_LONG_LONG;
-#else
-        return TYPE_UNSIGNED_INT;
-#endif
-    }
-    const enum type_specifier_flags type_specifier_flags = type->type_specifier_flags;
-
-
-    if (type_specifier_flags & TYPE_SPECIFIER_BOOL)
-        return TYPE_BOOL;
-
-    if (type_specifier_flags & TYPE_SPECIFIER_FLOAT)
-        return TYPE_FLOAT;
-
-    if (type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
-    {
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-            return TYPE_LONG_DOUBLE;
-        return TYPE_DOUBLE;
-    }
-
-
-    if (type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
-    {
-        if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
-            return TYPE_UNSIGNED_CHAR;
-        if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
-            return TYPE_UNSIGNED_SHORT;
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-            return TYPE_UNSIGNED_LONG; /*check before int*/
-        if (type_specifier_flags & TYPE_SPECIFIER_INT)
-            return TYPE_UNSIGNED_INT;
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-            return TYPE_UNSIGNED_LONG_LONG;
-    }
-    else
-    {
-        if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
-            return TYPE_SIGNED_CHAR;
-        if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
-            return TYPE_SIGNED_SHORT;
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-            return TYPE_SIGNED_LONG; /*check before int*/
-        if (type_specifier_flags & TYPE_SPECIFIER_INT)
-            return TYPE_SIGNED_INT;
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-            return TYPE_SIGNED_LONG_LONG;
-    }
-
-    //assert(0);
-    return TYPE_NOT_CONSTANT;
-}
-
 
 
 
@@ -638,7 +580,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic_message(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
-            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
+            p_expression_node->object = object_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -671,7 +613,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)c);
+            p_expression_node->object = object_make_wchar_t((wchar_t)c);
         }
         else if (p[0] == 'U')
         {
@@ -704,7 +646,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)c);
+            p_expression_node->object = object_make_wchar_t((wchar_t)c);
         }
         else if (p[0] == 'L')
         {
@@ -764,7 +706,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 #endif
             }
 
-            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)value);
+            p_expression_node->object = object_make_wchar_t((wchar_t)value);
         }
         else
         {
@@ -804,7 +746,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     break;
                 }
             }
-            p_expression_node->constant_value = constant_value_make_wchar_t((wchar_t)value);
+            p_expression_node->object = object_make_wchar_t((wchar_t)value);
         }
 
         parser_match(ctx);
@@ -918,17 +860,17 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             /*fixing the type that fits the size*/
             if (value <= UINT_MAX && suffix[1] != 'L')
             {
-                p_expression_node->constant_value = constant_value_make_unsigned_int((unsigned int)value);
-                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED;
+                p_expression_node->object = object_make_unsigned_int((unsigned int)value);
+                p_expression_node->type.type_specifier_flags = (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED);
             }
             else if (value <= ULONG_MAX && suffix[2] != 'L')
             {
-                p_expression_node->constant_value = constant_value_make_unsigned_long((unsigned long)value);
+                p_expression_node->object = object_make_unsigned_long((unsigned long)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
             else //if (value <= ULLONG_MAX)
             {
-                p_expression_node->constant_value = constant_value_make_unsigned_long_long((unsigned long long)value);
+                p_expression_node->object = object_make_unsigned_long_long((unsigned long long)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
         }
@@ -937,17 +879,17 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             /*fixing the type that fits the size*/
             if (value <= INT_MAX && suffix[0] != 'L')
             {
-                p_expression_node->constant_value = constant_value_make_signed_int((int)value);
+                p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
             else if (value <= LONG_MAX && suffix[1] != 'L' /*!= LL*/)
             {
-                p_expression_node->constant_value = constant_value_make_signed_long((long)value);
+                p_expression_node->object = object_make_signed_long((long)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
             else if (value <= LLONG_MAX)
             {
-                p_expression_node->constant_value = constant_value_make_signed_long_long((long long)value);
+                p_expression_node->object = object_make_signed_long_long((long long)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
             }
             else
@@ -958,7 +900,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     token,
                     NULL,
                     "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
-                p_expression_node->constant_value = constant_value_make_signed_long_long(value);
+                p_expression_node->object = object_make_signed_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
         }
@@ -976,7 +918,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
             }
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
-            p_expression_node->constant_value = constant_value_make_float(value);
+            p_expression_node->object = object_make_float(value);
         }
         else if (suffix[0] == 'L')
         {
@@ -986,7 +928,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
-            p_expression_node->constant_value = constant_value_make_long_double(value);
+            p_expression_node->object = object_make_long_double(value);
         }
         else
         {
@@ -994,7 +936,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             if (value == HUGE_VAL && errno == ERANGE)
             {
             }
-            p_expression_node->constant_value = constant_value_make_double(value);
+            p_expression_node->object = object_make_double(value);
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
         }
     }
@@ -1054,7 +996,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 assert(p_entry->data.p_enumerator != NULL);
                 struct enumerator* p_enumerator = p_entry->data.p_enumerator;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
-                p_expression_node->constant_value = p_enumerator->value;
+                p_expression_node->object = p_enumerator->value;
 
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
             }
@@ -1086,21 +1028,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
                 p_expression_node->type = type_dup(&p_declarator->type);
-                if (p_init_declarator)
-                {
-                    if (/*
-                         p_init_declarator->p_declarator && */
-                         p_init_declarator->p_declarator->declaration_specifiers &&
-                         p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
-                    {
-                        if (p_init_declarator->initializer &&
-                            p_init_declarator->initializer->assignment_expression)
-                        {
-                            p_expression_node->constant_value =
-                                p_init_declarator->initializer->assignment_expression->constant_value;
-                        }
-                    }
-                }
+                p_expression_node->object = object_make_reference(&p_declarator->object);
+
             }
             else if (ctx->p_current_function_opt &&
                      strcmp(ctx->current->lexeme, "__func__") == 0)
@@ -1163,10 +1092,45 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
 
             const int char_byte_size = string_literal_char_byte_size(ctx->current->lexeme);
             int number_of_bytes = 0;
+            struct object* last = NULL;
+
             while (ctx->current->type == TK_STRING_LITERAL)
             {
                 //"part1" "part2" TODO check different types
+
+                const unsigned char* it = ctx->current->lexeme + 1;
+                unsigned int value = 0;
+                while (it && *it != '"')
+                {
+                    if (*it == '\\')
+                        it = escape_sequences_decode_opt(it, &value);
+                    else
+                    {
+                        value = *it;
+                        it++;
+                    }
+
+                    struct object* p_new = calloc(1, sizeof * p_new);
+                    if (p_new == NULL) throw;
+
+                    p_new->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                    p_new->type = TYPE_SIGNED_CHAR;
+                    p_new->signed_char_value = value;
+
+
+                    if (p_expression_node->object.members == NULL)
+                    {
+                        p_expression_node->object.members = p_new;
+                    }
+                    else
+                    {
+                        last->next = p_new;
+                    }
+                    last = p_new;
+                }
+
                 number_of_bytes += string_literal_byte_size_not_zero_included(ctx->current->lexeme);
+
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -1174,7 +1138,14 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     throw;
                 }
             }
+
             p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type);
+            //static_assert(false);
+            //struct object * it = p_expression_node->object.members;
+            //for (int i = 0 ; i < number_of_bytes; i++)
+            //{
+
+            //}
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
@@ -1192,8 +1163,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            p_expression_node->constant_value =
-                constant_value_make_signed_int(ctx->current->type == TK_KEYWORD_TRUE ? (_Bool)true : (_Bool)false);
+            p_expression_node->object = object_make_bool(ctx->current->type == TK_KEYWORD_TRUE);
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
@@ -1215,7 +1185,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            p_expression_node->constant_value = constant_value_make_nullptr();
+            p_expression_node->object = object_make_nullptr();
 
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
@@ -1266,7 +1236,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             {
                 p_expression_node->type = type_dup(&p_expression_node->generic_selection->p_view_selected_expression->type);
 
-                p_expression_node->constant_value = p_expression_node->generic_selection->p_view_selected_expression->constant_value;
+                p_expression_node->object = p_expression_node->generic_selection->p_view_selected_expression->object;
             }
             else
             {
@@ -1292,7 +1262,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 throw;
 
             p_expression_node->type = type_dup(&p_expression_node->right->type);
-            p_expression_node->constant_value = p_expression_node->right->constant_value;
+            p_expression_node->object = p_expression_node->right->object;
 
             if (ctx->current == NULL)
             {
@@ -1545,10 +1515,10 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
-                if (constant_value_is_valid(&p_expression_node_new->right->constant_value))
+                if (object_has_constant_value(&p_expression_node_new->right->object))
                 {
                     unsigned long long index =
-                        constant_value_to_unsigned_long_long(&p_expression_node_new->right->constant_value);
+                        object_to_unsigned_long_long(&p_expression_node_new->right->object);
                     if (type_is_array(&p_expression_node->type))
                     {
                         if (p_expression_node->type.num_of_elements > 0)
@@ -1560,6 +1530,12 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                             ctx->current, NULL,
                                                             "index %d is past the end of the array", index);
                             }
+
+
+                            struct object* _Opt it = object_get_member(&p_expression_node->object, index);
+
+                            if (it != NULL)
+                                p_expression_node_new->object = object_make_reference(it);
                         }
                     }
                 }
@@ -1691,6 +1667,18 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                 fix_member_type(&p_expression_node_new->type,
                                                 &p_expression_node_new->left->type,
                                                 &p_member_declarator->declarator->type);
+                            }
+
+                            struct object* object = object_get_member(&p_expression_node_new->left->object, member_index);
+
+                            if (object)
+                            {
+                                p_expression_node_new->object = object_make_reference(object);
+                            }
+                            else
+                            {
+                                //not fixed yet
+                                 //assert(false);                                    
                             }
                         }
                         else
@@ -2296,10 +2284,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 new_expression->expression_type = UNARY_EXPRESSION_NOT;
                 if (!ctx->evaluation_is_disabled &&
-                    constant_value_is_valid(&new_expression->right->constant_value))
+                    object_has_constant_value(&new_expression->right->object))
                 {
-                    const bool v = constant_value_to_bool(&new_expression->right->constant_value);
-                    new_expression->constant_value = constant_value_make_signed_int(!v);
+                    const bool v = object_to_bool(&new_expression->right->object);
+                    new_expression->object = object_make_signed_int(!v);
                 }
                 new_expression->type = type_make_int_bool_like();
             }
@@ -2331,48 +2319,48 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 new_expression->type = promoted;
 
                 if (!ctx->evaluation_is_disabled &&
-                  constant_value_is_valid(&new_expression->right->constant_value))
+                  object_has_constant_value(&new_expression->right->object))
                 {
-                    enum constant_value_type vt = type_to_constant_value_type(&new_expression->type);
+                    enum object_value_type vt = type_to_object_type(&new_expression->type);
                     switch (vt)
                     {
                     case TYPE_SIGNED_INT:
                     {
-                        signed int r = constant_value_to_signed_int(&new_expression->right->constant_value);
-                        new_expression->constant_value = constant_value_make_signed_int(~r);
+                        signed int r = object_to_signed_int(&new_expression->right->object);
+                        new_expression->object = object_make_signed_int(~r);
                     }
                     break;
 
                     case TYPE_UNSIGNED_INT:
                     {
-                        unsigned int r = constant_value_to_unsigned_int(&new_expression->right->constant_value);
-                        new_expression->constant_value = constant_value_make_unsigned_int(~r);
+                        unsigned int r = object_to_unsigned_int(&new_expression->right->object);
+                        new_expression->object = object_make_unsigned_int(~r);
                     }
                     break;
 
                     case TYPE_SIGNED_LONG:
                     {
-                        signed long r = constant_value_to_signed_long(&new_expression->right->constant_value);
-                        new_expression->constant_value = constant_value_make_signed_long(~r);
+                        signed long r = object_to_signed_long(&new_expression->right->object);
+                        new_expression->object = object_make_signed_long(~r);
                     }
                     break;
                     case TYPE_UNSIGNED_LONG:
                     {
-                        unsigned long r = constant_value_to_unsigned_long(&new_expression->right->constant_value);
-                        new_expression->constant_value = constant_value_make_unsigned_long(~r);
+                        unsigned long r = object_to_unsigned_long(&new_expression->right->object);
+                        new_expression->object = object_make_unsigned_long(~r);
                     }
                     break;
 
                     case TYPE_SIGNED_LONG_LONG:
                     {
-                        signed long long r = constant_value_to_signed_long_long(&new_expression->right->constant_value);
-                        new_expression->constant_value = constant_value_make_signed_long_long(~r);
+                        signed long long r = object_to_signed_long_long(&new_expression->right->object);
+                        new_expression->object = object_make_signed_long_long(~r);
                     }
                     break;
                     case TYPE_UNSIGNED_LONG_LONG:
                     {
-                        unsigned long long r = constant_value_to_unsigned_long_long(&new_expression->right->constant_value);
-                        new_expression->constant_value = constant_value_make_unsigned_long_long(~r);
+                        unsigned long long r = object_to_unsigned_long_long(&new_expression->right->object);
+                        new_expression->object = object_make_unsigned_long_long(~r);
                     }
                     break;
 
@@ -2380,7 +2368,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     case TYPE_UNSIGNED_SHORT:
                     case TYPE_SIGNED_CHAR:
                     case TYPE_UNSIGNED_CHAR:
-                    case TYPE_NOT_CONSTANT:
+
                     case TYPE_BOOL:
                     case TYPE_FLOAT:
                     case TYPE_DOUBLE:
@@ -2400,55 +2388,55 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type);
 
                 if (!ctx->evaluation_is_disabled &&
-                    constant_value_is_valid(&new_expression->right->constant_value))
+                    object_has_constant_value(&new_expression->right->object))
                 {
-                    enum constant_value_type vt = type_to_constant_value_type(&new_expression->type);
+                    enum object_value_type vt = type_to_object_type(&new_expression->type);
                     switch (vt)
                     {
                     case TYPE_SIGNED_INT_OR_SIGNED_LONG:
                     {
-                        const int a = constant_value_to_signed_int(&new_expression->right->constant_value);
+                        const int a = object_to_signed_int(&new_expression->right->object);
                         if (op == '-')
-                            new_expression->constant_value = constant_value_make_signed_int(-a);
+                            new_expression->object = object_make_signed_int(-a);
                         else
-                            new_expression->constant_value = constant_value_make_signed_int(+a);
+                            new_expression->object = object_make_signed_int(+a);
                     }
                     break;
 
                     case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
                     {
-                        unsigned int a = constant_value_to_unsigned_int(&new_expression->right->constant_value);
+                        unsigned int a = object_to_unsigned_int(&new_expression->right->object);
                         if (op == '-')
                         {
                             //error C4146: unary minus operator applied to unsigned type, result still unsigned
-                            new_expression->constant_value = constant_value_make_unsigned_int(-a);
+                            new_expression->object = object_make_unsigned_int(-a);
                         }
                         else
-                            new_expression->constant_value = constant_value_make_unsigned_int(+a);
+                            new_expression->object = object_make_unsigned_int(+a);
                     }
                     break;
 
                     case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
                     {
-                        long long a = constant_value_to_signed_long_long(&new_expression->right->constant_value);
+                        long long a = object_to_signed_long_long(&new_expression->right->object);
                         if (op == '-')
-                            new_expression->constant_value = constant_value_make_signed_long_long(-a);
+                            new_expression->object = object_make_signed_long_long(-a);
                         else
-                            new_expression->constant_value = constant_value_make_signed_long_long(+a);
+                            new_expression->object = object_make_signed_long_long(+a);
                     }
                     break;
 
                     case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
                     {
-                        unsigned long long a = constant_value_to_unsigned_long_long(&new_expression->right->constant_value);
+                        unsigned long long a = object_to_unsigned_long_long(&new_expression->right->object);
 
                         if (op == '-')
                         {
                             //error C4146: unary minus operator applied to unsigned type, result still unsigned
-                            new_expression->constant_value = constant_value_make_unsigned_long_long(-a);
+                            new_expression->object = object_make_unsigned_long_long(-a);
                         }
                         else
-                            new_expression->constant_value = constant_value_make_unsigned_long_long(+a);
+                            new_expression->object = object_make_unsigned_long_long(+a);
                     }
                     break;
 
@@ -2462,37 +2450,31 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         throw;
                         break;
 
-                    case TYPE_NOT_CONSTANT:
-                        assert(false); //they are promoted
-                        expression_delete(new_expression);
-                        throw;
-                        break;
-
                     case TYPE_FLOAT:
                     {
-                        float a = constant_value_to_float(&new_expression->right->constant_value);
+                        float a = object_to_float(&new_expression->right->object);
                         if (op == '-')
-                            new_expression->constant_value = constant_value_make_float(-a);
+                            new_expression->object = object_make_float(-a);
                         else
-                            new_expression->constant_value = constant_value_make_float(+a);
+                            new_expression->object = object_make_float(+a);
                     }
                     break;
                     case TYPE_DOUBLE:
                     {
-                        double a = constant_value_to_double(&new_expression->right->constant_value);
+                        double a = object_to_double(&new_expression->right->object);
                         if (op == '-')
-                            new_expression->constant_value = constant_value_make_double(-a);
+                            new_expression->object = object_make_double(-a);
                         else
-                            new_expression->constant_value = constant_value_make_double(+a);
+                            new_expression->object = object_make_double(+a);
                     }
                     break;
                     case TYPE_LONG_DOUBLE:
                     {
-                        long double a = constant_value_to_long_double(&new_expression->right->constant_value);
+                        long double a = object_to_long_double(&new_expression->right->object);
                         if (op == '-')
-                            new_expression->constant_value = constant_value_make_long_double(-a);
+                            new_expression->object = object_make_long_double(-a);
                         else
-                            new_expression->constant_value = constant_value_make_long_double(+a);
+                            new_expression->object = object_make_long_double(+a);
                     }
                     break;
                     };
@@ -2634,7 +2616,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 {
                     //not fatal error
                     //fatal will be if someone need the sizeof at compile time
-                    //but we don't have the constant_value set here
+                    //but we don't have the object set here
                 }
                 else
                 {
@@ -2644,7 +2626,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     else
                     {
-                        new_expression->constant_value = constant_value_make_size_t(type_get_sizeof(&new_expression->type_name->abstract_declarator->type));
+                        new_expression->object = object_make_size_t(type_get_sizeof(&new_expression->type_name->abstract_declarator->type));
                     }
                 }
             }
@@ -2673,7 +2655,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
                 else
                 {
-                    new_expression->constant_value = constant_value_make_size_t(type_get_sizeof(&new_expression->right->type));
+                    new_expression->object = object_make_size_t(type_get_sizeof(&new_expression->right->type));
                 }
             }
 
@@ -2750,7 +2732,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 int nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
                 if (nelements > 0)
-                    new_expression->constant_value = constant_value_make_size_t(nelements);
+                    new_expression->object = object_make_size_t(nelements);
 
             }
             else
@@ -2805,7 +2787,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 int nelements = new_expression->right->type.num_of_elements;
                 if (nelements > 0)
                 {
-                    new_expression->constant_value = constant_value_make_size_t(nelements);
+                    new_expression->object = object_make_size_t(nelements);
                 }
                 else
                 {
@@ -2871,7 +2853,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
             if (!ctx->evaluation_is_disabled)
             {
-                new_expression->constant_value = constant_value_make_size_t(type_get_alignof(&new_expression->type_name->type));
+                new_expression->object = object_make_size_t(type_get_alignof(&new_expression->type_name->type));
             }
             new_expression->type = type_make_int();
 
@@ -2976,42 +2958,42 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
             case TK_KEYWORD_IS_LVALUE:
                 assert(new_expression->right != NULL);
-                new_expression->constant_value = constant_value_make_signed_int(expression_is_lvalue(new_expression->right));
+                new_expression->object = object_make_signed_int(expression_is_lvalue(new_expression->right));
                 break;
 
             case TK_KEYWORD_IS_CONST:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_const(p_type));
+                new_expression->object = object_make_signed_int(type_is_const(p_type));
                 break;
             case TK_KEYWORD_IS_OWNER:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_owner(p_type));
+                new_expression->object = object_make_signed_int(type_is_owner(p_type));
                 break;
 
             case TK_KEYWORD_IS_POINTER:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_pointer(p_type));
+                new_expression->object = object_make_signed_int(type_is_pointer(p_type));
 
                 break;
             case TK_KEYWORD_IS_FUNCTION:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_function(p_type));
+                new_expression->object = object_make_signed_int(type_is_function(p_type));
 
                 break;
             case TK_KEYWORD_IS_ARRAY:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_array(p_type));
+                new_expression->object = object_make_signed_int(type_is_array(p_type));
 
                 break;
             case TK_KEYWORD_IS_ARITHMETIC:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_arithmetic(p_type));
+                new_expression->object = object_make_signed_int(type_is_arithmetic(p_type));
 
                 break;
             case TK_KEYWORD_IS_SCALAR:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_scalar(p_type));
+                new_expression->object = object_make_signed_int(type_is_scalar(p_type));
 
                 break;
             case TK_KEYWORD_IS_FLOATING_POINT:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_floating_point(p_type));
+                new_expression->object = object_make_signed_int(type_is_floating_point(p_type));
 
                 break;
             case TK_KEYWORD_IS_INTEGRAL:
-                new_expression->constant_value = constant_value_make_signed_int(type_is_integer(p_type));
+                new_expression->object = object_make_signed_int(type_is_integer(p_type));
 
                 break;
 
@@ -3134,14 +3116,13 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
 
                 if (!ctx->evaluation_is_disabled &&
-                    constant_value_is_valid(&p_expression_node->left->constant_value))
+                    object_has_constant_value(&p_expression_node->left->object))
                 {
-                    enum constant_value_type vt = type_to_constant_value_type(&p_expression_node->type);
-                    if (vt != TYPE_NOT_CONSTANT)
-                    {
-                        p_expression_node->constant_value =
-                            constant_value_cast(vt, &p_expression_node->left->constant_value);
-                    }
+                    enum object_value_type vt = type_to_object_type(&p_expression_node->type);
+
+                    p_expression_node->object =
+                        object_cast(vt, &p_expression_node->left->object);
+
                 }
 
 
@@ -3191,7 +3172,7 @@ NODISCARD
 errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       const struct expression* new_expression,
                       int op,
-                      struct constant_value* result)
+                      struct object* result)
 {
 
     struct type common_type = { 0 };
@@ -3204,7 +3185,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             throw;
         }
 
-        struct constant_value value = { 0 };
+        struct object value = { 0 };
         switch (op)
         {
         case '+':
@@ -3242,8 +3223,8 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
 
         if (!ctx->evaluation_is_disabled &&
-            constant_value_is_valid(&new_expression->left->constant_value) &&
-            constant_value_is_valid(&new_expression->right->constant_value))
+            object_has_constant_value(&new_expression->left->object) &&
+            object_has_constant_value(&new_expression->right->object))
         {
 
             const struct marker m =
@@ -3255,13 +3236,13 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             common_type = type_common(&new_expression->left->type,
                                                   &new_expression->right->type);
 
-            enum constant_value_type vt = type_to_constant_value_type(&common_type);
+            enum object_value_type vt = type_to_object_type(&common_type);
             switch (vt)
             {
             case TYPE_SIGNED_INT_OR_SIGNED_LONG:
             {
-                const int a = constant_value_to_signed_int(&new_expression->left->constant_value);
-                const int b = constant_value_to_signed_int(&new_expression->right->constant_value);
+                const int a = object_to_signed_int(&new_expression->left->object);
+                const int b = object_to_signed_int(&new_expression->right->object);
 
                 if (op == '+')
                 {
@@ -3278,7 +3259,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         assert(false);
                     }
-                    value = constant_value_make_signed_int(computed_result);
+                    value = object_make_signed_int(computed_result);
                 }
                 else if (op == '-')
                 {
@@ -3295,7 +3276,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         assert(false);
                     }
-                    value = constant_value_make_signed_int(computed_result);
+                    value = object_make_signed_int(computed_result);
                 }
                 else if (op == '*')
                 {
@@ -3312,55 +3293,55 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         assert(false);
                     }
-                    value = constant_value_make_signed_int(computed_result);
+                    value = object_make_signed_int(computed_result);
                 }
                 else if (op == '/')
                 {
                     if (b == 0)
                         compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
                     else
-                        value = constant_value_make_signed_int(a / b);
+                        value = object_make_signed_int(a / b);
                 }
                 else if (op == '%')
                 {
                     if (b == 0)
                         compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
                     else
-                        value = constant_value_make_signed_int(a % b);
+                        value = object_make_signed_int(a % b);
                 }
                 //////////
                 else if (op == '>')
                 {
-                    value = constant_value_make_signed_int(a > b);
+                    value = object_make_signed_int(a > b);
                 }
                 else if (op == '<')
                 {
-                    value = constant_value_make_signed_int(a < b);
+                    value = object_make_signed_int(a < b);
                 }
                 else if (op == '>=')
                 {
-                    value = constant_value_make_signed_int(a >= b);
+                    value = object_make_signed_int(a >= b);
                 }
                 else if (op == '<=')
                 {
-                    value = constant_value_make_signed_int(a <= b);
+                    value = object_make_signed_int(a <= b);
                 }
                 //
                 else if (op == '==')
                 {
-                    value = constant_value_make_signed_int(a == b);
+                    value = object_make_signed_int(a == b);
                 }
                 else if (op == '!=')
                 {
-                    value = constant_value_make_signed_int(a != b);
+                    value = object_make_signed_int(a != b);
                 }
             }
             break;
 
             case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
             {
-                unsigned int a = constant_value_to_unsigned_int(&new_expression->left->constant_value);
-                unsigned int b = constant_value_to_unsigned_int(&new_expression->right->constant_value);
+                unsigned int a = object_to_unsigned_int(&new_expression->left->object);
+                unsigned int b = object_to_unsigned_int(&new_expression->right->object);
 
                 if (op == '+')
                 {
@@ -3377,7 +3358,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         assert(false);
                     }
-                    value = constant_value_make_signed_int(computed_result);
+                    value = object_make_signed_int(computed_result);
                 }
                 else if (op == '-')
                 {
@@ -3394,7 +3375,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         assert(false);
                     }
-                    value = constant_value_make_signed_int(computed_result);
+                    value = object_make_signed_int(computed_result);
                 }
                 else if (op == '*')
                 {
@@ -3411,14 +3392,14 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         assert(false);
                     }
-                    value = constant_value_make_signed_int(computed_result);
+                    value = object_make_signed_int(computed_result);
                 }
                 else if (op == '/')
                 {
                     if (b == 0)
                         compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
                     else
-                        value = constant_value_make_unsigned_int(a / b);
+                        value = object_make_unsigned_int(a / b);
                 }
                 else if (op == '%')
                 {
@@ -3428,33 +3409,33 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                         throw;
                     }
 
-                    value = constant_value_make_unsigned_int(a % b);
+                    value = object_make_unsigned_int(a % b);
                 }
                 //////////                
                 else if (op == '>')
                 {
-                    value = constant_value_make_signed_int(a > b);
+                    value = object_make_signed_int(a > b);
                 }
                 else if (op == '<')
                 {
-                    value = constant_value_make_signed_int(a < b);
+                    value = object_make_signed_int(a < b);
                 }
                 else if (op == '>=')
                 {
-                    value = constant_value_make_signed_int(a >= b);
+                    value = object_make_signed_int(a >= b);
                 }
                 else if (op == '<=')
                 {
-                    value = constant_value_make_signed_int(a <= b);
+                    value = object_make_signed_int(a <= b);
                 }
                 //
                 else if (op == '==')
                 {
-                    value = constant_value_make_signed_int(a == b);
+                    value = object_make_signed_int(a == b);
                 }
                 else if (op == '!=')
                 {
-                    value = constant_value_make_signed_int(a != b);
+                    value = object_make_signed_int(a != b);
                 }
 
             }
@@ -3462,8 +3443,8 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
             {
-                long long a = constant_value_to_signed_long_long(&new_expression->left->constant_value);
-                long long b = constant_value_to_signed_long_long(&new_expression->right->constant_value);
+                long long a = object_to_signed_long_long(&new_expression->left->object);
+                long long b = object_to_signed_long_long(&new_expression->right->object);
 
                 if (op == '+')
                 {
@@ -3473,7 +3454,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%dll'. ", computed_result);
                     }
-                    value = constant_value_make_signed_long_long(computed_result);
+                    value = object_make_signed_long_long(computed_result);
                 }
                 else if (op == '-')
                 {
@@ -3483,7 +3464,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%dll'.", computed_result);
                     }
-                    value = constant_value_make_signed_long_long(computed_result);
+                    value = object_make_signed_long_long(computed_result);
                 }
                 else if (op == '*')
                 {
@@ -3493,7 +3474,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                     {
                         compiler_diagnostic_message(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%dll", computed_result);
                     }
-                    value = constant_value_make_signed_long_long(computed_result);
+                    value = object_make_signed_long_long(computed_result);
                 }
                 else if (op == '/')
                 {
@@ -3503,7 +3484,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                         throw;
                     }
 
-                    value = constant_value_make_signed_long_long(a / b);
+                    value = object_make_signed_long_long(a / b);
 
                 }
                 else if (op == '%')
@@ -3515,54 +3496,54 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                         throw;
                     }
 
-                    value = constant_value_make_signed_long_long(a % b);
+                    value = object_make_signed_long_long(a % b);
                 }
                 //////////                
                 else if (op == '>')
                 {
-                    value = constant_value_make_signed_int(a > b);
+                    value = object_make_signed_int(a > b);
                 }
                 else if (op == '<')
                 {
-                    value = constant_value_make_signed_int(a < b);
+                    value = object_make_signed_int(a < b);
                 }
                 else if (op == '>=')
                 {
-                    value = constant_value_make_signed_int(a >= b);
+                    value = object_make_signed_int(a >= b);
                 }
                 else if (op == '<=')
                 {
-                    value = constant_value_make_signed_int(a <= b);
+                    value = object_make_signed_int(a <= b);
                 }
                 //
                 else if (op == '==')
                 {
-                    value = constant_value_make_signed_int(a == b);
+                    value = object_make_signed_int(a == b);
                 }
                 else if (op == '!=')
                 {
-                    value = constant_value_make_signed_int(a != b);
+                    value = object_make_signed_int(a != b);
                 }
             }
             break;
 
             case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
             {
-                unsigned long long a = constant_value_to_unsigned_long(&new_expression->left->constant_value);
-                unsigned long long b = constant_value_to_unsigned_long(&new_expression->right->constant_value);
+                unsigned long long a = object_to_unsigned_long(&new_expression->left->object);
+                unsigned long long b = object_to_unsigned_long(&new_expression->right->object);
 
 
                 if (op == '+')
                 {
-                    value = constant_value_make_unsigned_long_long(a + b);
+                    value = object_make_unsigned_long_long(a + b);
                 }
                 else if (op == '-')
                 {
-                    value = constant_value_make_unsigned_long_long(a - b);
+                    value = object_make_unsigned_long_long(a - b);
                 }
                 else if (op == '*')
                 {
-                    value = constant_value_make_unsigned_long_long(a * b);
+                    value = object_make_unsigned_long_long(a * b);
                 }
                 else if (op == '/')
                 {
@@ -3573,7 +3554,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                         throw;
                     }
 
-                    value = constant_value_make_unsigned_long_long(a / b);
+                    value = object_make_unsigned_long_long(a / b);
                 }
                 else if (op == '%')
                 {
@@ -3582,34 +3563,34 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                         compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
                         throw;
                     }
-                    value = constant_value_make_unsigned_long_long(a % b);
+                    value = object_make_unsigned_long_long(a % b);
                 }
                 //////////
                 //////////                
                 else if (op == '>')
                 {
-                    value = constant_value_make_signed_int(a > b);
+                    value = object_make_signed_int(a > b);
                 }
                 else if (op == '<')
                 {
-                    value = constant_value_make_signed_int(a < b);
+                    value = object_make_signed_int(a < b);
                 }
                 else if (op == '>=')
                 {
-                    value = constant_value_make_signed_int(a >= b);
+                    value = object_make_signed_int(a >= b);
                 }
                 else if (op == '<=')
                 {
-                    value = constant_value_make_signed_int(a <= b);
+                    value = object_make_signed_int(a <= b);
                 }
                 //
                 else if (op == '==')
                 {
-                    value = constant_value_make_signed_int(a == b);
+                    value = object_make_signed_int(a == b);
                 }
                 else if (op == '!=')
                 {
-                    value = constant_value_make_signed_int(a != b);
+                    value = object_make_signed_int(a != b);
                 }
 
             }
@@ -3624,28 +3605,23 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 throw;
                 break;
 
-            case TYPE_NOT_CONSTANT:
-                //assert(false); //they are promoted
-                throw;
-                break;
-
             case TYPE_FLOAT:
             {
-                float a = constant_value_to_float(&new_expression->left->constant_value);
-                float b = constant_value_to_float(&new_expression->right->constant_value);
+                float a = object_to_float(&new_expression->left->object);
+                float b = object_to_float(&new_expression->right->object);
 
 
                 if (op == '+')
                 {
-                    value = constant_value_make_float(a + b);
+                    value = object_make_float(a + b);
                 }
                 else if (op == '-')
                 {
-                    value = constant_value_make_float(a - b);
+                    value = object_make_float(a - b);
                 }
                 else if (op == '*')
                 {
-                    value = constant_value_make_float(a * b);
+                    value = object_make_float(a * b);
                 }
                 else if (op == '/')
                 {
@@ -3655,7 +3631,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                         throw;
                     }
 
-                    value = constant_value_make_float(a / b);
+                    value = object_make_float(a / b);
                 }
                 else if (op == '%')
                 {
@@ -3667,59 +3643,59 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 //////////                
                 else if (op == '>')
                 {
-                    value = constant_value_make_signed_int(a > b);
+                    value = object_make_signed_int(a > b);
                 }
                 else if (op == '<')
                 {
-                    value = constant_value_make_signed_int(a < b);
+                    value = object_make_signed_int(a < b);
                 }
                 else if (op == '>=')
                 {
-                    value = constant_value_make_signed_int(a >= b);
+                    value = object_make_signed_int(a >= b);
                 }
                 else if (op == '<=')
                 {
-                    value = constant_value_make_signed_int(a <= b);
+                    value = object_make_signed_int(a <= b);
                 }
                 //
                 else if (op == '==')
                 {
-                    value = constant_value_make_signed_int(a == b);
+                    value = object_make_signed_int(a == b);
                 }
                 else if (op == '!=')
                 {
-                    value = constant_value_make_signed_int(a != b);
+                    value = object_make_signed_int(a != b);
                 }
 
             }
             break;
             case TYPE_DOUBLE:
             {
-                double a = constant_value_to_double(&new_expression->left->constant_value);
-                double b = constant_value_to_double(&new_expression->right->constant_value);
+                double a = object_to_double(&new_expression->left->object);
+                double b = object_to_double(&new_expression->right->object);
 
                 if (op == '+')
                 {
-                    value = constant_value_make_double(a + b);
+                    value = object_make_double(a + b);
                 }
                 else if (op == '-')
                 {
-                    value = constant_value_make_double(a - b);
+                    value = object_make_double(a - b);
                 }
                 else if (op == '*')
                 {
-                    value = constant_value_make_double(a * b);
+                    value = object_make_double(a * b);
                 }
                 else if (op == '/')
                 {
                     if (b == 0)
                         compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
                     else
-                        value = constant_value_make_double(a / b);
+                        value = object_make_double(a / b);
                 }
                 else if (op == '%')
                 {
-                    //value = constant_value_make_double(r);
+                    //value = object_make_double(r);
                     //error C2296: '%': not valid as left operand has type 'float'
                     compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "'%': not valid as left operand has type 'float'");
                     throw;
@@ -3728,60 +3704,60 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 //////////                
                 else if (op == '>')
                 {
-                    value = constant_value_make_signed_int(a > b);
+                    value = object_make_signed_int(a > b);
                 }
                 else if (op == '<')
                 {
-                    value = constant_value_make_signed_int(a < b);
+                    value = object_make_signed_int(a < b);
                 }
                 else if (op == '>=')
                 {
-                    value = constant_value_make_signed_int(a >= b);
+                    value = object_make_signed_int(a >= b);
                 }
                 else if (op == '<=')
                 {
-                    value = constant_value_make_signed_int(a <= b);
+                    value = object_make_signed_int(a <= b);
                 }
                 //
                 else if (op == '==')
                 {
-                    value = constant_value_make_signed_int(a == b);
+                    value = object_make_signed_int(a == b);
                 }
                 else if (op == '!=')
                 {
-                    value = constant_value_make_signed_int(a != b);
+                    value = object_make_signed_int(a != b);
                 }
 
             }
             break;
             case TYPE_LONG_DOUBLE:
             {
-                long double a = constant_value_to_long_double(&new_expression->left->constant_value);
-                long double b = constant_value_to_long_double(&new_expression->right->constant_value);
+                long double a = object_to_long_double(&new_expression->left->object);
+                long double b = object_to_long_double(&new_expression->right->object);
 
                 if (op == '+')
                 {
-                    value = constant_value_make_long_double(a + b);
+                    value = object_make_long_double(a + b);
                 }
                 else if (op == '-')
                 {
-                    value = constant_value_make_long_double(a - b);
+                    value = object_make_long_double(a - b);
                 }
                 else if (op == '*')
                 {
-                    value = constant_value_make_long_double(a * b);
+                    value = object_make_long_double(a * b);
                 }
                 else if (op == '/')
                 {
                     if (b == 0)
                         compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
                     else
-                        value = constant_value_make_long_double(a / b);
+                        value = object_make_long_double(a / b);
                 }
                 else if (op == '%')
                 {
                     //error C2296: '%': not valid as left operand has type 'float'
-                    //value = constant_value_make_long_double(a % b);
+                    //value = object_make_long_double(a % b);
                     compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "'%': not valid as left operand has type 'float'");
                     //r = a % b;
                     throw;
@@ -3789,28 +3765,28 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 //////////                
                 else if (op == '>')
                 {
-                    value = constant_value_make_signed_int(a > b);
+                    value = object_make_signed_int(a > b);
                 }
                 else if (op == '<')
                 {
-                    value = constant_value_make_signed_int(a < b);
+                    value = object_make_signed_int(a < b);
                 }
                 else if (op == '>=')
                 {
-                    value = constant_value_make_signed_int(a >= b);
+                    value = object_make_signed_int(a >= b);
                 }
                 else if (op == '<=')
                 {
-                    value = constant_value_make_signed_int(a <= b);
+                    value = object_make_signed_int(a <= b);
                 }
                 //
                 else if (op == '==')
                 {
-                    value = constant_value_make_signed_int(a == b);
+                    value = object_make_signed_int(a == b);
                 }
                 else if (op == '!=')
                 {
-                    value = constant_value_make_signed_int(a != b);
+                    value = object_make_signed_int(a != b);
                 }
 
             }
@@ -3831,7 +3807,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
     type_destroy(&common_type);
 
-    struct constant_value empty = { 0 };
+    struct object empty = { 0 };
     *result = empty;
     return 1; //error
 }
@@ -3910,7 +3886,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
 
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
 
-            if (execute_arithmetic(ctx, new_expression, op, &new_expression->constant_value) != 0)
+            if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
             {
                 expression_delete(new_expression);
                 throw;
@@ -3988,11 +3964,11 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
 
 
 
-            if (!type_is_scalar(&new_expression->left->type))
+            if (!type_is_scalar(&new_expression->left->type) && !type_is_array(&new_expression->left->type))
             {
                 compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, NULL, "left operator is not scalar");
             }
-            if (!type_is_scalar(&new_expression->right->type))
+            if (!type_is_scalar(&new_expression->right->type) && !type_is_array(&new_expression->right->type))
             {
                 compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, operator_position, NULL, "right operator is not scalar");
             }
@@ -4015,7 +3991,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
                     new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
-                    if (execute_arithmetic(ctx, new_expression, op, &new_expression->constant_value) != 0)
+                    if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
                         expression_delete(new_expression);
                         throw;
@@ -4083,7 +4059,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
                     new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
-                    if (execute_arithmetic(ctx, new_expression, op, &new_expression->constant_value) != 0)
+                    if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
                         expression_delete(new_expression);
                         throw;
@@ -4302,7 +4278,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
                 type_is_arithmetic(&new_expression->right->type))
             {
                 new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
-                if (execute_arithmetic(ctx, new_expression, op, &new_expression->constant_value) != 0)
+                if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                 {
                     expression_delete(new_expression);
                     new_expression = NULL;
@@ -4377,8 +4353,8 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
                                          bool disabled)
 {
     assert(op == '==' || op == '!=');
-    //result->constant_value =
-        //constant_value_op(&left->constant_value, &right->constant_value, op);
+    //result->object =
+        //object_op(&left->object, &right->object, op);
 }
 
 struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
@@ -4452,14 +4428,15 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
             new_expression->first_token = operator_token;
 
+            //TODO missing general checks described in standard
+            //like pointer, nullptr etc...
             if (type_is_arithmetic(&new_expression->left->type) &&
                 type_is_arithmetic(&new_expression->right->type))
             {
 
-                if (execute_arithmetic(ctx, new_expression, operator_token->type, &new_expression->constant_value) != 0)
+                if (execute_arithmetic(ctx, new_expression, operator_token->type, &new_expression->object) != 0)
                     throw;
             }
-
 
             new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
@@ -4630,16 +4607,16 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
         new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
 
         if (!ctx->evaluation_is_disabled &&
-            constant_value_is_valid(&new_expression->left->constant_value) &&
-            constant_value_is_valid(&new_expression->right->constant_value))
+            object_has_constant_value(&new_expression->left->object) &&
+            object_has_constant_value(&new_expression->right->object))
         {
-            enum constant_value_type vt = type_to_constant_value_type(&new_expression->type);
+            enum object_value_type vt = type_to_object_type(&new_expression->type);
             switch (vt)
             {
             case TYPE_SIGNED_INT_OR_SIGNED_LONG:
             {
-                int a = constant_value_to_signed_int(&new_expression->left->constant_value);
-                int b = constant_value_to_signed_int(&new_expression->right->constant_value);
+                int a = object_to_signed_int(&new_expression->left->object);
+                int b = object_to_signed_int(&new_expression->right->object);
 
                 int r = 0;
                 if (op == '|')
@@ -4654,14 +4631,14 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 else if (op == '<<')
                     r = a << b;
 
-                new_expression->constant_value = constant_value_make_signed_int(r);
+                new_expression->object = object_make_signed_int(r);
             }
             break;
 
             case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
             {
-                unsigned int a = constant_value_to_unsigned_int(&new_expression->left->constant_value);
-                unsigned int b = constant_value_to_unsigned_int(&new_expression->right->constant_value);
+                unsigned int a = object_to_unsigned_int(&new_expression->left->object);
+                unsigned int b = object_to_unsigned_int(&new_expression->right->object);
                 int r = 0;
                 if (op == '|')
                     r = a | b;
@@ -4674,14 +4651,14 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
-                new_expression->constant_value = constant_value_make_unsigned_int(r);
+                new_expression->object = object_make_unsigned_int(r);
             }
             break;
 
             case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
             {
-                long long a = constant_value_to_signed_long(&new_expression->left->constant_value);
-                long long b = constant_value_to_signed_long(&new_expression->right->constant_value);
+                long long a = object_to_signed_long(&new_expression->left->object);
+                long long b = object_to_signed_long(&new_expression->right->object);
                 long long r = 0;
                 if (op == '|')
                     r = a | b;
@@ -4694,15 +4671,15 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
-                new_expression->constant_value = constant_value_make_signed_long_long(r);
+                new_expression->object = object_make_signed_long_long(r);
 
             }
             break;
 
             case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
             {
-                unsigned long long a = constant_value_to_unsigned_long(&new_expression->left->constant_value);
-                unsigned long long b = constant_value_to_unsigned_long(&new_expression->right->constant_value);
+                unsigned long long a = object_to_unsigned_long(&new_expression->left->object);
+                unsigned long long b = object_to_unsigned_long(&new_expression->right->object);
                 unsigned long long r = 0;
                 if (op == '|')
                     r = a | b;
@@ -4715,7 +4692,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
-                new_expression->constant_value = constant_value_make_unsigned_long_long(r);
+                new_expression->object = object_make_unsigned_long_long(r);
             }
             break;
 
@@ -4728,7 +4705,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 throw;
                 break;
 
-            case TYPE_NOT_CONSTANT:
+
             case TYPE_FLOAT:
             case TYPE_DOUBLE:
             case TYPE_LONG_DOUBLE:
@@ -4855,14 +4832,14 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
 
             if (!ctx->evaluation_is_disabled &&
-                constant_value_is_valid(&new_expression->left->constant_value) &&
-                constant_value_is_valid(&new_expression->right->constant_value))
+                object_has_constant_value(&new_expression->left->object) &&
+                object_has_constant_value(&new_expression->right->object))
             {
                 //The && operator shall yield 1 if both of its operands compare unequal to 0;
                 // otherwise, it yields 0. The result has type int
-                bool a = constant_value_to_bool(&new_expression->left->constant_value);
-                bool b = constant_value_to_bool(&new_expression->right->constant_value);
-                new_expression->constant_value = constant_value_make_signed_int(a && b);
+                bool a = object_to_bool(&new_expression->left->object);
+                bool b = object_to_bool(&new_expression->right->object);
+                new_expression->object = object_make_signed_int(a && b);
             }
 
             //Each of the operands shall have scalar type
@@ -4943,12 +4920,12 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
 
             if (!ctx->evaluation_is_disabled &&
-                constant_value_is_valid(&new_expression->left->constant_value) &&
-                constant_value_is_valid(&new_expression->right->constant_value))
+                object_has_constant_value(&new_expression->left->object) &&
+                object_has_constant_value(&new_expression->right->object))
             {
-                bool a = constant_value_to_bool(&new_expression->left->constant_value);
-                bool b = constant_value_to_bool(&new_expression->right->constant_value);
-                new_expression->constant_value = constant_value_make_signed_int(a || b);
+                bool a = object_to_bool(&new_expression->left->object);
+                bool b = object_to_bool(&new_expression->right->object);
+                new_expression->object = object_make_signed_int(a || b);
             }
 
             //Each of the operands shall have scalar type
@@ -5285,8 +5262,8 @@ bool expression_is_one(const struct expression* expression)
 {
     if (expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
     {
-        return (constant_value_is_valid(&expression->constant_value) &&
-            constant_value_to_signed_int(&expression->constant_value) == 1);
+        return (object_has_constant_value(&expression->object) &&
+            object_to_signed_int(&expression->object) == 1);
     }
     return false;
 }
@@ -5295,8 +5272,8 @@ bool expression_is_zero(const struct expression* expression)
 {
     if (expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
     {
-        return (constant_value_is_valid(&expression->constant_value) &&
-            constant_value_to_signed_int(&expression->constant_value) == 0);
+        return (object_has_constant_value(&expression->object) &&
+            object_to_signed_int(&expression->object) == 0);
     }
     return false;
 }
@@ -5305,8 +5282,8 @@ bool expression_is_null_pointer_constant(const struct expression* expression)
 {
 
     if (type_is_nullptr_t(&expression->type) ||
-        (constant_value_is_valid(&expression->constant_value) &&
-            constant_value_to_signed_int(&expression->constant_value) == 0))
+        (object_has_constant_value(&expression->object) &&
+            object_to_signed_int(&expression->object) == 0))
     {
         return true;
     }
@@ -5375,19 +5352,19 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             }
             p_conditional_expression->right = p_right;
 
-            if (constant_value_is_valid(&p_conditional_expression->condition_expr->constant_value))
+            if (object_has_constant_value(&p_conditional_expression->condition_expr->object))
             {
-                if (constant_value_to_bool(&p_conditional_expression->condition_expr->constant_value))
+                if (object_to_bool(&p_conditional_expression->condition_expr->object))
                 {
                     /*this is an extensions.. in constant expression we can mix types!*/
                     p_conditional_expression->type = type_dup(&p_conditional_expression->left->type);
-                    p_conditional_expression->constant_value = p_conditional_expression->left->constant_value;
+                    p_conditional_expression->object = p_conditional_expression->left->object;
                 }
                 else
                 {
                     /*this is an extensions.. in constant expression we can mix types!*/
                     p_conditional_expression->type = type_dup(&p_conditional_expression->right->type);
-                    p_conditional_expression->constant_value = p_conditional_expression->right->constant_value;
+                    p_conditional_expression->object = p_conditional_expression->right->object;
                 }
             }
 
@@ -5535,7 +5512,7 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
 
     if (show_error_if_not_constant &&
         p_expression &&
-        !constant_value_is_valid(&p_expression->constant_value))
+        !object_has_constant_value(&p_expression->object))
     {
         compiler_diagnostic_message(C_ERROR_EXPECTED_CONSTANT_EXPRESSION, ctx, ctx->current, NULL, "expected constant expression");
     }
@@ -5886,11 +5863,9 @@ void check_assigment(struct parser_ctx* ctx,
             type_print(&lvalue_right_type);
             type_print(&t2);
 
-            compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES, ctx,
+            compiler_diagnostic_message(W_ERROR_INCOMPATIBLE_TYPES, ctx,
                 p_b_expression->first_token, NULL,
-                " incompatible types at argument ");
-            //disabled for now util it works correctly
-            //return false;
+                " incompatible types");            
         }
 
         if (type_is_pointer(&lvalue_right_type) && type_is_pointer(&t2))

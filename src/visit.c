@@ -498,13 +498,17 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
 
             print_block_defer(p_defer, &ss, true);
 
-            if (ss.c_str == NULL)
-            {
-                throw;
-            }
+
 
             struct tokenizer_ctx tctx = { 0 };
-            struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
+
+            struct token_list l = { 0 };
+
+            if (ss.c_str != NULL)
+            {
+                l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
+            }
+
             token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, &l);
 
 
@@ -716,13 +720,22 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
 static void visit_designation(struct visit_ctx* ctx, struct designation* p_designation)
 {}
 
-static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initializer)
+static void visit_initializer_list_item(struct visit_ctx* ctx, struct initializer_list_item* p_initializer)
 {
     if (p_initializer->designation)
     {
         visit_designation(ctx, p_initializer->designation);
     }
 
+    if (p_initializer->initializer)
+    {
+        visit_initializer(ctx, p_initializer->initializer);
+    }
+}
+
+
+static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initializer)
+{
     if (p_initializer->assignment_expression)
     {
         visit_expression(ctx, p_initializer->assignment_expression);
@@ -735,10 +748,10 @@ static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initi
 
 static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_list* p_initializer_list)
 {
-    struct initializer* _Opt p_initializer = p_initializer_list->head;
+    struct initializer_list_item* _Opt p_initializer = p_initializer_list->head;
     while (p_initializer)
     {
-        visit_initializer(ctx, p_initializer);
+        visit_initializer_list_item(ctx, p_initializer);
         p_initializer = p_initializer->next;
     }
 }
@@ -978,7 +991,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         if (ctx->target < LANGUAGE_C23)
         {
-            if (constant_value_is_valid(&p_expression->constant_value))
+            if (object_has_constant_value(&p_expression->object))
             {
                 free((void* _Owner)p_expression->type.name_opt);
                 p_expression->type.name_opt = NULL;
@@ -996,7 +1009,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                   we are not handling &a at this moment
                 */
                 char buffer[40] = { 0 };
-                constant_value_to_string(&p_expression->constant_value, buffer, sizeof buffer);
+                object_to_string(&p_expression->object, buffer, sizeof buffer);
 
                 ss_fprintf(&ss1, "((%s)%s)", ss.c_str, buffer);
                 if (ss1.c_str == NULL)
@@ -1091,6 +1104,54 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
     case POSTFIX_DOT:
+        if (p_expression->left)
+            visit_expression(ctx, p_expression->left);
+        if (p_expression->right)
+            visit_expression(ctx, p_expression->right);
+
+        //TODO constexpr for members
+        if (ctx->target < LANGUAGE_C23)
+        {
+            if (object_has_constant_value(&p_expression->object))
+            {
+                free((void* _Owner)p_expression->type.name_opt);
+                p_expression->type.name_opt = NULL;
+
+                struct osstream ss = { 0 };
+                print_type(&ss, &p_expression->type);
+                if (ss.c_str == NULL)
+                    return;
+
+                struct osstream ss1 = { 0 };
+
+                /*
+                  this is the way we handle constexpr, replacing the declarator
+                  for it's number and changing the expression type
+                  we are not handling &a at this moment
+                */
+                char buffer[40] = { 0 };
+                object_to_string(&p_expression->object, buffer, sizeof buffer);
+
+                ss_fprintf(&ss1, "((%s)%s)", ss.c_str, buffer);
+                if (ss1.c_str == NULL)
+                {
+                    ss_close(&ss);
+                    return;
+                }
+
+                //TODO first_token is wrong for a.b
+                del(p_expression->first_token, p_expression->last_token);
+                struct tokenizer_ctx tctx = { 0 };
+                struct token_list l2 = tokenizer(&tctx, ss1.c_str, NULL, 0, TK_FLAG_FINAL);
+                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l2);
+                token_list_destroy(&l2);
+
+                ss_close(&ss);
+                ss_close(&ss1);
+            }
+        }
+        break;
+
     case POSTFIX_ARROW:
     case POSTFIX_INCREMENT:
     case POSTFIX_DECREMENT:
@@ -1203,7 +1264,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             const int level = p_expression->first_token->level;
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_C_BACKEND_FLAG_HIDE);
             char buffer[30] = { 0 };
-            snprintf(buffer, sizeof buffer, "%lld", constant_value_to_signed_long_long(&p_expression->constant_value));
+            snprintf(buffer, sizeof buffer, "%lld", object_to_signed_long_long(&p_expression->object));
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l3 = tokenizer(&tctx, buffer, NULL, level, TK_FLAG_FINAL);
             if (l3.head == NULL)
@@ -1262,9 +1323,9 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             visit_type_name(ctx, p_expression->type_name);
 
-            if (constant_value_is_valid(&p_expression->constant_value))
+            if (object_has_constant_value(&p_expression->object))
             {
-                int u = constant_value_to_unsigned_int(&p_expression->constant_value);
+                int u = object_to_unsigned_int(&p_expression->object);
 
                 char buffer[50] = { 0 };
                 snprintf(buffer, sizeof buffer, "%d", u);
@@ -1363,7 +1424,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             struct tokenizer_ctx tctx2 = { 0 };
             struct token_list l2 = { 0 };
 
-            if (constant_value_to_bool(&p_expression->constant_value))
+            if (object_to_bool(&p_expression->object))
                 l2 = tokenizer(&tctx2, "1", NULL, 0, TK_FLAG_FINAL);
             else
                 l2 = tokenizer(&tctx2, "0", NULL, 0, TK_FLAG_FINAL);
@@ -1520,7 +1581,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
     {
         const bool constant_expression =
             p_jump_statement->expression_opt == NULL ||
-            constant_value_is_valid(&p_jump_statement->expression_opt->constant_value);
+            object_has_constant_value(&p_jump_statement->expression_opt->object);
 
         if (p_jump_statement->expression_opt)
             visit_expression(ctx, p_jump_statement->expression_opt);
@@ -1530,7 +1591,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             struct osstream ss0 = { 0 };
 
             if (ctx->tail_block)
-              print_all_defer_until_end(ctx->tail_block, &ss0);
+                print_all_defer_until_end(ctx->tail_block, &ss0);
 
             if (ss0.size > 0)
             {

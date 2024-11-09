@@ -723,6 +723,7 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf
 
 ###  C23 \_Decimal32, \_Decimal64, and \_Decimal128
 Not implemented.
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1107.htm
 
 ### C23 static\_assert / single-argument static_assert
 In C23 static\_assert is a keyword and the text message is optional.

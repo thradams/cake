@@ -28,7 +28,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\console.c" />
-    <ClCompile Include="..\src\constant_value.c" />
+    <ClCompile Include="..\src\object.c" />
     <ClCompile Include="..\src\error.c" />
     <ClCompile Include="..\src\expressions.c" />
     <ClCompile Include="..\src\flow_visit.c" />
@@ -47,7 +47,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h" />
-    <ClInclude Include="..\src\constant_value.h" />
+    <ClInclude Include="..\src\object.h" />
     <ClInclude Include="..\src\error.h" />
     <ClInclude Include="..\src\expressions.h" />
     <ClInclude Include="..\src\flow_visit.h" />

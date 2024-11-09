@@ -109,6 +109,7 @@ s_warnings[] = {
     {W_INTEGER_OVERFLOW, "overflow"},
     {W_ARRAY_SIZE, "array-size"},
     {W_EMPTY_STATEMENT, "empty-statement"},
+    {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"}
 };
 
 _Static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64, "");

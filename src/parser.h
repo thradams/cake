@@ -145,15 +145,16 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 struct token* _Opt previous_parser_token(const struct token* token);
 struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
 struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
-struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt * _Opt ppscope_opt);
+struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
 
 struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(const struct parser_ctx* ctx, const char* lexeme);
 
 void print_scope(struct scope_list* e);
 
+/*
+  This is the function called by the web version.
+*/
 char* _Opt _Owner CompileText(const char* options, const char* content);
-
-
 
 _Bool compiler_diagnostic_message(enum diagnostic_id w,
     const struct parser_ctx* ctx,
@@ -161,9 +162,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     const struct marker* _Opt p_marker,
     const char* fmt, ...);
 
-
 int compile(int argc, const char** argv, struct report* error);
-
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 
@@ -441,6 +440,7 @@ struct declaration
 
     struct declaration* _Owner _Opt next;
 };
+
 void declaration_delete(struct declaration* _Owner _Opt p);
 struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx);
 
@@ -466,7 +466,8 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
     bool ignore_semicolon);
 
-struct condition {
+struct condition
+{
     /*
       This is an extension to support C++ 17 if with initialization
 
@@ -553,7 +554,7 @@ struct enum_specifier
     */
 
     /*
-       If has_shared_ownership is 
+       If has_shared_ownership is
         - true,  both AST and some map are sharing the ownership
         - false, only AST OR and some map have the ownership
     */
@@ -580,8 +581,6 @@ const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_
 
 const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value);
 
-
-
 struct member_declaration_list
 {
     /*
@@ -605,7 +604,7 @@ struct member_declarator* _Opt find_member_declarator(struct member_declaration_
 struct struct_or_union_specifier
 {
     /*
-       If has_shared_ownership is 
+       If has_shared_ownership is
         - true,  both AST and some map are sharing the ownership
         - false, only AST OR and some map have the ownership
     */
@@ -657,7 +656,7 @@ struct init_declarator
     */
 
     /*
-       If has_shared_ownership is 
+       If has_shared_ownership is
         - true,  both AST and some map are sharing the ownership
         - false, only AST OR and some map have the ownership
     */
@@ -683,16 +682,12 @@ struct initializer
        braced-initializer
     */
     struct token* first_token;
-    struct designation* _Owner _Opt designation; /*auxiliar para list??*/
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct expression* _Owner _Opt assignment_expression;
-    struct initializer* _Owner _Opt  next;    
 };
 
 struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx);
 void initializer_delete(struct initializer* _Owner _Opt  p);
-
-
 
 struct declarator
 {
@@ -702,7 +697,7 @@ struct declarator
     */
 
     /*
-       If has_shared_ownership is 
+       If has_shared_ownership is
         - true,  both AST and Map are sharing the ownership
         - false, only AST OR Map have the ownership
     */
@@ -710,10 +705,8 @@ struct declarator
     struct token* _Opt first_token_opt;
     struct token* _Opt last_token_opt;
 
-
     struct pointer* _Owner _Opt pointer;
     struct direct_declarator* _Owner _Opt direct_declarator;
-
 
     struct declaration_specifiers* _Opt declaration_specifiers;
     const struct specifier_qualifier_list* _Opt specifier_qualifier_list;
@@ -723,6 +716,8 @@ struct declarator
     struct compound_statement* _Opt function_body;
 
     int num_uses; /*used to show not used warnings*/
+
+    struct object object;
 
     /*user by flow analysis*/
     struct flow_object* _Opt p_object;
@@ -744,6 +739,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
 struct declarator* _Owner declarator_add_ref(struct declarator* p);
 void declarator_delete(struct declarator* _Owner _Opt  p);
+
 struct array_declarator
 {
     /*
@@ -761,7 +757,9 @@ struct array_declarator
     struct token* token;
     struct token* _Opt static_token_opt;
 };
+
 void array_declarator_delete(struct array_declarator* _Owner _Opt p);
+
 /*
   Return a value > 0 if it has constant size
 */
@@ -777,6 +775,7 @@ struct function_declarator
     struct scope parameters_scope; //usado para escopo parametros
     struct parameter_type_list* _Owner _Opt parameter_type_list_opt;
 };
+
 void function_declarator_delete(struct function_declarator* _Owner _Opt p);
 
 struct direct_declarator
@@ -835,6 +834,7 @@ struct pointer
 
 struct pointer* _Owner _Opt  pointer_opt(struct parser_ctx* ctx);
 void pointer_delete(struct pointer* _Owner _Opt p);
+
 struct parameter_list
 {
     /*
@@ -845,6 +845,7 @@ struct parameter_list
     struct parameter_declaration* _Owner _Opt head;
     struct parameter_declaration* _Opt tail;
 };
+
 struct parameter_list* _Owner _Opt  parameter_list(struct parser_ctx* ctx);
 void parameter_list_delete(struct parameter_list* _Owner _Opt  p);
 void parameter_list_add(struct parameter_list* list, struct parameter_declaration* _Owner p_item);
@@ -862,6 +863,7 @@ struct parameter_declaration
     struct declarator* _Owner _Opt  declarator;
     struct parameter_declaration* _Owner _Opt next;
 };
+
 struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ctx* ctx);
 void parameter_declaration_delete(struct parameter_declaration* _Owner _Opt  p);
 
@@ -905,6 +907,7 @@ struct braced_initializer
     struct token* last_token;
     struct initializer_list* _Owner _Opt initializer_list;
 };
+
 struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx);
 void braced_initializer_delete(struct braced_initializer* _Owner _Opt p);
 
@@ -925,7 +928,6 @@ struct type_specifier_qualifier
 };
 struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier(struct parser_ctx* ctx);
 void type_specifier_qualifier_delete(struct type_specifier_qualifier* _Owner _Opt  p);
-
 
 struct specifier_qualifier_list
 {
@@ -958,9 +960,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
 void specifier_qualifier_list_delete(struct specifier_qualifier_list* _Owner _Opt p);
 void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct type_specifier_qualifier* _Owner p_item);
 
-
 void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list);
-
 
 struct alignment_specifier
 {
@@ -973,9 +973,9 @@ struct alignment_specifier
     struct expression* _Owner _Opt constant_expression;
     struct token* token;
 };
+
 struct alignment_specifier* _Owner _Opt alignment_specifier(struct parser_ctx* ctx);
 void alignment_specifier_delete(struct alignment_specifier* _Owner _Opt p);
-
 
 struct type_qualifier
 {
@@ -1151,6 +1151,7 @@ struct selection_statement
 
 struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* ctx);
 void selection_statement_delete(struct selection_statement* _Owner _Opt  p);
+
 struct iteration_statement
 {
     /*
@@ -1158,7 +1159,7 @@ struct iteration_statement
         "while" ( expression ) secondary-block
         "do" secondary-block "while" ( expression ) ;
         "for" ( expression _Opt ; expression _Opt ; expression _Opt ) secondary-block
-        "for" ( declaration expression _Opt ; expression _Opt ) secondary-block        
+        "for" ( declaration expression _Opt ; expression _Opt ) secondary-block
     */
 
     struct token* first_token;
@@ -1243,23 +1244,51 @@ struct designator
     struct token* token;
     struct designator* _Owner _Opt next;
 };
+
 struct designator* _Owner _Opt designator(struct parser_ctx* ctx);
 void designator_delete(struct designator* _Owner _Opt p);
+
+struct initializer_list_item
+{
+    //A small grammar rewrite    
+    /*
+      initializer-list:
+        designation opt initializer
+        initializer-list , designation opt initializer
+    */
+
+    /*
+      initializer-list-item:
+        designation opt initializer
+
+      initializer-list:
+        initializer-list-item
+        initializer-list , initializer-list-item
+     */
+
+    struct designation* _Opt _Owner designation;
+    struct initializer* _Owner initializer;
+    struct initializer_list_item* _Opt next;
+};
+
+void initializer_list_item_delete(struct initializer_list_item* _Owner _Opt p);
+
 struct initializer_list
 {
     /*
       initializer-list:
-        designation _Opt initializer
-        initializer-list , designation _Opt initializer
+        designation opt initializer
+        initializer-list , designation opt initializer
     */
     struct token* first_token;
-    struct initializer* _Owner _Opt head;
-    struct initializer* _Opt tail;
+    struct initializer_list_item* _Owner _Opt head;
+    struct initializer_list_item* _Opt tail;
     int size;
 };
+
 struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx);
 void initializer_list_delete(struct initializer_list* _Owner _Opt p);
-void initializer_list_add(struct initializer_list* list, struct initializer* _Owner p_item);
+void initializer_list_add(struct initializer_list* list, struct initializer_list_item* _Owner p_item);
 
 struct primary_block
 {
@@ -1321,6 +1350,7 @@ struct labeled_statement
     struct label* _Owner label;
     struct statement* _Owner statement;
 };
+
 struct labeled_statement* _Owner _Opt labeled_statement(struct parser_ctx* ctx);
 void labeled_statement_delete(struct labeled_statement* _Owner _Opt p);
 
@@ -1334,6 +1364,7 @@ struct statement
     struct labeled_statement* _Owner _Opt labeled_statement;
     struct unlabeled_statement* _Owner _Opt unlabeled_statement;
 };
+
 struct statement* _Owner _Opt statement(struct parser_ctx* ctx);
 void statement_delete(struct statement* _Owner _Opt  p);
 
@@ -1361,6 +1392,7 @@ struct designation
     struct designator_list* _Owner designator_list;
     struct token* token;
 };
+
 struct designation* _Owner _Opt designation(struct parser_ctx* ctx);
 void designation_delete(struct designation* _Owner _Opt p);
 
@@ -1385,6 +1417,7 @@ struct attribute_token
     enum attribute_flags attributes_flags;
     struct token* token;
 };
+
 struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx);
 void attribute_token_delete(struct attribute_token* _Owner _Opt p);
 struct attribute
@@ -1394,6 +1427,7 @@ struct attribute
     struct attribute_argument_clause* _Owner attribute_argument_clause;
     struct attribute* _Owner _Opt next;
 };
+
 void attribute_delete(struct attribute* _Owner _Opt p);
 
 struct attribute_list
@@ -1402,6 +1436,7 @@ struct attribute_list
     struct attribute* _Owner _Opt head;
     struct attribute* _Opt tail;
 };
+
 struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx);
 void attribute_list_destroy(struct attribute_list* _Obj_owner p);
 void attribute_list_delete(struct attribute_list* _Owner _Opt p);
@@ -1420,7 +1455,7 @@ struct enumerator
     */
 
     /*
-       If has_shared_ownership is 
+       If has_shared_ownership is
         - true,  both AST and some map are sharing the ownership
         - false, only AST OR and some map have the ownership
     */
@@ -1437,7 +1472,7 @@ struct enumerator
     const struct enum_specifier* enum_specifier;
 
     struct enumerator* _Owner _Opt next;
-    struct constant_value value;
+    struct object value;
 };
 
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long* p_enumerator_value);
@@ -1470,6 +1505,7 @@ struct balanced_token_sequence
     struct balanced_token* _Owner _Opt head;
     struct balanced_token* _Opt tail;
 };
+
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx);
 void balanced_token_sequence_delete(struct balanced_token_sequence* _Owner _Opt  p);
 
