@@ -17,6 +17,17 @@ jobs:
         gcc -DTEST build.c -o build
         ./build
 
+  linux-gcc-ubuntu-prev:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v4
+    - run: gcc --version
+    - name: Build
+      run: |
+        cd src
+        gcc build.c -o build
+        ./build
+
   windows-msvc:
     runs-on: windows-2022
     steps:
