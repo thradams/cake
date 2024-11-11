@@ -198,6 +198,15 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
     return true;
 }
 
+void object_delete(struct object* _Opt _Owner p)
+{
+    if (p)
+    {     
+        free(p->debug_name);
+        free(p);
+    }
+}
+
 bool object_has_constant_value(const struct object* a)
 {
     a = object_get_referenced(a);
@@ -768,7 +777,9 @@ struct object object_make_reference(struct object* object)
     r.type = TYPE_SIGNED_INT;
     r.signed_int_value = 0;
 
-    //referenced object is storead at members
+    //referenced object is stored at members
+
+    //If state is CONSTANT_VALUE_STATE_REFERENCE then  members is not owner
     r.members = object_get_referenced(object);
 
     return r;
@@ -1311,6 +1322,7 @@ const struct object* object_get_referenced(const struct object* p_object)
 {
     if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
     {
+        assert(p_object->members != NULL);
         p_object = p_object->members;
     }
 
@@ -1332,14 +1344,14 @@ bool object_is_reference(const struct object* p_object)
     return p_object->state == CONSTANT_VALUE_STATE_REFERENCE;
 }
 
-struct object* object_get_member(struct object* p_object, int index)
+struct object* _Opt object_get_member(struct object* p_object, int index)
 {
-    p_object = object_get_referenced(p_object);
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
 
     if (p_object->members == NULL)
         return NULL; //tODO
 
-    struct object* it = p_object->members;
+    struct object* _Opt it = p_object->members;
     int count = 0;
     while (it)
     {
@@ -1358,8 +1370,8 @@ void object_set(struct object* to, const struct object* from, bool is_constant)
 
     if (object_is_derived(to))
     {
-        struct object* it_to = to->members;
-        struct object* it_from = from->members;
+        struct object* _Opt it_to = to->members;
+        struct object* _Opt it_from = from->members;
 
         while (it_from && it_to)
         {
@@ -1379,7 +1391,6 @@ void object_set(struct object* to, const struct object* from, bool is_constant)
     {
         assert(to->members == NULL);
 
-        struct object temp = object_cast(to->type, from);
         to->state = from->state;
         to->unsigned_long_long_value = from->unsigned_long_long_value;
 
@@ -1400,8 +1411,6 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
     try
     {
-
-
         if (p_type->category == TYPE_CATEGORY_FUNCTION)
         {
             p_object = calloc(1, sizeof * p_object);
@@ -1419,6 +1428,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
             *p_object = object_make_nullptr();
 
+            assert(p_object->debug_name == NULL);
             p_object->debug_name = strdup(name);
 
             return p_object;
@@ -1437,21 +1447,26 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
                 struct type t = get_array_item_type(p_type);
 
-                struct object* p_tail_object = NULL;
+                struct object* _Opt p_tail_object = NULL;
                 for (int i = 0; i < p_type->num_of_elements; i++)
                 {
-                    char buffer[200];
+                    char buffer[200] = {0};
                     snprintf(buffer, sizeof buffer, "%s[%d]", name, i);
                     struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer);
                     if (p_member_obj == NULL)
+                    {
+                        type_destroy(&t);
                         throw;
+                    }
 
                     if (p_tail_object == NULL)
                     {
+                        assert(p_object->members == NULL);
                         p_object->members = p_member_obj;
                     }
                     else
                     {
+                        assert(p_object->next == NULL);
                         p_tail_object->next = p_member_obj;
                     }
 
@@ -1485,100 +1500,101 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             return p_object;
         }
 
-        if (p_type->struct_or_union_specifier)
+
+        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier == NULL)
         {
-            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            //incomplete
+            throw;
+        }
 
-            if (p_struct_or_union_specifier == NULL)
+        p_object = calloc(1, sizeof * p_object);
+        if (p_object == NULL)
+            throw;
+
+        p_object->debug_name = strdup(name);
+
+        struct object* _Opt p_last_member_obj = NULL;
+
+        struct member_declaration* _Opt p_member_declaration =
+            p_struct_or_union_specifier->member_declaration_list.head;
+
+        while (p_member_declaration)
+        {
+            if (p_member_declaration->member_declarator_list_opt)
             {
-                //incomplete
-                throw;
-            }
+                struct member_declarator* _Opt p_member_declarator =
+                    p_member_declaration->member_declarator_list_opt->head;
 
-            p_object = calloc(1, sizeof * p_object);
-            if (p_object == NULL)
-                throw;
-
-            p_object->debug_name = strdup(name);
-
-            struct object* p_last_member_obj = NULL;
-
-            struct member_declaration* _Opt p_member_declaration =
-                p_struct_or_union_specifier->member_declaration_list.head;
-
-            while (p_member_declaration)
-            {
-                if (p_member_declaration->member_declarator_list_opt)
+                while (p_member_declarator)
                 {
-                    struct member_declarator* _Opt p_member_declarator =
-                        p_member_declaration->member_declarator_list_opt->head;
-
-                    while (p_member_declarator)
+                    if (p_member_declarator->declarator)
                     {
-                        if (p_member_declarator->declarator)
-                        {
-                            char buffer[200];
-                            snprintf(buffer, sizeof buffer, "%s.%s", name, p_member_declarator->declarator->name_opt->lexeme);
+                        char buffer[200] = {0};
+                        snprintf(buffer, sizeof buffer, "%s.%s", name, p_member_declarator->declarator->name_opt->lexeme);
 
 
-                            struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer);
-                            if (p_member_obj == NULL)
-                                throw;
-
-                            //p_object->debug_name = p_member_declarator->declarator->name_opt->lexeme;
-
-                            if (p_object->members == NULL)
-                            {
-                                p_object->members = p_member_obj;
-                            }
-                            else
-                            {
-                                p_last_member_obj->next = p_member_obj;
-                            }
-                            p_last_member_obj = p_member_obj;
-                        }
-                        p_member_declarator = p_member_declarator->next;
-                    }
-                }
-                else if (p_member_declaration->specifier_qualifier_list != NULL)
-                {
-                    if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
-                    {
-                        struct type t = { 0 };
-                        t.category = TYPE_CATEGORY_ITSELF;
-                        t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
-                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-
-                        char buffer[200];
-                        snprintf(buffer, sizeof buffer, ".%s", name);
-
-
-                        struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer);
+                        struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer);
                         if (p_member_obj == NULL)
                             throw;
 
-                        if (p_last_member_obj == NULL)
+                        //p_object->debug_name = p_member_declarator->declarator->name_opt->lexeme;
+
+                        if (p_object->members == NULL)
                         {
                             p_object->members = p_member_obj;
-                            p_last_member_obj = p_member_obj;
                         }
                         else
                         {
+                            assert(p_last_member_obj->next != NULL);
                             p_last_member_obj->next = p_member_obj;
                         }
-
-                        type_destroy(&t);
+                        p_last_member_obj = p_member_obj;
                     }
+                    p_member_declarator = p_member_declarator->next;
                 }
-                p_member_declaration = p_member_declaration->next;
             }
-            return p_object;
-        }
+            else if (p_member_declaration->specifier_qualifier_list != NULL)
+            {
+                if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                {
+                    struct type t = { 0 };
+                    t.category = TYPE_CATEGORY_ITSELF;
+                    t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                    t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
+                    char buffer[200] = { 0 };
+                    snprintf(buffer, sizeof buffer, ".%s", name);
+
+
+                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer);
+                    if (p_member_obj == NULL)
+                        throw;
+
+                    if (p_last_member_obj == NULL)
+                    {
+                        assert(p_object->members == NULL);
+                        p_object->members = p_member_obj;
+                        p_last_member_obj = p_member_obj;
+                    }
+                    else
+                    {
+                        p_last_member_obj->next = p_member_obj;
+                    }
+
+                    type_destroy(&t);
+                }
+            }
+            p_member_declaration = p_member_declaration->next;
+        }
+        return p_object;
     }
     catch
     {
+        object_delete(p_object);
+        p_object = NULL;
     }
 
     return NULL;
@@ -1724,7 +1740,7 @@ void object_print_to_debug_core(const struct object* object, int n)
 
     if (object->members != NULL)
     {
-        struct object* member = object->members;
+        struct object* _Opt member = object->members;
         while (member)
         {
             object_print_to_debug_core(member, n + 1);
@@ -1746,6 +1762,7 @@ void object_print_to_debug_core(const struct object* object, int n)
         case CONSTANT_VALUE_STATE_UNKNOWN:printf(" unkown "); break;
         case CONSTANT_VALUE_STATE_EXACT:printf(" exact "); break;
         case CONSTANT_VALUE_STATE_CONSTANT_EXACT:printf(" constant_exact "); break;
+        case CONSTANT_VALUE_STATE_REFERENCE: assert(false); break;
         }
 
         printf("\n");
@@ -1765,39 +1782,54 @@ void object_print_to_debug(const struct object* object)
 */
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int max_index, bool is_constant)
 {
-    struct object* it = a->members;
-    while (it)
+    struct object* _Opt it = a->members;
+    try
     {
-        if (max_index == 0)
-            break;
-        max_index--;
+        while (it)
+        {
+            if (max_index == 0)
+                break;
+            max_index--;
 
-        if (it->next == NULL)
-            break;
+            if (it->next == NULL)
+                break;
 
-        it = it->next;
+            it = it->next;
+        }
+
+        while (max_index >= 0)
+        {
+            if (it == NULL)
+            {
+                assert(a->members == NULL);
+                a->members = make_object_ptr(p_type);
+                if (a->members == NULL)
+                    throw;
+
+                object_default_initialization(a->members, is_constant);
+
+                it = a->members;
+
+                max_index--;
+            }
+            else
+            {
+                struct object* _Owner _Opt p = make_object_ptr(p_type);
+                if (p == NULL)
+                    throw;
+
+                object_default_initialization(p, is_constant);
+                
+                assert(it->next == NULL);
+                it->next = p;
+
+                it = p;
+                max_index--;
+            }
+        }
     }
-
-    while (max_index >= 0)
+    catch
     {
-        if (it == NULL)
-        {
-            a->members = make_object_ptr(p_type);
-            object_default_initialization(a->members, is_constant);
-
-            it = a->members;
-
-            max_index--;
-        }
-        else
-        {
-            struct object* _Owner _Opt p = make_object_ptr(p_type);
-            object_default_initialization(p, is_constant);
-
-            it->next = p;
-            it = p;
-            max_index--;
-        }
     }
     return it;
 }

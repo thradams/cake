@@ -2730,13 +2730,20 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
                 else if (sz < 0)
                 {
-                    // clang warning: array 'c' assumed to have one element
-                    // gcc "error: storage size of '%s' isn't known"
-                    compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
-                        ctx,
-                        p_init_declarator->p_declarator->name_opt, NULL,
-                        "storage size of '%s' isn't known",
-                        p_init_declarator->p_declarator->name_opt->lexeme);
+                    if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
+                    {
+                        //this is not a problem for extern variables
+                    }
+                    else
+                    {
+                        // clang warning: array 'c' assumed to have one element
+                        // gcc "error: storage size of '%s' isn't known"
+                        compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
+                            ctx,
+                            p_init_declarator->p_declarator->name_opt, NULL,
+                            "storage size of '%s' isn't known",
+                            p_init_declarator->p_declarator->name_opt->lexeme);
+                    }
                 }
                 else
                 {
@@ -7471,11 +7478,11 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
                 }
             }
         }
     }
+}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -10818,8 +10825,8 @@ static void initializer_init(struct parser_ctx* ctx,
 
                     struct type array_item_type = get_array_item_type(p_type);
                     p_type->num_of_elements = initializer->assignment_expression->type.num_of_elements;
-                    object_extend_array_to_index(&array_item_type, object, p_type->num_of_elements-1, is_constant);
-                    
+                    object_extend_array_to_index(&array_item_type, object, p_type->num_of_elements - 1, is_constant);
+
                     type_destroy(&array_item_type);
                 }
             }

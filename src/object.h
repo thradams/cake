@@ -59,7 +59,7 @@ struct object {
     enum object_value_state state;
     enum object_value_type type;
 
-    const char* debug_name; //TODO we can remove this passing tthe type to print function
+    const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
 
     union {
         _Bool bool_value;
@@ -84,10 +84,11 @@ struct object {
         long double long_double_value;              
     };
 
-    struct object* members;
-    struct object* next;
+    struct object* _Opt _Owner members;
+    struct object* _Opt _Owner next;
 };
 
+void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
 void object_to_string(const struct object* a, char buffer[], int sz);
 
