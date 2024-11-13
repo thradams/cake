@@ -1,3 +1,2 @@
 ﻿
-//This should not give us an error
-extern struct X x;
+int a[2] = {1, 2, 3};

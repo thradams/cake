@@ -6345,7 +6345,7 @@ int test_preprocessor_in_out(const char* input, const char* output)
         res = 1;
     }
 
-
+    free(result);
 
     return res;
 }

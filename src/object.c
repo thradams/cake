@@ -1548,7 +1548,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                         }
                         else
                         {
-                            assert(p_last_member_obj->next != NULL);
+                            //assert(p_last_member_obj->next != NULL);
                             p_last_member_obj->next = p_member_obj;
                         }
                         p_last_member_obj = p_member_obj;

@@ -96,16 +96,11 @@ enum diagnostic_id {
     W_LOCATION, /*prints code location*/
     W_NOTE,
 
-    /*
-       Warnings have names and errors have numbers. The number of the error is its name.
-       The error number cannot change because this breaks unit tests.
-
-       Warnings numbers can change but must respect the size of bit set because
-       each warning number is a bit index.
-       
-       We can have 1..638 warning bits, because the first error starts at 640.
-    */
+    //----------------------------------------------------------------
     
+    W_TO_MANY_INITIALIZERS = 100,
+
+    //---------------------------------------------------------------
 
     C_ERROR_INVALID_QUALIFIER_FOR_POINTER = 640,
     C_ERROR_UNEXPECTED = 650,
@@ -186,7 +181,10 @@ enum diagnostic_id {
     C_INVALID_ARGUMENT_NELEMENTSOF = 1390,
 };
 
-_Static_assert(W_NOTE == 63, "must be 63, marks the last index for warning");
+
+bool is_diagnostic_configurable(enum diagnostic_id id);
+bool is_diagnostic_warning(enum diagnostic_id id);
+bool is_diagnostic_error(enum diagnostic_id id);
 
 /*
 * These warnings are removed when "nullable=disable"

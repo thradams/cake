@@ -13,6 +13,24 @@
 #include <stdlib.h>
 
 
+bool is_diagnostic_warning(enum diagnostic_id id)
+{
+    return id <= C_ERROR_INVALID_QUALIFIER_FOR_POINTER;
+}
+
+bool is_diagnostic_error(enum diagnostic_id id)
+{
+    return id >= C_ERROR_INVALID_QUALIFIER_FOR_POINTER;
+}
+
+bool is_diagnostic_configurable(enum diagnostic_id id)
+{
+    //We have 0-63 configurable (bit set)
+    //configurable diagnostic also have names. Other have numbers only
+    static_assert(W_NOTE == 63, "");
+    return id >= 0 && id <= W_NOTE;
+}
+
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 {
     int index = diagnostic_stack->top_index;
@@ -26,7 +44,9 @@ int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
 {
     if (diagnostic_stack->top_index > 0)
+    {
       diagnostic_stack->top_index--;
+    }
     else
     {
         assert(false);
@@ -112,10 +132,11 @@ s_warnings[] = {
     {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"}
 };
 
-_Static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64, "");
-
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 {
+    if (!is_diagnostic_configurable(w))
+        return; //ops
+
     if ((d->errors & (1ULL << w)) != 0)
         d->errors &= ~(1ULL << w);
 
@@ -128,7 +149,7 @@ void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
-    if (w >= 0 && w <= W_NOTE)
+    if (is_diagnostic_configurable(w))
     {
         if ((d->errors & (1ULL << w)) != 0)
             return 3;
@@ -140,8 +161,14 @@ int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
             return 1;
     }
 
-    return 3; //errors
 
+    if (is_diagnostic_warning(w))
+        return 2;
+
+    if (is_diagnostic_error(w))
+        return 3;
+
+    return 3; //errors
 }
 
 int get_diagnostic_phase(enum diagnostic_id w)
@@ -210,7 +237,7 @@ unsigned long long  get_warning_bit_mask(const char* wname)
 
 int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
 {
-    if (w >= 0 && w <= W_NOTE)
+    if (is_diagnostic_configurable(w))
     {
         //TODO because s_warnings is _Out of order ....
         //this is a linear seatch instead of just index! TODOD

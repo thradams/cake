@@ -366,15 +366,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     bool is_warning = false;
     bool is_note = false;
 
-    if (w > W_NOTE)
-    {
-        is_error = true;
-    }
-    else if (w == W_LOCATION)
-    {
-        is_note = true;
-    }
-    else
+    if (is_diagnostic_configurable(w))
     {
         is_error =
             (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & (1ULL << w)) != 0;
@@ -384,6 +376,14 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
 
         is_note =
             ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
+    }
+    else
+    {
+        if (w == W_LOCATION)
+            is_note = true;
+
+        is_error = is_diagnostic_error(w);
+        is_warning = is_diagnostic_warning(w);
     }
 
     if (is_error)
@@ -7478,11 +7478,11 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
+                    }
                 }
             }
         }
     }
-}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -10663,7 +10663,7 @@ static void initializer_init_deep(struct parser_ctx* ctx,
             long long index = -1;
             int max_index = -1;
             struct type array_item_type = get_array_item_type(p_type);
-            struct initializer_list_item* p_initializer = *pp_initializer;
+            
             struct object* member_obj = object->members;
 
             if (p_designator_opt)
@@ -10758,7 +10758,23 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                 else
                 {
                     if (member_obj == NULL)
+                    {
+                        if ((*pp_initializer)->initializer)
+                        {
+                            struct token* tk = NULL;
+                            if ((*pp_initializer)->initializer)
+                                tk = (*pp_initializer)->initializer->assignment_expression->first_token;
+
+
+                            compiler_diagnostic_message(
+                                W_TO_MANY_INITIALIZERS,
+                                ctx,
+                                tk,
+                                NULL,
+                                "warning: excess elements in array initializer");
+                        }
                         break;
+                    }
                 }
             }
 
