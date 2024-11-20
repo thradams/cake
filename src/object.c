@@ -1759,7 +1759,7 @@ void object_print_to_debug_core(const struct object* object, int n)
         switch (object->state)
         {
         case CONSTANT_VALUE_STATE_UNINITIALIZED: printf(" uninitialized "); break;
-        case CONSTANT_VALUE_STATE_UNKNOWN:printf(" unkown "); break;
+        case CONSTANT_VALUE_STATE_UNKNOWN:printf(" unknown "); break;
         case CONSTANT_VALUE_STATE_EXACT:printf(" exact "); break;
         case CONSTANT_VALUE_STATE_CONSTANT_EXACT:printf(" constant_exact "); break;
         case CONSTANT_VALUE_STATE_REFERENCE: assert(false); break;

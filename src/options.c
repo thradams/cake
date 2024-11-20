@@ -12,10 +12,20 @@
 #include <assert.h>
 #include <stdlib.h>
 
+bool is_diagnostic_note(enum diagnostic_id id)
+{
+    if (id == W_NOTE ||
+        id == W_LOCATION)
+    {
+        return true;
+    }
+
+    return false;
+}
 
 bool is_diagnostic_warning(enum diagnostic_id id)
 {
-    return id <= C_ERROR_INVALID_QUALIFIER_FOR_POINTER;
+    return id > W_NOTE && id <= C_ERROR_INVALID_QUALIFIER_FOR_POINTER;
 }
 
 bool is_diagnostic_error(enum diagnostic_id id)
@@ -26,9 +36,8 @@ bool is_diagnostic_error(enum diagnostic_id id)
 bool is_diagnostic_configurable(enum diagnostic_id id)
 {
     //We have 0-63 configurable (bit set)
-    //configurable diagnostic also have names. Other have numbers only
-    static_assert(W_NOTE == 63, "");
-    return id >= 0 && id <= W_NOTE;
+    //configurable diagnostic also have names. Other have numbers only    
+    return id >= 0 && id < W_LOCATION;
 }
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
@@ -161,6 +170,9 @@ int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
             return 1;
     }
 
+    
+    if (is_diagnostic_note(w))
+        return 1;
 
     if (is_diagnostic_warning(w))
         return 2;

@@ -185,6 +185,8 @@ enum diagnostic_id {
 bool is_diagnostic_configurable(enum diagnostic_id id);
 bool is_diagnostic_warning(enum diagnostic_id id);
 bool is_diagnostic_error(enum diagnostic_id id);
+bool is_diagnostic_note(enum diagnostic_id id);
+
 
 /*
 * These warnings are removed when "nullable=disable"

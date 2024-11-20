@@ -446,7 +446,6 @@ static void flow_end_of_storage_visit(struct flow_visit_ctx* ctx,
     struct flow_defer_scope* deferblock,
     struct token* position_token)
 {
-
     struct flow_defer_scope* _Opt deferchild = deferblock->last_child;
     while (deferchild != NULL)
     {
@@ -3191,8 +3190,30 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                         NULL
                     );
 
-                    //WTF??
-                    //p_dest_object->current.state = FLOW_OBJECT_STATE_LIFE_TIME_ENDED;
+                    const int state_before_return = arena_add_copy_of_current_state(ctx, "before-return");
+
+                    // Simulate the function's state as if it had already returned. 
+                    // This allows us to verify whether the returned object points to any 
+                    // local variables.
+
+                    struct flow_defer_scope* _Opt p_defer = ctx->tail_block;
+                    while (p_defer != NULL)
+                    {
+                        //TODO name like SET?
+                        flow_end_of_storage_visit(ctx, p_defer, p_jump_statement->first_token);
+                        p_defer = p_defer->previous;
+                    }
+
+                    checked_read_object(ctx,
+                                        ctx->p_return_type,
+                                        type_is_nullable(ctx->p_return_type, ctx->ctx->options.null_checks_enabled),
+                                        p_dest_object,
+                                        NULL,
+                                        &a_marker,
+                                        true);
+
+                    //then we restore the state
+                    arena_restore_current_state_from(ctx, state_before_return);                    
                 }
 
                 if (p_object && p_object->is_temporary)

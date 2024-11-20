@@ -1112,7 +1112,7 @@ struct token* _Owner _Opt new_token(const char* lexeme_head, const char* lexeme_
     {
         token_delete(p_new_token);
         p_new_token = NULL;
-    }
+    }    
     return p_new_token;
 }
 

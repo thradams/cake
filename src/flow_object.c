@@ -629,7 +629,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                                     }
                                     p_member_obj->parent = p_object;
                                     objects_view_push_back(&p_object->members, p_member_obj);
-                                }                                
+                                }
                             }
                             p_member_declarator = p_member_declarator->next;
                         }
@@ -1912,7 +1912,7 @@ void object_get_name_core(
             }
             else if (p_member_declaration->specifier_qualifier_list != NULL)
             {
-               // assert(false); //TODO
+                // assert(false); //TODO
             }
             p_member_declaration = p_member_declaration->next;
         }
@@ -2258,7 +2258,8 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
             {
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
-                    position_token_opt, NULL,
+                    position_token_opt,
+                    p_marker_opt,
                     "uninitialized object '%s'",
                     previous_names);
             }
@@ -2269,11 +2270,12 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
         //state somewhere!
         if (p_visitor->p_object->current.state & FLOW_OBJECT_STATE_LIFE_TIME_ENDED)
         {
-            //compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-            //    ctx->ctx,
-            //    position_token,
-            //    "lifetime ended '%s'",
-            //    previous_names);
+            compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
+                ctx->ctx,
+                position_token_opt,
+                p_marker_opt,
+                "lifetime ended '%s'",
+                previous_names);
         }
 
 
@@ -2518,25 +2520,33 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
         {
             if (p_visitor->p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
             {
-                //Visiting a pointer parameter. We check if we didn't mess a external object
-                //TODO static flow_objects
-                struct type t2 = type_remove_pointer(p_visitor->p_type);
-
-                if (p_visitor->p_object->current.pointed)
+                if (type_is_any_owner(p_visitor->p_type))
                 {
-                    struct token* _Opt name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
-                        p_visitor->p_object->p_declarator_origin->name_opt :
-                        p_visitor->p_object->p_declarator_origin->first_token_opt;
-
-                    checked_read_object(ctx,
-                     &t2,
-                     false,
-                     p_visitor->p_object->current.pointed,
-                     name_token,
-                     NULL,
-                     true);
+                    //owner pointer parameters can point to deleted objects, so 
+                    //we cannot check this state inside checked_read_object
                 }
-                type_destroy(&t2);
+                else
+                {
+                    //Visiting a pointer parameter. We check if we didn't mess a external object
+                //TODO static flow_objects
+                    struct type t2 = type_remove_pointer(p_visitor->p_type);
+
+                    if (p_visitor->p_object->current.pointed)
+                    {
+                        struct token* _Opt name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
+                            p_visitor->p_object->p_declarator_origin->name_opt :
+                            p_visitor->p_object->p_declarator_origin->first_token_opt;
+
+                        checked_read_object(ctx,
+                         &t2,
+                         false,
+                         p_visitor->p_object->current.pointed,
+                         name_token,
+                         NULL,
+                         true);
+                    }
+                    type_destroy(&t2);
+                }
             }
         }
         else
@@ -2586,7 +2596,7 @@ static void flow_assignment_core(
     struct object_visitor* p_visitor_a,
     struct object_visitor* p_visitor_b,
     bool* _Opt  set_argument_to_unkown)
-{    
+{
     //const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
 #ifdef _DEBUG

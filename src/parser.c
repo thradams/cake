@@ -346,7 +346,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     }
     else
     {
-        assert(p_token_opt == NULL);
+        //assert(p_token_opt == NULL);
         marker = *p_marker_temp;
         if (marker.p_token_caret)
             p_token_opt = marker.p_token_caret;
@@ -379,9 +379,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     }
     else
     {
-        if (w == W_LOCATION)
-            is_note = true;
-
+        is_note = is_diagnostic_note(w);
         is_error = is_diagnostic_error(w);
         is_warning = is_diagnostic_warning(w);
     }
@@ -2387,7 +2385,7 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
     }
 }
 
-static void initializer_init(struct parser_ctx* ctx,
+static int initializer_init(struct parser_ctx* ctx,
                                     struct type* p_current_object_type,
                                     struct object* p_current_object,
                                     struct initializer* braced_initializer,
@@ -2551,6 +2549,11 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
 
+                object_default_initialization(&p_init_declarator->p_declarator->object, is_constant);
+
+                //printf("\n");
+                //object_print_to_debug(&p_init_declarator->p_declarator->object);
+
                 initializer_init(ctx,
                              &p_init_declarator->p_declarator->type,
                              &p_init_declarator->p_declarator->object,
@@ -2642,11 +2645,18 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
 
+                object_default_initialization(&p_init_declarator->p_declarator->object, is_constant);
+
+                //intf("\n");
+                //ject_print_to_debug(&p_init_declarator->p_declarator->object);
+
                 initializer_init(ctx,
                                  &p_init_declarator->p_declarator->type,
                                  &p_init_declarator->p_declarator->object,
                                  p_init_declarator->initializer,
                                  is_constant);
+                //printf("\n");
+                //object_print_to_debug(&p_init_declarator->p_declarator->object);
             }
         }
         else
@@ -10462,56 +10472,67 @@ static void designation_to_string(struct parser_ctx* ctx, struct designation* de
 }
 
 
+static int braced_initializer_loop(struct parser_ctx* ctx,
+                             struct type* p_type,   /*in (in/out for arrays [])*/
+                             struct object* object, /*in (in/out for arrays [])*/
+                             struct braced_initializer* braced_initializer, /*rtocar para initializer item??*/
+                             bool is_constant);
 
-static void initializer_init(struct parser_ctx* ctx,
-                                    struct type* p_type,   /*in (in/out for arrays [])*/
-                                    struct object* object, /*in (in/out for arrays [])*/
-                                    struct initializer* initializer, /*rtocar para initializer item??*/
-                                    bool is_constant);
+static int initializer_init(struct parser_ctx* ctx,
+                            struct type* p_type,   /*in (in/out for arrays [])*/
+                            struct object* object, /*in (in/out for arrays [])*/
+                            struct initializer* initializer, /*rtocar para initializer item??*/
+                            bool is_constant);
 
-/*
-                       ---- p_designator_opt
-                       |
-                       v
-         { 1   ,    .x.y = 2           , 3 ,  .z = 4  }
-               |                      |
-               |-----*pp_initializer--|
 
-         |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|
-               object/type
-    */
-static void initializer_init_deep(struct parser_ctx* ctx,
-                              struct type* p_type,   /*in (in/out for arrays [])*/
-                              struct object* object, /*in (in/out for arrays [])*/
-                              struct designator* _Opt p_designator_opt,
-                              struct initializer_list_item** pp_initializer, /*item to be consumed*/
-                              bool is_constant)
+
+NODISCARD
+static int initializer_init_deep(struct parser_ctx* ctx,
+                                 struct type* p_type,   /*in (in/out for arrays [])*/
+                                 struct object* object, /*in (in/out for arrays [])*/
+                                 struct designator* _Opt p_designator_opt,
+                                 struct initializer_list_item** pp_initializer, /*item to be consumed*/
+                                 bool is_constant)
 {
+
+    //This function works in two phases.
+    //The first phase is to traverse the tree finding each designator in sequence e.g a.b.c
+    //Once the object is found it is initialized 
+
+    
+    //If a designator is found the tree traversal is canceled to start again from the begining.
+    //Seconde phase
+    //Otherwise, if dont have designator, we continue from the next object after the previous designator.
+
     assert(object != NULL);
     try
     {
         if (type_is_scalar(p_type))
         {
             struct initializer_list_item* p_initializer = *pp_initializer;
+
+            //scalar cannot have designators
             assert(p_designator_opt == NULL);
+
+           
+            while (p_initializer->initializer->braced_initializer)
+            {
+                //int i = {{1}};
+                p_initializer = p_initializer->initializer->braced_initializer->initializer_list->head;
+                if (p_initializer->next != NULL)
+                {
+                    //error we must have just 1
+                    return 1;
+                }
+            }
 
             if (p_initializer->initializer->assignment_expression != NULL)
             {
                 object_set(object, &p_initializer->initializer->assignment_expression->object, is_constant);
                 *pp_initializer = p_initializer->next; //consumed
             }
-            return;
-        }
 
-        if ((*pp_initializer)->designation &&
-            p_designator_opt == NULL)
-        {
-            //end of line for designator
-            //
-            struct initializer_list_item* p_initializer = *pp_initializer;
-            initializer_init(ctx, p_type, object, p_initializer->initializer, is_constant);
-            *pp_initializer = p_initializer->next;
-            return;
+            return 0;
         }
 
         if (type_is_struct_or_union(p_type))
@@ -10520,7 +10541,10 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                 get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
             if (p_struct_or_union_specifier == NULL)
+            {
+                //
                 throw;
+            }
 
             struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
@@ -10528,6 +10552,31 @@ static void initializer_init_deep(struct parser_ctx* ctx,
             struct member_declarator* _Opt p_member_declarator = NULL;
             if (p_member_declaration)
                 p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+
+            struct initializer_list_item* p_initializer = *pp_initializer;
+
+            if (p_initializer->initializer->assignment_expression != NULL)
+            {
+                if (type_is_struct_or_union(&p_initializer->initializer->assignment_expression->type))
+                {
+                    /*
+                      struct X
+                      {
+                            int i;
+                      };
+                      struct Y
+                      {
+                            int i;
+                            struct X x;
+                      };
+                      struct X x = {0};
+                      struct Y y = { .x = x, .i = 4 };
+                    */
+                    object_set(object, &p_initializer->initializer->assignment_expression->object, is_constant);
+                    *pp_initializer = p_initializer->next; //consumed
+                    return 0;
+                }
+            }
 
             struct object* member_obj = object->members;
 
@@ -10547,20 +10596,23 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                             {
                                 if (p_member_declarator->declarator->name_opt && strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
                                 {
-                                    initializer_init_deep(ctx,
-                                                      &p_member_declarator->declarator->type,
-                                                      member_obj,
-                                                      p_designator_opt->next,
-                                                      pp_initializer,
-                                                      is_constant);
+                                    if (initializer_init_deep(ctx,
+                                        &p_member_declarator->declarator->type,
+                                        member_obj,
+                                        p_designator_opt->next,
+                                        pp_initializer,
+                                        is_constant) != 0)
+                                    {
+                                        return 1;
+                                    }
 
                                     if (pp_initializer == NULL || *pp_initializer == NULL)
-                                        return;
+                                        return 0;
 
                                     if ((*pp_initializer)->designation != NULL)
                                     {
                                         //temos que voltar para onde comecou {}
-                                        return;
+                                        return 0;
                                     }
 
                                     member_obj = member_obj->next;
@@ -10595,13 +10647,31 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                     }
                     p_member_declaration = p_member_declaration->next;
                 }
+
+                //'const struct X' has no member named 'd'
+                //struct token* tk = NULL;
+                //if/ (p_initializer_list_item->initializer)
+                  //  tk = p_initializer_list_item->initializer->assignment_expression->first_token;
+
+                compiler_diagnostic_message(
+                                           C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                           ctx,
+                                           p_designator_opt->token,
+                                           NULL,
+                                           "member '%s' not found", name);
+
+
+                return 1;
+                //not found
+                //assert(false);
             }
 
             if (pp_initializer == NULL)
-                return;
+                return 0;
 
             if ((*pp_initializer)->designation != NULL)
-                return;
+                return 0;
+
         exit_loop:
 
             // Se esta vindo do designation continua do proximo.
@@ -10614,18 +10684,35 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                     {
                         if (p_member_declarator->declarator)
                         {
-                            initializer_init_deep(ctx,
-                                              &p_member_declarator->declarator->type,
-                                              member_obj,
-                                              NULL,
-                                              pp_initializer,
-                                              is_constant);
+                            if ((*pp_initializer)->initializer->braced_initializer)
+                            {
+                                braced_initializer_loop(ctx,
+                                           &p_member_declarator->declarator->type,
+                                           member_obj,
+                                           (*pp_initializer)->initializer->braced_initializer,
+                                           is_constant);
+
+                                *pp_initializer = (*pp_initializer)->next;
+                            }
+                            else
+                            {
+                                if (initializer_init_deep(ctx,
+                                    &p_member_declarator->declarator->type,
+                                    member_obj,
+                                    NULL,
+                                    pp_initializer,
+                                    is_constant) != 0)
+                                {
+                                    return 1;
+                                }
+                            }
+
 
                             if (pp_initializer == NULL || *pp_initializer == NULL)
-                                return; //acabaram os initializers
+                                return 0; //acabaram os initializers
 
                             if ((*pp_initializer)->designation != NULL)
-                                return;
+                                return 0;
                         }
                         member_obj = member_obj->next;
                         p_member_declarator = p_member_declarator->next;
@@ -10636,25 +10723,16 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                     if (p_member_declaration->specifier_qualifier_list &&
                         p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                     {
-                        //struct member_declaration_list* p_member_declaration_list =
-                          //  &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
-
-                        //p_member_declarator = find_member_declarator(p_member_declaration_list, name, p_member_index);
-                        //if (p_member_declarator)
-                          //  return p_member_declarator;
+                        //TODO
                     }
                 }
 
                 p_member_declaration = p_member_declaration->next;
+                if (p_member_declaration)
+                    p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
             }
 
-            if (pp_initializer && *pp_initializer)
-            {
-                //sobrou initializers
-                //printf("a");
-                //break;
-            }
-            return;
+            return 0;
         }
 
         if (type_is_array(p_type))
@@ -10663,17 +10741,14 @@ static void initializer_init_deep(struct parser_ctx* ctx,
             long long index = -1;
             int max_index = -1;
             struct type array_item_type = get_array_item_type(p_type);
-            
+
             struct object* member_obj = object->members;
 
             if (p_designator_opt)
             {
-
                 if (p_designator_opt->constant_expression_opt)
                 {
                     index = object_to_signed_long_long(&p_designator_opt->constant_expression_opt->object);
-
-
 
                     if (index > max_index)
                     {
@@ -10687,14 +10762,56 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                     member_obj = object_get_member(object, index);
                     if (member_obj == NULL)
                     {
-                        throw;
+
+                        //
+                        if (index < 0)
+                        {
+                            compiler_diagnostic_message(
+                                                      C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                                      ctx,
+                                                      p_designator_opt->constant_expression_opt->first_token,
+                                                      NULL,
+                                                      "array designator value '%d' is negative", index);
+                        }
+                        else if (index > p_type->num_of_elements)
+                        {
+                            compiler_diagnostic_message(
+                                                      C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                                      ctx,
+                                                      p_designator_opt->constant_expression_opt->first_token,
+                                                      NULL,
+                                                      "array index '%d' in initializer exceeds array bounds", index);
+                        }
+
+
+
+                        type_destroy(&array_item_type);
+                        return 1;
                     }
-                    initializer_init_deep(ctx,
-                                      &array_item_type,
-                                      member_obj,
-                                      p_designator_opt->next,
-                                      pp_initializer,
-                                      is_constant);
+
+                    if ((*pp_initializer)->initializer->braced_initializer)
+                    {
+                        braced_initializer_loop(ctx,
+                             &array_item_type,
+                             member_obj,
+                             (*pp_initializer)->initializer->braced_initializer,
+                             is_constant);
+
+                        *pp_initializer = (*pp_initializer)->next;
+
+                    }
+                    else
+                    {
+                        if (initializer_init_deep(ctx,
+                            &array_item_type,
+                            member_obj,
+                            p_designator_opt->next,
+                            pp_initializer,
+                            is_constant) != 0)
+                        {
+                            return 1;
+                        }
+                    }
 
                     if (pp_initializer == NULL || *pp_initializer == NULL)
                     {
@@ -10719,20 +10836,40 @@ static void initializer_init_deep(struct parser_ctx* ctx,
 
             }
 
-            for (;;)//while (member_obj)
+            for (;;)
             {
                 if (pp_initializer == NULL || *pp_initializer == NULL)
                 {
                     goto exit_array_label;
                 }
 
-                initializer_init(ctx,
-                              &array_item_type,
-                              member_obj,
-                              (*pp_initializer)->initializer,
-                              is_constant);
+                if (member_obj == NULL)
+                    goto exit_array_label;
 
-                *pp_initializer = (*pp_initializer)->next;
+                if ((*pp_initializer)->initializer->braced_initializer)
+                {
+                    braced_initializer_loop(ctx,
+                             &array_item_type,
+                             member_obj,
+                             (*pp_initializer)->initializer->braced_initializer,
+                             is_constant);
+
+                    *pp_initializer = (*pp_initializer)->next;
+                }
+                else
+                {
+                    if (initializer_init_deep(ctx,
+                        &array_item_type,
+                        member_obj,
+                        NULL,
+                        pp_initializer,
+                        is_constant) != 0)
+                    {
+                        return 1;
+                    }
+                }
+
+
                 if (pp_initializer == NULL || *pp_initializer == NULL)
                 {
                     goto exit_array_label;
@@ -10759,7 +10896,7 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                 {
                     if (member_obj == NULL)
                     {
-                        if ((*pp_initializer)->initializer)
+                        /*if ((*pp_initializer)->initializer)
                         {
                             struct token* tk = NULL;
                             if ((*pp_initializer)->initializer)
@@ -10772,7 +10909,7 @@ static void initializer_init_deep(struct parser_ctx* ctx,
                                 tk,
                                 NULL,
                                 "warning: excess elements in array initializer");
-                        }
+                        }*/
                         break;
                     }
                 }
@@ -10788,107 +10925,102 @@ static void initializer_init_deep(struct parser_ctx* ctx,
     catch
     {
     }
+    return 0;
 }
 
-static void initializer_init(struct parser_ctx* ctx,
+
+static int braced_initializer_loop(struct parser_ctx* ctx,
+                             struct type* p_type,   /*in (in/out for arrays [])*/
+                             struct object* object, /*in (in/out for arrays [])*/
+                             struct braced_initializer* braced_initializer, /*rtocar para initializer item??*/
+                             bool is_constant)
+{
+    if (braced_initializer->initializer_list == NULL)
+    {
+        return 0; //default initialization
+    }
+
+    struct initializer_list_item* p_initializer_list_item = braced_initializer->initializer_list->head;
+    while (p_initializer_list_item)
+    {
+        struct designator* _Opt designator = NULL;
+        if (p_initializer_list_item->designation &&
+            p_initializer_list_item->designation->designator_list)
+        {
+            designator =
+                p_initializer_list_item->designation->designator_list->head;
+        }
+
+        // We perform a tree traversal to consume the initializers from this
+        // braced initializer.
+
+        // Each time a designator is found, we exit the tree traversal and return 
+        // to this point to start again with the new designator.
+        // As long as no new designators are found, the initializers are consumed 
+        // by the tree traversal.
+
+        if (initializer_init_deep(ctx,
+            p_type,   /*in (in/out for arrays [])*/
+            object, /*in (in/out for arrays [])*/
+            designator,
+            &p_initializer_list_item,
+            is_constant) != 0)
+        {
+            return 1; //some error, e.g designator not found
+        }
+
+        if (p_initializer_list_item &&
+            p_initializer_list_item->designation == NULL)
+        {
+            // We expect only designators here, because the initializers are consumed 
+            // inside the tree traversal.
+            // Unconsumed initializers will be checked next
+            break;
+        }
+    }
+
+    // Unconsumed initializers inside this braced initializer?
+    while (p_initializer_list_item != NULL)
+    {
+        struct token* tk = NULL;
+        if (p_initializer_list_item->initializer)
+            tk = p_initializer_list_item->initializer->assignment_expression->first_token;
+
+        compiler_diagnostic_message(
+                                   W_TO_MANY_INITIALIZERS,
+                                   ctx,
+                                   tk,
+                                   NULL,
+                                   "warning: excess elements in initializer");
+
+        p_initializer_list_item = p_initializer_list_item->next;
+    }
+    return 0;
+}
+
+
+static int initializer_init(struct parser_ctx* ctx,
                              struct type* p_type,   /*in (in/out for arrays [])*/
                              struct object* object, /*in (in/out for arrays [])*/
                              struct initializer* initializer, /*rtocar para initializer item??*/
                              bool is_constant)
 {
-    try
+    if (initializer->assignment_expression != NULL)
     {
-        //TODO verificar repedicao desncessaria?
-        object_default_initialization(object, is_constant);
-
-
-        if (type_is_scalar(p_type))
+        //types must be compatible
+        object_set(object, &initializer->assignment_expression->object, is_constant);
+    }
+    else if (initializer->braced_initializer)
+    {
+        if (braced_initializer_loop(ctx,
+            p_type,   /*in (in/out for arrays [])*/
+            object, /*in (in/out for arrays [])*/
+            initializer->braced_initializer,
+            is_constant) != 0)
         {
-            /*
-              The initializer for a scalar shall be a single expression, optionally enclosed in braces, or it shall be
-              an empty initializer. If the initializer is not the empty initializer, the initial value of the object is
-              that of the expression (after conversion); the same type constraints and conversions as for simple
-              assignment apply, taking the type of the scalar to be the unqualified version of its declared type.
-            */
-            if (initializer->assignment_expression != NULL)
-            {
-                object_set(object, &initializer->assignment_expression->object, is_constant);
-            }
-            else if (initializer->braced_initializer)
-            {
-                //{{{}}}
-                initializer_init(ctx,
-                                 p_type,   /*in (in/out for arrays [])*/
-                                 object, /*in (in/out for arrays [])*/
-                                 initializer->braced_initializer->initializer_list->head->initializer,
-                                 is_constant);
-            }
-
-            return;
-        }
-
-        /*
-        The rest of this subclause deals with initializers for objects that have aggregate or union type.
-        */
-
-        if (initializer->assignment_expression != NULL)
-        {
-            if (type_is_array(p_type))
-            {
-                if (p_type->array_num_elements_expression == NULL)
-                {
-                    //char s[] = "123";
-
-                    struct type array_item_type = get_array_item_type(p_type);
-                    p_type->num_of_elements = initializer->assignment_expression->type.num_of_elements;
-                    object_extend_array_to_index(&array_item_type, object, p_type->num_of_elements - 1, is_constant);
-
-                    type_destroy(&array_item_type);
-                }
-            }
-            //must have the same type
-            object_set(object, &initializer->assignment_expression->object, is_constant);
-        }
-        else
-        {
-            if (initializer->braced_initializer->initializer_list == NULL)
-            {
-                //default initialization.. ja foi feito
-                return; //
-            }
-            struct initializer_list_item* p_initializer_list_item = initializer->braced_initializer->initializer_list->head;
-            while (p_initializer_list_item)
-            {
-                struct designator* designator = NULL;
-                if (p_initializer_list_item->designation &&
-                    p_initializer_list_item->designation->designator_list)
-                {
-                    designator =
-                        p_initializer_list_item->designation->designator_list->head;
-                }
-
-                initializer_init_deep(ctx,
-                                  p_type,   /*in (in/out for arrays [])*/
-                                  object, /*in (in/out for arrays [])*/
-                                  designator,
-                                  &p_initializer_list_item,
-                                  is_constant);
-
-
-                if (p_initializer_list_item &&
-                    p_initializer_list_item->designation == NULL)
-                {
-                    //sobrou, mais initializer do que partes
-                    break;
-                }
-                //quando sai aqui é pq tem um designation
-                //caso controle ele fica lah consumindo tudo
-            }
+            return 1;
         }
     }
-    catch
-    {
-    }
+    return 0;
 }
-
 
