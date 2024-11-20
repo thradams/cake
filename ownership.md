@@ -96,13 +96,40 @@ This warning relies on flow analysis, which ensures that the potential nullabili
 #### Non nullable members
 
 The concept of nullable types is present in some language like C# and Typescript.
-Both languages have the concept of `constructor` for objects. So, for objects members, the compiler checks if after the constructor the non-nullable members have being assigned to a non null value.
+Both languages have the concept of object constructor. For object members, the compiler checks if 
+after the constructor the non-nullable members have being assigned to a non null value.
 
-The other way to see this, is that during construction the non nullable pointer member can be null, before they receive a value.
+For instance, in Typescript
 
-In C, we don t have the concept of constructor, so the same approach cannot be  applied directly.
+```ts
+class Y { 
+  public i = 0; 
+}
+
+class X 
+{ 
+  public readonly i : number; 
+  public pY : Y;  
+  constructor(){
+    //Property 'pY' has no initializer and is not definitely assigned 
+    //in the constructor.(2564)    
+    //this.pY = new Y;
+    //this.i = 1;
+  }
+}
+
+```
+
+https://www.typescriptlang.org/play/?#code/MYGwhgzhAECa0G9oChrQA4FcBGICWw0e0AvNAAwDcKAvssqJDABopKoY76EBOApmAAmAewB2IAJ5FoALmijMAW2x8e1DllwEM8ObGoo0wMRAAuPTMFPCeACgCUCDmgD0LgAo9h6VaakBydFh-aAALSHlhIlE8UzwwfAAvVWgwUUEiGFFhU2hBPgAzPBjTPklUqDwAc1E+DOdoN2LoU1C+aGNRMwsrGwA6WwAmAFYANgAWezQ0BrdWvAg+oNJ5PgB3OEpZl3nF4jIARi20OjogA
+
+
+The other way to see this, is that during construction the invariant of the object is not complete yet.
+
+In C, we don t have the concept of constructor, so the same approach cannot be applied directly.
 
 Cake, have a mechanism using the qualifier `_Opt` before struct types to make all non-nullable members as nullable for a particular instance.
+This allow us the have a object where the invariant is not completed.
+
 
 ```c  
 struct X {
@@ -124,11 +151,16 @@ struct X * _Opt makeX(const char* name)
 }
 ```    
   
- <button onclick="Try(this)">try</button>
+<button onclick="Try(this)">try</button>
 
-Just like in C# or Typescript, we cannot leave this function with a nullable member being null. But the particular instance of p is allowed to have nullable members.
+The particular instance of p, that has being qualified with \_Opt, is allowed to have no-nullable members with a null values.
 
-This is also useful to accept for some functions like destructor, partially constructed object.
+However, we cannot leave this function with a non-nullable member being null because the result of 
+the function is not \_Opt qualified.
+This approach makes it possible to have an alternative design for constructors.
+
+This state is also useful for some functions like destructor, to be able to destroy partially constructed objects.
+For instance:
 
 ```c
 void x_destroy(_Opt struct X * p)
@@ -137,9 +169,16 @@ void x_destroy(_Opt struct X * p)
 }  
 ```
 
+>Note : This design may change and be replaced by mutable.
+
+#### mutable
+
 Note that this concept also could be applied for const members. 
 
-The introduction of a **mutable** qualifier allows certain exceptions to the usual contract of immutability and non-nullability during transitional phases, such as in constructors and destructors. This means that objects marked as **mutable** can temporarily violate their normal constraints, such as modifying `const` members or assigning null to non-nullable pointers during these phases.
+The introduction of a **mutable** qualifier allows certain exceptions to the usual contract 
+of immutability and non-nullability during transitional phases, such as in constructors and destructors. 
+This means that objects marked as **mutable** can temporarily violate their normal constraints, 
+such as modifying `const` members or assigning null to non-nullable pointers during these phases.
 
 Consider the following code example:
 
@@ -163,9 +202,17 @@ struct X * _Opt makeX(const char* name)
 }
 ```
 
-In this example, `struct X` has a `const` member `name`, which is non-nullable. Under normal conditions, modifying a `const` member after initialization would be disallowed. However, the **mutable** qualifier temporarily relaxes this rule during the object’s creation process, allowing modifications even to `const` members, and allowing a non-nullable pointer to be null before the object’s initialization completes.
+In this example, `struct X` has a `const` member `name`, which is non-nullable.
+Under normal conditions, modifying a `const` member after initialization would be disallowed. 
 
-We also have an implicit contract for struct members. Generally, we assume that members are initialized, but we lack a qualifier to explicitly indicate "initialized member." For instance, when using malloc, members are initially uninitialized, but they should receive a value before being used.
+However, the **mutable** qualifier temporarily relaxes this rule during the object’s creation process,
+allowing modifications even to `const` members, and allowing a non-nullable pointer to be null 
+before the object’s initialization completes.
+
+We also have an implicit contract for struct members. 
+Generally, we assume that members are initialized, but we lack a qualifier to explicitly 
+indicate "initialized member." 
+For instance, when using malloc, members are initially uninitialized, but they should receive a value before being used.
 
 ```c
 struct X * _Opt makeX(const char* name)
@@ -184,17 +231,7 @@ struct X * _Opt makeX(const char* name)
 }
 ```
 
-
-##### Transitional State:  
-During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraints—such as non-nullable pointers and immutability—are lifted. For example, in the `makeX` function, `p->name` can be set to `temp`, even though `name` is `const`. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.
-
-##### Effect on the Final Object:
-Once the transitional phase is over and the object is returned, the contract that governs the object (such as immutability of `name` and non-nullability of pointers) is fully reinstated. The **mutable** qualifier only applies within the scope of the constructor or destructor, ensuring that once the object is fully constructed, its state is valid and consistent with the type system’s rules.
-
-This approach allows for more flexibility during object creation while maintaining strong contracts once the object is finalized, enhancing both safety and expressiveness in the code.
-
-
-OBS: mutable qualifier is not yet implemented in Cake. However, _Opt for structs is implemented.
+>OBS: mutable qualifier is not yet implemented in Cake. However, _Opt for structs is implemented and may be replaced in the future
 
 
 ### Object lifetime checks  

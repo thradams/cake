@@ -147,13 +147,37 @@ int main()
 <h4>Non nullable members</h4>
 
 <p>The concept of nullable types is present in some language like C# and Typescript.
-Both languages have the concept of <code>constructor</code> for objects. So, for objects members, the compiler checks if after the constructor the non-nullable members have being assigned to a non null value.</p>
+Both languages have the concept of object constructor. For object members, the compiler checks if 
+after the constructor the non-nullable members have being assigned to a non null value.</p>
 
-<p>The other way to see this, is that during construction the non nullable pointer member can be null, before they receive a value.</p>
+<p>For instance, in Typescript</p>
 
-<p>In C, we don t have the concept of constructor, so the same approach cannot be  applied directly.</p>
+<pre><code class="language-ts">class Y { 
+  public i = 0; 
+}
 
-<p>Cake, have a mechanism using the qualifier <code>_Opt</code> before struct types to make all non-nullable members as nullable for a particular instance.</p>
+class X 
+{ 
+  public readonly i : number; 
+  public pY : Y;  
+  constructor(){
+    //Property &#39;pY&#39; has no initializer and is not definitely assigned 
+    //in the constructor.(2564)    
+    //this.pY = new Y;
+    //this.i = 1;
+  }
+}
+
+</code></pre>
+
+<p><a href="https://www.typescriptlang.org/play/?#code/MYGwhgzhAECa0G9oChrQA4FcBGICWw0e0AvNAAwDcKAvssqJDABopKoY76EBOApmAAmAewB2IAJ5FoALmijMAW2x8e1DllwEM8ObGoo0wMRAAuPTMFPCeACgCUCDmgD0LgAo9h6VaakBydFh-aAALSHlhIlE8UzwwfAAvVWgwUUEiGFFhU2hBPgAzPBjTPklUqDwAc1E+DOdoN2LoU1C+aGNRMwsrGwA6WwAmAFYANgAWezQ0BrdWvAg+oNJ5PgB3OEpZl3nF4jIARi20OjogA">https://www.typescriptlang.org/play/?#code/MYGwhgzhAECa0G9oChrQA4FcBGICWw0e0AvNAAwDcKAvssqJDABopKoY76EBOApmAAmAewB2IAJ5FoALmijMAW2x8e1DllwEM8ObGoo0wMRAAuPTMFPCeACgCUCDmgD0LgAo9h6VaakBydFh-aAALSHlhIlE8UzwwfAAvVWgwUUEiGFFhU2hBPgAzPBjTPklUqDwAc1E+DOdoN2LoU1C+aGNRMwsrGwA6WwAmAFYANgAWezQ0BrdWvAg+oNJ5PgB3OEpZl3nF4jIARi20OjogA</a></p>
+
+<p>The other way to see this, is that during construction the invariant of the object is not complete yet.</p>
+
+<p>In C, we don t have the concept of constructor, so the same approach cannot be applied directly.</p>
+
+<p>Cake, have a mechanism using the qualifier <code>_Opt</code> before struct types to make all non-nullable members as nullable for a particular instance.
+This allow us the have a object where the invariant is not completed.</p>
 
 <pre><code class="language-c">struct X {
   char * name; //non nullable
@@ -176,9 +200,14 @@ struct X * _Opt makeX(const char* name)
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>Just like in C# or Typescript, we cannot leave this function with a nullable member being null. But the particular instance of p is allowed to have nullable members.</p>
+<p>The particular instance of p, that has being qualified with _Opt, is allowed to have no-nullable members with a null values.</p>
 
-<p>This is also useful to accept for some functions like destructor, partially constructed object.</p>
+<p>However, we cannot leave this function with a non-nullable member being null because the result of 
+the function is not _Opt qualified.
+This approach makes it possible to have an alternative design for constructors.</p>
+
+<p>This state is also useful for some functions like destructor, to be able to destroy partially constructed objects.
+For instance:</p>
 
 <pre><code class="language-c">void x_destroy(_Opt struct X * p)
 {
@@ -186,9 +215,18 @@ struct X * _Opt makeX(const char* name)
 }  
 </code></pre>
 
+<blockquote>
+<p>Note : This design may change and be replaced by mutable.</p>
+</blockquote>
+
+<h4>mutable</h4>
+
 <p>Note that this concept also could be applied for const members. </p>
 
-<p>The introduction of a <strong>mutable</strong> qualifier allows certain exceptions to the usual contract of immutability and non-nullability during transitional phases, such as in constructors and destructors. This means that objects marked as <strong>mutable</strong> can temporarily violate their normal constraints, such as modifying <code>const</code> members or assigning null to non-nullable pointers during these phases.</p>
+<p>The introduction of a <strong>mutable</strong> qualifier allows certain exceptions to the usual contract 
+of immutability and non-nullability during transitional phases, such as in constructors and destructors. 
+This means that objects marked as <strong>mutable</strong> can temporarily violate their normal constraints, 
+such as modifying <code>const</code> members or assigning null to non-nullable pointers during these phases.</p>
 
 <p>Consider the following code example:</p>
 
@@ -211,9 +249,17 @@ struct X * _Opt makeX(const char* name)
 }
 </code></pre>
 
-<p>In this example, <code>struct X</code> has a <code>const</code> member <code>name</code>, which is non-nullable. Under normal conditions, modifying a <code>const</code> member after initialization would be disallowed. However, the <strong>mutable</strong> qualifier temporarily relaxes this rule during the object’s creation process, allowing modifications even to <code>const</code> members, and allowing a non-nullable pointer to be null before the object’s initialization completes.</p>
+<p>In this example, <code>struct X</code> has a <code>const</code> member <code>name</code>, which is non-nullable.
+Under normal conditions, modifying a <code>const</code> member after initialization would be disallowed. </p>
 
-<p>We also have an implicit contract for struct members. Generally, we assume that members are initialized, but we lack a qualifier to explicitly indicate &quot;initialized member.&quot; For instance, when using malloc, members are initially uninitialized, but they should receive a value before being used.</p>
+<p>However, the <strong>mutable</strong> qualifier temporarily relaxes this rule during the object’s creation process,
+allowing modifications even to <code>const</code> members, and allowing a non-nullable pointer to be null 
+before the object’s initialization completes.</p>
+
+<p>We also have an implicit contract for struct members. 
+Generally, we assume that members are initialized, but we lack a qualifier to explicitly 
+indicate &quot;initialized member.&quot; 
+For instance, when using malloc, members are initially uninitialized, but they should receive a value before being used.</p>
 
 <pre><code class="language-c">struct X * _Opt makeX(const char* name)
 {
@@ -231,17 +277,9 @@ struct X * _Opt makeX(const char* name)
 }
 </code></pre>
 
-<h5>Transitional State:</h5>
-
-<p>During the object creation (or destruction), the instance is considered to be in a transitional state, where the usual constraints—such as non-nullable pointers and immutability—are lifted. For example, in the <code>makeX</code> function, <code>p-&gt;name</code> can be set to <code>temp</code>, even though <code>name</code> is <code>const</code>. This allows flexibility during initialization, after which the object is returned to its normal state with the contract fully enforced.</p>
-
-<h5>Effect on the Final Object:</h5>
-
-<p>Once the transitional phase is over and the object is returned, the contract that governs the object (such as immutability of <code>name</code> and non-nullability of pointers) is fully reinstated. The <strong>mutable</strong> qualifier only applies within the scope of the constructor or destructor, ensuring that once the object is fully constructed, its state is valid and consistent with the type system’s rules.</p>
-
-<p>This approach allows for more flexibility during object creation while maintaining strong contracts once the object is finalized, enhancing both safety and expressiveness in the code.</p>
-
-<p>OBS: mutable qualifier is not yet implemented in Cake. However, _Opt for structs is implemented.</p>
+<blockquote>
+<p>OBS: mutable qualifier is not yet implemented in Cake. However, _Opt for structs is implemented and may be replaced in the future</p>
+</blockquote>
 
 <h3 id="toc_3">Object lifetime checks</h3>
 
