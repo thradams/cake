@@ -1,24 +1,16 @@
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
+ *
+ *  This visit "edit" the original tokens hidden/editing/adding some new 
+ *  tokens to convert from one C++ version to another.
+ *
 */
 
 #pragma once
 #include "parser.h"
 #include "ownership.h"
 
-struct defer_scope
-{
-    struct defer_statement* _Opt defer_statement; // defer 
-    struct try_statement* _Opt p_try_statement; //try
-    struct selection_statement* _Opt p_selection_statement; //if swith
-    struct iteration_statement* _Opt p_iteration_statement; //for do while
-    struct statement* _Opt p_statement; //
-    struct compound_statement* _Opt p_function_body;
-    
-    struct defer_scope* _Owner _Opt lastchild;
-    struct defer_scope* _Owner _Opt previous;
-};
 
 struct visit_ctx
 {
@@ -27,10 +19,8 @@ struct visit_ctx
     * because some types maybe needs to be "globalized"
     * is_second_pass is true if the compiler is at second pass
     */
-    bool is_second_pass;
-   
+    bool is_second_pass;   
     bool has_lambda;
-
     bool is_inside_lambda;
     bool hide_non_used_declarations;
 
@@ -42,7 +32,7 @@ struct visit_ctx
     struct token_list insert_before_block_item;
     _View struct ast ast;
     enum language_version target;
-    struct defer_scope* _Owner _Opt tail_block;
+  
 };
 
 void visit(struct visit_ctx* ctx);

@@ -145,6 +145,12 @@ enum storage_class_specifier_flags
     STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD = 1 << 14,
 };
 
+enum function_specifier_flags
+{
+    FUNCTION_SPECIFIER_NONE = 0,
+    FUNCTION_SPECIFIER_INLINE = 1 << 0,    
+    FUNCTION_SPECIFIER_NORETURN = 1 << 1,    
+};
 
 struct declarator;
 struct type;
@@ -337,3 +343,4 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarat
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);
+

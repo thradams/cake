@@ -47,6 +47,13 @@ int system_like(const char* command)
 #define OUT_OPT " -o "
 #define CC_DESCRIPTION "MINGW " 
 
+#elif defined __HLC__
+
+#define BUILD_WINDOWS_HLC
+#define CC "hlc "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION "HLC MSVC " 
+
 #elif defined _MSC_VER
 
 #define BUILD_WINDOWS_MSC

@@ -1,5 +1,5 @@
   
-Last Updated 15 Sept 2024
+Last Updated 20 Nov 2024
   
 This is a work in progress. Cake source is currently being used to validate the concepts. It's in the process of transitioning to include annotated nullable checks, which was the last feature added.  
 
@@ -173,10 +173,11 @@ void x_destroy(_Opt struct X * p)
 
 #### mutable
 
-Note that this concept also could be applied for const members. 
+Note that this concept of constructor phase also could be applied for const members. 
 
 The introduction of a **mutable** qualifier allows certain exceptions to the usual contract 
 of immutability and non-nullability during transitional phases, such as in constructors and destructors. 
+
 This means that objects marked as **mutable** can temporarily violate their normal constraints, 
 such as modifying `const` members or assigning null to non-nullable pointers during these phases.
 

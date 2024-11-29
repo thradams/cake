@@ -241,10 +241,6 @@ https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html
 
 ## C99 Transformations
 
-C89 is the minimum target.
-
-However the idea if C89 target is NOT support very old compilers, but generate code that can be compiled with C++.
-
 C89 
 https://port70.net/~nsz/c/c89/c89-draft.html
 

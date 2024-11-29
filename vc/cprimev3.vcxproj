@@ -28,11 +28,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\console.c" />
+    <ClCompile Include="..\src\visit_defer.c" />
+    <ClCompile Include="..\src\visit_il.c" />
     <ClCompile Include="..\src\object.c" />
     <ClCompile Include="..\src\error.c" />
     <ClCompile Include="..\src\expressions.c" />
-    <ClCompile Include="..\src\flow_visit.c" />
-    <ClCompile Include="..\src\format_visit.c" />
+    <ClCompile Include="..\src\visit_flow.c" />
+    <ClCompile Include="..\src\visit_fmt.c" />
     <ClCompile Include="..\src\fs.c" />
     <ClCompile Include="..\src\hashmap.c" />
     <ClCompile Include="..\src\main.c" />
@@ -47,11 +49,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h" />
+    <ClInclude Include="..\src\visit_defer.h" />
+    <ClInclude Include="..\src\visit_il.h" />
     <ClInclude Include="..\src\object.h" />
     <ClInclude Include="..\src\error.h" />
     <ClInclude Include="..\src\expressions.h" />
-    <ClInclude Include="..\src\flow_visit.h" />
-    <ClInclude Include="..\src\format_visit.h" />
+    <ClInclude Include="..\src\visit_flow.h" />
+    <ClInclude Include="..\src\visit_fmt.h" />
     <ClInclude Include="..\src\fs.h" />
     <ClInclude Include="..\src\hashmap.h" />
     <ClInclude Include="..\src\options.h" />
@@ -65,10 +69,10 @@
     <ClInclude Include="..\src\visit.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\flow_object.c">
+    <ClCompile Include="..\src\object_flow.c">
       <FileType>CppCode</FileType>
     </ClCompile>
-    <Text Include="..\src\flow_object.h" />
+    <Text Include="..\src\object_flow.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

@@ -2701,18 +2701,23 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarat
 {
 
     enum type_qualifier_flags type_qualifier_flags = 0;
+
+
     if (pdeclarator->declaration_specifiers)
     {
         type_qualifier_flags = pdeclarator->declaration_specifiers->type_qualifier_flags;
-
+       
+    
     }
     else if (pdeclarator->specifier_qualifier_list)
     {
         type_qualifier_flags = pdeclarator->specifier_qualifier_list->type_qualifier_flags;
 
+
     }
 
     p_type->type_qualifier_flags |= type_qualifier_flags;
+
 
 
 
@@ -3210,6 +3215,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
           but we also need to delete the memory
         */
         free(list.head);
+
+        type_set_storage_specifiers_using_declarator(&r,  pdeclarator);
+
         return r;
     }
     catch
@@ -3248,3 +3256,4 @@ const struct type* type_get_specifer_part(const struct type* p_type)
     while (p->next) p = p->next;
     return p;
 }
+

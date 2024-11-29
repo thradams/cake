@@ -133,8 +133,8 @@ function OnCompileButton()
 
     if (outputLanguage == 0)
         options += " -E";
-    //else if (outputLanguage == -2)
-    //    options += " -target=c89 -direct-compilation ";
+    else if (outputLanguage == -2)
+        options += " -target=ir";
     else if (outputLanguage == -1)
         options += " -target=c89";
     else if (outputLanguage == 1)

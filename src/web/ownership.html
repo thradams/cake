@@ -58,7 +58,7 @@
 <a href="#toc_7">Glossary</a>
 </li>
 </ul>
-<p>Last Updated 15 Sept 2024</p>
+<p>Last Updated 20 Nov 2024</p>
 
 <p>This is a work in progress. Cake source is currently being used to validate the concepts. It&#39;s in the process of transitioning to include annotated nullable checks, which was the last feature added.  </p>
 
@@ -221,11 +221,12 @@ For instance:</p>
 
 <h4>mutable</h4>
 
-<p>Note that this concept also could be applied for const members. </p>
+<p>Note that this concept of constructor phase also could be applied for const members. </p>
 
 <p>The introduction of a <strong>mutable</strong> qualifier allows certain exceptions to the usual contract 
-of immutability and non-nullability during transitional phases, such as in constructors and destructors. 
-This means that objects marked as <strong>mutable</strong> can temporarily violate their normal constraints, 
+of immutability and non-nullability during transitional phases, such as in constructors and destructors. </p>
+
+<p>This means that objects marked as <strong>mutable</strong> can temporarily violate their normal constraints, 
 such as modifying <code>const</code> members or assigning null to non-nullable pointers during these phases.</p>
 
 <p>Consider the following code example:</p>

@@ -84,6 +84,7 @@ struct object {
         long double long_double_value;              
     };
 
+    struct expression * _Opt p_init_expression;
     struct object* _Opt _Owner members;
     struct object* _Opt _Owner next;
 };
@@ -149,7 +150,7 @@ bool object_is_derived(const struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 
-void object_set(struct object* to, const struct object* from, bool is_constant);
+void object_set(struct object* to, struct expression* _Opt init_expression, const struct object* from, bool is_constant);
 
 struct type;
 

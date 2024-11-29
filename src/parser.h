@@ -15,7 +15,7 @@
 #include "osstream.h"
 #include "type.h"
 #include "options.h"
-#include "flow_object.h"
+#include "object_flow.h"
 
 
 
@@ -204,6 +204,7 @@ struct declaration_specifiers
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
+    enum function_specifier_flags function_specifier_flags;
 
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
 
@@ -329,6 +330,7 @@ struct function_specifier
        inline
        _Noreturn
     */
+    enum function_specifier_flags flags;
     struct token* token;
 };
 struct function_specifier* _Owner _Opt  function_specifier(struct parser_ctx* ctx);
@@ -414,6 +416,15 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
 void init_declarator_list_destroy(struct init_declarator_list* _Obj_owner p);
 void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* _Owner p_item);
 
+struct defer_list_item;
+
+struct defer_list
+{
+    struct defer_list_item* _Opt _Owner head;
+    struct defer_list_item* _Opt tail;
+};
+
+
 struct declaration
 {
     /*
@@ -433,6 +444,8 @@ struct declaration
     struct init_declarator_list init_declarator_list;
 
     struct compound_statement* _Owner _Opt  function_body;
+    struct defer_list defer_list; //arguments
+
     struct declarator* _Opt  contract_declarator;
 
     struct token* first_token;
@@ -941,6 +954,7 @@ struct specifier_qualifier_list
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
 
+
     /*shortcuts*/
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
     struct enum_specifier* _Opt enum_specifier;
@@ -1047,6 +1061,8 @@ struct member_declarator_list
     struct member_declarator* _Opt tail;
 };
 
+struct member_declarator* _Opt find_member_declarator_by_index(struct member_declaration_list* list, int member_index);
+
 struct member_declarator_list* _Owner _Opt member_declarator_list(struct parser_ctx* ctx,
     struct struct_or_union_specifier*, /*not const*/
     const struct specifier_qualifier_list* specifier_qualifier_list
@@ -1069,6 +1085,7 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error);
 void block_item_list_destroy(struct block_item_list* _Obj_owner p);
 void block_item_list_add(struct block_item_list* list, struct block_item* _Owner p_item);
 
+
 struct compound_statement
 {
     /*
@@ -1080,8 +1097,10 @@ struct compound_statement
 
     struct block_item_list block_item_list;
 
-    //flow analysys flags
+    //flow analysis flags
     struct diagnostic diagnostic_flags;
+
+    struct defer_list defer_list;
 };
 struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx);
 void compound_statement_delete(struct compound_statement* _Owner _Opt p);
@@ -1098,6 +1117,18 @@ struct defer_statement
 };
 
 void defer_statement_delete(struct defer_statement* _Owner _Opt p);
+
+struct defer_list_item
+{
+    struct declarator* _Opt declarator;
+    struct defer_statement* _Opt defer_statement;
+    struct defer_list_item* _Opt _Owner next;
+};
+
+
+
+void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_item);
+void defer_list_destroy(struct defer_list* _Obj_owner  p);
 
 struct try_statement
 {
@@ -1147,6 +1178,7 @@ struct selection_statement
     struct token* first_token;
     struct token* last_token;
     struct token* _Opt else_token_opt;
+    struct defer_list defer_list;
 };
 
 struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* ctx);
@@ -1171,6 +1203,7 @@ struct iteration_statement
     struct expression* _Owner _Opt expression2;
     struct expression* _Owner _Opt expression0;
     struct declaration* _Owner _Opt declaration;
+    struct defer_list defer_list;
 };
 
 struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* ctx);
@@ -1192,6 +1225,7 @@ struct jump_statement
     struct expression* _Owner _Opt expression_opt;
 
     int try_catch_block_index;
+    struct defer_list defer_list;
 };
 
 struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx);
@@ -1534,6 +1568,7 @@ struct label
     */
     struct expression* _Owner _Opt constant_expression;
     struct token* _Opt p_identifier_opt;
+    struct token* p_first_token;
 };
 
 struct label* _Owner _Opt label(struct parser_ctx* ctx);
@@ -1553,3 +1588,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror);
 const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
+
+int initializer_init(struct parser_ctx* ctx,
+                                    struct type* p_current_object_type,
+                                    struct object* p_current_object,
+                                    struct initializer* braced_initializer,
+    bool is_constant);

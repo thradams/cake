@@ -213,15 +213,21 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         p = item->p_macro;
         item->p_macro = NULL;
     }
-    else if (item->number)
+    else if (item->p_struct_entry)
+    {
+        type = TAG_TYPE_STRUCT_ENTRY;
+        p = item->p_struct_entry;
+        item->p_struct_entry = NULL;
+    }
+    else //if (item->number)
     {
         type = TAG_TYPE_NUMBER;
         p = (void*)item->number;
     }
-    else
-    {
-        assert(false);
-    }
+    // else
+    // {
+     //    assert(false);
+     //}
 
     try
     {
@@ -261,11 +267,11 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 p_new_entry->data.p_declarator = (void*)p;
 
                 p_new_entry->type = type;
-                
-                char * _Opt _Owner temp_key = strdup(key);
+
+                char* _Opt _Owner temp_key = strdup(key);
                 if (temp_key == NULL)
                 {
-                    map_entry_delete(p_new_entry); 
+                    map_entry_delete(p_new_entry);
                     throw;
                 }
 
@@ -299,6 +305,9 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                     break;
                 case TAG_TYPE_MACRO:
                     item->p_macro = pentry->data.p_macro;
+                    break;
+                case TAG_TYPE_STRUCT_ENTRY:
+                    item->p_struct_entry = pentry->data.p_struct_entry;
                     break;
                 }
 

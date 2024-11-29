@@ -454,6 +454,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-target=ir") == 0)
+        {
+            options->target = LANGUAGE_IR;
+            continue;
+        }
+
         //
         if (strcmp(argv[i], "-target=c89") == 0)
         {

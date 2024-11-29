@@ -4,7 +4,7 @@
  WINDOWS
    cl -DTEST build.c && build
 
-   Debugging on windows: 
+   Debugging on windows:
    cl /Zi build.c
    devenv /DebugExe  build.exe
 
@@ -22,17 +22,19 @@
     " parser.h "          \
     " error.h "           \
     " fs.h "              \
-    " flow_object.h "     \
+    " object_flow.h "     \
     " hashmap.h "         \
     " osstream.h "        \
     " options.h "         \
     " token.h "           \
     " type.h "            \
     " pre_expressions.h " \
-    " object.h "  \
+    " object.h "          \
     " expressions.h "     \
     " visit.h "           \
-    " format_visit.h "
+    " visit_il.h "        \
+    " visit_defer.h "     \
+    " visit_fmt.h "
 
 
 #define CAKE_SOURCE_FILES \
@@ -46,12 +48,14 @@
     " object.c "          \
     " expressions.c "     \
     " pre_expressions.c " \
-    " flow_object.c "     \
+    " object_flow.c "     \
     " parser.c "          \
+    " visit_defer.c "     \
     " visit.c "           \
-    " flow_visit.c "      \
+    " visit_il.c "        \
+    " visit_flow.c "      \
     " error.c "           \
-    " format_visit.c "    \
+    " visit_fmt.c "       \
     " type.c "            
 
 #define HOEDOWN_SOURCE_FILES \
@@ -142,7 +146,7 @@ int main()
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe");
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe");
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c  ../fs.c ../error.c " OUT_OPT "../embed.exe");
-    
+
     echo_chdir("./hoedown");
 
     execute_cmd(CC HOEDOWN_SOURCE_FILES OUT_OPT "../../hoedown.exe");
@@ -161,14 +165,49 @@ int main()
 
     remove("maketest.exe");
 
-    execute_cmd(RUN "embed.exe \"./include\" " );
+    execute_cmd(RUN "embed.exe \"./include\" ");
 
     execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_SOURCE_FILES);
     remove("amalgamator.exe");
 
+#ifdef BUILD_WINDOWS_HLC
+     execute_cmd(CC CAKE_SOURCE_FILES " main.c "
+
+#ifdef DISABLE_COLORS
+               " /DDISABLE_COLORS "
+#endif
+
+#if defined DEBUG
+               " /Od /MDd /RTC1 "
+               " /Dstrdup=_strdup" /*nao linka em release*/
+#else                              // RELEASE
+               " /MT "
+               " /DNDEBUG "
+               
+#endif
+               " /D_CRT_NONSTDC_NO_WARNINGS "
+               " /wd4996 "
+               " /wd4100 " //unreferenced formal paramet
+               " /wd4068 " //unknown pragma                              
+               " /W4 "
+#ifdef TEST
+               "-DTEST"
+#endif
+               " /D_CRT_SECURE_NO_WARNINGS "
+               " /link "
+               " ucrt.lib "
+               " Kernel32.lib User32.lib Advapi32.lib"
+               " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
+               " /out:cake.exe");
+
+    //Runs cake on its own source
+    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_HEADER_FILES CAKE_SOURCE_FILES);
+
+#endif
 
 #ifdef BUILD_WINDOWS_MSC
-    execute_cmd("cl  " CAKE_SOURCE_FILES " main.c "
+
+    execute_cmd(CC CAKE_SOURCE_FILES " main.c "
 
 #ifdef DISABLE_COLORS
                " /DDISABLE_COLORS "
@@ -193,7 +232,7 @@ int main()
                " /utf-8 "
                " /W4 "
                " /Zi "
-               " /Gm- "               
+               " /Gm- "
                " /Zc:inline "
                //" /WX " //Treats all compiler warnings as errors.
                " /Gd "
@@ -253,13 +292,13 @@ int main()
            "-DTEST"
 #endif
            " -Wall "
-           " -D_DEFAULT_SOURCE " 
+           " -D_DEFAULT_SOURCE "
            " -Wno-unknown-pragmas "
            " -Wno-multichar "
-           " -std=c17 "           
-           
+           " -std=c17 "
+
            " -o cake "
-           CAKE_SOURCE_FILES " main.c ");           
+           CAKE_SOURCE_FILES " main.c ");
 #endif
 
 #if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC  || defined BUILD_MACOS_GCC

@@ -12,6 +12,7 @@
 
 enum language_version
 {
+    LANGUAGE_IR = -2,
     LANGUAGE_C89 = -1,
     LANGUAGE_C99 = 0, /*default*/
     LANGUAGE_C11 = 1,

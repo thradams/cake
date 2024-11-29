@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #include "ownership.h"
 
@@ -19,10 +19,11 @@
 #include "console.h"
 #include "fs.h"
 #include <ctype.h>
-#include "format_visit.h"
-#include "flow_visit.h"
+#include "visit_fmt.h"
+#include "visit_flow.h"
+#include "visit_defer.h"
 #include <errno.h>
-#include "flow_object.h"
+#include "object_flow.h"
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -35,6 +36,7 @@
 #endif
 
 #include "visit.h"
+#include "visit_il.h"
 #include <time.h>
 
 #ifdef PATH_MAX
@@ -1882,6 +1884,10 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             {
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
+            else if (p_declaration_specifier->function_specifier)
+            {
+                p_declaration_specifiers->function_specifier_flags |= p_declaration_specifier->function_specifier->flags;
+            }
 
             declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
 
@@ -2083,7 +2089,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
         bool is_function_definition = false;
 
-        p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, STORAGE_SPECIFIER_EXTERN, false);
+        p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, STORAGE_SPECIFIER_NONE, false);
         if (p_declaration == NULL)
             throw;
 
@@ -2145,6 +2151,15 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             p_declaration->function_body = p_function_body;
 
             p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
+
+            {
+                //This visit will fill the defer list of blocks and jumps
+                //
+                struct defer_visit_ctx ctx2 = { 0 };
+                ctx2.ctx = ctx;
+                defer_start_visit_declaration(&ctx2, p_declaration);
+                defer_visit_ctx_destroy(&ctx2);
+            }
 
             if (ctx->options.flow_analysis)
             {
@@ -2385,11 +2400,11 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
     }
 }
 
-static int initializer_init(struct parser_ctx* ctx,
+int initializer_init(struct parser_ctx* ctx,
                                     struct type* p_current_object_type,
                                     struct object* p_current_object,
                                     struct initializer* braced_initializer,
-    bool is_constant);
+                       bool is_constant);
 
 struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers)
@@ -3945,6 +3960,53 @@ struct member_declarator* _Opt find_member_declarator(struct member_declaration_
     return NULL;
 }
 
+struct member_declarator* _Opt find_member_declarator_by_index(struct member_declaration_list* list, int member_index)
+{
+    if (list->head == NULL)
+        return NULL;
+
+    int count = 0;
+    struct member_declaration* _Opt p_member_declaration = list->head;
+    while (p_member_declaration)
+    {
+        struct member_declarator* _Opt p_member_declarator = NULL;
+
+        if (p_member_declaration->member_declarator_list_opt)
+        {
+            p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+
+            while (p_member_declarator)
+            {
+                if (p_member_declarator->declarator)
+                {
+                    if (member_index == count)
+                    {
+                        return p_member_declarator;
+                    }
+                }
+                count++;
+                p_member_declarator = p_member_declarator->next;
+            }
+        }
+        else
+        {
+            if (p_member_declaration->specifier_qualifier_list &&
+                p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+            {
+                struct member_declaration_list* p_member_declaration_list =
+                    &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
+
+                p_member_declarator = find_member_declarator_by_index(p_member_declaration_list, member_index - count);
+                if (p_member_declarator)
+                    return p_member_declarator;
+            }
+        }
+
+        p_member_declaration = p_member_declaration->next;
+    }
+    return NULL;
+}
+
 void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
 
@@ -4768,14 +4830,20 @@ struct function_specifier* _Owner _Opt function_specifier(struct parser_ctx* ctx
             throw;
         }
 
+
+        p_function_specifier = calloc(1, sizeof * p_function_specifier);
+        if (p_function_specifier == NULL)
+            throw;
+
         if (ctx->current->type == TK_KEYWORD__NORETURN)
         {
             compiler_diagnostic_message(W_STYLE, ctx, ctx->current, NULL, "_Noreturn is deprecated use attributes");
         }
 
-        p_function_specifier = calloc(1, sizeof * p_function_specifier);
-        if (p_function_specifier == NULL)
-            throw;
+        if (ctx->current->type == TK_KEYWORD_INLINE)
+        {
+            p_function_specifier->flags |= FUNCTION_SPECIFIER_INLINE;
+        }
 
         p_function_specifier->token = ctx->current;
         parser_match(ctx);
@@ -5538,7 +5606,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         p_parameter_declaration->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct declaration_specifiers* _Owner _Opt p_declaration_specifiers =
-            declaration_specifiers(ctx, STORAGE_SPECIFIER_PARAMETER);
+            declaration_specifiers(ctx, STORAGE_SPECIFIER_PARAMETER | STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
 
         if (p_declaration_specifiers == NULL)
         {
@@ -5944,6 +6012,37 @@ struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx)
     }
     return p_initializer;
 }
+
+void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail != NULL);
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
+void defer_list_destroy(struct defer_list* _Obj_owner  p)
+{
+
+    struct defer_list_item* _Owner _Opt item = p->head;
+    while (item)
+    {
+        struct defer_list_item* _Owner _Opt next = item->next;
+        item->next = NULL;
+        free(item);
+        item = next;
+    }
+    free(p);
+
+}
+
 
 void initializer_list_add(struct initializer_list* list, struct initializer_list_item* _Owner p_item)
 {
@@ -7521,6 +7620,8 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
     {
         if (p_label == NULL)
             throw;
+
+        p_label->p_first_token = ctx->current;
 
         if (ctx->current->type == TK_IDENTIFIER)
         {
@@ -9238,16 +9339,18 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
     return 0;
 }
 
+#ifdef _WIN32
+
+WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(const char* name,
+char* buffer,
+unsigned long size);
+
+#endif
+
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
 
 #ifdef _WIN32
-
-    WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(const char* name,
-    char* buffer,
-    unsigned long size);
-
-
     char env[2000] = { 0 };
     int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
 
@@ -9622,24 +9725,40 @@ int compile_one_file(const char* file_name,
                     format_visit(&f);
                 }
 
-                visit_ctx.target = options->target;
-                visit_ctx.hide_non_used_declarations = options->direct_compilation;
-
-                visit_ctx.ast = ast;
-                visit(&visit_ctx);
-
-                if (options->direct_compilation)
-                    s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
-                else
-                    s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
-
-                if (s && options->format_ouput)
+                if (options->target > LANGUAGE_IR)
                 {
-                    /*re-parser output and format*/
-                    const char* _Owner _Opt s2 = format_code(options, s);
-                    free((void* _Owner _Opt)s);
-                    s = s2;
+                    visit_ctx.target = options->target;
+                    visit_ctx.hide_non_used_declarations = options->direct_compilation;
+
+                    visit_ctx.ast = ast;
+                    visit(&visit_ctx);
+
+                    if (options->direct_compilation)
+                        s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
+                    else
+                        s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
+
+                    if (s && options->format_ouput)
+                    {
+                        /*re-parser output and format*/
+                        const char* _Owner _Opt s2 = format_code(options, s);
+                        free((void* _Owner _Opt)s);
+                        s = s2;
+                    }
                 }
+                else if (options->target == LANGUAGE_IR)
+                {
+                    struct osstream ss = {0};
+                    struct d_visit_ctx ctx2 = { 0 };
+                    ctx2.ast = ast;
+                    d_visit(&ctx2, &ss);
+                    s = ss.c_str; //MOVE
+                }
+                else
+                {
+                    assert(false);
+                }
+
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
@@ -10139,16 +10258,27 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             if (report->error_count > 0)
                 throw;
 
-            visit_ctx.ast = ast;
-            visit(&visit_ctx);
+            if (options.target > LANGUAGE_IR)
+            {
+                visit_ctx.ast = ast;
+                visit(&visit_ctx);
 
-            if (options.direct_compilation)
-            {
-                s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
+                if (options.direct_compilation)
+                {
+                    s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
+                }
+                else
+                {
+                    s = get_code_as_we_see(&visit_ctx.ast.token_list, options.remove_comments);
+                }
             }
-            else
+            else if (options.target == LANGUAGE_IR)
             {
-                s = get_code_as_we_see(&visit_ctx.ast.token_list, options.remove_comments);
+                struct osstream ss = {0};
+                struct d_visit_ctx ctx2 = { 0 };
+                ctx2.ast = ast;
+                d_visit(&ctx2, &ss);
+                s = ss.c_str; //MOVED                
             }
             if (s && options.format_ouput)
             {
@@ -10478,7 +10608,7 @@ static int braced_initializer_loop(struct parser_ctx* ctx,
                              struct braced_initializer* braced_initializer, /*rtocar para initializer item??*/
                              bool is_constant);
 
-static int initializer_init(struct parser_ctx* ctx,
+int initializer_init(struct parser_ctx* ctx,
                             struct type* p_type,   /*in (in/out for arrays [])*/
                             struct object* object, /*in (in/out for arrays [])*/
                             struct initializer* initializer, /*rtocar para initializer item??*/
@@ -10499,7 +10629,7 @@ static int initializer_init_deep(struct parser_ctx* ctx,
     //The first phase is to traverse the tree finding each designator in sequence e.g a.b.c
     //Once the object is found it is initialized 
 
-    
+
     //If a designator is found the tree traversal is canceled to start again from the begining.
     //Seconde phase
     //Otherwise, if dont have designator, we continue from the next object after the previous designator.
@@ -10514,7 +10644,7 @@ static int initializer_init_deep(struct parser_ctx* ctx,
             //scalar cannot have designators
             assert(p_designator_opt == NULL);
 
-           
+
             while (p_initializer->initializer->braced_initializer)
             {
                 //int i = {{1}};
@@ -10528,7 +10658,7 @@ static int initializer_init_deep(struct parser_ctx* ctx,
 
             if (p_initializer->initializer->assignment_expression != NULL)
             {
-                object_set(object, &p_initializer->initializer->assignment_expression->object, is_constant);
+                object_set(object, p_initializer->initializer->assignment_expression, &p_initializer->initializer->assignment_expression->object, is_constant);
                 *pp_initializer = p_initializer->next; //consumed
             }
 
@@ -10572,7 +10702,7 @@ static int initializer_init_deep(struct parser_ctx* ctx,
                       struct X x = {0};
                       struct Y y = { .x = x, .i = 4 };
                     */
-                    object_set(object, &p_initializer->initializer->assignment_expression->object, is_constant);
+                    object_set(object, p_initializer->initializer->assignment_expression, &p_initializer->initializer->assignment_expression->object, is_constant);
                     *pp_initializer = p_initializer->next; //consumed
                     return 0;
                 }
@@ -10999,7 +11129,7 @@ static int braced_initializer_loop(struct parser_ctx* ctx,
 }
 
 
-static int initializer_init(struct parser_ctx* ctx,
+int initializer_init(struct parser_ctx* ctx,
                              struct type* p_type,   /*in (in/out for arrays [])*/
                              struct object* object, /*in (in/out for arrays [])*/
                              struct initializer* initializer, /*rtocar para initializer item??*/
@@ -11008,7 +11138,7 @@ static int initializer_init(struct parser_ctx* ctx,
     if (initializer->assignment_expression != NULL)
     {
         //types must be compatible
-        object_set(object, &initializer->assignment_expression->object, is_constant);
+        object_set(object, initializer->assignment_expression, &initializer->assignment_expression->object, is_constant);
     }
     else if (initializer->braced_initializer)
     {

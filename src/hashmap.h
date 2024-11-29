@@ -12,6 +12,7 @@ struct enum_specifier;
 struct init_declarator;
 struct struct_or_union_specifier;
 struct macro;
+struct struct_entry;
 
 void declarator_delete(struct declarator* _Owner _Opt p);
 void init_declarator_delete(struct init_declarator* _Owner _Opt p);
@@ -37,6 +38,7 @@ enum tag
     TAG_TYPE_DECLARATOR,
     TAG_TYPE_INIT_DECLARATOR,
     TAG_TYPE_MACRO,
+    TAG_TYPE_STRUCT_ENTRY
 };
 
 
@@ -55,6 +57,7 @@ struct map_entry {
         struct declarator* _Opt _Owner p_declarator;
         struct init_declarator* _Opt _Owner p_init_declarator;
         struct macro* _Opt _Owner p_macro;
+        struct struct_entry* _Opt p_struct_entry;
     } data;
     
 };
@@ -83,6 +86,7 @@ struct hash_item_set
     struct declarator* _Owner _Opt p_declarator;
     struct init_declarator* _Owner _Opt p_init_declarator;
     struct macro* _Owner _Opt p_macro;
+    struct struct_entry* _Opt p_struct_entry;
 };
 void hash_item_set_destroy(struct hash_item_set* _Obj_owner p);
 

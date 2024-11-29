@@ -20,6 +20,32 @@ int main(void)
 }
 `;
 
+sample["C99"]["Designated Initializers"] =
+`
+int main()
+ {
+  int a[6] = {[4] = 29, [2] = 15 };
+
+  struct point { int x, y; };
+
+  struct point p = { .y = 2, .x = 3 };
+ }
+
+`;
+
+sample["C99"]["Compound literals"] =
+`
+struct X {
+  int i;
+};
+
+int main(){
+   struct X x = {};
+   x = (struct X){};
+}
+`;
+
+
 sample["C99"][" Hexadecimal floating constants"] =
 `
 const double d = 0x1p+1;
@@ -2262,4 +2288,28 @@ int main() {
     free(p.name);
     return 0;
 }
+`;
+
+sample["Find the bug"]["Bug #11"] =
+`
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+
+struct X{
+  char * p_ch;    
+};
+
+struct X * _Owner _Opt f()
+{
+   char ch  = 0;
+   struct X * _Owner _Opt p = malloc(sizeof(struct X));
+   if (p)
+   {
+       p->p_ch =  &ch;
+       return p;
+   } 
+   return nullptr;   
+}
+
 `;

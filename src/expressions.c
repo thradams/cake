@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #include "ownership.h"
 #include <limits.h>
@@ -1976,6 +1976,36 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
             p_expression_node->braced_initializer = braced_initializer(ctx);
+            p_expression_node->type = type_dup(&p_expression_node->type_name->type);
+            //TODO
+
+            struct object* _Owner _Opt p_object = make_object_ptr(&p_expression_node->type);
+            if (p_object == NULL)
+            {
+                compiler_diagnostic_message(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
+                throw;
+            }
+            p_expression_node->object = *p_object;
+            p_object = NULL;
+
+
+            bool is_constant = type_is_const(&p_expression_node->type) ||
+                p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
+
+            object_default_initialization(&p_expression_node->object, is_constant);
+
+            //printf("\n");
+            //object_print_to_debug(&p_init_declarator->p_declarator->object);
+
+            struct initializer initializer = {0};
+            initializer.braced_initializer = p_expression_node->braced_initializer;
+            initializer.first_token =  p_expression_node->first_token;
+
+            initializer_init(ctx,
+                         &p_expression_node->type,
+                         &p_expression_node->object,
+                         &initializer,
+                         is_constant);
         }
 
         if (ctx->previous == NULL)
@@ -5865,7 +5895,7 @@ void check_assigment(struct parser_ctx* ctx,
 
             compiler_diagnostic_message(W_ERROR_INCOMPATIBLE_TYPES, ctx,
                 p_b_expression->first_token, NULL,
-                " incompatible types");            
+                " incompatible types");
         }
 
         if (type_is_pointer(&lvalue_right_type) && type_is_pointer(&t2))

@@ -58,6 +58,8 @@ int main(int argc, char** argv)
 {
     enable_vt_mode();
 
+    
+
 #if 0
     //Help debug emscript on desktop 
     //MOCKFILES needs to be defined
@@ -106,6 +108,7 @@ int main(int argc, char** argv)
     {
         return report.test_failed ? EXIT_FAILURE : EXIT_SUCCESS;
     }
+
 
     return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 

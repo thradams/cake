@@ -1364,9 +1364,11 @@ struct object* _Opt object_get_member(struct object* p_object, int index)
     return NULL;
 }
 
-void object_set(struct object* to, const struct object* from, bool is_constant)
+void object_set(struct object* to, struct expression* _Opt p_init_expression, const struct object* from, bool is_constant)
 {
     from = object_get_referenced(from);
+
+    to->p_init_expression = p_init_expression;
 
     if (object_is_derived(to))
     {
@@ -1375,7 +1377,7 @@ void object_set(struct object* to, const struct object* from, bool is_constant)
 
         while (it_from && it_to)
         {
-            object_set(it_to, it_from, is_constant);
+            object_set(it_to, NULL, it_from, is_constant);
             it_to = it_to->next;
             it_from = it_from->next;
         }
