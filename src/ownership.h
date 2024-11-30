@@ -29,11 +29,6 @@ long strtol(
     int         _Radix
     );
 
-int snprintf(_Out char* const _Buffer,
-             size_t const _BufferCount,
-             char const* const _Format,
-             ...);
-
 typedef struct _iobuf FILE;
 FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* _Owner _Stream);
