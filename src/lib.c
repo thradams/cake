@@ -40,11 +40,6 @@ long strtol(
     int         _Radix
     );
 
-int snprintf(_Out char* const _Buffer,
-             size_t const _BufferCount,
-             char const* const _Format,
-             ...);
-
 typedef struct _iobuf FILE;
 FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* _Owner _Stream);
@@ -12739,166 +12734,6 @@ void test_get_warning_name()
 
 
 
-enum object_value_type {
-
-    TYPE_SIGNED_INT,
-    TYPE_UNSIGNED_INT,
-
-    TYPE_BOOL,
-
-    TYPE_SIGNED_CHAR,
-    TYPE_UNSIGNED_CHAR,
-
-    TYPE_SIGNED_SHORT,
-    TYPE_UNSIGNED_SHORT,
-
-    TYPE_SIGNED_LONG,
-    TYPE_UNSIGNED_LONG,
-
-    TYPE_SIGNED_LONG_LONG,
-    TYPE_UNSIGNED_LONG_LONG,
-
-    TYPE_FLOAT,
-    TYPE_DOUBLE,
-    TYPE_LONG_DOUBLE
-};
-
-enum object_value_state
-{
-    /*object has a uninitialized value*/
-    CONSTANT_VALUE_STATE_UNINITIALIZED,
-    
-    /*object has a unknown value*/
-    CONSTANT_VALUE_STATE_UNKNOWN,
-
-    /*
-       Object has a exactly but not constant value
-       I believe this can be used to execute code at compile time.(like c++ consteval)    
-    */
-    CONSTANT_VALUE_STATE_EXACT,
-
-    /*object has a exactly and immutable value*/
-    CONSTANT_VALUE_STATE_CONSTANT_EXACT,
-
-    /*indirec*/
-    CONSTANT_VALUE_STATE_REFERENCE,
-};
-
-struct object {    
-    enum object_value_state state;
-    enum object_value_type type;
-
-    const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
-
-    union {
-        _Bool bool_value;
-
-        signed char signed_char_value;
-        unsigned char unsigned_char_value;
-
-        signed short signed_short_value;
-        unsigned short unsigned_short_value;
-
-        signed int signed_int_value;
-        unsigned int unsigned_int_value;
-
-        signed long signed_long_value;
-        unsigned long unsigned_long_value;
-
-        signed long long signed_long_long_value;
-        unsigned long long unsigned_long_long_value;
-
-        float float_value;
-        double double_value;
-        long double long_double_value;              
-    };
-
-    struct expression * _Opt p_init_expression;
-    struct object* _Opt _Owner members;
-    struct object* _Opt _Owner next;
-};
-
-void object_delete(struct object* _Opt _Owner p);
-bool object_has_constant_value(const struct object* a);
-void object_to_string(const struct object* a, char buffer[], int sz);
-
-//Make constant value
-struct object            object_make_wchar_t(wchar_t value);
-struct object             object_make_size_t(size_t value);
-struct object               object_make_bool(bool value);
-struct object            object_make_nullptr();
-struct object        object_make_signed_char(signed char value);
-struct object      object_make_unsigned_char(unsigned char value);
-struct object       object_make_signed_short(signed short value);
-struct object     object_make_unsigned_short(unsigned short value);
-struct object         object_make_signed_int(signed int value);
-struct object       object_make_unsigned_int(unsigned int value);
-
-struct object        object_make_signed_long(signed long value);
-struct object      object_make_unsigned_long(unsigned long value);
-struct object   object_make_signed_long_long(signed long long value);
-struct object object_make_unsigned_long_long(unsigned long long value);
-struct object              object_make_float(float value);
-struct object             object_make_double(double value);
-struct object        object_make_long_double(long double value);
-struct object        object_make_reference(struct object* object);
-
-
-//dynamic cast
-struct object object_cast(enum object_value_type e, const struct object* a);
-
-//static cast
-signed char object_to_signed_char(const struct object* a);
-unsigned char object_to_unsigned_char(const struct object* a);
-signed short object_to_signed_short(const struct object* a);
-unsigned short object_to_unsigned_short(const struct object* a);
-signed int object_to_signed_int(const struct object* a);
-unsigned int object_to_unsigned_int(const struct object* a);
-signed long object_to_signed_long(const struct object* a);
-unsigned long object_to_unsigned_long(const struct object* a);
-signed long long object_to_signed_long_long(const struct object* a);
-unsigned long long object_to_unsigned_long_long(const struct object* a);
-float object_to_float(const struct object* a);
-double object_to_double(const struct object* a);
-long double object_to_long_double(const struct object* a);
-bool object_to_bool(const struct object* a);
-
-//Overflow checks
-bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b);
-
-void object_default_initialization(struct object* p_object, bool is_constant);
-
-struct object* object_get_member(struct object* p_object, int index);
-bool object_is_reference(const struct object* p_object);
-bool object_is_derived(const struct object* p_object);
-
-const struct object* object_get_referenced(const struct object* p_object);
-
-void object_set(struct object* to, struct expression* _Opt init_expression, const struct object* from, bool is_constant);
-
-struct type;
-
-struct object* _Owner _Opt make_object_ptr(const struct type* p_type);
-enum object_value_type type_to_object_type(const struct type* type);
-
-
-void object_print_to_debug(const struct object* object);
-
-
-struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int n, bool is_constant);
-struct designator;
-
-
-
-
-#include <limits.h>
-
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -12938,7 +12773,7 @@ enum attribute_flags
     */
     CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 25,
     // 'a'
-    CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR = 1 << 26
+    CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR = 1 << 26
 };
 
 enum type_specifier_flags
@@ -13241,6 +13076,168 @@ void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);
 
 
+
+enum object_value_type {
+
+    TYPE_SIGNED_INT,
+    TYPE_UNSIGNED_INT,
+
+    TYPE_BOOL,
+
+    TYPE_SIGNED_CHAR,
+    TYPE_UNSIGNED_CHAR,
+
+    TYPE_SIGNED_SHORT,
+    TYPE_UNSIGNED_SHORT,
+
+    TYPE_SIGNED_LONG,
+    TYPE_UNSIGNED_LONG,
+
+    TYPE_SIGNED_LONG_LONG,
+    TYPE_UNSIGNED_LONG_LONG,
+
+    TYPE_FLOAT,
+    TYPE_DOUBLE,
+    TYPE_LONG_DOUBLE
+};
+
+enum object_value_state
+{
+    /*object has a uninitialized value*/
+    CONSTANT_VALUE_STATE_UNINITIALIZED,
+    
+    /*object has a unknown value*/
+    CONSTANT_VALUE_STATE_UNKNOWN,
+
+    /*
+       Object has a exactly but not constant value
+       I believe this can be used to execute code at compile time.(like c++ consteval)    
+    */
+    CONSTANT_VALUE_STATE_EXACT,
+
+    /*object has a exactly and immutable value*/
+    CONSTANT_VALUE_STATE_CONSTANT_EXACT,
+
+    /*indirec*/
+    CONSTANT_VALUE_STATE_REFERENCE,
+};
+
+struct object {    
+    enum object_value_state state;
+    enum object_value_type type;
+
+    const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
+
+    union {
+        _Bool bool_value;
+
+        signed char signed_char_value;
+        unsigned char unsigned_char_value;
+
+        signed short signed_short_value;
+        unsigned short unsigned_short_value;
+
+        signed int signed_int_value;
+        unsigned int unsigned_int_value;
+
+        signed long signed_long_value;
+        unsigned long unsigned_long_value;
+
+        signed long long signed_long_long_value;
+        unsigned long long unsigned_long_long_value;
+
+        float float_value;
+        double double_value;
+        long double long_double_value;              
+    };
+
+    struct expression * _Opt p_init_expression;
+    struct object* _Opt _Owner members;
+    struct object* _Opt _Owner next;
+};
+
+void object_delete(struct object* _Opt _Owner p);
+bool object_has_constant_value(const struct object* a);
+void object_to_string(const struct object* a, char buffer[], int sz);
+
+//Make constant value
+struct object            object_make_wchar_t(wchar_t value);
+struct object             object_make_size_t(size_t value);
+struct object               object_make_bool(bool value);
+struct object            object_make_nullptr();
+struct object        object_make_signed_char(signed char value);
+struct object      object_make_unsigned_char(unsigned char value);
+struct object       object_make_signed_short(signed short value);
+struct object     object_make_unsigned_short(unsigned short value);
+struct object         object_make_signed_int(signed int value);
+struct object       object_make_unsigned_int(unsigned int value);
+
+struct object        object_make_signed_long(signed long value);
+struct object      object_make_unsigned_long(unsigned long value);
+struct object   object_make_signed_long_long(signed long long value);
+struct object object_make_unsigned_long_long(unsigned long long value);
+struct object              object_make_float(float value);
+struct object             object_make_double(double value);
+struct object        object_make_long_double(long double value);
+struct object        object_make_reference(struct object* object);
+
+
+//dynamic cast
+struct object object_cast(enum object_value_type e, const struct object* a);
+enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags);
+
+errno_t object_increment_value(struct object* a);
+
+//static cast
+signed char object_to_signed_char(const struct object* a);
+unsigned char object_to_unsigned_char(const struct object* a);
+signed short object_to_signed_short(const struct object* a);
+unsigned short object_to_unsigned_short(const struct object* a);
+signed int object_to_signed_int(const struct object* a);
+unsigned int object_to_unsigned_int(const struct object* a);
+signed long object_to_signed_long(const struct object* a);
+unsigned long object_to_unsigned_long(const struct object* a);
+signed long long object_to_signed_long_long(const struct object* a);
+unsigned long long object_to_unsigned_long_long(const struct object* a);
+float object_to_float(const struct object* a);
+double object_to_double(const struct object* a);
+long double object_to_long_double(const struct object* a);
+bool object_to_bool(const struct object* a);
+
+//Overflow checks
+bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
+bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
+bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
+bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b);
+bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b);
+bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b);
+
+void object_default_initialization(struct object* p_object, bool is_constant);
+
+struct object* object_get_member(struct object* p_object, int index);
+bool object_is_reference(const struct object* p_object);
+bool object_is_derived(const struct object* p_object);
+
+const struct object* object_get_referenced(const struct object* p_object);
+
+void object_set(struct object* to, struct expression* _Opt init_expression, const struct object* from, bool is_constant);
+
+struct type;
+
+struct object* _Owner _Opt make_object_ptr(const struct type* p_type);
+enum object_value_type type_to_object_type(const struct type* type);
+
+
+void object_print_to_debug(const struct object* object);
+
+
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int n, bool is_constant);
+struct designator;
+
+
+
+
+#include <limits.h>
 
 
 /*
@@ -15190,7 +15187,7 @@ struct enumerator
     struct object value;
 };
 
-struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long* p_enumerator_value);
+struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, struct object* p_enumerator_value);
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(struct enumerator* _Owner _Opt  p);
 
@@ -15461,7 +15458,7 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
 void object_delete(struct object* _Opt _Owner p)
 {
     if (p)
-    {     
+    {
         free(p->debug_name);
         free(p);
     }
@@ -15625,6 +15622,46 @@ struct object object_make_signed_char(signed char value)
     r.type = TYPE_SIGNED_CHAR;
     r.signed_char_value = value;
     return r;
+}
+
+errno_t object_increment_value(struct object* a)
+{
+    a = object_get_referenced(a);
+
+    switch (a->type)
+    {
+
+    case TYPE_BOOL:
+        return a->bool_value++;
+    case TYPE_SIGNED_CHAR:
+        return a->signed_char_value++;
+    case TYPE_UNSIGNED_CHAR:
+        return a->unsigned_char_value++;
+    case TYPE_SIGNED_SHORT:
+        return a->signed_short_value++;
+    case TYPE_UNSIGNED_SHORT:
+        return a->unsigned_short_value++;
+    case TYPE_SIGNED_INT:
+        return a->signed_int_value++;
+    case TYPE_UNSIGNED_INT:
+        return a->unsigned_int_value++;
+    case TYPE_SIGNED_LONG:
+        return a->signed_long_value++;
+    case TYPE_UNSIGNED_LONG:
+        return a->unsigned_long_value++;
+    case TYPE_SIGNED_LONG_LONG:
+        return a->signed_long_long_value++;
+    case TYPE_UNSIGNED_LONG_LONG:
+        return a->unsigned_long_long_value++;
+    case TYPE_FLOAT:
+        return a->float_value++;
+    case TYPE_DOUBLE:
+        return a->double_value++;
+    case TYPE_LONG_DOUBLE:
+        return a->long_double_value++;
+    }
+    assert(0);
+    return 0;
 }
 
 signed char object_to_signed_char(const struct object* a)
@@ -16712,7 +16749,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 struct object* _Opt p_tail_object = NULL;
                 for (int i = 0; i < p_type->num_of_elements; i++)
                 {
-                    char buffer[200] = {0};
+                    char buffer[200] = { 0 };
                     snprintf(buffer, sizeof buffer, "%s[%d]", name, i);
                     struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer);
                     if (p_member_obj == NULL)
@@ -16794,7 +16831,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 {
                     if (p_member_declarator->declarator)
                     {
-                        char buffer[200] = {0};
+                        char buffer[200] = { 0 };
                         snprintf(buffer, sizeof buffer, "%s.%s", name, p_member_declarator->declarator->name_opt->lexeme);
 
 
@@ -16869,20 +16906,8 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
 }
 
 
-
-
-enum object_value_type type_to_object_type(const struct type* type)
+enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags)
 {
-    if (type_is_pointer(type))
-    {
-#if defined(_WIN64) || defined(__x86_64__) 
-        return TYPE_UNSIGNED_LONG_LONG;
-#else
-        return TYPE_UNSIGNED_INT;
-#endif
-    }
-    const enum type_specifier_flags type_specifier_flags = type->type_specifier_flags;
-
 
     if (type_specifier_flags & TYPE_SPECIFIER_BOOL)
         return TYPE_BOOL;
@@ -16924,9 +16949,21 @@ enum object_value_type type_to_object_type(const struct type* type)
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             return TYPE_SIGNED_LONG_LONG;
     }
-
-    //assert(0);
     return TYPE_SIGNED_INT;
+}
+
+enum object_value_type type_to_object_type(const struct type* type)
+{
+    if (type_is_pointer(type))
+    {
+#if defined(_WIN64) || defined(__x86_64__) 
+        return TYPE_UNSIGNED_LONG_LONG;
+#else
+        return TYPE_UNSIGNED_INT;
+#endif
+    }
+
+    return type_specifier_to_object_type(type->type_specifier_flags);    
 }
 
 
@@ -17081,7 +17118,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                     throw;
 
                 object_default_initialization(p, is_constant);
-                
+
                 assert(it->next == NULL);
                 it->next = p;
 
@@ -17634,7 +17671,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
         p_expression_node->expression_type = PRIMARY_EXPRESSION_CHAR_LITERAL;
         p_expression_node->first_token = ctx->current;
         p_expression_node->last_token = p_expression_node->first_token;
-        p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
+        p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR;
         p_expression_node->type.category = TYPE_CATEGORY_ITSELF;
 
         const unsigned char* _Opt p = (const unsigned char*)ctx->current->lexeme;
@@ -17671,7 +17708,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic_message(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
-            p_expression_node->object = object_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
+            p_expression_node->object = object_make_unsigned_char((unsigned char)c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -27923,7 +27960,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.34"
+#define CAKE_VERSION "0.9.35"
 
 
 
@@ -32452,8 +32489,16 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
        enumerator
         enumerator_list ',' enumerator
      */
-    long long next_enumerator_value = 0;
 
+
+    struct object next_enumerator_value = object_make_signed_int(0);
+ 
+    if (p_enum_specifier->specifier_qualifier_list)
+    {
+        enum object_value_type vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+        next_enumerator_value = object_cast(vt, &next_enumerator_value);
+    }
+    
     struct enumerator_list enumeratorlist = { 0 };
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try
@@ -32520,7 +32565,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
-    long long* p_next_enumerator_value)
+    struct object* p_next_enumerator_value)
 {
     // TODO VALUE    
     struct enumerator* _Owner _Opt p_enumerator = NULL;
@@ -32567,13 +32612,19 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
             p_enumerator->value = p_enumerator->constant_expression_opt->object;
-            *p_next_enumerator_value = object_to_signed_long_long(&p_enumerator->value);
-            (*p_next_enumerator_value)++; // TODO overflow  and size check
+            *p_next_enumerator_value = p_enumerator->value;
+            if (object_increment_value(p_next_enumerator_value) != 0)
+            {
+                //overflow TODO
+            }
         }
         else
         {
-            p_enumerator->value = object_make_signed_long_long(*p_next_enumerator_value);
-            (*p_next_enumerator_value)++; // TODO overflow  and size check
+            p_enumerator->value = *p_next_enumerator_value;
+            if (object_increment_value(p_next_enumerator_value) != 0)
+            {
+                //overflow
+            }
         }
     }
     catch
@@ -37416,7 +37467,8 @@ void ast_format_visit(struct ast* ast)
 }
 
 void c_visit(struct ast* ast)
-{}
+{
+}
 
 
 int generate_config_file(const char* configpath)
@@ -37714,7 +37766,7 @@ int compile_one_file(const char* file_name,
                 }
                 else if (options->target == LANGUAGE_IR)
                 {
-                    struct osstream ss = {0};
+                    struct osstream ss = { 0 };
                     struct d_visit_ctx ctx2 = { 0 };
                     ctx2.ast = ast;
                     d_visit(&ctx2, &ss);
@@ -38240,7 +38292,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             }
             else if (options.target == LANGUAGE_IR)
             {
-                struct osstream ss = {0};
+                struct osstream ss = { 0 };
                 struct d_visit_ctx ctx2 = { 0 };
                 ctx2.ast = ast;
                 d_visit(&ctx2, &ss);
@@ -43124,31 +43176,37 @@ static void object_print_value(struct osstream* ss, const struct object* a)
     {
 
     case TYPE_BOOL:
-        ss_fprintf(ss, "((unsigned char) %s)", a->bool_value ? "1" : "0");
+        //ss_fprintf(ss, "((unsigned char) %s)", a->bool_value ? "1" : "0");
+        ss_fprintf(ss, "%d", a->bool_value ? 1 : 0);
         break;
 
     case TYPE_SIGNED_CHAR:
 
-        ss_fprintf(ss, "((signed char)%d)", (int)a->signed_char_value);
+        //ss_fprintf(ss, "((signed char)%d)", (int)a->signed_char_value);
+        ss_fprintf(ss, "%d", (int)a->signed_char_value);
         break;
 
 
     case TYPE_UNSIGNED_CHAR:
-        ss_fprintf(ss, "((char)%d)", (int)a->unsigned_char_value);
+        //ss_fprintf(ss, "((unsigned char)%d)", (int)a->unsigned_char_value);
+        ss_fprintf(ss, "%d", (int)a->unsigned_char_value);
         break;
 
 
     case TYPE_SIGNED_SHORT:
-        ss_fprintf(ss, "((short)%d)", a->signed_short_value);
+//        ss_fprintf(ss, "((short)%d)", a->signed_short_value);
+        ss_fprintf(ss, "%d", a->signed_short_value);
         break;
 
     case TYPE_UNSIGNED_SHORT:
-        ss_fprintf(ss, "((unsigned short) %d)", a->unsigned_short_value);
+        //ss_fprintf(ss, "((unsigned short) %d)", a->unsigned_short_value);
+        ss_fprintf(ss, "%d", a->unsigned_short_value);
         break;
 
     case TYPE_SIGNED_INT:
         ss_fprintf(ss, "%d", a->signed_int_value);
         break;
+
     case TYPE_UNSIGNED_INT:
         ss_fprintf(ss, "%du", a->unsigned_int_value);
         ss_fprintf(ss, "U");
@@ -44039,7 +44097,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
         print_identation(ctx, oss);
         ss_fprintf(oss, "case ");
 
-        d_visit_expression(ctx, oss, p_label->constant_expression);
+        object_print_value(oss, &p_label->constant_expression->object);
 
         ss_fprintf(oss, " :\n");
     }
@@ -50181,7 +50239,7 @@ bool type_is_essential_bool(const struct type* p_type)
 }
 bool type_is_essential_char(const struct type* p_type)
 {
-    return p_type->attributes_flags & CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
+    return p_type->attributes_flags & CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR;
 }
 
 bool type_is_enum(const struct type* p_type)

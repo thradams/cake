@@ -732,7 +732,7 @@ bool type_is_essential_bool(const struct type* p_type)
 }
 bool type_is_essential_char(const struct type* p_type)
 {
-    return p_type->attributes_flags & CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
+    return p_type->attributes_flags & CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR;
 }
 
 bool type_is_enum(const struct type* p_type)

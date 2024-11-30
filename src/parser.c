@@ -4486,8 +4486,16 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
        enumerator
         enumerator_list ',' enumerator
      */
-    long long next_enumerator_value = 0;
 
+
+    struct object next_enumerator_value = object_make_signed_int(0);
+ 
+    if (p_enum_specifier->specifier_qualifier_list)
+    {
+        enum object_value_type vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+        next_enumerator_value = object_cast(vt, &next_enumerator_value);
+    }
+    
     struct enumerator_list enumeratorlist = { 0 };
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try
@@ -4554,7 +4562,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
-    long long* p_next_enumerator_value)
+    struct object* p_next_enumerator_value)
 {
     // TODO VALUE    
     struct enumerator* _Owner _Opt p_enumerator = NULL;
@@ -4601,13 +4609,19 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
             p_enumerator->value = p_enumerator->constant_expression_opt->object;
-            *p_next_enumerator_value = object_to_signed_long_long(&p_enumerator->value);
-            (*p_next_enumerator_value)++; // TODO overflow  and size check
+            *p_next_enumerator_value = p_enumerator->value;
+            if (object_increment_value(p_next_enumerator_value) != 0)
+            {
+                //overflow TODO
+            }
         }
         else
         {
-            p_enumerator->value = object_make_signed_long_long(*p_next_enumerator_value);
-            (*p_next_enumerator_value)++; // TODO overflow  and size check
+            p_enumerator->value = *p_next_enumerator_value;
+            if (object_increment_value(p_next_enumerator_value) != 0)
+            {
+                //overflow
+            }
         }
     }
     catch
@@ -9450,7 +9464,8 @@ void ast_format_visit(struct ast* ast)
 }
 
 void c_visit(struct ast* ast)
-{}
+{
+}
 
 
 int generate_config_file(const char* configpath)
@@ -9748,7 +9763,7 @@ int compile_one_file(const char* file_name,
                 }
                 else if (options->target == LANGUAGE_IR)
                 {
-                    struct osstream ss = {0};
+                    struct osstream ss = { 0 };
                     struct d_visit_ctx ctx2 = { 0 };
                     ctx2.ast = ast;
                     d_visit(&ctx2, &ss);
@@ -10274,7 +10289,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             }
             else if (options.target == LANGUAGE_IR)
             {
-                struct osstream ss = {0};
+                struct osstream ss = { 0 };
                 struct d_visit_ctx ctx2 = { 0 };
                 ctx2.ast = ast;
                 d_visit(&ctx2, &ss);

@@ -8,7 +8,8 @@
 #include "ownership.h"
 #include <stdbool.h>
 #include <wchar.h>
-
+#include "error.h"
+#include "type.h"
 
 enum object_value_type {
 
@@ -117,6 +118,9 @@ struct object        object_make_reference(struct object* object);
 
 //dynamic cast
 struct object object_cast(enum object_value_type e, const struct object* a);
+enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags);
+
+errno_t object_increment_value(struct object* a);
 
 //static cast
 signed char object_to_signed_char(const struct object* a);

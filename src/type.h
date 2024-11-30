@@ -42,7 +42,7 @@ enum attribute_flags
     */
     CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 25,
     // 'a'
-    CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR = 1 << 26
+    CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR = 1 << 26
 };
 
 enum type_specifier_flags

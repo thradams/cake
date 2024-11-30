@@ -1,6 +1,7 @@
 
 ## Intro
-Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. 
+Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux.
+This approach makes Cake useful in real and existing programs. 
 
 When applicable, Cake uses the same command line options of MSVC and GCC.
 
@@ -8,7 +9,6 @@ When applicable, Cake uses the same command line options of MSVC and GCC.
 For static analyzer concepts of ownership and nullable pointers visit  [ownership](ownership.html) 
 
 ## Include directories
-
 
 On Windows, Cake can be used on the command line similarly to MSVC.
 Cake reads the `INCLUDE` variable, the same variable used by MSVC to locate the include directories.
@@ -142,6 +142,8 @@ Format input (format before language conversion)
 #### -fo
 Format output (format after language conversion, result parsed again)
 
+#### -ir
+Generates C89 code
 
 #### -Wname -Wno-name  (same as GCC)   
 Enables or disable warnings.
@@ -327,8 +329,10 @@ Becomes (not implemented)
 ```c
 struct s {
     int n;
-    double d[]; //?
+    double d[1];
 };
+
+//TODO sizeof
 ```
 
 
@@ -358,17 +362,15 @@ int main()
 
 ```
   
-`static` is removed when target is < c99.
-
-Cakes verifies that the argument is an array of with equal or more elements.
-  
-Cakes extend this check for arrays without static as well.
+Cake verifies that the argument is an array with at 
+least the specified number of elements. 
+It extends this check to arrays without a static size as well.
 
 ### C99 Complex and imaginary support
 Not implemented
 
 ### C99 Universal character names (\u and \U)
-TODO
+Not implemented
 
 ### C99 Hexadecimal floating constants
 
@@ -382,12 +384,11 @@ Becomes in C89
 double d = 2.000000;
 ```
 
-Cake converts the hexadecimal floating to decimal
-floating point using strtod then snprintf.
-That means this conversion is not precise.
+Cake converts hexadecimal floating-point values to decimal floating-point 
+representation using strtod followed by snprintf. 
+This conversion may introduce precision loss.
 
 ### C99 Compound literals
-
 
 ```c
 struct s {
@@ -404,7 +405,7 @@ int f(void) {
 }
 ```
 
-Becomes in C89 (not implemented yet)
+Becomes in C89
 
 ```c
 struct s {
@@ -420,6 +421,7 @@ int f(void) {
   return p == q && q -> i == 1;
 }
 ```
+
 N716
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm
 
@@ -437,7 +439,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm
 
 ```
 
-Becomes C89 (not implemented yet)
+Becomes C89
 
 ```c
 int main()
@@ -555,7 +557,7 @@ When compiling to versions < C11 \_Static\_Assert is removed.
 
 ### C11 Anonymous structures and unions
 
-It is implemented, however the conversion to C99, C89 was not implemented.
+It is implemented, however the conversion to C99, C89 was not implemented yet.
 
 ```c
 struct v {
@@ -571,8 +573,6 @@ int main(){
   v1.w.k = 5; /* valid*/
 }
 ```
-
-I think a possible alternative to convert to C89,C99 is insert a name.
 
 
 ### C11 \_Noreturn

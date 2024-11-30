@@ -292,7 +292,8 @@
 </ul>
 <h2 id="toc_0">Intro</h2>
 
-<p>Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. </p>
+<p>Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux.
+This approach makes Cake useful in real and existing programs. </p>
 
 <p>When applicable, Cake uses the same command line options of MSVC and GCC.</p>
 
@@ -438,6 +439,10 @@ C99 is the default and C89 (ANSI C) is the minimum target</p>
 <h4>-fo</h4>
 
 <p>Format output (format after language conversion, result parsed again)</p>
+
+<h4>-ir</h4>
+
+<p>Generates C89 code</p>
 
 <h4>-Wname -Wno-name  (same as GCC)</h4>
 
@@ -616,8 +621,10 @@ int main() {
 
 <pre><code class="language-c">struct s {
     int n;
-    double d[]; //?
+    double d[1];
 };
+
+//TODO sizeof
 </code></pre>
 
 <h3 id="toc_15">C99 static and type qualifiers in parameter array declarators</h3>
@@ -645,11 +652,9 @@ int main()
 
 </code></pre>
 
-<p><code>static</code> is removed when target is &lt; c99.</p>
-
-<p>Cakes verifies that the argument is an array of with equal or more elements.</p>
-
-<p>Cakes extend this check for arrays without static as well.</p>
+<p>Cake verifies that the argument is an array with at 
+least the specified number of elements. 
+It extends this check to arrays without a static size as well.</p>
 
 <h3 id="toc_16">C99 Complex and imaginary support</h3>
 
@@ -657,7 +662,7 @@ int main()
 
 <h3 id="toc_17">C99 Universal character names (\u and \U)</h3>
 
-<p>TODO</p>
+<p>Not implemented</p>
 
 <h3 id="toc_18">C99 Hexadecimal floating constants</h3>
 
@@ -669,9 +674,9 @@ int main()
 <pre><code class="language-c">double d = 2.000000;
 </code></pre>
 
-<p>Cake converts the hexadecimal floating to decimal
-floating point using strtod then snprintf.
-That means this conversion is not precise.</p>
+<p>Cake converts hexadecimal floating-point values to decimal floating-point 
+representation using strtod followed by snprintf. 
+This conversion may introduce precision loss.</p>
 
 <h3 id="toc_19">C99 Compound literals</h3>
 
@@ -689,7 +694,7 @@ int f(void) {
 }
 </code></pre>
 
-<p>Becomes in C89 (not implemented yet)</p>
+<p>Becomes in C89</p>
 
 <pre><code class="language-c">struct s {
   int i;
@@ -721,7 +726,7 @@ int f(void) {
 
 </code></pre>
 
-<p>Becomes C89 (not implemented yet)</p>
+<p>Becomes C89</p>
 
 <pre><code class="language-c">int main()
 {
@@ -835,7 +840,7 @@ Considering C23 has bool and the objective of C89 version is to have a version t
 
 <h3 id="toc_29">C11 Anonymous structures and unions</h3>
 
-<p>It is implemented, however the conversion to C99, C89 was not implemented.</p>
+<p>It is implemented, however the conversion to C99, C89 was not implemented yet.</p>
 
 <pre><code class="language-c">struct v {
   union { /* anonymous union*/
@@ -850,8 +855,6 @@ int main(){
   v1.w.k = 5; /* valid*/
 }
 </code></pre>
-
-<p>I think a possible alternative to convert to C89,C99 is insert a name.</p>
 
 <h3 id="toc_30">C11 _Noreturn</h3>
 

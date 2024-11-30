@@ -1509,7 +1509,7 @@ struct enumerator
     struct object value;
 };
 
-struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long* p_enumerator_value);
+struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, struct object* p_enumerator_value);
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(struct enumerator* _Owner _Opt  p);
 

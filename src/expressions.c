@@ -543,7 +543,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
         p_expression_node->expression_type = PRIMARY_EXPRESSION_CHAR_LITERAL;
         p_expression_node->first_token = ctx->current;
         p_expression_node->last_token = p_expression_node->first_token;
-        p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
+        p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR;
         p_expression_node->type.category = TYPE_CATEGORY_ITSELF;
 
         const unsigned char* _Opt p = (const unsigned char*)ctx->current->lexeme;
@@ -580,7 +580,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic_message(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
-            p_expression_node->object = object_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
+            p_expression_node->object = object_make_unsigned_char((unsigned char)c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {

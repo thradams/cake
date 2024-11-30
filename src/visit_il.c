@@ -181,31 +181,37 @@ static void object_print_value(struct osstream* ss, const struct object* a)
     {
 
     case TYPE_BOOL:
-        ss_fprintf(ss, "((unsigned char) %s)", a->bool_value ? "1" : "0");
+        //ss_fprintf(ss, "((unsigned char) %s)", a->bool_value ? "1" : "0");
+        ss_fprintf(ss, "%d", a->bool_value ? 1 : 0);
         break;
 
     case TYPE_SIGNED_CHAR:
 
-        ss_fprintf(ss, "((signed char)%d)", (int)a->signed_char_value);
+        //ss_fprintf(ss, "((signed char)%d)", (int)a->signed_char_value);
+        ss_fprintf(ss, "%d", (int)a->signed_char_value);
         break;
 
 
     case TYPE_UNSIGNED_CHAR:
-        ss_fprintf(ss, "((char)%d)", (int)a->unsigned_char_value);
+        //ss_fprintf(ss, "((unsigned char)%d)", (int)a->unsigned_char_value);
+        ss_fprintf(ss, "%d", (int)a->unsigned_char_value);
         break;
 
 
     case TYPE_SIGNED_SHORT:
-        ss_fprintf(ss, "((short)%d)", a->signed_short_value);
+//        ss_fprintf(ss, "((short)%d)", a->signed_short_value);
+        ss_fprintf(ss, "%d", a->signed_short_value);
         break;
 
     case TYPE_UNSIGNED_SHORT:
-        ss_fprintf(ss, "((unsigned short) %d)", a->unsigned_short_value);
+        //ss_fprintf(ss, "((unsigned short) %d)", a->unsigned_short_value);
+        ss_fprintf(ss, "%d", a->unsigned_short_value);
         break;
 
     case TYPE_SIGNED_INT:
         ss_fprintf(ss, "%d", a->signed_int_value);
         break;
+
     case TYPE_UNSIGNED_INT:
         ss_fprintf(ss, "%du", a->unsigned_int_value);
         ss_fprintf(ss, "U");
@@ -1096,7 +1102,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
         print_identation(ctx, oss);
         ss_fprintf(oss, "case ");
 
-        d_visit_expression(ctx, oss, p_label->constant_expression);
+        object_print_value(oss, &p_label->constant_expression->object);
 
         ss_fprintf(oss, " :\n");
     }

@@ -201,7 +201,7 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
 void object_delete(struct object* _Opt _Owner p)
 {
     if (p)
-    {     
+    {
         free(p->debug_name);
         free(p);
     }
@@ -365,6 +365,46 @@ struct object object_make_signed_char(signed char value)
     r.type = TYPE_SIGNED_CHAR;
     r.signed_char_value = value;
     return r;
+}
+
+errno_t object_increment_value(struct object* a)
+{
+    a = object_get_referenced(a);
+
+    switch (a->type)
+    {
+
+    case TYPE_BOOL:
+        return a->bool_value++;
+    case TYPE_SIGNED_CHAR:
+        return a->signed_char_value++;
+    case TYPE_UNSIGNED_CHAR:
+        return a->unsigned_char_value++;
+    case TYPE_SIGNED_SHORT:
+        return a->signed_short_value++;
+    case TYPE_UNSIGNED_SHORT:
+        return a->unsigned_short_value++;
+    case TYPE_SIGNED_INT:
+        return a->signed_int_value++;
+    case TYPE_UNSIGNED_INT:
+        return a->unsigned_int_value++;
+    case TYPE_SIGNED_LONG:
+        return a->signed_long_value++;
+    case TYPE_UNSIGNED_LONG:
+        return a->unsigned_long_value++;
+    case TYPE_SIGNED_LONG_LONG:
+        return a->signed_long_long_value++;
+    case TYPE_UNSIGNED_LONG_LONG:
+        return a->unsigned_long_long_value++;
+    case TYPE_FLOAT:
+        return a->float_value++;
+    case TYPE_DOUBLE:
+        return a->double_value++;
+    case TYPE_LONG_DOUBLE:
+        return a->long_double_value++;
+    }
+    assert(0);
+    return 0;
 }
 
 signed char object_to_signed_char(const struct object* a)
@@ -1452,7 +1492,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 struct object* _Opt p_tail_object = NULL;
                 for (int i = 0; i < p_type->num_of_elements; i++)
                 {
-                    char buffer[200] = {0};
+                    char buffer[200] = { 0 };
                     snprintf(buffer, sizeof buffer, "%s[%d]", name, i);
                     struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer);
                     if (p_member_obj == NULL)
@@ -1534,7 +1574,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 {
                     if (p_member_declarator->declarator)
                     {
-                        char buffer[200] = {0};
+                        char buffer[200] = { 0 };
                         snprintf(buffer, sizeof buffer, "%s.%s", name, p_member_declarator->declarator->name_opt->lexeme);
 
 
@@ -1609,20 +1649,8 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
 }
 
 
-
-
-enum object_value_type type_to_object_type(const struct type* type)
+enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags)
 {
-    if (type_is_pointer(type))
-    {
-#if defined(_WIN64) || defined(__x86_64__) 
-        return TYPE_UNSIGNED_LONG_LONG;
-#else
-        return TYPE_UNSIGNED_INT;
-#endif
-    }
-    const enum type_specifier_flags type_specifier_flags = type->type_specifier_flags;
-
 
     if (type_specifier_flags & TYPE_SPECIFIER_BOOL)
         return TYPE_BOOL;
@@ -1664,9 +1692,21 @@ enum object_value_type type_to_object_type(const struct type* type)
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             return TYPE_SIGNED_LONG_LONG;
     }
-
-    //assert(0);
     return TYPE_SIGNED_INT;
+}
+
+enum object_value_type type_to_object_type(const struct type* type)
+{
+    if (type_is_pointer(type))
+    {
+#if defined(_WIN64) || defined(__x86_64__) 
+        return TYPE_UNSIGNED_LONG_LONG;
+#else
+        return TYPE_UNSIGNED_INT;
+#endif
+    }
+
+    return type_specifier_to_object_type(type->type_specifier_flags);    
 }
 
 
@@ -1821,7 +1861,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                     throw;
 
                 object_default_initialization(p, is_constant);
-                
+
                 assert(it->next == NULL);
                 it->next = p;
 

@@ -1,9 +1,9 @@
 ﻿enum X : short {
-    A
+    A,
+    B
 };
 
 int main() {
-    enum X x = A;
-}
-
+    enum X x = B;
+} 
 
