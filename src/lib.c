@@ -10529,6 +10529,8 @@ void ss_swap(_View struct osstream* a, _View struct osstream* b)
 
 void ss_clear(struct osstream* stream)
 {
+    if (stream->c_str)
+        stream->c_str[0] = '\0';
     stream->size = 0;
 }
 
@@ -14333,6 +14335,7 @@ struct struct_or_union_specifier
 
 struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct parser_ctx* ctx);
 struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struct struct_or_union_specifier* p);
+bool struct_or_union_specifier_is_union(const struct struct_or_union_specifier* p);
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt  p);
 
 bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
@@ -27960,7 +27963,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.35"
+#define CAKE_VERSION "0.9.36"
 
 
 
@@ -31407,6 +31410,11 @@ void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Op
 void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Opt p) {}
 #endif
 
+bool struct_or_union_specifier_is_union(const struct struct_or_union_specifier* p)
+{
+    return p->first_token->type == TK_KEYWORD_UNION;
+}
+
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt p)
 {
     if (p)
@@ -31517,7 +31525,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         else
         {
             /*struct without a tag, in this case we make one*/
-            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
+            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_struct_tag_%d", s_anonymous_struct_count);
             s_anonymous_struct_count++;
             p_struct_or_union_specifier->has_anonymous_tag = true;
             p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
@@ -39555,11 +39563,19 @@ static void defer_exit_iteration_or_switch_statement_visit(struct defer_visit_ct
     {
         defer_exit_block_visit(ctx, p_defer, position_token, p_defer_list);
 
-        if (p_defer->p_iteration_statement || p_defer->p_selection_statement)
+        if (p_defer->p_iteration_statement)
         {
-            //break can be used in loops or switch
+            //break using in for,do , while
             break;
         }
+
+        if (p_defer->p_selection_statement && 
+            p_defer->p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
+        {
+            //break switch case
+            break;
+        }
+
         p_defer = p_defer->previous;
     }
 }
@@ -43001,6 +43017,18 @@ void visit(struct visit_ctx* ctx)
 
 
 
+//TODO 
+// - array initialization
+// - union
+// static static
+//
+/*
+TODO
+static char mon[][4] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    };
+*/
 
 /*
  *  This file is part of cake compiler
@@ -43194,7 +43222,7 @@ static void object_print_value(struct osstream* ss, const struct object* a)
 
 
     case TYPE_SIGNED_SHORT:
-//        ss_fprintf(ss, "((short)%d)", a->signed_short_value);
+        //        ss_fprintf(ss, "((short)%d)", a->signed_short_value);
         ss_fprintf(ss, "%d", a->signed_short_value);
         break;
 
@@ -43208,7 +43236,7 @@ static void object_print_value(struct osstream* ss, const struct object* a)
         break;
 
     case TYPE_UNSIGNED_INT:
-        ss_fprintf(ss, "%du", a->unsigned_int_value);
+        ss_fprintf(ss, "%u", a->unsigned_int_value);
         ss_fprintf(ss, "U");
         break;
     case TYPE_SIGNED_LONG:
@@ -43315,20 +43343,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             struct map_entry* p = hashmap_find(&ctx->function_map, func_name);
             if (p == NULL)
             {
+                /*first time we see it*/
+
                 struct hash_item_set i = { 0 };
                 i.number = 1;
                 hashmap_set(&ctx->function_map, func_name, &i);
                 struct osstream ss = { 0 };
 
-                //registrar os tipos usados
-                //register_struct_types_and_functions(ctx, &p_expression->type);
-
                 d_print_type(ctx, &ss, &p_expression->type, func_name);
-
-                if (p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
-                    ss_fprintf(&ctx->function_types, "static ");
-
-
 
                 if (type_is_function(&p_expression->declarator->type))
                 {
@@ -43364,9 +43386,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 ss_close(&ss);
             }
-
-
-
         }
     }
     break;
@@ -43454,7 +43473,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         {
             d_visit_expression(ctx, oss, arg->expression);
             if (arg->next)
-                ss_fprintf(oss, ",");
+                ss_fprintf(oss, ", ");
             arg = arg->next;
         }
         ss_fprintf(oss, ")");
@@ -43481,7 +43500,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ctx->indentation = 0;
         d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
         ctx->indentation = current_indentation;
-        ss_fprintf(&ctx->add_this_before_external_decl, "%s", lambda.c_str);
+        ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", lambda.c_str);
         ss_fprintf(oss, "%s", name);
     }
     break;
@@ -43590,7 +43609,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case MULTIPLICATIVE_EXPRESSION_MOD:
         d_visit_expression(ctx, oss, p_expression->left);
-        ss_fprintf(oss, " % ");
+        ss_fprintf(oss, "%s", " % ");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
 
@@ -43713,7 +43732,17 @@ static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstrea
     print_identation(ctx, oss);
     if (p_expression_statement->expression_opt)
         d_visit_expression(ctx, oss, p_expression_statement->expression_opt);
-    ss_fprintf(oss, ";\n");
+
+    if (p_expression_statement->expression_opt && 
+        p_expression_statement->expression_opt->expression_type == UNARY_EXPRESSION_ASSERT)
+    {
+        //we avoid empty ; expression statement 
+         ss_fprintf(oss, "\n");
+    }
+    else
+    {
+      ss_fprintf(oss, ";\n");
+    }
 }
 
 static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
@@ -43736,15 +43765,18 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
             p_jump_statement->expression_opt == NULL ||
             object_has_constant_value(&p_jump_statement->expression_opt->object) ||
             il_defer_count(&p_jump_statement->defer_list) == 0;
-        
+
         if (constant_expression_or_void)
         {
             il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
             print_identation(ctx, oss);
-            ss_fprintf(oss, "return ");
+            ss_fprintf(oss, "return");
 
             if (p_jump_statement->expression_opt)
+            {
+                ss_fprintf(oss, " ");
                 d_visit_expression(ctx, oss, p_jump_statement->expression_opt);
+            }
             ss_fprintf(oss, ";\n");
         }
         else
@@ -43872,12 +43904,12 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
             ss_fprintf(oss, "for (");
         }
 
-        ss_fprintf(oss, ";");
+        ss_fprintf(oss, "; ");
 
         if (p_iteration_statement->expression1)
             d_visit_expression(ctx, oss, p_iteration_statement->expression1);
 
-        ss_fprintf(oss, ";");
+        ss_fprintf(oss, "; ");
 
         if (p_iteration_statement->expression2)
             d_visit_expression(ctx, oss, p_iteration_statement->expression2);
@@ -44272,6 +44304,30 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                             struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
                                         }
                                     }
+                                    if (type_is_array(&member_declarator->declarator->type))
+                                    {
+                                        struct type t = get_array_item_type(&member_declarator->declarator->type);
+                                        if (type_is_struct_or_union(&t))
+                                        {
+                                            struct struct_or_union_specifier* _Opt p_complete_member =
+                                                p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                            char name2[100];
+                                            snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+
+                                            register_struct_types_and_functions(ctx, &t);
+                                            struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
+                                            if (p2 != NULL)
+                                            {
+                                                struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                        }
+                                        type_destroy(&t);
+                                    }
                                     else
                                     {
                                         register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
@@ -44336,14 +44392,17 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             if (p_type->struct_or_union_specifier)
             {
-                ss_fprintf(&local, "struct %s", p_type->struct_or_union_specifier->tag_name);
+                if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
+                    ss_fprintf(&local, "union %s", p_type->struct_or_union_specifier->tag_name);
+                else
+                    ss_fprintf(&local, "struct %s", p_type->struct_or_union_specifier->tag_name);
             }
             else if (p_type->enum_specifier)
             {
 
                 const struct enum_specifier* p_enum_specifier =
                     get_complete_enum_specifier(p_type->enum_specifier);
-                
+
                 if (p_enum_specifier &&
                     p_enum_specifier->specifier_qualifier_list)
                 {
@@ -44560,10 +44619,14 @@ static bool is_all_zero(const struct object* object)
         }
     }
 
-    if (object->p_init_expression &&
-        object_has_constant_value(&object->p_init_expression->object))
+    if (object->p_init_expression)
     {
-        if (object->p_init_expression->object.bool_value != 0)
+        if (object_has_constant_value(&object->p_init_expression->object))
+        {
+            if (object->p_init_expression->object.bool_value != 0)
+                return false;
+        }
+        else
             return false;
     }
 
@@ -44600,6 +44663,11 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
             {
                 object_print_value(ss, &object->p_init_expression->object);
             }
+            else if (object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+            {
+                //literals also can be used in c89 initializers
+                il_visit_literal_string(object->p_init_expression->first_token, ss);
+            }
             else
             {
                 ss_fprintf(ss, "0"); /*provisory*/
@@ -44633,7 +44701,11 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, st
     {
         if (object->p_init_expression)
         {
-            if (!object_has_constant_value(&object->p_init_expression->object))
+            if (object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+            {
+                //skip
+            }
+            else if (!object_has_constant_value(&object->p_init_expression->object))
             {
                 print_identation_core(ss, ctx->indentation);
                 ss_fprintf(ss, "%s%s = ", declarator_name, object->debug_name);
@@ -44661,15 +44733,10 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
     }
     else
     {
-        //prints the type with its declarator
         print_identation(ctx, oss);
-
 
         if (binline)
             ss_fprintf(oss, "__inline ");
-
-
-
 
         struct osstream ss = { 0 };
         d_print_type(ctx, &ss,
@@ -44677,8 +44744,6 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
             p_init_declarator->p_declarator->name_opt->lexeme);
 
         ss_fprintf(oss, "%s", ss.c_str);
-
-        //visit_declarator(ctx, p_init_declarator->p_declarator);
 
         if (p_init_declarator->initializer)
         {
@@ -44714,7 +44779,6 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
                         ss_fprintf(oss, "{0};\n");
                     }
                 }
-
             }
         }
         else
@@ -44725,6 +44789,11 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
         if (p_init_declarator->p_declarator->function_body)
         {
+            struct hash_item_set i = { 0 };
+            i.number = 1;
+            hashmap_set(&ctx->function_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
+            struct osstream ss = { 0 };
+
             ss_fprintf(oss, "\n");
             d_visit_compound_statement(ctx, oss, p_init_declarator->p_declarator->function_body);
             ss_fprintf(oss, "\n");
@@ -44782,11 +44851,18 @@ void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
     struct member_declaration* _Opt member_declaration =
         p_complete->member_declaration_list.head;
 
-    ss_fprintf(ss, "struct %s", p_complete->tag_name);
+    if (struct_or_union_specifier_is_union(p_complete))
+    {
+        ss_fprintf(ss, "union %s", p_complete->tag_name);
+    }
+    else
+    {
+        ss_fprintf(ss, "struct %s", p_complete->tag_name);
+    }
 
     if (p_complete->member_declaration_list.head)
     {
-        ss_fprintf(ss, "\n");
+        ss_fprintf(ss, " ");
         ss_fprintf(ss, "{\n");
     }
 
@@ -44848,14 +44924,22 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     while (p_declaration)
     {
         ss_clear(&ctx->add_this_before_external_decl);
+        ss_clear(&ctx->function_types);
+
         struct osstream declaration = { 0 };
         d_visit_declaration(ctx, &declaration, p_declaration);
+
+        if (ctx->function_types.size > 0)
+        {
+            ss_fprintf(&declarations, "%s\n", ctx->function_types.c_str);
+            ss_clear(&ctx->function_types);
+        }
 
         if (ctx->add_this_before_external_decl.size > 0)
         {
             ss_fprintf(&declarations, "%s", ctx->add_this_before_external_decl.c_str);
         }
-        if (declaration.c_str != NULL)
+        if (declaration.size > 0)
             ss_fprintf(&declarations, "%s", declaration.c_str);
 
         ss_close(&declaration);
@@ -44863,7 +44947,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         p_declaration = p_declaration->next;
     }
 
-
+#if 0
     const char* str
         =
         "/* Generated by Cake - C89 compliant source code \n"
@@ -44871,28 +44955,13 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         "*/\n\n";
 
     ss_fprintf(oss, "%s", str);
+#endif
 
     if (ctx->data_types.c_str)
     {
         ss_fprintf(oss, "%s", ctx->data_types.c_str);
         ss_fprintf(oss, "\n");
     }
-
-    //tudo o que nao esta completo no map
-
-    for (int i = 0; i < ctx->structs_map.capacity; i++)
-    {
-        struct map_entry* _Opt entry = ctx->structs_map.table[i];
-        while (entry)
-        {
-            struct struct_or_union_specifier* _Opt p_complete =
-                get_complete_struct_or_union_specifier2(entry->data.p_struct_entry->p_struct_or_union_specifier);
-
-            ss_fprintf(oss, "struct %s;\n", p_complete->tag_name);
-            entry = entry->next;
-        }
-    }
-    ss_fprintf(oss, "\n");
 
     for (int i = 0; i < ctx->structs_map.capacity; i++)
     {
@@ -44905,13 +44974,10 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     }
     ss_fprintf(oss, "\n");
 
-    if (ctx->function_types.c_str)
+    if (declarations.c_str)
     {
-        ss_fprintf(oss, "%s", ctx->function_types.c_str);
-        ss_fprintf(oss, "\n\n");
+        ss_fprintf(oss, "%s", declarations.c_str);
     }
-
-    ss_fprintf(oss, "%s", declarations.c_str);
     ss_close(&declarations);
 }
 

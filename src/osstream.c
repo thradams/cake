@@ -22,6 +22,8 @@ void ss_swap(_View struct osstream* a, _View struct osstream* b)
 
 void ss_clear(struct osstream* stream)
 {
+    if (stream->c_str)
+        stream->c_str[0] = '\0';
     stream->size = 0;
 }
 

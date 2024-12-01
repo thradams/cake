@@ -3404,6 +3404,11 @@ void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Op
 void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Opt p) {}
 #endif
 
+bool struct_or_union_specifier_is_union(const struct struct_or_union_specifier* p)
+{
+    return p->first_token->type == TK_KEYWORD_UNION;
+}
+
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt p)
 {
     if (p)
@@ -3514,7 +3519,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         else
         {
             /*struct without a tag, in this case we make one*/
-            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
+            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_struct_tag_%d", s_anonymous_struct_count);
             s_anonymous_struct_count++;
             p_struct_or_union_specifier->has_anonymous_tag = true;
             p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;

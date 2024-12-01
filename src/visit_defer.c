@@ -390,11 +390,19 @@ static void defer_exit_iteration_or_switch_statement_visit(struct defer_visit_ct
     {
         defer_exit_block_visit(ctx, p_defer, position_token, p_defer_list);
 
-        if (p_defer->p_iteration_statement || p_defer->p_selection_statement)
+        if (p_defer->p_iteration_statement)
         {
-            //break can be used in loops or switch
+            //break using in for,do , while
             break;
         }
+
+        if (p_defer->p_selection_statement && 
+            p_defer->p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
+        {
+            //break switch case
+            break;
+        }
+
         p_defer = p_defer->previous;
     }
 }
