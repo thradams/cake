@@ -1,10 +1,1 @@
-﻿
-struct X {
-  int i;
-};
-
-int main(){
-   struct X x = {};
-   if ((struct X){}.i)
-   {}
-}
+﻿int *p = (int[]){2, 4};

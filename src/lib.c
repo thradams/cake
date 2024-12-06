@@ -27902,7 +27902,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.37"
+#define CAKE_VERSION "0.9.38"
 
 
 
@@ -40563,7 +40563,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
     {
         char name[100];
-        snprintf(name, sizeof(name), "__local_%d", ctx->locals_count++);
+        snprintf(name, sizeof(name), "__cmp_lt_%d", ctx->locals_count++);
 
 
         print_identation_core(&ctx->add_this_before, ctx->indentation);
@@ -40789,9 +40789,9 @@ static void d_visit_declarator(struct d_visit_ctx* ctx, struct osstream* oss, st
 
 static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct expression_statement* p_expression_statement)
 {
-    
+
     ss_clear(&ctx->add_this_before);
-    struct osstream local = {0};
+    struct osstream local = { 0 };
 
     print_identation(ctx, &local);
     if (p_expression_statement->expression_opt)
@@ -41770,7 +41770,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
     {
         if (!(*first))
             ss_fprintf(ss, ", ");
-        
+
         *first = false;
 
         il_visit_literal_string(object->p_init_expression->first_token, ss);
@@ -42092,9 +42092,16 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
             ss_clear(&ctx->function_types);
         }
 
+        if (ctx->add_this_before.size > 0)
+        {
+            ss_fprintf(oss, "%s", ctx->add_this_before.c_str);
+            ss_clear(&ctx->add_this_before);
+
+        }
         if (ctx->add_this_before_external_decl.size > 0)
         {
             ss_fprintf(&declarations, "%s", ctx->add_this_before_external_decl.c_str);
+            ss_clear(&ctx->add_this_before_external_decl);
         }
         if (declaration.size > 0)
             ss_fprintf(&declarations, "%s", declaration.c_str);
