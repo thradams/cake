@@ -46,12 +46,6 @@
     <ClCompile Include="..\src\type.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\visit.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\visit_fmt.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\visit_flow.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -103,12 +97,6 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\type.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\visit.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\visit_fmt.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\visit_flow.h">

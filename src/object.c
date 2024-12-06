@@ -1384,6 +1384,18 @@ bool object_is_reference(const struct object* p_object)
     return p_object->state == CONSTANT_VALUE_STATE_REFERENCE;
 }
 
+void object_fix_parent(struct object* p_object, struct object* parent)
+{
+    int object_fix_parent_will_be_removed;
+
+    struct object* _Opt it = p_object->members;
+    while (it)
+    {
+        it->parent = parent;
+        it = it->next;
+    }
+}
+
 struct object* _Opt object_get_member(struct object* p_object, int index)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
@@ -1459,6 +1471,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             if (p_object == NULL)
                 throw;
             p_object->debug_name = strdup(name);
+            p_object->type2 = type_dup(p_type);
             return p_object;
         }
 
@@ -1472,35 +1485,36 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
             assert(p_object->debug_name == NULL);
             p_object->debug_name = strdup(name);
+            p_object->type2 = type_dup(p_type);
 
             return p_object;
         }
 
         if (p_type->category == TYPE_CATEGORY_ARRAY)
         {
+            p_object = calloc(1, sizeof * p_object);
+            if (p_object == NULL)
+                throw;
+            p_object->type2 = type_dup(p_type);
+            p_object->debug_name = strdup(name);
 
             if (p_type->num_of_elements > 0)
             {
-                p_object = calloc(1, sizeof * p_object);
-                if (p_object == NULL)
-                    throw;
-                p_object->debug_name = strdup(name);
-
-
-                struct type t = get_array_item_type(p_type);
+                struct type array_item_type = get_array_item_type(p_type);
 
                 struct object* _Opt p_tail_object = NULL;
                 for (int i = 0; i < p_type->num_of_elements; i++)
                 {
                     char buffer[200] = { 0 };
                     snprintf(buffer, sizeof buffer, "%s[%d]", name, i);
-                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer);
+                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&array_item_type, buffer);
                     if (p_member_obj == NULL)
                     {
-                        type_destroy(&t);
+                        type_destroy(&array_item_type);
                         throw;
                     }
-
+                    p_member_obj->parent = p_object;
+                    p_member_obj->debug_name = strdup(buffer);
                     if (p_tail_object == NULL)
                     {
                         assert(p_object->members == NULL);
@@ -1514,13 +1528,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
                     p_tail_object = p_member_obj;
                 }
-                type_destroy(&t);
-            }
-            else
-            {
-                p_object = calloc(1, sizeof * p_object);
-                if (p_object == NULL)
-                    throw;
+                type_destroy(&array_item_type);
             }
 
             return p_object;
@@ -1538,6 +1546,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object->type = type_to_object_type(p_type);
             p_object->signed_long_long_value = -1;
             p_object->debug_name = strdup(name);
+            p_object->type2 = type_dup(p_type);
 
             return p_object;
         }
@@ -1557,6 +1566,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             throw;
 
         p_object->debug_name = strdup(name);
+        p_object->type2 = type_dup(p_type);
 
         struct object* _Opt p_last_member_obj = NULL;
 
@@ -1582,6 +1592,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                         if (p_member_obj == NULL)
                             throw;
 
+                        p_member_obj->parent = p_object;
                         //p_object->debug_name = p_member_declarator->declarator->name_opt->lexeme;
 
                         if (p_object->members == NULL)
@@ -1615,6 +1626,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_obj == NULL)
                         throw;
 
+                    p_member_obj->parent = p_object;
                     if (p_last_member_obj == NULL)
                     {
                         assert(p_object->members == NULL);
@@ -1646,6 +1658,18 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
 {
     return make_object_ptr_core(p_type, "");
+}
+
+int make_object(const struct type* p_type, struct object* obj)
+{
+    struct object* p = make_object_ptr_core(p_type, "");
+    if (p)
+    {
+        *obj = *p;
+        object_fix_parent(obj, obj);
+        free(p);
+    }
+    return p == 0 ? 1 : 0;
 }
 
 
@@ -1706,7 +1730,7 @@ enum object_value_type type_to_object_type(const struct type* type)
 #endif
     }
 
-    return type_specifier_to_object_type(type->type_specifier_flags);    
+    return type_specifier_to_object_type(type->type_specifier_flags);
 }
 
 
@@ -1719,54 +1743,54 @@ void object_print_value_debug(const struct object* a)
     {
 
     case TYPE_BOOL:
-        printf("bool : %s", a->bool_value ? "true" : "false");
+        printf("%s (bool)", a->bool_value ? "true" : "false");
         break;
 
     case TYPE_SIGNED_CHAR:
 
-        printf("signed char : %d", (int)a->signed_char_value);
+        printf("%d (signed char)", (int)a->signed_char_value);
         break;
 
 
     case TYPE_UNSIGNED_CHAR:
-        printf("unsigned char : %d", (int)a->unsigned_char_value);
+        printf("%d (unsigned char)", (int)a->unsigned_char_value);
         break;
 
 
     case TYPE_SIGNED_SHORT:
-        printf("short : %d", a->signed_short_value);
+        printf("%d (short)", a->signed_short_value);
         break;
 
     case TYPE_UNSIGNED_SHORT:
-        printf("unsigned short : %d", a->unsigned_short_value);
+        printf("%d (unsigned short)", a->unsigned_short_value);
         break;
 
     case TYPE_SIGNED_INT:
-        printf("int : %d", a->signed_int_value);
+        printf("%d (int)", a->signed_int_value);
         break;
     case TYPE_UNSIGNED_INT:
-        printf("unsigned int : %du", a->unsigned_int_value);
+        printf("%du (unsigned int)", a->unsigned_int_value);
         break;
     case TYPE_SIGNED_LONG:
-        printf("long : %ld", a->signed_long_value);
+        printf("%ld (long)", a->signed_long_value);
         break;
     case TYPE_UNSIGNED_LONG:
-        printf("unsigned long : %lu", a->unsigned_long_value);
+        printf("%lu (unsigned long)", a->unsigned_long_value);
         break;
     case TYPE_SIGNED_LONG_LONG:
-        printf("long long : %lld", a->signed_long_long_value);
+        printf("%lld (long long)", a->signed_long_long_value);
         break;
     case TYPE_UNSIGNED_LONG_LONG:
-        printf("unsigned long long : %llu", a->unsigned_long_long_value);
+        printf("%llu (unsigned long long)", a->unsigned_long_long_value);
         break;
     case TYPE_FLOAT:
-        printf("float : %f", a->float_value);
+        printf("%f (float)", a->float_value);
         break;
     case TYPE_DOUBLE:
-        printf("double : %lf", a->double_value);
+        printf("%lf (double)", a->double_value);
         break;
     case TYPE_LONG_DOUBLE:
-        printf("long double : %Lf", a->long_double_value);
+        printf("%Lf (long double)", a->long_double_value);
         break;
     }
 
@@ -1780,21 +1804,36 @@ void object_print_to_debug_core(const struct object* object, int n)
         object = object_get_referenced(object);
     }
 
+
+    for (int i = 0; i < n; i++) printf("  ");
+
+
     if (object->members != NULL)
     {
+
+        type_print(&object->type2);
+
+        printf(" {\n");
+
         struct object* _Opt member = object->members;
         while (member)
         {
             object_print_to_debug_core(member, n + 1);
             member = member->next;
         }
+
+        for (int i = 0; i < n; i++) printf("  ");
+        printf("}\n");
     }
     else
     {
-        for (int i = 0; i < n; i++)
-        {
-            printf("  ");
-        }
+
+
+
+        type_print(&object->type2);
+
+
+        printf(" = ");
 
         object_print_value_debug(object);
 
@@ -1825,21 +1864,19 @@ void object_print_to_debug(const struct object* object)
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int max_index, bool is_constant)
 {
     struct object* _Opt it = a->members;
+
     try
     {
+        int count = 0;
         while (it)
         {
-            if (max_index == 0)
-                break;
-            max_index--;
-
+            count++;
             if (it->next == NULL)
                 break;
-
             it = it->next;
         }
 
-        while (max_index >= 0)
+        while (count < (max_index + 1))
         {
             if (it == NULL)
             {
@@ -1851,22 +1888,22 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 object_default_initialization(a->members, is_constant);
 
                 it = a->members;
-
-                max_index--;
+                it->parent = a;
+                count++;
             }
             else
             {
                 struct object* _Owner _Opt p = make_object_ptr(p_type);
                 if (p == NULL)
                     throw;
-
+                p->parent = a;
                 object_default_initialization(p, is_constant);
 
                 assert(it->next == NULL);
                 it->next = p;
 
                 it = p;
-                max_index--;
+                count++;
             }
         }
     }

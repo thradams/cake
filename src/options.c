@@ -374,37 +374,11 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-remove-comments") == 0)
-        {
-            options->remove_comments = true;
-            continue;
-        }
-
         if (strcmp(argv[i], "-test-mode") == 0)
         {
             options->test_mode = true;
             continue;
         }
-
-        if (strcmp(argv[i], "-direct-compilation") == 0 ||
-            strcmp(argv[i], "-rm") == 0)
-        {
-            options->direct_compilation = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-fi") == 0)
-        {
-            options->format_input = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-fo") == 0)
-        {
-            options->format_ouput = true;
-            continue;
-        }
-
 
         if (strcmp(argv[i], "-msvc-output") == 0 ||
             strcmp(argv[i], "-fdiagnostics-format=msvc") == 0) //same as clang
@@ -454,62 +428,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-target=ir") == 0)
-        {
-            options->target = LANGUAGE_IR;
-            continue;
-        }
-
-        //
-        if (strcmp(argv[i], "-target=c89") == 0)
-        {
-            options->target = LANGUAGE_C89;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-target=c99") == 0)
-        {
-            options->target = LANGUAGE_C99;
-            continue;
-        }
-        if (strcmp(argv[i], "-target=c11") == 0)
-        {
-            options->target = LANGUAGE_C11;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-target=c2x") == 0 ||
-            strcmp(argv[i], "-target=c23") == 0)
-        {
-            options->target = LANGUAGE_C23;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-target=c2y") == 0)
-        {
-            options->target = LANGUAGE_C2Y;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-target=cxx") == 0)
-        {
-            options->target = LANGUAGE_CAK;
-            continue;
-        }
-
-
-
-        //
-        if (strcmp(argv[i], "-std=c99") == 0)
-        {
-            options->input = LANGUAGE_C99;
-            continue;
-        }
-        if (strcmp(argv[i], "-std=c11") == 0)
-        {
-            options->input = LANGUAGE_C11;
-            continue;
-        }
+  
         if (strcmp(argv[i], "-std=c2x") == 0 ||
             strcmp(argv[i], "-std=c23") == 0)
         {

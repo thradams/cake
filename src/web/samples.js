@@ -2,7 +2,7 @@
 
 sample["C99"] = [];
 sample["C99"]["_Bool"] =
-`
+    `
  /*
     _Bool type was introduced in C99 as built-in type used 
     to represent boolean values and the header <stdbool.h>
@@ -21,20 +21,49 @@ int main(void)
 `;
 
 sample["C99"]["Designated Initializers"] =
-`
-int main()
- {
-  int a[6] = {[4] = 29, [2] = 15 };
+    `
 
-  struct point { int x, y; };
 
-  struct point p = { .y = 2, .x = 3 };
- }
+struct T {
+    int k;
+    int l;
+};
+struct S {
+    int i;
+    struct T t;
+};
+struct T x = {
+    .l = 43,
+    .k = 42,
+};
+void f(void) {
+    struct S l = {
+        1,
+        .t = x,
+        .t.l = 41,
+    };
+}
+
+int main() {
+    int a[6] = {[4] = 29, [2] = 15};
+
+    struct point {
+        int x, y;
+    };
+    struct point p = {.y = 2, .x = 3};
+
+    struct {
+        int a[3], b;
+    } w[] = {[0].a = {1}, [1].a[0] = 2};
+}
+
+#define A_MAX 20
+int a[A_MAX] = { 1, 3, 5, 7, 9, [A_MAX-5] = 8, 6, 4, 2, 0 };
 
 `;
 
 sample["C99"]["Compound literals"] =
-`
+    `
 struct X {
   int i;
 };
@@ -47,7 +76,7 @@ int main(){
 
 
 sample["C99"][" Hexadecimal floating constants"] =
-`
+    `
 const double d = 0x1p+1;
 const double dmax = 0x1.fffffffffffffp+1023;
 const double dmin = 0x1p-1022;
@@ -58,7 +87,7 @@ const double dmin = 0x1p-1022;
 `;
 
 sample["C99"]["int a[static]"] =
-`
+    `
 #include <stdlib.h>
 
 
@@ -92,7 +121,7 @@ int main() {
 `;
 
 sample["C99"][" __VA_ARGS__"] =
-`
+    `
 #include <stdio.h>
 
 #define MYLOG(FormatLiteral, ...)  fprintf (stderr, "%s(%u): " FormatLiteral "\\n", __FILE__, __LINE__, __VA_ARGS__)
@@ -107,7 +136,25 @@ int main()
 
 `;
 
-sample["C11"]=[];
+sample["C11"] = [];
+
+sample["C11"]["anonymous structures/unions"] =
+    `
+struct point { float x, y, z; };
+
+struct location {
+    char* name;
+    struct point;
+};
+
+int main()
+{
+    struct location location = {};
+    location.x = 1;
+    location.y = 2;
+}
+`;
+
 sample["C11"]["_Generic"] =
     `
 #include <math.h>
@@ -139,7 +186,7 @@ int main(void)
 `;
 
 sample["C11"]["_Static_assert"] =
-`
+    `
 /*
    _Static_assert provides a mechanism for compile-time assertion 
    checking.
@@ -170,7 +217,7 @@ _Noreturn void not_coming_back(void)
 `;
 
 sample["C11"]["u8 literals"] =
-`
+    `
 /*
 * cake input source code encode is always utf8
 * cake output source code is also utf8
@@ -192,7 +239,7 @@ int main()
 `;
 
 sample["C11"]["u U char literals"] =
-`
+    `
 int main()
 {
   int i = U'ç';
@@ -201,7 +248,7 @@ int main()
 `;
 
 sample["C11"]["_Alignof / C23 alignof"] =
-`
+    `
 struct X
 {
     char s;
@@ -221,9 +268,9 @@ int main(void)
 
 `;
 
-sample["C23"]=[]
+sample["C23"] = []
 sample["C23"]["Digit Separator"] =
-`
+    `
 #define M 1000'00
 
 int main()
@@ -244,7 +291,7 @@ int main()
 `;
 
 sample["C23"]["Binary Literal"] =
-`
+    `
 #define X  0b1010
 
 int main()
@@ -262,7 +309,7 @@ int main()
 
 
 sample["C23"]["static_assert"] =
-`
+    `
 /*
    C23 added the alternative keyword static_assert for 
    _Static_assert.
@@ -283,7 +330,7 @@ int main()
 
 
 sample["C23"]["#elifdef  #elifndef"] =
-`
+    `
 /*
   C23 preprocessing directives elifdef and elifndef N2645
   https://open-std.org/jtc1/sc22/wg14/www/docs/n2645.pdf
@@ -305,7 +352,7 @@ _Static_assert(VERSION == 2, "");
 
 
 sample["C23"]["__VA_OPT__"] =
-`
+    `
 /*
   __VA_OPT__ lets you optionally insert tokens depending on
   if a variadic macro is invoked with additional arguments. 
@@ -350,7 +397,7 @@ H5C(H5A())          // replaced by ab
 `;
 
 sample["C23"]["_has_include|__has_embed|__has_c_attribute"] =
-`
+    `
 
 #if __has_include(<stdio.h>)
 #warning  yes we have <stdio.h>
@@ -381,7 +428,7 @@ sample["C23"]["_has_include|__has_embed|__has_c_attribute"] =
 `;
 
 sample["C23"]["#embed"] =
-`
+    `
 #include <stdio.h>
 
 int main()
@@ -409,7 +456,7 @@ int main()
 `;
 
 sample["C23"]["u8 char literal"] =
-`
+    `
 //https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf
 int main()
 {
@@ -449,7 +496,7 @@ int main()
 `;
 
 sample["C23"]["typeof / typeof_unqual"] =
-`
+    `
 #include <stdlib.h>
 
 #define SWAP(a, b) \\
@@ -532,7 +579,7 @@ int f5(){
 `;
 
 sample["C23"]["macro NEW"] =
-`
+    `
 #include <stdlib.h>
 #include <string.h>
 
@@ -557,7 +604,7 @@ int main() {
 `;
 
 sample["C23"]["auto"] =
-`
+    `
 
 
 /*function sample*/
@@ -612,7 +659,7 @@ int main()
 
 
 sample["C23"]["bool true false"] =
- `
+    `
 /*
   C23 introduced keyword bool as alternative to _Bool and 
   true and false as constants.
@@ -642,7 +689,7 @@ int main()
 `;
 
 sample["C23"]["nullptr"] =
-`
+    `
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -676,7 +723,7 @@ int F()
 
 
 sample["C23"]["[[maybe_unused]] "] =
-`
+    `
 
 void f( [[maybe_unused]] int arg1, int arg2)
 {
@@ -690,7 +737,7 @@ void f( [[maybe_unused]] int arg1, int arg2)
 
 
 sample["C23"]["[[deprecated]] "] =
-`
+    `
 [[deprecated]] void f2() {
 }
 
@@ -711,7 +758,7 @@ int main(void) {
 `;
 
 sample["C23"]["[[nodiscard]] "] =
-`
+    `
 
 #include <stdlib.h>
 
@@ -741,7 +788,7 @@ void call(void) {
 `;
 
 sample["C23"]["[[fallthrough]] "] =
-`
+    `
 /*
    IS NOT IMPLEMENTED YET
 */
@@ -780,7 +827,7 @@ void f(int n) {
 
 
 sample["C23"]["constexpr"] =
-`
+    `
 #include <stdio.h>
 
 constexpr int c = 123;
@@ -839,7 +886,7 @@ int main() {
 
 sample["C2Y"] = [];
 sample["C2Y"]["if with initialization (Like C++17)"] =
-`
+    `
 /*
   https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm
 */
@@ -872,7 +919,7 @@ int main()
 
 
 sample["C2Y"]["_Generic(type-name)"] =
-`
+    `
 /*
   https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3214.pdf
 */
@@ -890,7 +937,7 @@ int main(void)
 `;
 
 sample["C2Y"]["_Lengthof"] =
-`
+    `
 /*
   https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf
 */
@@ -915,7 +962,7 @@ int main()
 
 
 sample["C2Y"]["Obsolete implicitly octal literals"] =
-`
+    `
 //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
 
 static_assert(0o52 == 052);
@@ -930,7 +977,7 @@ int main()
 
 
 sample["C2Y"]["defer inside try blocks"] =
-`
+    `
 /*
   https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm
 */
@@ -1062,7 +1109,7 @@ int main()
 
 
 sample["C2Y"]["defer and flow analysis"] =
-`
+    `
 #pragma flow enable
 
 void f2(int i){}
@@ -1079,7 +1126,7 @@ void f(int k)
 
 
 sample["C2Y"]["defer interleaved with return"] =
-`
+    `
 
 int f(){
   int i = 1;
@@ -1101,9 +1148,9 @@ void f0(){
 `;
 
 
-sample["Extensions"]=[];   
+sample["Extensions"] = [];
 sample["Extensions"]["try catch throw"] =
-`
+    `
 #include <stdio.h>
 
 int main()
@@ -1129,7 +1176,7 @@ int main()
 
 
 sample["Extensions"]["try catch throw II"] =
-`
+    `
 #include <stdio.h>
 
 /*not sure if usefull , but this is allowed*/
@@ -1160,7 +1207,7 @@ int main()
 
 
 sample["Extensions"]["Literal function (lambda) I"] =
-`
+    `
 /*simple lambda*/
 #include <stdio.h>
 int main()
@@ -1227,7 +1274,7 @@ int main()
 `;
 
 sample["Extensions"]["typeof + lambdas"] =
-`
+    `
 /* Use -fo option to format output*/
 
 #define SWAP(a, b)\\
@@ -1246,7 +1293,7 @@ int main()
 
 
 sample["Extensions"]["line slicing checks"] =
-`
+    `
 
 #define M\\
 ACRO 1
@@ -1273,7 +1320,7 @@ int main()
 
 
 sample["Extensions"]["pragma diagnostic"] =
-`
+    `
 enum E1 { A };
 enum E2 { B };
 
@@ -1308,7 +1355,7 @@ int main() {
 `;
 
 sample["Extensions"]["Traits"] =
-`
+    `
 
 int main()
 {
@@ -1336,7 +1383,7 @@ int main()
 
 
 sample["Extensions"]["assert"] =
-`
+    `
 /* 
    assert in cake is a built-in expression.
    including assert.h if NDEBUG is defined, defines
@@ -1353,10 +1400,10 @@ int main()
 
 `;
 
-sample["Enable Safety"]=[];
+sample["Enable Safety"] = [];
 
 sample["Enable Safety"]["malloc/free"] =
-`
+    `
 #pragma safety enable
 
 void* _Owner _Opt malloc(unsigned long size);
@@ -1370,7 +1417,7 @@ int main() {
 `;
 
 sample["Enable Safety"]["static_state/static_debug"] =
-`
+    `
 #pragma safety enable
 
 void* _Owner _Opt malloc(unsigned long size);
@@ -1391,7 +1438,7 @@ int main() {
 `;
 
 sample["Enable Safety"]["implementing a destructor I"] =
-`
+    `
 #pragma safety enable
 
 #include <stdlib.h>
@@ -1417,7 +1464,7 @@ int main() {
 
 
 sample["Enable Safety"]["implementing a destructor II"] =
-`
+    `
 #pragma safety enable
 
 #include <stdlib.h>
@@ -1441,7 +1488,7 @@ int main() {
 `;
 
 sample["Enable Safety"]["_View qualifier"] =
-`
+    `
 #pragma safety enable 
 
 #include <stdlib.h>
@@ -1472,7 +1519,7 @@ int main() {
 
 
 sample["Enable Safety"]["implementing delete"] =
-`
+    `
 #pragma safety enable 
 
 #include <stdlib.h>
@@ -1506,7 +1553,7 @@ int main() {
 
 
 sample["Enable Safety"]["fix-me 1"] =
-`
+    `
 #pragma safety disable
 
 #include <stdlib.h>
@@ -1523,7 +1570,7 @@ int main() {
 `;
 
 sample["Enable Safety"]["Linked list"] =
-`#pragma safety enable
+    `#pragma safety enable
 
 #include <stdlib.h>
 #include <assert.h>
@@ -1614,7 +1661,7 @@ int main(int argc, char* argv[])
 `;
 
 sample["Enable Safety"]["dynamic array"] =
-`
+    `
 #pragma safety enable
 
 #include <stdlib.h>
@@ -1693,7 +1740,7 @@ int main()
 `;
 
 sample["Enable Safety"]["using moved object"] =
-`
+    `
 #pragma safety enable
 
 #include <string.h>
@@ -1718,7 +1765,7 @@ int main()
 `;
 
 sample["Enable Safety"]["static_set/realloc"] =
-`
+    `
 #pragma safety enable
 
 void* _Owner realloc(void* _Opt ptr, unsigned size);
@@ -1742,7 +1789,7 @@ void f()
 `;
 
 sample["Enable Safety"]["mtx_t"] =
-`
+    `
 #pragma safety enable
 
 enum {
@@ -1780,7 +1827,7 @@ int main()
 `;
 
 sample["Enable Safety"]["socket"] =
-`
+    `
 _Owner int socket();
 void close(_Owner int fd);
 
@@ -1800,7 +1847,7 @@ int main()
 
 
 sample["Enable Safety"]["assignment"] =
-`
+    `
 #pragma safety enable
 
 #include <string.h>
@@ -1821,7 +1868,7 @@ int main()
 
 
 sample["Enable Safety"]["takes_ownership"] =
-`
+    `
 #pragma safety enable
 
 #include <stdlib.h>
@@ -1847,7 +1894,7 @@ int main()
 
 
 sample["Enable Safety"]["gives ownership"] =
-`
+    `
 #pragma safety enable
 
 #include <string.h>
@@ -1866,7 +1913,7 @@ int main(){
 `;
 
 sample["Enable Safety"]["moving parts of _View"] =
-`
+    `
 #pragma safety enable
 
 #include <string.h>
@@ -1903,7 +1950,7 @@ int main() {
 `;
 
 sample["Enable Safety"]["_Owner pointer owns two objects"] =
-`
+    `
 #pragma safety enable
 
 void * _Owner _Opt calloc(unsigned long i, unsigned long sz);
@@ -1932,7 +1979,7 @@ int main()
 
 
 sample["Enable Safety"]["checking double free"] =
-`
+    `
 #pragma safety enable
 
 void free(void * _Owner p);
@@ -1958,7 +2005,7 @@ void x_destroy(struct X * _Obj_owner p)
 
 sample["Find the bug"] = [];
 sample["Find the bug"]["Bug #1"] =
-`
+    `
 #pragma safety enable
 
 #include <stdlib.h>
@@ -1985,7 +2032,7 @@ int main()
 `;
 
 sample["Find the bug"]["Bug #2"] =
-`
+    `
 
 #pragma safety enable
 
@@ -2016,7 +2063,7 @@ int main()
 
 
 sample["Find the bug"]["Bug #3"] =
-`
+    `
 
 #pragma safety enable
 
@@ -2053,7 +2100,7 @@ int main()
 `;
 
 sample["Find the bug"]["Bug #4"] =
-`
+    `
 
 #pragma safety enable
 
@@ -2084,7 +2131,7 @@ int main()
 `;
 
 sample["Find the bug"]["Bug #5"] =
-`
+    `
 
 
 struct X
@@ -2105,7 +2152,7 @@ void f(int condition)
 `;
 
 sample["Find the bug"]["Bug #5"] =
-`
+    `
 #pragma safety enable
 
 void* _Owner _Opt calloc(unsigned int n, unsigned long size);
@@ -2140,7 +2187,7 @@ int main()
 `;
 
 sample["Find the bug"]["Bug #6"] =
-`
+    `
 #pragma safety enable
 
 #include <stdlib.h>
@@ -2171,7 +2218,7 @@ void main()
 `;
 
 sample["Find the bug"]["Bug #7 K & R"] =
-`
+    `
 /*
   This code is from 
   The C Programming Language 2 edition, page 145
@@ -2229,7 +2276,7 @@ struct nlist *install(char *name, char *defn)
 `;
 
 sample["Find the bug"]["Bug #8"] =
-`
+    `
 #pragma safety enable
 
 void  f(int i)
@@ -2247,7 +2294,7 @@ int main() {}
 `;
 
 sample["Find the bug"]["Bug #9"] =
-`
+    `
 enum E1 {A, B};
 enum E2 {C, D};
 
@@ -2263,7 +2310,7 @@ int main(){}
 `;
 
 sample["Find the bug"]["Bug #10"] =
-`
+    `
 #pragma safety enable
 
 #include <stdio.h>
@@ -2291,7 +2338,7 @@ int main() {
 `;
 
 sample["Find the bug"]["Bug #11"] =
-`
+    `
 #pragma safety enable
 
 void* _Owner _Opt malloc(unsigned long size);

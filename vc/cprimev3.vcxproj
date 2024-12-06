@@ -34,7 +34,6 @@
     <ClCompile Include="..\src\error.c" />
     <ClCompile Include="..\src\expressions.c" />
     <ClCompile Include="..\src\visit_flow.c" />
-    <ClCompile Include="..\src\visit_fmt.c" />
     <ClCompile Include="..\src\fs.c" />
     <ClCompile Include="..\src\hashmap.c" />
     <ClCompile Include="..\src\main.c" />
@@ -45,7 +44,6 @@
     <ClCompile Include="..\src\token.c" />
     <ClCompile Include="..\src\tokenizer.c" />
     <ClCompile Include="..\src\type.c" />
-    <ClCompile Include="..\src\visit.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h" />
@@ -55,7 +53,6 @@
     <ClInclude Include="..\src\error.h" />
     <ClInclude Include="..\src\expressions.h" />
     <ClInclude Include="..\src\visit_flow.h" />
-    <ClInclude Include="..\src\visit_fmt.h" />
     <ClInclude Include="..\src\fs.h" />
     <ClInclude Include="..\src\hashmap.h" />
     <ClInclude Include="..\src\options.h" />
@@ -66,7 +63,6 @@
     <ClInclude Include="..\src\tokenizer.h" />
     <ClInclude Include="..\src\type.h" />
     <ClInclude Include="..\src\version.h" />
-    <ClInclude Include="..\src\visit.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\object_flow.c">

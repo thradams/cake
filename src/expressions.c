@@ -1117,7 +1117,6 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     p_new->type = TYPE_SIGNED_CHAR;
                     p_new->signed_char_value = value;
 
-
                     if (p_expression_node->object.members == NULL)
                     {
                         p_expression_node->object.members = p_new;
@@ -1127,6 +1126,22 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                         last->next = p_new;
                     }
                     last = p_new;
+                }
+
+                struct object* p_new = calloc(1, sizeof * p_new);
+                if (p_new == NULL) throw;
+
+                p_new->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                p_new->type = TYPE_SIGNED_CHAR;
+                p_new->signed_char_value = 0;
+
+                if (last == NULL)
+                {
+                    p_expression_node->object.members = p_new;
+                }
+                else
+                {
+                    last->next = p_new;
                 }
 
                 number_of_bytes += string_literal_byte_size_not_zero_included(ctx->current->lexeme);
@@ -1631,19 +1646,19 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 {
                     assert(p_expression_node_new->left->type.struct_or_union_specifier != NULL);
 
-                    struct struct_or_union_specifier* _Opt p =
+                    struct struct_or_union_specifier* _Opt p_complete =
                         find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
 
-                    if (p)
-                        p = get_complete_struct_or_union_specifier(p);
+                    if (p_complete)
+                        p_complete = get_complete_struct_or_union_specifier(p_complete);
 
-                    if (p)
+                    if (p_complete)
                     {
                         assert(ctx->current != NULL);
 
                         int member_index = 0;
                         struct member_declarator* _Opt p_member_declarator =
-                            find_member_declarator(&p->member_declaration_list, ctx->current->lexeme, &member_index);
+                            find_member_declarator(&p_complete->member_declaration_list, ctx->current->lexeme, &member_index);
 
                         if (p_member_declarator)
                         {
@@ -1688,7 +1703,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                     ctx->current, NULL,
                                                     "member '%s' not found in 'struct %s'",
                                                     ctx->current->lexeme,
-                                                    p->tag_name);
+                                                    p_complete->tag_name);
                         }
                     }
                     else
@@ -1979,15 +1994,12 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
             //TODO
 
-            struct object* _Owner _Opt p_object = make_object_ptr(&p_expression_node->type);
-            if (p_object == NULL)
+            int er = make_object(&p_expression_node->type, &p_expression_node->object);
+            if (er != 0)
             {
                 compiler_diagnostic_message(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
                 throw;
             }
-            p_expression_node->object = *p_object;
-            p_object = NULL;
-
 
             bool is_constant = type_is_const(&p_expression_node->type) ||
                 p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
@@ -1997,11 +2009,11 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             //printf("\n");
             //object_print_to_debug(&p_init_declarator->p_declarator->object);
 
-            struct initializer initializer = {0};
+            struct initializer initializer = { 0 };
             initializer.braced_initializer = p_expression_node->braced_initializer;
-            initializer.first_token =  p_expression_node->first_token;
+            initializer.first_token = p_expression_node->first_token;
 
-            initializer_init(ctx,
+            initializer_init_new(ctx,
                          &p_expression_node->type,
                          &p_expression_node->object,
                          &initializer,
@@ -5248,7 +5260,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
                     throw;
 
                 p_expression_node_new->first_token = ctx->current;
-                p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
+                p_expression_node_new->expression_type = EXPRESSION_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = NULL; /*MOVED*/
 

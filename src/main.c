@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include "parser.h"
 #include "console.h"
-#include "visit.h"
 #include <stdlib.h>
 #include <time.h>
 #include "version.h"

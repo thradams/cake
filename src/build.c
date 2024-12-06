@@ -15,28 +15,6 @@
 #include "build.h"
 
 
-
-#define CAKE_HEADER_FILES \
-    " console.h "         \
-    " tokenizer.h "       \
-    " parser.h "          \
-    " error.h "           \
-    " fs.h "              \
-    " object_flow.h "     \
-    " hashmap.h "         \
-    " osstream.h "        \
-    " options.h "         \
-    " token.h "           \
-    " type.h "            \
-    " pre_expressions.h " \
-    " object.h "          \
-    " expressions.h "     \
-    " visit.h "           \
-    " visit_il.h "        \
-    " visit_defer.h "     \
-    " visit_fmt.h "
-
-
 #define CAKE_SOURCE_FILES \
     " token.c "           \
     " hashmap.c "         \
@@ -51,12 +29,10 @@
     " object_flow.c "     \
     " parser.c "          \
     " visit_defer.c "     \
-    " visit.c "           \
     " visit_il.c "        \
     " visit_flow.c "      \
     " error.c "           \
-    " visit_fmt.c "       \
-    " type.c "            
+    " type.c "
 
 #define HOEDOWN_SOURCE_FILES \
  " autolink.c " \
@@ -201,7 +177,7 @@ int main()
                " /out:cake.exe");
 
     //Runs cake on its own source
-    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_HEADER_FILES CAKE_SOURCE_FILES);
+    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
 
 #endif
 
@@ -252,7 +228,10 @@ int main()
                " /out:cake.exe");
 
     //Runs cake on its own source
-    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_HEADER_FILES CAKE_SOURCE_FILES);
+    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
+
+    //echo_chdir("./out");
+    //execute_cmd("cl " CAKE_SOURCE_FILES);
 
 
 #endif
@@ -282,7 +261,7 @@ int main()
            " -o cake.exe");
 
     //Runs cake on its own source
-    execute_cmd("cake.exe -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable " CAKE_HEADER_FILES CAKE_SOURCE_FILES);
+    execute_cmd("cake.exe -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
 
 #endif
 
@@ -320,8 +299,7 @@ int main()
 
     //Uses previouly generated cakeconfig.h to find include dir
     execute_cmd("./cake "
-               " -fanalyzer "
-               CAKE_HEADER_FILES
+               " -fanalyzer "               
                CAKE_SOURCE_FILES);
 
     //run unit test if -DTEST

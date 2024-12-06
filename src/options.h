@@ -10,15 +10,17 @@
 * Compiler options shared with compiler and preprocessor
 */
 
+enum target
+{
+    TARGET_NONE = -1,
+    TARGET_C89_IL = 0 /*default*/
+};
+
 enum language_version
 {
-    LANGUAGE_IR = -2,
-    LANGUAGE_C89 = -1,
-    LANGUAGE_C99 = 0, /*default*/
-    LANGUAGE_C11 = 1,
-    LANGUAGE_C23 = 2, //C23, C2X
-    LANGUAGE_C2Y = 3, //C2Y
-    LANGUAGE_CAK = 4, //cake extensions
+    LANGUAGE_C23,
+    LANGUAGE_C2Y,
+    LANGUAGE_CAK,
 };
 
 enum diagnostic_id {
@@ -262,15 +264,8 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
 
 struct options
 {
-    /*
-       -std=c99
-    */
     enum language_version input;
-
-    /*
-       -target=c99
-    */
-    enum language_version target;
+    enum target target;
 
     /*
       #pragma CAKE diagnostic push
@@ -292,12 +287,7 @@ struct options
     */
     bool disable_assert;
 
-
-    /*
-       -remove-comments
-    */
-    bool remove_comments;
-
+    
     /*
        -flow-analysis
     */
@@ -321,20 +311,11 @@ struct options
     bool preprocess_only;
 
     bool clear_error_at_end; //used by tests
-    /*
-      -rm
-      -direct-compilation
-    */
-    bool direct_compilation;
-
+    
     /*
       -sarif
     */
     bool sarif_output;
-
-    bool format_input;
-    bool format_ouput;
-
 
     /*
       -no-output

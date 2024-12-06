@@ -258,25 +258,84 @@ static void object_print_value(struct osstream* ss, const struct object* a)
     }
 
 }
+static struct member_declarator* _Opt find_member_declarator_by_index2(struct member_declaration_list* list,
+    int member_index,
+    char name[100],
+    int* p_count)
+{
+    if (list->head == NULL)
+        return NULL;
 
-const char* find_member_name(const struct type* p_type, int index)
+    int no_name_index = 0;
+
+    struct member_declaration* _Opt p_member_declaration = list->head;
+    while (p_member_declaration)
+    {
+        struct member_declarator* _Opt p_member_declarator = NULL;
+
+        if (p_member_declaration->member_declarator_list_opt)
+        {
+            p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+
+            while (p_member_declarator)
+            {
+                if (p_member_declarator->declarator)
+                {
+                    if (member_index == *p_count)
+                    {
+                        snprintf(name, 100, "%s", p_member_declarator->declarator->name_opt->lexeme);
+                        return p_member_declarator;
+                    }
+                }
+                (*p_count)++;
+                p_member_declarator = p_member_declarator->next;
+            }
+        }
+        else if (p_member_declaration->specifier_qualifier_list)
+        {
+            if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+            {
+                struct struct_or_union_specifier* _Opt p_complete =
+                    get_complete_struct_or_union_specifier(p_member_declaration->specifier_qualifier_list->struct_or_union_specifier);
+
+
+                if (p_complete)
+                {
+                    char mname[100];
+                    p_member_declarator = find_member_declarator_by_index2(&p_complete->member_declaration_list, member_index, mname, p_count);
+                    if (p_member_declarator)
+                    {
+                        snprintf(name, 100, "__m%d.%s", no_name_index++, mname);
+                        return p_member_declarator;
+                    }
+                }
+            }
+        }
+
+        p_member_declaration = p_member_declaration->next;
+    }
+    return NULL;
+}
+
+int find_member_name(const struct type* p_type, int index, char name[100])
 {
     if (!type_is_struct_or_union(p_type))
-        return NULL;
+        return 1;
 
     struct struct_or_union_specifier* _Opt p_complete =
         get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
     if (p_complete)
     {
+        int count = 0;
         struct member_declarator* _Opt p =
-            find_member_declarator_by_index(&p_complete->member_declaration_list, index);
+            find_member_declarator_by_index2(&p_complete->member_declaration_list, index, name, &count);
         if (p)
         {
-            return p->declarator->name_opt->lexeme;
+            return 0;//p->declarator->name_opt->lexeme;
         }
     }
-    return NULL;
+    return 1;
 }
 
 static int il_visit_literal_string(struct token* current, struct osstream* oss)
@@ -410,9 +469,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         d_visit_expression(ctx, oss, p_expression->left);
 
-        const char* name =
-            find_member_name(&p_expression->left->type, p_expression->member_index);
-        if (name)
+        char name[100];
+        int r = find_member_name(&p_expression->left->type, p_expression->member_index, name);
+        if (r == 0)
         {
             ss_fprintf(oss, ".%s", name);
         }
@@ -424,9 +483,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         d_visit_expression(ctx, oss, p_expression->left);
         {
             struct type t = type_remove_pointer(&p_expression->left->type);
-            const char* name =
-                find_member_name(&t, p_expression->member_index);
-            if (name)
+
+            char name[100];
+            int r = find_member_name(&t, p_expression->member_index, name);
+            if (r == 0)
             {
                 ss_fprintf(oss, "->%s", name);
             }
@@ -603,6 +663,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
 
+    case EXPRESSION_EXPRESSION:
+        d_visit_expression(ctx, oss, p_expression->left);
+        ss_fprintf(oss, ", ");
+        d_visit_expression(ctx, oss, p_expression->right);
+        break;
+
     case ASSIGNMENT_EXPRESSION:
         d_visit_expression(ctx, oss, p_expression->left);
         ss_fprintf(oss, " = ");
@@ -718,20 +784,24 @@ static void d_visit_declarator(struct d_visit_ctx* ctx, struct osstream* oss, st
 
 static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct expression_statement* p_expression_statement)
 {
-    print_identation(ctx, oss);
-    if (p_expression_statement->expression_opt)
-        d_visit_expression(ctx, oss, p_expression_statement->expression_opt);
+    
+    ss_clear(&ctx->add_this_before);
+    struct osstream local = {0};
 
-    if (p_expression_statement->expression_opt && 
-        p_expression_statement->expression_opt->expression_type == UNARY_EXPRESSION_ASSERT)
+    print_identation(ctx, &local);
+    if (p_expression_statement->expression_opt)
+        d_visit_expression(ctx, &local, p_expression_statement->expression_opt);
+
+
+    if (ctx->add_this_before.size > 0)
     {
-        //we avoid empty ; expression statement 
-         ss_fprintf(oss, "\n");
+        ss_fprintf(oss, "%s", ctx->add_this_before.c_str);
+        ss_clear(&ctx->add_this_before);
+
     }
-    else
-    {
-      ss_fprintf(oss, ";\n");
-    }
+
+    ss_fprintf(oss, "%s;\n", local.c_str);
+    ss_close(&local);
 }
 
 static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
@@ -1270,32 +1340,70 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                             {
                                 struct member_declarator* _Opt member_declarator = NULL;
 
-                                if (member_declaration->member_declarator_list_opt &&
-                                    member_declaration->member_declarator_list_opt->head)
+                                if (member_declaration->member_declarator_list_opt)
                                 {
                                     member_declarator = member_declaration->member_declarator_list_opt->head;
-                                }
-
-                                while (member_declarator)
-                                {
-                                    if (type_is_struct_or_union(&member_declarator->declarator->type))
+                                    while (member_declarator)
                                     {
-                                        struct struct_or_union_specifier* _Opt p_complete_member =
-                                            p_complete_member = get_complete_struct_or_union_specifier(member_declarator->declarator->type.struct_or_union_specifier);
-
-                                        char name2[100];
-                                        snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
-
-                                        register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
-                                        struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
-                                        if (p2 != NULL)
+                                        if (type_is_struct_or_union(&member_declarator->declarator->type))
                                         {
-                                            struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                            struct struct_or_union_specifier* _Opt p_complete_member =
+                                                p_complete_member = get_complete_struct_or_union_specifier(member_declarator->declarator->type.struct_or_union_specifier);
+
+                                            char name2[100];
+                                            snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+
+                                            register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                            struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
+                                            if (p2 != NULL)
+                                            {
+                                                struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                            }
                                         }
+                                        if (type_is_array(&member_declarator->declarator->type))
+                                        {
+                                            struct type t = get_array_item_type(&member_declarator->declarator->type);
+                                            if (type_is_struct_or_union(&t))
+                                            {
+                                                struct struct_or_union_specifier* _Opt p_complete_member =
+                                                    p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                                char name2[100];
+                                                snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+
+                                                register_struct_types_and_functions(ctx, &t);
+                                                struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
+                                                if (p2 != NULL)
+                                                {
+                                                    struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                                }
+                                            }
+                                            else
+                                            {
+                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                            }
+                                            type_destroy(&t);
+                                        }
+                                        else
+                                        {
+                                            register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                        }
+
+                                        member_declarator = member_declarator->next;
                                     }
-                                    if (type_is_array(&member_declarator->declarator->type))
+                                }
+                                else if (member_declaration->specifier_qualifier_list != NULL)
+                                {
+                                    if (member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                                     {
-                                        struct type t = get_array_item_type(&member_declarator->declarator->type);
+                                        struct type t = { 0 };
+                                        t.category = TYPE_CATEGORY_ITSELF;
+                                        t.struct_or_union_specifier = member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                                        //char buffer[200] = { 0 };
+                                        //snprintf(buffer, sizeof buffer, ".%s", name);
+
                                         if (type_is_struct_or_union(&t))
                                         {
                                             struct struct_or_union_specifier* _Opt p_complete_member =
@@ -1311,18 +1419,37 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
                                             }
                                         }
+                                        if (type_is_array(&t))
+                                        {
+                                            struct type t = get_array_item_type(&t);
+                                            if (type_is_struct_or_union(&t))
+                                            {
+                                                struct struct_or_union_specifier* _Opt p_complete_member =
+                                                    p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                                char name2[100];
+                                                snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+
+                                                register_struct_types_and_functions(ctx, &t);
+                                                struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
+                                                if (p2 != NULL)
+                                                {
+                                                    struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                                }
+                                            }
+                                            else
+                                            {
+                                                register_struct_types_and_functions(ctx, &t);
+                                            }
+                                            type_destroy(&t);
+                                        }
                                         else
                                         {
-                                            register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                            register_struct_types_and_functions(ctx, &t);
                                         }
+
                                         type_destroy(&t);
                                     }
-                                    else
-                                    {
-                                        register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
-                                    }
-
-                                    member_declarator = member_declarator->next;
                                 }
 
                                 member_declaration = member_declaration->next;
@@ -1630,6 +1757,21 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
         object = object_get_referenced(object);
     }
 
+    //printf("\n");
+      //             object_print_to_debug(object);
+
+    if (object->p_init_expression &&
+        object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+    {
+        if (!(*first))
+            ss_fprintf(ss, ", ");
+        
+        *first = false;
+
+        il_visit_literal_string(object->p_init_expression->first_token, ss);
+        return;
+    }
+
     if (object->members != NULL)
     {
         struct object* _Opt member = object->members;
@@ -1855,24 +1997,45 @@ void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
         ss_fprintf(ss, "{\n");
     }
 
+    int no_name_index = 0;
 
     while (member_declaration)
     {
         struct member_declarator* _Opt member_declarator = NULL;
 
-        if (member_declaration->member_declarator_list_opt &&
-            member_declaration->member_declarator_list_opt->head)
+        if (member_declaration->member_declarator_list_opt)
         {
             member_declarator = member_declaration->member_declarator_list_opt->head;
+
+            while (member_declarator)
+            {
+                if (member_declarator->declarator->name_opt)
+                {
+                    ss_fprintf(ss, "    ");
+                    d_print_type(ctx, ss, &member_declarator->declarator->type, member_declarator->declarator->name_opt->lexeme);
+                    ss_fprintf(ss, ";\n");
+                }
+                member_declarator = member_declarator->next;
+            }
+        }
+        else if (member_declaration->specifier_qualifier_list != NULL)
+        {
+            if (member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+            {
+                struct type t = { 0 };
+                t.category = TYPE_CATEGORY_ITSELF;
+                t.struct_or_union_specifier = member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                char name[100];
+                snprintf(name, sizeof name, "__m%d", no_name_index++);
+                ss_fprintf(ss, "    ");
+                d_print_type(ctx, ss, &t, name);
+                ss_fprintf(ss, ";\n");
+                type_destroy(&t);
+            }
         }
 
-        while (member_declarator)
-        {
-            ss_fprintf(ss, "    ");
-            d_print_type(ctx, ss, &member_declarator->declarator->type, member_declarator->declarator->name_opt->lexeme);
-            ss_fprintf(ss, ";\n");
-            member_declarator = member_declarator->next;
-        }
 
         member_declaration = member_declaration->next;
     }

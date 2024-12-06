@@ -59,6 +59,7 @@ enum object_value_state
 struct object {    
     enum object_value_state state;
     enum object_value_type type;
+    struct type type2; //TODO to be removed
 
     const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
 
@@ -84,7 +85,7 @@ struct object {
         double double_value;
         long double long_double_value;              
     };
-
+    struct object* _Opt parent; //to be removed
     struct expression * _Opt p_init_expression;
     struct object* _Opt _Owner members;
     struct object* _Opt _Owner next;
@@ -149,6 +150,9 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
 void object_default_initialization(struct object* p_object, bool is_constant);
 
 struct object* object_get_member(struct object* p_object, int index);
+
+int make_object(const struct type* p_type, struct object* obj);
+
 bool object_is_reference(const struct object* p_object);
 bool object_is_derived(const struct object* p_object);
 
@@ -158,7 +162,6 @@ void object_set(struct object* to, struct expression* _Opt init_expression, cons
 
 struct type;
 
-struct object* _Owner _Opt make_object_ptr(const struct type* p_type);
 enum object_value_type type_to_object_type(const struct type* type);
 
 

@@ -244,13 +244,6 @@ struct type type_convert_to(const struct type* p_type, enum language_version tar
         return t;
     }
 
-    if (target < LANGUAGE_C99 && type_is_bool(p_type))
-    {
-        struct type t = type_dup(p_type);
-        t.type_specifier_flags &= ~TYPE_SPECIFIER_BOOL;
-        t.type_specifier_flags |= TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
-        return t;
-    }
 
     return type_dup(p_type);
 }
@@ -908,6 +901,21 @@ bool type_is_signed_integer(const struct type* p_type)
     return false;
 }
 
+bool type_is_array_of_char(const struct type* p_type)
+{
+    if (p_type->category != TYPE_CATEGORY_ARRAY)
+        return false;
+
+    return p_type->next->type_specifier_flags & TYPE_SPECIFIER_CHAR;
+}
+
+bool type_is_char(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return false;
+
+    return p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR;
+}
 
 /*
   The type char, the signed and unsigned integer types,
@@ -2579,7 +2587,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
     {
 
 
-        if (pa->num_of_elements != pb->num_of_elements) 
+        if (pa->num_of_elements != pb->num_of_elements)
             return false;
 
         if (pa->category != pb->category)
@@ -2609,7 +2617,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         }
 
         //if (pa->name_opt != pb->name_opt) return false;
-        if (pa->static_array != pb->static_array) 
+        if (pa->static_array != pb->static_array)
             return false;
 
         if (pa->category == TYPE_CATEGORY_FUNCTION)
@@ -2673,6 +2681,13 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 }
 
 
+void type_clear(struct type* a)
+{
+    struct type tmp = {0};
+    type_swap(&tmp, a);
+    type_destroy(&tmp);
+}
+
 void type_swap(_View struct type* a, _View struct type* b)
 {
     _View struct type temp = *a;
@@ -2706,8 +2721,8 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarat
     if (pdeclarator->declaration_specifiers)
     {
         type_qualifier_flags = pdeclarator->declaration_specifiers->type_qualifier_flags;
-       
-    
+
+
     }
     else if (pdeclarator->specifier_qualifier_list)
     {
@@ -3216,7 +3231,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         */
         free(list.head);
 
-        type_set_storage_specifiers_using_declarator(&r,  pdeclarator);
+        type_set_storage_specifiers_using_declarator(&r, pdeclarator);
 
         return r;
     }

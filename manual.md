@@ -117,33 +117,15 @@ Cake will not generate output
 
 #### -D (same as GCC and MSVC)
 Defines a preprocessing symbol for a source file
+
 #### -E (same as GCC and MSVC)
 Copies preprocessor output to standard output
 
 #### -o name.c (same as GCC and MSVC)
   Defines the output name. used when we compile one file
-  
-#### -remove-comments      
-Remove all comments from the output file
-
-#### -direct-compilation   
-output code as compiler sees it without macros.
-
-#### -target=standard      
-Output target C standard (c89, c99, c11, c23, c2y, cxx)
-C99 is the default and C89 (ANSI C) is the minimum target
 
 #### -dump-tokens            
 Output tokens before preprocessor
-
-#### -fi
-Format input (format before language conversion)
-
-#### -fo
-Format output (format after language conversion, result parsed again)
-
-#### -ir
-Generates C89 code
 
 #### -Wname -Wno-name  (same as GCC)   
 Enables or disable warnings.
@@ -241,10 +223,32 @@ https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-1
 https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html
 
 
-## C99 Transformations
+
+## K & R
+
+### Bitfileld 
+not implemented yet
+
+## C89
 
 C89 
 https://port70.net/~nsz/c/c89/c89-draft.html
+
+### enums
+
+Implemented.
+C89 backend. enum specifiers become the corresponding type and the enumerators becomes constants.
+See C23 enum
+
+### const
+Implemented.
+C89 backend removes const.
+
+### Function prototypes
+In C23 the old K&R was removed.
+
+## C99
+
 
 C99
 https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
@@ -259,19 +263,11 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
 void f(const char* restrict s);
 ```
 
-Becomes in C89
-
-```c
-void f(const char* /*restrict*/ s);
-```
+Backend is removing restrict this. (TODO It will be added with a compiler flag)
 
 N448
 
 ###  C99 Variable-length array (VLA) 
-
-The idea is not implement variable length arrays with automatic storage duration. (\_\_STDC\_NO\_VLA\_\_ 1). 
-
-But there are other uses of VLA.
 
 
 ```c
@@ -454,25 +450,24 @@ N494
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 ### C99 Line comments
-When compiling to C89 line comments are converted to 
-/*comments*/.
+Implemented. 
+
+C89 backend n/a.
+
 
 ### C99 inline functions
-TODO
+
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm
 
 ### C99 _Pragma preprocessing operator
-TODO 
+Not implemented. TODO!
 
 ### C99 \_\_func\_\_ predefined identifier
-Parsed. C89 conversion not implemented yet.
+Parsed.
+C89 not implemented yet. TODO!
 
 ###  C99 Variadic macros
 
-We need to expand the macro when comping to C89.
-This is covered by # macro expand.
-
-Sample:
 
 ```c
 
@@ -487,24 +482,8 @@ int main()
   debug("X = %d\n", 1);
 }
 ```
-  
-Becomes
 
-```c
-#include <stdio.h>
-
-#define debug(...) fprintf(stderr, __VA_ARGS__)
-#pragma expand debug
-
-int main()
-{
-  int x = 1;
-  fprintf(stderr, "X = %d\n", 1);
-}
-```
-
-I am considering to mark the debug macro to be expanded automatically
-if \_\_VA\_ARGS\_\_ is used. Then pragma expand will not be necessary.
+C89 backend n/a  
 
 N707
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
@@ -533,12 +512,7 @@ int main(void)
 }
 ```
 
-Alternative design - typedef ?
-Considering C23 has bool and the objective of C89 version is to have a version that compiles in C++ the best option would be use bool, true, false.
-
-Obs:
- Currently cake is not converting 123 to 1 as required by C standard.
-
+TODO. Conversion to 1 or 0 at backend.
 
 ## C11 Transformations
 
@@ -553,11 +527,12 @@ https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf
 
 ###  C11 \_Static\_assert
 
-When compiling to versions < C11 \_Static\_Assert is removed.
+Implemented.
+C89 backend n/a
+
 
 ### C11 Anonymous structures and unions
 
-It is implemented, however the conversion to C99, C89 was not implemented yet.
 
 ```c
 struct v {
@@ -574,6 +549,10 @@ int main(){
 }
 ```
 
+C89 backend, names are generated for the anonymous parts.
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf
+
 
 ### C11 \_Noreturn
 
@@ -583,28 +562,15 @@ _Noreturn void f () {
 }
 ```
 
-Becomes in < C11
-
-```c
-/*[[noreturn]]*/ void f () {
-  abort(); // ok
-}
-```
-
-C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is an obsolescent feature
+C89 backend it is removed.
 
 ###  C11 Thread_local/Atomic
 Parsed but not transformed.
+C89 backend TODO.
 
 ###  C11 type-generic expressions (\_Generic)
 
-When compiling to C99, C89 we keep the expression that matches the type.
-
-For instance:
-
-The expression that matches the argument 1.0 is **cbrtl**.
-
-The result of \_Generic in C99 will be cbrtl. Because this is inside a macro we need to tell the transpiler to expand that macro using pragma expand.
+Implemented
 
 N1441
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm
@@ -625,25 +591,8 @@ int main(void)
     cbrt(1.0);
 }
 ```
+C89 backend will have the selected expression.
 
-Becomes in C99, C89
-
-```c
-#include <math.h>
-
-#define cbrt(X) _Generic((X),    \
-                  double: cbrtl, \
-                  float: cbrtf , \
-                  default: cbrtl \
-              )(X)
-
-#pragma expand cbrt
-
-int main(void)
-{
-     cbrtl(1.0);
-}
-```
 
 ###  C11 u' ' U' ' character constants
 
@@ -652,7 +601,7 @@ int main(void)
  int i2 = u'ç';
 ```
 
-Becomes in < C11
+C89 backend
 
 ```c
  int i = 231u;
@@ -670,7 +619,7 @@ char * s1 = u8"maçã";
 char * s2 = u8"maca";
 ```
 
-Becomes in < C11
+C89 backend 
 
 ```c
 char * s1 = "ma\xc3\xa7\xc3\xa3";
@@ -684,7 +633,6 @@ Important: Cake assume source is utf8 encoded.
 
 ### C11 _Alignof or C23 alignof
 
-When compiling to C99 or C89 it is replaced by the equivalent constant.
 
 ```c
  int main()
@@ -693,7 +641,7 @@ When compiling to C99 or C89 it is replaced by the equivalent constant.
  }
 ```
 
-Becomes < C11
+The C89 backend replaces by its constant value.
 
 ```c
  int main()
@@ -702,7 +650,6 @@ Becomes < C11
  }
 ```
 
-TODO considering a macro. For instance, ALIGNOF_INT
 
 ### C11 _Alignas or C23 alignas
 
@@ -722,33 +669,13 @@ Not implemented.
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1107.htm
 
 ### C23 static\_assert / single-argument static_assert
-In C23 static\_assert is a keyword and the text message is optional.
 
-Whe comping to C11, static\_assert is replaced by it C11 version \_Static\_assert. If the static\_assert has only one argument the text becomes "error".
+Implemented. 
+C89 backend n/a
 
 N1330
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf
 
-```c
-int main()
-{    
-    static_assert(1 == 1, "error message");
-    static_assert(1 == 1);
-}
-
-```
-  
-Becomes in C11
-
-```c
-int main()
-{    
-    _Static_assert(1 == 1, "error message");
-    _Static_assert(1 == 1, "error");
-}
-```
-  
-In < C11 it is replaced by one space;
 
 ###  C23 u8 character prefix
 
@@ -761,7 +688,7 @@ int main(){
 }
 ```
 
-When compiling to < C23 becomes.
+C89 backend
 
 ```c
 int main(){
@@ -780,7 +707,6 @@ int main(){
     func(); //this is an error in C23
 }
 ```
-
 
 See also Remove support for function definitions with identifier lists  
 
@@ -824,7 +750,8 @@ int f(int ) {
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf
 
-Cake should add a dummy name when generating C < 23. (Not implemented yet)
+C89 backened.
+We should add a dummy name when generating - Not implemented yet.
 
 ### C23 Digit separators
 
@@ -835,7 +762,7 @@ int main()
 }
 ```
   
-Becomes in < C23
+C89 backend
 
 ```c
 int main()
@@ -843,8 +770,6 @@ int main()
     int a = 100000;
 }  
 ```
-
-This transformation happens at token level, so even preprocessor and inactive blocks are transformed.
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf
 
@@ -860,21 +785,17 @@ int main()
 }
 
 ```
-Becomes in C11, C99, C89
+
+C89 backend it will be decimal
 
 ```c
-#define X  0xa
-
 int main()
 {
-    int a = X;
-    int b = 0xa;
+    int a = 10;
+    int b = 10;
 }
-
 ```
 
-
-This transformation happens at token level, so even preprocessor and inactive blocks are transformed.
 
 ### C23 Introduce the nullptr constant
 
@@ -889,7 +810,7 @@ int main()
 
 ```
 
-Becomes in < C23
+C89 backend converts to ((void*)0)
 
 ```
 int main()
@@ -905,12 +826,12 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
 ### C23 Make false and true first-class language features
 
-When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0. 
-
-When compiling to C99 and C11 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)` 
-and false with **(_Bool)0)**
+Implemented
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf
+
+C89 backend. bool specifier is replaced by unsigned char;
+true by the constant 1 ; false by the constant 0.
 
 ###  C23 {} empty initializer
 
@@ -932,7 +853,7 @@ int main()
 
 ```
 
-Becomes in < C23
+C89 backend
 
 ```c
 
@@ -965,7 +886,7 @@ auto pA = A;
 auto qA = &A;
 ```
 
-Becomes < C23
+C89 backend the final type is used.
 
 ```c
 static double a = 3.5;
@@ -1024,47 +945,61 @@ int main()
 
 ```
   
-Becomes in < C23
+C89 backend
 
 ```c
 
+struct _struct_tag_0 {
+    int i;
+};
 
-#define SWAP(a, b) \
-  do {\
-    typeof(a) temp = a; a = b; b = temp; \
-  } while (0)
 
-#pragma expand SWAP
+int (* g1)(int a);
+int (* g2)(int a);
+int *(* f3)(int a);
+int f()
+{
+    return 1;
+}
+
+void f4(int a[2])
+{
+    int * p;
+}
 
 int main()
 {
-    /*simple case*/
     int a = 1;
-    int  b = 1;
+    int b = 1;
+    int * p1;
+    int * p2;
+    int * p3;
+    int * p4;
+    int p5;
+    int * p6;
+    do
+    {
+        int temp = a;
+        a = b;
+        b = temp;
+    }
+    while (0);
+    struct _struct_tag_0  x;
+    struct _struct_tag_0  x2;
+    struct _struct_tag_0  x3;
+    int *array[2];
+    int *a1[2];
+    int *a2[2];
+    int *a3[3][2];
+    int *(*a4[4])[2];
+    int k = sizeof (int *[2]);
+    void (* pf)(int) = ((void *)0);
+}
 
-    /*pay attention to the pointer*/
-    int  *p1,  *p2;
-
-    /*let's expand this macro and see inside*/
-     do {int temp = a; a = b; b = temp; } while (0);
-
-    /*for anonymous structs we insert a tag*/
-    struct _anonymous_struct_0 { int i; } x;
-    struct _anonymous_struct_0  x2;
-    struct _anonymous_struct_0  x3;
-
-   /*Things get a little more complicated*/
-   int *array[2];
-   int  *a1[2],  *a2[2];
-   
-   int  *(a3[3])[2];
-   int  *(*a4[4])[2];
-
-   /*abstract declarator*/
-   int k = sizeof(int*[2]);
-   
-   /*new way to declare pointer to functions?*/
-   void  (*pf)(int) = ((void*)0);
+int f5()
+{
+    int (* p1)[2] = 0;
+    int (* p2)[2] = (int (*)[2])p1;
 }
 ```
 
@@ -1099,38 +1034,78 @@ Cake convert constexpr declarator with a cast and the value.
 addressof constexpr declarator is not implemented.
 
 ```c
+
 #include <stdio.h>
 
 constexpr int c = 123;
+
+constexpr int c2 = c + 1000;
 
 int a[c];
 
 constexpr double PI = 3.14;
 
+
 static_assert(PI + 1 == 3.14 + 1.0);
+
+struct Y {
+    int a;
+    int ar[3];
+    int b;
+};
+
+void T3()
+{
+    constexpr struct Y y = { .ar[1] = 2, 3, 4 };
+    static_assert(y.a == 0);
+    static_assert(y.ar[0] == 0);
+    static_assert(y.ar[1] == 2);
+    static_assert(y.ar[2] == 3);
+    static_assert(y.b == 4);
+    static_assert(y.ar[1] + y.ar[2] == 5);
+}
+
+static_assert("abc"[0] == 'a');
+
 
 int main()
 {
-   printf("%f", PI);
+    constexpr char ch = 'a';
+
+    printf("%f %c", PI, ch);
 }
+
 
 ```
   
-Becomes < C23
+C89 backend will replace by constants in places where a constant expression is required.
 
 ```c
-#include <stdio.h>
+struct Y {
+    int a;
+    int ar[3];
+    int b;
+};
 
-const int c = 123;
 
-int a[((int)123)];
+int c = 123;
+int c2 = c + 1000;
+int a[123];
+double PI = 3.140000;
+void T3()
+{
+    struct Y  y = {0, 0, 2, 3, 4};
+}
 
-const double PI = 3.14;
+int printf(char * format, ...);
 
 int main()
 {
-   printf("%f", ((double)3.140000));
+    char ch = 97;
+    printf("%f %c", PI, ch);
 }
+
+
 ```
   
 TODO: Maybe suffix like ULL etc makes the code easier to read.
@@ -1147,7 +1122,7 @@ int main() {
 }
 ```
 
-Becomes < C23
+C89 backend.
 
 ```c
 enum X {
@@ -1164,8 +1139,6 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 
 ###  C23 Attributes
 
-Conversion to < C23  will just remove the attributes.
-
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf
 
@@ -1174,6 +1147,7 @@ https://youtu.be/EpAEFjbTh3I
 
 ### C23 fallthrough attribute
 Not implemented
+C89 backend - n/a
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf
 
@@ -1181,11 +1155,14 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf
 
 Partially implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf
+C89 backend - n/a
 
 ### C23 maybe_unused attribute
 
 Implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf
+
+C89 backend - n/a
 
 ### C23 nodiscard attribute
 Partially implemented
@@ -1193,6 +1170,8 @@ Partially implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2448.pdf
+
+C89 backend - n/a
 
 ### C23 [[unsequenced]] and [[reproducible]]
 
@@ -1202,8 +1181,8 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm
 
 ###  C23 \_\_has\_attribute
 
-Its is implemented in cake.
-Conversion < C23 not defined. Maybe a define.
+Implemented
+C89 backend - n/a
 
 ###  C23 \_\_has\_include
 
@@ -1221,28 +1200,22 @@ Conversion < C23 not defined. Maybe a define.
 
 ```
 
-Its is implemented in cake.
-Conversion < C23 not defined. 
+Implemented
+C89 backend - n/a
 
 
 ###  C23 \#warning
   
-When compiling to versions < 23 the line is commented out.
+Implemented
 
 ```c
 int main()
 {
   #warning my warning message  
 }
-```
 
-When target < C23 becomes
-
-```c
-int main()
-{
-  /* #warning my warning message */  
-}
+Implemented
+C89 backend - n/a
 ```
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
@@ -1265,7 +1238,7 @@ int main()
 }
 ```
 
-Becomes in < C23
+C89 backend. TODO fix bug.
 
 ```c
 
@@ -1285,28 +1258,10 @@ int main()
 
 ```
 
-I am considering add an option to generate a file with a suffix
-like "embed_stdio.h" then the equivalent code will be:
-
-Becomes in < C23
-
-```c
-#include <stdio.h>
-
-int main()
-{
-  static const char file_txt[] = {
-   #include "embed_stdio.h"
-   ,0
-  };
-
-  printf("%s\n", file_txt);
-}
-```
-
-
 
 ###  C23 \#elifdef \#elifndef
+
+Implemented
 
 ```c
 #define Y
@@ -1320,24 +1275,10 @@ int main()
 #endif
 ```
 
-Becomes < C23
-
-```c
-#define Y
-
-#ifdef X
-#define VERSION 1
-#elif defined   Y
-#define VERSION 2
-#else
-#define VERSION 3
-#endif
-
-```
+C89 backend - n/a
   
 ###  C23 \_\_VA_OPT\_\_
 Implemented.
-Requires #pragma expand.
 
 ```c
 
@@ -1373,39 +1314,8 @@ int main()
 ```
 
 
-Becomes in < C23
+C89 backend - n/a
 
-```c
-
-#define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
-#define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
-#define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
-#define EMP
-
-/*maybe this could be automatic if <C23*/
-#pragma expand F
-#pragma expand G
-#pragma expand SDEF
-#pragma expand EMP
-
-void f(int i, ...) {}
-
-
-int main()
-{
-  int a = 1;
-  int b = 2;
-  int c = 3;
-  
-   f(0, a, b, c);
-   f(0 );
-   f(0);
-   f(0, a, b, c);
-   f(0, a );
-   f(0, a );
-
-}
-```
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm
 
@@ -1442,6 +1352,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 
 ### C23 Variably-modified (VM) types
 
+Not implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
 ## C2Y Transformations
@@ -1462,21 +1373,7 @@ int main()
 
 ```
 
-Becomes in < C2Y (prefix is removed)
-
-```c
-
-static_assert(052 == 052);
-static_assert(052 == 052);
-static_assert(052 == 42);
-
-int main()
-{
-    int i = 052;
-}
-
-```
-
+c89 backend (all constantes are decimals)
 
 ###  Extension - defer
 
@@ -1509,23 +1406,34 @@ int main() {
 }
 ```
 
-Becomes in < C2Y
+C89 backend
 
 ```c
-#include <stdio.h>
 
-int main() {
-  do {
-     FILE* f = fopen("in.txt", "r");
-     if (f == ((void*)0)) break;
+int *fopen(char * filename, char * mode);
+int fclose(int * stream);
 
-     FILE* f2 = fopen("out.txt", "w");
-     if (f2 == ((void*)0)) {  fclose(f); break;}
-     
-     fclose(f2); fclose(f);
-   }
-  while(0);
+int main()
+{
+    do
+    {
+        int * f = fopen("in.txt", "r");
+        if (f == ((void *)0))
+        {
+            break;
+        }
+        int * f2 = fopen("out.txt", "w");
+        if (f2 == ((void *)0))
+        {
+            fclose(f);
+            break;
+        }
+        fclose(f2);
+        fclose(f);
+    }
+    while (0);
 }
+
 ```
 
 ###  Extension - if with initializer
@@ -1544,20 +1452,25 @@ int main()
    }
 }
 ```
-Becomes in < C2Y
+
+C89 backend
 
 ```c
-#include <stdio.h>
+int *fopen(char * filename, char * mode);
+int fclose(int * stream);
 
 int main()
 {
-   int size = 10;
-   {FILE* f = fopen("file.txt", "r");if ( f)
-   {
-     /*...*/
-     fclose(f);
-   }}
+    int size = 10;
+    {
+        int * f = fopen("file.txt", "r");
+        if (f)
+        {
+            fclose(f);
+        }
+    }
 }
+
 ```
 
 C++ proposal
@@ -1581,6 +1494,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf
 }
 ```
 
+C89 backend see \_Generic.
 
 ## Cake Extensions (Not in C23, C2Y)
 
@@ -1641,25 +1555,29 @@ void create_app(const char* appname)
   }(&capture); 
 }
 ```
-Because struct capture was in function scope and the lambda function will be created at file scope the type **struct capture** had to be moved from function scope to file scope.
 
+C89 backend
 ```c
-extern char* strdup(const char* s);
+struct capture {
+    char * name;
+};
 
-struct _capture0 {
-     char * name;
-  };
-  
-void _lit_func_0(void *p) {
-    struct _capture0* capture = p;    
-  }
+extern char *strdup(char * s);
 
-void create_app(const char* appname)
+static void _lambda_0(void * p)
 {
-  struct _capture0  capture = { .name = strdup(appname) };
-  _lit_func_0(&capture);  
+    struct capture * capture = p;
 }
+
+void create_app(char * appname)
+{
+    struct capture  capture = {0};
+    capture.name = strdup(appname);
+    _lambda_0(&capture);
+}
+
 ```
+
 
 ### Extension #pragma dir  
 
@@ -1668,52 +1586,6 @@ void create_app(const char* appname)
 ```  
   
 pragma dir makes the preprocessor include the directory when searching for includes.
-
-### Extension #pragma expand
-
-pragma expand tells the C back-end to not hide macro expansions. This is necessary when
-the compiler makes changes inside macro expanded code.
-
-For instance:
-
-
-```c
-
-#define SWAP(a, b) \
-    do { \
-      typeof(a) temp = a; a = b; b = temp; \
-    } while(0)
-
-#pragma expand SWAP
-
-int main()
-{
-   int a = 1;
-   typeof(a) b = 2;
-   SWAP(a, b);
-   return 1;
-}
-```
-
-Becomes
-
-```c
-#define SWAP(a, b) \
-    do { \
-      typeof(a) temp = a; a = b; b = temp; \
-    } while(0)
-
-#pragma expand SWAP
-
-int main()
-{
-   int a = 1;
-   int b = 2;
-    do {int temp = a; a = b; b = temp; } while(0);
-   return 1;
-}
-
-```
 
 
 ### Type traits
@@ -1753,7 +1625,6 @@ _
 ### Extension - Object lifetime checks
 
 See [ownership](ownership.html)
-
 
 ### Extension assert built-in
 

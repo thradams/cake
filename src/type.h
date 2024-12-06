@@ -256,6 +256,8 @@ bool type_is_out(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
+bool type_is_char(const struct type* p_type);
+bool type_is_array_of_char(const struct type* p_type);
 bool type_is_unsigned_integer(const struct type* p_type);
 bool type_is_signed_integer(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
@@ -300,6 +302,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
+void type_clear(struct type* a);
 void type_integer_promotion(struct type* a);
 
 

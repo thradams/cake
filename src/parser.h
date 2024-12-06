@@ -1590,8 +1590,8 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror);
 const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
 
-int initializer_init(struct parser_ctx* ctx,
-                                    struct type* p_current_object_type,
-                                    struct object* p_current_object,
-                                    struct initializer* braced_initializer,
-    bool is_constant);
+int initializer_init_new(struct parser_ctx* ctx,
+                         struct type* p_current_object_type,
+                         struct object* p_current_object,
+                         struct initializer* braced_initializer,
+                         bool is_constant);
