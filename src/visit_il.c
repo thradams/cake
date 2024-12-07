@@ -24,6 +24,7 @@ static char mon[][4] = {
 #include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
+#include <limits.h>
 #include "visit_il.h"
 #include "expressions.h"
 
