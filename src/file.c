@@ -1,1 +1,5 @@
-﻿int *p = (int[]){2, 4};
+﻿int main() {
+    auto l = (struct {
+        int a;
+     }){.a = (int){123}};
+}

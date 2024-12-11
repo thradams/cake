@@ -561,15 +561,18 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         char name[100];
         snprintf(name, sizeof(name), "__cmp_lt_%d", ctx->locals_count++);
 
+        struct osstream local = {0};
 
-        print_identation_core(&ctx->add_this_before, ctx->indentation);
-        d_print_type(ctx, &ctx->add_this_before, &p_expression->type, name);
+        print_identation_core(&local, ctx->indentation);
+        d_print_type(ctx, &local, &p_expression->type, name);
         bool first = true;
-        ss_fprintf(&ctx->add_this_before, " = {");
-        object_print_constant_initialization(ctx, &ctx->add_this_before, &p_expression->object, &first);
-        ss_fprintf(&ctx->add_this_before, "};\n");
+        ss_fprintf(&local, " = {");
+        object_print_constant_initialization(ctx, &local, &p_expression->object, &first);
+        ss_fprintf(&local, "};\n");
+        object_print_non_constant_initialization(ctx, &local, &p_expression->object, name);
 
-        object_print_non_constant_initialization(ctx, &ctx->add_this_before, &p_expression->object, name);
+        ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+        ss_close(&local);
 
         ss_fprintf(oss, "%s", name);
     }
@@ -598,15 +601,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case UNARY_EXPRESSION_INCREMENT:
         d_visit_expression(ctx, oss, p_expression->right);
-        ss_fprintf(oss, " ++");
-        assert(false); ///lado?
+        ss_fprintf(oss, " ++");        
         break;
 
     case UNARY_EXPRESSION_DECREMENT:
 
         d_visit_expression(ctx, oss, p_expression->right);
         ss_fprintf(oss, " --");
-        assert(false); ///lado?
+        
         break;
 
     case UNARY_EXPRESSION_NOT:
@@ -1924,7 +1926,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
             struct hash_item_set i = { 0 };
             i.number = 1;
             hashmap_set(&ctx->function_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
-            struct osstream ss = { 0 };
+            //struct osstream ss = { 0 };
 
             ss_fprintf(oss, "\n");
             d_visit_compound_statement(ctx, oss, p_init_declarator->p_declarator->function_body);

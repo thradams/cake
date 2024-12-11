@@ -594,12 +594,20 @@ static inline void* allocate_and_copy(void* s, size_t n) {
 #define NEW(...) (typeof(__VA_ARGS__)*) allocate_and_copy(&(__VA_ARGS__), sizeof(__VA_ARGS__))
 #pragma expand NEW
 
+#define new(...)\\
+ (typeof((__VA_ARGS__))* (void)){\\
+   typeof(__VA_ARGS__)* _p = malloc(sizeof * _p);\\
+   if (_p) *_p = __VA_ARGS__;\\
+   return _p;\\
+ }()
+
 struct X {
     const int i;
 };
 
 int main() { 
-    auto p = NEW((struct X) {});     
+    auto p = NEW((struct X) {});
+    auto p2 = new((struct X) {});
 }
 `;
 
