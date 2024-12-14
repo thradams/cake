@@ -282,8 +282,8 @@ struct object object_make_size_t(size_t value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
 
 #if defined(_WIN64) || defined(__x86_64__) 
-    r.type = TYPE_UNSIGNED_LONG_LONG;
-    r.unsigned_long_long_value = value;
+    r.value_type = TYPE_UNSIGNED_LONG_LONG;
+    r.value.unsigned_long_long_value = value;
 #else
     r.value_type = TYPE_UNSIGNED_INT;
     r.value.unsigned_int_value = value;
