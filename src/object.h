@@ -52,13 +52,13 @@ enum object_value_state
     /*object has a exactly and immutable value*/
     CONSTANT_VALUE_STATE_CONSTANT_EXACT,
 
-    /*indirec*/
+    /*indirect*/
     CONSTANT_VALUE_STATE_REFERENCE,
 };
 
 struct object {    
     enum object_value_state state;
-    enum object_value_type type;
+    enum object_value_type value_type;
     struct type type2; //TODO to be removed
 
     const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
@@ -84,7 +84,7 @@ struct object {
         float float_value;
         double double_value;
         long double long_double_value;              
-    };
+    } value;
     struct object* _Opt parent; //to be removed
     struct expression * _Opt p_init_expression;
     struct object* _Opt _Owner members;
@@ -164,10 +164,6 @@ struct type;
 
 enum object_value_type type_to_object_type(const struct type* type);
 
-
 void object_print_to_debug(const struct object* object);
 
-
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int n, bool is_constant);
-struct designator;
-

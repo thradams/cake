@@ -1,5 +1,3 @@
-#pragma safety enable
-
 
 
 int main()

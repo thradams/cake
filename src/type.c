@@ -740,6 +740,17 @@ bool type_is_struct_or_union(const struct type* p_type)
         p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION;
 }
 
+bool type_is_union(const struct type* p_type)
+{
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return false;
+
+    if (p_type->struct_or_union_specifier == NULL)
+        return false;
+
+    return p_type->struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION;
+}
+
 /*
   The three types
   char, signed char, and unsigned char
@@ -2683,7 +2694,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 
 void type_clear(struct type* a)
 {
-    struct type tmp = {0};
+    struct type tmp = { 0 };
     type_swap(&tmp, a);
     type_destroy(&tmp);
 }

@@ -266,6 +266,8 @@ int type_get_integer_rank(const struct type* p_type1);
 bool type_is_arithmetic(const struct type* p_type);
 
 bool type_is_struct_or_union(const struct type* p_type);
+bool type_is_union(const struct type* p_type);
+
 bool type_is_void(const struct type* p_type);
 bool type_is_function_or_function_pointer(const struct type* p_type);
 bool type_is_function(const struct type* p_type);

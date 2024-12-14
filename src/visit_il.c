@@ -190,70 +190,70 @@ static void object_print_value(struct osstream* ss, const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
     case TYPE_BOOL:
-        //ss_fprintf(ss, "((unsigned char) %s)", a->bool_value ? "1" : "0");
-        ss_fprintf(ss, "%d", a->bool_value ? 1 : 0);
+        //ss_fprintf(ss, "((unsigned char) %s)", a->value.bool_value ? "1" : "0");
+        ss_fprintf(ss, "%d", a->value.bool_value ? 1 : 0);
         break;
 
     case TYPE_SIGNED_CHAR:
 
-        //ss_fprintf(ss, "((signed char)%d)", (int)a->signed_char_value);
-        ss_fprintf(ss, "%d", (int)a->signed_char_value);
+        //ss_fprintf(ss, "((signed char)%d)", (int)a->value.signed_char_value);
+        ss_fprintf(ss, "%d", (int)a->value.signed_char_value);
         break;
 
 
     case TYPE_UNSIGNED_CHAR:
-        //ss_fprintf(ss, "((unsigned char)%d)", (int)a->unsigned_char_value);
-        ss_fprintf(ss, "%d", (int)a->unsigned_char_value);
+        //ss_fprintf(ss, "((unsigned char)%d)", (int)a->value.unsigned_char_value);
+        ss_fprintf(ss, "%d", (int)a->value.unsigned_char_value);
         break;
 
 
     case TYPE_SIGNED_SHORT:
-        //        ss_fprintf(ss, "((short)%d)", a->signed_short_value);
-        ss_fprintf(ss, "%d", a->signed_short_value);
+        //        ss_fprintf(ss, "((short)%d)", a->value.signed_short_value);
+        ss_fprintf(ss, "%d", a->value.signed_short_value);
         break;
 
     case TYPE_UNSIGNED_SHORT:
-        //ss_fprintf(ss, "((unsigned short) %d)", a->unsigned_short_value);
-        ss_fprintf(ss, "%d", a->unsigned_short_value);
+        //ss_fprintf(ss, "((unsigned short) %d)", a->value.unsigned_short_value);
+        ss_fprintf(ss, "%d", a->value.unsigned_short_value);
         break;
 
     case TYPE_SIGNED_INT:
-        ss_fprintf(ss, "%d", a->signed_int_value);
+        ss_fprintf(ss, "%d", a->value.signed_int_value);
         break;
 
     case TYPE_UNSIGNED_INT:
-        ss_fprintf(ss, "%u", a->unsigned_int_value);
+        ss_fprintf(ss, "%u", a->value.unsigned_int_value);
         ss_fprintf(ss, "U");
         break;
     case TYPE_SIGNED_LONG:
-        ss_fprintf(ss, "%ld", a->signed_long_value);
+        ss_fprintf(ss, "%ld", a->value.signed_long_value);
         ss_fprintf(ss, "L");
         break;
     case TYPE_UNSIGNED_LONG:
-        ss_fprintf(ss, "%lu", a->unsigned_long_value);
+        ss_fprintf(ss, "%lu", a->value.unsigned_long_value);
         ss_fprintf(ss, "UL");
         break;
     case TYPE_SIGNED_LONG_LONG:
-        ss_fprintf(ss, "%lld", a->signed_long_long_value);
+        ss_fprintf(ss, "%lld", a->value.signed_long_long_value);
         ss_fprintf(ss, "LL");
         break;
     case TYPE_UNSIGNED_LONG_LONG:
-        ss_fprintf(ss, "%llu", a->unsigned_long_long_value);
+        ss_fprintf(ss, "%llu", a->value.unsigned_long_long_value);
         ss_fprintf(ss, "ULL");
         break;
     case TYPE_FLOAT:
-        ss_fprintf(ss, "%f", a->float_value);
+        ss_fprintf(ss, "%f", a->value.float_value);
         ss_fprintf(ss, "f");
         break;
     case TYPE_DOUBLE:
-        ss_fprintf(ss, "%lf", a->double_value);
+        ss_fprintf(ss, "%lf", a->value.double_value);
         break;
     case TYPE_LONG_DOUBLE:
-        ss_fprintf(ss, "%Lf", a->long_double_value);
+        ss_fprintf(ss, "%Lf", a->value.long_double_value);
         ss_fprintf(ss, "L");
         break;
     }
@@ -561,7 +561,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         char name[100];
         snprintf(name, sizeof(name), "__cmp_lt_%d", ctx->locals_count++);
 
-        struct osstream local = {0};
+        struct osstream local = { 0 };
 
         print_identation_core(&local, ctx->indentation);
         d_print_type(ctx, &local, &p_expression->type, name);
@@ -601,14 +601,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case UNARY_EXPRESSION_INCREMENT:
         d_visit_expression(ctx, oss, p_expression->right);
-        ss_fprintf(oss, " ++");        
+        ss_fprintf(oss, " ++");
         break;
 
     case UNARY_EXPRESSION_DECREMENT:
 
         d_visit_expression(ctx, oss, p_expression->right);
         ss_fprintf(oss, " --");
-        
+
         break;
 
     case UNARY_EXPRESSION_NOT:
@@ -1742,7 +1742,7 @@ static bool is_all_zero(const struct object* object)
     {
         if (object_has_constant_value(&object->p_init_expression->object))
         {
-            if (object->p_init_expression->object.bool_value != 0)
+            if (object->p_init_expression->object.value.bool_value != 0)
                 return false;
         }
         else
@@ -1760,8 +1760,6 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
         object = object_get_referenced(object);
     }
 
-    //printf("\n");
-      //             object_print_to_debug(object);
 
     if (object->p_init_expression &&
         object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
@@ -1777,11 +1775,22 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
 
     if (object->members != NULL)
     {
-        struct object* _Opt member = object->members;
-        while (member)
+        if (type_is_union(&object->type2))
         {
-            object_print_constant_initialization(ctx, ss, member, first);
-            member = member->next;
+            //In c89 only the first member can be initialized
+            //we could make the first member be array of unsigned int
+            //then initialize it
+            struct object* _Opt member = object->members;
+            object_print_constant_initialization(ctx, ss, member, first);          
+        }
+        else
+        {
+            struct object* _Opt member = object->members;
+            while (member)
+            {
+                object_print_constant_initialization(ctx, ss, member, first);
+                member = member->next;
+            }
         }
     }
     else
@@ -1814,7 +1823,10 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
     }
 }
 
-static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, const char* declarator_name)
+static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
+    struct osstream* ss,
+    const struct object* object,
+    const char* declarator_name)
 {
 
     if (object_is_reference(object))
@@ -1824,11 +1836,47 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, st
 
     if (object->members != NULL)
     {
-        struct object* _Opt member = object->members;
-        while (member)
+        if (type_is_union(&object->type2))
         {
-            object_print_non_constant_initialization(ctx, ss, member, declarator_name);
-            member = member->next;
+            //In c89 only the first member can be initialized
+            struct object* _Opt member = object->members;
+
+            if (member->p_init_expression &&
+                object_has_constant_value(&member->p_init_expression->object))
+            {
+                //already initialized
+            }
+            else
+            {
+                //TODO external declarations bug
+                /*
+                */
+                while (member)
+                {
+                    if (member->p_init_expression)
+                    {
+                        //object_print_non_constant_initialization(ctx, ss, member, declarator_name);
+                        print_identation_core(ss, ctx->indentation);
+                        ss_fprintf(ss, "%s%s = ", declarator_name, member->debug_name);
+                        struct osstream local = { 0 };
+                        d_visit_expression(ctx, &local, member->p_init_expression);
+                        ss_fprintf(ss, "%s", local.c_str);
+                        ss_fprintf(ss, ";\n");
+                        ss_close(&local);
+                        break;
+                    }
+                    member = member->next;
+                }
+            }
+        }
+        else
+        {
+            struct object* _Opt member = object->members;
+            while (member)
+            {
+                object_print_non_constant_initialization(ctx, ss, member, declarator_name);
+                member = member->next;
+            }
         }
     }
     else

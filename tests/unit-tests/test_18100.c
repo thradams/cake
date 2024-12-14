@@ -1,4 +1,0 @@
-
-#pragma safety enable
-
-//TODO

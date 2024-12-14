@@ -1114,8 +1114,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     if (p_new == NULL) throw;
 
                     p_new->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-                    p_new->type = TYPE_SIGNED_CHAR;
-                    p_new->signed_char_value = value;
+                    p_new->value_type = TYPE_SIGNED_CHAR;
+                    p_new->value.signed_char_value = value;
 
                     if (p_expression_node->object.members == NULL)
                     {
@@ -1132,8 +1132,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 if (p_new == NULL) throw;
 
                 p_new->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-                p_new->type = TYPE_SIGNED_CHAR;
-                p_new->signed_char_value = 0;
+                p_new->value_type = TYPE_SIGNED_CHAR;
+                p_new->value.signed_char_value = 0;
 
                 if (last == NULL)
                 {
@@ -1614,8 +1614,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
+                make_object(&p_expression_node_new->type, &p_expression_node_new->object);
                 p_expression_node_new->last_token = ctx->previous;
-
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }

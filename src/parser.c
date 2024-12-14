@@ -2560,24 +2560,12 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
 
-                object_default_initialization(&p_init_declarator->p_declarator->object, is_constant);
-
-                //printf("\n");
-                //object_print_to_debug(&p_init_declarator->p_declarator->object);
 
                 initializer_init_new(ctx,
                              &p_init_declarator->p_declarator->type,
                              &p_init_declarator->p_declarator->object,
                              p_init_declarator->initializer,
                              is_constant);
-
-                char* warning = "TODO";
-
-                //   p_init_declarator->p_declarator->type.num_of_elements =
-                  //     p_init_declarator->p_declarator->object.type2.num_of_elements;
-
-                 //  printf("\n");
-                   //object_print_to_debug(&p_init_declarator->p_declarator->object);
 
             }
             else if (p_init_declarator->initializer->assignment_expression)
@@ -2660,7 +2648,6 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
 
-                object_default_initialization(&p_init_declarator->p_declarator->object, is_constant);
 
                 //intf("\n");
                 //ject_print_to_debug(&p_init_declarator->p_declarator->object);
@@ -10516,23 +10503,25 @@ static void designation_to_string(struct parser_ctx* ctx, struct designation* de
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
-static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
+static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
     if (p_object->members == NULL)
     {
+        *sub_object_of_union = false;
         *p_type_out = type_dup(&p_object->type2);
         return p_object; //tODO
     }
 
+    *sub_object_of_union = type_is_union(&p_object->type2);
     *p_type_out = type_dup(&p_object->members->type2);
     return p_object->members; //tODO
 }
 
-static struct object* _Opt find_first_subobject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
+static struct object* _Opt find_first_subobject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
 {
-    return find_first_subobject_old(p_type_not_used, p_object, p_type_out);
+    return find_first_subobject_old(p_type_not_used, p_object, p_type_out, sub_object_of_union);
 }
 
 static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
@@ -10568,7 +10557,8 @@ static struct object* _Opt find_last_suboject_of_suboject(struct type* p_type_no
 static struct object* find_next_subobject_old(struct type* p_top_object_not_used,
     struct object* current_object,
     struct object* it,
-    struct type* p_type_out)
+    struct type* p_type_out,
+    bool* sub_object_of_union)
 {
     type_clear(p_type_out);
 
@@ -10578,8 +10568,11 @@ static struct object* find_next_subobject_old(struct type* p_top_object_not_used
 
     if (it->members)
     {
+        *sub_object_of_union = type_is_union(&it->type2);
+
         it = it->members;
         *p_type_out = type_dup(&it->type2);
+
         return it;
     }
 
@@ -10592,6 +10585,8 @@ static struct object* find_next_subobject_old(struct type* p_top_object_not_used
 
         if (next != NULL)
         {
+            if (it->parent)
+                *sub_object_of_union = type_is_union(&it->parent->type2);
             it = next;
             break;
         }
@@ -10607,12 +10602,14 @@ static struct object* find_next_subobject_old(struct type* p_top_object_not_used
 static struct object* find_next_subobject(struct type* p_top_object_not_used,
     struct object* current_object,
     struct object* it,
-    struct type* p_type_out)
+    struct type* p_type_out,
+    bool* sub_object_of_union)
 {
     return find_next_subobject_old(p_top_object_not_used,
     current_object,
     it,
-    p_type_out);
+    p_type_out,
+    sub_object_of_union);
 }
 struct find_object_result
 {
@@ -10931,6 +10928,11 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         return 0;
     }
 
+    if (!type_is_union(p_current_object_type))
+    {
+        object_default_initialization(current_object, is_constant);
+    }
+
     if (type_is_scalar(p_current_object_type) &&
     braced_initializer != NULL)
     {
@@ -11013,6 +11015,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
     for (;;)
     {
+        bool is_subobject_of_union = false;
         struct type subobject_type = { 0 };
 
         if (p_initializer_list_item == NULL)
@@ -11031,6 +11034,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                 object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
             }
+            is_subobject_of_union = type_is_union(&subobject_type);
             p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type);
             if (p_subobject == NULL)
             {
@@ -11043,7 +11047,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         {
             if (compute_array_size)
             {
-                struct object* po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type);
+
+                struct object* po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
                 if (po == NULL)
                 {
                     array_to_expand_index++;
@@ -11056,16 +11061,19 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
             if (p_subobject == NULL)
             {
-                p_subobject = find_first_subobject(p_current_object_type, current_object, &subobject_type);
+
+                p_subobject = find_first_subobject(p_current_object_type, current_object, &subobject_type, &is_subobject_of_union);
             }
             else
             {
-                p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type);
+                p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
             }
         }
 
         if (p_subobject == NULL)
             break;
+
+
 
         if (p_initializer_list_item->initializer->braced_initializer)
         {
@@ -11075,13 +11083,15 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                                   p_initializer_list_item->initializer->braced_initializer,
                                   is_constant);
             struct type t = { 0 };
+
+            is_subobject_of_union = type_is_union(&subobject_type);
             p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
             type_swap(&t, &subobject_type);
             type_destroy(&t);
         }
         else
         {
-            bool is_compatible = false;
+            bool entire_object_initialized = false;
 
             if (type_is_array_of_char(&subobject_type) &&
                 p_initializer_list_item->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
@@ -11090,7 +11100,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 struct X { int i; char text[4]; };
                 constexpr struct X x = {1, "abc"};
                 */
-                is_compatible = true;
+                entire_object_initialized = true;
             }
             else if (type_is_array(&subobject_type))
             {
@@ -11101,7 +11111,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                       int a[2]={};
                       struct  X b = { a };    //error
                     */
-                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type);
+                    //sub_object_of_union = false;
+                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
                 }
             }
             else if (type_is_struct_or_union(&subobject_type))
@@ -11109,12 +11120,11 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 if (type_is_struct_or_union(&p_initializer_list_item->initializer->assignment_expression->type))
                 {
                     //mesmo tipo
-                    is_compatible = true;
+                    entire_object_initialized = true;
                 }
                 else
                 {
-                    //aponta p objecto de dentro
-                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type);
+                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
                 }
             }
 
@@ -11123,12 +11133,22 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                    &p_initializer_list_item->initializer->assignment_expression->object,
                    is_constant);
 
-            if (is_compatible)
-            {
-                //toda struct foi consumida
-                //p_subobject = object_last_member(p_subobject, &subobject_type);
 
+            if (is_subobject_of_union)
+            {
                 struct type t = { 0 };
+                is_subobject_of_union = true;
+                p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type2, p_subobject->parent, &t);
+                type_swap(&t, &subobject_type);
+                type_destroy(&t);
+                if (p_subobject)
+                    subobject_type = type_dup(&p_subobject->type2);
+
+            }
+            else if (entire_object_initialized)
+            {
+                struct type t = { 0 };
+                is_subobject_of_union = type_is_union(p_current_object_type);
                 p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);

@@ -218,60 +218,60 @@ void object_to_string(const struct object* a, char buffer[], int sz)
     a = object_get_referenced(a);
 
     buffer[0] = 0;
-    switch (a->type)
+    switch (a->value_type)
     {
     case TYPE_BOOL:
-        snprintf(buffer, sz, "%s", a->signed_char_value ? "true" : "false");
+        snprintf(buffer, sz, "%s", a->value.signed_char_value ? "true" : "false");
         break;
 
     case TYPE_SIGNED_CHAR:
-        snprintf(buffer, sz, "%c", a->signed_char_value);
+        snprintf(buffer, sz, "%c", a->value.signed_char_value);
         break;
 
     case TYPE_UNSIGNED_CHAR:
-        snprintf(buffer, sz, "%c", a->unsigned_char_value);
+        snprintf(buffer, sz, "%c", a->value.unsigned_char_value);
         break;
 
     case TYPE_SIGNED_SHORT:
-        snprintf(buffer, sz, "%c", a->signed_short_value);
+        snprintf(buffer, sz, "%c", a->value.signed_short_value);
         break;
     case TYPE_UNSIGNED_SHORT:
-        snprintf(buffer, sz, "%c", a->signed_short_value);
+        snprintf(buffer, sz, "%c", a->value.signed_short_value);
         break;
 
     case TYPE_SIGNED_INT:
-        snprintf(buffer, sz, "%d", a->signed_int_value);
+        snprintf(buffer, sz, "%d", a->value.signed_int_value);
         break;
 
     case TYPE_UNSIGNED_INT:
-        snprintf(buffer, sz, "%u", a->signed_int_value);
+        snprintf(buffer, sz, "%u", a->value.signed_int_value);
         break;
 
     case TYPE_SIGNED_LONG:
-        snprintf(buffer, sz, "%ld", a->signed_long_value);
+        snprintf(buffer, sz, "%ld", a->value.signed_long_value);
         break;
 
     case TYPE_UNSIGNED_LONG:
         break;
 
     case TYPE_SIGNED_LONG_LONG:
-        snprintf(buffer, sz, "%lud", a->signed_long_value);
+        snprintf(buffer, sz, "%lud", a->value.signed_long_value);
         break;
 
     case TYPE_UNSIGNED_LONG_LONG:
-        snprintf(buffer, sz, "%llu", a->signed_long_long_value);
+        snprintf(buffer, sz, "%llu", a->value.signed_long_long_value);
         break;
 
     case TYPE_FLOAT:
-        snprintf(buffer, sz, "%f", a->float_value);
+        snprintf(buffer, sz, "%f", a->value.float_value);
         break;
 
     case TYPE_DOUBLE:
-        snprintf(buffer, sz, "%f", a->double_value);
+        snprintf(buffer, sz, "%f", a->value.double_value);
         break;
 
     case TYPE_LONG_DOUBLE:
-        snprintf(buffer, sz, "%Lf", a->long_double_value);
+        snprintf(buffer, sz, "%Lf", a->value.long_double_value);
         break;
     }
 }
@@ -285,8 +285,8 @@ struct object object_make_size_t(size_t value)
     r.type = TYPE_UNSIGNED_LONG_LONG;
     r.unsigned_long_long_value = value;
 #else
-    r.type = TYPE_UNSIGNED_INT;
-    r.unsigned_int_value = value;
+    r.value_type = TYPE_UNSIGNED_INT;
+    r.value.unsigned_int_value = value;
 #endif
 
     return r;
@@ -297,8 +297,8 @@ struct object object_make_nullptr()
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
 
-    r.type = TYPE_SIGNED_INT;
-    r.signed_short_value = 0;
+    r.value_type = TYPE_SIGNED_INT;
+    r.value.signed_short_value = 0;
     return r;
 }
 
@@ -309,12 +309,12 @@ struct object object_make_wchar_t(wchar_t value)
 
 #ifdef _WIN32
     static_assert(_Generic(L' ', unsigned short : 1), "");
-    r.type = TYPE_SIGNED_SHORT;
-    r.signed_short_value = value;
+    r.value_type = TYPE_SIGNED_SHORT;
+    r.value.signed_short_value = value;
 #else
     static_assert(_Generic(L' ', int : 1), "");
-    r.type = TYPE_SIGNED_INT;
-    r.signed_int_value = value;
+    r.value_type = TYPE_SIGNED_INT;
+    r.value.signed_int_value = value;
 #endif
 
     return r;
@@ -325,8 +325,8 @@ struct object object_make_bool(bool value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
 
-    r.type = TYPE_BOOL;
-    r.bool_value = value;
+    r.value_type = TYPE_BOOL;
+    r.value.bool_value = value;
     return r;
 }
 
@@ -337,23 +337,23 @@ bool object_to_bool(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -362,8 +362,8 @@ struct object object_make_signed_char(signed char value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_SIGNED_CHAR;
-    r.signed_char_value = value;
+    r.value_type = TYPE_SIGNED_CHAR;
+    r.value.signed_char_value = value;
     return r;
 }
 
@@ -371,37 +371,37 @@ errno_t object_increment_value(struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
     case TYPE_BOOL:
-        return a->bool_value++;
+        return a->value.bool_value++;
     case TYPE_SIGNED_CHAR:
-        return a->signed_char_value++;
+        return a->value.signed_char_value++;
     case TYPE_UNSIGNED_CHAR:
-        return a->unsigned_char_value++;
+        return a->value.unsigned_char_value++;
     case TYPE_SIGNED_SHORT:
-        return a->signed_short_value++;
+        return a->value.signed_short_value++;
     case TYPE_UNSIGNED_SHORT:
-        return a->unsigned_short_value++;
+        return a->value.unsigned_short_value++;
     case TYPE_SIGNED_INT:
-        return a->signed_int_value++;
+        return a->value.signed_int_value++;
     case TYPE_UNSIGNED_INT:
-        return a->unsigned_int_value++;
+        return a->value.unsigned_int_value++;
     case TYPE_SIGNED_LONG:
-        return a->signed_long_value++;
+        return a->value.signed_long_value++;
     case TYPE_UNSIGNED_LONG:
-        return a->unsigned_long_value++;
+        return a->value.unsigned_long_value++;
     case TYPE_SIGNED_LONG_LONG:
-        return a->signed_long_long_value++;
+        return a->value.signed_long_long_value++;
     case TYPE_UNSIGNED_LONG_LONG:
-        return a->unsigned_long_long_value++;
+        return a->value.unsigned_long_long_value++;
     case TYPE_FLOAT:
-        return a->float_value++;
+        return a->value.float_value++;
     case TYPE_DOUBLE:
-        return a->double_value++;
+        return a->value.double_value++;
     case TYPE_LONG_DOUBLE:
-        return a->long_double_value++;
+        return a->value.long_double_value++;
     }
     assert(0);
     return 0;
@@ -411,23 +411,23 @@ signed char object_to_signed_char(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -437,8 +437,8 @@ struct object object_make_unsigned_char(unsigned char value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_UNSIGNED_CHAR;
-    r.unsigned_char_value = value;
+    r.value_type = TYPE_UNSIGNED_CHAR;
+    r.value.unsigned_char_value = value;
     return r;
 }
 
@@ -446,23 +446,23 @@ unsigned char object_to_unsigned_char(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -471,8 +471,8 @@ struct object object_make_signed_short(signed short value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_SIGNED_SHORT;
-    r.signed_short_value = value;
+    r.value_type = TYPE_SIGNED_SHORT;
+    r.value.signed_short_value = value;
     return r;
 }
 
@@ -480,23 +480,23 @@ signed short object_to_signed_short(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -505,8 +505,8 @@ struct object object_make_unsigned_short(unsigned short value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_UNSIGNED_SHORT;
-    r.unsigned_short_value = value;
+    r.value_type = TYPE_UNSIGNED_SHORT;
+    r.value.unsigned_short_value = value;
     return r;
 }
 
@@ -514,23 +514,23 @@ unsigned short object_to_unsigned_short(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -539,8 +539,8 @@ struct object object_make_signed_int(signed int value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_SIGNED_INT;
-    r.signed_int_value = value;
+    r.value_type = TYPE_SIGNED_INT;
+    r.value.signed_int_value = value;
     return r;
 }
 
@@ -548,23 +548,23 @@ signed int object_to_signed_int(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -573,8 +573,8 @@ struct object object_make_unsigned_int(unsigned int value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_UNSIGNED_INT;
-    r.unsigned_int_value = value;
+    r.value_type = TYPE_UNSIGNED_INT;
+    r.value.unsigned_int_value = value;
     return r;
 }
 
@@ -582,23 +582,23 @@ unsigned int object_to_unsigned_int(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -607,8 +607,8 @@ struct object object_make_signed_long(signed long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_SIGNED_LONG;
-    r.signed_long_value = value;
+    r.value_type = TYPE_SIGNED_LONG;
+    r.value.signed_long_value = value;
     return r;
 }
 
@@ -616,23 +616,23 @@ signed long object_to_signed_long(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -641,8 +641,8 @@ struct object object_make_unsigned_long(unsigned long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_UNSIGNED_LONG;
-    r.unsigned_long_value = value;
+    r.value_type = TYPE_UNSIGNED_LONG;
+    r.value.unsigned_long_value = value;
     return r;
 }
 
@@ -650,23 +650,23 @@ unsigned long object_to_unsigned_long(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -675,8 +675,8 @@ struct object object_make_signed_long_long(signed long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_SIGNED_LONG_LONG;
-    r.signed_long_long_value = value;
+    r.value_type = TYPE_SIGNED_LONG_LONG;
+    r.value.signed_long_long_value = value;
     return r;
 }
 
@@ -684,23 +684,23 @@ signed long long object_to_signed_long_long(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -709,8 +709,8 @@ struct object object_make_unsigned_long_long(unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_UNSIGNED_LONG_LONG;
-    r.unsigned_long_long_value = value;
+    r.value_type = TYPE_UNSIGNED_LONG_LONG;
+    r.value.unsigned_long_long_value = value;
     return r;
 }
 
@@ -718,23 +718,23 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -743,8 +743,8 @@ struct object object_make_float(float value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_FLOAT;
-    r.float_value = value;
+    r.value_type = TYPE_FLOAT;
+    r.value.float_value = value;
     return r;
 }
 
@@ -752,23 +752,23 @@ float object_to_float(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -777,8 +777,8 @@ struct object object_make_double(double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_DOUBLE;
-    r.double_value = value;
+    r.value_type = TYPE_DOUBLE;
+    r.value.double_value = value;
     return r;
 }
 
@@ -786,23 +786,23 @@ double object_to_double(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -814,8 +814,8 @@ struct object object_make_reference(struct object* object)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_REFERENCE;
-    r.type = TYPE_SIGNED_INT;
-    r.signed_int_value = 0;
+    r.value_type = TYPE_SIGNED_INT;
+    r.value.signed_int_value = 0;
 
     //referenced object is stored at members
 
@@ -829,8 +829,8 @@ struct object object_make_long_double(long double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
-    r.type = TYPE_LONG_DOUBLE;
-    r.long_double_value = value;
+    r.value_type = TYPE_LONG_DOUBLE;
+    r.value.long_double_value = value;
     return r;
 }
 
@@ -838,23 +838,23 @@ long double object_to_long_double(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->bool_value;
-    case TYPE_SIGNED_CHAR: return a->signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->unsigned_long_long_value;
-    case TYPE_FLOAT: return a->float_value;
-    case TYPE_DOUBLE: return a->double_value;
-    case TYPE_LONG_DOUBLE: return a->long_double_value;
+    case TYPE_BOOL: return a->value.bool_value;
+    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
+    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
+    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
+    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
+    case TYPE_SIGNED_INT: return a->value.signed_int_value;
+    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
+    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
+    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
+    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
+    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
     }
     assert(0);
     return 0;
@@ -871,7 +871,7 @@ struct object object_cast(enum object_value_type t, const struct object* v)
     v = object_get_referenced(v);
 
     //No changes
-    if (v->type == t)
+    if (v->value_type == t)
         return *v;
 
 
@@ -919,7 +919,7 @@ struct object object_cast(enum object_value_type t, const struct object* v)
                         if (i == j)
                             continue;
                         fprintf(f, "if (v->type == %s)\n", types[j].value_type);
-                        fprintf(f, " return object_make_%s((%s)v->%s_value);\n", types[i].name, types[i].type, types[j].name);
+                        fprintf(f, " return object_make_%s((%s)v->value.%s_value);\n", types[i].name, types[i].type, types[j].name);
                     }
                     fprintf(f, "}\n");
                 }
@@ -930,409 +930,409 @@ struct object object_cast(enum object_value_type t, const struct object* v)
     */
     if (t == TYPE_BOOL)
     {
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_bool((bool)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_bool((bool)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_bool((bool)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_bool((bool)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_bool((bool)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_bool((bool)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_bool((bool)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_bool((bool)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_bool((bool)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_bool((bool)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_bool((bool)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_bool((bool)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_bool((bool)v->long_double_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_bool((bool)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_bool((bool)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_bool((bool)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_bool((bool)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_bool((bool)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_bool((bool)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_bool((bool)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_bool((bool)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_bool((bool)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_bool((bool)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_bool((bool)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_bool((bool)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_bool((bool)v->value.long_double_value);
     }
     if (t == TYPE_SIGNED_CHAR)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_signed_char((signed char)v->bool_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_char((signed char)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_signed_char((signed char)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_char((signed char)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_signed_char((signed char)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_signed_char((signed char)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_signed_char((signed char)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_char((signed char)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_signed_char((signed char)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_char((signed char)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_signed_char((signed char)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_signed_char((signed char)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_signed_char((signed char)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_signed_char((signed char)v->value.bool_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_signed_char((signed char)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_signed_char((signed char)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_signed_char((signed char)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_signed_char((signed char)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_signed_char((signed char)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_signed_char((signed char)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_signed_char((signed char)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_signed_char((signed char)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_signed_char((signed char)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_signed_char((signed char)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_signed_char((signed char)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_signed_char((signed char)v->value.long_double_value);
     }
     if (t == TYPE_UNSIGNED_CHAR)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_unsigned_char((unsigned char)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_char((unsigned char)v->signed_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_char((unsigned char)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_unsigned_char((unsigned char)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_unsigned_char((unsigned char)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_unsigned_char((unsigned char)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_char((unsigned char)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_unsigned_char((unsigned char)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_char((unsigned char)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_unsigned_char((unsigned char)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_unsigned_char((unsigned char)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_unsigned_char((unsigned char)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_char((unsigned char)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_unsigned_char((unsigned char)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_unsigned_char((unsigned char)v->value.signed_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_unsigned_char((unsigned char)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_unsigned_char((unsigned char)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_unsigned_char((unsigned char)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_unsigned_char((unsigned char)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_unsigned_char((unsigned char)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_unsigned_char((unsigned char)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_unsigned_char((unsigned char)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_unsigned_char((unsigned char)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_unsigned_char((unsigned char)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_unsigned_char((unsigned char)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_unsigned_char((unsigned char)v->value.long_double_value);
     }
     if (t == TYPE_SIGNED_SHORT)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_signed_short((signed short)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_signed_short((signed short)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_short((signed short)v->unsigned_char_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_short((signed short)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_signed_short((signed short)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_signed_short((signed short)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_signed_short((signed short)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_short((signed short)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_signed_short((signed short)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_short((signed short)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_signed_short((signed short)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_signed_short((signed short)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_signed_short((signed short)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_signed_short((signed short)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_signed_short((signed short)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_signed_short((signed short)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_signed_short((signed short)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_signed_short((signed short)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_signed_short((signed short)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_signed_short((signed short)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_signed_short((signed short)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_signed_short((signed short)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_signed_short((signed short)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_signed_short((signed short)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_signed_short((signed short)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_signed_short((signed short)v->value.long_double_value);
     }
     if (t == TYPE_UNSIGNED_SHORT)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_unsigned_short((unsigned short)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_short((unsigned short)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_unsigned_short((unsigned short)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_short((unsigned short)v->signed_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_unsigned_short((unsigned short)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_unsigned_short((unsigned short)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_short((unsigned short)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_unsigned_short((unsigned short)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_short((unsigned short)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_unsigned_short((unsigned short)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_unsigned_short((unsigned short)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_unsigned_short((unsigned short)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_short((unsigned short)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_unsigned_short((unsigned short)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_unsigned_short((unsigned short)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_unsigned_short((unsigned short)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_unsigned_short((unsigned short)v->value.signed_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_unsigned_short((unsigned short)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_unsigned_short((unsigned short)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_unsigned_short((unsigned short)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_unsigned_short((unsigned short)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_unsigned_short((unsigned short)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_unsigned_short((unsigned short)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_unsigned_short((unsigned short)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_unsigned_short((unsigned short)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_unsigned_short((unsigned short)v->value.long_double_value);
     }
     if (t == TYPE_SIGNED_INT)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_signed_int((signed int)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_signed_int((signed int)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_int((signed int)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_signed_int((signed int)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_int((signed int)v->unsigned_short_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_signed_int((signed int)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_signed_int((signed int)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_int((signed int)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_signed_int((signed int)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_int((signed int)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_signed_int((signed int)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_signed_int((signed int)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_signed_int((signed int)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_signed_int((signed int)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_signed_int((signed int)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_signed_int((signed int)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_signed_int((signed int)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_signed_int((signed int)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_signed_int((signed int)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_signed_int((signed int)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_signed_int((signed int)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_signed_int((signed int)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_signed_int((signed int)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_signed_int((signed int)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_signed_int((signed int)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_signed_int((signed int)v->value.long_double_value);
     }
     if (t == TYPE_UNSIGNED_INT)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_unsigned_int((unsigned int)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_int((unsigned int)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_unsigned_int((unsigned int)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_int((unsigned int)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_unsigned_int((unsigned int)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_unsigned_int((unsigned int)v->signed_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_int((unsigned int)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_unsigned_int((unsigned int)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_int((unsigned int)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_unsigned_int((unsigned int)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_unsigned_int((unsigned int)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_unsigned_int((unsigned int)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_int((unsigned int)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_unsigned_int((unsigned int)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_unsigned_int((unsigned int)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_unsigned_int((unsigned int)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_unsigned_int((unsigned int)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_unsigned_int((unsigned int)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_unsigned_int((unsigned int)v->value.signed_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_unsigned_int((unsigned int)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_unsigned_int((unsigned int)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_unsigned_int((unsigned int)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_unsigned_int((unsigned int)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_unsigned_int((unsigned int)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_unsigned_int((unsigned int)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_unsigned_int((unsigned int)v->value.long_double_value);
     }
     if (t == TYPE_SIGNED_LONG)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_signed_long((signed long)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_signed_long((signed long)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_long((signed long)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_signed_long((signed long)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_long((signed long)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_signed_long((signed long)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_signed_long((signed long)v->unsigned_int_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_long((signed long)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_signed_long((signed long)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_long((signed long)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_signed_long((signed long)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_signed_long((signed long)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_signed_long((signed long)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_signed_long((signed long)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_signed_long((signed long)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_signed_long((signed long)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_signed_long((signed long)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_signed_long((signed long)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_signed_long((signed long)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_signed_long((signed long)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_signed_long((signed long)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_signed_long((signed long)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_signed_long((signed long)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_signed_long((signed long)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_signed_long((signed long)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_signed_long((signed long)v->value.long_double_value);
     }
     if (t == TYPE_UNSIGNED_LONG)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_unsigned_long((unsigned long)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_long((unsigned long)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_unsigned_long((unsigned long)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_long((unsigned long)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_unsigned_long((unsigned long)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_unsigned_long((unsigned long)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_unsigned_long((unsigned long)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_long((unsigned long)v->signed_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_long((unsigned long)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_unsigned_long((unsigned long)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_unsigned_long((unsigned long)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_unsigned_long((unsigned long)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_long((unsigned long)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_unsigned_long((unsigned long)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_unsigned_long((unsigned long)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_unsigned_long((unsigned long)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_unsigned_long((unsigned long)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_unsigned_long((unsigned long)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_unsigned_long((unsigned long)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_unsigned_long((unsigned long)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_unsigned_long((unsigned long)v->value.signed_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_unsigned_long((unsigned long)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_unsigned_long((unsigned long)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_unsigned_long((unsigned long)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_unsigned_long((unsigned long)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_unsigned_long((unsigned long)v->value.long_double_value);
     }
     if (t == TYPE_SIGNED_LONG_LONG)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_signed_long_long((signed long long)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_signed_long_long((signed long long)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_long_long((signed long long)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_signed_long_long((signed long long)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_long_long((signed long long)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_signed_long_long((signed long long)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_signed_long_long((signed long long)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_signed_long_long((signed long long)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_long_long((signed long long)v->unsigned_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_long_long((signed long long)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_signed_long_long((signed long long)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_signed_long_long((signed long long)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_signed_long_long((signed long long)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_signed_long_long((signed long long)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_signed_long_long((signed long long)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_signed_long_long((signed long long)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_signed_long_long((signed long long)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_signed_long_long((signed long long)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_signed_long_long((signed long long)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_signed_long_long((signed long long)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_signed_long_long((signed long long)v->value.long_double_value);
     }
     if (t == TYPE_UNSIGNED_LONG_LONG)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_unsigned_long_long((unsigned long long)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_long_long((unsigned long long)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_unsigned_long_long((unsigned long long)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_long_long((unsigned long long)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_unsigned_long_long((unsigned long long)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_unsigned_long_long((unsigned long long)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_unsigned_long_long((unsigned long long)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_long_long((unsigned long long)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_unsigned_long_long((unsigned long long)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_long_long((unsigned long long)v->signed_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_unsigned_long_long((unsigned long long)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_unsigned_long_long((unsigned long long)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_long_long((unsigned long long)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_unsigned_long_long((unsigned long long)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_unsigned_long_long((unsigned long long)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_unsigned_long_long((unsigned long long)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_unsigned_long_long((unsigned long long)v->value.long_double_value);
     }
     if (t == TYPE_FLOAT)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_float((float)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_float((float)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_float((float)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_float((float)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_float((float)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_float((float)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_float((float)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_float((float)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_float((float)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_float((float)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_float((float)v->unsigned_long_long_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_float((float)v->double_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_float((float)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_float((float)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_float((float)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_float((float)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_float((float)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_float((float)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_float((float)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_float((float)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_float((float)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_float((float)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_float((float)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_float((float)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_float((float)v->value.double_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_float((float)v->value.long_double_value);
     }
     if (t == TYPE_DOUBLE)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_double((double)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_double((double)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_double((double)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_double((double)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_double((double)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_double((double)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_double((double)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_double((double)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_double((double)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_double((double)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_double((double)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_double((double)v->float_value);
-        if (v->type == TYPE_LONG_DOUBLE)
-            return object_make_double((double)v->long_double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_double((double)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_double((double)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_double((double)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_double((double)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_double((double)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_double((double)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_double((double)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_double((double)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_double((double)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_double((double)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_double((double)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_double((double)v->value.float_value);
+        if (v->value_type == TYPE_LONG_DOUBLE)
+            return object_make_double((double)v->value.long_double_value);
     }
     if (t == TYPE_LONG_DOUBLE)
     {
-        if (v->type == TYPE_BOOL)
-            return object_make_long_double((long double)v->bool_value);
-        if (v->type == TYPE_SIGNED_CHAR)
-            return object_make_long_double((long double)v->signed_char_value);
-        if (v->type == TYPE_UNSIGNED_CHAR)
-            return object_make_long_double((long double)v->unsigned_char_value);
-        if (v->type == TYPE_SIGNED_SHORT)
-            return object_make_long_double((long double)v->signed_short_value);
-        if (v->type == TYPE_UNSIGNED_SHORT)
-            return object_make_long_double((long double)v->unsigned_short_value);
-        if (v->type == TYPE_SIGNED_INT)
-            return object_make_long_double((long double)v->signed_int_value);
-        if (v->type == TYPE_UNSIGNED_INT)
-            return object_make_long_double((long double)v->unsigned_int_value);
-        if (v->type == TYPE_SIGNED_LONG)
-            return object_make_long_double((long double)v->signed_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG)
-            return object_make_long_double((long double)v->unsigned_long_value);
-        if (v->type == TYPE_SIGNED_LONG_LONG)
-            return object_make_long_double((long double)v->signed_long_long_value);
-        if (v->type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_long_double((long double)v->unsigned_long_long_value);
-        if (v->type == TYPE_FLOAT)
-            return object_make_long_double((long double)v->float_value);
-        if (v->type == TYPE_DOUBLE)
-            return object_make_long_double((long double)v->double_value);
+        if (v->value_type == TYPE_BOOL)
+            return object_make_long_double((long double)v->value.bool_value);
+        if (v->value_type == TYPE_SIGNED_CHAR)
+            return object_make_long_double((long double)v->value.signed_char_value);
+        if (v->value_type == TYPE_UNSIGNED_CHAR)
+            return object_make_long_double((long double)v->value.unsigned_char_value);
+        if (v->value_type == TYPE_SIGNED_SHORT)
+            return object_make_long_double((long double)v->value.signed_short_value);
+        if (v->value_type == TYPE_UNSIGNED_SHORT)
+            return object_make_long_double((long double)v->value.unsigned_short_value);
+        if (v->value_type == TYPE_SIGNED_INT)
+            return object_make_long_double((long double)v->value.signed_int_value);
+        if (v->value_type == TYPE_UNSIGNED_INT)
+            return object_make_long_double((long double)v->value.unsigned_int_value);
+        if (v->value_type == TYPE_SIGNED_LONG)
+            return object_make_long_double((long double)v->value.signed_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG)
+            return object_make_long_double((long double)v->value.unsigned_long_value);
+        if (v->value_type == TYPE_SIGNED_LONG_LONG)
+            return object_make_long_double((long double)v->value.signed_long_long_value);
+        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
+            return object_make_long_double((long double)v->value.unsigned_long_long_value);
+        if (v->value_type == TYPE_FLOAT)
+            return object_make_long_double((long double)v->value.float_value);
+        if (v->value_type == TYPE_DOUBLE)
+            return object_make_long_double((long double)v->value.double_value);
     }
     struct object empty = { 0 };
     return empty;
@@ -1346,14 +1346,25 @@ void object_default_initialization(struct object* p_object, bool is_constant)
             p_object->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
         else
             p_object->state = CONSTANT_VALUE_STATE_EXACT;
-        p_object->unsigned_long_long_value = 0;
+        p_object->value.unsigned_long_long_value = 0;
     }
 
-    struct object* _Opt p = p_object->members;
-    while (p)
+    if (type_is_union(&p_object->type2))
     {
-        object_default_initialization(p, is_constant);
-        p = p->next;
+        struct object* _Opt p = p_object->members;
+        if (p)
+        {
+            object_default_initialization(p, is_constant);
+        }
+    }
+    else
+    {
+        struct object* _Opt p = p_object->members;
+        while (p)
+        {
+            object_default_initialization(p, is_constant);
+            p = p->next;
+        }
     }
 }
 
@@ -1384,10 +1395,8 @@ bool object_is_reference(const struct object* p_object)
     return p_object->state == CONSTANT_VALUE_STATE_REFERENCE;
 }
 
-void object_fix_parent(struct object* p_object, struct object* parent)
+static void object_fix_parent(struct object* p_object, struct object* parent)
 {
-    int object_fix_parent_will_be_removed;
-
     struct object* _Opt it = p_object->members;
     while (it)
     {
@@ -1445,9 +1454,8 @@ void object_set(struct object* to, struct expression* _Opt p_init_expression, co
     {
         assert(to->members == NULL);
 
-        to->state = from->state;
-        to->unsigned_long_long_value = from->unsigned_long_long_value;
-
+        to->state = from->state;        
+        to->value = object_cast(to->value_type, from).value;
 
         if (!is_constant &&
             to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
@@ -1482,7 +1490,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 throw;
 
             *p_object = object_make_nullptr();
-
+            p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
             assert(p_object->debug_name == NULL);
             p_object->debug_name = strdup(name);
             p_object->type2 = type_dup(p_type);
@@ -1543,8 +1551,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
 
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
-            p_object->type = type_to_object_type(p_type);
-            p_object->signed_long_long_value = -1;
+            p_object->value_type = type_to_object_type(p_type);
+            p_object->value.signed_long_long_value = -1;
             p_object->debug_name = strdup(name);
             p_object->type2 = type_dup(p_type);
 
@@ -1739,58 +1747,58 @@ void object_print_value_debug(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    switch (a->type)
+    switch (a->value_type)
     {
 
     case TYPE_BOOL:
-        printf("%s (bool)", a->bool_value ? "true" : "false");
+        printf("%s (bool)", a->value.bool_value ? "true" : "false");
         break;
 
     case TYPE_SIGNED_CHAR:
 
-        printf("%d (signed char)", (int)a->signed_char_value);
+        printf("%d (signed char)", (int)a->value.signed_char_value);
         break;
 
 
     case TYPE_UNSIGNED_CHAR:
-        printf("%d (unsigned char)", (int)a->unsigned_char_value);
+        printf("%d (unsigned char)", (int)a->value.unsigned_char_value);
         break;
 
 
     case TYPE_SIGNED_SHORT:
-        printf("%d (short)", a->signed_short_value);
+        printf("%d (short)", a->value.signed_short_value);
         break;
 
     case TYPE_UNSIGNED_SHORT:
-        printf("%d (unsigned short)", a->unsigned_short_value);
+        printf("%d (unsigned short)", a->value.unsigned_short_value);
         break;
 
     case TYPE_SIGNED_INT:
-        printf("%d (int)", a->signed_int_value);
+        printf("%d (int)", a->value.signed_int_value);
         break;
     case TYPE_UNSIGNED_INT:
-        printf("%du (unsigned int)", a->unsigned_int_value);
+        printf("%du (unsigned int)", a->value.unsigned_int_value);
         break;
     case TYPE_SIGNED_LONG:
-        printf("%ld (long)", a->signed_long_value);
+        printf("%ld (long)", a->value.signed_long_value);
         break;
     case TYPE_UNSIGNED_LONG:
-        printf("%lu (unsigned long)", a->unsigned_long_value);
+        printf("%lu (unsigned long)", a->value.unsigned_long_value);
         break;
     case TYPE_SIGNED_LONG_LONG:
-        printf("%lld (long long)", a->signed_long_long_value);
+        printf("%lld (long long)", a->value.signed_long_long_value);
         break;
     case TYPE_UNSIGNED_LONG_LONG:
-        printf("%llu (unsigned long long)", a->unsigned_long_long_value);
+        printf("%llu (unsigned long long)", a->value.unsigned_long_long_value);
         break;
     case TYPE_FLOAT:
-        printf("%f (float)", a->float_value);
+        printf("%f (float)", a->value.float_value);
         break;
     case TYPE_DOUBLE:
-        printf("%lf (double)", a->double_value);
+        printf("%lf (double)", a->value.double_value);
         break;
     case TYPE_LONG_DOUBLE:
-        printf("%Lf (long double)", a->long_double_value);
+        printf("%Lf (long double)", a->value.long_double_value);
         break;
     }
 

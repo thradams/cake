@@ -230,8 +230,8 @@ int main()
     //Runs cake on its own source
     execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
 
-    //echo_chdir("./out");
-    //execute_cmd("cl " CAKE_SOURCE_FILES);
+    //echo_chdir("../out/src");
+    //execute_cmd("cl main.c " CAKE_SOURCE_FILES);
 
 
 #endif
