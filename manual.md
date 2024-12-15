@@ -474,7 +474,6 @@ C89 not implemented yet. TODO!
 #include <stdio.h>
 
 #define debug(...) fprintf(stderr, __VA_ARGS__)
-#pragma expand debug
 
 int main()
 {
@@ -584,7 +583,6 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm
                   default: cbrtl \
               )(X)
 
-#pragma expand cbrt
 
 int main(void)
 {
@@ -910,7 +908,6 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm
     typeof(a) temp = a; a = b; b = temp; \
   } while (0)
 
-#pragma expand SWAP
 
 int main()
 {
@@ -1287,11 +1284,6 @@ Implemented.
 #define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
 #define EMP
 
-/*maybe this could be automatic if <C23*/
-#pragma expand F
-#pragma expand G
-#pragma expand SDEF
-#pragma expand EMP
 
 void f(int i, ...) {}
 
@@ -1359,7 +1351,6 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
 ### Obsolete implicitly octal literals
 
-
 ```c
 
 static_assert(0o52 == 052);
@@ -1373,7 +1364,8 @@ int main()
 
 ```
 
-c89 backend (all constantes are decimals)
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm
 
 ###  Extension - defer
 
@@ -1535,10 +1527,10 @@ catch
 
 ###  Extension Literal function - lambdas
 
-Lambdas without capture where implemented using a syntax similar of compound literal for function pointer.
+Lambdas without capture where implemented using a compound literal syntax.
+Since, we cannot have compound literal of function types (only pointer to function) the
+syntax can be reused.
 
-Lambdas are the most complex code transformation so far because sometimes function scope types needs to be transformed to file scope. This is important because manual lambda capture
-is something we want to use in function scope.
 
 For instance:
 
@@ -1578,6 +1570,8 @@ void create_app(char * appname)
 
 ```
 
+Code generation is already working, but static analysis
+is not implemented. 
 
 ### Extension #pragma dir  
 
@@ -1620,6 +1614,7 @@ _is_scalar
 Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
 
 ```
+
 Note: Type traits that can be easily created with \_Generic will be removed.
 _
 ### Extension - Object lifetime checks

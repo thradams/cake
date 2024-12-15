@@ -22,11 +22,13 @@ struct d_visit_ctx
     struct hash_map structs_map;
     struct hash_map function_map;
 
+    struct osstream local_declarators;
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;
-    
+    bool is_local;
     struct osstream data_types;
     struct osstream function_types;
+    bool zero_mem_used;
     _View struct ast ast;    
 };
 

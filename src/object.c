@@ -1349,7 +1349,7 @@ void object_default_initialization(struct object* p_object, bool is_constant)
         p_object->value.unsigned_long_long_value = 0;
     }
 
-    if (type_is_union(&p_object->type2))
+    if (type_is_union(&p_object->type))
     {
         struct object* _Opt p = p_object->members;
         if (p)
@@ -1479,7 +1479,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             if (p_object == NULL)
                 throw;
             p_object->debug_name = strdup(name);
-            p_object->type2 = type_dup(p_type);
+            p_object->type = type_dup(p_type);
             return p_object;
         }
 
@@ -1493,7 +1493,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
             assert(p_object->debug_name == NULL);
             p_object->debug_name = strdup(name);
-            p_object->type2 = type_dup(p_type);
+            p_object->type = type_dup(p_type);
 
             return p_object;
         }
@@ -1503,7 +1503,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object = calloc(1, sizeof * p_object);
             if (p_object == NULL)
                 throw;
-            p_object->type2 = type_dup(p_type);
+            p_object->type = type_dup(p_type);
             p_object->debug_name = strdup(name);
 
             if (p_type->num_of_elements > 0)
@@ -1554,7 +1554,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object->value_type = type_to_object_type(p_type);
             p_object->value.signed_long_long_value = -1;
             p_object->debug_name = strdup(name);
-            p_object->type2 = type_dup(p_type);
+            p_object->type = type_dup(p_type);
 
             return p_object;
         }
@@ -1574,7 +1574,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             throw;
 
         p_object->debug_name = strdup(name);
-        p_object->type2 = type_dup(p_type);
+        p_object->type = type_dup(p_type);
 
         struct object* _Opt p_last_member_obj = NULL;
 
@@ -1819,7 +1819,7 @@ void object_print_to_debug_core(const struct object* object, int n)
     if (object->members != NULL)
     {
 
-        type_print(&object->type2);
+        type_print(&object->type);
 
         printf(" {\n");
 
@@ -1838,7 +1838,7 @@ void object_print_to_debug_core(const struct object* object, int n)
 
 
 
-        type_print(&object->type2);
+        type_print(&object->type);
 
 
         printf(" = ");

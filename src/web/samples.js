@@ -2,7 +2,7 @@
 
 sample["C99"] = [];
 sample["C99"]["_Bool"] =
-    `
+ `
  /*
     _Bool type was introduced in C99 as built-in type used 
     to represent boolean values and the header <stdbool.h>
@@ -12,10 +12,7 @@ sample["C99"]["_Bool"] =
 
 int main(void)
 {
-    // _Bool is converted to unsigned char. 
-
     _Bool b = 1;
-
     return 0;
 }
 `;
@@ -28,14 +25,17 @@ struct T {
     int k;
     int l;
 };
+
 struct S {
     int i;
     struct T t;
 };
+
 struct T x = {
     .l = 43,
     .k = 42,
 };
+
 void f(void) {
     struct S l = {
         1,
@@ -63,7 +63,7 @@ int a[A_MAX] = { 1, 3, 5, 7, 9, [A_MAX-5] = 8, 6, 4, 2, 0 };
 `;
 
 sample["C99"]["Compound literals"] =
-    `
+`
 struct X {
   int i;
 };
@@ -85,6 +85,50 @@ const double dmin = 0x1p-1022;
   Note : The result may not be so precise as the original
 */
 `;
+
+sample["C99"]["_Pragma"] =
+`
+   //TODO !!
+`;
+
+sample["C99"]["__func__"] =
+`
+   //TODO not implemented yet
+`;
+
+
+sample["C99"]["for block scope"] =
+`
+int main()
+{
+   const int max = 10;
+   for (int n = max - 1; n >= 0; n--)
+   {
+     // body of loop
+   }
+}
+`;
+
+sample["C99"]["Mixed declarations"] =
+`
+   //not converted yet
+`;
+
+sample["C99"]["restrict pointers"] =
+`
+   void copy_array(int n, int *restrict a, int *restrict b)
+   {
+      while (n-- > 0)
+        *a++ = *b++;
+   }
+`;
+
+sample["C99"]["Complex"] =
+`
+   /*not implemented*/
+`;
+
+
 
 sample["C99"]["int a[static]"] =
     `
@@ -186,13 +230,8 @@ int main(void)
 `;
 
 sample["C11"]["_Static_assert"] =
-    `
+ `
 /*
-   _Static_assert provides a mechanism for compile-time assertion 
-   checking.
-
-   Cake removed this statement when compiling to C99/C89.
-
    See also C23 static_assert
 */
 
@@ -204,7 +243,7 @@ int main()
 
 
 sample["C11"]["_Noreturn"] =
-    `
+`
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -270,55 +309,26 @@ int main(void)
 
 sample["C23"] = []
 sample["C23"]["Digit Separator"] =
-    `
-#define M 1000'00
-
+`
 int main()
 {
     int a = 1000'00;
     static_assert(1000'00 == 100000);
 }
-
-/*
-  Note:
-  This conversion happens at token level, even not active blocks
-  are converted
-*/
-#if 0
-#define X 100'00
-#endif
-
 `;
 
 sample["C23"]["Binary Literal"] =
-    `
-#define X  0b1010
-
+`
 int main()
 {
     int a = X;
-    int b = 0B1010;
+    int b = 0B10;
 }
-
-/*
-  Note:
-  This conversion happens at token level, even not active blocks
-  are converted
-*/
 `;
 
 
 sample["C23"]["static_assert"] =
-    `
-/*
-   C23 added the alternative keyword static_assert for 
-   _Static_assert.
-
-   The error message also become optional in C23.
-
-   Cake transpile static_assert to _Static_assert if the target 
-   is C11 and removes static_assert if the target is C99/C89.
-*/
+`
 int main()
 {    
     static_assert(1 == 1, "error");
@@ -504,7 +514,6 @@ sample["C23"]["typeof / typeof_unqual"] =
     typeof(a) temp = a; a = b; b = temp; \\
   } while (0)
 
-#pragma expand SWAP
 
 /*pointer to function returning int*/
 int (*g1)(int a);
@@ -622,8 +631,6 @@ const auto pc_func = func;
 
 /*using auto inside a macro*/
 #define SWAP(a, b)   do {    auto temp = a; a = b; b = temp;   } while (0)
-
-#pragma expand SWAP
 
 void f()
 {
@@ -1290,7 +1297,7 @@ sample["Extensions"]["typeof + lambdas"] =
     typeof(a) temp = *arg1; *arg1 = *arg2; *arg2 = temp; \\
   }(&(a), &(b))
 
-#pragma expand SWAP
+
 int main()
 {
     int a = 1;

@@ -10510,12 +10510,12 @@ static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used
     if (p_object->members == NULL)
     {
         *sub_object_of_union = false;
-        *p_type_out = type_dup(&p_object->type2);
+        *p_type_out = type_dup(&p_object->type);
         return p_object; //tODO
     }
 
-    *sub_object_of_union = type_is_union(&p_object->type2);
-    *p_type_out = type_dup(&p_object->members->type2);
+    *sub_object_of_union = type_is_union(&p_object->type);
+    *p_type_out = type_dup(&p_object->members->type);
     return p_object->members; //tODO
 }
 
@@ -10530,7 +10530,7 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
 
     if (p_object->members == NULL)
     {
-        *p_type_out = type_dup(&p_object->type2);
+        *p_type_out = type_dup(&p_object->type);
         return p_object; //tODO
     }
 
@@ -10544,7 +10544,7 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
         it = it->next;
     }
 
-    *p_type_out = type_dup(&p_object->type2);
+    *p_type_out = type_dup(&p_object->type);
     return p_object;
 }
 
@@ -10568,10 +10568,10 @@ static struct object* find_next_subobject_old(struct type* p_top_object_not_used
 
     if (it->members)
     {
-        *sub_object_of_union = type_is_union(&it->type2);
+        *sub_object_of_union = type_is_union(&it->type);
 
         it = it->members;
-        *p_type_out = type_dup(&it->type2);
+        *p_type_out = type_dup(&it->type);
 
         return it;
     }
@@ -10586,7 +10586,7 @@ static struct object* find_next_subobject_old(struct type* p_top_object_not_used
         if (next != NULL)
         {
             if (it->parent)
-                *sub_object_of_union = type_is_union(&it->parent->type2);
+                *sub_object_of_union = type_is_union(&it->parent->type);
             it = next;
             break;
         }
@@ -10594,7 +10594,7 @@ static struct object* find_next_subobject_old(struct type* p_top_object_not_used
         it = it->parent;
     }
     if (it != NULL)
-        *p_type_out = type_dup(&it->type2);
+        *p_type_out = type_dup(&it->type);
     return it;
 }
 
@@ -11138,11 +11138,11 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             {
                 struct type t = { 0 };
                 is_subobject_of_union = true;
-                p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type2, p_subobject->parent, &t);
+                p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type, p_subobject->parent, &t);
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);
                 if (p_subobject)
-                    subobject_type = type_dup(&p_subobject->type2);
+                    subobject_type = type_dup(&p_subobject->type);
 
             }
             else if (entire_object_initialized)
@@ -11153,7 +11153,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);
                 if (p_subobject)
-                    subobject_type = type_dup(&p_subobject->type2);
+                    subobject_type = type_dup(&p_subobject->type);
             }
         }
         p_initializer_list_item = p_initializer_list_item->next;
@@ -11171,7 +11171,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
     }
     if (compute_array_size)
     {
-        current_object->type2.num_of_elements = array_to_expand_max_index + 1;
+        current_object->type.num_of_elements = array_to_expand_max_index + 1;
         p_current_object_type->num_of_elements = array_to_expand_max_index + 1;
     }
 

@@ -59,7 +59,7 @@ enum object_value_state
 struct object {    
     enum object_value_state state;
     enum object_value_type value_type;
-    struct type type2; //TODO to be removed
+    struct type type; //TODO to be removed
 
     const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
 

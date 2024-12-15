@@ -771,7 +771,6 @@ C89 not implemented yet. TODO!</p>
 #include &lt;stdio.h&gt;
 
 #define debug(...) fprintf(stderr, __VA_ARGS__)
-#pragma expand debug
 
 int main()
 {
@@ -872,7 +871,6 @@ C89 backend TODO.</p>
                   default: cbrtl \
               )(X)
 
-#pragma expand cbrt
 
 int main(void)
 {
@@ -1169,7 +1167,6 @@ double  (* qA)[3] = &amp;A;
     typeof(a) temp = a; a = b; b = temp; \
   } while (0)
 
-#pragma expand SWAP
 
 int main()
 {
@@ -1533,11 +1530,6 @@ int main()
 #define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
 #define EMP
 
-/*maybe this could be automatic if &lt;C23*/
-#pragma expand F
-#pragma expand G
-#pragma expand SDEF
-#pragma expand EMP
 
 void f(int i, ...) {}
 
@@ -1613,7 +1605,7 @@ int main()
 
 </code></pre>
 
-<p>c89 backend (all constantes are decimals)</p>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm</a></p>
 
 <h3 id="toc_77">Extension - defer</h3>
 
@@ -1766,10 +1758,9 @@ catch
 
 <h3 id="toc_82">Extension Literal function - lambdas</h3>
 
-<p>Lambdas without capture where implemented using a syntax similar of compound literal for function pointer.</p>
-
-<p>Lambdas are the most complex code transformation so far because sometimes function scope types needs to be transformed to file scope. This is important because manual lambda capture
-is something we want to use in function scope.</p>
+<p>Lambdas without capture where implemented using a compound literal syntax.
+Since, we cannot have compound literal of function types (only pointer to function) the
+syntax can be reused.</p>
 
 <p>For instance:</p>
 
@@ -1807,6 +1798,8 @@ struct capture {
 }</p>
 
 <pre><code>
+Code generation is already working, but static analysis
+is not implemented. 
 
 ### Extension #pragma dir  
 
