@@ -152,7 +152,7 @@ struct flow_object* _Opt make_flow_object(struct flow_visit_ctx* ctx,
                                      const struct expression* _Opt p_expression_origin);
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number);
-struct token* flow_object_get_token(const struct flow_object* object);
+struct token* _Opt flow_object_get_token(const struct flow_object* object);
 void flow_object_remove_state(struct flow_object* object, int state_number);
 
 

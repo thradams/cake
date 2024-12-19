@@ -91,6 +91,7 @@ struct object {
     struct object* _Opt _Owner next;
 };
 
+void object_destroy(struct object* _Opt _Obj_owner p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
 void object_to_string(const struct object* a, char buffer[], int sz);
@@ -167,3 +168,4 @@ enum object_value_type type_to_object_type(const struct type* type);
 void object_print_to_debug(const struct object* object);
 
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int n, bool is_constant);
+struct object* object_get_non_const_referenced(struct object* p_object);

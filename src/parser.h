@@ -734,9 +734,12 @@ struct declarator
     struct object object;
 
     /*user by flow analysis*/
-    struct flow_object* _Opt p_object;
+    struct flow_object* _Opt p_flow_object;
 
-    /*final declarator type (after auto, typeof etc)*/
+    /*
+       TODO it is duplicated with object
+       final declarator type (after auto, typeof etc)
+    */
     struct type type;
 };
 

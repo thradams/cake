@@ -64,31 +64,32 @@
 
 <h2 id="toc_0">Abstract</h2>
 
-<p>The objective is to statically check code and prevent bugs, including memory bugs like double free, null dereference and memory leaks. 
-New qualifiers have been created to extend the type system and insert information at function declarations. Ultimately, we still have the same language, but with an improved type system that checks new contracts.
+<p>The objective is to statically check code and prevent bugs, including memory bugs like double free, 
+null dereference and memory leaks. New qualifiers have been created to extend the type system and 
+insert information at function declarations.</p>
+
+<p>Ultimately, we still have the same language, but with an improved type system that checks new contracts.
 These new contracts can be ignored, the language <strong>and existing code patterns</strong> remains unmodified. </p>
 
 <h2 id="toc_1">Concepts</h2>
 
 <h3 id="toc_2">Nullable Pointers</h3>
 
-<p>The concept of nullable pointers is introduced to refine the type system by explicitly indicating when pointers can or cannot be null. </p>
+<p>The qualifier <code>_Opt</code> explicitly indicates when a pointer is nullable, while the 
+absence of the qualifier implies that a pointer is non-nullable. 
+This qualifier applies exclusively to pointers and is placed after the <code>*</code> symbol, 
+in the same manner as <code>const</code>.</p>
 
-<p>Take, for instance, the standard function <code>strdup</code>:</p>
-
-<pre><code class="language-c">char * strdup(const char * src);
-</code></pre>
-
-<p>In this function, the argument <code>src</code> must reference a valid string. The function returns a pointer to a newly allocated string, or a null pointer if an error occurs.</p>
-
-<p>The <code>_Opt</code> qualifier extends the type system by marking pointers that can be null. Only pointers qualified with <code>_Opt</code> are explicitly nullable, providing better clarity about which pointers may need null checks.</p>
-
-<p>The <code>_Opt</code> qualifier is placed similarly to <code>const</code>, after the <code>*</code> symbol. For example, the declaration of <code>strdup</code> in Cake would look like this:</p>
+<p>For instance, the standard function <code>strdup</code> is can be declared as:</p>
 
 <pre><code class="language-c">char * _Opt strdup(const char * src);
 </code></pre>
 
-<p>Static analysis tools need to know when these new rules for nullable pointers apply, particularly for unqualified pointers. This is managed through the <code>#pragma nullable enable</code> directive, which informs the compiler when to enforce these rules.</p>
+<p>This indicates that the result may be null, while the argument must point to a valid string.</p>
+
+<p>Since the absence of the _Opt qualifier indicates that the pointer is non-null, 
+it is necessary to explicitly indicate when this rule applies. 
+This is managed through the #pragma nullable enable directive.</p>
 
 <h4>Example 1: Warning for Non-Nullable Pointers</h4>
 

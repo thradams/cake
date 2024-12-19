@@ -2379,11 +2379,8 @@ struct init_declarator* _Owner init_declarator_add_ref(struct init_declarator* p
     return (struct init_declarator* _Owner)p;
 }
 
-#ifdef __CAKE__
-void init_declarator_sink(struct init_declarator* _Owner _Opt p); //just declaration
-#else
+
 void init_declarator_sink(struct init_declarator* _Owner _Opt p) {}
-#endif
 
 void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 {
@@ -2566,6 +2563,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                              &p_init_declarator->p_declarator->object,
                              p_init_declarator->initializer,
                              is_constant);
+
+                p_init_declarator->p_declarator->object.type.num_of_elements = 
+                    p_init_declarator->p_declarator->type.num_of_elements;
 
             }
             else if (p_init_declarator->initializer->assignment_expression)
@@ -3353,7 +3353,7 @@ struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(co
     if (p_struct_or_union_specifier->member_declaration_list.head)
     {
         /*p_struct_or_union_specifier is complete*/
-        return p_struct_or_union_specifier;
+        return (struct struct_or_union_specifier* _Opt) p_struct_or_union_specifier;
     }
     else if (p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection &&
         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->member_declaration_list.head)
@@ -3383,11 +3383,8 @@ struct struct_or_union_specifier* _Owner struct_or_union_specifier_add_ref(struc
     return (struct struct_or_union_specifier* _Owner) p;
 }
 
-#ifdef __CAKE__
-void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Opt p); //just declaration
-#else
+
 void struct_or_union_specifier_sink(struct struct_or_union_specifier* _Owner _Opt p) {}
-#endif
 
 bool struct_or_union_specifier_is_union(const struct struct_or_union_specifier* p)
 {
@@ -4273,11 +4270,7 @@ struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p)
     return (struct enum_specifier* _Owner)p;
 }
 
-#ifdef __CAKE__
-void enum_specifier_delete_sink(struct enum_specifier* _Owner _Opt p); //just declaration
-#else
 void enum_specifier_delete_sink(struct enum_specifier* _Owner _Opt p) {}
-#endif
 
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
 {
@@ -4535,11 +4528,8 @@ struct enumerator* _Owner enumerator_add_ref(struct enumerator* p)
     return (struct enumerator* _Owner) p;
 }
 
-#ifdef __CAKE__
-void enumerator_sink(struct enumerator* _Owner _Opt p); //just declaration
-#else
+
 void enumerator_sink(struct enumerator* _Owner _Opt p) {}
-#endif
 
 void enumerator_delete(struct enumerator* _Owner _Opt p)
 {
@@ -4876,12 +4866,8 @@ struct declarator* _Owner declarator_add_ref(struct declarator* p)
     p->has_shared_ownership = true;
     return (struct declarator* _Owner)p;
 }
-#ifdef __CAKE__
-void declarator_sink(struct declarator* _Owner _Opt p); //just declaration
-#else
-void declarator_sink(struct declarator* _Owner _Opt p) {}
-#endif
 
+void declarator_sink(struct declarator* _Owner _Opt p) {}
 
 void declarator_delete(struct declarator* _Owner _Opt p)
 {
@@ -9731,13 +9717,14 @@ int compile_one_file(const char* file_name,
     {
         //lets check if the generated file is the expected
         char buf[MYMAX_PATH] = { 0 };
-        snprintf(buf, sizeof buf, "%s.txt", file_name);
+        snprintf(buf, sizeof buf, "%s_expected.c", file_name);
+
         char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/);
         if (content_expected)
         {
             if (s && strcmp(content_expected, s) != 0)
             {
-                printf("diferent");
+                printf("different");
                 report->error_count++;
             }
             free(content_expected);

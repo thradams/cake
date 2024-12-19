@@ -198,11 +198,17 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
     return true;
 }
 
+void object_destroy(struct object* _Opt _Obj_owner p)
+{
+    type_destroy(&p->type);
+    free(p->debug_name);
+}
+
 void object_delete(struct object* _Opt _Owner p)
 {
     if (p)
     {
-        free(p->debug_name);
+        object_destroy(p);        
         free(p);
     }
 }
@@ -369,7 +375,7 @@ struct object object_make_signed_char(signed char value)
 
 errno_t object_increment_value(struct object* a)
 {
-    a = object_get_referenced(a);
+    a = object_get_non_const_referenced(a);
 
     switch (a->value_type)
     {
@@ -820,7 +826,7 @@ struct object object_make_reference(struct object* object)
     //referenced object is stored at members
 
     //If state is CONSTANT_VALUE_STATE_REFERENCE then  members is not owner
-    r.members = object_get_referenced(object);
+    r.members = object_get_non_const_referenced(object);
 
     return r;
 }
@@ -1368,6 +1374,19 @@ void object_default_initialization(struct object* p_object, bool is_constant)
     }
 }
 
+struct object* object_get_non_const_referenced(struct object* p_object)
+{
+    if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
+    {
+        assert(p_object->members != NULL);
+        p_object = p_object->members;
+    }
+
+    assert(p_object->state != CONSTANT_VALUE_STATE_REFERENCE);
+
+    return p_object;
+}
+
 
 const struct object* object_get_referenced(const struct object* p_object)
 {
@@ -1454,7 +1473,7 @@ void object_set(struct object* to, struct expression* _Opt p_init_expression, co
     {
         assert(to->members == NULL);
 
-        to->state = from->state;        
+        to->state = from->state;
         to->value = object_cast(to->value_type, from).value;
 
         if (!is_constant &&
@@ -1670,14 +1689,15 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
 
 int make_object(const struct type* p_type, struct object* obj)
 {
-    struct object* p = make_object_ptr_core(p_type, "");
+    struct object* _Owner _Opt p = make_object_ptr_core(p_type, "");
     if (p)
     {
         *obj = *p;
         object_fix_parent(obj, obj);
         free(p);
+        return 0;
     }
-    return p == 0 ? 1 : 0;
+    return 1;
 }
 
 

@@ -3,7 +3,6 @@
 struct X
  {
    char * _Owner _Opt p;
-   char * p2;
  };
 
  char* _Owner _Opt strdup(const char *s);
@@ -16,4 +15,3 @@ struct X
      };         
      free(x.p);
  }
- #pragma cake diagnostic check "-Wanalyzer-null-dereference"

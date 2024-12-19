@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31410.357
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35521.163 d17.12
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cprimev3", "cprimev3.vcxproj", "{C78AC64F-7B65-4225-A9F0-E5EF060D138A}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cake", "cprimev3.vcxproj", "{C78AC64F-7B65-4225-A9F0-E5EF060D138A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

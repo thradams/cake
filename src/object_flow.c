@@ -1767,88 +1767,99 @@ void flow_object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_
     visitor.p_object = p_object;
     object_set_end_of_lifetime_core(&visitor);
 }
+
 //returns true if all parts that need to be moved weren't moved.
 bool object_check(struct type* p_type, struct flow_object* p_object)
 {
-    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    try
     {
-        return false;
-    }
-
-    if (!type_is_any_owner(p_type))
-    {
-        return false;
-    }
-
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
-    {
-        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-        struct member_declaration* _Opt p_member_declaration =
-            p_struct_or_union_specifier->member_declaration_list.head;
-        int possible_need_destroy_count = 0;
-        int need_destroy_count = 0;
-        int member_index = 0;
-        while (p_member_declaration)
+        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
         {
-            if (p_member_declaration->member_declarator_list_opt)
-            {
-                struct member_declarator* _Opt p_member_declarator =
-                    p_member_declaration->member_declarator_list_opt->head;
-                while (p_member_declarator)
-                {
-
-                    if (p_member_declarator->declarator)
-                    {
-                        if (type_is_owner(&p_member_declarator->declarator->type))
-                        {
-                            possible_need_destroy_count++;
-                        }
-
-                        if (object_check(&p_member_declarator->declarator->type,
-                            p_object->members.data[member_index]))
-                        {
-                            need_destroy_count++;
-                        }
-                        member_index++;
-                    }
-                    p_member_declarator = p_member_declarator->next;
-                }
-            }
-            else if (p_member_declaration->specifier_qualifier_list != NULL)
-            {
-                //TODO struct object_visitor* p_visitor                
-            }
-            p_member_declaration = p_member_declaration->next;
+            return false;
         }
 
-        return need_destroy_count > 1 && (need_destroy_count == possible_need_destroy_count);
-    }
-    else
-    {
-        bool should_had_been_moved = false;
-        if (type_is_pointer(p_type))
+        if (!type_is_any_owner(p_type))
         {
-            should_had_been_moved = (p_object->current.state & FLOW_OBJECT_STATE_NOT_NULL);
+            return false;
+        }
+
+        if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+        {
+            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
+                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+            if (p_struct_or_union_specifier == NULL)
+            {
+                throw;
+            }
+
+            struct member_declaration* _Opt p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+            int possible_need_destroy_count = 0;
+            int need_destroy_count = 0;
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* _Opt p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+                    while (p_member_declarator)
+                    {
+
+                        if (p_member_declarator->declarator)
+                        {
+                            if (type_is_owner(&p_member_declarator->declarator->type))
+                            {
+                                possible_need_destroy_count++;
+                            }
+
+                            if (object_check(&p_member_declarator->declarator->type,
+                                p_object->members.data[member_index]))
+                            {
+                                need_destroy_count++;
+                            }
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                else if (p_member_declaration->specifier_qualifier_list != NULL)
+                {
+                    //TODO struct object_visitor* p_visitor                
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+
+            return need_destroy_count > 1 && (need_destroy_count == possible_need_destroy_count);
         }
         else
         {
-            if (p_object->current.state == FLOW_OBJECT_STATE_UNINITIALIZED ||
-                (p_object->current.state & FLOW_OBJECT_STATE_MOVED) ||
-                p_object->current.state == FLOW_OBJECT_STATE_NOT_NULL ||
-                p_object->current.state == (FLOW_OBJECT_STATE_UNINITIALIZED))
+            bool should_had_been_moved = false;
+            if (type_is_pointer(p_type))
             {
+                should_had_been_moved = (p_object->current.state & FLOW_OBJECT_STATE_NOT_NULL);
             }
             else
             {
-                should_had_been_moved = true;
+                if (p_object->current.state == FLOW_OBJECT_STATE_UNINITIALIZED ||
+                    (p_object->current.state & FLOW_OBJECT_STATE_MOVED) ||
+                    p_object->current.state == FLOW_OBJECT_STATE_NOT_NULL ||
+                    p_object->current.state == (FLOW_OBJECT_STATE_UNINITIALIZED))
+                {
+                }
+                else
+                {
+                    should_had_been_moved = true;
+                }
             }
+
+            return should_had_been_moved;
         }
-
-        return should_had_been_moved;
     }
-
+    catch
+    {
+    }
     return false;
 }
 
@@ -1861,66 +1872,75 @@ void object_get_name_core(
     int out_size,
     unsigned int visit_number)
 {
-    if (p_object->visit_number == visit_number) return;
-    ((struct flow_object*)p_object)->visit_number = visit_number;
-
-    if (p_object == p_object_target)
+    try
     {
-        snprintf(outname, out_size, "%s", previous_names);
-        return;
-    }
+        if (p_object->visit_number == visit_number) return;
+        ((struct flow_object*)p_object)->visit_number = visit_number;
 
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
-    {
-        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-        struct member_declaration* _Opt p_member_declaration =
-            p_struct_or_union_specifier->member_declaration_list.head;
-
-        int member_index = 0;
-        while (p_member_declaration)
+        if (p_object == p_object_target)
         {
-            if (p_member_declaration->member_declarator_list_opt)
-            {
-                struct member_declarator* _Opt p_member_declarator =
-                    p_member_declaration->member_declarator_list_opt->head;
-                while (p_member_declarator)
-                {
-
-                    if (p_member_declarator->declarator)
-                    {
-                        const char* name = p_member_declarator->declarator->name_opt ? p_member_declarator->declarator->name_opt->lexeme : "";
-                        char buffer[200] = { 0 };
-                        if (type_is_pointer(p_type))
-                            snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
-                        else
-                            snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
-
-                        object_get_name_core(
-                            &p_member_declarator->declarator->type,
-                            p_object->members.data[member_index],
-                            p_object_target,
-                            buffer,
-                            outname,
-                            out_size, visit_number);
-
-                        member_index++;
-                    }
-                    p_member_declarator = p_member_declarator->next;
-                }
-            }
-            else if (p_member_declaration->specifier_qualifier_list != NULL)
-            {
-                // assert(false); //TODO
-            }
-            p_member_declaration = p_member_declaration->next;
+            snprintf(outname, out_size, "%s", previous_names);
+            return;
         }
 
+        if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+        {
+            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
+                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+            if (p_struct_or_union_specifier == NULL)
+                throw;
+
+            struct member_declaration* _Opt p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* _Opt p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+                    while (p_member_declarator)
+                    {
+
+                        if (p_member_declarator->declarator)
+                        {
+                            const char* name = p_member_declarator->declarator->name_opt ? p_member_declarator->declarator->name_opt->lexeme : "";
+                            char buffer[200] = { 0 };
+                            if (type_is_pointer(p_type))
+                                snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
+                            else
+                                snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
+
+                            object_get_name_core(
+                                &p_member_declarator->declarator->type,
+                                p_object->members.data[member_index],
+                                p_object_target,
+                                buffer,
+                                outname,
+                                out_size, visit_number);
+
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                else if (p_member_declaration->specifier_qualifier_list != NULL)
+                {
+                    // assert(false); //TODO
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+
+        }
+        else
+        {
+            snprintf(outname, out_size, "%s", previous_names);
+        }
     }
-    else
+    catch
     {
-        snprintf(outname, out_size, "%s", previous_names);
     }
 }
 
@@ -1934,12 +1954,8 @@ void object_get_name(const struct type* p_type,
 
     if (p_object->p_declarator_origin)
     {
-
         const char* root_name = p_object->p_declarator_origin->name_opt ? p_object->p_declarator_origin->name_opt->lexeme : "?";
-        //snprintf(outname, out_size, "%s",root_name);
-
-        const struct flow_object* _Opt root = p_object->p_declarator_origin->p_object;
-
+        const struct flow_object* _Opt root = p_object->p_declarator_origin->p_flow_object;
         object_get_name_core(&p_object->p_declarator_origin->type, root, p_object, root_name, outname, out_size, s_visit_number++);
     }
     else if (p_object->p_expression_origin)
@@ -1983,105 +1999,116 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
     const struct token* position_token,
     unsigned int visit_number)
 {
-    if (p_object->visit_number == visit_number) return;//already visited    
-    p_object->visit_number = visit_number;
-
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    try
     {
-        struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+        if (p_object->visit_number == visit_number) return;//already visited    
+        p_object->visit_number = visit_number;
 
-        struct member_declaration* _Opt p_member_declaration =
-            p_struct_or_union_specifier->member_declaration_list.head;
-
-        /*
-        *  Some parts of the object needs to be moved..
-        *  we need to print error one by one
-        */
-        int member_index = 0;
-        while (p_member_declaration)
+        if (p_type->struct_or_union_specifier && p_object->members.size > 0)
         {
-            if (p_member_declaration->member_declarator_list_opt)
+            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
+                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+            if (p_struct_or_union_specifier == NULL)
             {
-                struct member_declarator* _Opt p_member_declarator =
-                    p_member_declaration->member_declarator_list_opt->head;
-                while (p_member_declarator)
+                throw;
+            }
+
+            struct member_declaration* _Opt p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            /*
+            *  Some parts of the object needs to be moved..
+            *  we need to print error one by one
+            */
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
                 {
-                    if (p_member_declarator->declarator)
+                    struct member_declarator* _Opt p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+                    while (p_member_declarator)
                     {
-                        checked_moved_core(ctx, &p_member_declarator->declarator->type, p_object->members.data[member_index], position_token, visit_number);
-                        member_index++;
+                        if (p_member_declarator->declarator)
+                        {
+                            checked_moved_core(ctx, &p_member_declarator->declarator->type, p_object->members.data[member_index], position_token, visit_number);
+                            member_index++;
+                        }
+
+                        p_member_declarator = p_member_declarator->next;
                     }
-
-                    p_member_declarator = p_member_declarator->next;
                 }
-            }
-            else if (p_member_declaration->specifier_qualifier_list != NULL)
-            {
-                assert(false);//tODO
-            }
-            p_member_declaration = p_member_declaration->next;
-        }
-        return;
-    }
-    else
-    {
-        if (type_is_pointer(p_type) && !type_is_any_owner(p_type))
-        {
-            if (p_object->current.state != FLOW_OBJECT_STATE_UNINITIALIZED &&
-                p_object->current.state != FLOW_OBJECT_STATE_NULL)
-            {
-                struct type t2 = type_remove_pointer(p_type);
-#if 0
-                for (int i = 0; i < p_object->current.ref.size; i++)
+                else if (p_member_declaration->specifier_qualifier_list != NULL)
                 {
-                    checked_moved_core(ctx,
-                        &t2,
-                        p_object->current.ref.data[i],
-                        position_token,
-                        visit_number);
+                    assert(false);//tODO
                 }
+                p_member_declaration = p_member_declaration->next;
+            }
+            return;
+        }
+        else
+        {
+            if (type_is_pointer(p_type) && !type_is_any_owner(p_type))
+            {
+                if (p_object->current.state != FLOW_OBJECT_STATE_UNINITIALIZED &&
+                    p_object->current.state != FLOW_OBJECT_STATE_NULL)
+                {
+                    struct type t2 = type_remove_pointer(p_type);
+#if 0
+                    for (int i = 0; i < p_object->current.ref.size; i++)
+                    {
+                        checked_moved_core(ctx,
+                            &t2,
+                            p_object->current.ref.data[i],
+                            position_token,
+                            visit_number);
+                    }
 #endif
-                type_destroy(&t2);
+                    type_destroy(&t2);
+                }
             }
-        }
 
-        if (p_object->current.state & FLOW_OBJECT_STATE_MOVED)
-        {
-            struct token* name_pos = flow_object_get_token(p_object);
-            const char* parameter_name = name_pos ? name_pos->lexeme : "?";
-
-
-            char name[200] = { 0 };
-            object_get_name(p_type, p_object, name, sizeof name);
-            if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx->ctx,
-                position_token, NULL,
-                "parameter '%s' is leaving scoped with a moved object '%s'",
-                parameter_name,
-                name))
+            if (p_object->current.state & FLOW_OBJECT_STATE_MOVED)
             {
-                compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, NULL, "parameter", name);
+                struct token* _Opt name_pos = flow_object_get_token(p_object);
+                const char* parameter_name = name_pos ? name_pos->lexeme : "?";
+
+
+                char name[200] = { 0 };
+                object_get_name(p_type, p_object, name, sizeof name);
+                if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
+                    ctx->ctx,
+                    position_token, NULL,
+                    "parameter '%s' is leaving scoped with a moved object '%s'",
+                    parameter_name,
+                    name))
+                {
+                    compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, NULL, "parameter", name);
+                }
             }
-        }
 
-        if (p_object->current.state & FLOW_OBJECT_STATE_UNINITIALIZED)
-        {
-            struct token* name_pos = flow_object_get_token(p_object);
-            const char* parameter_name = name_pos ? name_pos->lexeme : "?";
-
-            char name[200] = { 0 };
-            object_get_name(p_type, p_object, name, sizeof name);
-            if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx->ctx,
-                position_token, NULL,
-                "parameter '%s' is leaving scoped with a uninitialized object '%s'",
-                parameter_name,
-                name))
+            if (p_object->current.state & FLOW_OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, NULL, "parameter", name);
+                struct token* _Opt name_pos = flow_object_get_token(p_object);
+                const char* parameter_name = name_pos ? name_pos->lexeme : "?";
+
+                char name[200] = { 0 };
+                object_get_name(p_type, p_object, name, sizeof name);
+                if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
+                    ctx->ctx,
+                    position_token, NULL,
+                    "parameter '%s' is leaving scoped with a uninitialized object '%s'",
+                    parameter_name,
+                    name))
+                {
+                    compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, NULL, "parameter", name);
+                }
             }
         }
+    }
+    catch
+    {
     }
 }
 
@@ -2348,7 +2375,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             *  describing each part we will just say that the object should
             *  have been moved.
             */
-            const struct token* name = flow_object_get_token(p_visitor->p_object);
+            const struct token* _Opt name = flow_object_get_token(p_visitor->p_object);
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 name, NULL,
@@ -3106,20 +3133,22 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             if (p_expression->declarator->declaration_specifiers &&
                 !(p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
             {
-                assert(p_expression->declarator->p_object != NULL);
+                assert(p_expression->declarator->p_flow_object != NULL);
 
                 //External flow_objects are added to the arena on-demand
-                if (flow_objects_find(&ctx->arena, p_expression->declarator->p_object) == NULL)
+                if (flow_objects_find(&ctx->arena, p_expression->declarator->p_flow_object) == NULL)
                 {
-                    p_expression->declarator->p_object = make_flow_object(ctx, &p_expression->declarator->type, p_expression->declarator, NULL);
+                    p_expression->declarator->p_flow_object = make_flow_object(ctx, &p_expression->declarator->type, p_expression->declarator, NULL);
+                    if (p_expression->declarator->p_flow_object == NULL)
+                        throw;
 
                     flow_object_set_unknown(&p_expression->declarator->type,
-                                       type_is_nullable(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled),
-                                       p_expression->declarator->p_object,
-                                       ctx->ctx->options.null_checks_enabled);
+                                            type_is_nullable(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled),
+                                            p_expression->declarator->p_flow_object,
+                                            ctx->ctx->options.null_checks_enabled);
                 }
             }
-            return p_expression->declarator->p_object;
+            return p_expression->declarator->p_flow_object;
         }
 
         else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
@@ -3305,7 +3334,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
         else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
         {
             assert(p_expression->type_name != NULL);
-            return p_expression->type_name->abstract_declarator->p_object;
+            return p_expression->type_name->abstract_declarator->p_flow_object;
         }
         else if (p_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
         {

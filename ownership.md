@@ -6,8 +6,11 @@ This is a work in progress. Cake source is currently being used to validate the 
 
 ## Abstract
   
-The objective is to statically check code and prevent bugs, including memory bugs like double free, null dereference and memory leaks. 
-New qualifiers have been created to extend the type system and insert information at function declarations. Ultimately, we still have the same language, but with an improved type system that checks new contracts.
+The objective is to statically check code and prevent bugs, including memory bugs like double free, 
+null dereference and memory leaks. New qualifiers have been created to extend the type system and 
+insert information at function declarations.
+
+Ultimately, we still have the same language, but with an improved type system that checks new contracts.
 These new contracts can be ignored, the language **and existing code patterns** remains unmodified. 
 
 
@@ -15,25 +18,23 @@ These new contracts can be ignored, the language **and existing code patterns** 
 
 ### Nullable Pointers
 
-The concept of nullable pointers is introduced to refine the type system by explicitly indicating when pointers can or cannot be null. 
 
-Take, for instance, the standard function `strdup`:
+The qualifier `_Opt` explicitly indicates when a pointer is nullable, while the 
+absence of the qualifier implies that a pointer is non-nullable. 
+This qualifier applies exclusively to pointers and is placed after the `*` symbol, 
+in the same manner as `const`.
 
-```c
-char * strdup(const char * src);
-```
-
-In this function, the argument `src` must reference a valid string. The function returns a pointer to a newly allocated string, or a null pointer if an error occurs.
-
-The `_Opt` qualifier extends the type system by marking pointers that can be null. Only pointers qualified with `_Opt` are explicitly nullable, providing better clarity about which pointers may need null checks.
-
-The `_Opt` qualifier is placed similarly to `const`, after the `*` symbol. For example, the declaration of `strdup` in Cake would look like this:
+For instance, the standard function `strdup` is can be declared as:
 
 ```c
 char * _Opt strdup(const char * src);
 ```
 
-Static analysis tools need to know when these new rules for nullable pointers apply, particularly for unqualified pointers. This is managed through the `#pragma nullable enable` directive, which informs the compiler when to enforce these rules.
+This indicates that the result may be null, while the argument must point to a valid string.
+
+Since the absence of the _Opt qualifier indicates that the pointer is non-null, 
+it is necessary to explicitly indicate when this rule applies. 
+This is managed through the #pragma nullable enable directive.
 
 #### Example 1: Warning for Non-Nullable Pointers
 

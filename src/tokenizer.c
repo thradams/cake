@@ -1112,7 +1112,7 @@ struct token* _Owner _Opt new_token(const char* lexeme_head, const char* lexeme_
     {
         token_delete(p_new_token);
         p_new_token = NULL;
-    }    
+    }
     return p_new_token;
 }
 
@@ -1297,7 +1297,7 @@ int string_literal_byte_size_not_zero_included(const char* s)
 {
 
     _Opt struct stream stream = { .source = s };
-    
+
     stream.current = s;
     stream.line = 1;
     stream.col = 1;
@@ -3333,16 +3333,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         {
             struct token_list discard0 = { 0 };
             struct token_list* p_list = &r;
-            if (ctx->options.target < LANGUAGE_C23)
-            {
-                p_list = &discard0;
-
-                char* _Owner _Opt temp = strdup(" ");
-                if (temp == NULL) throw;
-
-                free(ptoken->lexeme);
-                ptoken->lexeme = temp;
-            }
 
             /*
               C23
@@ -3406,18 +3396,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             int nlevel = level;
 
             enum token_flags f = 0;
-            if (ctx->options.target < LANGUAGE_C23)
-            {
-                //we can see it
-                f = TK_FLAG_FINAL;
-            }
-            else
-            {
-                f = TK_FLAG_FINAL;
-                //we cannot see it just like include
-                nlevel = nlevel + 1;
-            }
 
+            f = TK_FLAG_FINAL;
+            //we cannot see it just like include
+            nlevel = nlevel + 1;
 
             struct token_list list = embed_tokenizer(ctx, p_embed_token, fullpath, nlevel, f);
 

@@ -299,7 +299,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
     }
 
     if (token_list->head == NULL)
-    {        
+    {
         assert(after == NULL);
         token_list->head = append_list->head;
         token_list->tail = append_list->tail;
@@ -374,7 +374,7 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
 
 }
 
-inline int is_digit(const struct stream* p)
+int is_digit(const struct stream* p)
 {
     /*
      digit : one of
@@ -599,10 +599,10 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     struct token* _Owner _Opt after_last = last->next; /*MOVED*/
     last->next = NULL; /*MOVED*/
     if (before_first)
-      before_first->next = after_last;
+        before_first->next = after_last;
 
     if (after_last)
-      after_last->prev = before_first;
+        after_last->prev = before_first;
 
     r.head = (struct token* _Owner)first;
     first->prev = NULL;
@@ -861,7 +861,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         const struct token* _Opt p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
         const struct token* _Opt p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
 
-        if (p_token_begin == NULL) 
+        if (p_token_begin == NULL)
             throw;
 
 
@@ -1308,12 +1308,14 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errmsg[100])
 {
-    struct stream stream = {.source = lexeme};    
-    
-    stream.current = lexeme;
-    stream.line = 1;
-    stream.col = 1;
-    stream.path = "";
+    struct stream stream = {
+        .source = lexeme,
+        .current = lexeme,
+        .line = 1,
+        .col = 1,
+        .path = "",
+    };
+
     return parse_number_core(&stream, suffix, errmsg);
 }
 
@@ -1508,10 +1510,10 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
 
 void token_list_remove_get_test()
 {
-    struct token_list list = {0};
-    struct token * pnew = calloc(1, sizeof * pnew);
+    struct token_list list = { 0 };
+    struct token* pnew = calloc(1, sizeof * pnew);
     token_list_add(&list, pnew);
-    struct token_list r  = token_list_remove_get(&list, pnew, pnew);
+    struct token_list r = token_list_remove_get(&list, pnew, pnew);
 }
 
 #endif

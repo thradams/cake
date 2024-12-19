@@ -454,6 +454,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
             }
             ectx->value = object_to_signed_long_long(&v);
             pre_match(ctx);
+            object_destroy(&v);
         }
         else if (ctx->current->type == TK_PPNUMBER)
         {

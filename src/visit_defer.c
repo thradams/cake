@@ -396,7 +396,7 @@ static void defer_exit_iteration_or_switch_statement_visit(struct defer_visit_ct
             break;
         }
 
-        if (p_defer->p_selection_statement && 
+        if (p_defer->p_selection_statement &&
             p_defer->p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
         {
             //break switch case
@@ -681,11 +681,11 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
     try
     {
         if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
-        {            
+        {
             defer_check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token, &p_jump_statement->defer_list);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
-        {            
+        {
             defer_exit_function_visit(ctx, ctx->tail_block, p_jump_statement->first_token, &p_jump_statement->defer_list);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
@@ -698,6 +698,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
         {
+            assert(p_jump_statement->label != NULL);
             defer_check_all_defer_until_label(ctx,
                 ctx->tail_block,
                 p_jump_statement->label->lexeme,
@@ -899,10 +900,14 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
         //}
 
         //parameters
-        defer_exit_block_visit(ctx,
-            ctx->tail_block,
-            p_declaration->function_body->last_token,
-            &p_declaration->defer_list);
+
+        if (ctx->tail_block)
+        {
+            defer_exit_block_visit(ctx,
+                ctx->tail_block,
+                p_declaration->function_body->last_token,
+                &p_declaration->defer_list);
+        }
 
         defer_visit_ctx_pop_tail_block(ctx);
     }
