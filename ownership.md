@@ -95,7 +95,7 @@ In this scenario, `s1` is declared as nullable, but `f` expects a non-nullable a
 
 This warning relies on flow analysis, which ensures that the potential nullability of pointers is checked before being passed to functions or assigned to non-nullable variables.
 
-In some case, the compiler may need a help. Consider this sample.
+In some cases, the compiler may need a help. Consider this sample.
 
 
 ```c
@@ -105,22 +105,21 @@ struct X {
     int * _Opt data;
 };
 
-bool is_empty(struct X * p) {
+bool is_empty(struct X * p)
+{
     return p->data == nullptr;
 }
 
-void f(struct X * p)
+void f(struct X * p) 
 {
-   if (!is_empty(p))
-   {
+   if (!is_empty(p)) {
       assert(p->data != nullptr);
       *p->data = 1;
    }
-
 }
 ```  
 
-When is_empty(p) is called, `p->data` is null; otherwise, it is not null. Since the analysis is not inter-procedural, the compiler does not have this information. Adding an assertion will lead the flow analysis to assume that `p->data` is not null and removes the warning.
+When is_empty(p) is true `p->data` is null; otherwise, `p->data` not null. Since the analysis is not inter-procedural, the compiler does not have this information. Adding an assertion will lead the flow analysis to assume that `p->data` is not null and removes the warning.
 
 The problem with this approach is the distance between the place that imposes the post condition and assert. If `is_empty` changes it could potentially invalidate the assert at caller side.
 
@@ -131,10 +130,7 @@ Using C++ 26 syntax for contracts we have (This may not be valid in C++ 26 but h
 ```c
 bool is_empty(struct X * p) 
   pos(r: r && p->data == nullptr)
-  pos(r: !r && p->data != nullptr)
-{
-    return p->data == nullptr;
-}
+  pos(r: !r && p->data != nullptr);
 ```
   
 `pos` indicates post condition. `r:` indicates the result of `is_empty´.   
@@ -142,7 +138,7 @@ bool is_empty(struct X * p)
 - if the result is true then p->data is null.
 - if the result is false then p->data is not null.
   
-Then the expectation is that the flow analysis can confirm that `p->data` is not null.  If the contract is changed, then the assert may be back and this is exactly what we want.
+The expectation is now that the flow analysis undestand `p->data` is not null inside the if.  If the contract is changed, then the warning may be back and this is exactly what we want.
 
 ```c
 void f(struct X * p)
