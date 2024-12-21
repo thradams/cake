@@ -4070,7 +4070,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
     struct specifier_qualifier_list* _Owner _Opt p_specifier_qualifier_list = NULL;
     try
     {
-        if (!first_of_type_specifier(ctx) && !first_of_type_qualifier(ctx))
+        if (!first_of_type_specifier_qualifier(ctx))
         {
             compiler_diagnostic_message(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, NULL, "type specifier or qualifier expected");
             throw;
@@ -4094,8 +4094,7 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
         p_specifier_qualifier_list->first_token = ctx->current;
 
         while (ctx->current != NULL &&
-            (first_of_type_specifier(ctx) ||
-                first_of_type_qualifier(ctx)))
+            (first_of_type_specifier_qualifier(ctx)))
         {
 
             if (ctx->current->flags & TK_FLAG_IDENTIFIER_IS_TYPEDEF)
