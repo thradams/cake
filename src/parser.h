@@ -1306,7 +1306,7 @@ struct initializer_list_item
 
     struct designation* _Opt _Owner designation;
     struct initializer* _Owner initializer;
-    struct initializer_list_item* _Opt next;
+    struct initializer_list_item* _Opt _Owner next;
 };
 
 void initializer_list_item_delete(struct initializer_list_item* _Owner _Opt p);

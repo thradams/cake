@@ -71,7 +71,7 @@ struct true_false_set
     int capacity;
 };
 
-void true_false_set_clear(struct true_false_set* p)
+static void true_false_set_clear(struct true_false_set* p)
 {
     free(p->data);
     p->data = NULL;
@@ -92,7 +92,7 @@ void true_false_set_destroy(struct true_false_set* _Obj_owner p)
     free(p->data);
 }
 
-int true_false_set_reserve(struct true_false_set* p, int n)
+static int true_false_set_reserve(struct true_false_set* p, int n)
 {
     if (n > p->capacity)
     {
@@ -111,7 +111,7 @@ int true_false_set_reserve(struct true_false_set* p, int n)
     return 0;
 }
 
-int true_false_set_push_back(struct true_false_set* p, const struct true_false_set_item* book)
+static int true_false_set_push_back(struct true_false_set* p, const struct true_false_set_item* book)
 {
     if (p->size == INT_MAX)
     {
@@ -182,7 +182,7 @@ static int find_item_index_by_expression(const struct true_false_set* a, const s
 // 
 //true true, false false
 //true true, false false
-void true_false_set_merge(struct true_false_set* result,
+static void true_false_set_merge(struct true_false_set* result,
     struct true_false_set* a,
     struct true_false_set* b,
     enum merge_options options_true,
@@ -448,7 +448,7 @@ static int arena_add_empty_state(struct flow_visit_ctx* ctx, const char* name)
     return state_number;
 }
 
-void flow_object_set_state_from_current(struct flow_object* object, int state_number)
+static void flow_object_set_state_from_current(struct flow_object* object, int state_number)
 {
     struct flow_object_state* _Opt p_flow_object_state = object->current.next;
     while (p_flow_object_state)
@@ -637,7 +637,7 @@ static void braced_initializer_flow_core(struct flow_visit_ctx* ctx, struct obje
             };
 
             flow_check_assignment(ctx,
-                                obj->p_init_expression,
+                                obj->p_init_expression->first_token,
                                 &a_marker,
                                 &b_marker,
                                 ASSIGMENT_TYPE_OBJECTS,
@@ -662,7 +662,6 @@ static void braced_initializer_flow_core(struct flow_visit_ctx* ctx, struct obje
         /*flow_object and object have the same number of members*/
         int i = 0;
 
-        struct flow_object* mf = flow_obj->members.data[i];
         struct object* _Opt m = obj->members;
         while (m)
         {
@@ -680,7 +679,7 @@ static void braced_initializer_flow(struct flow_visit_ctx* ctx, struct object* o
         braced_initializer_flow_core(ctx, obj, flow_obj);
 
         if (flow_obj->p_declarator_origin == NULL)
-        {    
+        {
             throw;
         }
 
@@ -792,15 +791,29 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                 else if (expression_is_calloc(p_init_declarator->initializer->assignment_expression))
                 {
                     struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                    struct flow_object* _Opt po = make_flow_object(ctx, &t, p_init_declarator->p_declarator, NULL);
-                    if (po == NULL)
+                    struct flow_object* _Opt pointed_calloc_object = make_flow_object(ctx, &t, p_init_declarator->p_declarator, NULL);
+                    if (pointed_calloc_object == NULL)
                     {
                         type_destroy(&t);
                         throw;
                     }
 
-                    flow_object_set_zero(&t, po);
-                    object_set_pointer(p_init_declarator->p_declarator->p_flow_object, po);
+                    flow_object_set_zero(&t, pointed_calloc_object);
+                    object_set_pointer(p_init_declarator->p_declarator->p_flow_object, pointed_calloc_object);
+
+                    struct marker a_marker = {
+                      .p_token_begin = p_init_declarator->p_declarator->first_token_opt,
+                      .p_token_end = p_init_declarator->p_declarator->last_token_opt,
+                    };
+
+                    checked_read_object(ctx,
+                        &t,
+                        type_is_nullable(&t, ctx->ctx->options.null_checks_enabled),
+                        pointed_calloc_object,
+                        p_init_declarator->p_declarator->first_token_opt,
+                        &a_marker,
+                        false);
+
                     type_destroy(&t);
                     p_init_declarator->p_declarator->p_flow_object->current.state = FLOW_OBJECT_STATE_NOT_NULL | FLOW_OBJECT_STATE_NULL;
                 }
@@ -1194,10 +1207,9 @@ static void flow_visit_initializer_list_item(struct flow_visit_ctx* ctx, struct 
         flow_visit_designation(ctx, p_initializer->designation);
     }
 
-    if (p_initializer->initializer)
-    {
-        flow_visit_initializer(ctx, p_initializer->initializer);
-    }
+    assert(p_initializer->initializer != NULL);
+
+    flow_visit_initializer(ctx, p_initializer->initializer);
 }
 
 static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initializer* p_initializer)
@@ -2000,7 +2012,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             return;
         }
         //TODO
-      
+
         struct marker a_marker = {
           .p_token_begin = p_expression->left->first_token,
           .p_token_end = p_expression->left->last_token
@@ -3805,7 +3817,7 @@ void flow_visit_ctx_destroy(struct flow_visit_ctx* _Obj_owner p)
     flow_objects_destroy(&p->arena);
 }
 
-void flow_analysis_visit(struct flow_visit_ctx* ctx)
+static void flow_analysis_visit(struct flow_visit_ctx* ctx)
 {
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)

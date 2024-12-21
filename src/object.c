@@ -1688,7 +1688,7 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
 }
 
 int make_object(const struct type* p_type, struct object* obj)
-{
+{ 
     struct object* _Owner _Opt p = make_object_ptr_core(p_type, "");
     if (p)
     {

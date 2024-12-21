@@ -125,7 +125,7 @@ struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
 }
 
 
-void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt)
+void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt)
 {
     if (map->table != NULL)
     {
@@ -142,7 +142,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_typ
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* p = p_entry->data.p_declarator;
+                void* _Opt p = p_entry->data.p_declarator;
                 free((void* _Owner)p_entry->key);
                 free((void* _Owner)p_entry);
 

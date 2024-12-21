@@ -39,7 +39,7 @@ static char mon[][4] = {
 
 */
 
-struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier2(struct struct_or_union_specifier* p_struct_or_union_specifier)
+static struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier2(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct struct_or_union_specifier* _Opt p_complete =
         get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
@@ -318,7 +318,7 @@ static struct member_declarator* _Opt find_member_declarator_by_index2(struct me
     return NULL;
 }
 
-int find_member_name(const struct type* p_type, int index, char name[100])
+static int find_member_name(const struct type* p_type, int index, char name[100])
 {
     if (!type_is_struct_or_union(p_type))
         return 1;
@@ -1513,57 +1513,59 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                     member_declarator = member_declaration->member_declarator_list_opt->head;
                                     while (member_declarator)
                                     {
-                                        if (type_is_struct_or_union(&member_declarator->declarator->type))
+                                        if (member_declarator->declarator)
                                         {
-                                            assert(member_declarator->declarator->type.struct_or_union_specifier != NULL);
-
-                                            struct struct_or_union_specifier* _Opt p_complete_member =
-                                                get_complete_struct_or_union_specifier(member_declarator->declarator->type.struct_or_union_specifier);
-
-                                            if (p_complete_member == NULL)
-                                                throw;
-
-                                            char name2[100] = { 0 };
-                                            snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
-
-                                            register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
-                                            struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
-                                            if (p2 != NULL)
+                                            if (type_is_struct_or_union(&member_declarator->declarator->type))
                                             {
-                                                struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
-                                            }
-                                        }
-                                        if (type_is_array(&member_declarator->declarator->type))
-                                        {
-                                            struct type t = get_array_item_type(&member_declarator->declarator->type);
-                                            if (type_is_struct_or_union(&t))
-                                            {
-                                                assert(t.struct_or_union_specifier != NULL);
+                                                assert(member_declarator->declarator->type.struct_or_union_specifier != NULL);
 
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
-                                                    p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                    get_complete_struct_or_union_specifier(member_declarator->declarator->type.struct_or_union_specifier);
+
+                                                if (p_complete_member == NULL)
+                                                    throw;
 
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
 
-                                                register_struct_types_and_functions(ctx, &t);
+                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
                                                     struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
                                                 }
                                             }
+                                            if (type_is_array(&member_declarator->declarator->type))
+                                            {
+                                                struct type t = get_array_item_type(&member_declarator->declarator->type);
+                                                if (type_is_struct_or_union(&t))
+                                                {
+                                                    assert(t.struct_or_union_specifier != NULL);
+
+                                                    struct struct_or_union_specifier* _Opt p_complete_member =
+                                                        p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                                    char name2[100] = { 0 };
+                                                    snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+
+                                                    register_struct_types_and_functions(ctx, &t);
+                                                    struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
+                                                    if (p2 != NULL)
+                                                    {
+                                                        struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                                }
+                                                type_destroy(&t);
+                                            }
                                             else
                                             {
                                                 register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
                                             }
-                                            type_destroy(&t);
                                         }
-                                        else
-                                        {
-                                            register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
-                                        }
-
                                         member_declarator = member_declarator->next;
                                     }
                                 }
@@ -1588,7 +1590,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                             snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
 
                                             register_struct_types_and_functions(ctx, &t);
-                                            struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
+                                            struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                             if (p2 != NULL)
                                             {
                                                 struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
@@ -1601,6 +1603,9 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                             {
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
                                                     p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                                if (p_complete_member == NULL)
+                                                    throw;
 
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
@@ -2345,7 +2350,7 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
     }
 }
 
-void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
+static void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     try
     {

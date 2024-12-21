@@ -6810,7 +6810,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
     return p_attribute_specifier_sequence;
 }
 
-struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence(struct parser_ctx* ctx)
+static struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence(struct parser_ctx* ctx)
 {
     // attribute_specifier_sequence_opt attribute_specifier
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence = NULL;
@@ -9388,10 +9388,6 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #endif
 }
 
-void c_visit(struct ast* ast)
-{
-}
-
 
 int generate_config_file(const char* configpath)
 {
@@ -9766,7 +9762,7 @@ int compile_one_file(const char* file_name,
     return report->error_count > 0;
 }
 
-int compile_many_files(const char* file_name,
+static int compile_many_files(const char* file_name,
     struct options* options,
     const char* out_file_name,
     int argc,

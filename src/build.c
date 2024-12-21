@@ -66,7 +66,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "        var source = elm.parentElement.previousElementSibling.innerText;\n"
         "\n"
         "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
-        "            \"&to=\" + encodeURI(\"1\") +\n"
+        "            \"&to=\" + encodeURI(\"-2\") +\n"
         "            \"&options=\" + encodeURI(\"\");\n"
         "\n"
         "        window.open(link, 'popup','width=800,height=600');\n"

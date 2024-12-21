@@ -15,7 +15,7 @@
         var source = elm.parentElement.previousElementSibling.innerText;
 
         var link = "./playground.html?code=" + encodeURIComponent(btoa(source)) +
-            "&to=" + encodeURI("1") +
+            "&to=" + encodeURI("-2") +
             "&options=" + encodeURI("");
 
         window.open(link, 'popup','width=800,height=600');
@@ -125,8 +125,11 @@ such as Visual Studio and Visual Studio Code, providing a
 seamless integration.</p>
 
 <p>It can also function as a preprocessor, converting C23 code to C89. 
-This allows developers to use modern features while targeting 
+This allows developers to use modern or experimental features while targeting 
 compilers that do not yet support the latest language standards.</p>
+
+<p>The objective of the C89 generation is to produce low-level C code, 
+simplifying the process of writing C backends <strong>dedicated to code generation</strong>.</p>
 
 <p>Previous versions of Cake included a conversion mode to 
 translate code while preserving the preprocessor parts. 
@@ -147,7 +150,7 @@ This version is online here
 <li>Sarif output</li>
 <li>Backend generating C89 compatible code</li>
 <li>AST </li>
-<li>So far, 34 preprocessor diagnostics, 236 compiler diagnostics</li>
+<li>More than 260 diagnostics</li>
 </ul>
 
 <h1 id="toc_4">Build</h1>

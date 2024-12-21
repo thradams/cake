@@ -15,7 +15,7 @@
         var source = elm.parentElement.previousElementSibling.innerText;
 
         var link = "./playground.html?code=" + encodeURIComponent(btoa(source)) +
-            "&to=" + encodeURI("1") +
+            "&to=" + encodeURI("-2") +
             "&options=" + encodeURI("");
 
         window.open(link, 'popup','width=800,height=600');
@@ -58,7 +58,7 @@
 <a href="#toc_7">Glossary</a>
 </li>
 </ul>
-<p>Last Updated 20 Nov 2024</p>
+<p>Last Updated 21 Dez 2024</p>
 
 <p>This is a work in progress. Cake source is currently being used to validate the concepts. It&#39;s in the process of transitioning to include annotated nullable checks, which was the last feature added.  </p>
 
@@ -75,21 +75,17 @@ These new contracts can be ignored, the language <strong>and existing code patte
 
 <h3 id="toc_2">Nullable Pointers</h3>
 
-<p>The qualifier <code>_Opt</code> explicitly indicates when a pointer is nullable, while the 
-absence of the qualifier implies that a pointer is non-nullable. 
-This qualifier applies exclusively to pointers and is placed after the <code>*</code> symbol, 
-in the same manner as <code>const</code>.</p>
+<p>The qualifier <code>_Opt</code> explicitly indicates when a pointer is nullable, while the absence of the qualifier implies that a pointer is non-nullable. This qualifier applies exclusively to pointers and is placed after  <code>*</code> in the same way as <code>const</code>.</p>
 
-<p>For instance, the standard function <code>strdup</code> is can be declared as:</p>
+<p>The declaration</p>
 
 <pre><code class="language-c">char * _Opt strdup(const char * src);
 </code></pre>
 
-<p>This indicates that the result may be null, while the argument must point to a valid string.</p>
+<p>says that <code>strdup</code> is a function that expects a non nullable pointer as argument and returns a nullable pointer.</p>
 
-<p>Since the absence of the _Opt qualifier indicates that the pointer is non-null, 
-it is necessary to explicitly indicate when this rule applies. 
-This is managed through the #pragma nullable enable directive.</p>
+<p>Since <code>_Opt</code> is new, and the absence of the <code>_Opt</code> qualifier indicates that the pointer is non-null, we need to specify where in the code these rules apply. This is accomplished with the <code>#pragma nullable enable</code> directive.
+After <code>#pragma nullable enable</code>, the compiler will assume that the code has been reviewed and that the <code>_Opt</code> qualifier has been added where necessary to indicate that the pointer may be null, while it is omitted when the pointer cannot be null</p>
 
 <h4>Example 1: Warning for Non-Nullable Pointers</h4>
 
@@ -101,7 +97,14 @@ int main(){
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>In this example, a warning is generated because <code>p</code> is non-nullable, yet it is being assigned <code>nullptr</code>. </p>
+<p>In this example, <code>p</code> is a non-nullable pointer, since the rules are in effect after <code>#pragma nullable enable</code> and the pointer is not qualified with <code>_Opt</code>.<br>
+Assign <code>p</code> to <code>nullptr</code> will generate a warning. </p>
+
+<p>The <code>#pragma nullable disable</code> directive can be used to say &quot;the rules for nullable pointers are NOT enabled in this source&quot; facilitating the transition.</p>
+
+<p>This approach has been used in C#.
+<a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>
+<a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
 
 <h4>Example 2: Converting Non-Nullable to Nullable</h4>
 
@@ -115,8 +118,6 @@ int main(){
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
-
-<p>Here, the return value of <code>get_name()</code> is non-nullable by default, but it is assigned to a nullable pointer <code>s</code>, which does not trigger any warnings.</p>
 
 <h4>Example 3: Diagnostic for Nullable to Non-Nullable Conversion</h4>
 
@@ -137,7 +138,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>In this scenario, <code>s1</code> is declared as nullable, but <code>f</code> expects a non-nullable argument. This triggers a warning, as the nullable pointer <code>s1</code> could potentially be null when passed to <code>f</code>. To resolve this warning, a null check is required:</p>
+<p>In this scenario, <code>s1</code> is declared as nullable, but <code>f</code> expects a non-nullable argument. This triggers a warning, as the nullable pointer <code>s1</code> could potentially be null when passed to <code>f</code>. To remove this warning, a null check is required:</p>
 
 <pre><code class="language-c">  if (s1)
     f(s1); // ok
@@ -145,95 +146,151 @@ int main()
 
 <p>This warning relies on flow analysis, which ensures that the potential nullability of pointers is checked before being passed to functions or assigned to non-nullable variables.</p>
 
-<h4>Non nullable members</h4>
+<h4>Non nullable members initialization</h4>
 
-<p>The concept of nullable types is present in some language like C# and Typescript.
-Both languages have the concept of object constructor. For object members, the compiler checks if 
-after the constructor the non-nullable members have being assigned to a non null value.</p>
+<p>Non-nullable member initialization has similarities to const member initialization. One difference is that const members cannot be &quot;fixed&quot; from uninitialized to initialized.</p>
 
-<p>For instance, in Typescript</p>
+<p>For instance:</p>
 
-<pre><code class="language-ts">class Y { 
-  public i = 0; 
-}
-
-class X 
-{ 
-  public readonly i : number; 
-  public pY : Y;  
-  constructor(){
-    //Property &#39;pY&#39; has no initializer and is not definitely assigned 
-    //in the constructor.(2564)    
-    //this.pY = new Y;
-    //this.i = 1;
-  }
-}
-
-</code></pre>
-
-<p><a href="https://www.typescriptlang.org/play/?#code/MYGwhgzhAECa0G9oChrQA4FcBGICWw0e0AvNAAwDcKAvssqJDABopKoY76EBOApmAAmAewB2IAJ5FoALmijMAW2x8e1DllwEM8ObGoo0wMRAAuPTMFPCeACgCUCDmgD0LgAo9h6VaakBydFh-aAALSHlhIlE8UzwwfAAvVWgwUUEiGFFhU2hBPgAzPBjTPklUqDwAc1E+DOdoN2LoU1C+aGNRMwsrGwA6WwAmAFYANgAWezQ0BrdWvAg+oNJ5PgB3OEpZl3nF4jIARi20OjogA">https://www.typescriptlang.org/play/?#code/MYGwhgzhAECa0G9oChrQA4FcBGICWw0e0AvNAAwDcKAvssqJDABopKoY76EBOApmAAmAewB2IAJ5FoALmijMAW2x8e1DllwEM8ObGoo0wMRAAuPTMFPCeACgCUCDmgD0LgAo9h6VaakBydFh-aAALSHlhIlE8UzwwfAAvVWgwUUEiGFFhU2hBPgAzPBjTPklUqDwAc1E+DOdoN2LoU1C+aGNRMwsrGwA6WwAmAFYANgAWezQ0BrdWvAg+oNJ5PgB3OEpZl3nF4jIARi20OjogA</a></p>
-
-<p>The other way to see this, is that during construction the invariant of the object is not complete yet.</p>
-
-<p>In C, we don t have the concept of constructor, so the same approach cannot be applied directly.</p>
-
-<p>Cake, have a mechanism using the qualifier <code>_Opt</code> before struct types to make all non-nullable members as nullable for a particular instance.
-This allow us the have a object where the invariant is not completed.</p>
-
-<pre><code class="language-c">struct X {
-  char * name; //non nullable
-};  
-
-struct X * _Opt makeX(const char* name)
-{
-  _Opt struct X * p = calloc(1, sizeof * p);  
-  if (p == NULL) 
-    return NULL;
-  
-  char * _Opt temp = strdup(name);
-  if (temp == NULL)
-    return NULL;  
-
-  x-&gt;name = temp;    
-  return x;
+<pre><code class="language-c">struct X { const int i; };
+int main(){
+    struct X x;
+    x.i = 1; //error
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>The particular instance of p, that has being qualified with _Opt, is allowed to have no-nullable members with a null values.</p>
+<p>The non-nullable on the other hand can.</p>
 
-<p>However, we cannot leave this function with a non-nullable member being null because the result of 
-the function is not _Opt qualified.
-This approach makes it possible to have an alternative design for constructors.</p>
+<pre><code class="language-c">#pragma nullable enable  
+char * _Opt strdup(const char * src);  
 
-<p>This state is also useful for some functions like destructor, to be able to destroy partially constructed objects.
-For instance:</p>
+struct X {  char * text; };  
 
-<pre><code class="language-c">void x_destroy(_Opt struct X * p)
-{
-   free(p-&gt;name); //ok
-}  
+void f() {  
+   char * _Opt s = strdup(&quot;a&quot;);
+   if (s == nullptr)
+     return;
+   struct X x;
+   x.text = s; //ok
+}
 </code></pre>
 
-<blockquote>
-<p>Note : This design may change and be replaced by mutable.</p>
-</blockquote>
+<p><button onclick="Try(this)">try</button></p>
+
+<p>How do we know when the object is fully constructed?<br>
+We don&#39;t need to.  Attempting to read an uninitialized or partially initialized object will result in a warning.</p>
+
+<p>For instance.</p>
+
+<pre><code class="language-c">#pragma nullable enable  
+struct X {  char * text; };  
+
+struct X f() {  
+   struct X x;
+   return x;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>More initialization patterns</p>
+
+<pre><code class="language-c">#pragma nullable enable  
+char * _Opt strdup(const char * src);  
+  
+struct X {  char * text; };  
+
+void f() {  
+  struct X x = {}; //warning  
+}  
+void g() {  
+   struct X x = {.text = strdup(&quot;a&quot;) }; //warning
+}
+void h() {  
+   char * _Opt s = strdup(&quot;a&quot;);
+   if (s == nullptr)
+     return;
+   struct X x = {.text = s }; //ok
+}
+</code></pre>
+
+<p><code>malloc</code> has a built-in semantics indicating the object is uninitialized. </p>
+
+<pre><code class="language-c">#pragma nullable enable  
+char * _Opt strdup(const char * src);  
+void * _Opt malloc(unsigned int sz);
+
+struct X {  char * text; };  
+
+void f() {     
+   struct X * _Opt pX = malloc(sizeof *pX);
+   if (pX)
+   {
+      char * _Opt s = strdup(&quot;a&quot;);
+      if (s != nullptr){
+        pX-&gt;text = s; //ok
+      }     
+   }
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p><code>calloc</code> has a built in semantics indicating the object is zero-initialized. </p>
+
+<pre><code class="language-c">#pragma nullable enable  
+char * _Opt strdup(const char * src);  
+void * _Opt calloc(unsigned int n, unsigned int sz);
+
+struct X {  char * text; };  
+
+void f() {     
+   struct X * _Opt pX = calloc(1, sizeof *pX); //warning
+   if (pX)
+   {          
+   }
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>In some cases it may be useful to make the non-nullable members as nullable. Applying <code>_Opt</code> qualifier to structs makes all members nullable.</p>
+
+<p>For instance, the previous calloc sample can be written as.</p>
+
+<pre><code class="language-c">#pragma nullable enable  
+char * _Opt strdup(const char * src);  
+void * _Opt calloc(unsigned int n, unsigned int sz);
+
+struct X {  char * text; };  
+
+void f() {     
+   _Opt struct X * _Opt pX = calloc(1, sizeof *pX); //ok
+   if (pX)
+   {
+      char * _Opt s = strdup(&quot;a&quot;);
+      if (s != nullptr){
+        pX-&gt;text = s; //ok
+      }     
+   }
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h4>mutable</h4>
 
-<p>Note that this concept of constructor phase also could be applied for const members. </p>
+<p>In the same way we removed the implicit non-nullable  qualifier, we also could remove the const qualifier. The anti const qualifier could be named as <code>mutable</code>.</p>
 
-<p>The introduction of a <strong>mutable</strong> qualifier allows certain exceptions to the usual contract 
-of immutability and non-nullability during transitional phases, such as in constructors and destructors. </p>
-
-<p>This means that objects marked as <strong>mutable</strong> can temporarily violate their normal constraints, 
-such as modifying <code>const</code> members or assigning null to non-nullable pointers during these phases.</p>
+<p>But instead of having anti-const and anti-non-nullable qualifier the mutable has been considered to remove both.</p>
 
 <p>Consider the following code example:</p>
 
 <pre><code class="language-c">struct X {
-  const char * const name; // non-nullable
+  const char * const name; // const and non-nullable
 };  
 
 struct X * _Opt makeX(const char* name)
@@ -251,37 +308,11 @@ struct X * _Opt makeX(const char* name)
 }
 </code></pre>
 
-<p>In this example, <code>struct X</code> has a <code>const</code> member <code>name</code>, which is non-nullable.
-Under normal conditions, modifying a <code>const</code> member after initialization would be disallowed. </p>
-
-<p>However, the <strong>mutable</strong> qualifier temporarily relaxes this rule during the object’s creation process,
-allowing modifications even to <code>const</code> members, and allowing a non-nullable pointer to be null 
-before the object’s initialization completes.</p>
-
-<p>We also have an implicit contract for struct members. 
-Generally, we assume that members are initialized, but we lack a qualifier to explicitly 
-indicate &quot;initialized member.&quot; 
-For instance, when using malloc, members are initially uninitialized, but they should receive a value before being used.</p>
-
-<pre><code class="language-c">struct X * _Opt makeX(const char* name)
-{
-  mutable struct X * p = malloc(sizeof *p);  
-  if (p == NULL) 
-    return NULL;
-  
-  char * _Opt temp = strdup(name);
-  if (temp == NULL)
-    return NULL;  
-
-  p-&gt;name = temp;  // OK!! name fixed
-
-  return p;
-}
-</code></pre>
-
 <blockquote>
-<p>OBS: mutable qualifier is not yet implemented in Cake. However, _Opt for structs is implemented and may be replaced in the future</p>
+<p>OBS: mutable qualifier is not yet implemented. </p>
 </blockquote>
+
+<p>Note: The syntax used in the C++ 26 proposal for contracts may be utilized in the future to eliminate the need for built-in semantics for <code>malloc</code> and <code>calloc</code>.</p>
 
 <h3 id="toc_3">Object lifetime checks</h3>
 

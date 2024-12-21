@@ -2,7 +2,7 @@
 
 
 
-struct X { int i; void* p; };
+struct X { int i; void* _Opt p; };
 void* _Owner _Opt calloc(int i, int sz);
 void free(void* _Owner _Opt p);
 

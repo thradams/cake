@@ -310,7 +310,7 @@ struct hash_map {
 void hashmap_remove_all(struct hash_map* map);
 void hashmap_destroy(struct hash_map* _Obj_owner map);
 struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key);
-void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt);
+void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
 
 /*
   hash_item_set is used to insert pointer with it type into a hashmap and also
@@ -2760,7 +2760,7 @@ struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
 }
 
 
-void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt)
+void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt)
 {
     if (map->table != NULL)
     {
@@ -2777,7 +2777,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* p_typ
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* p = p_entry->data.p_declarator;
+                void* _Opt p = p_entry->data.p_declarator;
                 free((void* _Owner)p_entry->key);
                 free((void* _Owner)p_entry);
 
@@ -14878,7 +14878,7 @@ struct initializer_list_item
 
     struct designation* _Opt _Owner designation;
     struct initializer* _Owner initializer;
-    struct initializer_list_item* _Opt next;
+    struct initializer_list_item* _Opt _Owner next;
 };
 
 void initializer_list_item_delete(struct initializer_list_item* _Owner _Opt p);
@@ -16843,7 +16843,7 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
 }
 
 int make_object(const struct type* p_type, struct object* obj)
-{
+{ 
     struct object* _Owner _Opt p = make_object_ptr_core(p_type, "");
     if (p)
     {
@@ -26748,7 +26748,8 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                 //TODO static flow_objects
                     struct type t2 = type_remove_pointer(p_visitor->p_type);
 
-                    if (p_visitor->p_object->current.pointed)
+                    if (p_visitor->p_object->current.pointed &&
+                        p_visitor->p_object->p_declarator_origin)
                     {
                         struct token* _Opt name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
                             p_visitor->p_object->p_declarator_origin->name_opt :
@@ -27948,7 +27949,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.41"
+#define CAKE_VERSION "0.9.42"
 
 
 
@@ -34766,7 +34767,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
     return p_attribute_specifier_sequence;
 }
 
-struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence(struct parser_ctx* ctx)
+static struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence(struct parser_ctx* ctx)
 {
     // attribute_specifier_sequence_opt attribute_specifier
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence = NULL;
@@ -37344,10 +37345,6 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #endif
 }
 
-void c_visit(struct ast* ast)
-{
-}
-
 
 int generate_config_file(const char* configpath)
 {
@@ -37722,7 +37719,7 @@ int compile_one_file(const char* file_name,
     return report->error_count > 0;
 }
 
-int compile_many_files(const char* file_name,
+static int compile_many_files(const char* file_name,
     struct options* options,
     const char* out_file_name,
     int argc,
@@ -40104,7 +40101,7 @@ static char mon[][4] = {
 
 */
 
-struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier2(struct struct_or_union_specifier* p_struct_or_union_specifier)
+static struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier2(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct struct_or_union_specifier* _Opt p_complete =
         get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
@@ -40383,7 +40380,7 @@ static struct member_declarator* _Opt find_member_declarator_by_index2(struct me
     return NULL;
 }
 
-int find_member_name(const struct type* p_type, int index, char name[100])
+static int find_member_name(const struct type* p_type, int index, char name[100])
 {
     if (!type_is_struct_or_union(p_type))
         return 1;
@@ -41578,57 +41575,59 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                     member_declarator = member_declaration->member_declarator_list_opt->head;
                                     while (member_declarator)
                                     {
-                                        if (type_is_struct_or_union(&member_declarator->declarator->type))
+                                        if (member_declarator->declarator)
                                         {
-                                            assert(member_declarator->declarator->type.struct_or_union_specifier != NULL);
-
-                                            struct struct_or_union_specifier* _Opt p_complete_member =
-                                                get_complete_struct_or_union_specifier(member_declarator->declarator->type.struct_or_union_specifier);
-
-                                            if (p_complete_member == NULL)
-                                                throw;
-
-                                            char name2[100] = { 0 };
-                                            snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
-
-                                            register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
-                                            struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
-                                            if (p2 != NULL)
+                                            if (type_is_struct_or_union(&member_declarator->declarator->type))
                                             {
-                                                struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
-                                            }
-                                        }
-                                        if (type_is_array(&member_declarator->declarator->type))
-                                        {
-                                            struct type t = get_array_item_type(&member_declarator->declarator->type);
-                                            if (type_is_struct_or_union(&t))
-                                            {
-                                                assert(t.struct_or_union_specifier != NULL);
+                                                assert(member_declarator->declarator->type.struct_or_union_specifier != NULL);
 
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
-                                                    p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                    get_complete_struct_or_union_specifier(member_declarator->declarator->type.struct_or_union_specifier);
+
+                                                if (p_complete_member == NULL)
+                                                    throw;
 
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
 
-                                                register_struct_types_and_functions(ctx, &t);
+                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
                                                     struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
                                                 }
                                             }
+                                            if (type_is_array(&member_declarator->declarator->type))
+                                            {
+                                                struct type t = get_array_item_type(&member_declarator->declarator->type);
+                                                if (type_is_struct_or_union(&t))
+                                                {
+                                                    assert(t.struct_or_union_specifier != NULL);
+
+                                                    struct struct_or_union_specifier* _Opt p_complete_member =
+                                                        p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                                    char name2[100] = { 0 };
+                                                    snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+
+                                                    register_struct_types_and_functions(ctx, &t);
+                                                    struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
+                                                    if (p2 != NULL)
+                                                    {
+                                                        struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                                }
+                                                type_destroy(&t);
+                                            }
                                             else
                                             {
                                                 register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
                                             }
-                                            type_destroy(&t);
                                         }
-                                        else
-                                        {
-                                            register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
-                                        }
-
                                         member_declarator = member_declarator->next;
                                     }
                                 }
@@ -41653,7 +41652,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                             snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
 
                                             register_struct_types_and_functions(ctx, &t);
-                                            struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
+                                            struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                             if (p2 != NULL)
                                             {
                                                 struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
@@ -41666,6 +41665,9 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                             {
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
                                                     p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+
+                                                if (p_complete_member == NULL)
+                                                    throw;
 
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
@@ -42410,7 +42412,7 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
     }
 }
 
-void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
+static void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     try
     {
@@ -42673,7 +42675,7 @@ struct true_false_set
     int capacity;
 };
 
-void true_false_set_clear(struct true_false_set* p)
+static void true_false_set_clear(struct true_false_set* p)
 {
     free(p->data);
     p->data = NULL;
@@ -42694,7 +42696,7 @@ void true_false_set_destroy(struct true_false_set* _Obj_owner p)
     free(p->data);
 }
 
-int true_false_set_reserve(struct true_false_set* p, int n)
+static int true_false_set_reserve(struct true_false_set* p, int n)
 {
     if (n > p->capacity)
     {
@@ -42713,7 +42715,7 @@ int true_false_set_reserve(struct true_false_set* p, int n)
     return 0;
 }
 
-int true_false_set_push_back(struct true_false_set* p, const struct true_false_set_item* book)
+static int true_false_set_push_back(struct true_false_set* p, const struct true_false_set_item* book)
 {
     if (p->size == INT_MAX)
     {
@@ -42784,7 +42786,7 @@ static int find_item_index_by_expression(const struct true_false_set* a, const s
 // 
 //true true, false false
 //true true, false false
-void true_false_set_merge(struct true_false_set* result,
+static void true_false_set_merge(struct true_false_set* result,
     struct true_false_set* a,
     struct true_false_set* b,
     enum merge_options options_true,
@@ -43050,7 +43052,7 @@ static int arena_add_empty_state(struct flow_visit_ctx* ctx, const char* name)
     return state_number;
 }
 
-void flow_object_set_state_from_current(struct flow_object* object, int state_number)
+static void flow_object_set_state_from_current(struct flow_object* object, int state_number)
 {
     struct flow_object_state* _Opt p_flow_object_state = object->current.next;
     while (p_flow_object_state)
@@ -43239,7 +43241,7 @@ static void braced_initializer_flow_core(struct flow_visit_ctx* ctx, struct obje
             };
 
             flow_check_assignment(ctx,
-                                obj->p_init_expression,
+                                obj->p_init_expression->first_token,
                                 &a_marker,
                                 &b_marker,
                                 ASSIGMENT_TYPE_OBJECTS,
@@ -43264,7 +43266,6 @@ static void braced_initializer_flow_core(struct flow_visit_ctx* ctx, struct obje
         /*flow_object and object have the same number of members*/
         int i = 0;
 
-        struct flow_object* mf = flow_obj->members.data[i];
         struct object* _Opt m = obj->members;
         while (m)
         {
@@ -43282,7 +43283,7 @@ static void braced_initializer_flow(struct flow_visit_ctx* ctx, struct object* o
         braced_initializer_flow_core(ctx, obj, flow_obj);
 
         if (flow_obj->p_declarator_origin == NULL)
-        {    
+        {
             throw;
         }
 
@@ -43394,15 +43395,29 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                 else if (expression_is_calloc(p_init_declarator->initializer->assignment_expression))
                 {
                     struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                    struct flow_object* _Opt po = make_flow_object(ctx, &t, p_init_declarator->p_declarator, NULL);
-                    if (po == NULL)
+                    struct flow_object* _Opt pointed_calloc_object = make_flow_object(ctx, &t, p_init_declarator->p_declarator, NULL);
+                    if (pointed_calloc_object == NULL)
                     {
                         type_destroy(&t);
                         throw;
                     }
 
-                    flow_object_set_zero(&t, po);
-                    object_set_pointer(p_init_declarator->p_declarator->p_flow_object, po);
+                    flow_object_set_zero(&t, pointed_calloc_object);
+                    object_set_pointer(p_init_declarator->p_declarator->p_flow_object, pointed_calloc_object);
+
+                    struct marker a_marker = {
+                      .p_token_begin = p_init_declarator->p_declarator->first_token_opt,
+                      .p_token_end = p_init_declarator->p_declarator->last_token_opt,
+                    };
+
+                    checked_read_object(ctx,
+                        &t,
+                        type_is_nullable(&t, ctx->ctx->options.null_checks_enabled),
+                        pointed_calloc_object,
+                        p_init_declarator->p_declarator->first_token_opt,
+                        &a_marker,
+                        false);
+
                     type_destroy(&t);
                     p_init_declarator->p_declarator->p_flow_object->current.state = FLOW_OBJECT_STATE_NOT_NULL | FLOW_OBJECT_STATE_NULL;
                 }
@@ -43796,10 +43811,9 @@ static void flow_visit_initializer_list_item(struct flow_visit_ctx* ctx, struct 
         flow_visit_designation(ctx, p_initializer->designation);
     }
 
-    if (p_initializer->initializer)
-    {
-        flow_visit_initializer(ctx, p_initializer->initializer);
-    }
+    assert(p_initializer->initializer != NULL);
+
+    flow_visit_initializer(ctx, p_initializer->initializer);
 }
 
 static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initializer* p_initializer)
@@ -44602,7 +44616,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             return;
         }
         //TODO
-      
+
         struct marker a_marker = {
           .p_token_begin = p_expression->left->first_token,
           .p_token_end = p_expression->left->last_token
@@ -46407,7 +46421,7 @@ void flow_visit_ctx_destroy(struct flow_visit_ctx* _Obj_owner p)
     flow_objects_destroy(&p->arena);
 }
 
-void flow_analysis_visit(struct flow_visit_ctx* ctx)
+static void flow_analysis_visit(struct flow_visit_ctx* ctx)
 {
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)

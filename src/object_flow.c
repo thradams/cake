@@ -2558,7 +2558,8 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                 //TODO static flow_objects
                     struct type t2 = type_remove_pointer(p_visitor->p_type);
 
-                    if (p_visitor->p_object->current.pointed)
+                    if (p_visitor->p_object->current.pointed &&
+                        p_visitor->p_object->p_declarator_origin)
                     {
                         struct token* _Opt name_token = p_visitor->p_object->p_declarator_origin->name_opt ?
                             p_visitor->p_object->p_declarator_origin->name_opt :
