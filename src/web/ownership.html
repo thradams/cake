@@ -57,6 +57,9 @@
 <li>
 <a href="#toc_7">Glossary</a>
 </li>
+<li>
+<a href="#toc_8">References</a>
+</li>
 </ul>
 <p>Last Updated 21 Dez 2024</p>
 
@@ -75,7 +78,9 @@ These new contracts can be ignored, the language <strong>and existing code patte
 
 <h3 id="toc_2">Nullable Pointers</h3>
 
-<p>The qualifier <code>_Opt</code> explicitly indicates when a pointer is nullable, while the absence of the qualifier implies that a pointer is non-nullable. This qualifier applies exclusively to pointers and is placed after  <code>*</code> in the same way as <code>const</code>.</p>
+<p>A nullable pointer is a pointer that be set to a null value, indicating that it doesn&#39;t currently reference any object.  </p>
+
+<p>The qualifier <code>_Opt</code> explicitly indicates when a pointer is nullable, while the absence of the qualifier implies that a pointer is non-nullable. This qualifier is placed after  <code>*</code> in the same way as <code>const</code>.</p>
 
 <p>The declaration</p>
 
@@ -102,9 +107,7 @@ Assign <code>p</code> to <code>nullptr</code> will generate a warning. </p>
 
 <p>The <code>#pragma nullable disable</code> directive can be used to say &quot;the rules for nullable pointers are NOT enabled in this source&quot; facilitating the transition.</p>
 
-<p>This approach has been used in C#.
-<a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>
-<a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
+<p>This approach has been used in C#.[1]</p>
 
 <h4>Example 2: Converting Non-Nullable to Nullable</h4>
 
@@ -146,9 +149,65 @@ int main()
 
 <p>This warning relies on flow analysis, which ensures that the potential nullability of pointers is checked before being passed to functions or assigned to non-nullable variables.</p>
 
+<p>In some case, the compiler may need a help. Consider this sample.</p>
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X {
+    int * _Opt data;
+};
+
+bool is_empty(struct X * p) {
+    return p-&gt;data == nullptr;
+}
+
+void f(struct X * p)
+{
+   if (!is_empty(p))
+   {
+      assert(p-&gt;data != nullptr);
+      *p-&gt;data = 1;
+   }
+
+}
+</code></pre>
+
+<p>When is_empty(p) is called, <code>p-&gt;data</code> is null; otherwise, it is not null. Since the analysis is not inter-procedural, the compiler does not have this information. Adding an assertion will lead the flow analysis to assume that <code>p-&gt;data</code> is not null and removes the warning.</p>
+
+<p>The problem with this approach is the distance between the place that imposes the post condition and assert. If <code>is_empty</code> changes it could potentially invalidate the assert at caller side.</p>
+
+<p>The C++ 26 proposal (<a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2900r5.pdf">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2900r5.pdf</a>) for contracts is being considered to solve this problem. The advantage is that the postconditions are defined in one place. This means that changing the implementation of <code>is_empty</code> we update its postconditions in a single location.</p>
+
+<p>Using C++ 26 syntax for contracts we have (This may not be valid in C++ 26 but here is how it could be used here)</p>
+
+<pre><code class="language-c">bool is_empty(struct X * p) 
+  pos(r: r &amp;&amp; p-&gt;data == nullptr)
+  pos(r: !r &amp;&amp; p-&gt;data != nullptr)
+{
+    return p-&gt;data == nullptr;
+}
+</code></pre>
+
+<p><code>pos</code> indicates post condition. <code>r:</code> indicates the result of `is_empty´.   </p>
+
+<ul>
+<li>if the result is true then p-&gt;data is null.</li>
+<li>if the result is false then p-&gt;data is not null.</li>
+</ul>
+
+<p>Then the expectation is that the flow analysis can confirm that <code>p-&gt;data</code> is not null.  If the contract is changed, then the assert may be back and this is exactly what we want.</p>
+
+<pre><code class="language-c">void f(struct X * p)
+{
+   if (!is_empty(p)) {
+      *p-&gt;data = 1;
+   }
+}
+</code></pre>
+
 <h4>Non nullable members initialization</h4>
 
-<p>Non-nullable member initialization has similarities to const member initialization. One difference is that const members cannot be &quot;fixed&quot; from uninitialized to initialized.</p>
+<p>Non-nullable member initialization has similarities to const member initialization. One difference is that const members cannot be changed after declaration even if the declaration does not initialize it.</p>
 
 <p>For instance:</p>
 
@@ -1204,6 +1263,8 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
+<p>Note: A contract syntax is being considered to remove the assert from the caller side and move it to a function contract declaration. </p>
+
 <h3 id="toc_5">assert is a built-in function</h3>
 
 <p>Consider the following sample where we have a linked list. 
@@ -1330,4 +1391,8 @@ indeterminate when the object the pointer points to (or just past) reaches the e
 <h4>object (From C23)</h4>
 
 <p>region of data storage in the execution environment, the contents of which can represent values</p>
+
+<h2 id="toc_8">References</h2>
+
+<p>[1] <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>, <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
 </article></body></html>

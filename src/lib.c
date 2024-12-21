@@ -43040,7 +43040,7 @@ static int arena_add_empty_state(struct flow_visit_ctx* ctx, const char* name)
     for (int i = 0; i < ctx->arena.size; i++)
     {
         struct flow_object* p_object = ctx->arena.data[i];
-        struct flow_object_state* _Owner _Opt p_flow_object_state = calloc(1, sizeof * p_flow_object_state);
+        _Opt struct flow_object_state* _Owner _Opt p_flow_object_state = calloc(1, sizeof * p_flow_object_state);
         if (p_flow_object_state)
         {
             p_flow_object_state->dbg_name = name;
