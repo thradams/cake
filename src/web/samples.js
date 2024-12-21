@@ -3,16 +3,12 @@
 sample["C99"] = [];
 sample["C99"]["_Bool"] =
  `
- /*
-    _Bool type was introduced in C99 as built-in type used 
-    to represent boolean values and the header <stdbool.h>
-    with macros bool true and false.
-    C23 introduced keywords (see C23 bool sample). 
- */
-
 int main(void)
 {
     _Bool b = 1;
+
+    _Bool b2 = 123; //TODO
+
     return 0;
 }
 `;
@@ -97,7 +93,7 @@ sample["C99"]["__func__"] =
 `;
 
 
-sample["C99"]["for block scope"] =
+sample["C99"]["init-clause of the for loop"] =
 `
 int main()
 {
@@ -109,9 +105,16 @@ int main()
 }
 `;
 
-sample["C99"]["Mixed declarations"] =
-`
-   //not converted yet
+sample["C99"]["inline"] =
+    `
+int main()
+{
+   const int max = 10;
+   for (int n = max - 1; n >= 0; n--)
+   {
+     // body of loop
+   }
+}
 `;
 
 sample["C99"]["restrict pointers"] =
@@ -209,9 +212,6 @@ sample["C11"]["_Generic"] =
                   default: cbrtl  \\
               )(X)
 
-#pragma expand cbrt
-
-
 int main(void)
 {
     cbrt(1.0);
@@ -260,10 +260,7 @@ sample["C11"]["u8 literals"] =
 /*
 * cake input source code encode is always utf8
 * cake output source code is also utf8
-*
-* This web output also works with utf8. So everything just works
-* even without u8 prefix. (press compile output)
-*
+
 * u8 prefix may be useful in case you have a compiler where
 * the input or output is not uft8.
 */
@@ -321,7 +318,6 @@ sample["C23"]["Binary Literal"] =
 `
 int main()
 {
-    int a = X;
     int b = 0B10;
 }
 `;
@@ -329,12 +325,25 @@ int main()
 
 sample["C23"]["static_assert"] =
 `
-int main()
-{    
-    static_assert(1 == 1, "error");
-    
-    /*message is optional in C23*/
-    static_assert(1 == 1);
+//https://en.cppreference.com/w/c/language/_Static_assert
+#include <assert.h> // no longer needed since C23
+
+int main(void)
+{
+    // Test if math works, C23:
+    static_assert((2 + 2) % 3 == 1, "Whoa dude, you knew!");
+    // Pre-C23 alternative:
+    _Static_assert(2 + 2 * 2 == 6, "Lucky guess!?");
+
+    // This will produce an error at compile time.
+    // static_assert(sizeof(int) < sizeof(char), "Unmet condition!");
+
+    constexpr int _42 = 2 * 3 * 2 * 3 + 2 * 3;
+    static_assert(_42 == 42); // the message string can be omitted.
+
+    // const int _13 = 13;
+    // Compile time error - not an integer constant expression:
+    // static_assert(_13 == 13);
 }
 `;
 
@@ -480,9 +489,6 @@ sample["C23"]["#warning"] =
 
 int main()
 {
-  /*
-     We just comment this line when target is < c23
-  */
   #warning TODO ..missing code  
 }
 `;
@@ -674,17 +680,9 @@ int main()
 
 
 sample["C23"]["bool true false"] =
-    `
-/*
-  C23 introduced keyword bool as alternative to _Bool and 
-  true and false as constants.
-  
-  Cake translate bool to _Bool when compiling to C99/C11
-  and to unsigned char when compiling to C89.
-*/
+ `
 
 #include <stdio.h>
-
 
 int main()
 {
@@ -704,7 +702,7 @@ int main()
 `;
 
 sample["C23"]["nullptr"] =
-    `
+`
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -716,24 +714,8 @@ int main()
 
   auto a = nullptr;
   
-
   printf("%s", _Generic(nullptr, typeof(nullptr) : "nullptr_t"));
 }
-
-/*
-  in case you want to add a compatibility header with
-  nullptr defined as macro, then nullptr macro is preserved
-  like this. The same for other features like static_assert.
-*/
-
-#define nullptr ((void*)0)
-
-int F()
-{
-    void * p = nullptr;
-    void * p2 = NULL;
-}
-
 `;
 
 
@@ -895,8 +877,7 @@ enum X : short {
 int main() {
     enum X x = A;
 }
-
-
+//TODO _Generic on enum X
 `;
 
 sample["C2Y"] = [];

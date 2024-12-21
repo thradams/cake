@@ -43,8 +43,11 @@ such as Visual Studio and Visual Studio Code, providing a
 seamless integration.
 
 It can also function as a preprocessor, converting C23 code to C89. 
-This allows developers to use modern features while targeting 
+This allows developers to use modern or experimental features while targeting 
 compilers that do not yet support the latest language standards.
+
+The objective of the C89 generation is to produce low-level C code, 
+simplifying the process of writing C backends **dedicated to code generation**.
 
 Previous versions of Cake included a conversion mode to 
 translate code while preserving the preprocessor parts. 
@@ -64,7 +67,7 @@ http://thradams.com/cake3/playground.html.
 * Sarif output
 * Backend generating C89 compatible code
 * AST 
-* So far, 34 preprocessor diagnostics, 236 compiler diagnostics
+* More than 260 diagnostics
 
 
 # Build

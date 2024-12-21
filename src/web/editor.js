@@ -100,7 +100,7 @@ function OnSwap()
     outputEditor.setValue(temp);
 }
 
-function OnCompileOuput()
+function Run()
 {
     document.getElementById("output").value = "";
     var http = new XMLHttpRequest();
