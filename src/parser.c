@@ -2564,7 +2564,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                              p_init_declarator->initializer,
                              is_constant);
 
-                p_init_declarator->p_declarator->object.type.num_of_elements = 
+                p_init_declarator->p_declarator->object.type.num_of_elements =
                     p_init_declarator->p_declarator->type.num_of_elements;
 
             }
@@ -8551,24 +8551,31 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
             throw;
         }
 
+        if (ctx->current->type != TK_KEYWORD_DEFER)
+            throw;
+
         p_defer_statement = calloc(1, sizeof(struct defer_statement));
 
         if (p_defer_statement == NULL)
             throw;
 
-        if (ctx->current->type == TK_KEYWORD_DEFER)
-        {
-            p_defer_statement->first_token = ctx->current;
-            parser_match(ctx);
+        p_defer_statement->first_token = ctx->current;
+        parser_match(ctx);
 
-            struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
-            if (p_secondary_block == NULL) throw;
+        const struct defer_statement* _Opt p_previous_defer_statement_opt =
+            ctx->p_current_defer_statement_opt;
 
-            p_defer_statement->secondary_block = p_secondary_block;
-            if (ctx->previous == NULL) throw;
+        ctx->p_current_defer_statement_opt = p_defer_statement;
 
-            p_defer_statement->last_token = ctx->previous;
-        }
+        struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+        if (p_secondary_block == NULL) throw;
+
+        p_defer_statement->secondary_block = p_secondary_block;
+        if (ctx->previous == NULL) throw;
+
+        p_defer_statement->last_token = ctx->previous;
+
+        ctx->p_current_defer_statement_opt = p_previous_defer_statement_opt;
     }
     catch
     {
@@ -8871,6 +8878,17 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_RETURN)
         {
+            if (ctx->p_current_defer_statement_opt != NULL)
+            {
+                compiler_diagnostic_message(C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER,
+                             ctx,
+                             ctx->current,
+                             NULL,
+                             "%s",
+                             "return cannot be used inside defer statement");
+                throw;
+            }
+
             const struct token* const p_return_token = ctx->current;
             parser_match(ctx);
 

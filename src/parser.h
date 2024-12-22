@@ -104,6 +104,8 @@ struct parser_ctx
     */
     const struct try_statement* _Opt p_current_try_statement_opt;
 
+    const struct defer_statement* _Opt p_current_defer_statement_opt;
+
     /*
     * Points to the selection_statement we're in. Or null.
     */

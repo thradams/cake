@@ -78,9 +78,11 @@ These new contracts can be ignored, the language <strong>and existing code patte
 
 <h3 id="toc_2">Nullable Pointers</h3>
 
-<p>A nullable pointer is a pointer that be set to a null value, indicating that it doesn&#39;t currently reference any object.  </p>
+<p>A nullable pointer is a pointer that can be set to null, indicating that it doesn&#39;t reference any object.  </p>
 
-<p>The qualifier <code>_Opt</code> explicitly indicates when a pointer is nullable, while the absence of the qualifier implies that a pointer is non-nullable. This qualifier is placed after  <code>*</code> in the same way as <code>const</code>.</p>
+<p>The qualifier <code>_Opt</code> explicitly indicates when a pointer is nullable, while the absence of the qualifier implies that a pointer is non-nullable. </p>
+
+<p>This qualifier is placed after  <code>*</code> in the same way as <code>const</code>.</p>
 
 <p>The declaration</p>
 
@@ -89,8 +91,9 @@ These new contracts can be ignored, the language <strong>and existing code patte
 
 <p>says that <code>strdup</code> is a function that expects a non nullable pointer as argument and returns a nullable pointer.</p>
 
-<p>Since <code>_Opt</code> is new, and the absence of the <code>_Opt</code> qualifier indicates that the pointer is non-null, we need to specify where in the code these rules apply. This is accomplished with the <code>#pragma nullable enable</code> directive.
-After <code>#pragma nullable enable</code>, the compiler will assume that the code has been reviewed and that the <code>_Opt</code> qualifier has been added where necessary to indicate that the pointer may be null, while it is omitted when the pointer cannot be null</p>
+<p>Since <code>_Opt</code> the absence of the <code>_Opt</code> qualifier indicates that the pointer is non-null, we need to specify where in the code these rules apply.  </p>
+
+<p>This is accomplished with the <code>#pragma nullable enable</code> directive. After <code>#pragma nullable enable</code>, the compiler will assume that the code has been reviewed and that the <code>_Opt</code> qualifier has been added where necessary to indicate that the pointer may be null, while it is omitted when the pointer cannot be null</p>
 
 <h4>Example 1: Warning for Non-Nullable Pointers</h4>
 
@@ -105,7 +108,7 @@ int main(){
 <p>In this example, <code>p</code> is a non-nullable pointer, since the rules are in effect after <code>#pragma nullable enable</code> and the pointer is not qualified with <code>_Opt</code>.<br>
 Assign <code>p</code> to <code>nullptr</code> will generate a warning. </p>
 
-<p>The <code>#pragma nullable disable</code> directive can be used to say &quot;the rules for nullable pointers are NOT enabled in this source&quot; facilitating the transition.</p>
+<p>The <code>#pragma nullable disable</code> directive can be used to say &quot;the rules for nullable pointers are NOT enabled&quot;. Unqualified pointers in this case are nullable. </p>
 
 <p>This approach has been used in C#.[1]</p>
 

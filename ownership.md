@@ -18,9 +18,11 @@ These new contracts can be ignored, the language **and existing code patterns** 
 
 ### Nullable Pointers
 
-A nullable pointer is a pointer that be set to a null value, indicating that it doesn't currently reference any object.  
+A nullable pointer is a pointer that can be set to null, indicating that it doesn't reference any object.  
 
-The qualifier `_Opt` explicitly indicates when a pointer is nullable, while the absence of the qualifier implies that a pointer is non-nullable. This qualifier is placed after  `*` in the same way as `const`.
+The qualifier `_Opt` explicitly indicates when a pointer is nullable, while the absence of the qualifier implies that a pointer is non-nullable. 
+
+This qualifier is placed after  `*` in the same way as `const`.
 
 The declaration
 
@@ -30,8 +32,9 @@ char * _Opt strdup(const char * src);
 
 says that `strdup` is a function that expects a non nullable pointer as argument and returns a nullable pointer.
 
-Since `_Opt` is new, and the absence of the `_Opt` qualifier indicates that the pointer is non-null, we need to specify where in the code these rules apply. This is accomplished with the `#pragma nullable enable` directive.
-After `#pragma nullable enable`, the compiler will assume that the code has been reviewed and that the `_Opt` qualifier has been added where necessary to indicate that the pointer may be null, while it is omitted when the pointer cannot be null
+Since `_Opt` the absence of the `_Opt` qualifier indicates that the pointer is non-null, we need to specify where in the code these rules apply.  
+  
+This is accomplished with the `#pragma nullable enable` directive. After `#pragma nullable enable`, the compiler will assume that the code has been reviewed and that the `_Opt` qualifier has been added where necessary to indicate that the pointer may be null, while it is omitted when the pointer cannot be null
 
 #### Example 1: Warning for Non-Nullable Pointers
 
@@ -47,7 +50,7 @@ int main(){
 In this example, `p` is a non-nullable pointer, since the rules are in effect after `#pragma nullable enable` and the pointer is not qualified with `_Opt`.  
 Assign `p` to `nullptr` will generate a warning. 
 
-The `#pragma nullable disable` directive can be used to say "the rules for nullable pointers are NOT enabled in this source" facilitating the transition.
+The `#pragma nullable disable` directive can be used to say "the rules for nullable pointers are NOT enabled". Unqualified pointers in this case are nullable. 
 
 This approach has been used in C#.[1]
 
