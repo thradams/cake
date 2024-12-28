@@ -18,20 +18,9 @@
 #include <stdint.h>
 #include <limits.h>
 
-/*
-              NULL
-                |
-            [function] (NULL <- child0 <- last_child)
-                |
-              [try]  (NULL <- child0 <- last_child)
-                |
-tail_block-> [while] (NULL <- child0 <- last_child)
-
-*/
-
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
-static void flow_visit_attribute_specifier_sequence(struct flow_visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence);
+
 
 static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
@@ -57,15 +46,8 @@ struct true_false_set_item
     enum boolean_flag false_branch_state;
 };
 
-
 struct true_false_set
 {
-    //see also
-    //  true_false_set_set_objects_to_false_branch
-    //  true_false_set_set_objects_to_true_branch
-    // 
-    //The number of variables determines the possible number of combinations.
-    //10 variables requires 2^10 = 1024 evaluations.
     struct true_false_set_item* _Owner _Opt data;
     int size;
     int capacity;
@@ -559,13 +541,11 @@ static void arena_merge_current_state_with_state_number(struct flow_visit_ctx* c
 {
     for (int i = 0; i < ctx->arena.size; i++)
     {
-        //constantes nao precisam desta copia.
         flow_object_merge_current_with_state(ctx, ctx->arena.data[i], number_state);
     }
-
 }
 
-static void object_restore_current_state_from2(struct flow_visit_ctx* ctx, struct flow_object* object, int state_number)
+static void object_restore_current_state_from(struct flow_visit_ctx* ctx, struct flow_object* object, int state_number)
 {
     struct flow_object_state* _Opt it = object->current.next;
     while (it)
@@ -583,17 +563,14 @@ static void arena_restore_current_state_from(struct flow_visit_ctx* ctx, int num
 {
     for (int i = 0; i < ctx->arena.size; i++)
     {
-        //constantes nao precisam desta copia.
-        object_restore_current_state_from2(ctx, ctx->arena.data[i], number_state);
+        object_restore_current_state_from(ctx, ctx->arena.data[i], number_state);
     }
-
 }
 
 static void arena_remove_state(struct flow_visit_ctx* ctx, int state_number)
 {
     for (int i = 0; i < ctx->arena.size; i++)
     {
-        //constantes nao precisam desta copia.
         flow_object_remove_state(ctx->arena.data[i], state_number);
     }
 }
@@ -1048,12 +1025,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
             arena_merge_current_state_with_state_number(ctx, left_true_branch_state_number);
 
             arena_restore_current_state_from(ctx, left_true_branch_state_number);
-
         }
     }
-
-    //flow_exit_block_visit(ctx, p_defer, p_selection_statement->last_token);
-    //flow_end_of_storage_visit(ctx, p_defer, p_selection_statement->last_token);
 
     flow_exit_block_visit_defer_list(ctx, &p_selection_statement->defer_list, p_selection_statement->last_token);
     flow_defer_list_set_end_of_lifetime(ctx, &p_selection_statement->defer_list, p_selection_statement->last_token);
@@ -1111,11 +1084,6 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
         }
 
 
-        //flow_exit_block_visit(ctx, p_defer, p_try_statement->secondary_block->last_token);
-        //flow_exit_block_visit_defer_list(ctx, p_try_statement->)
-        //flow_end_of_storage_visit(ctx, p_defer, p_try_statement->secondary_block->last_token);
-
-
         arena_remove_state(ctx, original_state_number);
         arena_remove_state(ctx, ctx->throw_join_state);
 
@@ -1146,12 +1114,8 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
         arena_restore_current_state_from(ctx, ctx->break_join_state);
     }
 
-    //flow_exit_block_visit(ctx, p_defer, p_selection_statement->secondary_block->last_token);
-    //flow_end_of_storage_visit(ctx, p_defer, p_selection_statement->secondary_block->last_token);
     flow_exit_block_visit_defer_list(ctx, &p_selection_statement->defer_list, p_selection_statement->secondary_block->last_token);
     flow_defer_list_set_end_of_lifetime(ctx, &p_selection_statement->defer_list, p_selection_statement->secondary_block->last_token);
-
-
 
     arena_remove_state(ctx, ctx->initial_state);
     arena_remove_state(ctx, ctx->break_join_state);
@@ -1194,21 +1158,11 @@ static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, stru
     }
 }
 
-static void flow_visit_designation(struct flow_visit_ctx* ctx, struct designation* p_designation)
-{
-}
-
 static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
 
 static void flow_visit_initializer_list_item(struct flow_visit_ctx* ctx, struct initializer_list_item* p_initializer)
 {
-    if (p_initializer->designation)
-    {
-        flow_visit_designation(ctx, p_initializer->designation);
-    }
-
     assert(p_initializer->initializer != NULL);
-
     flow_visit_initializer(ctx, p_initializer->initializer);
 }
 
@@ -1236,66 +1190,9 @@ static void flow_visit_initializer_list(struct flow_visit_ctx* ctx, struct initi
     }
 }
 
-static void flow_visit_type_qualifier(struct flow_visit_ctx* ctx, struct type_qualifier* p_type_qualifier)
-{
-
-}
-
-static void flow_visit_specifier_qualifier(struct flow_visit_ctx* ctx, struct type_specifier_qualifier* p_specifier_qualifier)
-{
-    if (p_specifier_qualifier->type_specifier)
-        flow_visit_type_specifier(ctx, p_specifier_qualifier->type_specifier);
-
-    if (p_specifier_qualifier->type_qualifier)
-        flow_visit_type_qualifier(ctx, p_specifier_qualifier->type_qualifier);
-}
-
-static void flow_visit_specifier_qualifier_list(struct flow_visit_ctx* ctx, struct specifier_qualifier_list* _Opt p_specifier_qualifier_list_opt,
-    struct type* p_type)
-{
-    if (p_specifier_qualifier_list_opt == NULL)
-        return;
-
-    if (p_specifier_qualifier_list_opt->struct_or_union_specifier)
-    {
-        flow_visit_struct_or_union_specifier(ctx, p_specifier_qualifier_list_opt->struct_or_union_specifier);
-    }
-    else if (p_specifier_qualifier_list_opt->enum_specifier)
-    {
-        flow_visit_enum_specifier(ctx, p_specifier_qualifier_list_opt->enum_specifier);
-    }
-    else if (p_specifier_qualifier_list_opt->typedef_declarator)
-    {
-        //typedef name
-    }
-    //else if (p_specifier_qualifier_list->p_typeof_expression_opt)
-    //{
-      //  flow_visit_expression(ctx, p_specifier_qualifier_list->p_typeof_expression_opt);
-    //}
-    else
-    {
-        struct type_specifier_qualifier* _Opt p_specifier_qualifier = p_specifier_qualifier_list_opt->head;
-        while (p_specifier_qualifier)
-        {
-            flow_visit_specifier_qualifier(ctx, p_specifier_qualifier);
-            p_specifier_qualifier = p_specifier_qualifier->next;
-        }
-    }
-}
-
-
 static void flow_visit_type_name(struct flow_visit_ctx* ctx, struct type_name* p_type_name)
 {
-
-    flow_visit_specifier_qualifier_list(ctx, p_type_name->specifier_qualifier_list, &p_type_name->type);
     flow_visit_declarator(ctx, p_type_name->abstract_declarator);
-
-
-    /*
-    * Vamos esconder tudo e gerar um novo
-    *  Exemplo
-    *  (const typeof(int (*)())) -> *  ( int (*const )() )
-    */
 }
 
 static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct generic_selection* p_generic_selection)
@@ -1313,7 +1210,7 @@ static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct gene
 }
 
 
-static void compare_function_arguments3(struct flow_visit_ctx* ctx,
+static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
 {
@@ -1425,7 +1322,7 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
                 struct X *  pX = make();
                 if (pX->p)
                 {
-                   //cake is making pX->p  unkown before function call..it must be after
+                   //cake is making pX->p  unknown before function call..it must be after
                    f(pX, pX->p);
                 }
             }
@@ -1551,8 +1448,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 }
             }
         }
-    }
-    //flow_object_destroy(&temp_obj);
+    }    
 }
 
 void flow_object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to)
@@ -1614,8 +1510,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
                         &marker,
                         "pointer is always not-null");
             }
-        }
-        //flow_object_destroy(&temp);
+        }        
     }
 }
 
@@ -1636,6 +1531,96 @@ static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_objec
             }
         }
     }
+}
+
+static struct argument_expression* _Opt param_list_find_argument_by_name(struct param_list* p_param_list,
+    struct argument_expression_list* list,
+    const char* name)
+{
+    struct param* _Opt p_param = p_param_list->head;
+    struct argument_expression* _Opt p_argument_expression = list->head;
+    while (p_param && p_argument_expression)
+    {
+        if (strcmp(p_param->type.name_opt, name) == 0)
+        {
+            return p_argument_expression;
+        }
+        p_argument_expression = p_argument_expression->next;
+        p_param = p_param->next;
+    }
+    return NULL;
+}
+
+static struct expression* _Opt _Owner expression_replace(struct flow_visit_ctx* ctx,
+    struct expression* p_expression,
+    struct param_list* p_param_list,
+    struct argument_expression_list* list)
+{
+
+    if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+    {
+        const char* name = p_expression->declarator->name_opt->lexeme;
+        struct argument_expression* _Opt p_argument_expression =
+            param_list_find_argument_by_name(p_param_list, list, name);
+
+        if (p_argument_expression)
+            return expression_replace(ctx, p_argument_expression->expression, p_param_list, list);
+
+        struct expression* _Opt _Owner p_expression_new = calloc(1, sizeof * p_expression_new);
+        if (p_expression_new == NULL)
+            return NULL;
+
+        *p_expression_new = *p_expression;
+        return p_expression_new;
+    }
+#if 0
+    else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
+    {
+        if (type_is_function(&p_expression->left->declarator->type))
+        {
+            struct expression* _Opt _Owner p_expression_new = calloc(1, sizeof * p_expression_new);
+            if (p_expression_new == NULL)
+                return NULL;
+
+            *p_expression_new = *p_expression;
+
+            struct argument_expression* _Opt p_current_argument =
+                p_expression->argument_expression_list.head;
+
+            while (p_current_argument)
+            {
+                p_current_argument->expression = expression_replace(ctx,
+                            p_current_argument->expression,
+                            &p_expression->left->declarator->type.params,
+                            &p_expression->argument_expression_list);
+
+                p_current_argument = p_current_argument->next;
+            }
+
+            if (p_expression->left->declarator->p_expression_true)
+            {
+                return
+                    expression_replace(ctx,
+                        p_expression->left->declarator->p_expression_true,
+                        &p_expression->left->declarator->type.params,
+                        &p_expression->argument_expression_list);
+            }
+        }
+    }
+#endif
+
+    struct expression* _Opt _Owner p_expression_new = calloc(1, sizeof * p_expression_new);
+    if (p_expression_new == NULL)
+        return NULL;
+
+    *p_expression_new = *p_expression;
+
+    if (p_expression->left)
+        p_expression_new->left = expression_replace(ctx, p_expression->left, p_param_list, list);
+    if (p_expression->right)
+        p_expression_new->right = expression_replace(ctx, p_expression->right, p_param_list, list);
+
+    return p_expression_new;
 }
 
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
@@ -1828,9 +1813,88 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         struct true_false_set left_local = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_local);
 
-        //new function waiting all test to pass to become active
-        compare_function_arguments3(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
+        flow_compare_function_arguments(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
         true_false_set_destroy(&left_local);
+        //////////////////////////////////////////////////////////////////////////////////////////////////////
+#if CONTRACTS
+        if (p_expression->left->declarator &&
+            type_is_function(&p_expression->left->declarator->type))
+        {
+            struct type return_type = get_function_return_type(&p_expression->left->declarator->type);
+            if (p_expression->left->declarator->p_expression_true)
+            {
+                struct expression* p_expression_true =
+                    expression_replace(ctx,
+                        p_expression->left->declarator->p_expression_true,
+                        &p_expression->left->declarator->type.params,
+                        &p_expression->argument_expression_list);
+
+                if (type_is_scalar(&return_type))
+                {
+                    struct true_false_set local = { 0 };
+
+                    flow_visit_expression(ctx, p_expression_true, &local);
+
+                    for (int i = 0; i < local.size; i++)
+                    {
+                        struct true_false_set_item item5 = { 0 };
+                        item5.p_expression = local.data[i].p_expression;
+                        item5.true_branch_state |= local.data[i].true_branch_state;
+                        //item5.false_branch_state |= local.data[i].false_branch_state;
+                        true_false_set_push_back(expr_true_false_set, &item5);
+                    }
+                    true_false_set_destroy(&local);
+                }
+                else
+                {
+                    struct true_false_set true_false_set4 = { 0 };
+                    bool old = ctx->inside_assert;
+                    ctx->inside_assert = true;
+                    flow_visit_expression(ctx, p_expression_true, &true_false_set4); //assert(p == 0);            
+                    ctx->inside_assert = old;
+                    true_false_set_set_objects_to_true_branch(ctx, &true_false_set4, nullable_enabled);
+                    true_false_set_destroy(&true_false_set4);
+                }
+            }
+
+            if (p_expression->left->declarator->p_expression_false)
+            {
+                struct expression* p_expression_false =
+                    expression_replace(ctx,
+                        p_expression->left->declarator->p_expression_false,
+                        &p_expression->left->declarator->type.params,
+                        &p_expression->argument_expression_list);
+
+
+                struct true_false_set local = { 0 };
+
+                flow_visit_expression(ctx, p_expression_false, &local);
+
+                for (int i = 0; i < local.size; i++)
+                {
+                    int index =
+                        find_item_index_by_expression(expr_true_false_set, local.data[i].p_expression);
+                    if (index == -1)
+                    {
+                        struct true_false_set_item item5 = { 0 };
+                        item5.p_expression = local.data[i].p_expression;
+                        //item5.true_branch_state |= local.data[i].true_branch_state;
+                        item5.false_branch_state |= local.data[i].true_branch_state;
+                        true_false_set_push_back(expr_true_false_set, &item5);
+                    }
+                    else
+                    {
+                        local.data[index].false_branch_state |= local.data[i].false_branch_state;
+                    }
+
+                }
+                true_false_set_destroy(&local);
+
+            }
+            type_destroy(&return_type);
+
+        }
+#endif
     }
     break;
 
@@ -1860,7 +1924,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         if (p_expression->type_name->abstract_declarator->p_flow_object)
         {
             flow_object_swap(temp2, p_expression->type_name->abstract_declarator->p_flow_object);
-            //flow_object_destroy(&temp2);
 
             //TODO the state of object depends of the initializer        
             flow_object_set_zero(&p_expression->type, p_expression->type_name->abstract_declarator->p_flow_object);
@@ -2069,10 +2132,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             object_set_pointer(p_dest_object, po);
             type_destroy(&t);
             p_dest_object->current.state = FLOW_OBJECT_STATE_NOT_NULL | FLOW_OBJECT_STATE_NULL;
-        }
-
-        //flow_object_destroy(&temp_obj1);
-        //flow_object_destroy(&temp_obj2);
+        }        
     }
     break;
     case MULTIPLICATIVE_EXPRESSION_DIV:
@@ -2559,13 +2619,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     }
 }
+
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
     struct true_false_set d = { 0 };
     if (p_expression_statement->expression_opt)
         flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
     true_false_set_destroy(&d);
-
 }
 
 static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_item_list* p_block_item_list);
@@ -2573,10 +2633,6 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement)
 {
     flow_visit_block_item_list(ctx, &p_compound_statement->block_item_list);
-
-    //flow_exit_block_visit(ctx, p_defer, p_compound_statement->last_token);
-    //flow_end_of_storage_visit(ctx, p_defer, p_compound_statement->last_token);
-
     flow_exit_block_visit_defer_list(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
     flow_defer_list_set_end_of_lifetime(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
 }
@@ -2595,11 +2651,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
             flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
         }
 
-
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        //flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
-        //flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
         flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
         flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
@@ -2681,7 +2733,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
-    //flow_exit_block_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
     flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
 
     const bool was_last_statement_inside_true_branch_return =
@@ -2701,8 +2752,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
         arena_restore_current_state_from(ctx, ctx->break_join_state);
     }
-
-    //flow_end_of_storage_visit(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
     flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
 
@@ -2764,11 +2813,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         //Disable warning because the state is temporary..missing a visit
         diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
 
-
-
-
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
 
         diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
@@ -2784,10 +2829,6 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         if (!b_secondary_block_ends_with_jump)
         {
             flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-            //  flow_exit_block_visit(ctx, p_defer2, p_iteration_statement->secondary_block->last_token);            
-            //flow_end_of_storage_visit(ctx, p_defer2, p_iteration_statement->secondary_block->last_token);
-
             flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
             flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
         }
@@ -2821,8 +2862,6 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
-
-
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
     try
     {
@@ -2927,22 +2966,15 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
             }
 
-
-            //flow_exit_function_visit(ctx, ctx->tail_block, p_jump_statement->first_token);
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
         {
-            //check_all_defer_until_iter(ctx, ctx->tail_block, p_jump_statement->first_token);
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK)
         {
-
-            arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
-
-
-            //flow_exit_iteration_or_switch_statement_visit(ctx, ctx->tail_block, p_jump_statement->first_token);
+            arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);            
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
@@ -2967,9 +2999,6 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
             }
 
             arena_merge_current_state_with_state_number(ctx, label_state_number);
-
-
-            //check_all_defer_until_label(ctx, ctx->tail_block, p_jump_statement->label->lexeme, p_jump_statement->first_token);
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
         }
         else
@@ -3020,7 +3049,6 @@ static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_
 
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
-
     if (p_unlabeled_statement->primary_block)
     {
         flow_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
@@ -3053,7 +3081,6 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 
 static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 {
-
     if (p_label->p_identifier_opt)
     {
         for (int i = 0; i < ctx->labels_size; i++)
@@ -3076,7 +3103,6 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
 {
-
     if (p_block_item->declaration)
     {
         flow_visit_declaration(ctx, p_block_item->declaration);
@@ -3089,7 +3115,6 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
     {
         flow_visit_label(ctx, p_block_item->label);
     }
-
 }
 
 static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_item_list* p_block_item_list)
@@ -3248,8 +3273,6 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_SET)
     {
-
-
         struct flow_object* _Opt p_obj =
             expression_get_flow_object(ctx, p_static_assert_declaration->constant_expression, nullable_enabled);
 
@@ -3257,7 +3280,6 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
         {
             if (p_static_assert_declaration->string_literal_opt)
             {
-
                 const char* lexeme =
                     p_static_assert_declaration->string_literal_opt->lexeme;
 
@@ -3314,11 +3336,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
 
         while (parameter)
         {
-            if (parameter->attribute_specifier_sequence_opt)
-            {
-                flow_visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt);
-            }
-
+            
             flow_visit_declaration_specifiers(ctx, parameter->declaration_specifiers, &parameter->declarator->type);
 
             if (parameter->declarator)
@@ -3501,13 +3519,6 @@ static void flow_visit_member_declaration(struct flow_visit_ctx* ctx, struct mem
 {
     if (p_member_declaration->member_declarator_list_opt)
     {
-        flow_visit_specifier_qualifier_list(ctx,
-            p_member_declaration->specifier_qualifier_list,
-            &p_member_declaration->member_declarator_list_opt->head->declarator->type); /*se nao tem?*/
-    }
-
-    if (p_member_declaration->member_declarator_list_opt)
-    {
         flow_visit_member_declarator_list(ctx, p_member_declaration->member_declarator_list_opt);
     }
 }
@@ -3522,32 +3533,9 @@ static void flow_visit_member_declaration_list(struct flow_visit_ctx* ctx, struc
     }
 }
 
-static void flow_visit_attribute_specifier(struct flow_visit_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
-{
-
-}
-
-static void flow_visit_attribute_specifier_sequence(struct flow_visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence)
-{
-    struct attribute_specifier* _Opt current = p_visit_attribute_specifier_sequence->head;
-    while (current)
-    {
-        flow_visit_attribute_specifier(ctx, current);
-        current = current->next;
-    }
-}
-
 static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
-
-    if (p_struct_or_union_specifier->attribute_specifier_sequence_opt)
-        flow_visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence_opt);
-
-    //struct struct_or_union_specifier* p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
-
-
     flow_visit_member_declaration_list(ctx, &p_struct_or_union_specifier->member_declaration_list);
-
 }
 
 static void flow_visit_enumerator(struct flow_visit_ctx* ctx, struct enumerator* p_enumerator)
@@ -3556,7 +3544,6 @@ static void flow_visit_enumerator(struct flow_visit_ctx* ctx, struct enumerator*
     if (p_enumerator->constant_expression_opt)
         flow_visit_expression(ctx, p_enumerator->constant_expression_opt, &a);
     true_false_set_destroy(&a);
-
 }
 
 static void flow_visit_enumerator_list(struct flow_visit_ctx* ctx, struct enumerator_list* p_enumerator_list)
@@ -3571,25 +3558,12 @@ static void flow_visit_enumerator_list(struct flow_visit_ctx* ctx, struct enumer
 
 static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier)
 {
-    if (p_enum_specifier->attribute_specifier_sequence_opt)
-    {
-        flow_visit_attribute_specifier_sequence(ctx, p_enum_specifier->attribute_specifier_sequence_opt);
-    }
-
     flow_visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list);
 }
 
-static void flow_visit_typeof_specifier(struct flow_visit_ctx* ctx, struct typeof_specifier* p_typeof_specifier)
-{
-}
 
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier)
 {
-    if (p_type_specifier->typeof_specifier)
-    {
-        flow_visit_typeof_specifier(ctx, p_type_specifier->typeof_specifier);
-    }
-
     if (p_type_specifier->struct_or_union_specifier)
     {
         flow_visit_struct_or_union_specifier(ctx, p_type_specifier->struct_or_union_specifier);
@@ -3599,58 +3573,22 @@ static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_sp
     {
         flow_visit_enum_specifier(ctx, p_type_specifier->enum_specifier);
     }
-
-
-    if (p_type_specifier->atomic_type_specifier)
-    {
-        //visit_deped(ctx, p_type_specifier->enum_specifier);
-    }
-
 }
 
 static void flow_visit_type_specifier_qualifier(struct flow_visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier)
 {
-    if (p_type_specifier_qualifier->type_qualifier)
-    {
-    }
-    else if (p_type_specifier_qualifier->type_specifier)
+    if (p_type_specifier_qualifier->type_specifier)
     {
         flow_visit_type_specifier(ctx, p_type_specifier_qualifier->type_specifier);
-    }
-    else if (p_type_specifier_qualifier->alignment_specifier)
-    {
-    }
-}
-
-static void flow_visit_storage_class_specifier(struct flow_visit_ctx* ctx, struct storage_class_specifier* p_storage_class_specifier)
-{
-    if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_AUTO)
-    {
-
-    }
+    }    
 }
 
 static void flow_visit_declaration_specifier(struct flow_visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier)
 {
-
-    if (p_declaration_specifier->function_specifier)
-    {
-
-    }
-
-
-    if (p_declaration_specifier->storage_class_specifier)
-    {
-        flow_visit_storage_class_specifier(ctx, p_declaration_specifier->storage_class_specifier);
-
-    }
-
     if (p_declaration_specifier->type_specifier_qualifier)
     {
         flow_visit_type_specifier_qualifier(ctx, p_declaration_specifier->type_specifier_qualifier);
-
     }
-
 }
 
 static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
@@ -3713,13 +3651,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
         flow_visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
     }
-
-
-    if (p_declaration->p_attribute_specifier_sequence_opt)
-    {
-        flow_visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt);
-    }
-
+    
 
     if (p_declaration->declaration_specifiers)
     {
@@ -3733,11 +3665,6 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
             flow_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, NULL);
 
         }
-
-    }
-
-    if (p_declaration->p_attribute_specifier_sequence_opt)
-    {
     }
 
     if (p_declaration->init_declarator_list.head)
@@ -3747,27 +3674,21 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
 
     if (p_declaration->function_body)
     {
-
         assert(ctx->p_return_type == NULL);
 
         struct type type = get_function_return_type(&p_declaration->init_declarator_list.head->p_declarator->type);
         ctx->p_return_type = &type;
-
-        //struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
-        //p_defer->p_statement = p_declaration->function_body;
-
+        
         flow_visit_compound_statement(ctx, p_declaration->function_body);
         type_destroy(&type);
         ctx->p_return_type = NULL;
     }
-
 }
 
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
     ctx->labels_size = 0;
     flow_objects_clear(&ctx->arena);
-
 
     ctx->state_number_generator = 1; //reserva 0 p current
 
@@ -3777,11 +3698,9 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
         assert(p_declaration->function_body != NULL); //flow_visit_declaration does not change this
 
         if (!flow_is_last_item_return(p_declaration->function_body))
-        {
-            //flow_exit_block_visit(ctx, p_defer, p_declaration->function_body->last_token);
+        {            
             flow_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
-        }
-        //flow_end_of_storage_visit(ctx, p_defer, p_declaration->function_body->last_token);
+        }        
     }
     else
     {

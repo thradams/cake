@@ -7,15 +7,6 @@
 #include "parser.h"
 #include "object_flow.h"
 
-/*
-  To be able to do static analysis with goto jump, we
-  need to see full function AST because this affects for 
-  instance which scopes we are leaving.
-  Because static analysis may change the state we also want
-  to check static_assert here.. so better to move all checks to here.
-  nullchecks and imaginary flags.
-*/
-
 struct label_state
 {
     const char * label_name;

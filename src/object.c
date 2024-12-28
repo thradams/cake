@@ -208,7 +208,7 @@ void object_delete(struct object* _Opt _Owner p)
 {
     if (p)
     {
-        object_destroy(p);        
+        object_destroy(p);
         free(p);
     }
 }
@@ -1620,7 +1620,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                             throw;
 
                         p_member_obj->parent = p_object;
-                        //p_object->debug_name = p_member_declarator->declarator->name_opt->lexeme;
+                        p_member_obj->debug_name = strdup(buffer);
 
                         if (p_object->members == NULL)
                         {
@@ -1653,17 +1653,18 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_obj == NULL)
                         throw;
 
+                    p_member_obj->debug_name= strdup(buffer);
                     p_member_obj->parent = p_object;
                     if (p_last_member_obj == NULL)
                     {
                         assert(p_object->members == NULL);
-                        p_object->members = p_member_obj;
-                        p_last_member_obj = p_member_obj;
+                        p_object->members = p_member_obj;                        
                     }
                     else
                     {
-                        p_last_member_obj->next = p_member_obj;
+                        p_last_member_obj->next = p_member_obj;                        
                     }
+                    p_last_member_obj = p_member_obj;
 
                     type_destroy(&t);
                 }
@@ -1688,7 +1689,7 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
 }
 
 int make_object(const struct type* p_type, struct object* obj)
-{ 
+{
     struct object* _Owner _Opt p = make_object_ptr_core(p_type, "");
     if (p)
     {
@@ -1834,7 +1835,8 @@ void object_print_to_debug_core(const struct object* object, int n)
 
 
     for (int i = 0; i < n; i++) printf("  ");
-
+    if (object->debug_name)
+        printf("%s ", object->debug_name);
 
     if (object->members != NULL)
     {

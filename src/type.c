@@ -2337,6 +2337,14 @@ void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
 
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
+bool function_returns_void(const struct type* p_type)
+{
+    struct type t = get_function_return_type(p_type);
+    bool r = type_is_void(&t);
+    type_destroy(&t);
+    return r;    
+}
+
 struct type get_function_return_type(const struct type* p_type)
 {
     try

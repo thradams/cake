@@ -2031,6 +2031,15 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                     if (can_be_function_definition)
                         *is_function_definition = true;
                 }
+#if CONTRACTS
+                else if (ctx->current->type == TK_KEYWORD_TRUE ||
+                         ctx->current->type == TK_KEYWORD_FALSE ||
+                         ctx->current->type == TK_IDENTIFIER)
+                {
+                    if (can_be_function_definition)
+                        *is_function_definition = true;
+                }
+#endif
                 else
                 {
                     if (!without_semicolon && parser_match_tk(ctx, ';') != 0)
@@ -2145,7 +2154,36 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             check_func_open_brace_style(ctx, ctx->current);
 
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
+#if CONTRACTS
+            struct declarator* p_declarator =
+                p_declaration->init_declarator_list.head->p_declarator;
+            if (ctx->current->type == TK_KEYWORD_TRUE ||
+                ctx->current->type == TK_KEYWORD_FALSE ||
+                ctx->current->type == TK_IDENTIFIER)
+            {
+                for (;;)
+                {
+                    enum token_type type = ctx->current->type;
+                    if (type != TK_KEYWORD_TRUE &&
+                        type != TK_KEYWORD_FALSE &&
+                        type != TK_IDENTIFIER)
+                    {
+                        throw;
+                    }
+                    parser_match(ctx); //true
+                    parser_match(ctx); //(
 
+                    if (type != TK_KEYWORD_FALSE)
+                        p_declarator->p_expression_true = expression(ctx);
+                    else
+                        p_declarator->p_expression_false = expression(ctx);
+                    parser_match(ctx); //)
+                    if (ctx->current->type != ',')
+                        break;
+                    parser_match(ctx); //)
+                }
+            }
+#endif
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
             if (p_function_body == NULL)
                 throw;
@@ -2563,10 +2601,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                              &p_init_declarator->p_declarator->object,
                              p_init_declarator->initializer,
                              is_constant);
-
+                
                 p_init_declarator->p_declarator->object.type.num_of_elements =
                     p_init_declarator->p_declarator->type.num_of_elements;
-
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
@@ -4002,6 +4039,75 @@ struct member_declarator* _Opt find_member_declarator_by_index(struct member_dec
 {
     int count = 0;
     return find_member_declarator_by_index_core(list, member_index, &count);
+}
+
+static struct object* _Opt find_object_declarator_by_index_core(struct object* p_object, struct member_declaration_list* list, int member_index, int* p_count)
+{
+    if (object_is_reference(p_object))
+    {
+        p_object = object_get_referenced(p_object);
+    }
+
+    if (list->head == NULL)
+        return NULL;
+    if (p_object->members == NULL)
+    {
+        return NULL;
+    }
+    struct object* _Opt p_member_object = p_object->members;
+
+    struct member_declaration* _Opt p_member_declaration = list->head;
+    while (p_member_declaration)
+    {
+        struct member_declarator* _Opt p_member_declarator = NULL;
+
+        if (p_member_declaration->member_declarator_list_opt)
+        {
+            p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+
+            while (p_member_declarator)
+            {
+                if (p_member_declarator->declarator)
+                {
+                    if (member_index == *p_count)
+                    {
+                        return p_member_object;
+                    }
+                }
+                (*p_count)++;
+                p_member_declarator = p_member_declarator->next;
+                if (p_member_object == NULL)
+                {
+                    //BUG
+                    return NULL;
+                }
+                p_member_object = p_member_object->next;
+            }
+        }
+        else if (p_member_declaration->specifier_qualifier_list)
+        {
+            if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+            {
+                struct member_declaration_list* p_member_declaration_list =
+                    &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
+
+                struct object* _Opt p_member_object2 = find_object_declarator_by_index_core(p_member_object, p_member_declaration_list, member_index, p_count);
+                if (p_member_object2)
+                    return p_member_object2;
+
+            }
+            p_member_object = p_member_object->next;
+        }
+
+        p_member_declaration = p_member_declaration->next;
+    }
+    return NULL;
+}
+
+struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index)
+{
+    int count = 0;
+    return find_object_declarator_by_index_core(p_object, list, member_index, &count);
 }
 
 void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list)
@@ -10745,7 +10851,8 @@ static struct object* find_designated_subobject(struct parser_ctx* ctx,
     struct object* current_object,
     struct designator* p_designator,
     bool is_constant,
-    struct type* p_type_out)
+    struct type* p_type_out,
+    bool not_error)
 {
     try
     {
@@ -10780,7 +10887,7 @@ static struct object* find_designated_subobject(struct parser_ctx* ctx,
                                 strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
                             {
                                 if (p_designator->next != NULL)
-                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out);
+                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out, false);
                                 else
                                 {
                                     *p_type_out = type_dup(&p_member_declarator->declarator->type);
@@ -10792,28 +10899,48 @@ static struct object* find_designated_subobject(struct parser_ctx* ctx,
                         p_member_declarator = p_member_declarator->next;
                     }
                 }
-                else
+                else if (p_member_declaration->specifier_qualifier_list)
                 {
-                    if (p_member_declaration->specifier_qualifier_list &&
-                        p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                     {
-                        //struct member_declaration_list* p_member_declaration_list =
-                          //  &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
+                        struct struct_or_union_specifier* _Opt p_complete =
+                            get_complete_struct_or_union_specifier(p_member_declaration->specifier_qualifier_list->struct_or_union_specifier);
 
-                        //if (p_member_declarator)
-                          //  return p_member_declarator;
+                        if (p_complete)
+                        {
+                            struct type t = { 0 };
+                            t.category = TYPE_CATEGORY_ITSELF;
+                            t.struct_or_union_specifier = p_complete;
+                            t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                            struct object* p = find_designated_subobject(ctx,
+                                                                         &t,
+                                                                         p_member_object,
+                                                                         p_designator,
+                                                                         is_constant,
+                                                                         p_type_out,
+                                                                         true);
+                            if (p)
+                                return p;
+                            p_member_object = p_member_object->next;
+                        }
                     }
+                }
+                else {
+                  //static_assert pragma...
                 }
                 p_member_declaration = p_member_declaration->next;
             }
 
-            //not found
-            compiler_diagnostic_message(
-                                          C_ERROR_STRUCT_MEMBER_NOT_FOUND,
-                                          ctx,
-                                          p_designator->token,
-                                          NULL,
-                                          "member '%s' not found in '%s'", name, p_struct_or_union_specifier->tag_name);
+            if (!not_error)
+            {
+                compiler_diagnostic_message(
+                                              C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                              ctx,
+                                              p_designator->token,
+                                              NULL,
+                                              "member '%s' not found in '%s'", name, p_struct_or_union_specifier->tag_name);
+            }
             return NULL;
         }
         else if (type_is_array(p_current_object_type))
@@ -10868,7 +10995,7 @@ static struct object* find_designated_subobject(struct parser_ctx* ctx,
                 if (p_designator->next != NULL)
                 {
                     struct object* p =
-                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out);
+                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out, false);
 
                     type_destroy(&array_item_type);
                     return p;
@@ -11034,8 +11161,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                 object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
             }
-            is_subobject_of_union = type_is_union(&subobject_type);
-            p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type);
+            is_subobject_of_union = type_is_union(&subobject_type);            
+            p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false);
             if (p_subobject == NULL)
             {
                 //ja temos o erro , nao precisa dizer que nao foi consumido

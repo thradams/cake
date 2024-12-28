@@ -1683,8 +1683,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 &p_expression_node_new->left->type,
                                                 &p_member_declarator->declarator->type);
                             }
-
-                            struct object* object = object_get_member(&p_expression_node_new->left->object, member_index);
+                                                        
+                            struct object* object = find_object_declarator_by_index(&p_expression_node_new->left->object, &p_complete->member_declaration_list, member_index);
 
                             if (object)
                             {
@@ -3120,9 +3120,9 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                 // Thinking it was a cast expression was a mistake... 
                 // because the { appeared then it is a compound literal which is a postfix.
                 struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name);
-                if (new_expression == NULL) throw;
-
                 p_expression_node->type_name = NULL; // MOVED
+
+                if (new_expression == NULL) throw;
 
                 expression_delete(p_expression_node);
                 p_expression_node = new_expression;

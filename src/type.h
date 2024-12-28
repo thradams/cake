@@ -328,6 +328,7 @@ struct type make_void_ptr_type();
 struct type make_size_t_type();
 
 struct type get_function_return_type(const struct type* p_type);
+bool function_returns_void(const struct type* p_type);
 
 size_t type_get_sizeof(const struct type* p_type);
 

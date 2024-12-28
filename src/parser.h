@@ -17,6 +17,8 @@
 #include "options.h"
 #include "object_flow.h"
 
+//EXPERIMENTAL CONTRACTS
+#define CONTRACTS 1
 
 
 struct scope
@@ -737,6 +739,9 @@ struct declarator
 
     /*user by flow analysis*/
     struct flow_object* _Opt p_flow_object;
+
+    struct expression* _Opt _Owner p_expression_true;
+    struct expression* _Opt _Owner p_expression_false;
 
     /*
        TODO it is duplicated with object
@@ -1600,3 +1605,5 @@ int initializer_init_new(struct parser_ctx* ctx,
                          struct object* p_current_object,
                          struct initializer* braced_initializer,
                          bool is_constant);
+
+struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
