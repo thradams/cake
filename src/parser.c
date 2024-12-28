@@ -2686,14 +2686,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
 
 
-                //intf("\n");
-                //ject_print_to_debug(&p_init_declarator->p_declarator->object);
+                //intf("\n");                
 
                 initializer_init_new(ctx,
                                  &p_init_declarator->p_declarator->type,
                                  &p_init_declarator->p_declarator->object,
                                  p_init_declarator->initializer,
                                  is_constant);
+               //object_print_to_debug(&p_init_declarator->p_declarator->object);
             }
         }
         else

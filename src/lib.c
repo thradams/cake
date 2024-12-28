@@ -16642,12 +16642,26 @@ void object_set(struct object* to, struct expression* _Opt p_init_expression, co
         to->state = from->state;
         to->value = object_cast(to->value_type, from).value;
 
-        if (!is_constant &&
-            to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
+        if (is_constant)
         {
-            //Sample int i = 1; 1 is constant but i will not be
-            to->state = CONSTANT_VALUE_STATE_EXACT;
+            if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT ||
+                to->state == CONSTANT_VALUE_STATE_EXACT)
+            {
+                /*
+                struct X {int x;};
+                int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
+                to->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT ;
+            }
         }
+        else
+        {
+            if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
+            {
+                //Sample int i = 1; 1 is constant but i will not be
+                to->state = CONSTANT_VALUE_STATE_EXACT;
+            }
+        }
+
 
     }
 }
@@ -16819,16 +16833,16 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_obj == NULL)
                         throw;
 
-                    p_member_obj->debug_name= strdup(buffer);
+                    p_member_obj->debug_name = strdup(buffer);
                     p_member_obj->parent = p_object;
                     if (p_last_member_obj == NULL)
                     {
                         assert(p_object->members == NULL);
-                        p_object->members = p_member_obj;                        
+                        p_object->members = p_member_obj;
                     }
                     else
                     {
-                        p_last_member_obj->next = p_member_obj;                        
+                        p_last_member_obj->next = p_member_obj;
                     }
                     p_last_member_obj = p_member_obj;
 
@@ -27953,7 +27967,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.44"
+#define CAKE_VERSION "0.9.45"
 
 
 
@@ -30647,14 +30661,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
 
 
-                //intf("\n");
-                //ject_print_to_debug(&p_init_declarator->p_declarator->object);
+                //intf("\n");                
 
                 initializer_init_new(ctx,
                                  &p_init_declarator->p_declarator->type,
                                  &p_init_declarator->p_declarator->object,
                                  p_init_declarator->initializer,
                                  is_constant);
+               //object_print_to_debug(&p_init_declarator->p_declarator->object);
             }
         }
         else
