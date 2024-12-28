@@ -914,6 +914,12 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         flow_visit_simple_declaration(ctx, p_selection_statement->p_init_statement->p_simple_declaration);
 
 
+    /*
+      if(int *p = f());
+      The hidden expression is p
+    */
+    struct expression hidden_expression = { 0 };
+
     struct true_false_set true_false_set = { 0 };
 
     if (p_selection_statement->condition &&
@@ -927,6 +933,14 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_selection_statement->condition->p_init_declarator)
     {
         flow_visit_init_declarator(ctx, p_selection_statement->condition->p_init_declarator);
+    }
+
+    if (p_selection_statement->condition &&
+        p_selection_statement->condition->expression == NULL)
+    {
+        hidden_expression.expression_type = PRIMARY_EXPRESSION_DECLARATOR;
+        hidden_expression.declarator = p_selection_statement->condition->p_init_declarator->p_declarator;
+        flow_visit_expression(ctx, &hidden_expression, &true_false_set);
     }
 
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
@@ -1448,7 +1462,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 }
             }
         }
-    }    
+    }
 }
 
 void flow_object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to)
@@ -1510,7 +1524,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
                         &marker,
                         "pointer is always not-null");
             }
-        }        
+        }
     }
 }
 
@@ -2132,7 +2146,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             object_set_pointer(p_dest_object, po);
             type_destroy(&t);
             p_dest_object->current.state = FLOW_OBJECT_STATE_NOT_NULL | FLOW_OBJECT_STATE_NULL;
-        }        
+        }
     }
     break;
     case MULTIPLICATIVE_EXPRESSION_DIV:
@@ -2974,7 +2988,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK)
         {
-            arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);            
+            arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
@@ -3336,7 +3350,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
 
         while (parameter)
         {
-            
+
             flow_visit_declaration_specifiers(ctx, parameter->declaration_specifiers, &parameter->declarator->type);
 
             if (parameter->declarator)
@@ -3580,7 +3594,7 @@ static void flow_visit_type_specifier_qualifier(struct flow_visit_ctx* ctx, stru
     if (p_type_specifier_qualifier->type_specifier)
     {
         flow_visit_type_specifier(ctx, p_type_specifier_qualifier->type_specifier);
-    }    
+    }
 }
 
 static void flow_visit_declaration_specifier(struct flow_visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier)
@@ -3651,7 +3665,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
         flow_visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
     }
-    
+
 
     if (p_declaration->declaration_specifiers)
     {
@@ -3678,7 +3692,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
 
         struct type type = get_function_return_type(&p_declaration->init_declarator_list.head->p_declarator->type);
         ctx->p_return_type = &type;
-        
+
         flow_visit_compound_statement(ctx, p_declaration->function_body);
         type_destroy(&type);
         ctx->p_return_type = NULL;
@@ -3698,9 +3712,9 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
         assert(p_declaration->function_body != NULL); //flow_visit_declaration does not change this
 
         if (!flow_is_last_item_return(p_declaration->function_body))
-        {            
+        {
             flow_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
-        }        
+        }
     }
     else
     {
