@@ -14317,6 +14317,9 @@ struct declarator
     struct expression* _Opt _Owner p_expression_true;
     struct expression* _Opt _Owner p_expression_false;
 
+    /*Used to check contracts*/
+    struct expression* _Opt p_alias_of_expression;
+
     /*
        TODO it is duplicated with object
        final declarator type (after auto, typeof etc)
@@ -24205,6 +24208,7 @@ struct flow_visit_ctx
     int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
     bool inside_assert;
+    bool inside_contract;
 
     int throw_join_state; /*state where throws are joined*/
     int break_join_state; /*state where breaks are joined*/
@@ -27337,27 +27341,35 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
     {
         if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
         {
-            assert(p_expression->declarator != NULL);
-
-            if (p_expression->declarator->declaration_specifiers &&
-                !(p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
+            if (p_expression->declarator->p_alias_of_expression)
             {
-                assert(p_expression->declarator->p_flow_object != NULL);
-
-                //External flow_objects are added to the arena on-demand
-                if (flow_objects_find(&ctx->arena, p_expression->declarator->p_flow_object) == NULL)
-                {
-                    p_expression->declarator->p_flow_object = make_flow_object(ctx, &p_expression->declarator->type, p_expression->declarator, NULL);
-                    if (p_expression->declarator->p_flow_object == NULL)
-                        throw;
-
-                    flow_object_set_unknown(&p_expression->declarator->type,
-                                            type_is_nullable(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled),
-                                            p_expression->declarator->p_flow_object,
-                                            ctx->ctx->options.null_checks_enabled);
-                }
+                /*We need to original object*/
+                return expression_get_flow_object(ctx, p_expression->declarator->p_alias_of_expression, nullable_enabled);
             }
-            return p_expression->declarator->p_flow_object;
+            else
+            {
+                assert(p_expression->declarator != NULL);
+
+                if (p_expression->declarator->declaration_specifiers &&
+                    !(p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
+                {
+                    assert(p_expression->declarator->p_flow_object != NULL);
+
+                    //External flow_objects are added to the arena on-demand
+                    if (flow_objects_find(&ctx->arena, p_expression->declarator->p_flow_object) == NULL)
+                    {
+                        p_expression->declarator->p_flow_object = make_flow_object(ctx, &p_expression->declarator->type, p_expression->declarator, NULL);
+                        if (p_expression->declarator->p_flow_object == NULL)
+                            throw;
+
+                        flow_object_set_unknown(&p_expression->declarator->type,
+                                                type_is_nullable(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled),
+                                                p_expression->declarator->p_flow_object,
+                                                ctx->ctx->options.null_checks_enabled);
+                    }
+                }
+                return p_expression->declarator->p_flow_object;
+            }
         }
 
         else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
@@ -44331,77 +44343,52 @@ static struct argument_expression* _Opt param_list_find_argument_by_name(struct 
     return NULL;
 }
 
-static struct expression* _Opt _Owner expression_replace(struct flow_visit_ctx* ctx,
-    struct expression* p_expression,
-    struct param_list* p_param_list,
-    struct argument_expression_list* list)
+/* 
+   Makes all alias to null
+*/
+static void flow_clear_alias(struct expression* p_expression)
+{
+    if (p_expression->declarator)
+        p_expression->declarator->p_alias_of_expression = NULL;
+
+    if (p_expression->left)
+        flow_clear_alias(p_expression->left);
+    if (p_expression->right)
+        flow_clear_alias(p_expression->right);
+}
+
+static void flow_expression_bind(struct flow_visit_ctx* ctx,
+                                 struct expression* p_expression,
+                                 struct param_list* p_param_list,
+                                 struct argument_expression_list* p_argument_expression_list)
 {
 
     if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
     {
-        const char* name = p_expression->declarator->name_opt->lexeme;
-        struct argument_expression* _Opt p_argument_expression =
-            param_list_find_argument_by_name(p_param_list, list, name);
-
+        struct argument_expression* p_argument_expression =
+            param_list_find_argument_by_name(p_param_list,
+                                             p_argument_expression_list, 
+                                             p_expression->declarator->name_opt->lexeme);
         if (p_argument_expression)
-            return expression_replace(ctx, p_argument_expression->expression, p_param_list, list);
-
-        struct expression* _Opt _Owner p_expression_new = calloc(1, sizeof * p_expression_new);
-        if (p_expression_new == NULL)
-            return NULL;
-
-        *p_expression_new = *p_expression;
-        return p_expression_new;
-    }
-#if 0
-    else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
-    {
-        if (type_is_function(&p_expression->left->declarator->type))
         {
-            struct expression* _Opt _Owner p_expression_new = calloc(1, sizeof * p_expression_new);
-            if (p_expression_new == NULL)
-                return NULL;
-
-            *p_expression_new = *p_expression;
-
-            struct argument_expression* _Opt p_current_argument =
-                p_expression->argument_expression_list.head;
-
-            while (p_current_argument)
+            if (p_argument_expression->expression->declarator &&
+                p_argument_expression->expression->declarator->p_alias_of_expression)
             {
-                p_current_argument->expression = expression_replace(ctx,
-                            p_current_argument->expression,
-                            &p_expression->left->declarator->type.params,
-                            &p_expression->argument_expression_list);
-
-                p_current_argument = p_current_argument->next;
+                p_expression->declarator->p_alias_of_expression = p_argument_expression->expression->declarator->p_alias_of_expression;
             }
-
-            if (p_expression->left->declarator->p_expression_true)
+            else
             {
-                return
-                    expression_replace(ctx,
-                        p_expression->left->declarator->p_expression_true,
-                        &p_expression->left->declarator->type.params,
-                        &p_expression->argument_expression_list);
+                p_expression->declarator->p_alias_of_expression = p_argument_expression->expression;
             }
+            return;
         }
     }
-#endif
-
-    struct expression* _Opt _Owner p_expression_new = calloc(1, sizeof * p_expression_new);
-    if (p_expression_new == NULL)
-        return NULL;
-
-    *p_expression_new = *p_expression;
-
     if (p_expression->left)
-        p_expression_new->left = expression_replace(ctx, p_expression->left, p_param_list, list);
+        flow_expression_bind(ctx, p_expression->left, p_param_list, p_argument_expression_list);
     if (p_expression->right)
-        p_expression_new->right = expression_replace(ctx, p_expression->right, p_param_list, list);
-
-    return p_expression_new;
+        flow_expression_bind(ctx, p_expression->right, p_param_list, p_argument_expression_list);
 }
+
 
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
 {
@@ -44423,12 +44410,24 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
-        _Opt struct true_false_set_item item = { 0 };
-        item.p_expression = p_expression;
-        item.true_branch_state = BOOLEAN_FLAG_TRUE;
-        item.false_branch_state = BOOLEAN_FLAG_FALSE;
-        true_false_set_push_back(expr_true_false_set, &item);
-        check_uninitialized(ctx, p_expression);
+        if (p_expression->declarator->p_alias_of_expression)
+        {
+            /*
+               Contracts:
+               in this case we visit the expression that this declaration 
+               is representing
+            */
+            flow_visit_expression(ctx, p_expression->declarator->p_alias_of_expression, expr_true_false_set);
+        }
+        else
+        {
+            _Opt struct true_false_set_item item = { 0 };
+            item.p_expression = p_expression;
+            item.true_branch_state = BOOLEAN_FLAG_TRUE;
+            item.false_branch_state = BOOLEAN_FLAG_FALSE;
+            true_false_set_push_back(expr_true_false_set, &item);
+            check_uninitialized(ctx, p_expression);
+        }
     }
     break;
 
@@ -44588,13 +44587,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case POSTFIX_FUNCTION_CALL:
     {
-        assert(p_expression->left != NULL);
+        if (!ctx->inside_contract)
+        {
+            assert(p_expression->left != NULL);
 
-        struct true_false_set left_local = { 0 };
-        flow_visit_expression(ctx, p_expression->left, &left_local);
+            struct true_false_set left_local = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &left_local);
 
-        flow_compare_function_arguments(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
-        true_false_set_destroy(&left_local);
+            flow_compare_function_arguments(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
+            true_false_set_destroy(&left_local);
+        }
         //////////////////////////////////////////////////////////////////////////////////////////////////////
 #if CONTRACTS
         if (p_expression->left->declarator &&
@@ -44603,17 +44605,27 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             struct type return_type = get_function_return_type(&p_expression->left->declarator->type);
             if (p_expression->left->declarator->p_expression_true)
             {
-                struct expression* p_expression_true =
-                    expression_replace(ctx,
-                        p_expression->left->declarator->p_expression_true,
-                        &p_expression->left->declarator->type.params,
-                        &p_expression->argument_expression_list);
+                struct expression* p_expression_true = p_expression->left->declarator->p_expression_true;
+
+                /*given you expression we clear all previous alias*/
+                flow_clear_alias(p_expression_true);
+
+                /*then we bind new alias*/
+                flow_expression_bind(ctx,
+                                     p_expression_true,
+                                     &p_expression->left->declarator->type.params,
+                                     &p_expression->argument_expression_list);
+
 
                 if (type_is_scalar(&return_type))
                 {
                     struct true_false_set local = { 0 };
 
+                    bool inside_contract = ctx->inside_contract;
+
+                    ctx->inside_contract = true;
                     flow_visit_expression(ctx, p_expression_true, &local);
+                    ctx->inside_contract = inside_contract; //restore
 
                     for (int i = 0; i < local.size; i++)
                     {
@@ -44630,7 +44642,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     struct true_false_set true_false_set4 = { 0 };
                     bool old = ctx->inside_assert;
                     ctx->inside_assert = true;
-                    flow_visit_expression(ctx, p_expression_true, &true_false_set4); //assert(p == 0);            
+
+                    bool inside_contract = ctx->inside_contract;
+                    ctx->inside_contract = true;
+                    flow_visit_expression(ctx, p_expression->left->declarator->p_expression_true, &true_false_set4); //assert(p == 0);            
+                    ctx->inside_contract = inside_contract; //restore
+
                     ctx->inside_assert = old;
                     true_false_set_set_objects_to_true_branch(ctx, &true_false_set4, nullable_enabled);
                     true_false_set_destroy(&true_false_set4);
@@ -44639,16 +44656,27 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             if (p_expression->left->declarator->p_expression_false)
             {
-                struct expression* p_expression_false =
-                    expression_replace(ctx,
-                        p_expression->left->declarator->p_expression_false,
-                        &p_expression->left->declarator->type.params,
-                        &p_expression->argument_expression_list);
+                struct expression* p_expression_false = p_expression->left->declarator->p_expression_false;
+
+                /*given you expression we clear all previous alias*/
+                flow_clear_alias(p_expression_false);
+
+                /*then we bind new alias*/
+                flow_expression_bind(ctx,
+                                     p_expression_false,
+                                     &p_expression->left->declarator->type.params,
+                                     &p_expression->argument_expression_list);
 
 
                 struct true_false_set local = { 0 };
 
+
+
+                bool inside_contract = ctx->inside_contract;
+
+                ctx->inside_contract = true;
                 flow_visit_expression(ctx, p_expression_false, &local);
+                ctx->inside_contract = inside_contract; //restore
 
                 for (int i = 0; i < local.size; i++)
                 {
@@ -44664,7 +44692,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     }
                     else
                     {
-                        local.data[index].false_branch_state |= local.data[i].false_branch_state;
+                        expr_true_false_set->data[index].false_branch_state |= local.data[i].false_branch_state;
                     }
 
                 }

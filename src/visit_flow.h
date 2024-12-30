@@ -26,6 +26,7 @@ struct flow_visit_ctx
     int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
     bool inside_assert;
+    bool inside_contract;
 
     int throw_join_state; /*state where throws are joined*/
     int break_join_state; /*state where breaks are joined*/

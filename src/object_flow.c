@@ -3129,27 +3129,35 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
     {
         if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
         {
-            assert(p_expression->declarator != NULL);
-
-            if (p_expression->declarator->declaration_specifiers &&
-                !(p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
+            if (p_expression->declarator->p_alias_of_expression)
             {
-                assert(p_expression->declarator->p_flow_object != NULL);
-
-                //External flow_objects are added to the arena on-demand
-                if (flow_objects_find(&ctx->arena, p_expression->declarator->p_flow_object) == NULL)
-                {
-                    p_expression->declarator->p_flow_object = make_flow_object(ctx, &p_expression->declarator->type, p_expression->declarator, NULL);
-                    if (p_expression->declarator->p_flow_object == NULL)
-                        throw;
-
-                    flow_object_set_unknown(&p_expression->declarator->type,
-                                            type_is_nullable(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled),
-                                            p_expression->declarator->p_flow_object,
-                                            ctx->ctx->options.null_checks_enabled);
-                }
+                /*We need to original object*/
+                return expression_get_flow_object(ctx, p_expression->declarator->p_alias_of_expression, nullable_enabled);
             }
-            return p_expression->declarator->p_flow_object;
+            else
+            {
+                assert(p_expression->declarator != NULL);
+
+                if (p_expression->declarator->declaration_specifiers &&
+                    !(p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
+                {
+                    assert(p_expression->declarator->p_flow_object != NULL);
+
+                    //External flow_objects are added to the arena on-demand
+                    if (flow_objects_find(&ctx->arena, p_expression->declarator->p_flow_object) == NULL)
+                    {
+                        p_expression->declarator->p_flow_object = make_flow_object(ctx, &p_expression->declarator->type, p_expression->declarator, NULL);
+                        if (p_expression->declarator->p_flow_object == NULL)
+                            throw;
+
+                        flow_object_set_unknown(&p_expression->declarator->type,
+                                                type_is_nullable(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled),
+                                                p_expression->declarator->p_flow_object,
+                                                ctx->ctx->options.null_checks_enabled);
+                    }
+                }
+                return p_expression->declarator->p_flow_object;
+            }
         }
 
         else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)

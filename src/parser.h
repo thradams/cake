@@ -743,6 +743,9 @@ struct declarator
     struct expression* _Opt _Owner p_expression_true;
     struct expression* _Opt _Owner p_expression_false;
 
+    /*Used to check contracts*/
+    struct expression* _Opt p_alias_of_expression;
+
     /*
        TODO it is duplicated with object
        final declarator type (after auto, typeof etc)

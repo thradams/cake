@@ -1,10 +1,23 @@
-﻿#pragma flow enable
+﻿#pragma safety enable
 
-int *f();
-int main()
-{      
-   if (int *p = f())
-   {
-     static_state(p, "not-null");
-   }
+struct X {
+    int* _Opt data;
+};
+
+bool is_empty(struct X* p2)
+  true(p2->data == nullptr),
+  false(p2->data != nullptr)
+{
+    return p2->data == nullptr;
+}
+
+void push(struct X* p1)
+  post(p1->data != nullptr)
+{
+}
+
+void f(struct X* pX)
+{     
+    push(pX); 
+    static_state(pX, "not-null");
 }
