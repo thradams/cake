@@ -27979,7 +27979,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.46"
+#define CAKE_VERSION "0.9.47"
 
 
 
@@ -43010,7 +43010,6 @@ static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx
     {
         if (a->data[i].p_expression != NULL)
         {
-
             struct flow_object* _Opt p_object =
                 expression_get_flow_object(ctx, a->data[i].p_expression, nullable_enabled);
 
@@ -43031,8 +43030,6 @@ static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx
                     a->data[i].true_branch_state :
                     a->data[i].false_branch_state;
 
-
-
                 if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE))
                 {
                 }
@@ -43047,8 +43044,6 @@ static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx* ctx
                     p_object->current.state &= ~FLOW_OBJECT_STATE_ZERO;
 
                 }
-
-
             }
         }
     }
@@ -43261,7 +43256,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                     struct flow_object* _Opt p_new_object = arena_new_object(ctx);
                     if (p_new_object == NULL) throw;
 
-                    struct flow_object_state* _Owner _Opt p_new_state = calloc(1, sizeof * p_new_state);
+                    _Opt struct flow_object_state* _Owner _Opt p_new_state = calloc(1, sizeof * p_new_state);
                     if (p_new_state == NULL) throw;
 
                     p_new_state->dbg_name = "merged";
@@ -43285,7 +43280,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                             struct flow_object* child1 = object->current.pointed->members.data[j];
                             struct flow_object* child2 = it->pointed->members.data[j];
 
-                            struct flow_object_state* _Owner _Opt p_child_new_state = calloc(1, sizeof * p_child_new_state);
+                            _Opt struct flow_object_state* _Owner _Opt p_child_new_state = calloc(1, sizeof * p_child_new_state);
                             if (p_child_new_state == NULL) throw;
 
                             p_child_new_state->dbg_name = "merged";
@@ -43696,7 +43691,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
       if(int *p = f());
       The hidden expression is p
     */
-    struct expression hidden_expression = { 0 };
+    _Opt _View struct expression hidden_expression = { 0 };
 
     struct true_false_set true_false_set = { 0 };
 
@@ -43714,7 +43709,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     }
 
     if (p_selection_statement->condition &&
-        p_selection_statement->condition->expression == NULL)
+        p_selection_statement->condition->expression == NULL &&
+        p_selection_statement->condition->p_init_declarator != NULL)
     {
         hidden_expression.expression_type = PRIMARY_EXPRESSION_DECLARATOR;
         hidden_expression.declarator = p_selection_statement->condition->p_init_declarator->p_declarator;
@@ -44311,15 +44307,13 @@ static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_objec
     for (int i = 0; i < ctx->arena.size; i++)
     {
         struct flow_object* p_obj = ctx->arena.data[i];
-        if (p_obj)
+
+        for (int j = 0; j < p_obj->current.alternatives.size; j++)
         {
-            for (int j = 0; j < p_obj->current.alternatives.size; j++)
+            if (p_obj->current.alternatives.data[j] == p)
             {
-                if (p_obj->current.alternatives.data[j] == p)
-                {
-                    flow_object_update_current(p_obj);
-                    break;
-                }
+                flow_object_update_current(p_obj);
+                break;
             }
         }
     }
@@ -44333,7 +44327,8 @@ static struct argument_expression* _Opt param_list_find_argument_by_name(struct 
     struct argument_expression* _Opt p_argument_expression = list->head;
     while (p_param && p_argument_expression)
     {
-        if (strcmp(p_param->type.name_opt, name) == 0)
+        if (p_param->type.name_opt &&
+            strcmp(p_param->type.name_opt, name) == 0)
         {
             return p_argument_expression;
         }
@@ -44343,13 +44338,21 @@ static struct argument_expression* _Opt param_list_find_argument_by_name(struct 
     return NULL;
 }
 
-/* 
+/*
    Makes all alias to null
 */
 static void flow_clear_alias(struct expression* p_expression)
 {
     if (p_expression->declarator)
         p_expression->declarator->p_alias_of_expression = NULL;
+
+    struct argument_expression* _Owner _Opt p = p_expression->argument_expression_list.head;
+    while (p)
+    {
+        flow_clear_alias(p->expression);
+        p = p->next;
+    }
+
 
     if (p_expression->left)
         flow_clear_alias(p_expression->left);
@@ -44365,9 +44368,12 @@ static void flow_expression_bind(struct flow_visit_ctx* ctx,
 
     if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
     {
-        struct argument_expression* p_argument_expression =
+        assert(p_expression->declarator != NULL);
+        assert(p_expression->declarator->name_opt != NULL);
+
+        struct argument_expression* _Opt p_argument_expression =
             param_list_find_argument_by_name(p_param_list,
-                                             p_argument_expression_list, 
+                                             p_argument_expression_list,
                                              p_expression->declarator->name_opt->lexeme);
         if (p_argument_expression)
         {
@@ -44383,6 +44389,15 @@ static void flow_expression_bind(struct flow_visit_ctx* ctx,
             return;
         }
     }
+
+    struct argument_expression* _Owner _Opt p = p_expression->argument_expression_list.head;
+    while (p)
+    {
+        flow_expression_bind(ctx, p->expression, p_param_list, p_argument_expression_list);
+        p = p->next;
+    }
+
+
     if (p_expression->left)
         flow_expression_bind(ctx, p_expression->left, p_param_list, p_argument_expression_list);
     if (p_expression->right)
@@ -44410,11 +44425,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
+        assert(p_expression->declarator != NULL);
+
         if (p_expression->declarator->p_alias_of_expression)
         {
             /*
                Contracts:
-               in this case we visit the expression that this declaration 
+               in this case we visit the expression that this declaration
                is representing
             */
             flow_visit_expression(ctx, p_expression->declarator->p_alias_of_expression, expr_true_false_set);
@@ -44629,10 +44646,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
                     for (int i = 0; i < local.size; i++)
                     {
-                        struct true_false_set_item item5 = { 0 };
-                        item5.p_expression = local.data[i].p_expression;
-                        item5.true_branch_state |= local.data[i].true_branch_state;
-                        //item5.false_branch_state |= local.data[i].false_branch_state;
+                        struct true_false_set_item item5 = {
+                          .p_expression = local.data[i].p_expression,
+                          .true_branch_state = local.data[i].true_branch_state
+                        };
+
                         true_false_set_push_back(expr_true_false_set, &item5);
                     }
                     true_false_set_destroy(&local);
@@ -44684,10 +44702,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                         find_item_index_by_expression(expr_true_false_set, local.data[i].p_expression);
                     if (index == -1)
                     {
-                        struct true_false_set_item item5 = { 0 };
-                        item5.p_expression = local.data[i].p_expression;
-                        //item5.true_branch_state |= local.data[i].true_branch_state;
-                        item5.false_branch_state |= local.data[i].true_branch_state;
+                        struct true_false_set_item item5 = {
+                          .p_expression = local.data[i].p_expression,
+                          .false_branch_state = local.data[i].true_branch_state
+                        };
+
                         true_false_set_push_back(expr_true_false_set, &item5);
                     }
                     else
@@ -45254,7 +45273,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (index == -1)
             {
                 index = expr_true_false_set->size;
-                _Opt struct true_false_set_item item4 = { 0 };
+
+                struct true_false_set_item item4 = {
+                  .p_expression = right_set.data[k].p_expression
+                };
+
                 true_false_set_push_back(expr_true_false_set, &item4);
             }
 
@@ -45322,8 +45345,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (index == -1)
             {
                 index = expr_true_false_set->size;
-                struct true_false_set_item item2 = { 0 };
-                //item2.p_expression //????
+                struct true_false_set_item item2 = {
+                  .p_expression = p_item_right->p_expression
+                };
                 true_false_set_push_back(expr_true_false_set, &item2);
             }
 

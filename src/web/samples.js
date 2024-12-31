@@ -1761,11 +1761,11 @@ int main()
 `;
 
 sample["Enable Safety"]["static_set/realloc"] =
-    `
+`
 #pragma safety enable
 
-void* _Owner realloc(void* _Opt ptr, unsigned size);
-void* _Owner malloc(unsigned long size);
+void* _Owner _Opt realloc(void* _Opt ptr, unsigned size);
+void* _Owner _Opt malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
 
 void f()
@@ -1774,14 +1774,13 @@ void f()
     void * _Owner _Opt p2 = realloc(p, 2);
     if (p2 != 0)
     {
-       /*
-          if p2 != 0 it  means p was moved.
-       */
+       /*overriding flow analysis*/
        static_set(p, "moved");
        p = p2;
-    }    
+    }
     free(p);
 }
+
 `;
 
 sample["Enable Safety"]["mtx_t"] =
@@ -1842,7 +1841,7 @@ int main()
 `;
 
 
-sample["Enable Safety"]["assignment"] =
+sample["Enable Safety"]["owner assignment"] =
     `
 #pragma safety enable
 
@@ -1854,7 +1853,7 @@ int main()
   const char * _Owner _Opt s1 = strdup("hi");
   const char * _Owner _Opt s2 = NULL;
 
-  s2 = s1;
+  s2 = s1; /*moved*/
 
   free(s2);
 }
@@ -1883,7 +1882,7 @@ void takes_ownership(char * _Owner _Opt some_string)
 int main()
 {
     _Opt _Owner auto  s = strdup("hello");
-    takes_ownership(s);
+    takes_ownership(s /*moved here*/ );
 }
 
 `;
@@ -2042,7 +2041,10 @@ struct X {
 void delete(struct X * _Owner _Opt p)
 {
     if (p)
-     free(p);
+    {
+       /*forgot to free p->name*/
+       free(p);
+    }
 }
 
 int main()
@@ -2059,8 +2061,7 @@ int main()
 
 
 sample["Find the bug"]["Bug #3"] =
-    `
-
+`
 #pragma safety enable
 
 #include <stdlib.h>
@@ -2076,6 +2077,7 @@ void delete(struct X * _Owner _Opt p)
     if (p)
     {
        free(p->name);
+       /*forgot to free p->surname*/
        free(p);
     }
 }
@@ -2086,12 +2088,10 @@ int main()
     if (p)
     {
         p->name = strdup("a");
+        /*p->surname is uninitialized*/
         delete(p);
     }
 }
-
-
-
 
 `;
 
@@ -2120,9 +2120,8 @@ int main()
     x.name = strdup("a");
     change(&x);
     printf("%s", x.name);
+    /*forgot to free x.name and x.surname*/
 }
-
-
 
 `;
 
@@ -2322,6 +2321,7 @@ void set(struct person* p, char* name) {
     char* _Opt _Owner temp = strdup(name);
     if (temp == NULL) return;
     p->name = temp;
+    /*may leave this function with p->name uninitialized!*/
 }
 
 int main() {
