@@ -67,6 +67,15 @@ struct struct_entry
     struct struct_entry* _Opt next;
 };
 
+void struct_entry_delete(struct struct_entry* _Opt _Owner p)
+{
+    if (p)
+    {
+        free(p->dependencies.data);
+        free(p);
+    }
+}
+
 int struct_entry_list_reserve(struct struct_entry_list* p, int n)
 {
     if (n > p->capacity)
@@ -78,7 +87,7 @@ int struct_entry_list_reserve(struct struct_entry_list* p, int n)
 
         void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
-
+        static_set(p->data, "moved");
         p->data = pnew;
         p->capacity = n;
     }
@@ -426,7 +435,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                         ss_fprintf(&ctx->function_types, "inline %s\n", ss.c_str);
                         ss_fprintf(&ctx->function_types, "%s", oss->c_str);
+                        
                         ss_clear(oss);
+                        assert(oss->c_str == NULL);
+
                         *oss = copy;
                     }
                     else
@@ -478,7 +490,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         d_visit_expression(ctx, oss, p_expression->left);
 
-        char name[100];
+        char name[100] = {0};
         int r = find_member_name(&p_expression->left->type, p_expression->member_index, name);
         if (r == 0)
         {
@@ -583,7 +595,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
     {
-        char name[100];
+        char name[100] = {0};
         snprintf(name, sizeof(name), "__cmp_lt_%d", ctx->locals_count++);
 
 
@@ -1488,7 +1500,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                 hash_item_set_destroy(&i);
                             }
 
-                            struct struct_entry* _Opt _Owner p_struct_entry = calloc(1, sizeof * p_struct_entry);
+                            _Opt struct struct_entry* _Opt _Owner p_struct_entry = calloc(1, sizeof * p_struct_entry);
                             if (p_struct_entry == NULL)
                                 throw;
 
@@ -1544,9 +1556,9 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
 
                                                     struct struct_or_union_specifier* _Opt p_complete_member =
                                                         p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
-
+                                                    
                                                     char name2[100] = { 0 };
-                                                    snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+                                                    snprintf(name2, sizeof name2, "%p", (void* _Opt)p_complete_member);
 
                                                     register_struct_types_and_functions(ctx, &t);
                                                     struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -1587,7 +1599,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                             char name2[100] = { 0 };
-                                            snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+                                            snprintf(name2, sizeof name2, "%p", (void* _Opt)p_complete_member);
 
                                             register_struct_types_and_functions(ctx, &t);
                                             struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -1605,7 +1617,10 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                     p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                                 if (p_complete_member == NULL)
+                                                {
+                                                    type_destroy(&t2);
                                                     throw;
+                                                }
 
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
@@ -1673,10 +1688,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
     const char* _Opt name_opt)
 {
     const struct type* _Opt p_type = p_type0;
-
-
-    bool previous_was_pointer_to = false;
-
+    
     while (p_type)
     {
         switch (p_type->category)
@@ -1720,7 +1732,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
             }
 
-            if (name_opt)
+            if (name_opt) /*flow loop bug*/
             {
                 if (first)
                 {
@@ -1742,7 +1754,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             ss_close(&local2);
             ss_close(&local);
         }
-        previous_was_pointer_to = false;
+        
         break;
         case TYPE_CATEGORY_ARRAY:
 
@@ -1773,7 +1785,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "%d", p_type->num_of_elements);
             }
             ss_fprintf(ss, "]");
-            previous_was_pointer_to = false;
+            
             break;
 
         case TYPE_CATEGORY_FUNCTION:
@@ -1816,7 +1828,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             ss_fprintf(ss, ")");
 
-            previous_was_pointer_to = false;
+
             break;
 
         case TYPE_CATEGORY_POINTER:
@@ -1855,7 +1867,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             ss_swap(ss, &local);
             ss_close(&local);
-            previous_was_pointer_to = true;
+            
         }
         break;
         }

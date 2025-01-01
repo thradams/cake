@@ -20,6 +20,7 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p);
 void enumerator_delete(struct enumerator* _Owner _Opt p);
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
 void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _Opt p);
+void struct_entry_delete(struct struct_entry* _Opt _Owner p);
 
 void macro_delete(struct macro* _Owner _Opt p);
 
@@ -86,7 +87,7 @@ struct hash_item_set
     struct declarator* _Owner _Opt p_declarator;
     struct init_declarator* _Owner _Opt p_init_declarator;
     struct macro* _Owner _Opt p_macro;
-    struct struct_entry* _Opt p_struct_entry;
+    struct struct_entry* _Owner _Opt p_struct_entry;
 };
 void hash_item_set_destroy(struct hash_item_set* _Obj_owner p);
 

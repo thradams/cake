@@ -56,7 +56,7 @@ static void defer_visit_init_declarator_list(struct defer_visit_ctx* ctx, struct
 static void defer_visit_secondary_block(struct defer_visit_ctx* ctx, struct secondary_block* p_secondary_block);
 static bool defer_find_label_unlabeled_statement(struct defer_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, const char* label);
 static void defer_visit_statement(struct defer_visit_ctx* ctx, struct statement* p_statement);
-static void defer_visit_bracket_initializer_list(struct defer_visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
+
 static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_item* p_block_item);
 static void defer_visit_compound_statement(struct defer_visit_ctx* ctx, struct compound_statement* p_compound_statement);
 static bool defer_find_label_statement(struct defer_visit_ctx* ctx, struct statement* statement, const char* label);
@@ -534,18 +534,6 @@ static void defer_visit_selection_statement(struct defer_visit_ctx* ctx, struct 
     }
     else
         assert(false);
-}
-
-static void defer_visit_bracket_initializer_list(struct defer_visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list)
-{
-    if (p_bracket_initializer_list->initializer_list == NULL)
-    {
-
-    }
-    else
-    {
-        //defer_visit_initializer_list(ctx, p_bracket_initializer_list->initializer_list);
-    }
 }
 
 static void defer_visit_block_item_list(struct defer_visit_ctx* ctx, struct block_item_list* p_block_item_list)

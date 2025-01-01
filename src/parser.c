@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 #include "ownership.h"
 
@@ -2601,7 +2601,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                              &p_init_declarator->p_declarator->object,
                              p_init_declarator->initializer,
                              is_constant);
-                
+
                 p_init_declarator->p_declarator->object.type.num_of_elements =
                     p_init_declarator->p_declarator->type.num_of_elements;
             }
@@ -2693,7 +2693,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                                  &p_init_declarator->p_declarator->object,
                                  p_init_declarator->initializer,
                                  is_constant);
-               //object_print_to_debug(&p_init_declarator->p_declarator->object);
+                //object_print_to_debug(&p_init_declarator->p_declarator->object);
             }
         }
         else
@@ -4041,19 +4041,18 @@ struct member_declarator* _Opt find_member_declarator_by_index(struct member_dec
     return find_member_declarator_by_index_core(list, member_index, &count);
 }
 
-static struct object* _Opt find_object_declarator_by_index_core(struct object* p_object, struct member_declaration_list* list, int member_index, int* p_count)
+static struct object* _Opt find_object_declarator_by_index_core(struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
 {
-    if (object_is_reference(p_object))
-    {
-        p_object = object_get_referenced(p_object);
-    }
+    const struct object* p_object = object_is_reference(p_object0) ? object_get_referenced(p_object0) : p_object0;
 
     if (list->head == NULL)
         return NULL;
+
     if (p_object->members == NULL)
     {
         return NULL;
     }
+
     struct object* _Opt p_member_object = p_object->members;
 
     struct member_declaration* _Opt p_member_declaration = list->head;
@@ -10926,8 +10925,9 @@ static struct object* find_designated_subobject(struct parser_ctx* ctx,
                         }
                     }
                 }
-                else {
-                  //static_assert pragma...
+                else
+                {
+                    //static_assert pragma...
                 }
                 p_member_declaration = p_member_declaration->next;
             }
@@ -11161,7 +11161,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                 object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
             }
-            is_subobject_of_union = type_is_union(&subobject_type);            
+            is_subobject_of_union = type_is_union(&subobject_type);
             p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false);
             if (p_subobject == NULL)
             {

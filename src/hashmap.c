@@ -68,6 +68,10 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
     case TAG_TYPE_MACRO:
         macro_delete(p->data.p_macro);
         break;
+
+    case TAG_TYPE_STRUCT_ENTRY:
+        struct_entry_delete(p->data.p_struct_entry);
+        break;
     }
 
     free(p->key);
@@ -288,25 +292,32 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 case TAG_TYPE_NUMBER:break;
 
                 case TAG_TYPE_ENUN_SPECIFIER:
+                    assert(pentry->data.p_enum_specifier != NULL);
                     item->p_enum_specifier = pentry->data.p_enum_specifier;
                     break;
                 case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
+                    assert(pentry->data.p_struct_or_union_specifier != NULL);
                     item->p_struct_or_union_specifier = pentry->data.p_struct_or_union_specifier;
                     break;
 
                 case TAG_TYPE_ENUMERATOR:
+                    assert(pentry->data.p_enumerator != NULL);
                     item->p_enumerator = pentry->data.p_enumerator;
                     break;
                 case TAG_TYPE_DECLARATOR:
+                    assert(pentry->data.p_declarator != NULL);
                     item->p_declarator = pentry->data.p_declarator;
                     break;
                 case TAG_TYPE_INIT_DECLARATOR:
+                    assert(pentry->data.p_init_declarator != NULL);
                     item->p_init_declarator = pentry->data.p_init_declarator;
                     break;
                 case TAG_TYPE_MACRO:
+                    assert(pentry->data.p_macro != NULL);
                     item->p_macro = pentry->data.p_macro;
                     break;
                 case TAG_TYPE_STRUCT_ENTRY:
+                    assert(pentry->data.p_struct_entry != NULL);
                     item->p_struct_entry = pentry->data.p_struct_entry;
                     break;
                 }

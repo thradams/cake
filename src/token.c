@@ -569,7 +569,7 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 
 struct token* _Owner _Opt clone_token(struct token* p)
 {
-    struct token* _Owner _Opt token = calloc(1, sizeof * token);
+    _Opt struct token* _Owner _Opt token = calloc(1, sizeof * token);
     if (token == NULL)
         return NULL;
 

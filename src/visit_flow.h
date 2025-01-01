@@ -28,6 +28,9 @@ struct flow_visit_ctx
     bool inside_assert;
     bool inside_contract;
 
+    /*avoid messages like always something, because in loop the same expression is visited in diferent states*/
+    bool inside_loop;
+
     int throw_join_state; /*state where throws are joined*/
     int break_join_state; /*state where breaks are joined*/
     int initial_state;    /*used to keep the original state*/

@@ -166,6 +166,17 @@ void f(struct X * p)
 
 <button onclick="Try(this)">try</button>
 
+The advantage of contracts, as mentioned earlier, is that the postconditions are 
+located in a single place. This is useful not only to avoid code repetition but 
+also because assertions function as unproven statements at compile time, 
+which are assumed to be true and may be dangerous if they are out of sync 
+with the implementation.
+On the other hand, placing the contracts alongside the function declaration 
+keeps the contract closer to its implementation. 
+Compilers (though Cake is not currently doing this yet) could create proxy 
+functions to check postconditions at runtime.
+
+
 
 #### Non nullable members initialization
   
