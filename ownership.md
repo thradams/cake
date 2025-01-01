@@ -1,5 +1,5 @@
   
-Last Updated 21 Dez 2024
+Last Updated 31 Dez 2024
   
 This is a work in progress. Cake source is currently being used to validate the concepts. It's in the process of transitioning to include annotated nullable checks, which was the last feature added.  
 
@@ -32,14 +32,21 @@ char * _Opt strdup(const char * src);
 
 says that `strdup` is a function that expects a non nullable pointer as argument and returns a nullable pointer.
 
-Since `_Opt` the absence of the `_Opt` qualifier indicates that the pointer is non-null, we need to specify where in the code these rules apply.  
-  
-This is accomplished with the `#pragma nullable enable` directive. After `#pragma nullable enable`, the compiler will assume that the code has been reviewed and that the `_Opt` qualifier has been added where necessary to indicate that the pointer may be null, while it is omitted when the pointer cannot be null
+Since the absence of the `_Opt` qualifier indicates that the pointer is non-nullable, 
+existing code will naturally conflict with the new rules, as some unqualified pointers in the 
+existing code can be nullable; they simply are not reviewed yet.
+
+The directive `#pragma nullable enable/disable` can be used during the process of upgrading code. 
+`nullable enable` means that the new rules apply, while `nullable disable` indicates that all pointers 
+are nullable. Similar approach has been used in C# [1].
+
+New rules for pointer compatibility automatically arise, guided by the objective of improving safety.
 
 #### Example 1: Warning for Non-Nullable Pointers
 
 ```c
 #pragma nullable enable  
+
 int main(){
   int * p = nullptr; // warning
 }
@@ -47,12 +54,10 @@ int main(){
 
 <button onclick="Try(this)">try</button>
 
-In this example, `p` is a non-nullable pointer, since the rules are in effect after `#pragma nullable enable` and the pointer is not qualified with `_Opt`.  
-Assign `p` to `nullptr` will generate a warning. 
+In this example, `p` is a non-nullable pointer, since the rules are in effect 
+after `#pragma nullable enable` and the pointer is not qualified with `_Opt`.  
 
-The `#pragma nullable disable` directive can be used to say "the rules for nullable pointers are NOT enabled". Unqualified pointers in this case are nullable. 
-
-This approach has been used in C#.[1]
+Assign `p` to `nullptr` will generate a warning, because `p` is non nullable.
 
 
 #### Example 2: Converting Non-Nullable to Nullable
@@ -89,14 +94,17 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-In this scenario, `s1` is declared as nullable, but `f` expects a non-nullable argument. This triggers a warning, as the nullable pointer `s1` could potentially be null when passed to `f`. To remove this warning, a null check is required:
+In this scenario, `s1` is declared as nullable, but `f` expects a non-nullable argument. 
+This triggers a warning, as the nullable pointer `s1` could potentially be null when passed to `f`. 
+To remove this warning, a null check is required:
 
 ```c
   if (s1)
     f(s1); // ok
 ```
 
-This warning relies on flow analysis, which ensures that the potential nullability of pointers is checked before being passed to functions or assigned to non-nullable variables.
+This warning relies on flow analysis, which ensures that the potential nullability of pointers is
+checked before being passed to functions or assigned to non-nullable variables.
 
 In some cases, the compiler may need a help. Consider this sample.
 
@@ -122,39 +130,48 @@ void f(struct X * p)
 }
 ```  
 
-When is_empty(p) is true `p->data` is null; otherwise, `p->data` not null. Since the analysis is not inter-procedural, the compiler does not have this information. Adding an assertion will lead the flow analysis to assume that `p->data` is not null and removes the warning.
+When is_empty(p) is true `p->data` is null; otherwise not null. 
+Since the analysis is not inter-procedural, the compiler does not have this information. 
+Adding an assertion will lead the flow analysis to assume that `p->data` is not null and 
+removes the warning.
 
-The problem with this approach is the distance between the place that imposes the post condition and assert. If `is_empty` changes it could potentially invalidate the assert at caller side.
+The problem with this approach is the distance between the location that imposes the postcondition and the assert. 
+If `is_empty` changes, it could potentially invalidate the assert on the caller's side. 
+For this reason, a 'contract' approach is also being developed in Cake, although it 
+is still in the early stages.
 
-The C++ 26 proposal (https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2900r5.pdf) for contracts is being considered to solve this problem. The advantage is that the postconditions are defined in one place. This means that changing the implementation of `is_empty` we update its postconditions in a single location.
-  
-Using C++ 26 syntax for contracts we have (This may not be valid in C++ 26 but here is how it could be used here)
-
-```c
-bool is_empty(struct X * p) 
-  pos(r: r && p->data == nullptr)
-  pos(r: !r && p->data != nullptr);
-```
-  
-`pos` indicates post condition. `r:` indicates the result of `is_empty´.   
-
-- if the result is true then p->data is null.
-- if the result is false then p->data is not null.
-  
-The expectation is now that the flow analysis undestand `p->data` is not null inside the if.  If the contract is changed, then the warning may be back and this is exactly what we want.
 
 ```c
-void f(struct X * p)
+#pragma safety enable
+
+struct X {
+    int * _Opt data;
+};
+
+bool is_empty(struct X * p)
+  true(p->data == 0),
+  false(p->data != 0)
 {
-   if (!is_empty(p)) {
+    return p->data == nullptr;
+}
+
+void f(struct X * p) 
+{
+   if (!is_empty(p)) {      
+      /*assert not required anymore*/
       *p->data = 1;
    }
 }
 ```  
 
+<button onclick="Try(this)">try</button>
+
+
 #### Non nullable members initialization
   
-Non-nullable member initialization has similarities to const member initialization. One difference is that const members cannot be changed after declaration even if the declaration does not initialize it.
+Non-nullable member initialization has similarities to const member initialization.
+One difference is that const members cannot be changed after declaration even if the 
+declaration does not initialize it.
   
 For instance:
 
@@ -168,7 +185,7 @@ int main(){
 
 <button onclick="Try(this)">try</button>
 
-The non-nullable on the other hand can.
+The non-nullable on the other hand can
 
 ```c
 #pragma nullable enable  
@@ -187,7 +204,7 @@ void f() {
 
 <button onclick="Try(this)">try</button>
 
-How do we know when the object is fully constructed?   
+How do we know when the object is fully constructed?
 We don't need to.  Attempting to read an uninitialized or partially initialized object will result in a warning.
 
 For instance.
@@ -204,7 +221,7 @@ struct X f() {
 
 <button onclick="Try(this)">try</button>
   
-More initialization patterns
+More non-nullable members initialization patterns
 
 ```c
 #pragma nullable enable  

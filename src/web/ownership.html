@@ -61,7 +61,7 @@
 <a href="#toc_8">References</a>
 </li>
 </ul>
-<p>Last Updated 21 Dez 2024</p>
+<p>Last Updated 31 Dez 2024</p>
 
 <p>This is a work in progress. Cake source is currently being used to validate the concepts. It&#39;s in the process of transitioning to include annotated nullable checks, which was the last feature added.  </p>
 
@@ -91,13 +91,20 @@ These new contracts can be ignored, the language <strong>and existing code patte
 
 <p>says that <code>strdup</code> is a function that expects a non nullable pointer as argument and returns a nullable pointer.</p>
 
-<p>Since <code>_Opt</code> the absence of the <code>_Opt</code> qualifier indicates that the pointer is non-null, we need to specify where in the code these rules apply.  </p>
+<p>Since the absence of the <code>_Opt</code> qualifier indicates that the pointer is non-nullable, 
+existing code will naturally conflict with the new rules, as some unqualified pointers in the 
+existing code can be nullable; they simply are not reviewed yet.</p>
 
-<p>This is accomplished with the <code>#pragma nullable enable</code> directive. After <code>#pragma nullable enable</code>, the compiler will assume that the code has been reviewed and that the <code>_Opt</code> qualifier has been added where necessary to indicate that the pointer may be null, while it is omitted when the pointer cannot be null</p>
+<p>The directive <code>#pragma nullable enable/disable</code> can be used during the process of upgrading code. 
+<code>nullable enable</code> means that the new rules apply, while <code>nullable disable</code> indicates that all pointers 
+are nullable. Similar approach has been used in C# [1].</p>
+
+<p>New rules for pointer compatibility automatically arise, guided by the objective of improving safety.</p>
 
 <h4>Example 1: Warning for Non-Nullable Pointers</h4>
 
 <pre><code class="language-c">#pragma nullable enable  
+
 int main(){
   int * p = nullptr; // warning
 }
@@ -105,12 +112,10 @@ int main(){
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>In this example, <code>p</code> is a non-nullable pointer, since the rules are in effect after <code>#pragma nullable enable</code> and the pointer is not qualified with <code>_Opt</code>.<br>
-Assign <code>p</code> to <code>nullptr</code> will generate a warning. </p>
+<p>In this example, <code>p</code> is a non-nullable pointer, since the rules are in effect 
+after <code>#pragma nullable enable</code> and the pointer is not qualified with <code>_Opt</code>.  </p>
 
-<p>The <code>#pragma nullable disable</code> directive can be used to say &quot;the rules for nullable pointers are NOT enabled&quot;. Unqualified pointers in this case are nullable. </p>
-
-<p>This approach has been used in C#.[1]</p>
+<p>Assign <code>p</code> to <code>nullptr</code> will generate a warning, because <code>p</code> is non nullable.</p>
 
 <h4>Example 2: Converting Non-Nullable to Nullable</h4>
 
@@ -144,13 +149,16 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>In this scenario, <code>s1</code> is declared as nullable, but <code>f</code> expects a non-nullable argument. This triggers a warning, as the nullable pointer <code>s1</code> could potentially be null when passed to <code>f</code>. To remove this warning, a null check is required:</p>
+<p>In this scenario, <code>s1</code> is declared as nullable, but <code>f</code> expects a non-nullable argument. 
+This triggers a warning, as the nullable pointer <code>s1</code> could potentially be null when passed to <code>f</code>. 
+To remove this warning, a null check is required:</p>
 
 <pre><code class="language-c">  if (s1)
     f(s1); // ok
 </code></pre>
 
-<p>This warning relies on flow analysis, which ensures that the potential nullability of pointers is checked before being passed to functions or assigned to non-nullable variables.</p>
+<p>This warning relies on flow analysis, which ensures that the potential nullability of pointers is
+checked before being passed to functions or assigned to non-nullable variables.</p>
 
 <p>In some cases, the compiler may need a help. Consider this sample.</p>
 
@@ -174,39 +182,45 @@ void f(struct X * p)
 }
 </code></pre>
 
-<p>When is_empty(p) is true <code>p-&gt;data</code> is null; otherwise, <code>p-&gt;data</code> not null. Since the analysis is not inter-procedural, the compiler does not have this information. Adding an assertion will lead the flow analysis to assume that <code>p-&gt;data</code> is not null and removes the warning.</p>
+<p>When is_empty(p) is true <code>p-&gt;data</code> is null; otherwise not null. 
+Since the analysis is not inter-procedural, the compiler does not have this information. 
+Adding an assertion will lead the flow analysis to assume that <code>p-&gt;data</code> is not null and 
+removes the warning.</p>
 
-<p>The problem with this approach is the distance between the place that imposes the post condition and assert. If <code>is_empty</code> changes it could potentially invalidate the assert at caller side.</p>
+<p>The problem with this approach is the distance between the location that imposes the postcondition and the assert. 
+If <code>is_empty</code> changes, it could potentially invalidate the assert on the caller&#39;s side. 
+For this reason, a &#39;contract&#39; approach is also being developed in Cake, although it 
+is still in the early stages.</p>
 
-<p>The C++ 26 proposal (<a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2900r5.pdf">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2900r5.pdf</a>) for contracts is being considered to solve this problem. The advantage is that the postconditions are defined in one place. This means that changing the implementation of <code>is_empty</code> we update its postconditions in a single location.</p>
+<pre><code class="language-c">#pragma safety enable
 
-<p>Using C++ 26 syntax for contracts we have (This may not be valid in C++ 26 but here is how it could be used here)</p>
+struct X {
+    int * _Opt data;
+};
 
-<pre><code class="language-c">bool is_empty(struct X * p) 
-  pos(r: r &amp;&amp; p-&gt;data == nullptr)
-  pos(r: !r &amp;&amp; p-&gt;data != nullptr);
-</code></pre>
-
-<p><code>pos</code> indicates post condition. <code>r:</code> indicates the result of `is_empty´.   </p>
-
-<ul>
-<li>if the result is true then p-&gt;data is null.</li>
-<li>if the result is false then p-&gt;data is not null.</li>
-</ul>
-
-<p>The expectation is now that the flow analysis undestand <code>p-&gt;data</code> is not null inside the if.  If the contract is changed, then the warning may be back and this is exactly what we want.</p>
-
-<pre><code class="language-c">void f(struct X * p)
+bool is_empty(struct X * p)
+  true(p-&gt;data == 0),
+  false(p-&gt;data != 0)
 {
-   if (!is_empty(p)) {
+    return p-&gt;data == nullptr;
+}
+
+void f(struct X * p) 
+{
+   if (!is_empty(p)) {      
+      /*assert not required anymore*/
       *p-&gt;data = 1;
    }
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h4>Non nullable members initialization</h4>
 
-<p>Non-nullable member initialization has similarities to const member initialization. One difference is that const members cannot be changed after declaration even if the declaration does not initialize it.</p>
+<p>Non-nullable member initialization has similarities to const member initialization.
+One difference is that const members cannot be changed after declaration even if the 
+declaration does not initialize it.</p>
 
 <p>For instance:</p>
 
@@ -219,7 +233,7 @@ int main(){
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>The non-nullable on the other hand can.</p>
+<p>The non-nullable on the other hand can</p>
 
 <pre><code class="language-c">#pragma nullable enable  
 char * _Opt strdup(const char * src);  
@@ -237,7 +251,7 @@ void f() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>How do we know when the object is fully constructed?<br>
+<p>How do we know when the object is fully constructed?
 We don&#39;t need to.  Attempting to read an uninitialized or partially initialized object will result in a warning.</p>
 
 <p>For instance.</p>
@@ -253,7 +267,7 @@ struct X f() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>More initialization patterns</p>
+<p>More non-nullable members initialization patterns</p>
 
 <pre><code class="language-c">#pragma nullable enable  
 char * _Opt strdup(const char * src);  
