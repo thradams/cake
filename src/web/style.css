@@ -4,9 +4,7 @@ pre {
     margin-top: 2px;
 }
 
-code {
-    vertical-align: text-top;        
-}
+
 
 body {
     font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";    
@@ -25,6 +23,7 @@ p {
 }
 
 code {
+    background-color: #f3f3f3;
     font-family: Consolas
 }
 

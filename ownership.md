@@ -296,7 +296,8 @@ void f() {
 <button onclick="Try(this)">try</button>
 
 
-In some cases it may be useful to make the non-nullable members as nullable. Applying `_Opt` qualifier to structs makes all members nullable.
+In some cases it may be useful to make the non-nullable members as nullable. 
+Applying `_Opt` qualifier to structs makes all members nullable.
 
 For instance, the previous calloc sample can be written as.
 
@@ -322,11 +323,67 @@ void f() {
   
 <button onclick="Try(this)">try</button>
 
+
+Adding the `_Opt` qualifier in front of `struct X` (as in `_Opt struct X x;`) is analogous to 
+changing the type of `x` from:
+
+```c
+struct X { char * text; };
+```
+
+to:
+
+```c
+struct X { char * _Opt text; };
+```
+
+This can be compared to the addition of the `const` qualifier. 
+For example:
+
+```c
+const struct X x;
+```
+
+The type of `x` in this case is similar of to changing from:
+
+```c
+struct X { char * text; };
+```
+
+to:
+
+```c
+struct X { char * const text; };
+```
+
+We will discuss later another situation involving the `_View` qualifier that works as anti-owner qualifier.
+
+
 #### mutable
 
-In the same way we removed the implicit non-nullable  qualifier, we also could remove the const qualifier. The anti const qualifier could be named as `mutable`.
+In the same way we removed the implicit non-nullable  qualifier, we also could remove the const qualifier. 
+The anti const qualifier could be named as `mutable`.
 
-But instead of having anti-const and anti-non-nullable qualifier the mutable has been considered to remove both.
+For instance:
+
+```c
+struct X { char * const text; };
+```
+
+The declaration
+
+```c
+mutable struct X x; 
+```
+
+could be similar of having the type of `x` as:
+
+```c
+struct X { char * text; };
+```
+
+But instead of having anti-const and anti-non-nullable qualifier the mutable has been 
+considered to remove both because they may happen together.
   
 Consider the following code example:
 
@@ -350,9 +407,8 @@ struct X * _Opt makeX(const char* name)
 }
 ```
 
->OBS: mutable qualifier is not yet implemented. 
+>OBS: mutable qualifier is not yet implemented in Cake. 
 
-Note: The syntax used in the C++ 26 proposal for contracts may be utilized in the future to eliminate the need for built-in semantics for `malloc` and `calloc`.
 
 ### Object lifetime checks  
 From the C23 standard:

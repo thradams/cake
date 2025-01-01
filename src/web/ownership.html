@@ -338,7 +338,8 @@ void f() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>In some cases it may be useful to make the non-nullable members as nullable. Applying <code>_Opt</code> qualifier to structs makes all members nullable.</p>
+<p>In some cases it may be useful to make the non-nullable members as nullable. 
+Applying <code>_Opt</code> qualifier to structs makes all members nullable.</p>
 
 <p>For instance, the previous calloc sample can be written as.</p>
 
@@ -363,11 +364,57 @@ void f() {
 
 <p><button onclick="Try(this)">try</button></p>
 
+<p>Adding the <code>_Opt</code> qualifier in front of <code>struct X</code> (as in <code>_Opt struct X x;</code>) is analogous to 
+changing the type of <code>x</code> from:</p>
+
+<pre><code class="language-c">struct X { char * text; };
+</code></pre>
+
+<p>to:</p>
+
+<pre><code class="language-c">struct X { char * _Opt text; };
+</code></pre>
+
+<p>This can be compared to the addition of the <code>const</code> qualifier. 
+For example:</p>
+
+<pre><code class="language-c">const struct X x;
+</code></pre>
+
+<p>The type of <code>x</code> in this case is similar of to changing from:</p>
+
+<pre><code class="language-c">struct X { char * text; };
+</code></pre>
+
+<p>to:</p>
+
+<pre><code class="language-c">struct X { char * const text; };
+</code></pre>
+
+<p>We will discuss later another situation involving the <code>_View</code> qualifier that works as anti-owner qualifier.</p>
+
 <h4>mutable</h4>
 
-<p>In the same way we removed the implicit non-nullable  qualifier, we also could remove the const qualifier. The anti const qualifier could be named as <code>mutable</code>.</p>
+<p>In the same way we removed the implicit non-nullable  qualifier, we also could remove the const qualifier. 
+The anti const qualifier could be named as <code>mutable</code>.</p>
 
-<p>But instead of having anti-const and anti-non-nullable qualifier the mutable has been considered to remove both.</p>
+<p>For instance:</p>
+
+<pre><code class="language-c">struct X { char * const text; };
+</code></pre>
+
+<p>The declaration</p>
+
+<pre><code class="language-c">mutable struct X x; 
+</code></pre>
+
+<p>could be similar of having the type of <code>x</code> as:</p>
+
+<pre><code class="language-c">struct X { char * text; };
+</code></pre>
+
+<p>But instead of having anti-const and anti-non-nullable qualifier the mutable has been 
+considered to remove both because they may happen together.</p>
 
 <p>Consider the following code example:</p>
 
@@ -391,10 +438,8 @@ struct X * _Opt makeX(const char* name)
 </code></pre>
 
 <blockquote>
-<p>OBS: mutable qualifier is not yet implemented. </p>
+<p>OBS: mutable qualifier is not yet implemented in Cake. </p>
 </blockquote>
-
-<p>Note: The syntax used in the C++ 26 proposal for contracts may be utilized in the future to eliminate the need for built-in semantics for <code>malloc</code> and <code>calloc</code>.</p>
 
 <h3 id="toc_3">Object lifetime checks</h3>
 
