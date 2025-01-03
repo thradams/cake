@@ -5343,7 +5343,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
         /*some gcc stuff need to parse linux headers*/
     "#define __linux__\n"
-        "#define __builtin_va_list\n"
+        "#define __builtin_va_list void* \n"        
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
         "#define __builtin_va_arg(a, b) ((b)a)\n"
