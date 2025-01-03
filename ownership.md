@@ -1,5 +1,5 @@
   
-Last Updated 31 Dez 2024
+Last Updated 1 Jan 2025
   
 This is a work in progress. Cake source is currently being used to validate the concepts. It's in the process of transitioning to include annotated nullable checks, which was the last feature added.  
 

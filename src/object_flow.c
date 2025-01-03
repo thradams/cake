@@ -569,10 +569,10 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                 struct member_declaration* _Opt p_member_declaration =
                     p_struct_or_union_specifier->member_declaration_list.head;
 
-                _Opt struct object_name_list l = { 0 };
-
-                l.name = p_struct_or_union_specifier->tag_name;
-                l.previous = list;
+                struct object_name_list l = {
+                  .name = p_struct_or_union_specifier->tag_name,
+                  .previous = list
+                };
 
 
                 //int member_index = 0;
@@ -716,7 +716,7 @@ struct token* _Opt flow_object_get_token(const struct flow_object* object)
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number)
 {
-    struct flow_object_state* _Owner _Opt pnew = calloc(1, sizeof * pnew);
+    _Opt struct flow_object_state* _Owner _Opt pnew = calloc(1, sizeof * pnew);
     if (pnew == NULL) return;//ENOMEM;
 
     pnew->dbg_name = name;

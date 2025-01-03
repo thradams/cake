@@ -1666,7 +1666,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                             if (p_member_declarator->declarator)
                             {
-                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);                                
                             }
                             else
                             {
@@ -1683,7 +1683,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 &p_expression_node_new->left->type,
                                                 &p_member_declarator->declarator->type);
                             }
-                                                        
+
                             struct object* object = find_object_declarator_by_index(&p_expression_node_new->left->object, &p_complete->member_declaration_list, member_index);
 
                             if (object)

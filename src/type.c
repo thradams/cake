@@ -1406,7 +1406,8 @@ bool type_is_function_or_function_pointer(const struct type* p_type)
 
 bool type_is_empty(const struct type* p_type)
 {
-    return p_type->type_specifier_flags == TYPE_SPECIFIER_NONE;
+    return p_type->category == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags == TYPE_SPECIFIER_NONE;
 }
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled)
@@ -2342,7 +2343,7 @@ bool function_returns_void(const struct type* p_type)
     struct type t = get_function_return_type(p_type);
     bool r = type_is_void(&t);
     type_destroy(&t);
-    return r;    
+    return r;
 }
 
 struct type get_function_return_type(const struct type* p_type)
@@ -3118,6 +3119,53 @@ struct declarator* _Opt declarator_get_typedef_declarator(struct declarator* pde
     return NULL;
 }
 
+static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, const struct type* p_type)
+{
+    if (p_token == NULL)
+        p_token = ctx->current;
+
+    const struct type* p = p_type;
+    while (p)
+    {
+        if (p->category == TYPE_CATEGORY_FUNCTION)
+        {
+            if (p->next->category == TYPE_CATEGORY_FUNCTION)
+            {
+                compiler_diagnostic_message(C_ERROR_FUNCTION_RETURNS_FUNCTION,
+                ctx,
+                p_token,
+                NULL,
+                "function returning function");
+                return false;
+            }
+            else if (p->next->category == TYPE_CATEGORY_ARRAY)
+            {
+                compiler_diagnostic_message(C_ERROR_FUNCTION_RETURNS_ARRAY,
+                ctx,
+                p_token,
+                NULL,
+                "function returning array");
+                return false;
+            }
+        }
+        else if (p->category == TYPE_CATEGORY_ITSELF &&
+                 p->type_specifier_flags == TYPE_SPECIFIER_NONE)
+        {
+            compiler_diagnostic_message(C_ERROR_INVALID_TYPE,
+            ctx,
+            p_token,
+            NULL,
+            "invalid type");
+            return false;
+
+        }
+
+        p = p->next;
+    }
+    return true;
+
+}
+
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator)
 {
 
@@ -3253,6 +3301,12 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         type_set_storage_specifiers_using_declarator(&r, pdeclarator);
 
+        if (!is_valid_type(ctx, pdeclarator->first_token_opt, &r))
+        {
+            type_destroy(&r);
+            struct type empty = { 0 };
+            return empty;
+        }
         return r;
     }
     catch

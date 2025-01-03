@@ -14,11 +14,7 @@ int main()
   int a[10];
   static_assert(_is_array(a));
 
-  /*pf = pointer to function (void) returning array 10 of int*/
-  int (*pf)(void)[10];
-  static_assert(!_is_array(pf));
-  static_assert(_is_pointer(pf));
-
+  
   static_assert(_is_same(int, typeof(i)));
 
   static_assert(_is_const(const int));

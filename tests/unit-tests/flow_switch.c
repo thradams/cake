@@ -5,7 +5,7 @@
 void* _Owner make();
 void free( void* _Owner p);
 
-void f(condition)
+void f(int condition)
 {
     void* _Owner p = make();
 

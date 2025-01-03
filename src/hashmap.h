@@ -58,7 +58,7 @@ struct map_entry {
         struct declarator* _Opt _Owner p_declarator;
         struct init_declarator* _Opt _Owner p_init_declarator;
         struct macro* _Opt _Owner p_macro;
-        struct struct_entry* p_struct_entry;
+        struct struct_entry* _Opt _Owner p_struct_entry;
     } data;
     
 };

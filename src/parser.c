@@ -1813,7 +1813,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
     if (ctx->current == NULL)
         return NULL;
 
-    struct declaration_specifiers* _Owner _Opt p_declaration_specifiers = calloc(1, sizeof(struct declaration_specifiers));
+    _Opt struct declaration_specifiers* _Owner _Opt p_declaration_specifiers = calloc(1, sizeof(struct declaration_specifiers));
 
     try
     {
@@ -2153,10 +2153,17 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
             check_func_open_brace_style(ctx, ctx->current);
 
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+
+            }
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 #if CONTRACTS
             struct declarator* p_declarator =
                 p_declaration->init_declarator_list.head->p_declarator;
+
             if (ctx->current->type == TK_KEYWORD_TRUE ||
                 ctx->current->type == TK_KEYWORD_FALSE ||
                 ctx->current->type == TK_IDENTIFIER)
@@ -2485,7 +2492,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         else
         {
             assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
-            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
+            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);            
         }
 
         assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
@@ -10832,7 +10839,7 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
 
 
 //bool find_next_subobject(const struct type* p_type, struct object* obj, struct object* subobj, struct find_object_result* result)
-static struct object* next_sub_object2(struct type* p_type, struct object* obj, struct object* subobj, struct type* p_type_out)
+static struct object* _Opt next_sub_object2(struct type* p_type, struct object* obj, struct object* subobj, struct type* p_type_out)
 {
     type_clear(p_type_out);
     struct find_object_result find_object_result = { 0 };
@@ -10845,7 +10852,7 @@ static struct object* next_sub_object2(struct type* p_type, struct object* obj, 
 }
 
 
-static struct object* find_designated_subobject(struct parser_ctx* ctx,
+static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct type* p_current_object_type,
     struct object* current_object,
     struct designator* p_designator,
@@ -11093,7 +11100,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
     //TODO Array char
 
-    struct object* const parent_copy = current_object->parent;
+    struct object* const _Opt parent_copy = current_object->parent;
     current_object->parent = NULL; //to be only here
     struct initializer_list_item* p_initializer_list_item = braced_initializer->initializer_list->head;
     long long array_to_expand_index = -1;
@@ -11109,6 +11116,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             struct initializer_list_item* p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
             if (p_initializer_list_item2 == NULL)
             {
+                type_destroy(&array_item_type);
                 return 0;
             }
             if (p_initializer_list_item2->initializer->assignment_expression != NULL)
@@ -11132,13 +11140,14 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                     //printf("\n");
                     //object_print_to_debug(current_object);
+                    type_destroy(&array_item_type);
                     return 0;
                 }
             }
         }
     }
 
-    struct object* p_subobject = NULL;
+    struct object* _Opt p_subobject = NULL;
 
     for (;;)
     {
@@ -11167,6 +11176,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             {
                 //ja temos o erro , nao precisa dizer que nao foi consumido
                 p_initializer_list_item = p_initializer_list_item->next;
+                type_destroy(&subobject_type);
                 break;
             }
         }
@@ -11198,7 +11208,10 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         }
 
         if (p_subobject == NULL)
+        {
+            type_destroy(&subobject_type);
             break;
+        }
 
 
 
@@ -11269,7 +11282,10 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);
                 if (p_subobject)
+                {
+                    type_destroy(&subobject_type);
                     subobject_type = type_dup(&p_subobject->type);
+                }
 
             }
             else if (entire_object_initialized)
@@ -11280,7 +11296,10 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);
                 if (p_subobject)
+                {
+                    type_destroy(&subobject_type);
                     subobject_type = type_dup(&p_subobject->type);
+                }
             }
         }
         p_initializer_list_item = p_initializer_list_item->next;
@@ -11303,6 +11322,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
     }
 
     current_object->parent = parent_copy; //restore
+    type_destroy(&array_item_type);
     return 0;
 }
 

@@ -297,7 +297,7 @@ struct map_entry {
         struct declarator* _Opt _Owner p_declarator;
         struct init_declarator* _Opt _Owner p_init_declarator;
         struct macro* _Opt _Owner p_macro;
-        struct struct_entry* p_struct_entry;
+        struct struct_entry* _Opt _Owner p_struct_entry;
     } data;
     
 };
@@ -855,7 +855,9 @@ enum diagnostic_id {
     C_MULTICHAR_ERROR = 1370,
     C_INVALID_TOKEN = 1380,
     C_INVALID_ARGUMENT_NELEMENTSOF = 1390,
-    C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER = 1400
+    C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER = 1400,
+    C_ERROR_FUNCTION_RETURNS_FUNCTION = 1410,
+    C_ERROR_FUNCTION_RETURNS_ARRAY = 1420    
 };
 
 
@@ -10748,7 +10750,7 @@ DIR* _Owner _Opt opendir(const char* name)
 
     if (handle != INVALID_HANDLE_VALUE)
     {
-        DIR* _Owner _Opt p = calloc(1, sizeof * p);
+        _Opt DIR* _Owner _Opt p = calloc(1, sizeof * p);
         if (p)
         {
             p->handle = handle;
@@ -12919,6 +12921,7 @@ bool type_is_double(const struct type* p_type);
 bool type_is_float(const struct type* p_type);
 bool type_is_int(const struct type* p_type);
 bool type_is_unsigned_int(const struct type* p_type);
+bool type_is_empty(const struct type* p_type);
 
 bool type_is_vla(const struct type* p_type);
 
@@ -18799,7 +18802,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                             if (p_member_declarator->declarator)
                             {
-                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);                                
                             }
                             else
                             {
@@ -18816,7 +18819,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 &p_expression_node_new->left->type,
                                                 &p_member_declarator->declarator->type);
                             }
-                                                        
+
                             struct object* object = find_object_declarator_by_index(&p_expression_node_new->left->object, &p_complete->member_declaration_list, member_index);
 
                             if (object)
@@ -24796,10 +24799,10 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
                 struct member_declaration* _Opt p_member_declaration =
                     p_struct_or_union_specifier->member_declaration_list.head;
 
-                _Opt struct object_name_list l = { 0 };
-
-                l.name = p_struct_or_union_specifier->tag_name;
-                l.previous = list;
+                struct object_name_list l = {
+                  .name = p_struct_or_union_specifier->tag_name,
+                  .previous = list
+                };
 
 
                 //int member_index = 0;
@@ -24943,7 +24946,7 @@ struct token* _Opt flow_object_get_token(const struct flow_object* object)
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number)
 {
-    struct flow_object_state* _Owner _Opt pnew = calloc(1, sizeof * pnew);
+    _Opt struct flow_object_state* _Owner _Opt pnew = calloc(1, sizeof * pnew);
     if (pnew == NULL) return;//ENOMEM;
 
     pnew->dbg_name = name;
@@ -27994,7 +27997,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.47"
+#define CAKE_VERSION "0.9.48"
 
 
 
@@ -29814,7 +29817,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
     if (ctx->current == NULL)
         return NULL;
 
-    struct declaration_specifiers* _Owner _Opt p_declaration_specifiers = calloc(1, sizeof(struct declaration_specifiers));
+    _Opt struct declaration_specifiers* _Owner _Opt p_declaration_specifiers = calloc(1, sizeof(struct declaration_specifiers));
 
     try
     {
@@ -30154,10 +30157,17 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
             check_func_open_brace_style(ctx, ctx->current);
 
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+
+            }
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 #if CONTRACTS
             struct declarator* p_declarator =
                 p_declaration->init_declarator_list.head->p_declarator;
+
             if (ctx->current->type == TK_KEYWORD_TRUE ||
                 ctx->current->type == TK_KEYWORD_FALSE ||
                 ctx->current->type == TK_IDENTIFIER)
@@ -30486,7 +30496,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         else
         {
             assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
-            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
+            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);            
         }
 
         assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
@@ -38833,7 +38843,7 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
 
 
 //bool find_next_subobject(const struct type* p_type, struct object* obj, struct object* subobj, struct find_object_result* result)
-static struct object* next_sub_object2(struct type* p_type, struct object* obj, struct object* subobj, struct type* p_type_out)
+static struct object* _Opt next_sub_object2(struct type* p_type, struct object* obj, struct object* subobj, struct type* p_type_out)
 {
     type_clear(p_type_out);
     struct find_object_result find_object_result = { 0 };
@@ -38846,7 +38856,7 @@ static struct object* next_sub_object2(struct type* p_type, struct object* obj, 
 }
 
 
-static struct object* find_designated_subobject(struct parser_ctx* ctx,
+static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct type* p_current_object_type,
     struct object* current_object,
     struct designator* p_designator,
@@ -39094,7 +39104,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
     //TODO Array char
 
-    struct object* const parent_copy = current_object->parent;
+    struct object* const _Opt parent_copy = current_object->parent;
     current_object->parent = NULL; //to be only here
     struct initializer_list_item* p_initializer_list_item = braced_initializer->initializer_list->head;
     long long array_to_expand_index = -1;
@@ -39110,6 +39120,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             struct initializer_list_item* p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
             if (p_initializer_list_item2 == NULL)
             {
+                type_destroy(&array_item_type);
                 return 0;
             }
             if (p_initializer_list_item2->initializer->assignment_expression != NULL)
@@ -39133,13 +39144,14 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                     //printf("\n");
                     //object_print_to_debug(current_object);
+                    type_destroy(&array_item_type);
                     return 0;
                 }
             }
         }
     }
 
-    struct object* p_subobject = NULL;
+    struct object* _Opt p_subobject = NULL;
 
     for (;;)
     {
@@ -39168,6 +39180,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             {
                 //ja temos o erro , nao precisa dizer que nao foi consumido
                 p_initializer_list_item = p_initializer_list_item->next;
+                type_destroy(&subobject_type);
                 break;
             }
         }
@@ -39199,7 +39212,10 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         }
 
         if (p_subobject == NULL)
+        {
+            type_destroy(&subobject_type);
             break;
+        }
 
 
 
@@ -39270,7 +39286,10 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);
                 if (p_subobject)
+                {
+                    type_destroy(&subobject_type);
                     subobject_type = type_dup(&p_subobject->type);
+                }
 
             }
             else if (entire_object_initialized)
@@ -39281,7 +39300,10 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);
                 if (p_subobject)
+                {
+                    type_destroy(&subobject_type);
                     subobject_type = type_dup(&p_subobject->type);
+                }
             }
         }
         p_initializer_list_item = p_initializer_list_item->next;
@@ -39304,6 +39326,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
     }
 
     current_object->parent = parent_copy; //restore
+    type_destroy(&array_item_type);
     return 0;
 }
 
@@ -40674,9 +40697,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                         ss_fprintf(&ctx->function_types, "inline %s\n", ss.c_str);
                         ss_fprintf(&ctx->function_types, "%s", oss->c_str);
                         
-                        ss_clear(oss);
-                        assert(oss->c_str == NULL);
-
+                        ss_close(oss);
                         *oss = copy;
                     }
                     else
@@ -48426,7 +48447,8 @@ bool type_is_function_or_function_pointer(const struct type* p_type)
 
 bool type_is_empty(const struct type* p_type)
 {
-    return p_type->type_specifier_flags == TYPE_SPECIFIER_NONE;
+    return p_type->category == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags == TYPE_SPECIFIER_NONE;
 }
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled)
@@ -49362,7 +49384,7 @@ bool function_returns_void(const struct type* p_type)
     struct type t = get_function_return_type(p_type);
     bool r = type_is_void(&t);
     type_destroy(&t);
-    return r;    
+    return r;
 }
 
 struct type get_function_return_type(const struct type* p_type)
@@ -50138,6 +50160,53 @@ struct declarator* _Opt declarator_get_typedef_declarator(struct declarator* pde
     return NULL;
 }
 
+static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, const struct type* p_type)
+{
+    if (p_token == NULL)
+        p_token = ctx->current;
+
+    const struct type* p = p_type;
+    while (p)
+    {
+        if (p->category == TYPE_CATEGORY_FUNCTION)
+        {
+            if (p->next->category == TYPE_CATEGORY_FUNCTION)
+            {
+                compiler_diagnostic_message(C_ERROR_FUNCTION_RETURNS_FUNCTION,
+                ctx,
+                p_token,
+                NULL,
+                "function returning function");
+                return false;
+            }
+            else if (p->next->category == TYPE_CATEGORY_ARRAY)
+            {
+                compiler_diagnostic_message(C_ERROR_FUNCTION_RETURNS_ARRAY,
+                ctx,
+                p_token,
+                NULL,
+                "function returning array");
+                return false;
+            }
+        }
+        else if (p->category == TYPE_CATEGORY_ITSELF &&
+                 p->type_specifier_flags == TYPE_SPECIFIER_NONE)
+        {
+            compiler_diagnostic_message(C_ERROR_INVALID_TYPE,
+            ctx,
+            p_token,
+            NULL,
+            "invalid type");
+            return false;
+
+        }
+
+        p = p->next;
+    }
+    return true;
+
+}
+
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator)
 {
 
@@ -50273,6 +50342,12 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         type_set_storage_specifiers_using_declarator(&r, pdeclarator);
 
+        if (!is_valid_type(ctx, pdeclarator->first_token_opt, &r))
+        {
+            type_destroy(&r);
+            struct type empty = { 0 };
+            return empty;
+        }
         return r;
     }
     catch

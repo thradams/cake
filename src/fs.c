@@ -144,7 +144,7 @@ DIR* _Owner _Opt opendir(const char* name)
 
     if (handle != INVALID_HANDLE_VALUE)
     {
-        DIR* _Owner _Opt p = calloc(1, sizeof * p);
+        _Opt DIR* _Owner _Opt p = calloc(1, sizeof * p);
         if (p)
         {
             p->handle = handle;
