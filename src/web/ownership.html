@@ -56,12 +56,17 @@
 </li>
 <li>
 <a href="#toc_7">Glossary</a>
-</li>
+<ul>
 <li>
-<a href="#toc_8">References</a>
+<a href="#toc_8">non-value representation (C23)</a>
 </li>
 </ul>
-<p>Last Updated 1 Jan 2025</p>
+</li>
+<li>
+<a href="#toc_9">References</a>
+</li>
+</ul>
+<p>Last Updated 3 Jan 2025</p>
 
 <p>This is a work in progress. Cake source is currently being used to validate the concepts. It&#39;s in the process of transitioning to include annotated nullable checks, which was the last feature added.  </p>
 
@@ -153,9 +158,21 @@ int main()
 This triggers a warning, as the nullable pointer <code>s1</code> could potentially be null when passed to <code>f</code>. 
 To remove this warning, a null check is required:</p>
 
-<pre><code class="language-c">  if (s1)
-    f(s1); // ok
+<pre><code class="language-c">#pragma nullable enable  
+  
+char * _Opt strdup(const char * src);  
+ 
+void f(char *s);  
+
+int main()
+{  
+   char * _Opt s1 = strdup(&quot;a&quot;);
+   if (s1) 
+      f(s1); // ok
+} 
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>This warning relies on flow analysis, which ensures that the potential nullability of pointers is
 checked before being passed to functions or assigned to non-nullable variables.</p>
@@ -182,15 +199,24 @@ void f(struct X * p)
 }
 </code></pre>
 
-<p>When is_empty(p) is true <code>p-&gt;data</code> is null; otherwise not null. 
+<p><button onclick="Try(this)">try</button></p>
+
+<p>When <code>is_empty(p)</code> is true <code>p-&gt;data</code> is null; otherwise not null. 
 Since the analysis is not inter-procedural, the compiler does not have this information. 
 Adding an assertion will lead the flow analysis to assume that <code>p-&gt;data</code> is not null and 
 removes the warning.</p>
 
 <p>The problem with this approach is the distance between the location that imposes the postcondition and the assert. 
 If <code>is_empty</code> changes, it could potentially invalidate the assert on the caller&#39;s side. 
-For this reason, a &#39;contract&#39; approach is also being developed in Cake, although it 
-is still in the early stages.</p>
+Although a runtime check is in place, it is not as safe as a compile-time check because it may occur 
+within a rarely used branch, allowing the bug to remain inactive for an extended period and 
+potentially appearing on the client&#39;s machine.</p>
+
+<p>For this reason, a &#39;contract&#39; approach is also being developed in Cake, <em><strong>although it 
+is still in the early stages of design</strong></em>.</p>
+
+<p>We can specify the post-conditions for the results of true and false branches using <code>true</code> and <code>false</code>
+at the function declaration, as well as for void functions using <code>post</code></p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -198,11 +224,17 @@ struct X {
     int * _Opt data;
 };
 
-bool is_empty(struct X * p)
+bool is_empty(const struct X * p)
   true(p-&gt;data == 0),
   false(p-&gt;data != 0)
 {
     return p-&gt;data == nullptr;
+}
+
+void clear(struct X * p)
+  post(p-&gt;data == 0)  
+{
+    p-&gt;data = nullptr;
 }
 
 void f(struct X * p) 
@@ -297,6 +329,8 @@ void h() {
    struct X x = {.text = s }; //ok
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p><code>malloc</code> has a built-in semantics indicating the object is uninitialized. </p>
 
@@ -689,14 +723,14 @@ int * f()
 
 <p>But we can return a view pointer to objects with static, thread and allocated duration.</p>
 
-<p>Sample:
-<code>c
-static int a = 1;
+<p>Sample:</p>
+
+<pre><code class="language-c">static int a = 1;
 int * f()
 {   
    return &amp;a; // OK
 }  
-</code>  </p>
+</code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
@@ -888,7 +922,7 @@ void f(struct X * x) {
 #include &lt;stdlib.h&gt;
 
 struct X {
-  char * _Owner text; 
+  char * _Owner _Opt text; 
 };
 
 void x_destroy(_Opt struct X * _Obj_owner x) { 
@@ -974,11 +1008,12 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
+<p>The literal string has been chosen because some states, such as &#39;uninitialized&#39; and &#39;moved,&#39; 
+do not have a memory representation or a constant value for comparison.</p>
+
 <h4>Uninitialized state</h4>
 
-<p>The <strong>uninitialized</strong> state is the state of local variables that are declared but not initialized. </p>
-
-<p>Objects are defined as having both a real part and an imaginary one. The real part corresponds to the actual value stored in memory, while the imaginary part lacks any physical representation. Consequently, the uninitialized state refers to this imaginary part, leaving the real value unspecified.</p>
+<p>The <strong>uninitialized</strong> state is state of local variables that are declared but not initialized. </p>
 
 <p>Flow analysis must  ensure that we don&#39;t read uninitialized objects.</p>
 
@@ -1016,7 +1051,7 @@ int main() {
 
 <h4>Moved state</h4>
 
-<p>The <strong>moved</strong> state is similar to the <em>uninitialized</em> state, it is also an imaginary state and does not have a representation on storage.  </p>
+<p>The <strong>moved</strong> state is similar to the <em>uninitialized</em> state, and does not have a representation on runtime memory.  </p>
 
 <p>The difference is that the moved state is used when moving local variables. For pointers, the moved state implies that the pointer was not-null. </p>
 
@@ -1120,8 +1155,6 @@ int main() {
 
 <p><strong>Rule:</strong> Function never returns uninitialized objects or reachable uninitialized objects.</p>
 
-<p>TODO void objects.</p>
-
 <p><strong>Rule:</strong> Non owner objects accessible with parameters cannot leave scope with uninitialized/moved objects.</p>
 
 <pre><code class="language-c">#pragma safety enable
@@ -1130,7 +1163,7 @@ int main() {
 #include &lt;stdlib.h&gt;
 
 struct X {
-  char * _Owner _Opt_ name;
+  char * _Owner _Opt name;
 };
 
 void x_destroy(struct X * _Obj_owner p) {
@@ -1164,7 +1197,7 @@ int main() {
 
 struct X
 {
-  char * _Owner name;
+  char * _Owner _Opt name;
 };
 
 void x_destroy(struct X * _Obj_owner p)
@@ -1226,7 +1259,7 @@ int main() {
 <p>The <strong>not-null</strong> state indicates that the object is initialized and referencing an object.</p>
 
 <p>The final state is combination of possibilities like <strong>null</strong> and <strong>not-null</strong>. 
-We can check possible combinations using &quot;|&quot; at <code>static_state</code>.  </p>
+We can check possible combinations using <code>static_state</code>.  </p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -1234,7 +1267,7 @@ We can check possible combinations using &quot;|&quot; at <code>static_state</co
 
 int main()
 {
-   void * _Owner p = malloc(1);
+   void * _Owner _Opt p = malloc(1);
    if (p) {
      static_state(p, &quot;not-null&quot;);
    }      
@@ -1311,8 +1344,9 @@ int main() {
 
 <pre><code class="language-c">#pragma safety enable
 
-void* _Owner _Opt malloc(size_t size);
-void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
+void* _Owner _Opt malloc(unsigned int size);
+void* _Owner _Opt realloc(void* _Opt ptr, unsigned int size);
+void free(void* _Owner _Opt p);
 
 int main()
 {
@@ -1331,13 +1365,13 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>Note: A contract syntax is being considered to remove the assert from the caller side and move it to a function contract declaration. </p>
-
 <h3 id="toc_5">assert is a built-in function</h3>
 
-<p>Consider the following sample where we have a linked list. 
-Each node has owner pointer to next. 
-The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know <code>list-&gt;tail-&gt;next</code> is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.</p>
+<p>Consider the following example of a linked list, where each node has a pointer to the next node. 
+The next pointer of the tail of the list should always point to null, 
+unless there is a bug. However, the compiler does not inherently know 
+that <code>list-&gt;tail-&gt;next</code> is null. By using <code>assert</code>, we can inform the compiler of this expectation,
+while also providing a runtime check for potential logic errors.</p>
 
 <p><strong>Listing 22 shows the usage of assert.</strong> </p>
 
@@ -1348,12 +1382,12 @@ The next pointer of the tail of the list is always pointing to null, unless we h
 
 struct node {
  char * _Owner text;
- struct node* _Owner next;
+ struct node* _Owner _Opt next;
 };
 
 struct list {
-  struct node * _Owner head;
-  struct node * tail;
+  struct node * _Owner _Opt head;
+  struct node * _Opt tail;
 };
 
 void list_append(struct list* list, struct node* _Owner node)
@@ -1375,6 +1409,47 @@ void list_append(struct list* list, struct node* _Owner node)
    }
    list-&gt;tail = node;
 }
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>Now, consider the same example of a linked list using the contracts mentioned earlier</p>
+
+<pre><code class="language-c">#pragma safety enable
+
+#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+
+struct node {
+ char * _Owner text;
+ struct node* _Owner _Opt next;
+};
+
+struct list {
+  struct node * _Owner _Opt head;
+  struct node * _Opt tail;
+};
+
+bool list_is_empty(const struct list* list)
+ true(list-&gt;head == nullptr &amp;&amp; list-&gt;tail == nullptr),
+ false(list-&gt;head != nullptr &amp;&amp; list-&gt;tail != nullptr &amp;&amp; list-&gt;tail-&gt;next == nullptr)
+{
+    return list-&gt;head == nullptr;
+}
+
+void list_append(struct list* list, struct node* _Owner node)
+{
+  if (list_is_empty(list)) 
+  {
+     list-&gt;head = node;
+  }
+  else
+  {      
+     list-&gt;tail-&gt;next = node;
+  }
+   list-&gt;tail = node;
+}
+
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
@@ -1460,7 +1535,13 @@ indeterminate when the object the pointer points to (or just past) reaches the e
 
 <p>region of data storage in the execution environment, the contents of which can represent values</p>
 
-<h2 id="toc_8">References</h2>
+<h3 id="toc_8">non-value representation (C23)</h3>
+
+<p>an object representation that does not represent a value of the object type</p>
+
+<h2 id="toc_9">References</h2>
 
 <p>[1] <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>, <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
+
+<p><a href="https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates">https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates</a></p>
 </article></body></html>

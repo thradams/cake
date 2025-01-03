@@ -2492,7 +2492,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         else
         {
             assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
-            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);            
+            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
         }
 
         assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
@@ -9010,18 +9010,18 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                 throw;
             }
 
+            /*
+                     * Check is return type is compatible with function return
+                     */
+            struct type return_type =
+                get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->p_declarator->type);
+
             if (ctx->current->type != ';')
             {
                 p_jump_statement->expression_opt = expression(ctx);
 
                 if (p_jump_statement->expression_opt)
                 {
-                    /*
-                     * Check is return type is compatible with function return
-                     */
-                    struct type return_type =
-                        get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->p_declarator->type);
-
                     if (type_is_void(&return_type))
                     {
                         compiler_diagnostic_message(C_ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
@@ -9037,10 +9037,20 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                             p_jump_statement->expression_opt,
                             ASSIGMENT_TYPE_RETURN);
                     }
-
-                    type_destroy(&return_type);
                 }
             }
+            else
+            {
+                if (!type_is_void(&return_type))
+                {
+                    compiler_diagnostic_message(C_ERROR_NON_VOID_FUNCTION_SHOULD_RETURN_VALUE,
+                        ctx,
+                        p_return_token, NULL,
+                        "non void function '%s' should return a value",
+                        ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                }
+            }
+            type_destroy(&return_type);
         }
         else
         {

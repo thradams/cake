@@ -6,6 +6,6 @@ int main()
 {
   int * _Opt p = f();
   if (p)
-    return;
+    return 0;
 #pragma cake diagnostic check "-Wflow-not-null"  
 }

@@ -827,6 +827,7 @@ enum diagnostic_id {
     C_ERROR_UNEXPECTED_END_OF_FILE = 1100,
     C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK = 1110,
     C_ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE = 1120,
+    C_ERROR_NON_VOID_FUNCTION_SHOULD_RETURN_VALUE = 1121,
     C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE = 1130,
     C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS = 1140,
     C_ERROR_FILE_NOT_FOUND = 1150,
@@ -8556,7 +8557,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
         /*some gcc stuff need to parse linux headers*/
     "#define __linux__\n"
-        "#define __builtin_va_list\n"
+        "#define __builtin_va_list void* \n"        
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
         "#define __builtin_va_arg(a, b) ((b)a)\n"
@@ -27997,7 +27998,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.48"
+#define CAKE_VERSION "0.9.49"
 
 
 
@@ -30496,7 +30497,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         else
         {
             assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
-            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);            
+            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
         }
 
         assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
@@ -37014,18 +37015,18 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                 throw;
             }
 
+            /*
+                     * Check is return type is compatible with function return
+                     */
+            struct type return_type =
+                get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->p_declarator->type);
+
             if (ctx->current->type != ';')
             {
                 p_jump_statement->expression_opt = expression(ctx);
 
                 if (p_jump_statement->expression_opt)
                 {
-                    /*
-                     * Check is return type is compatible with function return
-                     */
-                    struct type return_type =
-                        get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->p_declarator->type);
-
                     if (type_is_void(&return_type))
                     {
                         compiler_diagnostic_message(C_ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
@@ -37041,10 +37042,20 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                             p_jump_statement->expression_opt,
                             ASSIGMENT_TYPE_RETURN);
                     }
-
-                    type_destroy(&return_type);
                 }
             }
+            else
+            {
+                if (!type_is_void(&return_type))
+                {
+                    compiler_diagnostic_message(C_ERROR_NON_VOID_FUNCTION_SHOULD_RETURN_VALUE,
+                        ctx,
+                        p_return_token, NULL,
+                        "non void function '%s' should return a value",
+                        ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                }
+            }
+            type_destroy(&return_type);
         }
         else
         {
@@ -40697,8 +40708,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                         ss_fprintf(&ctx->function_types, "inline %s\n", ss.c_str);
                         ss_fprintf(&ctx->function_types, "%s", oss->c_str);
                         
-                        ss_close(oss);
-                        *oss = copy;
+                        ss_swap(oss, &copy);                        
+                        ss_close(&copy);
                     }
                     else
                     {

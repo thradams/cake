@@ -436,8 +436,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                         ss_fprintf(&ctx->function_types, "inline %s\n", ss.c_str);
                         ss_fprintf(&ctx->function_types, "%s", oss->c_str);
                         
-                        ss_close(oss);
-                        *oss = copy;
+                        ss_swap(oss, &copy);                        
+                        ss_close(&copy);
                     }
                     else
                     {
