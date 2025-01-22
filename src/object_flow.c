@@ -2806,6 +2806,18 @@ static void flow_assignment_core(
 
         if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
         {
+            /*
+            *  Moving an already moved object
+            */
+            if (flow_object_can_be_moved(p_visitor_b->p_object))
+            {
+                compiler_diagnostic_message(W_FLOW_MOVED,
+                                            ctx->ctx,
+                                            NULL,
+                                            p_b_marker,
+                                            "object may be already moved");
+            }
+
             //*b must be empty before copying to void* _Owner
             struct type t = type_remove_pointer(p_visitor_b->p_type);
 
@@ -3262,15 +3274,15 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
                                     pointed->members.data[p_expression->member_index]->current.state;
                                 objects_view_merge(&p_object->current.ref, &pointed->members.data[p_expression->member_index]->current.ref);
                                 //return pointed->members.data[p_expression->member_index];
-                            }
+            }
                             else
                             {
                                 //return NULL;
                             }
-                        }
-                    }
+        }
+    }
                     return p_object;
-                }
+}
 #endif
             }
             return NULL;
