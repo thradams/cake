@@ -1206,6 +1206,13 @@ int main() {
 
 <button onclick="Try(this)">try</button>
 
+I later realized that C# has an out parameter, which is similar in 
+many ways. For example, both Cake and C# assume the argument is 
+initialized independently of the result.
+
+https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out
+
+
 #### Null and Not-Null state
 
 The **null** state means that pointers/objects are empty, In other words, not referencing any object. 

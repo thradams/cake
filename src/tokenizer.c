@@ -5303,10 +5303,16 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __LINE__ 0\n"
         "#define __COUNTER__ 0\n"
         "#define _CONSOLE\n"
-        "#define __STDC_OWNERSHIP__ 1\n"
-        "#define _W_DIVIZION_BY_ZERO_ 29\n"
-
-
+        "#define __STDC_OWNERSHIP__ 1\n" /*cake extension*/        
+        "#define __STDC_HOSTED__ " TOSTRING(__STDC_HOSTED__) "\n"
+        "#define __STDC_NO_ATOMICS__ " TOSTRING(__STDC_NO_ATOMICS__) "\n"
+        "#define __STDC_NO_COMPLEX__  " TOSTRING(__STDC_NO_COMPLEX__) "\n"
+        "#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__ ) "\n"
+        "#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__  ) "\n"
+        //"#define __STDC__    " TOSTRING(__STDC__) "\n"
+         
+         
+        
 #ifdef __EMSCRIPTEN__
         //include dir on emscripten
         "#pragma dir \"c:/\"\n"

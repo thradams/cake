@@ -7,6 +7,7 @@ bool init(_Out int *a) {
 
 int main() {
     int a;
-    if (0 || init(&a)) return a;
+    if (init(&a) || a == 0) return a;
+    if (init(&a) && a == 0) return a;
     return a;
 }

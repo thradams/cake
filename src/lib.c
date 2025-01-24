@@ -8517,10 +8517,16 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __LINE__ 0\n"
         "#define __COUNTER__ 0\n"
         "#define _CONSOLE\n"
-        "#define __STDC_OWNERSHIP__ 1\n"
-        "#define _W_DIVIZION_BY_ZERO_ 29\n"
-
-
+        "#define __STDC_OWNERSHIP__ 1\n" /*cake extension*/        
+        "#define __STDC_HOSTED__ " TOSTRING(__STDC_HOSTED__) "\n"
+        "#define __STDC_NO_ATOMICS__ " TOSTRING(__STDC_NO_ATOMICS__) "\n"
+        "#define __STDC_NO_COMPLEX__  " TOSTRING(__STDC_NO_COMPLEX__) "\n"
+        "#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__ ) "\n"
+        "#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__  ) "\n"
+        //"#define __STDC__    " TOSTRING(__STDC__) "\n"
+         
+         
+        
 #ifdef __EMSCRIPTEN__
         //include dir on emscripten
         "#pragma dir \"c:/\"\n"
@@ -13425,6 +13431,11 @@ enum flow_state
 
     FLOW_OBJECT_STATE_UNINITIALIZED = 1 << 0,
 
+
+    /*
+      The only reason we have null and zero is because
+      of non pointer references -1 for instance can be the "null"
+    */
     FLOW_OBJECT_STATE_NULL = 1 << 1,
     FLOW_OBJECT_STATE_NOT_NULL = 1 << 2,
 
@@ -28010,7 +28021,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.50"
+#define CAKE_VERSION "0.9.51"
 
 
 
@@ -45259,66 +45270,74 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_check_pointer_used_as_bool(ctx, p_expression->left);
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
-        const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
 
         struct true_false_set left_set = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_set);
 
-
-
-        //Set all variables to false state, because otherwise, the right branch
-        // would not be evaluated
-        true_false_set_set_objects_to_false_branch(ctx, &left_set, nullable_enabled);
-
-        struct true_false_set right_set = { 0 };
-        flow_visit_expression(ctx, p_expression->right, &right_set);
-
-        //  true_false_set_merge(expr_true_false_set, &left_set, &right_set,
-        //         MERGE_OPTIONS_A_TRUE | MERGE_OPTIONS_A_FALSE | MERGE_OPTIONS_B_TRUE | MERGE_OPTIONS_B_FALSE,
-        //         MERGE_OPTIONS_A_FALSE| MERGE_OPTIONS_B_FALSE);
-
-        //Tudo que faz left ser true ou right ser true
-
-        for (int i = 0; i < left_set.size; i++)
+        if (object_has_constant_value(&p_expression->left->object) &&
+            object_to_bool(&p_expression->left->object) == true)
         {
-            struct true_false_set_item item5;
-
-            item5.p_expression = left_set.data[i].p_expression;
-            item5.true_branch_state |= (left_set.data[i].true_branch_state | left_set.data[i].false_branch_state);
-            item5.false_branch_state |= left_set.data[i].false_branch_state;
-            true_false_set_push_back(expr_true_false_set, &item5);
-        }
-
-        for (int k = 0; k < right_set.size; k++)
+            // left || right
+            //left is true, so the right side will not run
+        }        
+        else
         {
-            int index =
-                find_item_index_by_expression(expr_true_false_set, right_set.data[k].p_expression);
-            if (index == -1)
+            const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
+
+            //Set all variables to false state, because otherwise, the right branch
+            // would not be evaluated
+            true_false_set_set_objects_to_false_branch(ctx, &left_set, nullable_enabled);
+
+            struct true_false_set right_set = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &right_set);
+
+            //Tudo que faz left ser true ou right ser true
+
+            for (int i = 0; i < left_set.size; i++)
             {
-                index = expr_true_false_set->size;
+                struct true_false_set_item item5;
 
-                struct true_false_set_item item4 = {
-                  .p_expression = right_set.data[k].p_expression
-                };
-
-                true_false_set_push_back(expr_true_false_set, &item4);
+                item5.p_expression = left_set.data[i].p_expression;
+                item5.true_branch_state |= (left_set.data[i].true_branch_state | left_set.data[i].false_branch_state);
+                item5.false_branch_state |= left_set.data[i].false_branch_state;
+                true_false_set_push_back(expr_true_false_set, &item5);
             }
 
-            //Tudo que faz left true e right true faz expressao se true
-            expr_true_false_set->data[index].p_expression = right_set.data[k].p_expression;
-            //d->data[index].true_branch_state |= right_set.data[k].true_branch_state;
-            //Tudo que faz left true ou left false, e right false faz ser false
-            expr_true_false_set->data[index].false_branch_state |= right_set.data[k].false_branch_state;
+            for (int k = 0; k < right_set.size; k++)
+            {
+                int index =
+                    find_item_index_by_expression(expr_true_false_set, right_set.data[k].p_expression);
+                if (index == -1)
+                {
+                    index = expr_true_false_set->size;
 
-            //No path true seria possivel nao ser feito o right
-            expr_true_false_set->data[index].true_branch_state |= (BOOLEAN_FLAG_TRUE | BOOLEAN_FLAG_FALSE);
+                    struct true_false_set_item item4 = {
+                      .p_expression = right_set.data[k].p_expression
+                    };
 
+                    true_false_set_push_back(expr_true_false_set, &item4);
+                }
+
+                //Tudo que faz left true e right true faz expressao se true
+                expr_true_false_set->data[index].p_expression = right_set.data[k].p_expression;
+                //d->data[index].true_branch_state |= right_set.data[k].true_branch_state;
+                //Tudo que faz left true ou left false, e right false faz ser false
+                expr_true_false_set->data[index].false_branch_state |= right_set.data[k].false_branch_state;
+
+                //No path true seria possivel nao ser feito o right
+                expr_true_false_set->data[index].true_branch_state |= (BOOLEAN_FLAG_TRUE | BOOLEAN_FLAG_FALSE);
+
+            }
+
+            //TODO we whould not restore the previous states for states that 
+            //are not true/false
+            // if (false || init(a)) ... we cannot undo the out a
+            arena_restore_current_state_from(ctx, original_state_number);
+            arena_remove_state(ctx, original_state_number);
+
+            true_false_set_destroy(&left_set);
+            true_false_set_destroy(&right_set);
         }
-
-        arena_restore_current_state_from(ctx, original_state_number);
-        arena_remove_state(ctx, original_state_number);
-        true_false_set_destroy(&left_set);
-        true_false_set_destroy(&right_set);
     }
     break;
 
@@ -45330,11 +45349,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_check_pointer_used_as_bool(ctx, p_expression->left);
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
-        const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
 
         struct true_false_set left_set = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_set);
 
+        const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
 
         //Set all variables to true state, because otherwise, the right branch
         // would not be evaluated

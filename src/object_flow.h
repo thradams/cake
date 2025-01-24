@@ -31,6 +31,11 @@ enum flow_state
 
     FLOW_OBJECT_STATE_UNINITIALIZED = 1 << 0,
 
+
+    /*
+      The only reason we have null and zero is because
+      of non pointer references -1 for instance can be the "null"
+    */
     FLOW_OBJECT_STATE_NULL = 1 << 1,
     FLOW_OBJECT_STATE_NOT_NULL = 1 << 2,
 
