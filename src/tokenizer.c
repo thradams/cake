@@ -4741,8 +4741,9 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     {
         //TODO unit test
         char line[50] = { 0 };
-        ctx->count_macro_value++;
         snprintf(line, sizeof line, "%d", ctx->count_macro_value);
+        ctx->count_macro_value++;
+
         struct tokenizer_ctx tctx = { 0 };
         struct token_list r = tokenizer(&tctx, line, "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
