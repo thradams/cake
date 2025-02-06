@@ -26,7 +26,6 @@
     " object.c "          \
     " expressions.c "     \
     " pre_expressions.c " \
-    " object_flow.c "     \
     " parser.c "          \
     " visit_defer.c "     \
     " visit_il.c "        \

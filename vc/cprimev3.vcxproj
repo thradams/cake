@@ -64,12 +64,6 @@
     <ClInclude Include="..\src\type.h" />
     <ClInclude Include="..\src\version.h" />
   </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\src\object_flow.c">
-      <FileType>CppCode</FileType>
-    </ClCompile>
-    <Text Include="..\src\object_flow.h" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

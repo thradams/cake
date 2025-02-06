@@ -1,16 +1,3 @@
-//TODO 
-// - array initialization
-// - union
-// static static
-//
-/*
-TODO
-static char mon[][4] = {
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    };
-*/
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -1542,6 +1529,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
+                                                    assert(p2->data.p_struct_entry != NULL);
                                                     struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
                                                 }
                                             }
@@ -1562,6 +1550,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                     struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                     if (p2 != NULL)
                                                     {
+                                                        assert(p2->data.p_struct_entry != NULL);
                                                         struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
                                                     }
                                                 }
@@ -1603,6 +1592,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                             struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                             if (p2 != NULL)
                                             {
+                                                assert(p2->data.p_struct_entry != NULL);
                                                 struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
                                             }
                                         }
@@ -1627,6 +1617,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
+                                                    assert(p2->data.p_struct_entry != NULL);
                                                     struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
                                                 }
                                             }
@@ -2523,6 +2514,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         struct map_entry* _Opt entry = ctx->structs_map.table[i];
         while (entry)
         {
+            assert(entry->data.p_struct_entry != NULL);
             print_complete_structs(ctx, oss, entry->data.p_struct_entry);
             entry = entry->next;
         }

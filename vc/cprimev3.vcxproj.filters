@@ -49,9 +49,6 @@
     <ClCompile Include="..\src\visit_flow.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\object_flow.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\object.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -114,10 +111,5 @@
     <ClInclude Include="..\src\visit_defer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="..\src\object_flow.h">
-      <Filter>Source Files</Filter>
-    </Text>
   </ItemGroup>
 </Project>

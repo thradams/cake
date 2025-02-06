@@ -3124,27 +3124,27 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
     if (p_token == NULL)
         p_token = ctx->current;
 
-    const struct type* p = p_type;
+    const struct type* _Opt p = p_type;
     while (p)
     {
         if (p->category == TYPE_CATEGORY_FUNCTION)
         {
-            if (p->next->category == TYPE_CATEGORY_FUNCTION)
+            if (p->next && p->next->category == TYPE_CATEGORY_FUNCTION)
             {
                 compiler_diagnostic_message(C_ERROR_FUNCTION_RETURNS_FUNCTION,
-                ctx,
-                p_token,
-                NULL,
-                "function returning function");
+                                            ctx,
+                                            p_token,
+                                            NULL,
+                                            "function returning function");
                 return false;
             }
-            else if (p->next->category == TYPE_CATEGORY_ARRAY)
+            else if (p->next && p->next->category == TYPE_CATEGORY_ARRAY)
             {
                 compiler_diagnostic_message(C_ERROR_FUNCTION_RETURNS_ARRAY,
-                ctx,
-                p_token,
-                NULL,
-                "function returning array");
+                                            ctx,
+                                            p_token,
+                                            NULL,
+                                            "function returning array");
                 return false;
             }
         }
@@ -3152,18 +3152,17 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
                  p->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
             compiler_diagnostic_message(C_ERROR_INVALID_TYPE,
-            ctx,
-            p_token,
-            NULL,
-            "invalid type");
+                                        ctx,
+                                        p_token,
+                                        NULL,
+                                        "invalid type");
             return false;
-
         }
 
         p = p->next;
     }
-    return true;
 
+    return true;
 }
 
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator)
