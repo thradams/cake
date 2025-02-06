@@ -52,18 +52,21 @@
 </ul>
 </li>
 <li>
-<a href="#toc_6">Code transition Strategy</a>
+<a href="#toc_6">Cake&#39;s static analysis limitations</a>
 </li>
 <li>
-<a href="#toc_7">Glossary</a>
+<a href="#toc_7">Code transition Strategy</a>
+</li>
+<li>
+<a href="#toc_8">Glossary</a>
 <ul>
 <li>
-<a href="#toc_8">non-value representation (C23)</a>
+<a href="#toc_9">non-value representation (C23)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_9">References</a>
+<a href="#toc_10">References</a>
 </li>
 </ul>
 <p>Last Updated 3 Jan 2025</p>
@@ -1460,7 +1463,52 @@ void list_append(struct list* list, struct node* _Owner node)
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h2 id="toc_6">Code transition Strategy</h2>
+<h2 id="toc_6">Cake&#39;s static analysis limitations</h2>
+
+<p>While Cake tracks possible states, such as maybe-null, it does not track 
+the origin or relationships between these states. </p>
+
+<p>For instance, in the following example, Cake does not understand that the pointer cannot be null.</p>
+
+<pre><code class="language-c">int f(int c)
+{
+    int i =0;
+    int * _Opt p = 0;
+    
+    if (c &gt; 2)
+      p = &amp;i;
+
+    if (c &gt; 2)
+      i = *p; //warning: dereference a NULL object
+}
+</code></pre>
+
+<p>In the following example, Cake recognizes that the pointed object is &#39;maybe deleted.&#39; 
+However, if the object is deleted, it doesn’t matter because the pointer is null. 
+These relationships between states are not tracked.</p>
+
+<pre><code class="language-c">#pragma safety enable
+#include &lt;stdlib.h&gt;
+
+int * _Owner _Opt f(int c){
+  int * _Owner _Opt p = malloc(sizeof * p);
+  try {
+         if (c) throw;
+  }
+  catch {
+      free(p);
+      p = nullptr;
+  }
+  return p; //warning: lifetime ended &#39;p&#39;
+}
+</code></pre>
+
+<p>To address these issues, I am considering a new algorithm.</p>
+
+<p>Please note that this is an implementation detail and is not related to the ownership 
+rules themselves.</p>
+
+<h2 id="toc_7">Code transition Strategy</h2>
 
 <p>If the compiler supports ownership checks it must define  <code>__STDC_OWNERSHIP__</code>. </p>
 
@@ -1503,7 +1551,7 @@ int main()
 }
 </code></pre>
 
-<h2 id="toc_7">Glossary</h2>
+<h2 id="toc_8">Glossary</h2>
 
 <h4>undefined behavior (From C23)</h4>
 
@@ -1541,11 +1589,11 @@ indeterminate when the object the pointer points to (or just past) reaches the e
 
 <p>region of data storage in the execution environment, the contents of which can represent values</p>
 
-<h3 id="toc_8">non-value representation (C23)</h3>
+<h3 id="toc_9">non-value representation (C23)</h3>
 
 <p>an object representation that does not represent a value of the object type</p>
 
-<h2 id="toc_9">References</h2>
+<h2 id="toc_10">References</h2>
 
 <p>[1] <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>, <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
 

@@ -2236,7 +2236,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 parameter = p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
             }
 
-            /*parametros nao usados*/
+            /*unused parameters*/
             while (parameter)
             {
                 if (!type_is_maybe_unused(&parameter->declarator->type) &&
@@ -2265,7 +2265,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             if (ctx->options.flow_analysis)
             {
                 /*
-                 *  The objetive of this visit is to initialize global flow_objects.
+                 *  The objective of this visit is to initialize global flow_objects.
                  *  It also executes static_debug
                  */
                 _Opt struct flow_visit_ctx ctx2 = { 0 };

@@ -1459,6 +1459,55 @@ void list_append(struct list* list, struct node* _Owner node)
 
 <button onclick="Try(this)">try</button>
 
+## Cake's static analysis limitations 
+
+While Cake tracks possible states, such as maybe-null, it does not track 
+the origin or relationships between these states. 
+
+
+For instance, in the following example, Cake does not understand that the pointer cannot be null.
+
+```c
+int f(int c)
+{
+    int i =0;
+    int * _Opt p = 0;
+    
+    if (c > 2)
+      p = &i;
+
+    if (c > 2)
+      i = *p; //warning: dereference a NULL object
+}
+```
+
+In the following example, Cake recognizes that the pointed object is 'maybe deleted.' 
+However, if the object is deleted, it doesn’t matter because the pointer is null. 
+These relationships between states are not tracked.
+
+```c
+#pragma safety enable
+#include <stdlib.h>
+
+int * _Owner _Opt f(int c){
+  int * _Owner _Opt p = malloc(sizeof * p);
+  try {
+         if (c) throw;
+  }
+  catch {
+      free(p);
+      p = nullptr;
+  }
+  return p; //warning: lifetime ended 'p'
+}
+```
+
+To address these issues, I am considering a new algorithm.
+
+Please note that this is an implementation detail and is not related to the ownership 
+rules themselves.
+
+
 ## Code transition Strategy
 
 If the compiler supports ownership checks it must define  `__STDC_OWNERSHIP__`. 
