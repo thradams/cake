@@ -452,7 +452,7 @@ enum token_type
     TK_KEYWORD_SIGNED,
     
     TK_KEYWORD_SIZEOF,
-    TK_KEYWORD__LENGTHOF, //C2Y
+    TK_KEYWORD__COUNTOF, //C2Y
 
     
     TK_KEYWORD_STATIC,
@@ -8930,7 +8930,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
     case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
     case TK_PRAGMA_END: return "TK_PRAGMA_END";
-    case TK_KEYWORD__LENGTHOF: return "TK_KEYWORD__LENGTHOF";
+    case TK_KEYWORD__COUNTOF: return "TK_KEYWORD__COUNTOF";
 
     }
     return "TK_X_MISSING_NAME";
@@ -19096,7 +19096,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == '~' ||
         ctx->current->type == '!' ||
         ctx->current->type == TK_KEYWORD_SIZEOF ||
-        ctx->current->type == TK_KEYWORD__LENGTHOF ||
+        ctx->current->type == TK_KEYWORD__COUNTOF ||
         ctx->current->type == TK_KEYWORD__ALIGNOF ||
         is_first_of_compiler_function(ctx);
 }
@@ -19171,8 +19171,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         unary-operator cast-expression
         sizeof unary-expression
         sizeof ( type-name )
-        _Lengthof unary-expression   //C2Y
-        _Lengthof ( type-name )      //C2Y
+        _Countof unary-expression   //C2Y
+        _Countof ( type-name )      //C2Y
         alignof ( type-name )
     */
 
@@ -19639,7 +19639,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             /*restore*/
             ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
-        else if (ctx->current->type == TK_KEYWORD__LENGTHOF)//C2Y
+        else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
             // defer would be nice here...
 
@@ -19696,7 +19696,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         ctx,
                         new_expression->type_name->first_token,
                         NULL,
-                        "argument of _Lengthof must be an array");
+                        "argument of _Countof must be an array");
 
                     expression_delete(new_expression);
                     throw;
@@ -19750,7 +19750,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         ctx,
                         new_expression->right->first_token,
                         NULL,
-                        "argument of _Lengthof must be an array");
+                        "argument of _Countof must be an array");
 
                     expression_delete(new_expression);
                     throw;
@@ -24030,6 +24030,8 @@ enum flow_state
     FLOW_OBJECT_STATE_NOT_ZERO = 1 << 6,
 
     FLOW_OBJECT_STATE_LIFE_TIME_ENDED = 1 << 7,
+    
+    FLOW_OBJECT_STATE_DANGLING = 1 << 8
 };
 
 
@@ -25512,8 +25514,8 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_View", text) == 0)
             result = TK_KEYWORD__VIEW; /*extension*/
 
-        else if (strcmp("_Lengthof", text) == 0)
-            result = TK_KEYWORD__LENGTHOF; /*C2Y*/
+        else if (strcmp("_Countof", text) == 0)
+            result = TK_KEYWORD__COUNTOF; /*C2Y*/
 
         /*TRAITS EXTENSION*/
         else if (strcmp("_is_lvalue", text) == 0)
@@ -40868,7 +40870,7 @@ void flow_object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_
     _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
-    object_set_end_of_lifetime_core(&visitor);
+    object_set_end_of_lifetime_core(&visitor);  
 }
 
 //returns true if all parts that need to be moved weren't moved.

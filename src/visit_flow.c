@@ -1767,7 +1767,7 @@ void flow_object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_
     _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
-    object_set_end_of_lifetime_core(&visitor);
+    object_set_end_of_lifetime_core(&visitor);  
 }
 
 //returns true if all parts that need to be moved weren't moved.

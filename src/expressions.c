@@ -2165,7 +2165,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == '~' ||
         ctx->current->type == '!' ||
         ctx->current->type == TK_KEYWORD_SIZEOF ||
-        ctx->current->type == TK_KEYWORD__LENGTHOF ||
+        ctx->current->type == TK_KEYWORD__COUNTOF ||
         ctx->current->type == TK_KEYWORD__ALIGNOF ||
         is_first_of_compiler_function(ctx);
 }
@@ -2240,8 +2240,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         unary-operator cast-expression
         sizeof unary-expression
         sizeof ( type-name )
-        _Lengthof unary-expression   //C2Y
-        _Lengthof ( type-name )      //C2Y
+        _Countof unary-expression   //C2Y
+        _Countof ( type-name )      //C2Y
         alignof ( type-name )
     */
 
@@ -2708,7 +2708,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             /*restore*/
             ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
-        else if (ctx->current->type == TK_KEYWORD__LENGTHOF)//C2Y
+        else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
             // defer would be nice here...
 
@@ -2765,7 +2765,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         ctx,
                         new_expression->type_name->first_token,
                         NULL,
-                        "argument of _Lengthof must be an array");
+                        "argument of _Countof must be an array");
 
                     expression_delete(new_expression);
                     throw;
@@ -2819,7 +2819,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         ctx,
                         new_expression->right->first_token,
                         NULL,
-                        "argument of _Lengthof must be an array");
+                        "argument of _Countof must be an array");
 
                     expression_delete(new_expression);
                     throw;

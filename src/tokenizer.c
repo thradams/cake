@@ -5716,7 +5716,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
     case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
     case TK_PRAGMA_END: return "TK_PRAGMA_END";
-    case TK_KEYWORD__LENGTHOF: return "TK_KEYWORD__LENGTHOF";
+    case TK_KEYWORD__COUNTOF: return "TK_KEYWORD__COUNTOF";
 
     }
     return "TK_X_MISSING_NAME";

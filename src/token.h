@@ -118,7 +118,7 @@ enum token_type
     TK_KEYWORD_SIGNED,
     
     TK_KEYWORD_SIZEOF,
-    TK_KEYWORD__LENGTHOF, //C2Y
+    TK_KEYWORD__COUNTOF, //C2Y
 
     
     TK_KEYWORD_STATIC,

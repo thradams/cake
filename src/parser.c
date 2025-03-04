@@ -1224,8 +1224,8 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_View", text) == 0)
             result = TK_KEYWORD__VIEW; /*extension*/
 
-        else if (strcmp("_Lengthof", text) == 0)
-            result = TK_KEYWORD__LENGTHOF; /*C2Y*/
+        else if (strcmp("_Countof", text) == 0)
+            result = TK_KEYWORD__COUNTOF; /*C2Y*/
 
         /*TRAITS EXTENSION*/
         else if (strcmp("_is_lvalue", text) == 0)

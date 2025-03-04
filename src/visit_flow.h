@@ -39,6 +39,8 @@ enum flow_state
     FLOW_OBJECT_STATE_NOT_ZERO = 1 << 6,
 
     FLOW_OBJECT_STATE_LIFE_TIME_ENDED = 1 << 7,
+    
+    FLOW_OBJECT_STATE_DANGLING = 1 << 8
 };
 
 
