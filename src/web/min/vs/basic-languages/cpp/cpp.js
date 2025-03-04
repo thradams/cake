@@ -17,7 +17,7 @@ define("vs/basic-languages/cpp/cpp", ["require", "require"], (require) => {
                 "_Owner", "_Out", "_Opt", "assert", "_Generic", "_View", "_Obj_owner",
                 "static_debug", "static_state", "static_set",
                 //C2Y
-                "_Lengthof",
+                "_Countof",
                 "defer",
                 //cake extensions
                 //C23
@@ -25,6 +25,7 @@ define("vs/basic-languages/cpp/cpp", ["require", "require"], (require) => {
                 "_Bool",
                 "typeof_unqual", "typeof",
                 //
+                "extern",
                 "auto", "bool", "break", "case", "catch", "char", "const",
                 "constexpr", "continue", "typeof", "default", "do",
                 "double", "else", "enum", "false",
