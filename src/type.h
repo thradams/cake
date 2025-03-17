@@ -22,7 +22,6 @@ enum type_category
     TYPE_CATEGORY_POINTER,
 };
 
-
 enum attribute_flags
 {
     STD_ATTRIBUTE_NONE = 0,
@@ -163,7 +162,8 @@ enum assigment_type
 };
 
 
-struct type_list {
+struct type_list
+{
     struct type* _Owner _Opt head;
     struct type* _Opt tail;
 };
@@ -175,7 +175,8 @@ void type_list_push_front(struct type_list* books, struct type* _Owner new_book)
 
 struct param;
 
-struct param_list {
+struct param_list
+{
     bool is_var_args;
     bool is_void;
     struct param* _Owner _Opt head;
@@ -217,7 +218,8 @@ struct type
 
 const struct param_list* _Opt type_get_func_or_func_ptr_params(const struct type* p_type);
 
-struct param {
+struct param
+{
     struct type type;
     struct param* _Owner _Opt next;
 };

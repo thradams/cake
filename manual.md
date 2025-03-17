@@ -1367,7 +1367,12 @@ int main()
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm
 
-###  Extension - defer
+### \_Countof operator 
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf
+
+
+###   defer
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm
 
@@ -1428,9 +1433,10 @@ int main()
 
 ```
 
-###  Extension - if with initializer
+###  if declarations, v4
 
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm
+
 
 ```c
 #include <stdio.h>

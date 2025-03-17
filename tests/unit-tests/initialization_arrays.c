@@ -175,7 +175,7 @@ void T7()
     // initializes w (an array of two structs) to
     // { { {1,0,0}, 0}, { {2,0,0}, 0} }
     constexpr struct { int a[3], b; } w[] = { [0] .a = {1},[1].a[0] = 2 };
-    static_assert(_Lengthof(w) == 2);
+    static_assert(_Countof(w) == 2);
     static_assert(w[0].a[0] == 1);
     static_assert(w[0].a[1] == 0);
     static_assert(w[0].a[2] == 0);
@@ -211,7 +211,7 @@ void T9()
     static_assert(a[0] == 1);
     static_assert(a[1] == 2);
     static_assert(a[2] == 3);
-    static_assert(_Lengthof(a) == 3);
+    static_assert(_Countof(a) == 3);
 }
 
 

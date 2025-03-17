@@ -245,6 +245,7 @@ struct token_list
     struct token* _Owner _Opt head;
     struct token* _Opt tail;
 };
+
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
 void token_list_swap(struct token_list* a, struct token_list* b);
@@ -266,8 +267,8 @@ void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
 
-struct marker {    
-    
+struct marker
+{    
     const char* _Opt file;
     int line;
     int start_col;
@@ -281,6 +282,7 @@ struct marker {
     const struct token* _Opt p_token_begin;
     const struct token* _Opt p_token_end;
 };
+
 void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format);
 
 void print_position(const char* path, int line, int col, bool msvc_format);
@@ -298,7 +300,6 @@ struct stream
 int is_digit(const struct stream* p);
 int is_nondigit(const struct stream* p);
 void stream_match(struct stream* stream);
-
 
 bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);

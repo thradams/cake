@@ -18,7 +18,7 @@
 
 
 //EXPERIMENTAL CONTRACTS
-#define CONTRACTS 1
+#define EXPERIMENTAL_CONTRACTS 1
 
 
 struct scope
@@ -87,6 +87,24 @@ void switch_value_destroy(struct switch_value_list* _Obj_owner list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
 struct switch_value* _Opt switch_value_list_find(const struct switch_value_list* list, long long value);
 
+struct label_list_item
+{
+    struct token* p_last_usage;
+    struct token* p_defined;
+    struct label_list_item * next;
+};
+
+struct label_list
+{
+    struct label_list_item* _Opt _Owner head;
+    struct label_list_item* _Opt tail;
+};
+
+struct label_list_item* _Opt label_list_find(struct label_list* list, const char* label_name);
+void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem);
+void label_list_clear(struct label_list* list);
+
+
 struct parser_ctx
 {
     struct options options;
@@ -100,6 +118,12 @@ struct parser_ctx
     * Points to the function we're in. Or null in file scope.
     */
     struct declaration* _Opt p_current_function_opt;
+
+
+    /*
+    *  Used to track non-used labels or used and not defined labels
+    */
+    struct label_list label_list; 
 
     /*
     * Points to the try-block we're in. Or null.
@@ -364,6 +388,7 @@ struct typeof_specifier
     struct typeof_specifier_argument* _Owner typeof_specifier_argument;
     struct type type;
 };
+
 void typeof_specifier_delete(struct typeof_specifier* _Owner _Opt p);
 
 struct type_specifier
@@ -636,7 +661,7 @@ struct struct_or_union_specifier
     bool is_owner;
 
     /*
-    * Token que possui tag da struct
+    *Token that has a strut tag
     */
     struct token* _Opt tagtoken;
 
@@ -799,7 +824,7 @@ struct function_declarator
        direct-declarator ( parameter-type-list _Opt )
     */
     struct direct_declarator* _Owner _Opt direct_declarator;
-    struct scope parameters_scope; //usado para escopo parametros
+    struct scope parameters_scope;// used for scope parameters
     struct parameter_type_list* _Owner _Opt parameter_type_list_opt;
 };
 
@@ -1377,8 +1402,8 @@ struct unlabeled_statement
     /*
       unlabeled-statement:
         expression-statement
-        attribute-specifier-sequence _Opt primary-block
-        attribute-specifier-sequence _Opt jump-statement
+        attribute-specifier-sequence opt primary-block
+        attribute-specifier-sequence opt jump-statement
      */
 
     struct expression_statement* _Owner _Opt expression_statement;
@@ -1407,7 +1432,7 @@ struct statement
     /*
      statement:
        labeled-statement
-       unlabeled-statemen
+       unlabeled-statement
     */
     struct labeled_statement* _Owner _Opt labeled_statement;
     struct unlabeled_statement* _Owner _Opt unlabeled_statement;
@@ -1531,7 +1556,7 @@ struct attribute_argument_clause
 {
     /*
      attribute-argument-clause:
-       ( balanced-token-sequence _Opt )
+       ( balanced-token-sequence opt )
     */
     struct balanced_token_sequence* _Owner _Opt p_balanced_token_sequence;
     struct token* token;
@@ -1576,9 +1601,9 @@ struct label
 {
     /*
      label:
-       attribute-specifier-sequence _Opt identifier :
-       attribute-specifier-sequence _Opt "case" constant-expression :
-       attribute-specifier-sequence _Opt "default" :
+       attribute-specifier-sequence opt identifier :
+       attribute-specifier-sequence opt "case" constant-expression :
+       attribute-specifier-sequence opt "default" :
     */
     struct expression* _Owner _Opt constant_expression;
     struct token* _Opt p_identifier_opt;

@@ -24,7 +24,6 @@ struct include_dir_list
     struct include_dir* _Opt tail;
 };
 
-
 enum preprocessor_ctx_flags
 {
     PREPROCESSOR_CTX_FLAGS_NONE = 0,

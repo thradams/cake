@@ -43,14 +43,16 @@ enum tag
 };
 
 
-struct map_entry {
+struct map_entry 
+{
     struct map_entry* _Owner _Opt next;
     unsigned int hash;
     char* _Owner key;
 
     enum tag type; /*type of the object pointed by p*/
 
-    union {
+    union 
+    {
         size_t number;
         struct enum_specifier* _Opt _Owner p_enum_specifier;
         struct enumerator* _Opt _Owner p_enumerator;
@@ -63,7 +65,8 @@ struct map_entry {
     
 };
 
-struct hash_map {
+struct hash_map 
+{
     struct map_entry* _Owner _Opt * _Owner _Opt table;
     int capacity;
     int  size;

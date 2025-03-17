@@ -1,6 +1,9 @@
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
+ *
+ *  struct object is used to compute the compile time expressions (including constexpr)
+ *
 */
 
 #pragma once
@@ -11,7 +14,8 @@
 #include "error.h"
 #include "type.h"
 
-enum object_value_type {
+enum object_value_type 
+{
 
     TYPE_SIGNED_INT,
     TYPE_UNSIGNED_INT,
@@ -56,7 +60,8 @@ enum object_value_state
     CONSTANT_VALUE_STATE_REFERENCE,
 };
 
-struct object {    
+struct object
+{    
     enum object_value_state state;
     enum object_value_type value_type;
     struct type type; //TODO to be removed

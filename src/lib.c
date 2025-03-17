@@ -282,14 +282,16 @@ enum tag
 };
 
 
-struct map_entry {
+struct map_entry 
+{
     struct map_entry* _Owner _Opt next;
     unsigned int hash;
     char* _Owner key;
 
     enum tag type; /*type of the object pointed by p*/
 
-    union {
+    union 
+    {
         size_t number;
         struct enum_specifier* _Opt _Owner p_enum_specifier;
         struct enumerator* _Opt _Owner p_enumerator;
@@ -302,7 +304,8 @@ struct map_entry {
     
 };
 
-struct hash_map {
+struct hash_map 
+{
     struct map_entry* _Owner _Opt * _Owner _Opt table;
     int capacity;
     int  size;
@@ -579,6 +582,7 @@ struct token_list
     struct token* _Owner _Opt head;
     struct token* _Opt tail;
 };
+
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
 void token_list_swap(struct token_list* a, struct token_list* b);
@@ -600,8 +604,8 @@ void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
 
-struct marker {    
-    
+struct marker
+{    
     const char* _Opt file;
     int line;
     int start_col;
@@ -615,6 +619,7 @@ struct marker {
     const struct token* _Opt p_token_begin;
     const struct token* _Opt p_token_end;
 };
+
 void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format);
 
 void print_position(const char* path, int line, int col, bool msvc_format);
@@ -632,7 +637,6 @@ struct stream
 int is_digit(const struct stream* p);
 int is_nondigit(const struct stream* p);
 void stream_match(struct stream* stream);
-
 
 bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);
@@ -760,7 +764,7 @@ enum diagnostic_id {
     
     W_EMPTY_STATEMENT,
     W_ERROR_INCOMPATIBLE_TYPES,
-    W_NOT_DEFINED54,
+    W_UNUSED_LABEL,
     W_NOT_DEFINED55,
     W_NOT_DEFINED56,
     W_NOT_DEFINED57,
@@ -858,7 +862,9 @@ enum diagnostic_id {
     C_INVALID_ARGUMENT_NELEMENTSOF = 1390,
     C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER = 1400,
     C_ERROR_FUNCTION_RETURNS_FUNCTION = 1410,
-    C_ERROR_FUNCTION_RETURNS_ARRAY = 1420    
+    C_ERROR_FUNCTION_RETURNS_ARRAY = 1420,    
+    C_ERROR_LABEL_NOT_DEFINED = 1430,    
+    C_ERROR_DUPLICATED_LABEL = 1440    
 };
 
 
@@ -1053,7 +1059,6 @@ struct include_dir_list
     struct include_dir* _Owner _Opt head;
     struct include_dir* _Opt tail;
 };
-
 
 enum preprocessor_ctx_flags
 {
@@ -12168,7 +12173,8 @@ s_warnings[] = {
     {W_INTEGER_OVERFLOW, "overflow"},
     {W_ARRAY_SIZE, "array-size"},
     {W_EMPTY_STATEMENT, "empty-statement"},
-    {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"}
+    {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"},
+    {W_UNUSED_LABEL, "unused-label"}
 };
 
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
@@ -12638,6 +12644,9 @@ void test_get_warning_name()
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
+ *
+ *  struct object is used to compute the compile time expressions (including constexpr)
+ *
 */
 
 //#pragma once
@@ -12662,7 +12671,6 @@ enum type_category
     TYPE_CATEGORY_ARRAY,
     TYPE_CATEGORY_POINTER,
 };
-
 
 enum attribute_flags
 {
@@ -12804,7 +12812,8 @@ enum assigment_type
 };
 
 
-struct type_list {
+struct type_list
+{
     struct type* _Owner _Opt head;
     struct type* _Opt tail;
 };
@@ -12816,7 +12825,8 @@ void type_list_push_front(struct type_list* books, struct type* _Owner new_book)
 
 struct param;
 
-struct param_list {
+struct param_list
+{
     bool is_var_args;
     bool is_void;
     struct param* _Owner _Opt head;
@@ -12858,7 +12868,8 @@ struct type
 
 const struct param_list* _Opt type_get_func_or_func_ptr_params(const struct type* p_type);
 
-struct param {
+struct param
+{
     struct type type;
     struct param* _Owner _Opt next;
 };
@@ -12994,7 +13005,8 @@ const struct type* type_get_specifer_part(const struct type* p_type);
 
 
 
-enum object_value_type {
+enum object_value_type 
+{
 
     TYPE_SIGNED_INT,
     TYPE_UNSIGNED_INT,
@@ -13039,7 +13051,8 @@ enum object_value_state
     CONSTANT_VALUE_STATE_REFERENCE,
 };
 
-struct object {    
+struct object
+{    
     enum object_value_state state;
     enum object_value_type value_type;
     struct type type; //TODO to be removed
@@ -13402,7 +13415,7 @@ void check_comparison(struct parser_ctx* ctx,
 
 
 //EXPERIMENTAL CONTRACTS
-#define CONTRACTS 1
+#define EXPERIMENTAL_CONTRACTS 1
 
 
 struct scope
@@ -13471,6 +13484,24 @@ void switch_value_destroy(struct switch_value_list* _Obj_owner list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
 struct switch_value* _Opt switch_value_list_find(const struct switch_value_list* list, long long value);
 
+struct label_list_item
+{
+    struct token* p_last_usage;
+    struct token* p_defined;
+    struct label_list_item * next;
+};
+
+struct label_list
+{
+    struct label_list_item* _Opt _Owner head;
+    struct label_list_item* _Opt tail;
+};
+
+struct label_list_item* _Opt label_list_find(struct label_list* list, const char* label_name);
+void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem);
+void label_list_clear(struct label_list* list);
+
+
 struct parser_ctx
 {
     struct options options;
@@ -13484,6 +13515,12 @@ struct parser_ctx
     * Points to the function we're in. Or null in file scope.
     */
     struct declaration* _Opt p_current_function_opt;
+
+
+    /*
+    *  Used to track non-used labels or used and not defined labels
+    */
+    struct label_list label_list; 
 
     /*
     * Points to the try-block we're in. Or null.
@@ -13748,6 +13785,7 @@ struct typeof_specifier
     struct typeof_specifier_argument* _Owner typeof_specifier_argument;
     struct type type;
 };
+
 void typeof_specifier_delete(struct typeof_specifier* _Owner _Opt p);
 
 struct type_specifier
@@ -14020,7 +14058,7 @@ struct struct_or_union_specifier
     bool is_owner;
 
     /*
-    * Token que possui tag da struct
+    *Token that has a strut tag
     */
     struct token* _Opt tagtoken;
 
@@ -14183,7 +14221,7 @@ struct function_declarator
        direct-declarator ( parameter-type-list _Opt )
     */
     struct direct_declarator* _Owner _Opt direct_declarator;
-    struct scope parameters_scope; //usado para escopo parametros
+    struct scope parameters_scope;// used for scope parameters
     struct parameter_type_list* _Owner _Opt parameter_type_list_opt;
 };
 
@@ -14761,8 +14799,8 @@ struct unlabeled_statement
     /*
       unlabeled-statement:
         expression-statement
-        attribute-specifier-sequence _Opt primary-block
-        attribute-specifier-sequence _Opt jump-statement
+        attribute-specifier-sequence opt primary-block
+        attribute-specifier-sequence opt jump-statement
      */
 
     struct expression_statement* _Owner _Opt expression_statement;
@@ -14791,7 +14829,7 @@ struct statement
     /*
      statement:
        labeled-statement
-       unlabeled-statemen
+       unlabeled-statement
     */
     struct labeled_statement* _Owner _Opt labeled_statement;
     struct unlabeled_statement* _Owner _Opt unlabeled_statement;
@@ -14915,7 +14953,7 @@ struct attribute_argument_clause
 {
     /*
      attribute-argument-clause:
-       ( balanced-token-sequence _Opt )
+       ( balanced-token-sequence opt )
     */
     struct balanced_token_sequence* _Owner _Opt p_balanced_token_sequence;
     struct token* token;
@@ -14960,9 +14998,9 @@ struct label
 {
     /*
      label:
-       attribute-specifier-sequence _Opt identifier :
-       attribute-specifier-sequence _Opt "case" constant-expression :
-       attribute-specifier-sequence _Opt "default" :
+       attribute-specifier-sequence opt identifier :
+       attribute-specifier-sequence opt "case" constant-expression :
+       attribute-specifier-sequence opt "default" :
     */
     struct expression* _Owner _Opt constant_expression;
     struct token* _Opt p_identifier_opt;
@@ -24035,7 +24073,8 @@ enum flow_state
 };
 
 
-struct flow_objects {
+struct flow_objects
+{
     struct flow_object* _Owner* _Owner _Opt data;
     int size;
     int capacity;
@@ -24047,7 +24086,8 @@ int flow_objects_push_back(struct flow_objects* p, struct flow_object* _Owner p_
 const struct flow_object* _Opt flow_objects_find(const struct flow_objects* p, const struct flow_object* p_object);
 
 
-struct flow_objects_view {
+struct flow_objects_view 
+{
     struct flow_object** _Owner _Opt data;
     int size;
     int capacity;
@@ -24061,7 +24101,8 @@ void objects_view_merge(struct flow_objects_view* dest, const struct flow_object
 void objects_view_clear(struct flow_objects_view* p);
 
 
-struct flow_object_state {
+struct flow_object_state
+{
     const char* dbg_name;
     int state_number;
 
@@ -24283,7 +24324,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.51"
+#define CAKE_VERSION "0.9.52"
 
 
 
@@ -24573,6 +24614,10 @@ struct switch_value* _Opt switch_value_list_find(const struct switch_value_list*
 
 void parser_ctx_destroy(_Opt struct parser_ctx* _Obj_owner ctx)
 {
+    label_list_clear(&ctx->label_list);
+    assert(ctx->label_list.head == NULL);
+    assert(ctx->label_list.tail == NULL);
+
     if (ctx->sarif_file)
     {
         fclose(ctx->sarif_file);
@@ -26321,7 +26366,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                     if (can_be_function_definition)
                         *is_function_definition = true;
                 }
-#if CONTRACTS
+#if EXPERIMENTAL_CONTRACTS
                 else if (ctx->current->type == TK_KEYWORD_TRUE ||
                          ctx->current->type == TK_KEYWORD_FALSE ||
                          ctx->current->type == TK_IDENTIFIER)
@@ -26370,7 +26415,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
     /*
       declaration:
-        declaration-specifiers                              init-declarator-list _Opt ;
+        declaration-specifiers                              init-declarator-list opt ;
         attribute-specifier-sequence declaration-specifiers init-declarator-list ;
         static_assert-declaration
         attribute-declaration
@@ -26450,7 +26495,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
             }
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
-#if CONTRACTS
+#if EXPERIMENTAL_CONTRACTS
             struct declarator* p_declarator =
                 p_declaration->init_declarator_list.head->p_declarator;
 
@@ -32026,6 +32071,32 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
 
         if (ctx->current->type == TK_IDENTIFIER)
         {
+            struct label_list_item* _Opt p_label_list_item =
+                label_list_find(&ctx->label_list, ctx->current->lexeme);
+
+            if (p_label_list_item == NULL)
+            {
+                struct label_list_item* _Owner _Opt p_label_list_item_new = calloc(1, sizeof * p_label_list_item_new);
+                if (p_label_list_item_new)
+                {
+                    p_label_list_item_new->p_defined = ctx->current;
+                    label_list_push(&ctx->label_list, p_label_list_item_new);
+                }
+            }
+            else
+            {
+                if (p_label_list_item->p_defined)
+                {
+                    //already defined
+                    compiler_diagnostic_message(C_ERROR_DUPLICATED_LABEL, ctx, ctx->current, NULL, "duplicated label '%s'", ctx->current->lexeme);
+                    compiler_diagnostic_message(W_NOTE, ctx, p_label_list_item->p_defined, NULL, "previous definition of '%s'", ctx->current->lexeme);
+                }
+                else
+                {
+                    p_label_list_item->p_defined = ctx->current;
+                }
+            }
+
             p_label->p_identifier_opt = ctx->current;
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
@@ -33253,6 +33324,23 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                 throw;
             }
 
+            struct label_list_item* _Opt p_label_list_item =
+                label_list_find(&ctx->label_list, ctx->current->lexeme);
+
+            if (p_label_list_item == NULL)
+            {
+                struct label_list_item* _Owner _Opt p_label_list_item_new = calloc(1, sizeof * p_label_list_item_new);
+                if (p_label_list_item_new)
+                {
+                    p_label_list_item_new->p_last_usage = ctx->current;
+                    label_list_push(&ctx->label_list, p_label_list_item_new);
+                }
+            }
+            else
+            {
+                p_label_list_item->p_last_usage = ctx->current;
+            }
+
             p_jump_statement->label = ctx->current;
             if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
                 throw;
@@ -33628,6 +33716,72 @@ struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx)
     return function_definition_or_declaration(ctx);
 }
 
+struct label_list_item* label_list_find(struct label_list* list, const char* label_name)
+{
+    struct label_list_item*  _Opt item = list->head;
+    while (item)
+    {
+        if (item->p_defined && strcmp(item->p_defined->lexeme, label_name) == 0)
+        {
+            return item;
+        }
+        else if (item->p_last_usage && strcmp(item->p_last_usage->lexeme, label_name) == 0)
+        {
+            return item;
+        }
+
+        item = item->next;
+    }
+    return NULL;
+}
+
+void label_list_clear(struct label_list* list)
+{
+    struct label_list_item* _Owner _Opt item = list->head;
+    while (item)
+    {
+        struct label_list_item* _Owner _Opt next = item->next;
+        item->next = NULL;
+        free(item);
+        item = next;
+    }
+    list->head = NULL;
+    list->tail = NULL;
+}
+
+void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem)
+{
+    if (list->head == NULL)
+    {
+        list->head = pitem;
+    }
+    else
+    {
+        assert(list->tail != NULL);
+        assert(list->tail->next == NULL);
+        list->tail->next = pitem;
+    }
+    list->tail = pitem;
+}
+
+
+void check_labels(struct parser_ctx* ctx)
+{
+    struct label_list_item* _Opt item = ctx->label_list.head;
+    while (item)
+    {
+        if (item->p_defined == NULL && item->p_last_usage != NULL)
+        {                        
+            compiler_diagnostic_message(C_ERROR_LABEL_NOT_DEFINED, ctx, item->p_last_usage, NULL, "label 'a' used but not defined", item->p_last_usage->lexeme);
+        }
+        else if (item->p_defined != NULL && item->p_last_usage == NULL)
+        {
+            compiler_diagnostic_message(W_UNUSED_LABEL, ctx, item->p_defined, NULL, "label '%s' defined but not used", item->p_defined->lexeme);
+        }
+        item = item->next;
+    }
+}
+
 struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
 {
 
@@ -33637,7 +33791,11 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
      */
     ctx->try_catch_block_index = 0;
     ctx->p_current_try_statement_opt = NULL;
-    return compound_statement(ctx);
+    label_list_clear(&ctx->label_list);
+    struct compound_statement* p_compound_statement = compound_statement(ctx);
+    check_labels(ctx);
+    label_list_clear(&ctx->label_list);
+    return p_compound_statement;
 }
 
 static void show_unused_file_scope(struct parser_ctx* ctx)
@@ -34913,8 +35071,6 @@ static void designation_to_string(struct parser_ctx* ctx, struct designation* de
     }
 }
 
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////
 static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
@@ -35138,7 +35294,6 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
 }
 
 
-//bool find_next_subobject(const struct type* p_type, struct object* obj, struct object* subobj, struct find_object_result* result)
 static struct object* _Opt next_sub_object2(struct type* p_type, struct object* obj, struct object* subobj, struct type* p_type_out)
 {
     type_clear(p_type_out);
@@ -44638,7 +44793,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             true_false_set_destroy(&left_local);
         }
         //////////////////////////////////////////////////////////////////////////////////////////////////////
-#if CONTRACTS
+#if EXPERIMENTAL_CONTRACTS
         if (p_expression->left->declarator &&
             type_is_function(&p_expression->left->declarator->type))
         {

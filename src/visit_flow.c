@@ -5535,7 +5535,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             true_false_set_destroy(&left_local);
         }
         //////////////////////////////////////////////////////////////////////////////////////////////////////
-#if CONTRACTS
+#if EXPERIMENTAL_CONTRACTS
         if (p_expression->left->declarator &&
             type_is_function(&p_expression->left->declarator->type))
         {

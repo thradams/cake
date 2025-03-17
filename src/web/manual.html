@@ -275,33 +275,36 @@
 <a href="#toc_76">Obsolete implicitly octal literals</a>
 </li>
 <li>
-<a href="#toc_77">Extension - defer</a>
+<a href="#toc_77">_Countof operator</a>
 </li>
 <li>
-<a href="#toc_78">Extension - if with initializer</a>
+<a href="#toc_78">defer</a>
 </li>
 <li>
-<a href="#toc_79">Extension typename on _Generic</a>
+<a href="#toc_79">if declarations, v4</a>
+</li>
+<li>
+<a href="#toc_80">Extension typename on _Generic</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_80">Cake Extensions (Not in C23, C2Y)</a>
+<a href="#toc_81">Cake Extensions (Not in C23, C2Y)</a>
 <ul>
 <li>
-<a href="#toc_81">Extension - try catch throw</a>
+<a href="#toc_82">Extension - try catch throw</a>
 </li>
 <li>
-<a href="#toc_82">Extension Literal function - lambdas</a>
+<a href="#toc_83">Extension Literal function - lambdas</a>
 </li>
 <li>
-<a href="#toc_83">Type traits</a>
+<a href="#toc_84">Type traits</a>
 </li>
 <li>
-<a href="#toc_84">Extension - Object lifetime checks</a>
+<a href="#toc_85">Extension - Object lifetime checks</a>
 </li>
 <li>
-<a href="#toc_85">Extension assert built-in</a>
+<a href="#toc_86">Extension assert built-in</a>
 </li>
 </ul>
 </li>
@@ -1607,7 +1610,11 @@ int main()
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm</a></p>
 
-<h3 id="toc_77">Extension - defer</h3>
+<h3 id="toc_77">_Countof operator</h3>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf</a></p>
+
+<h3 id="toc_78">defer</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm</a></p>
 
@@ -1665,9 +1672,9 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_78">Extension - if with initializer</h3>
+<h3 id="toc_79">if declarations, v4</h3>
 
-<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm</a></p>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm</a></p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 int main()
@@ -1703,7 +1710,7 @@ int main()
 <p>C++ proposal
 <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html</a></p>
 
-<h3 id="toc_79">Extension typename on _Generic</h3>
+<h3 id="toc_80">Extension typename on _Generic</h3>
 
 <p>This feature was created in Cake and now it is part of C2Y!</p>
 
@@ -1722,9 +1729,9 @@ int main()
 
 <p>C89 backend see _Generic.</p>
 
-<h2 id="toc_80">Cake Extensions (Not in C23, C2Y)</h2>
+<h2 id="toc_81">Cake Extensions (Not in C23, C2Y)</h2>
 
-<h3 id="toc_81">Extension - try catch throw</h3>
+<h3 id="toc_82">Extension - try catch throw</h3>
 
 <pre><code>   try-statement:
       try secondary-block
@@ -1756,7 +1763,7 @@ catch
 }
 </code></pre>
 
-<h3 id="toc_82">Extension Literal function - lambdas</h3>
+<h3 id="toc_83">Extension Literal function - lambdas</h3>
 
 <p>Lambdas without capture where implemented using a compound literal syntax.
 Since, we cannot have compound literal of function types (only pointer to function) the
@@ -1809,7 +1816,7 @@ is not implemented.
 
 <p>pragma dir makes the preprocessor include the directory when searching for includes.</p>
 
-<h3 id="toc_83">Type traits</h3>
+<h3 id="toc_84">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.</p>
 
@@ -1844,11 +1851,11 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 <p>Note: Type traits that can be easily created with _Generic will be removed.
 _</p>
 
-<h3 id="toc_84">Extension - Object lifetime checks</h3>
+<h3 id="toc_85">Extension - Object lifetime checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
-<h3 id="toc_85">Extension assert built-in</h3>
+<h3 id="toc_86">Extension assert built-in</h3>
 
 <p>In cake assert is an built-in function.
 The reason is because it works as tips for flow analysis.</p>

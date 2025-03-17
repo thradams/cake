@@ -138,7 +138,8 @@ s_warnings[] = {
     {W_INTEGER_OVERFLOW, "overflow"},
     {W_ARRAY_SIZE, "array-size"},
     {W_EMPTY_STATEMENT, "empty-statement"},
-    {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"}
+    {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"},
+    {W_UNUSED_LABEL, "unused-label"}
 };
 
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)

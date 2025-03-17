@@ -283,6 +283,10 @@ struct switch_value* _Opt switch_value_list_find(const struct switch_value_list*
 
 void parser_ctx_destroy(_Opt struct parser_ctx* _Obj_owner ctx)
 {
+    label_list_clear(&ctx->label_list);
+    assert(ctx->label_list.head == NULL);
+    assert(ctx->label_list.tail == NULL);
+
     if (ctx->sarif_file)
     {
         fclose(ctx->sarif_file);
@@ -2031,7 +2035,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                     if (can_be_function_definition)
                         *is_function_definition = true;
                 }
-#if CONTRACTS
+#if EXPERIMENTAL_CONTRACTS
                 else if (ctx->current->type == TK_KEYWORD_TRUE ||
                          ctx->current->type == TK_KEYWORD_FALSE ||
                          ctx->current->type == TK_IDENTIFIER)
@@ -2080,7 +2084,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
     /*
       declaration:
-        declaration-specifiers                              init-declarator-list _Opt ;
+        declaration-specifiers                              init-declarator-list opt ;
         attribute-specifier-sequence declaration-specifiers init-declarator-list ;
         static_assert-declaration
         attribute-declaration
@@ -2160,7 +2164,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
             }
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
-#if CONTRACTS
+#if EXPERIMENTAL_CONTRACTS
             struct declarator* p_declarator =
                 p_declaration->init_declarator_list.head->p_declarator;
 
@@ -7736,6 +7740,32 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
 
         if (ctx->current->type == TK_IDENTIFIER)
         {
+            struct label_list_item* _Opt p_label_list_item =
+                label_list_find(&ctx->label_list, ctx->current->lexeme);
+
+            if (p_label_list_item == NULL)
+            {
+                struct label_list_item* _Owner _Opt p_label_list_item_new = calloc(1, sizeof * p_label_list_item_new);
+                if (p_label_list_item_new)
+                {
+                    p_label_list_item_new->p_defined = ctx->current;
+                    label_list_push(&ctx->label_list, p_label_list_item_new);
+                }
+            }
+            else
+            {
+                if (p_label_list_item->p_defined)
+                {
+                    //already defined
+                    compiler_diagnostic_message(C_ERROR_DUPLICATED_LABEL, ctx, ctx->current, NULL, "duplicated label '%s'", ctx->current->lexeme);
+                    compiler_diagnostic_message(W_NOTE, ctx, p_label_list_item->p_defined, NULL, "previous definition of '%s'", ctx->current->lexeme);
+                }
+                else
+                {
+                    p_label_list_item->p_defined = ctx->current;
+                }
+            }
+
             p_label->p_identifier_opt = ctx->current;
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
@@ -8963,6 +8993,23 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                 throw;
             }
 
+            struct label_list_item* _Opt p_label_list_item =
+                label_list_find(&ctx->label_list, ctx->current->lexeme);
+
+            if (p_label_list_item == NULL)
+            {
+                struct label_list_item* _Owner _Opt p_label_list_item_new = calloc(1, sizeof * p_label_list_item_new);
+                if (p_label_list_item_new)
+                {
+                    p_label_list_item_new->p_last_usage = ctx->current;
+                    label_list_push(&ctx->label_list, p_label_list_item_new);
+                }
+            }
+            else
+            {
+                p_label_list_item->p_last_usage = ctx->current;
+            }
+
             p_jump_statement->label = ctx->current;
             if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
                 throw;
@@ -9338,6 +9385,72 @@ struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx)
     return function_definition_or_declaration(ctx);
 }
 
+struct label_list_item* label_list_find(struct label_list* list, const char* label_name)
+{
+    struct label_list_item*  _Opt item = list->head;
+    while (item)
+    {
+        if (item->p_defined && strcmp(item->p_defined->lexeme, label_name) == 0)
+        {
+            return item;
+        }
+        else if (item->p_last_usage && strcmp(item->p_last_usage->lexeme, label_name) == 0)
+        {
+            return item;
+        }
+
+        item = item->next;
+    }
+    return NULL;
+}
+
+void label_list_clear(struct label_list* list)
+{
+    struct label_list_item* _Owner _Opt item = list->head;
+    while (item)
+    {
+        struct label_list_item* _Owner _Opt next = item->next;
+        item->next = NULL;
+        free(item);
+        item = next;
+    }
+    list->head = NULL;
+    list->tail = NULL;
+}
+
+void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem)
+{
+    if (list->head == NULL)
+    {
+        list->head = pitem;
+    }
+    else
+    {
+        assert(list->tail != NULL);
+        assert(list->tail->next == NULL);
+        list->tail->next = pitem;
+    }
+    list->tail = pitem;
+}
+
+
+void check_labels(struct parser_ctx* ctx)
+{
+    struct label_list_item* _Opt item = ctx->label_list.head;
+    while (item)
+    {
+        if (item->p_defined == NULL && item->p_last_usage != NULL)
+        {                        
+            compiler_diagnostic_message(C_ERROR_LABEL_NOT_DEFINED, ctx, item->p_last_usage, NULL, "label 'a' used but not defined", item->p_last_usage->lexeme);
+        }
+        else if (item->p_defined != NULL && item->p_last_usage == NULL)
+        {
+            compiler_diagnostic_message(W_UNUSED_LABEL, ctx, item->p_defined, NULL, "label '%s' defined but not used", item->p_defined->lexeme);
+        }
+        item = item->next;
+    }
+}
+
 struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
 {
 
@@ -9347,7 +9460,11 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
      */
     ctx->try_catch_block_index = 0;
     ctx->p_current_try_statement_opt = NULL;
-    return compound_statement(ctx);
+    label_list_clear(&ctx->label_list);
+    struct compound_statement* p_compound_statement = compound_statement(ctx);
+    check_labels(ctx);
+    label_list_clear(&ctx->label_list);
+    return p_compound_statement;
 }
 
 static void show_unused_file_scope(struct parser_ctx* ctx)
@@ -10623,8 +10740,6 @@ static void designation_to_string(struct parser_ctx* ctx, struct designation* de
     }
 }
 
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////
 static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
@@ -10848,7 +10963,6 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
 }
 
 
-//bool find_next_subobject(const struct type* p_type, struct object* obj, struct object* subobj, struct find_object_result* result)
 static struct object* _Opt next_sub_object2(struct type* p_type, struct object* obj, struct object* subobj, struct type* p_type_out)
 {
     type_clear(p_type_out);

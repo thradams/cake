@@ -44,7 +44,8 @@ enum flow_state
 };
 
 
-struct flow_objects {
+struct flow_objects
+{
     struct flow_object* _Owner* _Owner _Opt data;
     int size;
     int capacity;
@@ -56,7 +57,8 @@ int flow_objects_push_back(struct flow_objects* p, struct flow_object* _Owner p_
 const struct flow_object* _Opt flow_objects_find(const struct flow_objects* p, const struct flow_object* p_object);
 
 
-struct flow_objects_view {
+struct flow_objects_view 
+{
     struct flow_object** _Owner _Opt data;
     int size;
     int capacity;
@@ -70,7 +72,8 @@ void objects_view_merge(struct flow_objects_view* dest, const struct flow_object
 void objects_view_clear(struct flow_objects_view* p);
 
 
-struct flow_object_state {
+struct flow_object_state
+{
     const char* dbg_name;
     int state_number;
 

@@ -13,4 +13,4 @@ static_assert(a[1][2] == '\0');
 static_assert(a[2][0] == 'f');
 static_assert(a[2][2] == '\0');
 
-static_assert(_Lengthof(a) == 3);
+static_assert(_Countof(a) == 3);
