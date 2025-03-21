@@ -11,7 +11,7 @@ struct list {
     struct item* _Opt tail;
 };
 
-void list_destroy(struct list* _Obj_owner list)
+void list_destroy(_Dtor struct list*  list)
 {
     struct item* _Owner _Opt p = list->head;
     while (p)

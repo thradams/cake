@@ -6,7 +6,7 @@ struct X {
     char * _Owner text;
 };
 
-void x_destroy(_Opt struct X * _Obj_owner x) {
+void x_destroy(_Opt _Dtor struct X *  x) {
     free(x->text);
 }
 

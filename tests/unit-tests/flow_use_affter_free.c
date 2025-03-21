@@ -10,7 +10,7 @@ struct X {
     char* _Owner _Opt name;
 };
 
-void x_destroy(struct X* _Obj_owner p) {
+void x_destroy(_Dtor struct X*  p) {
     free(p->name);
 }
 

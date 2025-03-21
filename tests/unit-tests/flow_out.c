@@ -14,8 +14,8 @@ struct X {
   struct Y  *pY;
 };
 
-void init(_Out struct X * p);
-void destroy(_Out struct X * _Obj_owner p);
+void init(_Ctor struct X * p);
+void destroy(_Dtor struct X *  p);
 
 int main() {
    struct X x;

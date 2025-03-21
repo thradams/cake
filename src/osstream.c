@@ -28,7 +28,7 @@ void ss_clear(struct osstream* stream)
 }
 
 
-void ss_close(struct osstream* _Obj_owner stream)
+void ss_close(_Dtor struct osstream* stream)
 {
     free(stream->c_str);
 }

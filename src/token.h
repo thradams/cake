@@ -166,8 +166,8 @@ enum token_type
 
     /*cake extension*/
     TK_KEYWORD__OWNER,
-    TK_KEYWORD__OUT,
-    TK_KEYWORD__OBJ_OWNER, 
+    TK_KEYWORD__CTOR,
+    TK_KEYWORD__DTOR, 
     TK_KEYWORD__VIEW,    
     TK_KEYWORD__OPT, 
     
@@ -304,6 +304,6 @@ void stream_match(struct stream* stream);
 bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);
 
-enum token_type parse_number(const char* lexeme, char suffix[4], _Out char erromsg[100]);
-const unsigned char* _Opt utf8_decode(const unsigned char* s, _Out unsigned int* c);
+enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char erromsg[100]);
+const unsigned char* _Opt utf8_decode(const unsigned char* s, _Ctor unsigned int* c);
 const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);

@@ -81,6 +81,7 @@ enum { INCLUDE_ALL = 1 };
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
 
+static bool is_builtin_macro(const char* name);
 
 
 struct macro_parameter
@@ -106,7 +107,7 @@ struct macro
 void macro_delete(struct macro* _Owner _Opt macro);
 
 
-void include_dir_list_destroy(struct include_dir_list* _Obj_owner list)
+void include_dir_list_destroy(_Dtor struct include_dir_list* list)
 {
     struct include_dir* _Owner _Opt p = list->head;
     while (p)
@@ -118,7 +119,7 @@ void include_dir_list_destroy(struct include_dir_list* _Obj_owner list)
     }
 }
 
-void preprocessor_ctx_destroy(struct preprocessor_ctx* _Obj_owner p)
+void preprocessor_ctx_destroy(_Dtor struct preprocessor_ctx* p)
 {
     hashmap_destroy(&p->macros);
     include_dir_list_destroy(&p->include_dir);
@@ -395,7 +396,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
     const char* path, /*as in include*/
     const char* current_file_dir, /*this is the dir of the file that includes*/
     bool is_angle_bracket_form,
-    bool* p_already_included, /*_Out file already included pragma once*/
+    bool* p_already_included, /*out file already included pragma once*/
     char full_path_out[], /*this is the final full path of the file*/
     int full_path_out_size)
 {
@@ -644,7 +645,7 @@ struct macro_argument_list
     struct macro_argument* _Opt tail;
 };
 
-void macro_argument_list_destroy(struct macro_argument_list* _Obj_owner list)
+void macro_argument_list_destroy(_Dtor struct macro_argument_list* list)
 {
     token_list_destroy(&list->tokens);
     struct macro_argument* _Owner _Opt p = list->head;
@@ -1973,7 +1974,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
 
 bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
 {
-    *sz = 0;//_Out
+    *sz = 0;//out
     bool result = false;
     size_t n = fread(buffer, size, count, stream);
     if (n == count)
@@ -2418,7 +2419,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
     return r;
 }
 
-struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token_list* _Obj_owner list)
+struct token_list process_identifiers(struct preprocessor_ctx* ctx, _Dtor struct token_list* list)
 {
     assert(!token_list_is_empty(list));
 
@@ -2644,7 +2645,7 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
 
 struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* p_result)
 {
-    *p_result = 0; //_Out
+    *p_result = 0; //out
 
     assert(input_list->head != NULL);
 
@@ -2744,7 +2745,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 
 struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* p_elif_result)
 {
-    *p_elif_result = 0; //_Out
+    *p_elif_result = 0; //out
     assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
@@ -3172,6 +3173,7 @@ static bool is_empty_assert(struct token_list* replacement_list)
     return true;
 }
 
+
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
 
@@ -3427,7 +3429,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct macro* _Owner _Opt macro = calloc(1, sizeof * macro);
             if (macro == NULL)
             {
-                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "_Out of mem");
+                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "out of mem");
                 throw;
             }
 
@@ -3453,6 +3455,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             struct token* macro_name_token = input_list->head;
 
+            if (is_builtin_macro(macro_name_token->lexeme))
+            {                
+                 preprocessor_diagnostic_message(W_REDEFINING_BUITIN_MACRO, 
+                     ctx, 
+                     input_list->head,
+                     "redefining builtin macro");
+            }
 
             if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
             {
@@ -5251,6 +5260,17 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     return  0;
 }
 
+static bool is_builtin_macro(const char* name)
+{
+   if (strcmp(name, "__FILE__") == 0)
+       return true;
+   
+   if (strcmp(name, "__CAKE__") == 0)
+       return true;
+
+   return false;
+}
+
 void add_standard_macros(struct preprocessor_ctx* ctx)
 {
     /*
@@ -5691,8 +5711,8 @@ const char* get_token_name(enum token_type tk)
 
         /*cake extension*/
     case TK_KEYWORD__OWNER: return "TK_KEYWORD__OWNER";
-    case TK_KEYWORD__OUT: return "TK_KEYWORD__OUT";
-    case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
+    case TK_KEYWORD__CTOR: return "TK_KEYWORD__OUT";
+    case TK_KEYWORD__DTOR: return "TK_KEYWORD__OBJ_OWNER";
     case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
     case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
 

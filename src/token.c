@@ -210,7 +210,7 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     }
 }
 
-void token_list_destroy(_Opt struct token_list* _Obj_owner list)
+void token_list_destroy(_Opt _Dtor struct token_list* list)
 {
     struct token* _Owner _Opt p = list->head;
     while (p)
@@ -468,8 +468,8 @@ bool token_is_identifier_or_keyword(enum token_type t)
 
         /*cake extension*/
     case TK_KEYWORD__OWNER:
-    case TK_KEYWORD__OUT:
-    case TK_KEYWORD__OBJ_OWNER:
+    case TK_KEYWORD__CTOR:
+    case TK_KEYWORD__DTOR:
     case TK_KEYWORD__VIEW:
     case TK_KEYWORD__OPT:
 
@@ -1178,7 +1178,7 @@ static bool is_nonzero_digit(struct stream* stream)
     return stream->current[0] >= '1' && stream->current[0] <= '9';
 }
 
-enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out char errmsg[100])
+enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor char errmsg[100])
 {
     errmsg[0] = '\0';
 
@@ -1306,7 +1306,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Out ch
     return type;
 }
 
-enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errmsg[100])
+enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char errmsg[100])
 {
     struct stream stream = {
         .source = lexeme,
@@ -1335,7 +1335,7 @@ enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errms
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt utf8_decode(const unsigned char* s, _Out unsigned int* c)
+const unsigned char* _Opt utf8_decode(const unsigned char* s, _Ctor unsigned int* c)
 {
     *c = 0; //out
 

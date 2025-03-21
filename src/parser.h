@@ -31,7 +31,7 @@ struct scope
     struct scope* _Opt previous;
 };
 
-void scope_destroy(struct scope* _Obj_owner p);
+void scope_destroy(_Dtor struct scope* p);
 
 struct scope_list
 {
@@ -76,14 +76,14 @@ struct switch_value
     struct switch_value* _Owner _Opt next;
 };
 
-struct  switch_value_list
+struct switch_value_list
 {
     struct switch_value* _Owner _Opt head;
     struct switch_value* _Opt tail;
     struct switch_value* _Owner _Opt p_default;
 };
 
-void switch_value_destroy(struct switch_value_list* _Obj_owner list);
+void switch_value_destroy(_Dtor struct switch_value_list* list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
 struct switch_value* _Opt switch_value_list_find(const struct switch_value_list* list, long long value);
 
@@ -161,7 +161,7 @@ struct parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(_Opt struct parser_ctx* _Obj_owner ctx);
+void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx);
 
 
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
@@ -442,7 +442,7 @@ struct init_declarator_list
 struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers);
 
-void init_declarator_list_destroy(struct init_declarator_list* _Obj_owner p);
+void init_declarator_list_destroy(_Dtor struct init_declarator_list* p);
 void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* _Owner p_item);
 
 struct defer_list_item;
@@ -580,7 +580,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier
 );
 
-void enumerator_list_destroy(struct enumerator_list* _Obj_owner p_enum_specifier);
+void enumerator_list_destroy(_Dtor struct enumerator_list* p_enum_specifier);
 void enumerator_list_add(struct enumerator_list* list, struct enumerator* _Owner p_item);
 
 struct enum_specifier
@@ -638,7 +638,7 @@ struct member_declaration_list
 };
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
-void member_declaration_list_destroy(_Opt struct member_declaration_list* _Obj_owner p);
+void member_declaration_list_destroy(_Opt _Dtor struct member_declaration_list* p);
 void member_declaration_list_add(struct member_declaration_list* list, struct member_declaration* _Owner p_item);
 
 struct member_declarator* _Opt find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
@@ -1121,7 +1121,7 @@ struct block_item_list
 };
 
 struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error);
-void block_item_list_destroy(struct block_item_list* _Obj_owner p);
+void block_item_list_destroy(_Dtor struct block_item_list* p);
 void block_item_list_add(struct block_item_list* list, struct block_item* _Owner p_item);
 
 
@@ -1167,7 +1167,7 @@ struct defer_list_item
 
 
 void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_item);
-void defer_list_destroy(struct defer_list* _Obj_owner  p);
+void defer_list_destroy(_Dtor struct defer_list* p);
 
 struct try_statement
 {
@@ -1511,7 +1511,7 @@ struct attribute_list
 };
 
 struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx);
-void attribute_list_destroy(struct attribute_list* _Obj_owner p);
+void attribute_list_destroy(_Dtor struct attribute_list* p);
 void attribute_list_delete(struct attribute_list* _Owner _Opt p);
 
 void attribute_list_add(struct attribute_list* list, struct attribute* _Owner p_item);
@@ -1595,7 +1595,7 @@ struct declaration_list
 };
 
 struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror);
-void declaration_list_destroy(struct declaration_list* _Obj_owner list);
+void declaration_list_destroy(_Dtor struct declaration_list* list);
 
 struct label
 {
@@ -1621,7 +1621,7 @@ struct ast
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
-void ast_destroy(struct ast* _Obj_owner ast);
+void ast_destroy(_Dtor struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 

@@ -911,7 +911,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
     }
 }
 
-void defer_visit_ctx_destroy(struct defer_visit_ctx* _Obj_owner p)
+void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 {
     assert(p->tail_block == NULL);
 }

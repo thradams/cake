@@ -17,7 +17,7 @@
 #include <assert.h>
 #include <string.h>
 
-bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
 
@@ -28,7 +28,7 @@ bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long 
     return true;
 }
 
-bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
 
@@ -49,7 +49,7 @@ bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long 
     return true;
 }
 
-bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
+bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
 
@@ -63,7 +63,7 @@ bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long 
     return true;
 }
 
-bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
 
@@ -106,7 +106,7 @@ bool signed_long_long_sub(_Out signed long long* result, signed long long a, sig
     return true;
 }
 
-bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_add(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
 
@@ -144,7 +144,7 @@ bool signed_long_long_add(_Out signed long long* result, signed long long a, sig
     return true;
 }
 
-bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b)
+bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
 
@@ -198,7 +198,7 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
     return true;
 }
 
-void object_destroy(struct object* _Opt _Obj_owner p)
+void object_destroy(_Opt _Dtor struct object* p)
 {
     type_destroy(&p->type);
     free(p->debug_name);

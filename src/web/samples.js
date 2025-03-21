@@ -1470,7 +1470,7 @@ struct X {
   char *_Owner _Opt name;
 };
 
-void x_destroy(struct X * _Obj_owner x) 
+void x_destroy(_Dtor struct X * x)
 {
   free(x->name);
 }
@@ -1624,7 +1624,7 @@ void list_push_front(struct list* list,
     list->head = p_item;
 }
 
-void list_destroy(struct list* _Obj_owner list)
+void list_destroy(_Dtor struct list* list)
 {
     struct item* _Owner _Opt it = list->head;
     while (it != NULL) {
@@ -1721,7 +1721,7 @@ int int_array_push_back(struct int_array* p, int value)
     return 0;
 }
 
-void int_array_destroy(struct int_array* _Obj_owner p)
+void int_array_destroy(_Dtor struct int_array* p)
 {
     free(p->data);
 }
@@ -1806,7 +1806,7 @@ enum {
 
 typedef struct { _Owner int dummy; } mtx_t;
 int mtx_init(_Out mtx_t *mtx, int type);
-void mtx_destroy( mtx_t * _Obj_owner mutex );
+void mtx_destroy( _Dtor mtx_t * mutex );
 
 int main()
 {
@@ -1924,7 +1924,7 @@ struct Y {
 };
 
 
-void x_destroy(struct X * _Obj_owner p) 
+void x_destroy(_Dtor struct X * p)
 {
   free(p->name);
 }
@@ -1987,7 +1987,7 @@ struct X {
     char * _Owner namasade;
 };
 
-void x_destroy(struct X * _Obj_owner p)
+void x_destroy(_Dtor struct X * p)
 {
     free(p->naasdasdme);
     free(p->nasdasame);

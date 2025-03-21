@@ -14,7 +14,7 @@ define("vs/basic-languages/cpp/cpp", ["require", "require"], (require) => {
             keywords: [
 
                 //cake extensions
-                "_Owner", "_Out", "_Opt", "assert", "_Generic", "_View", "_Obj_owner",
+                "_Owner", "_Ctor", "_Opt", "assert", "_Generic", "_View", "_Dtor",
                 "static_debug", "static_state", "static_set",
                 //C2Y
                 "_Countof",
@@ -24,6 +24,7 @@ define("vs/basic-languages/cpp/cpp", ["require", "require"], (require) => {
                 "_Static_assert",
                 "_Bool",
                 "typeof_unqual", "typeof",
+                "_Alignof", "alignof",
                 //
                 "extern",
                 "auto", "bool", "break", "case", "catch", "char", "const",

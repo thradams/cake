@@ -18,7 +18,7 @@ char* _Owner _Opt strdup(const char* src);
 inline char* _Opt strrchr(char* const _String, int const _Ch);
 
 int snprintf(
-        _Out char*       const _Buffer,
+        _Ctor char*       const _Buffer,
         size_t      const _BufferCount,
         char const* const _Format,
         ...);
@@ -34,7 +34,7 @@ FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* _Owner _Stream);
 
 size_t fread(
-        _Out void*  _Buffer,
+        _Ctor void*  _Buffer,
         size_t _ElementSize,
         size_t _ElementCount,
         FILE*  _Stream
@@ -70,10 +70,10 @@ float strtof(char const* _String, char** _Opt _EndPtr);
   ownership not suported
 */
 
-#define _Out
+#define _Ctor
 #define _Opt
 #define _Owner
-#define _Obj_owner
+#define _Dtor
 #define _View
 #define static_debug(x)
 #define static_set(x, s)

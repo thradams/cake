@@ -1,6 +1,6 @@
 ﻿#pragma safety enable
 
-bool init(_Out int *a) {
+bool init(_Ctor int *a) {
     *a = 3;
     return true;
 }

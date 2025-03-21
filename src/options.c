@@ -252,7 +252,7 @@ int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
 {
     if (is_diagnostic_configurable(w))
     {
-        //TODO because s_warnings is _Out of order ....
+        //TODO because s_warnings is _Ctor of order ....
         //this is a linear seatch instead of just index! TODOD
         for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
         {

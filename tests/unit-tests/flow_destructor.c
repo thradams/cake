@@ -7,12 +7,12 @@ struct X {
   char * _Owner name;
 };
 
-void x_destroy( struct X * _Obj_owner p);
+void x_destroy( _Dtor struct X *  p);
 
 struct Y {
   struct X x;
 };
 
-void y_destroy(struct Y * _Obj_owner p) {
+void y_destroy(_Dtor struct Y *  p) {
    x_destroy(&p->x);
 }

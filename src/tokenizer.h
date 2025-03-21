@@ -48,7 +48,7 @@ struct preprocessor_ctx
     int n_errors;    
 };
 
-void preprocessor_ctx_destroy( struct preprocessor_ctx* _Obj_owner p);
+void preprocessor_ctx_destroy( _Dtor struct preprocessor_ctx* p);
 
 void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_ctx* ctx);
 bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...);
@@ -68,9 +68,9 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 struct token_list copy_replacement_list(const struct token_list* list);
 
-void token_list_append_list(struct token_list* dest, struct token_list* _Obj_owner source);
+void token_list_append_list(struct token_list* dest, _Dtor struct token_list* source);
 void print_list(struct token_list* list);
-void token_list_destroy(_Opt  struct token_list* _Obj_owner list);
+void token_list_destroy(_Opt _Dtor struct token_list* list);
 bool token_is_blank(const struct token* p);
 void token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);

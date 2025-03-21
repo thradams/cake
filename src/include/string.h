@@ -9,7 +9,7 @@ void* memcpy(void* _Dst, void const* _Src, size_t _Size);
 void* memmove(void* _Dst, void const* _Src, size_t _Size);
 void* memset(void* _Dst, int _Val, size_t _Size);
 char* strchr(char const* _Str, int _Val);
-char *strcpy(_Out char *restrict dest, const char *restrict src );
+char *strcpy(_Ctor char *restrict dest, const char *restrict src );
 char* strrchr(char const* _Str, int _Ch);
 char* strstr(char const* _Str, char const* _SubStr);
 wchar_t* wcschr(wchar_t const* _Str, wchar_t _Ch);

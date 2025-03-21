@@ -18,7 +18,7 @@ struct X {
 };
 
 void f(const struct X* p);
-void destroy(_Out struct X * _Obj_owner p);
+void destroy(_Dtor struct X *  p);
 
 int main()
 {

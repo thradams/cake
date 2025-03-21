@@ -8,7 +8,7 @@ struct X {
     char* _Owner _Opt text;
 };
 
-void f(struct X* _Owner p1, struct X* _Out _Owner* p2)
+void f(struct X* _Owner p1, struct X* _Ctor _Owner* p2)
 {
     *p2 = p1;
 }

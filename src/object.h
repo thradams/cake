@@ -96,7 +96,7 @@ struct object
     struct object* _Opt _Owner next;
 };
 
-void object_destroy(struct object* _Opt _Obj_owner p);
+void object_destroy(_Opt _Dtor struct object* p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
 void object_to_string(const struct object* a, char buffer[], int sz);
@@ -146,12 +146,12 @@ long double object_to_long_double(const struct object* a);
 bool object_to_bool(const struct object* a);
 
 //Overflow checks
-bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b);
+bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b);
+bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b);
+bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b);
+bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, signed long long b);
+bool signed_long_long_add(_Ctor signed long long* result, signed long long a, signed long long b);
+bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, signed long long b);
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 

@@ -1,6 +1,6 @@
 ﻿#pragma safety enable
 
-void f(_Out char s[2]) 
+void f(_Ctor char s[2]) 
 {
 }
 
@@ -10,7 +10,7 @@ void test1()
     f(s);
 }
 
-void f2(_Out char *s) 
+void f2(_Ctor char *s) 
 {
     *s= '\0';
 }

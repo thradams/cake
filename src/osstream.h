@@ -16,7 +16,7 @@ struct osstream
 };
 
 
-void ss_close( struct osstream * _Obj_owner stream);
+void ss_close( _Dtor struct osstream * stream);
 
 int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args);
 int ss_fprintf(struct osstream* stream, const char* fmt, ...);

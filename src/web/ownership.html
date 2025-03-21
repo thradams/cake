@@ -69,7 +69,7 @@
 <a href="#toc_10">References</a>
 </li>
 </ul>
-<p>Last Updated 3 Jan 2025</p>
+<p>Last Updated 3 March 2025</p>
 
 <p>This is a work in progress. Cake source is currently being used to validate the concepts. It&#39;s in the process of transitioning to include annotated nullable checks, which was the last feature added.  </p>
 
@@ -106,6 +106,9 @@ existing code can be nullable; they simply are not reviewed yet.</p>
 <p>The directive <code>#pragma nullable enable/disable</code> can be used during the process of upgrading code. 
 <code>nullable enable</code> means that the new rules apply, while <code>nullable disable</code> indicates that all pointers 
 are nullable. Similar approach has been used in C# [1].</p>
+
+<p>It is important to note that, although the semantics change, this only affects static analysis; 
+the runtime behavior remains unchanged.</p>
 
 <p>New rules for pointer compatibility automatically arise, guided by the objective of improving safety.</p>
 
@@ -259,7 +262,7 @@ with the implementation.
 On the other hand, placing the contracts alongside the function declaration 
 keeps the contract closer to its implementation. 
 Compilers (though Cake is not currently doing this yet) could create proxy 
-functions to check postconditions at runtime.</p>
+functions to check postconditions at runtime. (See C++ 26 contracts)</p>
 
 <h4>Non nullable members initialization</h4>
 
@@ -278,7 +281,7 @@ int main(){
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>The non-nullable on the other hand can</p>
+<p>The non-nullable on the other hand can transitioning from uninitialized to non-null.</p>
 
 <pre><code class="language-c">#pragma nullable enable  
 char * _Opt strdup(const char * src);  
@@ -356,6 +359,14 @@ void f() {
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
+
+<p>We could remove this built-in some something like</p>
+
+<pre><code class="language-c">#pragma nullable enable  
+_Uninitialized void * _Opt malloc(unsigned int sz);
+</code></pre>
+
+<p>This is not implemented yet.</p>
 
 <p><code>calloc</code> has a built in semantics indicating the object is zero-initialized. </p>
 
@@ -477,6 +488,33 @@ struct X * _Opt makeX(const char* name)
 <blockquote>
 <p>OBS: mutable qualifier is not yet implemented in Cake. </p>
 </blockquote>
+
+<p>Since mutability may be useful for constructors and destructors, 
+the idea of mutable could imply that change may happen only once. 
+This naturally occurs when assigning a non-nullable pointer for the 
+first time—because afterward, it cannot become nullable again. 
+Similarly, for const objects, it could mean that once initialized, 
+a const object cannot change anymore. In this context, &#39;constructor&#39; 
+or &#39;destructor&#39; might be a more suitable term.</p>
+
+<pre><code class="language-c">struct X {
+  const char * const name; // const and non-nullable
+};  
+
+struct X * _Opt makeX(const char* name)
+{
+  [[constructor]] struct X * p = calloc(1, sizeof *p);  
+  if (p == NULL) 
+    return NULL;
+  
+  char * _Opt temp = strdup(name);
+  if (temp == NULL)
+    return NULL;  
+
+  p-&gt;name = temp;  // OK!!
+  return p;
+}
+</code></pre>
 
 <h3 id="toc_3">Object lifetime checks</h3>
 
@@ -659,7 +697,8 @@ int main(){
 
 <p>The most common view references are pointers called <strong>view pointers</strong>. </p>
 
-<p>The view qualifier is not necessary for pointers, since it&#39;s the default behavior. The usage of _View in pointers  are forbidden to avoid the propagation of more than one style.  </p>
+<p>The view qualifier is not necessary for pointers, since it&#39;s the default behavior. 
+(The usage of _View in pointers  are forbidden to avoid the propagation of more than one style)</p>
 
 <p>When an owner object is copied to a view object, the ownership is not transferred.</p>
 
@@ -674,7 +713,7 @@ void use_file(FILE * f) {}
 int main() {
     FILE * _Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
     if (f) {
-        use_file(f); //not moved
+        use_file(f); //ownership of f is not moved
         fclose(f);
     }
 }
@@ -789,13 +828,9 @@ struct X {
   char * _Owner text; 
 };
 
-void x_destroy(_Opt struct X * _Obj_owner x) { 
-  free(x-&gt;text); 
-}
-
-void x_delete(_Opt struct X * _Owner _Opt p) { 
+void x_delete(struct X * _Owner _Opt p) { 
   if (p) {
-    x_destroy(p); /* *p is moved*/
+    free(x-&gt;text); 
     free(p);
   }
 }
@@ -861,15 +896,21 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, Cake introduces a new qualifier, <strong>_Obj_owner</strong>. </p>
+<p>However in C, structs are typically passed by pointer rather than by value. </p>
 
-<p>It can also be seen as an owner pointer that owns the object but not the storage. (Better names?)</p>
+<h4>_Dtor type annotation attribute</h4>
 
-<p>A pointer qualified with <strong>_Obj_owner</strong> is the owner of the pointed object but not responsible for managing its memory.</p>
+<p>_Dtor or [[dtor]] tells the static analyzer that the object will have all its 
+contents moved, and the contents that are owner references will 
+become uninitialized.</p>
 
-<p>The next sample illustrates how to implement a destructor using a _Obj_owner pointer parameter.</p>
+<p>The compiler also needs to ensure that this contract is fulfilled in 
+the implementation.</p>
 
-<p><strong>Sample - Implementing a destructor using _Obj_owner</strong></p>
+<p>The next sample illustrates how to implement a destructor 
+using a _Dtor annotation.</p>
+
+<p><strong>Sample - Implementing a destructor using _Dtor</strong></p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -879,44 +920,31 @@ struct X {
     char * _Owner _Opt text;
 };
 
-void x_destroy(_Opt struct X * _Obj_owner x) {
-    free(x-&gt;text);
-    /*x is not the owner of the memory*/
+void x_destroy(_Opt _Dtor struct X * x) {
+    free(x-&gt;text);    
+    
+    /*
+      destroy must fulfill the contract of 
+      moving all contents of struct x
+    */
 }
 
 int main() {
     struct X x = {};
-    /*more code*/
-    x_destroy(&amp;x); /*x is moved*/
+    
+    /*
+      more code...
+    */
+
+    x_destroy(&amp;x);
+    
+    /*
+     The contents of the object x where moved
+    */
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
-
-<p>In order to prevent moving from a non owner object, only <em>address of expressions</em> to <strong>_Obj_owner</strong> are allowed. </p>
-
-<p><strong>Sample - Non address of expression or owner pointer.</strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdlib.h&gt;
-
-struct X {
- struct Y * p;
-};
-
-void y_destroy(struct Y * _Obj_owner p);
-
-void f(struct X * x) {
-  //Error: parameter 1 requires a pointer to owner object
-  //Error: pointed object is not owner
-  y_destroy(x-&gt;p); 
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>We can copy an <strong>owner</strong> pointer to an <strong>_Obj_owner</strong> pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership.   </p>
 
 <p><strong>Sample - Using <code>x_destroy</code> to implement <code>x_delete</code></strong></p>
 
@@ -928,13 +956,18 @@ struct X {
   char * _Owner _Opt text; 
 };
 
-void x_destroy(_Opt struct X * _Obj_owner x) { 
+void x_destroy(_Opt _Dtor struct X * x) { 
   free(x-&gt;text); 
 }
 
 void x_delete(_Opt struct X * _Owner _Opt p) { 
   if (p) {
-    x_destroy(p); /* *p is moved*/
+    x_destroy(p)
+    
+    /*
+     contents of *p where moved
+    */
+
     free(p);
   }
 }
@@ -950,6 +983,10 @@ int main() {
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
+
+<p>See also _Ctor.</p>
+
+<h4>Qualifiers in Arrays</h4>
 
 <p>In C, array types in arguments are pointers. This characteristics is preserved.</p>
 
@@ -1080,11 +1117,12 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h4>_Out qualifier</h4>
+<h4>_Ctor type annotation</h4>
 
-<p>A common scenario where uninitialized objects are utilized is when a pointer to an uninitialized object is passed to an &quot;init&quot; function.</p>
+<p>A common scenario where uninitialized objects are utilized 
+is when a pointer to an uninitialized object is passed to an &quot;init&quot; function.</p>
 
-<p>This situation is addressed by the qualifier <strong>_Out</strong>.</p>
+<p>This situation is addressed by the attribute <strong>_Ctor</strong> or [[ctor]].</p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -1095,14 +1133,25 @@ struct X {
   char * _Owner _Opt text;
 };
 
-int init(_Out struct X *p)
+int init(_Ctor struct X *p)
 {
-  p-&gt;text = strdup(&quot;a&quot;); //safe
+  p-&gt;text = strdup(&quot;a&quot;);
+  
+  /*
+     The implementation must fulfill the contract and 
+     initialize all members of x
+  */
+
 }
 
 int main() {   
   struct X x;
   init(&amp;x);  
+
+  /*
+     x is fully initialized
+  */
+
   free(x.text);
 }  
 
@@ -1110,9 +1159,10 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>With the _Out qualifier, caller is informed that the argument must be uninitialized.</p>
+<p>With the _Ctor qualifier, caller is informed that the argument must be uninitialized.</p>
 
-<p>The implementation is aware that it can safely override the contents of the object <code>p-&gt;text</code> without causing a memory leak.</p>
+<p>The implementation is aware that it can safely override the contents of the 
+object <code>p-&gt;text</code> without causing a memory leak.</p>
 
 <blockquote>
 <p>Note: There is no explicit &quot;initialized&quot; state. When referring to initialized objects, it means the state is neither &quot;moved&quot; nor &quot;uninitialized.&quot;.</p>
@@ -1122,7 +1172,7 @@ int main() {
 
 <p><strong>Rule:</strong> By default, the parameters of a function are considered initialized. The exception is created with _Out qualifier.</p>
 
-<p><strong>Rule:</strong> We cannot pass initialized objects, or reachable initialized objects to <strong>_Out</strong> qualified object.</p>
+<p><strong>Rule:</strong> We cannot pass initialized objects, or reachable initialized objects to <strong>_Ctor</strong> object.</p>
 
 <p>For instance, at set implementation we need free text before assignment.</p>
 
@@ -1135,7 +1185,7 @@ struct X {
   char * _Owner _Opt text;
 };
 
-int init(_Out struct X *p, const char * text)
+int init(_Ctor struct X *p, const char * text)
 {
    p-&gt;text = strdup(text); //safe
 }
@@ -1169,7 +1219,7 @@ struct X {
   char * _Owner _Opt name;
 };
 
-void x_destroy(struct X * _Obj_owner p) {
+void x_destroy(_Dtor struct X * p) {
   free(p-&gt;name); 
 }
 
@@ -1203,7 +1253,7 @@ struct X
   char * _Owner _Opt name;
 };
 
-void x_destroy(struct X * _Obj_owner p)
+void x_destroy(_Dtor struct X * p)
 {
   free(p-&gt;name); 
 }
@@ -1232,6 +1282,10 @@ many ways. For example, both Cake and C# assume the argument is
 initialized independently of the result.</p>
 
 <p><a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out">https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out</a></p>
+
+<p>The _Ctor is the inverse of _Dtor.
+With _Ctor, the object is uninitialized as input and initialized as output.
+With _Dtor, the object is initialized as input and uninitialized as output.</p>
 
 <h4>Null and Not-Null state</h4>
 
@@ -1344,7 +1398,7 @@ int main() {
 
 <p>Now let&#39;s consider <code>realloc</code> function.</p>
 
-<pre><code class="language-c">void * _Owner _Opt _realloc( void * _Opt ptr, size_t new_size );    
+<pre><code class="language-c">void * _Owner _Opt realloc( void * _Opt ptr, size_t new_size ); 
 </code></pre>
 
 <p>In the declaration of <code>realloc</code>, we are not moving the ptr. The reason for that is because the <code>ptr</code> may or may not be moved. If the function returns NULL, <code>ptr</code> was not moved. </p>
@@ -1530,7 +1584,7 @@ rules themselves.</p>
 
   #define _Out
   #define _Owner
-  #define _Obj_owner
+  #define _Dtor
   #define _View
 
 #endif

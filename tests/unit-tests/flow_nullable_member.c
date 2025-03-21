@@ -15,7 +15,7 @@ struct X {
 };
 
 struct X f();
-void destroy(struct X * _Obj_owner x);
+void destroy(_Dtor struct X *  x);
 
 int main()
 {

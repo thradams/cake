@@ -52,7 +52,7 @@ struct flow_objects
 };
 
 void flow_objects_clear(struct flow_objects* p);
-void flow_objects_destroy(struct flow_objects* _Obj_owner p);
+void flow_objects_destroy(_Dtor struct flow_objects* p);
 int flow_objects_push_back(struct flow_objects* p, struct flow_object* _Owner p_object);
 const struct flow_object* _Opt flow_objects_find(const struct flow_objects* p, const struct flow_object* p_object);
 
@@ -64,7 +64,7 @@ struct flow_objects_view
     int capacity;
 };
 
-void objects_view_destroy(struct flow_objects_view* _Obj_owner p);
+void objects_view_destroy(_Dtor struct flow_objects_view* p);
 int objects_view_push_back(struct flow_objects_view* p, struct flow_object* p_object);
 bool objects_view_find(const struct flow_objects_view* p, const struct flow_object* p_object);
 void objects_view_copy(struct flow_objects_view* dest, const struct flow_objects_view* source);
@@ -142,7 +142,7 @@ void flow_object_print_state(struct flow_object* p);
 
 void object_set_pointer(struct flow_object* p_object, struct flow_object* p_object2);
 
-void flow_object_destroy(struct flow_object* _Obj_owner p);
+void flow_object_destroy(_Dtor struct flow_object* p);
 void flow_object_delete(struct flow_object* _Owner _Opt p);
 void flow_object_swap(struct flow_object* a, struct flow_object* b);
 void print_object_line(struct flow_object* p_object, int cols);
@@ -252,7 +252,7 @@ struct flow_visit_ctx
 
 struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx);
 
-void flow_visit_ctx_destroy(struct flow_visit_ctx* _Obj_owner p);
+void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p);
 
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
 void print_arena(struct flow_visit_ctx* ctx);

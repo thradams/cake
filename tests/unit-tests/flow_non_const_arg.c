@@ -6,7 +6,7 @@ struct X {
 };
 
 void x_change(struct X* list);
-void x_destroy(struct X* _Obj_owner p);
+void x_destroy(_Dtor struct X*  p);
 
 int main()
 {

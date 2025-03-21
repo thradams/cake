@@ -6,7 +6,7 @@ struct X {
     int i;
 } ;
 
-void f(_Out struct X * x, int i)
+void f(_Ctor struct X * x, int i)
 {
    if (i > 0){
      x->i =1;

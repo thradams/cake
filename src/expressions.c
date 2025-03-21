@@ -82,6 +82,12 @@ static int compare_function_arguments(struct parser_ctx* ctx,
 
         struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
+        if (p_current_parameter_type && type_is_void(p_current_parameter_type))
+        {
+            //(void) function
+            p_current_parameter_type = NULL;
+        }
+
         while (p_current_argument && p_current_parameter_type)
         {
             check_assigment(ctx, &p_current_parameter_type->type, p_current_argument->expression, ASSIGMENT_TYPE_PARAMETER);
@@ -381,7 +387,7 @@ void generic_assoc_list_add(struct generic_assoc_list* list, struct generic_asso
     list->tail = pitem;
 }
 
-void generic_assoc_list_destroy(struct generic_assoc_list* _Obj_owner p)
+void generic_assoc_list_destroy(_Dtor struct generic_assoc_list* p)
 {
     struct generic_association* _Owner _Opt item = p->head;
     while (item)
@@ -1429,14 +1435,14 @@ static void fix_member_type(struct type* p_type, const struct type* struct_type,
         p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_OWNER;
     }
 
-    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_NULLABLE)
+    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_OPT)
     {
         /*
           struct X { _Owner int i; };
           _View struct X x;
           x.i ;//is is not _Owner
         */
-        p_type->type_qualifier_flags |= TYPE_QUALIFIER_NULLABLE;
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_OPT;
     }
 
 }
@@ -1454,13 +1460,13 @@ static void fix_arrow_member_type(struct type* p_type, const struct type* left, 
         p_type->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
     }
 
-    if (t.type_qualifier_flags & TYPE_QUALIFIER_NULLABLE)
+    if (t.type_qualifier_flags & TYPE_QUALIFIER_OPT)
     {
         /*
            const struct X * p;
         */
 
-        p_type->type_qualifier_flags |= TYPE_QUALIFIER_NULLABLE;
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_OPT;
     }
 
     if (t.type_qualifier_flags & TYPE_QUALIFIER_VIEW)
@@ -1666,7 +1672,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                             if (p_member_declarator->declarator)
                             {
-                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);                                
+                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
                             }
                             else
                             {
@@ -3974,7 +3980,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
             {
-                compiler_diagnostic_message(C_ERROR_OUT_OF_MEM, ctx, ctx->current, NULL, "_Out of mem");
+                compiler_diagnostic_message(C_ERROR_OUT_OF_MEM, ctx, ctx->current, NULL, "out of mem");
                 throw;
             }
 
@@ -5164,7 +5170,7 @@ void argument_expression_list_push(struct argument_expression_list* list, struct
     list->tail = pitem;
 }
 
-void argument_expression_list_destroy(struct argument_expression_list* _Obj_owner p)
+void argument_expression_list_destroy(_Dtor struct argument_expression_list* p)
 {
     struct argument_expression* _Owner _Opt item = p->head;
     while (item)
@@ -5758,8 +5764,25 @@ void check_assigment(struct parser_ctx* ctx,
             }
         }
     }
+#if 1
+    /*
+    TODO REMOVE THiS
+    #pragma safety enable
 
-    if (type_is_obj_owner(p_a_type) && type_is_pointer(p_a_type))
+      #include <stdlib.h>
+
+      struct X {
+       struct Y * _Owner p;
+      };
+
+      void x_destroy(_Dtor struct X * p);
+
+      void f(struct X * x) {
+        x_destroy(x);
+        static_debug(*x);
+      }
+    */
+    if (type_is_pointed_dtor(p_a_type) && type_is_pointer(p_a_type))
     {
         if (type_is_owner(p_b_type))
         {
@@ -5769,13 +5792,14 @@ void check_assigment(struct parser_ctx* ctx,
             compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
                        ctx,
                        p_b_expression->first_token, NULL,
-                       "source expression of _Obj_owner must be addressof");
+                       "source expression of _Dtor must be addressof");
         }
     }
+#endif
 
 
     if (type_is_pointer(p_a_type) &&
-        !type_is_nullable(p_a_type, ctx->options.null_checks_enabled) &&
+        !type_is_opt(p_a_type, ctx->options.null_checks_enabled) &&
         is_null_pointer_constant)
     {
 

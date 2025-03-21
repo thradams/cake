@@ -181,7 +181,7 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
 */
 
 
-void scope_destroy(struct scope* _Obj_owner p)
+void scope_destroy(_Dtor struct scope* p)
 {
     hashmap_destroy(&p->tags);
     hashmap_destroy(&p->variables);
@@ -233,7 +233,7 @@ void scope_list_pop(struct scope_list* list)
     p->previous = NULL;
 }
 
-void switch_value_destroy(struct switch_value_list* _Obj_owner p)
+void switch_value_destroy(_Dtor struct switch_value_list* p)
 {
     struct switch_value* _Owner _Opt item = p->head;
     while (item)
@@ -281,7 +281,7 @@ struct switch_value* _Opt switch_value_list_find(const struct switch_value_list*
     return NULL;
 }
 
-void parser_ctx_destroy(_Opt struct parser_ctx* _Obj_owner ctx)
+void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx)
 {
     label_list_clear(&ctx->label_list);
     assert(ctx->label_list.head == NULL);
@@ -687,9 +687,9 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD__ATOMIC ||
 
         /*extensions*/
-        p_token->type == TK_KEYWORD__OUT ||
+        p_token->type == TK_KEYWORD__CTOR ||
         p_token->type == TK_KEYWORD__OWNER ||
-        p_token->type == TK_KEYWORD__OBJ_OWNER ||
+        p_token->type == TK_KEYWORD__DTOR ||
         p_token->type == TK_KEYWORD__VIEW ||
         p_token->type == TK_KEYWORD__OPT;
 
@@ -1216,12 +1216,12 @@ enum token_type is_keyword(const char* text)
         // end microsoft
 
         /*ownership*/
-        if (strcmp("_Out", text) == 0)
-            result = TK_KEYWORD__OUT; /*extension*/
+        if (strcmp("_Ctor", text) == 0)
+            result = TK_KEYWORD__CTOR; /*extension*/
         else if (strcmp("_Owner", text) == 0)
             result = TK_KEYWORD__OWNER; /*extension*/
-        else if (strcmp("_Obj_owner", text) == 0)
-            result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+        else if (strcmp("_Dtor", text) == 0)
+            result = TK_KEYWORD__DTOR; /*extension*/
         else if (strcmp("_Opt", text) == 0)
             result = TK_KEYWORD__OPT; /*extension*/
 
@@ -2751,21 +2751,21 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
             if (!type_is_pointer(&p_init_declarator->p_declarator->type) &&
-                p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+                p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_DTOR)
             {
                 if (p_init_declarator->p_declarator->first_token_opt)
                 {
                     compiler_diagnostic_message(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
                         ctx,
                         p_init_declarator->p_declarator->first_token_opt, NULL,
-                        "_Obj_owner qualifier can only be used with pointers");
+                        "_Dtor qualifier can only be used with pointers");
                 }
                 else if (p_init_declarator->initializer)
                 {
                     compiler_diagnostic_message(C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
                     ctx,
                     p_init_declarator->initializer->first_token, NULL,
-                    "_Obj_owner qualifier can only be used with pointers");
+                    "_Dtor qualifier can only be used with pointers");
                 }
             }
         }
@@ -2834,7 +2834,7 @@ void init_declarator_list_add(struct init_declarator_list* list, struct init_dec
     list->tail = p_item;
 }
 
-void init_declarator_list_destroy(struct init_declarator_list* _Obj_owner p)
+void init_declarator_list_destroy(_Dtor struct init_declarator_list* p)
 {
     struct init_declarator* _Owner _Opt item = p->head;
     while (item)
@@ -3821,7 +3821,7 @@ void member_declaration_list_add(struct member_declaration_list* list, struct me
     list->tail = p_item;
 }
 
-void member_declaration_list_destroy(_Opt struct member_declaration_list* _Obj_owner p)
+void member_declaration_list_destroy(_Opt _Dtor struct member_declaration_list* p)
 {
     struct member_declaration* _Owner _Opt item = p->head;
     while (item)
@@ -4575,7 +4575,7 @@ void enumerator_list_add(struct enumerator_list* list, struct enumerator* _Owner
     list->tail = p_item;
 }
 
-void enumerator_list_destroy(struct enumerator_list* _Obj_owner p)
+void enumerator_list_destroy(_Dtor struct enumerator_list* p)
 {
     struct enumerator* _Owner _Opt item = p->head;
     while (item)
@@ -4876,20 +4876,22 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     {
         switch (ctx->current->type)
         {
-        case TK_KEYWORD__OUT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
+        case TK_KEYWORD__CTOR:
+            p_type_qualifier->flags = TYPE_QUALIFIER_CTOR;
+            break;
+
+        case TK_KEYWORD__DTOR:
+            p_type_qualifier->flags = TYPE_QUALIFIER_DTOR;
             break;
 
         case TK_KEYWORD__OWNER:
             p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
             break;
 
-        case TK_KEYWORD__OBJ_OWNER:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
-            break;
         case TK_KEYWORD__VIEW:
             p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
             break;
+
         default:
             // do nothing
             break;
@@ -4901,7 +4903,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         switch (ctx->current->type)
         {
         case TK_KEYWORD__OPT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_NULLABLE;
+            p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
             break;
 
         default:
@@ -5728,6 +5730,17 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             throw;
         }
 
+        if (p_parameter_declaration->attribute_specifier_sequence_opt)
+        {
+          if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
+          {
+              p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CTOR;
+          }
+          else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
+          {
+              p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_DTOR;
+          }
+        }
         p_parameter_declaration->declaration_specifiers = p_declaration_specifiers;
 
 
@@ -6143,7 +6156,7 @@ void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_it
     list->tail = p_item;
 }
 
-void defer_list_destroy(struct defer_list* _Obj_owner  p)
+void defer_list_destroy(_Dtor struct defer_list* p)
 {
 
     struct defer_list_item* _Owner _Opt item = p->head;
@@ -7038,7 +7051,7 @@ void attribute_list_add(struct attribute_list* list, struct attribute* _Owner p_
     list->tail = p_item;
 }
 
-void attribute_list_destroy(struct attribute_list* _Obj_owner p)
+void attribute_list_destroy(_Dtor struct attribute_list* p)
 {
     struct attribute* _Owner _Opt item = p->head;
     while (item)
@@ -7107,7 +7120,14 @@ bool first_of_attribute(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
-    return ctx->current->type == TK_IDENTIFIER;
+    
+    if (ctx->current->type == TK_IDENTIFIER)
+        return true;
+
+    if (is_keyword(ctx->current->lexeme) != 0)
+        return true;
+
+    return false;
 }
 
 struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
@@ -7209,6 +7229,16 @@ struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
         {
             is_standard_attribute = true;
             p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
+        }
+        else if (strcmp(attr_token->lexeme, "dtor") == 0)
+        {
+            is_standard_attribute = true;
+            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_DTOR;
+        }
+        else if (strcmp(attr_token->lexeme, "ctor") == 0)
+        {
+            is_standard_attribute = true;
+            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_CTOR;
         }
 
         const bool is_cake_attr = strcmp(attr_token->lexeme, "cake") == 0;
@@ -7804,7 +7834,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
 
             if (p_switch_value)
             {
-                compiler_diagnostic_message(W_SWITCH,
+                compiler_diagnostic_message(C_ERROR_DUPLICATED_CASE,
                         ctx,
                         p_label->constant_expression->first_token, NULL,
                         "duplicate case value '%lld'", case_value);
@@ -8099,7 +8129,7 @@ void block_item_list_add(struct block_item_list* list, struct block_item* _Owner
 
 }
 
-void block_item_list_destroy(struct block_item_list* _Obj_owner list)
+void block_item_list_destroy(_Dtor struct block_item_list* list)
 {
     struct block_item* _Owner _Opt item = list->head;
     while (item)
@@ -9338,7 +9368,7 @@ void declaration_delete(struct declaration* _Owner _Opt p)
     }
 }
 
-void declaration_list_destroy(struct declaration_list* _Obj_owner list)
+void declaration_list_destroy(_Dtor struct declaration_list* list)
 {
     struct declaration* _Owner _Opt p = list->head;
     while (p)
@@ -9387,7 +9417,7 @@ struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx)
 
 struct label_list_item* label_list_find(struct label_list* list, const char* label_name)
 {
-    struct label_list_item*  _Opt item = list->head;
+    struct label_list_item* _Opt item = list->head;
     while (item)
     {
         if (item->p_defined && strcmp(item->p_defined->lexeme, label_name) == 0)
@@ -9440,7 +9470,7 @@ void check_labels(struct parser_ctx* ctx)
     while (item)
     {
         if (item->p_defined == NULL && item->p_last_usage != NULL)
-        {                        
+        {
             compiler_diagnostic_message(C_ERROR_LABEL_NOT_DEFINED, ctx, item->p_last_usage, NULL, "label 'a' used but not defined", item->p_last_usage->lexeme);
         }
         else if (item->p_defined != NULL && item->p_last_usage == NULL)
@@ -10450,7 +10480,7 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     return (char* _Owner _Opt)compile_source(pszoptions, content, &report);
 }
 
-void ast_destroy(struct ast* _Obj_owner ast)
+void ast_destroy(_Dtor struct ast* ast)
 {
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);

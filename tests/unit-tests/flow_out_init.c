@@ -7,7 +7,7 @@ char* _Owner strdup(const char* s);
 struct X {
     char* _Owner s;
 };
-void init(_Out struct X* px)
+void init(_Ctor struct X* px)
 {
     static_state(px, "not-null");
     static_state(px->s, "uninitialized");

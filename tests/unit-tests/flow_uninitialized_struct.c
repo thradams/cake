@@ -5,7 +5,7 @@ struct X {
     char* _Owner text;
 };
 
-void x_destroy(struct X* _Obj_owner p);
+void x_destroy(_Dtor struct X*  p);
 
 
 int main() {

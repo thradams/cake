@@ -229,7 +229,7 @@ void flow_object_expand_pointer(struct flow_visit_ctx* ctx, struct type* p_type,
             struct flow_object* _Opt p_object2 = make_flow_object(ctx, &t2, p_object->p_declarator_origin, p_object->p_expression_origin);
             if (p_object2)
             {
-                const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
+                const bool is_nullable = type_is_opt(&t2, nullable_enabled);
                 flow_object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
                 object_set_pointer(p_object, p_object2);////obj.pointed2 = p_object;
                 flow_object_push_states_from(p_object, p_object2);
@@ -264,7 +264,7 @@ void object_set_pointer(struct flow_object* p_object, struct flow_object* p_obje
     p_object->current.pointed = p_object2;
 }
 
-void flow_object_destroy(struct flow_object* _Obj_owner p)
+void flow_object_destroy(_Dtor struct flow_object* p)
 {
     objects_view_destroy(&p->members);
 
@@ -322,7 +322,7 @@ int flow_object_add_state(struct flow_object* p, struct flow_object_state* _Owne
 
 
 
-void objects_view_destroy(struct flow_objects_view* _Obj_owner p)
+void objects_view_destroy(_Dtor struct flow_objects_view* p)
 {
     free(p->data);
 }
@@ -423,7 +423,7 @@ bool objects_view_find(const struct flow_objects_view* p, const struct flow_obje
     }
     return false;
 }
-void flow_objects_destroy(struct flow_objects* _Obj_owner p)
+void flow_objects_destroy(_Dtor struct flow_objects* p)
 {
     for (int i = 0; i < p->size; i++)
     {
@@ -1472,7 +1472,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
 
     if (type_is_pointer(p_visitor->p_type))
     {
-        if (t_is_nullable || type_is_nullable(p_visitor->p_type, nullable_enabled))
+        if (t_is_nullable || type_is_opt(p_visitor->p_type, nullable_enabled))
             p_visitor->p_object->current.state = FLOW_OBJECT_STATE_NULL | FLOW_OBJECT_STATE_NOT_NULL;
         else
             p_visitor->p_object->current.state = FLOW_OBJECT_STATE_NOT_NULL;
@@ -1482,7 +1482,7 @@ static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_
         if (pointed)
         {
             struct type t2 = type_remove_pointer(p_visitor->p_type);
-            bool t2_is_nullable = type_is_nullable(&t2, nullable_enabled);
+            bool t2_is_nullable = type_is_opt(&t2, nullable_enabled);
             _Opt struct object_visitor visitor = { 0 };
             visitor.p_type = &t2;
             visitor.p_object = pointed;
@@ -2240,7 +2240,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
 
         if (type_is_pointer(p_visitor->p_type) &&
             !is_nullable &&
-            !type_is_nullable(p_visitor->p_type, ctx->ctx->options.null_checks_enabled) &&
+            !type_is_opt(p_visitor->p_type, ctx->ctx->options.null_checks_enabled) &&
             flow_object_can_be_null(p_visitor->p_object))
         {
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
@@ -2381,7 +2381,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 name, NULL,
-                "object '%s' was not moved/destroyed",
+                "members of '%s' were not released.",
                 previous_names))
             {
 
@@ -2498,7 +2498,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 position, NULL,
-                "ownership of '%s' not moved before the end of lifetime", previous_names))
+                "object pointed by '%s' was not released.", previous_names))
             {
                 compiler_diagnostic_message(W_LOCATION,
                 ctx->ctx,
@@ -2506,7 +2506,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                 "end of '%s' lifetime", previous_names);
             }
         }
-        else if (!b_type_is_view && type_is_obj_owner(p_visitor->p_type) && type_is_pointer(p_visitor->p_type))
+        else if (!b_type_is_view && type_is_pointed_dtor(p_visitor->p_type) && type_is_pointer(p_visitor->p_type))
         {
             char buffer[100] = { 0 };
             snprintf(buffer, sizeof buffer, "%s", previous_names);
@@ -2536,7 +2536,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                 if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                     ctx->ctx,
                     position, NULL,
-                    "ownership of '%s' not moved before the end of lifetime", previous_names))
+                    "object pointed by '%s' was not released.", previous_names))
                 {
                     compiler_diagnostic_message(W_LOCATION,
                     ctx->ctx,
@@ -2661,7 +2661,7 @@ static void flow_assignment_core(
                     item_type = type_remove_pointer(p_visitor_a->p_type);
 
                 const bool cannot_be_uninitialized =
-                    (ctx->ctx->options.ownership_enabled && !type_is_out(&item_type)) ||
+                    (ctx->ctx->options.ownership_enabled && !type_is_ctor(&item_type)) ||
                     type_is_const(&item_type);
 
                 if (cannot_be_uninitialized)
@@ -2730,7 +2730,7 @@ static void flow_assignment_core(
 
     /*general check passing possible null to non _Opt*/
     if (type_is_pointer(p_visitor_a->p_type) &&
-        (!type_is_nullable(p_visitor_a->p_type, ctx->ctx->options.null_checks_enabled)) &&
+        (!type_is_opt(p_visitor_a->p_type, ctx->ctx->options.null_checks_enabled)) &&
         flow_object_can_be_null(p_visitor_b->p_object))
     {
         if (!a_type_is_nullable)
@@ -2788,7 +2788,7 @@ static void flow_assignment_core(
         }
     }
 
-    if (!a_type_is_view && type_is_obj_owner(p_visitor_a->p_type) && type_is_pointer(p_visitor_a->p_type))
+    if (!a_type_is_view && type_is_pointed_dtor(p_visitor_a->p_type) && type_is_pointer(p_visitor_a->p_type))
     {
         checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, p_a_marker);
 
@@ -2869,13 +2869,13 @@ static void flow_assignment_core(
 
         struct type t = type_remove_pointer(p_visitor_a->p_type);
 
-        /*if the parameter points to _Out object, then we don´t need to check
+        /*if the parameter points to _Ctor object, then we don´t need to check
           argument pointed object.
         */
         const bool checked_pointed_object_read =
-            ctx->ctx->options.ownership_enabled && !type_is_out(&t);
+            ctx->ctx->options.ownership_enabled && !type_is_ctor(&t);
 
-        bool is_nullable = a_type_is_nullable || type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
+        bool is_nullable = a_type_is_nullable || type_is_opt(&t, ctx->ctx->options.null_checks_enabled);
 
         checked_read_object(ctx,
             p_visitor_b->p_type,
@@ -2930,7 +2930,7 @@ static void flow_assignment_core(
                 }
             }
         }
-        else if (!a_type_is_view && type_is_obj_owner(p_visitor_a->p_type))
+        else if (!a_type_is_view && type_is_pointed_dtor(p_visitor_a->p_type))
         {
             if (type_is_any_owner(p_visitor_b->p_type))
             {
@@ -3165,7 +3165,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
                             throw;
 
                         flow_object_set_unknown(&p_expression->declarator->type,
-                                                type_is_nullable(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled),
+                                                type_is_opt(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled),
                                                 p_expression->declarator->p_flow_object,
                                                 ctx->ctx->options.null_checks_enabled);
                     }
@@ -3342,7 +3342,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             struct flow_object* _Opt p_object = make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
 
-            const bool is_nullable = type_is_nullable(&p_expression->type, nullable_enabled);
+            const bool is_nullable = type_is_opt(&p_expression->type, nullable_enabled);
             flow_object_set_unknown(&p_expression->type, is_nullable, p_object, nullable_enabled);
             p_object->is_temporary = true;
 
@@ -3785,7 +3785,7 @@ enum merge_options
     MERGE_OPTIONS_B_FALSE = 1 << 3
 };
 
-void true_false_set_destroy(struct true_false_set* _Obj_owner p)
+void true_false_set_destroy(_Dtor struct true_false_set* p)
 {
     free(p->data);
 }
@@ -4317,7 +4317,7 @@ static void braced_initializer_flow_core(struct flow_visit_ctx* ctx, struct obje
                                 ASSIGMENT_TYPE_OBJECTS,
                                 false,
                                 type_is_view(&obj->type),
-                                type_is_nullable(&obj->type, ctx->ctx->options.null_checks_enabled),
+                                type_is_opt(&obj->type, ctx->ctx->options.null_checks_enabled),
                                 &obj->type,
                                 flow_obj,
                                 &obj->p_init_expression->type,
@@ -4361,7 +4361,7 @@ static void braced_initializer_flow(struct flow_visit_ctx* ctx, struct object* o
            Let´s check if the object has been initialized correctly
         */
 
-        bool is_nullable = type_is_nullable(&obj->type, ctx->ctx->options.null_checks_enabled);
+        bool is_nullable = type_is_opt(&obj->type, ctx->ctx->options.null_checks_enabled);
 
         struct marker a_marker = {
                           .p_token_begin = flow_obj->p_declarator_origin->first_token_opt,
@@ -4440,7 +4440,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                                         ASSIGMENT_TYPE_OBJECTS,
                                         false,
                                         type_is_view(&p_init_declarator->p_declarator->type),
-                                        type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
+                                        type_is_opt(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
                                         &p_init_declarator->p_declarator->type,
                                         p_init_declarator->p_declarator->p_flow_object,
                                         &p_init_declarator->initializer->assignment_expression->type,
@@ -4486,7 +4486,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
 
                     checked_read_object(ctx,
                         &t,
-                        type_is_nullable(&t, ctx->ctx->options.null_checks_enabled),
+                        type_is_opt(&t, ctx->ctx->options.null_checks_enabled),
                         pointed_calloc_object,
                         p_init_declarator->p_declarator->first_token_opt,
                         &a_marker,
@@ -4977,7 +4977,7 @@ static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
                   ASSIGMENT_TYPE_PARAMETER,
                   true,
                   type_is_view(&p_current_parameter_type->type),
-                  type_is_nullable(&p_current_parameter_type->type, ctx->ctx->options.null_checks_enabled),
+                  type_is_opt(&p_current_parameter_type->type, ctx->ctx->options.null_checks_enabled),
                   &p_current_parameter_type->type,
                   parameter_object, /*dest object*/
 
@@ -5007,7 +5007,7 @@ static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
                 };
                 checked_read_object(ctx,
                     &p_current_argument->expression->type,
-                    type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled),
+                    type_is_opt(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled),
                     p_argument_object,
                     p_current_argument->expression->first_token,
                     &marker,
@@ -5054,7 +5054,7 @@ static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
                 if (p_argument_object)
                 {
                     const bool argument_type_is_nullable =
-                        type_is_nullable(&pointed_type, ctx->ctx->options.null_checks_enabled);
+                        type_is_opt(&pointed_type, ctx->ctx->options.null_checks_enabled);
 
                     if (p_argument_object->current.pointed)
                     {
@@ -5327,7 +5327,7 @@ static void flow_expression_bind(struct flow_visit_ctx* ctx,
 
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
 {
-    true_false_set_clear(expr_true_false_set); //_Out
+    true_false_set_clear(expr_true_false_set); //out
 
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
@@ -5818,7 +5818,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             ASSIGMENT_TYPE_OBJECTS,
             true,
             type_is_view(&p_expression->left->type), /*dest type*/
-            type_is_nullable(&p_expression->left->type, ctx->ctx->options.null_checks_enabled), /*dest type*/
+            type_is_opt(&p_expression->left->type, ctx->ctx->options.null_checks_enabled), /*dest type*/
             &p_expression->left->type, /*dest type*/
             p_dest_object, /*dest object*/
             &p_expression->right->type, /*source type*/
@@ -6673,7 +6673,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                      ASSIGMENT_TYPE_RETURN,
                      true,
                         type_is_view(ctx->p_return_type), /*dest type*/
-                        type_is_nullable(ctx->p_return_type, ctx->ctx->options.null_checks_enabled), /*dest type*/
+                        type_is_opt(ctx->p_return_type, ctx->ctx->options.null_checks_enabled), /*dest type*/
                         ctx->p_return_type, /*dest type*/
                         p_dest_object, /*dest object*/
                         &p_jump_statement->expression_opt->type, /*source type*/
@@ -6694,7 +6694,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
                     checked_read_object(ctx,
                                         ctx->p_return_type,
-                                        type_is_nullable(ctx->p_return_type, ctx->ctx->options.null_checks_enabled),
+                                        type_is_opt(ctx->p_return_type, ctx->ctx->options.null_checks_enabled),
                                         p_dest_object,
                                         NULL,
                                         &a_marker,
@@ -7141,7 +7141,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
             {
                 if (type_is_pointer(&p_declarator->type))
                 {
-                    if (type_is_nullable(&p_declarator->type, ctx->ctx->options.null_checks_enabled))
+                    if (type_is_opt(&p_declarator->type, ctx->ctx->options.null_checks_enabled))
                     {
                         p_declarator->p_flow_object->current.state = FLOW_OBJECT_STATE_NOT_NULL | FLOW_OBJECT_STATE_NULL;
                     }
@@ -7172,7 +7172,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                             type_destroy(&t);
                             throw;
                         }
-                        const bool t_is_nullable = type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
+                        const bool t_is_nullable = type_is_opt(&t, ctx->ctx->options.null_checks_enabled);
                         flow_object_set_unknown(&t, t_is_nullable, po, nullable_enabled);
                         object_set_pointer(p_declarator->p_flow_object, po); //MOVED                    
                         type_destroy(&t);
@@ -7180,7 +7180,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 }
                 else if (type_is_struct_or_union(&p_declarator->type))
                 {
-                    const bool is_nullable = type_is_nullable(&p_declarator->type, nullable_enabled);
+                    const bool is_nullable = type_is_opt(&p_declarator->type, nullable_enabled);
                     flow_object_set_unknown(&p_declarator->type, is_nullable, p_declarator->p_flow_object, nullable_enabled);
                 }
                 else if (type_is_array(&p_declarator->type))
@@ -7473,7 +7473,7 @@ _Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
 #pragma CAKE diagnostic pop
 
 
-void flow_visit_ctx_destroy(struct flow_visit_ctx* _Obj_owner p)
+void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p)
 {
     flow_objects_destroy(&p->arena);
 }

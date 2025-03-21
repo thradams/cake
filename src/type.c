@@ -104,13 +104,13 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
     if (e_type_qualifier_flags & TYPE_QUALIFIER_OWNER)
         print_item(ss, first, "_Owner");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
-        print_item(ss, first, "_Obj_owner");
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_DTOR)
+        print_item(ss, first, "_Dtor");
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_VIEW)
         print_item(ss, first, "_View");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_NULLABLE)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_OPT)
         print_item(ss, first, "_Opt");
 
 }
@@ -181,7 +181,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
            "pointer to function returning type".
         */
         struct type t = type_add_pointer(p_type, nullchecks_enabled);
-        t.type_qualifier_flags &= ~TYPE_QUALIFIER_NULLABLE;
+        t.type_qualifier_flags &= ~TYPE_QUALIFIER_OPT;
         t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
         t.category = t.category;
         return t;
@@ -465,7 +465,7 @@ void param_list_add(struct param_list* list, struct param* _Owner p_item)
     list->tail = p_item;
 }
 
-void param_list_destroy(struct param_list* _Obj_owner p)
+void param_list_destroy(_Dtor struct param_list* p)
 {
     struct param* _Owner _Opt item = p->head;
     while (item)
@@ -477,14 +477,14 @@ void param_list_destroy(struct param_list* _Obj_owner p)
     }
 }
 
-void type_destroy_one(_Opt struct type* _Obj_owner p_type)
+void type_destroy_one(_Opt _Dtor struct type* p_type)
 {
     free((void* _Owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
     assert(p_type->next == NULL);
 }
 
-void type_destroy(_Opt struct type* _Obj_owner p_type)
+void type_destroy(_Opt _Dtor struct type* p_type)
 {
     free((void* _Owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
@@ -586,7 +586,7 @@ bool type_is_any_owner(const struct type* p_type)
     {
         return true;
     }
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_DTOR;
 }
 
 bool type_is_pointer_to_owner(const struct type* p_type)
@@ -597,9 +597,17 @@ bool type_is_pointer_to_owner(const struct type* p_type)
     return type_is_owner(p_type->next);
 }
 
-bool type_is_obj_owner(const struct type* p_type)
+bool type_is_dtor(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_DTOR;
+}
+
+bool type_is_pointed_dtor(const struct type* p_type)
+{
+    if (!type_is_pointer(p_type))
+        return false;
+   
+    return type_is_dtor(p_type->next);
 }
 
 bool type_is_owner(const struct type* p_type)
@@ -632,11 +640,11 @@ bool type_is_owner(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER;
 }
 
-bool type_is_nullable(const struct type* p_type, bool nullable_enabled)
+bool type_is_opt(const struct type* p_type, bool nullable_enabled)
 {
     if (nullable_enabled)
     {
-        return p_type->type_qualifier_flags & TYPE_QUALIFIER_NULLABLE;
+        return p_type->type_qualifier_flags & TYPE_QUALIFIER_OPT;
     }
 
     //If  nullable_enabled is disabled then all pointers are nullable
@@ -648,9 +656,9 @@ bool type_is_view(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW;
 }
 
-bool type_is_out(const struct type* p_type)
+bool type_is_ctor(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_OUT;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CTOR;
 }
 
 bool type_is_const(const struct type* p_type)
@@ -709,7 +717,7 @@ bool type_is_pointer_to_out(const struct type* p_type)
 
     if (p_type->category == TYPE_CATEGORY_POINTER)
     {
-        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_OUT;
+        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CTOR;
     }
     return false;
 }
@@ -1031,18 +1039,18 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
     struct type* paramer_type,
     int param_num)
 {
-    //            _Owner     _Obj_owner  _View parameter
+    //            _Owner     _Dtor  _View parameter
     // _Owner      OK                   OK
-    // _Obj_owner  X         OK         OK
+    // _Dtor  X         OK         OK
     // _View       X (NULL)  X          OK
 
-    const bool paramer_is_obj_owner = type_is_obj_owner(paramer_type);
+    const bool paramer_is_obj_owner = type_is_pointed_dtor(paramer_type);
     const bool paramer_is_owner = type_is_owner(paramer_type);
     const bool paramer_is_view = !paramer_is_obj_owner && !paramer_is_owner;
 
     const struct type* const argument_type = &current_argument->expression->type;
     const bool argument_is_owner = type_is_owner(&current_argument->expression->type);
-    const bool argument_is_obj_owner = type_is_obj_owner(&current_argument->expression->type);
+    const bool argument_is_obj_owner = type_is_pointed_dtor(&current_argument->expression->type);
     const bool argument_is_view = !argument_is_owner && !argument_is_obj_owner;
 
     if (argument_is_owner && paramer_is_owner)
@@ -1070,7 +1078,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
             ctx,
             current_argument->expression->first_token, NULL,
-            "cannot move _Obj_owner to _Owner");
+            "cannot move _Dtor to _Owner");
     }
     else if (argument_is_obj_owner && paramer_is_obj_owner)
     {
@@ -1124,7 +1132,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
                     compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
                         ctx,
                         current_argument->expression->first_token, NULL,
-                        "_Obj_owner pointer must be created using address of operator &");
+                        "_Dtor pointer must be created using address of operator &");
                 }
             }
 
@@ -1137,7 +1145,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
                 compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token, NULL,
-                    "passing a _View argument to a _Obj_owner parameter");
+                    "passing a _View argument to a _Dtor parameter");
             }
         }
 
@@ -1157,7 +1165,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
     if (type_is_any_owner(paramer_type))
     {
-        if (type_is_obj_owner(paramer_type))
+        if (type_is_pointed_dtor(paramer_type))
         {
             if (current_argument->expression->type.category == TYPE_CATEGORY_POINTER)
             {
@@ -2859,7 +2867,7 @@ void type_list_push_front(struct type_list* books, struct type* _Owner new_book)
     }
 }
 
-void type_list_destroy(struct type_list* _Obj_owner p_type_list)
+void type_list_destroy(_Dtor struct type_list* p_type_list)
 {
     struct type* _Owner _Opt item = p_type_list->head;
     while (item)

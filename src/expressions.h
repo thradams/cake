@@ -100,7 +100,7 @@ struct argument_expression_list
     struct argument_expression* _Opt tail;
 };
 
-void argument_expression_list_destroy(struct argument_expression_list* _Obj_owner p);
+void argument_expression_list_destroy(_Dtor struct argument_expression_list* p);
 void argument_expression_list_push(struct argument_expression_list* list, struct argument_expression* _Owner p);
 
 struct generic_association
@@ -130,7 +130,7 @@ struct generic_assoc_list
 };
 
 void generic_assoc_list_add(struct generic_assoc_list* p, struct generic_association* _Owner item);
-void generic_assoc_list_destroy(struct generic_assoc_list* _Obj_owner p);
+void generic_assoc_list_destroy(_Dtor struct generic_assoc_list* p);
 
 struct generic_selection
 {

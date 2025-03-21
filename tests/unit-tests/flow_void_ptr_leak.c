@@ -3,7 +3,7 @@
 
 struct X { char* _Owner text; };
 
-void x_destroy(struct X* _Obj_owner p);
+void x_destroy(_Dtor struct X*  p);
 
 void x_delete(struct X* _Owner _Opt p)
 {

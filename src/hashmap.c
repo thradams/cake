@@ -101,7 +101,7 @@ void hashmap_remove_all(struct hash_map* map)
     }
 }
 
-void hashmap_destroy(struct hash_map* _Obj_owner map)
+void hashmap_destroy(_Dtor struct hash_map* map)
 {
     hashmap_remove_all(map);
     assert(map->table == NULL);
@@ -159,7 +159,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt 
     return NULL;
 }
 
-void hash_item_set_destroy(struct hash_item_set* _Obj_owner p)
+void hash_item_set_destroy(_Dtor struct hash_item_set* p)
 {
     declarator_delete(p->p_declarator);
     enumerator_delete(p->p_enumerator);

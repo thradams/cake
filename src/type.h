@@ -33,6 +33,10 @@ enum attribute_flags
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
     
+    //TODO decide attribute or not
+    CAKE_ATTRIBUTE_CTOR = 1 << 7,
+    CAKE_ATTRIBUTE_DTOR = 1 << 8,
+
     /*
      1 == 2 results in int in C
      lets add extra flag here
@@ -114,12 +118,13 @@ enum type_qualifier_flags
     TYPE_QUALIFIER__ATOMIC = 1 << 3,
 
     /*ownership extensions*/
-    TYPE_QUALIFIER_OWNER = 1 << 4,
-    TYPE_QUALIFIER_OBJ_OWNER = 1 << 5,
-    TYPE_QUALIFIER_VIEW = 1 << 6,
-    TYPE_QUALIFIER_NULLABLE = 1 << 7,
+    TYPE_QUALIFIER_OWNER = 1 << 4,    
+    TYPE_QUALIFIER_VIEW = 1 << 5,
+    TYPE_QUALIFIER_OPT = 1 << 6,
     
-    TYPE_QUALIFIER_OUT = 1 << 9,
+    /*function contract*/
+    TYPE_QUALIFIER_DTOR = 1 << 7,
+    TYPE_QUALIFIER_CTOR = 1 << 8,
 };
 
 enum storage_class_specifier_flags
@@ -168,7 +173,7 @@ struct type_list
     struct type* _Opt tail;
 };
 
-void type_list_destroy(struct type_list* _Obj_owner p_type_list);
+void type_list_destroy(_Dtor struct type_list* p_type_list);
 void type_list_push_back(struct type_list* books, struct type* _Owner new_book);
 void type_list_push_front(struct type_list* books, struct type* _Owner new_book);
 
@@ -183,7 +188,7 @@ struct param_list
     struct param* _Opt tail;
 };
 
-void param_list_destroy(struct param_list* _Obj_owner p);
+void param_list_destroy(_Dtor struct param_list* p);
 void param_list_add(struct param_list*  p, struct param* _Owner p_item);
 
 struct type
@@ -208,7 +213,7 @@ struct type
 
     /*
       address_of is true when the type is created by address of operator.
-      This is used to create _Obj_owner pointer.
+      This is used to create _Dtor pointer.
     */
     bool address_of;
 
@@ -230,7 +235,7 @@ void print_type_no_names(struct osstream* ss, const struct type* p_type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
-void type_destroy(_Opt struct type* _Obj_owner p_type);
+void type_destroy(_Opt _Dtor struct type* p_type);
 
 struct type type_common(const struct type* p_type1, const struct type* p_type2);
 struct type get_array_item_type(const struct type* p_type);
@@ -242,19 +247,19 @@ bool type_is_essential_char(const struct type* p_type);
 bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 
-bool type_is_out(const struct type* p_type);
+bool type_is_ctor(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
-bool type_is_nullable(const struct type* p_type, bool nullable_enabled);
+bool type_is_opt(const struct type* p_type, bool nullable_enabled);
 bool type_is_view(const struct type* p_type);
 
 bool type_is_owner(const struct type* p_type);
-bool type_is_obj_owner(const struct type* p_type);
+bool type_is_pointed_dtor(const struct type* p_type);
 bool type_is_any_owner(const struct type* p_type);
 
 bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);
 bool type_is_pointer_to_out(const struct type* p_type);
-bool type_is_out(const struct type* p_type);
+
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);

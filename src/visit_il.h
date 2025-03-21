@@ -33,4 +33,4 @@ struct d_visit_ctx
 };
 
 void d_visit(struct d_visit_ctx* ctx, struct osstream* oss);
-void d_visit_ctx_destroy( struct d_visit_ctx* _Obj_owner ctx);
+void d_visit_ctx_destroy( _Dtor struct d_visit_ctx* ctx);

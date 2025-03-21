@@ -73,7 +73,7 @@ struct hash_map
 };
 
 void hashmap_remove_all(struct hash_map* map);
-void hashmap_destroy(struct hash_map* _Obj_owner map);
+void hashmap_destroy(_Dtor struct hash_map* map);
 struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key);
 void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
 
@@ -92,6 +92,6 @@ struct hash_item_set
     struct macro* _Owner _Opt p_macro;
     struct struct_entry* _Owner _Opt p_struct_entry;
 };
-void hash_item_set_destroy(struct hash_item_set* _Obj_owner p);
+void hash_item_set_destroy(_Dtor struct hash_item_set* p);
 
 int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * item);
