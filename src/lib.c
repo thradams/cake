@@ -12925,7 +12925,7 @@ bool type_is_view(const struct type* p_type);
 
 bool type_is_owner(const struct type* p_type);
 bool type_is_pointed_dtor(const struct type* p_type);
-bool type_is_any_owner(const struct type* p_type);
+bool type_is_owner_or_pointer_to_dtor(const struct type* p_type);
 
 bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);
@@ -22729,7 +22729,7 @@ void check_assigment(struct parser_ctx* ctx,
         }
     }
 
-    if (!type_is_owner(p_a_type) && type_is_any_owner(&p_b_expression->type))
+    if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(&p_b_expression->type))
     {
         if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
@@ -22745,7 +22745,7 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (assignment_type == ASSIGMENT_TYPE_RETURN)
     {
-        if (!type_is_owner(p_a_type) && type_is_any_owner(&p_b_expression->type))
+        if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(&p_b_expression->type))
         {
             if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
             {
@@ -24374,7 +24374,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.54"
+#define CAKE_VERSION "0.9.55"
 
 
 
@@ -40607,7 +40607,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
         return;
     }
 
-    if (type_is_any_owner(p_type))
+    if (type_is_owner_or_pointer_to_dtor(p_type))
     {
         if (p_object->current.state == (FLOW_OBJECT_STATE_UNINITIALIZED | FLOW_OBJECT_STATE_NULL | FLOW_OBJECT_STATE_MOVED) ||
             p_object->current.state == (FLOW_OBJECT_STATE_NULL | FLOW_OBJECT_STATE_MOVED) ||
@@ -41118,7 +41118,7 @@ bool object_check(struct type* p_type, struct flow_object* p_object)
             return false;
         }
 
-        if (!type_is_any_owner(p_type))
+        if (!type_is_owner_or_pointer_to_dtor(p_type))
         {
             return false;
         }
@@ -41331,137 +41331,6 @@ void object_get_name(const struct type* p_type,
         outname[0] = '?';
         outname[1] = '\0';
     }
-}
-
-void checked_moved_core(struct flow_visit_ctx* ctx,
-    struct type* p_type,
-    struct flow_object* p_object,
-    const struct token* position_token,
-    unsigned int visit_number)
-{
-    try
-    {
-        if (p_object->visit_number == visit_number) return;//already visited    
-        p_object->visit_number = visit_number;
-
-        if (p_type->struct_or_union_specifier && p_object->members.size > 0)
-        {
-            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-            if (p_struct_or_union_specifier == NULL)
-            {
-                throw;
-            }
-
-            struct member_declaration* _Opt p_member_declaration =
-                p_struct_or_union_specifier->member_declaration_list.head;
-
-            /*
-            *  Some parts of the object needs to be moved..
-            *  we need to print error one by one
-            */
-            int member_index = 0;
-            while (p_member_declaration)
-            {
-                if (p_member_declaration->member_declarator_list_opt)
-                {
-                    struct member_declarator* _Opt p_member_declarator =
-                        p_member_declaration->member_declarator_list_opt->head;
-                    while (p_member_declarator)
-                    {
-                        if (p_member_declarator->declarator)
-                        {
-                            checked_moved_core(ctx, &p_member_declarator->declarator->type, p_object->members.data[member_index], position_token, visit_number);
-                            member_index++;
-                        }
-
-                        p_member_declarator = p_member_declarator->next;
-                    }
-                }
-                else if (p_member_declaration->specifier_qualifier_list != NULL)
-                {
-                    assert(false);//tODO
-                }
-                p_member_declaration = p_member_declaration->next;
-            }
-            return;
-        }
-        else
-        {
-            if (type_is_pointer(p_type) && !type_is_any_owner(p_type))
-            {
-                if (p_object->current.state != FLOW_OBJECT_STATE_UNINITIALIZED &&
-                    p_object->current.state != FLOW_OBJECT_STATE_NULL)
-                {
-                    struct type t2 = type_remove_pointer(p_type);
-#if 0
-                    for (int i = 0; i < p_object->current.ref.size; i++)
-                    {
-                        checked_moved_core(ctx,
-                            &t2,
-                            p_object->current.ref.data[i],
-                            position_token,
-                            visit_number);
-                    }
-#endif
-                    type_destroy(&t2);
-                }
-            }
-
-            if (p_object->current.state & FLOW_OBJECT_STATE_MOVED)
-            {
-                struct token* _Opt name_pos = flow_object_get_token(p_object);
-                const char* parameter_name = name_pos ? name_pos->lexeme : "?";
-
-
-                char name[200] = { 0 };
-                object_get_name(p_type, p_object, name, sizeof name);
-                if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                    ctx->ctx,
-                    position_token, NULL,
-                    "parameter '%s' is leaving scoped with a moved object '%s'",
-                    parameter_name,
-                    name))
-                {
-                    compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, NULL, "parameter", name);
-                }
-            }
-
-            if (p_object->current.state & FLOW_OBJECT_STATE_UNINITIALIZED)
-            {
-                struct token* _Opt name_pos = flow_object_get_token(p_object);
-                const char* parameter_name = name_pos ? name_pos->lexeme : "?";
-
-                char name[200] = { 0 };
-                object_get_name(p_type, p_object, name, sizeof name);
-                if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                    ctx->ctx,
-                    position_token, NULL,
-                    "parameter '%s' is leaving scoped with a uninitialized object '%s'",
-                    parameter_name,
-                    name))
-                {
-                    compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, NULL, "parameter", name);
-                }
-            }
-        }
-    }
-    catch
-    {
-    }
-}
-
-void checked_moved(struct flow_visit_ctx* ctx,
-    struct type* p_type,
-    struct flow_object* p_object,
-    const struct token* position_token)
-{
-    checked_moved_core(ctx,
-    p_type,
-    p_object,
-    position_token,
-    s_visit_number++);
 }
 
 static void checked_read_object_core(struct flow_visit_ctx* ctx,
@@ -41887,7 +41756,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
         {
             if (p_visitor->p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
             {
-                if (type_is_any_owner(p_visitor->p_type))
+                if (type_is_owner_or_pointer_to_dtor(p_visitor->p_type))
                 {
                     //owner pointer parameters can point to deleted objects, so 
                     //we cannot check this state inside checked_read_object
@@ -42270,7 +42139,7 @@ static void flow_assignment_core(
         }
         else if (!a_type_is_view && type_is_pointed_dtor(p_visitor_a->p_type))
         {
-            if (type_is_any_owner(p_visitor_b->p_type))
+            if (type_is_owner_or_pointer_to_dtor(p_visitor_b->p_type))
             {
                 if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 {
@@ -46501,7 +46370,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                         object_set_pointer(p_declarator->p_flow_object, po); //MOVED                    
                         type_destroy(&t);
                     }
-                    else if (type_is_any_owner(&p_declarator->type))
+                    else if (type_is_owner_or_pointer_to_dtor(&p_declarator->type))
                     {
                         struct type t = type_remove_pointer(&p_declarator->type);
                         struct flow_object* _Opt po = make_flow_object(ctx, &t, p_declarator, NULL);
@@ -47869,8 +47738,11 @@ bool type_is_array(const struct type* p_type)
     return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
-bool type_is_any_owner(const struct type* p_type)
+bool type_is_owner_or_pointer_to_dtor(const struct type* p_type)
 {
+    if (type_is_pointed_dtor(p_type))
+        return true;
+
     if (type_is_owner(p_type))
     {
         return true;
@@ -48452,7 +48324,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 {
     // TODO use assignment check for everthing..
 
-    if (type_is_any_owner(paramer_type))
+    if (type_is_owner_or_pointer_to_dtor(paramer_type))
     {
         if (type_is_pointed_dtor(paramer_type))
         {
@@ -48644,7 +48516,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
             struct type parameter_pointer_to = type_remove_pointer(&parameter_type_converted);
             if (type_is_const(&argument_pointer_to) &&
                 !type_is_const(&parameter_pointer_to) &&
-                !type_is_any_owner(&parameter_pointer_to))
+                !type_is_owner_or_pointer_to_dtor(&parameter_pointer_to))
             {
                 compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
                     current_argument->expression->first_token, NULL,

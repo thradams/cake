@@ -1483,6 +1483,37 @@ int main() {
 
 `;
 
+sample["Enable Safety"]["ctor and dtor"] =
+`
+#pragma safety enable
+
+#include <stdlib.h>
+#include <string.h>
+
+struct X {
+  char * _Owner _Opt text;
+};
+
+int init([[ctor]] struct X *p)
+{ 
+  //comment and see what happens
+  p->text = strdup("a");
+}
+
+void destructor([[dtor]] struct X *p){
+    //comment and see what happens
+    free(p->text);    
+}
+
+int main() {   
+  struct X x;
+  init(&x);  
+  destructor(&x);
+}  
+
+`;
+
+
 sample["Enable Safety"]["_View qualifier"] =
     `
 #pragma safety enable 

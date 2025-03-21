@@ -5734,7 +5734,7 @@ void check_assigment(struct parser_ctx* ctx,
         }
     }
 
-    if (!type_is_owner(p_a_type) && type_is_any_owner(&p_b_expression->type))
+    if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(&p_b_expression->type))
     {
         if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
@@ -5750,7 +5750,7 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (assignment_type == ASSIGMENT_TYPE_RETURN)
     {
-        if (!type_is_owner(p_a_type) && type_is_any_owner(&p_b_expression->type))
+        if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(&p_b_expression->type))
         {
             if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
             {

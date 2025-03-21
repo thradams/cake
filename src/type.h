@@ -254,7 +254,7 @@ bool type_is_view(const struct type* p_type);
 
 bool type_is_owner(const struct type* p_type);
 bool type_is_pointed_dtor(const struct type* p_type);
-bool type_is_any_owner(const struct type* p_type);
+bool type_is_owner_or_pointer_to_dtor(const struct type* p_type);
 
 bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);

@@ -1,15 +1,9 @@
 ﻿#pragma safety enable
-
-
-void free(void* _Owner _Opt ptr);
-
 struct X {
-  char *_Owner _Opt name;
-  int i ;
+  char * _Owner _Opt text;
 };
 
-void x_destroy([[dtor]] struct X * x)
+void init([[dtor]] struct X *p)
 {
-    x->i = 0;
- // free(x->name);
+  //p->text = 0;  
 }

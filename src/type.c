@@ -580,8 +580,11 @@ bool type_is_array(const struct type* p_type)
     return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
-bool type_is_any_owner(const struct type* p_type)
+bool type_is_owner_or_pointer_to_dtor(const struct type* p_type)
 {
+    if (type_is_pointed_dtor(p_type))
+        return true;
+
     if (type_is_owner(p_type))
     {
         return true;
@@ -1163,7 +1166,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 {
     // TODO use assignment check for everthing..
 
-    if (type_is_any_owner(paramer_type))
+    if (type_is_owner_or_pointer_to_dtor(paramer_type))
     {
         if (type_is_pointed_dtor(paramer_type))
         {
@@ -1355,7 +1358,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
             struct type parameter_pointer_to = type_remove_pointer(&parameter_type_converted);
             if (type_is_const(&argument_pointer_to) &&
                 !type_is_const(&parameter_pointer_to) &&
-                !type_is_any_owner(&parameter_pointer_to))
+                !type_is_owner_or_pointer_to_dtor(&parameter_pointer_to))
             {
                 compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
                     current_argument->expression->first_token, NULL,
