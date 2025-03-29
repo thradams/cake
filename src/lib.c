@@ -866,6 +866,8 @@ enum diagnostic_id {
     C_ERROR_LABEL_NOT_DEFINED = 1430,    
     C_ERROR_DUPLICATED_LABEL = 1440,
     C_ERROR_DUPLICATED_CASE = 1450,
+    C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,    
+    C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION = 1570 
 };
 
 
@@ -17315,11 +17317,18 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
     struct generic_assoc_list list = { 0 };
     try
     {
+        struct generic_association* p_default_generic_association = NULL;
+
         struct generic_association* _Owner _Opt p_generic_association =
             generic_association(ctx);
 
         if (p_generic_association == NULL)
             throw;
+
+        if (p_generic_association->first_token->type == TK_KEYWORD_DEFAULT)
+        {
+            p_default_generic_association = p_generic_association;
+        }
 
         generic_assoc_list_add(&list, p_generic_association);
 
@@ -17341,6 +17350,28 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
             struct generic_association* _Owner _Opt p_generic_association2 = generic_association(ctx);
             if (p_generic_association2 == NULL)
                 throw;
+
+            if (p_generic_association2->first_token->type == TK_KEYWORD_DEFAULT)
+            {
+                if (p_default_generic_association != NULL)
+                {
+                    compiler_diagnostic_message(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
+                        ctx,
+                        p_generic_association2->first_token, 
+                        NULL, 
+                        "duplicate default generic association.");
+
+                    compiler_diagnostic_message(W_NOTE, 
+                        ctx, 
+                        p_default_generic_association->first_token, 
+                        NULL, 
+                        "previous default generic association");
+                }
+                else
+                {
+                    p_default_generic_association = p_generic_association2;
+                }
+            }
 
             generic_assoc_list_add(&list, p_generic_association2);
             if (ctx->current == NULL)
@@ -18529,6 +18560,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 {
                     expression_delete(p_expression_node_new);
                     throw;
+                }
+
+                if (!type_is_integer(&p_expression_node_new->right->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER,
+                                            ctx,
+                                            p_expression_node_new->right->first_token,
+                                            NULL,
+                                            "array subscript is not an integer");
+
                 }
 
                 if (object_has_constant_value(&p_expression_node_new->right->object))
@@ -30113,14 +30154,14 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 
         if (p_parameter_declaration->attribute_specifier_sequence_opt)
         {
-          if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
-          {
-              p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CTOR;
-          }
-          else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
-          {
-              p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_DTOR;
-          }
+            if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
+            {
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CTOR;
+            }
+            else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
+            {
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_DTOR;
+            }
         }
         p_parameter_declaration->declaration_specifiers = p_declaration_specifiers;
 
@@ -31501,7 +31542,7 @@ bool first_of_attribute(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
-    
+
     if (ctx->current->type == TK_IDENTIFIER)
         return true;
 
@@ -32983,6 +33024,19 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         //{
             //compiler_diagnostic_message(W_CONDITIONAL_IS_CONSTANT, ctx, p_selection_statement->init_statement_expression->first_token, "conditional expression is constant");
         //}
+
+        if (!is_if && p_selection_statement && p_selection_statement->condition)
+        {
+            if (type_is_bool(&p_selection_statement->condition->expression->type) ||
+                type_is_essential_bool(&p_selection_statement->condition->expression->type))
+            {
+                compiler_diagnostic_message(W_SWITCH,
+                            ctx,
+                            p_selection_statement->condition->first_token,
+                            NULL,
+                            "switch condition has boolean value"); //[-Wswitch-bool]
+            }
+        }
 
         const struct selection_statement* _Opt previous = ctx->p_current_selection_statement;
         ctx->p_current_selection_statement = p_selection_statement;

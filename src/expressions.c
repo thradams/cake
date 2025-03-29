@@ -320,11 +320,18 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
     struct generic_assoc_list list = { 0 };
     try
     {
+        struct generic_association* p_default_generic_association = NULL;
+
         struct generic_association* _Owner _Opt p_generic_association =
             generic_association(ctx);
 
         if (p_generic_association == NULL)
             throw;
+
+        if (p_generic_association->first_token->type == TK_KEYWORD_DEFAULT)
+        {
+            p_default_generic_association = p_generic_association;
+        }
 
         generic_assoc_list_add(&list, p_generic_association);
 
@@ -346,6 +353,28 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
             struct generic_association* _Owner _Opt p_generic_association2 = generic_association(ctx);
             if (p_generic_association2 == NULL)
                 throw;
+
+            if (p_generic_association2->first_token->type == TK_KEYWORD_DEFAULT)
+            {
+                if (p_default_generic_association != NULL)
+                {
+                    compiler_diagnostic_message(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
+                        ctx,
+                        p_generic_association2->first_token, 
+                        NULL, 
+                        "duplicate default generic association.");
+
+                    compiler_diagnostic_message(W_NOTE, 
+                        ctx, 
+                        p_default_generic_association->first_token, 
+                        NULL, 
+                        "previous default generic association");
+                }
+                else
+                {
+                    p_default_generic_association = p_generic_association2;
+                }
+            }
 
             generic_assoc_list_add(&list, p_generic_association2);
             if (ctx->current == NULL)
@@ -1534,6 +1563,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 {
                     expression_delete(p_expression_node_new);
                     throw;
+                }
+
+                if (!type_is_integer(&p_expression_node_new->right->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER,
+                                            ctx,
+                                            p_expression_node_new->right->first_token,
+                                            NULL,
+                                            "array subscript is not an integer");
+
                 }
 
                 if (object_has_constant_value(&p_expression_node_new->right->object))

@@ -5732,14 +5732,14 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 
         if (p_parameter_declaration->attribute_specifier_sequence_opt)
         {
-          if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
-          {
-              p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CTOR;
-          }
-          else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
-          {
-              p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_DTOR;
-          }
+            if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
+            {
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CTOR;
+            }
+            else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
+            {
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_DTOR;
+            }
         }
         p_parameter_declaration->declaration_specifiers = p_declaration_specifiers;
 
@@ -7120,7 +7120,7 @@ bool first_of_attribute(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
-    
+
     if (ctx->current->type == TK_IDENTIFIER)
         return true;
 
@@ -8602,6 +8602,19 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         //{
             //compiler_diagnostic_message(W_CONDITIONAL_IS_CONSTANT, ctx, p_selection_statement->init_statement_expression->first_token, "conditional expression is constant");
         //}
+
+        if (!is_if && p_selection_statement && p_selection_statement->condition)
+        {
+            if (type_is_bool(&p_selection_statement->condition->expression->type) ||
+                type_is_essential_bool(&p_selection_statement->condition->expression->type))
+            {
+                compiler_diagnostic_message(W_SWITCH,
+                            ctx,
+                            p_selection_statement->condition->first_token,
+                            NULL,
+                            "switch condition has boolean value"); //[-Wswitch-bool]
+            }
+        }
 
         const struct selection_statement* _Opt previous = ctx->p_current_selection_statement;
         ctx->p_current_selection_statement = p_selection_statement;
