@@ -7918,7 +7918,18 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
 
             if (ctx->p_switch_value_list->p_default)
             {
-                //two defaults?
+                compiler_diagnostic_message(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
+                    ctx,
+                    p_label->p_first_token,
+                    NULL,
+                    "multiple default labels in one switch");
+
+                compiler_diagnostic_message(W_NOTE,
+                    ctx,
+                    ctx->p_switch_value_list->p_default->p_label->p_first_token,
+                    NULL,
+                    "previous default");
+                                
                 throw;
             }
 

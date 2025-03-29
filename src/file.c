@@ -1,5 +1,11 @@
-﻿int main(void)
-{
-  double d =1;
-  d = d% d;
+﻿int main(){
+
+     int i = 1;
+     switch (i)
+     {
+        default:
+        break;
+        default:
+        break;
+     }
 }
