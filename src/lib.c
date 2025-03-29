@@ -867,7 +867,8 @@ enum diagnostic_id {
     C_ERROR_DUPLICATED_LABEL = 1440,
     C_ERROR_DUPLICATED_CASE = 1450,
     C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,    
-    C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION = 1570 
+    C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION = 1570, 
+    C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH = 1780
 };
 
 
@@ -24457,7 +24458,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.55"
+#define CAKE_VERSION "0.9.56"
 
 
 
@@ -32382,7 +32383,18 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
 
             if (ctx->p_switch_value_list->p_default)
             {
-                //two defaults?
+                compiler_diagnostic_message(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
+                    ctx,
+                    p_label->p_first_token,
+                    NULL,
+                    "multiple default labels in one switch");
+
+                compiler_diagnostic_message(W_NOTE,
+                    ctx,
+                    ctx->p_switch_value_list->p_default->p_label->p_first_token,
+                    NULL,
+                    "previous default");
+                                
                 throw;
             }
 
