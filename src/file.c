@@ -1,5 +1,5 @@
-﻿void f(double ){}
-int main(void)
+﻿int main(void)
 {
-  _Generic((1.0),  float: f , default: f, default: f )(1.0);
+  double d =1;
+  d = d% d;
 }

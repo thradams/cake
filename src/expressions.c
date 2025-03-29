@@ -360,14 +360,14 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
                 {
                     compiler_diagnostic_message(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
                         ctx,
-                        p_generic_association2->first_token, 
-                        NULL, 
+                        p_generic_association2->first_token,
+                        NULL,
                         "duplicate default generic association.");
 
-                    compiler_diagnostic_message(W_NOTE, 
-                        ctx, 
-                        p_default_generic_association->first_token, 
-                        NULL, 
+                    compiler_diagnostic_message(W_NOTE,
+                        ctx,
+                        p_default_generic_association->first_token,
+                        NULL,
                         "previous default generic association");
                 }
                 else
@@ -3971,6 +3971,48 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
 
 
+            if (op == '%')
+            {
+                /*The operands of the % operator shall have integer type*/
+                if (!type_is_integer(&new_expression->left->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_INTEGER,
+                        ctx, 
+                        new_expression->left->first_token, 
+                        NULL, 
+                        "left is not an integer type");                    
+                }
+
+                if (!type_is_integer(&new_expression->right->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_INTEGER, 
+                        ctx, 
+                        new_expression->right->first_token, 
+                        NULL, 
+                        "right is not an integer type");                    
+                }
+            }
+            else
+            {
+                /*Each of the operands shall have arithmetic type.*/
+                if (!type_is_arithmetic(&new_expression->left->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_ARITHMETIC, 
+                        ctx, 
+                        new_expression->left->first_token, 
+                        NULL,
+                        "left is not an arithmetic type");                    
+                }
+
+                if (!type_is_arithmetic(&new_expression->right->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_ARITHMETIC, 
+                        ctx, 
+                        new_expression->right->first_token,
+                        NULL,
+                        "right is not an arithmetic type");
+                }
+            }
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
 
             if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
