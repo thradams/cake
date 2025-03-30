@@ -5679,11 +5679,11 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
     case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
         
-#ifdef _WIN32
+//#ifdef _WIN32
     case TK_KEYWORD__FASTCALL: return "TK_KEYWORD__FASTCALL";
     case TK_KEYWORD__STDCALL:return "TK_KEYWORD__STDCALL";
     case TK_KEYWORD__CDECL:return "TK_KEYWORD__CDECL";
-#endif
+//#endif
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
         //end microsoft
     case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";

@@ -137,11 +137,11 @@ enum token_type
     TK_KEYWORD__ALIGNOF,
     TK_KEYWORD__ATOMIC,
      
-#ifdef _WIN32 
+//#ifdef _WIN32 
     TK_KEYWORD__FASTCALL,
     TK_KEYWORD__STDCALL,
     TK_KEYWORD__CDECL,    
-#endif
+//#endif
 
     TK_KEYWORD__ASM, 
     TK_KEYWORD__BOOL,

@@ -3182,6 +3182,25 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
+                if (type_is_floating_point(&p_expression_node->type) &&
+                    type_is_pointer(&p_expression_node->left->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_POINTER_TO_FLOATING_TYPE,
+                        ctx,
+                        p_expression_node->first_token,
+                        NULL,
+                        "pointer type cannot be converted to any floating type");
+                }
+                else if (type_is_pointer(&p_expression_node->type) &&
+                         type_is_floating_point(&p_expression_node->left->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_FLOATING_TYPE_TO_POINTER,
+                     ctx,
+                     p_expression_node->first_token,
+                     NULL,
+                     "A floating type cannot be converted to any pointer type");
+                }
+
                 if (p_expression_node->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN &&
                     type_is_owner(&p_expression_node->left->type))
                 {
@@ -3977,19 +3996,19 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 if (!type_is_integer(&new_expression->left->type))
                 {
                     compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_INTEGER,
-                        ctx, 
-                        new_expression->left->first_token, 
-                        NULL, 
-                        "left is not an integer type");                    
+                        ctx,
+                        new_expression->left->first_token,
+                        NULL,
+                        "left is not an integer type");
                 }
 
                 if (!type_is_integer(&new_expression->right->type))
                 {
-                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_INTEGER, 
-                        ctx, 
-                        new_expression->right->first_token, 
-                        NULL, 
-                        "right is not an integer type");                    
+                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_INTEGER,
+                        ctx,
+                        new_expression->right->first_token,
+                        NULL,
+                        "right is not an integer type");
                 }
             }
             else
@@ -3997,17 +4016,17 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 /*Each of the operands shall have arithmetic type.*/
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_ARITHMETIC, 
-                        ctx, 
-                        new_expression->left->first_token, 
+                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_ARITHMETIC,
+                        ctx,
+                        new_expression->left->first_token,
                         NULL,
-                        "left is not an arithmetic type");                    
+                        "left is not an arithmetic type");
                 }
 
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_ARITHMETIC, 
-                        ctx, 
+                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_ARITHMETIC,
+                        ctx,
                         new_expression->right->first_token,
                         NULL,
                         "right is not an arithmetic type");

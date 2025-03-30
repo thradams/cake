@@ -1,10 +1,6 @@
-﻿//#include <windows.h>
-
-typedef void (*(__fastcall *pf))();
-
-int main()
+﻿
+int main(void)
 {
-  //  Sleep(100);
-    //add(1, 2);
-    pf p = 0;//FastCallFuncPtr p = 0;
+  int *p;
+  double d = (double)p;
 }

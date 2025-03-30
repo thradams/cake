@@ -474,11 +474,11 @@ enum token_type
     TK_KEYWORD__ALIGNOF,
     TK_KEYWORD__ATOMIC,
      
-#ifdef _WIN32 
+//#ifdef _WIN32 
     TK_KEYWORD__FASTCALL,
     TK_KEYWORD__STDCALL,
     TK_KEYWORD__CDECL,    
-#endif
+//#endif
 
     TK_KEYWORD__ASM, 
     TK_KEYWORD__BOOL,
@@ -870,7 +870,9 @@ enum diagnostic_id {
     C_ERROR_DUPLICATED_CASE = 1450,
     C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,    
     C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION = 1570, 
-    C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH = 1780
+    C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH = 1780,
+    C_ERROR_POINTER_TO_FLOATING_TYPE = 1790,
+    C_ERROR_FLOATING_TYPE_TO_POINTER = 1800,
 };
 
 
@@ -8904,11 +8906,11 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
     case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
         
-#ifdef _WIN32
+//#ifdef _WIN32
     case TK_KEYWORD__FASTCALL: return "TK_KEYWORD__FASTCALL";
     case TK_KEYWORD__STDCALL:return "TK_KEYWORD__STDCALL";
     case TK_KEYWORD__CDECL:return "TK_KEYWORD__CDECL";
-#endif
+//#endif
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
         //end microsoft
     case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
@@ -20195,6 +20197,25 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
+                if (type_is_floating_point(&p_expression_node->type) &&
+                    type_is_pointer(&p_expression_node->left->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_POINTER_TO_FLOATING_TYPE,
+                        ctx,
+                        p_expression_node->first_token,
+                        NULL,
+                        "pointer type cannot be converted to any floating type");
+                }
+                else if (type_is_pointer(&p_expression_node->type) &&
+                         type_is_floating_point(&p_expression_node->left->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_FLOATING_TYPE_TO_POINTER,
+                     ctx,
+                     p_expression_node->first_token,
+                     NULL,
+                     "A floating type cannot be converted to any pointer type");
+                }
+
                 if (p_expression_node->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN &&
                     type_is_owner(&p_expression_node->left->type))
                 {
@@ -20990,19 +21011,19 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 if (!type_is_integer(&new_expression->left->type))
                 {
                     compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_INTEGER,
-                        ctx, 
-                        new_expression->left->first_token, 
-                        NULL, 
-                        "left is not an integer type");                    
+                        ctx,
+                        new_expression->left->first_token,
+                        NULL,
+                        "left is not an integer type");
                 }
 
                 if (!type_is_integer(&new_expression->right->type))
                 {
-                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_INTEGER, 
-                        ctx, 
-                        new_expression->right->first_token, 
-                        NULL, 
-                        "right is not an integer type");                    
+                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_INTEGER,
+                        ctx,
+                        new_expression->right->first_token,
+                        NULL,
+                        "right is not an integer type");
                 }
             }
             else
@@ -21010,17 +21031,17 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                 /*Each of the operands shall have arithmetic type.*/
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_ARITHMETIC, 
-                        ctx, 
-                        new_expression->left->first_token, 
+                    compiler_diagnostic_message(C_ERROR_LEFT_IS_NOT_ARITHMETIC,
+                        ctx,
+                        new_expression->left->first_token,
                         NULL,
-                        "left is not an arithmetic type");                    
+                        "left is not an arithmetic type");
                 }
 
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_ARITHMETIC, 
-                        ctx, 
+                    compiler_diagnostic_message(C_ERROR_RIGHT_IS_NOT_ARITHMETIC,
+                        ctx,
                         new_expression->right->first_token,
                         NULL,
                         "right is not an arithmetic type");
@@ -24473,7 +24494,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.56"
+#define CAKE_VERSION "0.9.57"
 
 
 
