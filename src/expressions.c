@@ -3200,6 +3200,47 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                      NULL,
                      "A floating type cannot be converted to any pointer type");
                 }
+                else if (type_is_nullptr_t(&p_expression_node->left->type))
+                {
+                    if (type_is_void(&p_expression_node->type) ||
+                        type_is_bool(&p_expression_node->type) ||
+                        type_is_pointer(&p_expression_node->type))
+                    {
+                        /*
+                          The type nullptr_t shall not be converted to any type other than
+                          void, bool or a pointer type
+                        */
+                    }
+                    else
+                    {
+                        compiler_diagnostic_message(C_ERROR_NULLPTR_CAST_ERROR,
+                        ctx,
+                        p_expression_node->first_token,
+                        NULL,
+                        "cannot cast nullptr_t to this type");
+                    }
+                }
+                else if (type_is_nullptr_t(&p_expression_node->type))
+                {
+                    /*
+                      If the target type is nullptr_t, the cast expression shall
+                      be a null pointer constant or have type nullptr_t.
+                    */
+
+                    if (expression_is_null_pointer_constant(p_expression_node->left) ||
+                        type_is_nullptr_t(&p_expression_node->left->type))
+                    {
+                        //ok
+                    }
+                    else
+                    {
+                        compiler_diagnostic_message(C_ERROR_NULLPTR_CAST_ERROR,
+                        ctx,
+                        p_expression_node->left->first_token,
+                        NULL,
+                        "cannot cast this expression to nullptr_t");
+                    }
+                }
 
                 if (p_expression_node->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN &&
                     type_is_owner(&p_expression_node->left->type))
@@ -5428,14 +5469,29 @@ bool expression_is_zero(const struct expression* expression)
 
 bool expression_is_null_pointer_constant(const struct expression* expression)
 {
-
-    if (type_is_nullptr_t(&expression->type) ||
-        (object_has_constant_value(&expression->object) &&
-            object_to_signed_int(&expression->object) == 0))
+    /*
+      An integer constant expression with the value 0,
+      such an expression cast to type void *, or the
+      predefined constant nullptr is called a null pointer constant.57) 
+    */
+    if (type_is_integer(&expression->type) &&
+        object_has_constant_value(&expression->object) &&
+        object_to_signed_int(&expression->object) == 0)
+    {
+        return true;
+    }
+    if (type_is_void_ptr(&expression->type) &&
+        object_has_constant_value(&expression->object) &&
+        object_to_signed_int(&expression->object) == 0)
     {
         return true;
     }
 
+    if (type_is_nullptr_t(&expression->type))
+    {
+        return true;
+    }
+   
     return false;
 }
 
