@@ -82,7 +82,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
 
         struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
-        if (p_current_parameter_type && type_is_void(p_current_parameter_type))
+        if (p_current_parameter_type && type_is_void(&p_current_parameter_type->type))
         {
             //(void) function
             p_current_parameter_type = NULL;
@@ -1592,7 +1592,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             }
 
 
-                            struct object* _Opt it = object_get_member(&p_expression_node->object, index);
+                            struct object* _Opt it = object_get_member(&p_expression_node->object, (int)index);
 
                             if (it != NULL)
                                 p_expression_node_new->object = object_make_reference(it);

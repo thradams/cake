@@ -5353,10 +5353,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
 
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
-        "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
-        "#define __fastcall\n"
-        "#define __stdcall\n"
-        "#define __cdecl\n"
+        "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"        
         "#define __pragma(a)\n"
         "#define __declspec(a)\n"
         "#define __builtin_offsetof(type, member) 0\n"
@@ -5681,10 +5678,12 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__ALIGNAS: return "TK_KEYWORD__ALIGNAS";
     case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
     case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
-        //microsoft
-        //KEYWORD__FASTCALL,
-        //KEYWORD__STDCALL
-        //
+        
+#ifdef _WIN32
+    case TK_KEYWORD__FASTCALL: return "TK_KEYWORD__FASTCALL";
+    case TK_KEYWORD__STDCALL:return "TK_KEYWORD__STDCALL";
+    case TK_KEYWORD__CDECL:return "TK_KEYWORD__CDECL";
+#endif
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
         //end microsoft
     case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";

@@ -422,8 +422,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                         ss_fprintf(&ctx->function_types, "inline %s\n", ss.c_str);
                         ss_fprintf(&ctx->function_types, "%s", oss->c_str);
-                        
-                        ss_swap(oss, &copy);                        
+
+                        ss_swap(oss, &copy);
                         ss_close(&copy);
                     }
                     else
@@ -475,7 +475,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         d_visit_expression(ctx, oss, p_expression->left);
 
-        char name[100] = {0};
+        char name[100] = { 0 };
         int r = find_member_name(&p_expression->left->type, p_expression->member_index, name);
         if (r == 0)
         {
@@ -580,7 +580,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
     {
-        char name[100] = {0};
+        char name[100] = { 0 };
         snprintf(name, sizeof(name), "__cmp_lt_%d", ctx->locals_count++);
 
 
@@ -1542,7 +1542,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
 
                                                     struct struct_or_union_specifier* _Opt p_complete_member =
                                                         p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
-                                                    
+
                                                     char name2[100] = { 0 };
                                                     snprintf(name2, sizeof name2, "%p", (void* _Opt)p_complete_member);
 
@@ -1677,7 +1677,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
     const char* _Opt name_opt)
 {
     const struct type* _Opt p_type = p_type0;
-    
+
     while (p_type)
     {
         switch (p_type->category)
@@ -1743,7 +1743,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             ss_close(&local2);
             ss_close(&local);
         }
-        
+
         break;
         case TYPE_CATEGORY_ARRAY:
 
@@ -1774,7 +1774,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "%d", p_type->num_of_elements);
             }
             ss_fprintf(ss, "]");
-            
+
             break;
 
         case TYPE_CATEGORY_FUNCTION:
@@ -1786,6 +1786,18 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                   //  ss_fprintf(ss, " ");
                     //first = false;
                 //}
+                if (p_type->attributes_flags & CAKE_ATTRIBUTE_STDCALL)
+                {
+                    ss_fprintf(ss, "__stdcall ");
+                }
+                else if (p_type->attributes_flags & CAKE_ATTRIBUTE_FASTCALL)
+                {
+                    ss_fprintf(ss, "__fastcall ");
+                }
+                else if (p_type->attributes_flags & CAKE_ATTRIBUTE_CDECL)
+                {
+                    ss_fprintf(ss, "__cdecl ");
+                }
                 ss_fprintf(ss, "%s", name_opt);
                 name_opt = NULL;
             }
@@ -1830,6 +1842,19 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 ss_fprintf(&local, "(");
             }
 
+            if (p_type->attributes_flags & CAKE_ATTRIBUTE_STDCALL)
+            {
+                ss_fprintf(&local, "__stdcall ");
+            }
+            else if (p_type->attributes_flags & CAKE_ATTRIBUTE_FASTCALL)
+            {
+                ss_fprintf(&local, "__fastcall ");
+            }
+            else if (p_type->attributes_flags & CAKE_ATTRIBUTE_CDECL)
+            {
+                ss_fprintf(&local, "__cdecl ");
+            }
+
             ss_fprintf(&local, "*");
             bool first = false;
 
@@ -1856,7 +1881,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             ss_swap(ss, &local);
             ss_close(&local);
-            
+
         }
         break;
         }
@@ -2395,7 +2420,10 @@ static void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, 
                         member_declarator->declarator->name_opt)
                     {
                         ss_fprintf(ss, "    ");
-                        d_print_type(ctx, ss, &member_declarator->declarator->type, member_declarator->declarator->name_opt->lexeme);
+                        d_print_type(ctx,
+                            ss,
+                            &member_declarator->declarator->type,
+                            member_declarator->declarator->name_opt->lexeme);
                         ss_fprintf(ss, ";\n");
                     }
                     member_declarator = member_declarator->next;

@@ -609,7 +609,7 @@ bool type_is_pointed_dtor(const struct type* p_type)
 {
     if (!type_is_pointer(p_type))
         return false;
-   
+
     return type_is_dtor(p_type->next);
 }
 
@@ -2928,6 +2928,20 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             p_func->category = TYPE_CATEGORY_FUNCTION;
 
+            if (pdirectdeclarator->function_declarator->direct_declarator->p_calling_convention)
+            {
+                const char* calling_convention_lexeme =
+                    pdirectdeclarator->function_declarator->direct_declarator->p_calling_convention->lexeme;
+
+                if (strcmp(calling_convention_lexeme, "__fastcall") == 0)
+                    p_func->attributes_flags |= CAKE_ATTRIBUTE_FASTCALL;
+                else if (strcmp(calling_convention_lexeme, "__stdcall") == 0)
+                    p_func->attributes_flags |= CAKE_ATTRIBUTE_STDCALL;
+                else if (strcmp(calling_convention_lexeme, "__cdecl") == 0)
+                    p_func->attributes_flags |= CAKE_ATTRIBUTE_CDECL;
+                else
+                    throw;
+            }
 
             if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
                 pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list)
@@ -3040,6 +3054,21 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
                 p_flat->attributes_flags |= pointer->attribute_specifier_sequence_opt->attributes_flags;
             }
             p_flat->category = TYPE_CATEGORY_POINTER;
+
+            if (pointer->calling_convention)
+            {
+                const char* calling_convention_lexeme =
+                    pointer->calling_convention->lexeme;
+                if (strcmp(calling_convention_lexeme, "__fastcall") == 0)
+                    p_flat->attributes_flags |= CAKE_ATTRIBUTE_FASTCALL;
+                else if (strcmp(calling_convention_lexeme, "__stdcall") == 0)
+                    p_flat->attributes_flags |= CAKE_ATTRIBUTE_STDCALL;
+                else if (strcmp(calling_convention_lexeme, "__cdecl") == 0)
+                    p_flat->attributes_flags |= CAKE_ATTRIBUTE_CDECL;
+                else
+                    throw;
+
+            }
 
 
             type_list_push_front(&pointers, p_flat); /*invertido*/

@@ -136,12 +136,14 @@ enum token_type
     TK_KEYWORD__ALIGNAS,
     TK_KEYWORD__ALIGNOF,
     TK_KEYWORD__ATOMIC,
-    //microsoft
-    //KEYWORD__FASTCALL,
-    //KEYWORD__STDCALL
-    // 
-    TK_KEYWORD__ASM,
-    //end microsoft
+     
+#ifdef _WIN32 
+    TK_KEYWORD__FASTCALL,
+    TK_KEYWORD__STDCALL,
+    TK_KEYWORD__CDECL,    
+#endif
+
+    TK_KEYWORD__ASM, 
     TK_KEYWORD__BOOL,
     TK_KEYWORD__COMPLEX,
     TK_KEYWORD__DECIMAL128,

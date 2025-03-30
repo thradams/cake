@@ -840,6 +840,7 @@ struct direct_declarator
         function-declarator attribute-specifier-sequence opt
     */
     struct token* _Opt name_opt;
+    struct token* _Opt p_calling_convention;
     struct declarator* _Owner _Opt declarator;
     struct array_declarator* _Owner _Opt array_declarator;
     struct function_declarator* _Owner _Opt function_declarator;
@@ -880,6 +881,11 @@ struct pointer
     */
     struct attribute_specifier_sequence* _Owner _Opt  attribute_specifier_sequence_opt;
     struct type_qualifier_list* _Owner _Opt type_qualifier_list_opt;
+    
+    /*
+      typedef int (__fastcall *pf)();
+    */
+    struct token * _Opt calling_convention;
 
     struct pointer* _Owner _Opt pointer;
 };

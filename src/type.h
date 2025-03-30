@@ -45,7 +45,15 @@ enum attribute_flags
     */
     CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 25,
     // 'a'
-    CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR = 1 << 26
+    CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR = 1 << 26,
+
+    /*
+       Storing calling convention on attributes to consuming less memory
+    */
+    CAKE_ATTRIBUTE_FASTCALL = 1 << 27,
+    CAKE_ATTRIBUTE_STDCALL= 1 << 28,
+    CAKE_ATTRIBUTE_CDECL = 1 << 29
+
 };
 
 enum type_specifier_flags
@@ -199,7 +207,7 @@ struct type
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-
+   
     const char* _Owner _Opt name_opt;
 
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;

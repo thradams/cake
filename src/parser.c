@@ -1300,6 +1300,12 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD_INLINE;
         else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
             result = TK_KEYWORD__ASM;
+        else if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
+            result = TK_KEYWORD__STDCALL;
+        else if (strcmp("__cdecl", text) == 0)
+            result = TK_KEYWORD__CDECL;
+        else if (strcmp("__fastcall", text) == 0)
+            result = TK_KEYWORD__FASTCALL;
         else if (strcmp("__alignof", text) == 0)
             result = TK_KEYWORD__ALIGNOF;
         else if (strcmp("__restrict", text) == 0)
@@ -5135,6 +5141,17 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
         if (p_token_ahead == NULL)
             throw;
 
+        if (ctx->current->type == TK_KEYWORD__STDCALL ||
+            ctx->current->type == TK_KEYWORD__CDECL ||
+            ctx->current->type == TK_KEYWORD__FASTCALL)
+        {
+            /*
+              int __fastcall add(int a, int b);
+            */
+            p_direct_declarator->p_calling_convention = ctx->current;
+            parser_match(ctx);
+        }
+
         if (ctx->current->type == TK_IDENTIFIER)
         {
             p_direct_declarator->name_opt = ctx->current;
@@ -5436,11 +5453,30 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
     struct pointer* _Owner _Opt p_pointer = NULL;
     try
     {
+        struct token* _Opt calling_convention = NULL;
+        struct token* _Opt ahead = parser_look_ahead(ctx);
+        if (ahead != NULL && ahead->type == '*')
+        {
+            /*
+              typedef void (__fastcall *pf)();
+            */
+            if (ctx->current->type == TK_KEYWORD__STDCALL ||
+                ctx->current->type == TK_KEYWORD__CDECL ||
+                ctx->current->type == TK_KEYWORD__FASTCALL)
+            {
+                calling_convention = ctx->current;
+                parser_match(ctx);
+            }
+        }
+
         while (ctx->current != NULL && ctx->current->type == '*')
         {
             p_pointer = calloc(1, sizeof(struct pointer));
             if (p_pointer == NULL)
                 throw;
+
+            p_pointer->calling_convention = calling_convention;
+            calling_convention = NULL;
 
             p = p_pointer;
             parser_match(ctx);
@@ -7929,7 +7965,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
                     ctx->p_switch_value_list->p_default->p_label->p_first_token,
                     NULL,
                     "previous default");
-                                
+
                 throw;
             }
 

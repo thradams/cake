@@ -473,12 +473,14 @@ enum token_type
     TK_KEYWORD__ALIGNAS,
     TK_KEYWORD__ALIGNOF,
     TK_KEYWORD__ATOMIC,
-    //microsoft
-    //KEYWORD__FASTCALL,
-    //KEYWORD__STDCALL
-    // 
-    TK_KEYWORD__ASM,
-    //end microsoft
+     
+#ifdef _WIN32 
+    TK_KEYWORD__FASTCALL,
+    TK_KEYWORD__STDCALL,
+    TK_KEYWORD__CDECL,    
+#endif
+
+    TK_KEYWORD__ASM, 
     TK_KEYWORD__BOOL,
     TK_KEYWORD__COMPLEX,
     TK_KEYWORD__DECIMAL128,
@@ -8576,10 +8578,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
 
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
-        "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
-        "#define __fastcall\n"
-        "#define __stdcall\n"
-        "#define __cdecl\n"
+        "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"        
         "#define __pragma(a)\n"
         "#define __declspec(a)\n"
         "#define __builtin_offsetof(type, member) 0\n"
@@ -8904,10 +8903,12 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__ALIGNAS: return "TK_KEYWORD__ALIGNAS";
     case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
     case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
-        //microsoft
-        //KEYWORD__FASTCALL,
-        //KEYWORD__STDCALL
-        //
+        
+#ifdef _WIN32
+    case TK_KEYWORD__FASTCALL: return "TK_KEYWORD__FASTCALL";
+    case TK_KEYWORD__STDCALL:return "TK_KEYWORD__STDCALL";
+    case TK_KEYWORD__CDECL:return "TK_KEYWORD__CDECL";
+#endif
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
         //end microsoft
     case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
@@ -12719,7 +12720,15 @@ enum attribute_flags
     */
     CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 25,
     // 'a'
-    CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR = 1 << 26
+    CAKE_HIDDEN_ATTRIBUTE_INT_LIKE_CHAR = 1 << 26,
+
+    /*
+       Storing calling convention on attributes to consuming less memory
+    */
+    CAKE_ATTRIBUTE_FASTCALL = 1 << 27,
+    CAKE_ATTRIBUTE_STDCALL= 1 << 28,
+    CAKE_ATTRIBUTE_CDECL = 1 << 29
+
 };
 
 enum type_specifier_flags
@@ -12873,7 +12882,7 @@ struct type
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-
+   
     const char* _Owner _Opt name_opt;
 
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -14266,6 +14275,7 @@ struct direct_declarator
         function-declarator attribute-specifier-sequence opt
     */
     struct token* _Opt name_opt;
+    struct token* _Opt p_calling_convention;
     struct declarator* _Owner _Opt declarator;
     struct array_declarator* _Owner _Opt array_declarator;
     struct function_declarator* _Owner _Opt function_declarator;
@@ -14306,6 +14316,11 @@ struct pointer
     */
     struct attribute_specifier_sequence* _Owner _Opt  attribute_specifier_sequence_opt;
     struct type_qualifier_list* _Owner _Opt type_qualifier_list_opt;
+    
+    /*
+      typedef int (__fastcall *pf)();
+    */
+    struct token * _Opt calling_convention;
 
     struct pointer* _Owner _Opt pointer;
 };
@@ -17080,7 +17095,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
 
         struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
-        if (p_current_parameter_type && type_is_void(p_current_parameter_type))
+        if (p_current_parameter_type && type_is_void(&p_current_parameter_type->type))
         {
             //(void) function
             p_current_parameter_type = NULL;
@@ -18590,7 +18605,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             }
 
 
-                            struct object* _Opt it = object_get_member(&p_expression_node->object, index);
+                            struct object* _Opt it = object_get_member(&p_expression_node->object, (int)index);
 
                             if (it != NULL)
                                 p_expression_node_new->object = object_make_reference(it);
@@ -25765,6 +25780,12 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD_INLINE;
         else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
             result = TK_KEYWORD__ASM;
+        else if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
+            result = TK_KEYWORD__STDCALL;
+        else if (strcmp("__cdecl", text) == 0)
+            result = TK_KEYWORD__CDECL;
+        else if (strcmp("__fastcall", text) == 0)
+            result = TK_KEYWORD__FASTCALL;
         else if (strcmp("__alignof", text) == 0)
             result = TK_KEYWORD__ALIGNOF;
         else if (strcmp("__restrict", text) == 0)
@@ -29600,6 +29621,17 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
         if (p_token_ahead == NULL)
             throw;
 
+        if (ctx->current->type == TK_KEYWORD__STDCALL ||
+            ctx->current->type == TK_KEYWORD__CDECL ||
+            ctx->current->type == TK_KEYWORD__FASTCALL)
+        {
+            /*
+              int __fastcall add(int a, int b);
+            */
+            p_direct_declarator->p_calling_convention = ctx->current;
+            parser_match(ctx);
+        }
+
         if (ctx->current->type == TK_IDENTIFIER)
         {
             p_direct_declarator->name_opt = ctx->current;
@@ -29901,11 +29933,30 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
     struct pointer* _Owner _Opt p_pointer = NULL;
     try
     {
+        struct token* _Opt calling_convention = NULL;
+        struct token* _Opt ahead = parser_look_ahead(ctx);
+        if (ahead != NULL && ahead->type == '*')
+        {
+            /*
+              typedef void (__fastcall *pf)();
+            */
+            if (ctx->current->type == TK_KEYWORD__STDCALL ||
+                ctx->current->type == TK_KEYWORD__CDECL ||
+                ctx->current->type == TK_KEYWORD__FASTCALL)
+            {
+                calling_convention = ctx->current;
+                parser_match(ctx);
+            }
+        }
+
         while (ctx->current != NULL && ctx->current->type == '*')
         {
             p_pointer = calloc(1, sizeof(struct pointer));
             if (p_pointer == NULL)
                 throw;
+
+            p_pointer->calling_convention = calling_convention;
+            calling_convention = NULL;
 
             p = p_pointer;
             parser_match(ctx);
@@ -32394,7 +32445,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
                     ctx->p_switch_value_list->p_default->p_label->p_first_token,
                     NULL,
                     "previous default");
-                                
+
                 throw;
             }
 
@@ -37325,8 +37376,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                         ss_fprintf(&ctx->function_types, "inline %s\n", ss.c_str);
                         ss_fprintf(&ctx->function_types, "%s", oss->c_str);
-                        
-                        ss_swap(oss, &copy);                        
+
+                        ss_swap(oss, &copy);
                         ss_close(&copy);
                     }
                     else
@@ -37378,7 +37429,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         d_visit_expression(ctx, oss, p_expression->left);
 
-        char name[100] = {0};
+        char name[100] = { 0 };
         int r = find_member_name(&p_expression->left->type, p_expression->member_index, name);
         if (r == 0)
         {
@@ -37483,7 +37534,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
     {
-        char name[100] = {0};
+        char name[100] = { 0 };
         snprintf(name, sizeof(name), "__cmp_lt_%d", ctx->locals_count++);
 
 
@@ -38445,7 +38496,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
 
                                                     struct struct_or_union_specifier* _Opt p_complete_member =
                                                         p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
-                                                    
+
                                                     char name2[100] = { 0 };
                                                     snprintf(name2, sizeof name2, "%p", (void* _Opt)p_complete_member);
 
@@ -38580,7 +38631,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
     const char* _Opt name_opt)
 {
     const struct type* _Opt p_type = p_type0;
-    
+
     while (p_type)
     {
         switch (p_type->category)
@@ -38646,7 +38697,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             ss_close(&local2);
             ss_close(&local);
         }
-        
+
         break;
         case TYPE_CATEGORY_ARRAY:
 
@@ -38677,7 +38728,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "%d", p_type->num_of_elements);
             }
             ss_fprintf(ss, "]");
-            
+
             break;
 
         case TYPE_CATEGORY_FUNCTION:
@@ -38689,6 +38740,18 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                   //  ss_fprintf(ss, " ");
                     //first = false;
                 //}
+                if (p_type->attributes_flags & CAKE_ATTRIBUTE_STDCALL)
+                {
+                    ss_fprintf(ss, "__stdcall ");
+                }
+                else if (p_type->attributes_flags & CAKE_ATTRIBUTE_FASTCALL)
+                {
+                    ss_fprintf(ss, "__fastcall ");
+                }
+                else if (p_type->attributes_flags & CAKE_ATTRIBUTE_CDECL)
+                {
+                    ss_fprintf(ss, "__cdecl ");
+                }
                 ss_fprintf(ss, "%s", name_opt);
                 name_opt = NULL;
             }
@@ -38733,6 +38796,19 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 ss_fprintf(&local, "(");
             }
 
+            if (p_type->attributes_flags & CAKE_ATTRIBUTE_STDCALL)
+            {
+                ss_fprintf(&local, "__stdcall ");
+            }
+            else if (p_type->attributes_flags & CAKE_ATTRIBUTE_FASTCALL)
+            {
+                ss_fprintf(&local, "__fastcall ");
+            }
+            else if (p_type->attributes_flags & CAKE_ATTRIBUTE_CDECL)
+            {
+                ss_fprintf(&local, "__cdecl ");
+            }
+
             ss_fprintf(&local, "*");
             bool first = false;
 
@@ -38759,7 +38835,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             ss_swap(ss, &local);
             ss_close(&local);
-            
+
         }
         break;
         }
@@ -39298,7 +39374,10 @@ static void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, 
                         member_declarator->declarator->name_opt)
                     {
                         ss_fprintf(ss, "    ");
-                        d_print_type(ctx, ss, &member_declarator->declarator->type, member_declarator->declarator->name_opt->lexeme);
+                        d_print_type(ctx,
+                            ss,
+                            &member_declarator->declarator->type,
+                            member_declarator->declarator->name_opt->lexeme);
                         ss_fprintf(ss, ";\n");
                     }
                     member_declarator = member_declarator->next;
@@ -47875,7 +47954,7 @@ bool type_is_pointed_dtor(const struct type* p_type)
 {
     if (!type_is_pointer(p_type))
         return false;
-   
+
     return type_is_dtor(p_type->next);
 }
 
@@ -50194,6 +50273,20 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             p_func->category = TYPE_CATEGORY_FUNCTION;
 
+            if (pdirectdeclarator->function_declarator->direct_declarator->p_calling_convention)
+            {
+                const char* calling_convention_lexeme =
+                    pdirectdeclarator->function_declarator->direct_declarator->p_calling_convention->lexeme;
+
+                if (strcmp(calling_convention_lexeme, "__fastcall") == 0)
+                    p_func->attributes_flags |= CAKE_ATTRIBUTE_FASTCALL;
+                else if (strcmp(calling_convention_lexeme, "__stdcall") == 0)
+                    p_func->attributes_flags |= CAKE_ATTRIBUTE_STDCALL;
+                else if (strcmp(calling_convention_lexeme, "__cdecl") == 0)
+                    p_func->attributes_flags |= CAKE_ATTRIBUTE_CDECL;
+                else
+                    throw;
+            }
 
             if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
                 pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list)
@@ -50306,6 +50399,21 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
                 p_flat->attributes_flags |= pointer->attribute_specifier_sequence_opt->attributes_flags;
             }
             p_flat->category = TYPE_CATEGORY_POINTER;
+
+            if (pointer->calling_convention)
+            {
+                const char* calling_convention_lexeme =
+                    pointer->calling_convention->lexeme;
+                if (strcmp(calling_convention_lexeme, "__fastcall") == 0)
+                    p_flat->attributes_flags |= CAKE_ATTRIBUTE_FASTCALL;
+                else if (strcmp(calling_convention_lexeme, "__stdcall") == 0)
+                    p_flat->attributes_flags |= CAKE_ATTRIBUTE_STDCALL;
+                else if (strcmp(calling_convention_lexeme, "__cdecl") == 0)
+                    p_flat->attributes_flags |= CAKE_ATTRIBUTE_CDECL;
+                else
+                    throw;
+
+            }
 
 
             type_list_push_front(&pointers, p_flat); /*invertido*/
