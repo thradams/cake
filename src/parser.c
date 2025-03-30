@@ -2533,12 +2533,27 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             {
                 if (out_scope->scope_level == 0)
                 {
-                    /*file scope*/
-                    if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, true))
+                    /*
+                    __C_ASSERT__ is failing..maybe because __builtin_offsetof is not implemented
+                    */
+                    if (strcmp(name, "__C_ASSERT__") != 0)
                     {
-                        // TODO failing on windows headers
-                        // parser_seterror_with_token(ctx, p_init_declarator->declarator->name, "redeclaration of  '%s' with diferent types", previous->name->lexeme);
-                        // parser_set_info_with_token(ctx, previous->name, "previous declaration");
+                        //TODO type_is_same needs changes see #164
+                        if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, false))
+                        {
+                            compiler_diagnostic_message(
+                                C_ERROR_REDECLARATION,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "conflicting types for '%s'", name);
+
+                            compiler_diagnostic_message(C_ERROR_REDECLARATION,
+                                ctx,
+                                previous->name_opt,
+                                NULL,
+                                "previous declaration");
+                        }
                     }
                 }
                 else

@@ -20,13 +20,13 @@ typedef typeof(sizeof(0)) size_t; // valid since C23
 /*
   ownership is suported
 */
-void* _Owner _Opt calloc(int nmemb, size_t size);
+void* _Owner _Opt calloc(size_t nmemb, size_t size);
 void free(void* _Owner _Opt ptr);
 void* _Owner _Opt malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 char* _Owner _Opt strdup(const char* src);
 
-inline char* _Opt strrchr(char* const _String, int const _Ch);
+inline char* _Opt strrchr(char const *  _String, int _Ch);
 
 int snprintf(
         _Ctor char*       const _Buffer,
@@ -6126,6 +6126,7 @@ struct token_list else_group(struct preprocessor_ctx* ctx, struct token_list* in
     {
         match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
+        if (ctx->n_errors > 0) throw;
 
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //else
         skip_blanks_level(ctx, &r, input_list, level);
@@ -6441,7 +6442,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             throw;
         }
 
-        struct token* const ptoken = input_list->head;
+        //struct token* const ptoken = input_list->head;
         match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
 
@@ -27091,12 +27092,27 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             {
                 if (out_scope->scope_level == 0)
                 {
-                    /*file scope*/
-                    if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, true))
+                    /*
+                    __C_ASSERT__ is failing..maybe because __builtin_offsetof is not implemented
+                    */
+                    if (strcmp(name, "__C_ASSERT__") != 0)
                     {
-                        // TODO failing on windows headers
-                        // parser_seterror_with_token(ctx, p_init_declarator->declarator->name, "redeclaration of  '%s' with diferent types", previous->name->lexeme);
-                        // parser_set_info_with_token(ctx, previous->name, "previous declaration");
+                        //TODO type_is_same needs changes see #164
+                        if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, false))
+                        {
+                            compiler_diagnostic_message(
+                                C_ERROR_REDECLARATION,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "conflicting types for '%s'", name);
+
+                            compiler_diagnostic_message(C_ERROR_REDECLARATION,
+                                ctx,
+                                previous->name_opt,
+                                NULL,
+                                "previous declaration");
+                        }
                     }
                 }
                 else
@@ -50092,7 +50108,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             struct param* _Opt p_param_b = pb->params.head;
             while (p_param_a && p_param_b)
             {
-                if (!type_is_same(&p_param_a->type, &p_param_b->type, true))
+                if (!type_is_same(&p_param_a->type, &p_param_b->type, compare_qualifiers))
                 {
                     return false;
                 }
@@ -50118,9 +50134,19 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             }
         }
 
-        if (compare_qualifiers && pa->type_qualifier_flags != pb->type_qualifier_flags)
+        if (compare_qualifiers)
         {
-            return false;
+            enum type_qualifier_flags aq = pa->type_qualifier_flags;
+            enum type_qualifier_flags bq = pb->type_qualifier_flags;
+
+            unsigned int all = (TYPE_QUALIFIER_OWNER | TYPE_QUALIFIER_VIEW |
+             TYPE_QUALIFIER_OPT |TYPE_QUALIFIER_DTOR | TYPE_QUALIFIER_CTOR);
+
+             aq = aq & ~ all;
+             bq = bq & ~ all;
+
+            if (aq != bq)
+                return false;            
         }
 
         if (pa->type_specifier_flags != pb->type_specifier_flags)

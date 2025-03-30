@@ -2669,7 +2669,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             struct param* _Opt p_param_b = pb->params.head;
             while (p_param_a && p_param_b)
             {
-                if (!type_is_same(&p_param_a->type, &p_param_b->type, true))
+                if (!type_is_same(&p_param_a->type, &p_param_b->type, compare_qualifiers))
                 {
                     return false;
                 }
@@ -2695,9 +2695,19 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             }
         }
 
-        if (compare_qualifiers && pa->type_qualifier_flags != pb->type_qualifier_flags)
+        if (compare_qualifiers)
         {
-            return false;
+            enum type_qualifier_flags aq = pa->type_qualifier_flags;
+            enum type_qualifier_flags bq = pb->type_qualifier_flags;
+
+            unsigned int all = (TYPE_QUALIFIER_OWNER | TYPE_QUALIFIER_VIEW |
+             TYPE_QUALIFIER_OPT |TYPE_QUALIFIER_DTOR | TYPE_QUALIFIER_CTOR);
+
+             aq = aq & ~ all;
+             bq = bq & ~ all;
+
+            if (aq != bq)
+                return false;            
         }
 
         if (pa->type_specifier_flags != pb->type_specifier_flags)

@@ -2898,6 +2898,7 @@ struct token_list else_group(struct preprocessor_ctx* ctx, struct token_list* in
     {
         match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
+        if (ctx->n_errors > 0) throw;
 
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //else
         skip_blanks_level(ctx, &r, input_list, level);
@@ -3213,7 +3214,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             throw;
         }
 
-        struct token* const ptoken = input_list->head;
+        //struct token* const ptoken = input_list->head;
         match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
 

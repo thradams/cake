@@ -1,5 +1,5 @@
-long long long i;
+long long long a;
 #pragma cake diagnostic check "-E980"
 
-signed unsigned i;
+signed unsigned b;
 #pragma cake diagnostic check "-E1300"

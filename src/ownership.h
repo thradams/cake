@@ -9,13 +9,13 @@ typedef typeof(sizeof(0)) size_t; // valid since C23
 /*
   ownership is suported
 */
-void* _Owner _Opt calloc(int nmemb, size_t size);
+void* _Owner _Opt calloc(size_t nmemb, size_t size);
 void free(void* _Owner _Opt ptr);
 void* _Owner _Opt malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 char* _Owner _Opt strdup(const char* src);
 
-inline char* _Opt strrchr(char* const _String, int const _Ch);
+inline char* _Opt strrchr(char const *  _String, int _Ch);
 
 int snprintf(
         _Ctor char*       const _Buffer,
