@@ -3256,7 +3256,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
 
             return p_object;
         }
-        else if (p_expression->expression_type == ASSIGNMENT_EXPRESSION)
+        else if (p_expression->expression_type == ASSIGNMENT_EXPRESSION_ASSIGN)
         {
             assert(p_expression->left != NULL);
 
@@ -5643,8 +5643,17 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
-
-    case ASSIGNMENT_EXPRESSION:
+    case ASSIGNMENT_EXPRESSION_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:    
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);

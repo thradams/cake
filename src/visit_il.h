@@ -28,7 +28,7 @@ struct d_visit_ctx
     struct osstream data_types;
     struct osstream function_types;
     bool zero_mem_used;
-    bool memset_used;
+    bool memcpy_used;
     _View struct ast ast;    
 };
 

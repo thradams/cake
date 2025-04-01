@@ -147,32 +147,14 @@ See [Manual](manual.md)
 
 # References
 
-How did we get here?
- 
- * https://www.bell-labs.com/usr/dmr/www/chist.html
- * https://www.bell-labs.com/usr/dmr/www/cman.pdf
- * https://www.bell-labs.com/usr/dmr/www/ctut.pdf
+https://www.c-language.org/
 
-
- A copy of each C standard draft in included in *docs* folder.
-
- * https://en.wikipedia.org/wiki/ANSI_C#C89
- * https://en.cppreference.com/w/c
- * https://www.ibm.com/docs/en/xl-c-aix/13.1.0?topic=extensions-c99-features
- * https://en.cppreference.com/w/c/compiler_support/23
- * https://en.cppreference.com/w/c/compiler_support/99
-	
 A very nice introduction was written by Al Williams
 
 C23 Programming For Everyone
 
 https://hackaday.com/2022/09/13/c23-programming-for-everyone/
 
-
-# Influenced by
-
-* Typescript
-* Small C compilers
 
 # Participating
 

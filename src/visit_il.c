@@ -31,7 +31,7 @@ static struct struct_or_union_specifier* _Opt get_complete_struct_or_union_speci
     struct struct_or_union_specifier* _Opt p_complete =
         get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
     if (p_complete == NULL)
-        p_complete = p_struct_or_union_specifier;
+        p_complete = p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection;
     return p_complete;
 }
 
@@ -364,6 +364,37 @@ static int il_visit_literal_string(struct token* current, struct osstream* oss)
 
 
     return 0;
+}
+
+static const char* get_op_by_expression_type(enum expression_type type)
+{
+    switch (type)
+    {
+    case ASSIGNMENT_EXPRESSION_ASSIGN:
+        return "=";
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
+        return "+=";
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
+        return "-=";
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
+        return "*=";
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
+        return "/=";
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
+        return "%=";
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
+        return "<<=";
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
+        return ">>=";
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
+        return "&=";
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
+        return "|=";
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+        return "^=";
+    }
+    assert(false);
+    return "";
 }
 
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
@@ -744,11 +775,22 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         d_visit_expression(ctx, oss, p_expression->right);
         break;
 
-    case ASSIGNMENT_EXPRESSION:
+
+    case ASSIGNMENT_EXPRESSION_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
         d_visit_expression(ctx, oss, p_expression->left);
-        ss_fprintf(oss, " = ");
+        ss_fprintf(oss, " %s ", get_op_by_expression_type(p_expression->expression_type));
         d_visit_expression(ctx, oss, p_expression->right);
         break;
 
@@ -2089,14 +2131,14 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             {
                 //char b[] = "abc";
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "memset(%s%s, ", declarator_name, object->debug_name);
+                ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->debug_name);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
                 ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);
 
                 ss_fprintf(ss, ");\n");
                 ss_close(&local);
-                ctx->memset_used = true;
+                ctx->memcpy_used = true;
             }
             else
             {
@@ -2217,14 +2259,14 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
                             type_is_array(&p_init_declarator->p_declarator->type))
                         {
                             print_identation_core(oss, ctx->indentation);
-                            ss_fprintf(oss, "memset(%s, ", p_init_declarator->p_declarator->name_opt->lexeme);
+                            ss_fprintf(oss, "_cake_memcpy(%s, ", p_init_declarator->p_declarator->name_opt->lexeme);
                             struct osstream local = { 0 };
                             d_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
                             ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.num_of_elements);
 
                             ss_fprintf(oss, ");\n");
                             ss_close(&local);
-                            ctx->memset_used = true;
+                            ctx->memcpy_used = true;
                         }
                         else
                         {
@@ -2257,7 +2299,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
                                     int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
                                     // ss_fprintf(oss, ";\n");
                                     print_identation_core(oss, ctx->indentation);
-                                    ss_fprintf(oss, "_zmem(&%s, %d);\n",
+                                    ss_fprintf(oss, "_cake_zmem(&%s, %d);\n",
                                     p_init_declarator->p_declarator->name_opt->lexeme,
                                     sz);
                                     ctx->zero_mem_used = true;
@@ -2294,7 +2336,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
                                 int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
                                 //ss_fprintf(oss, ";\n");
                                 print_identation_core(oss, ctx->indentation);
-                                ss_fprintf(oss, "_zmem(&%s, %d);\n",
+                                ss_fprintf(oss, "_cake_zmem(&%s, %d);\n",
                                 p_init_declarator->p_declarator->name_opt->lexeme,
                                 sz);
                                 ctx->zero_mem_used = true;
@@ -2552,7 +2594,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     if (ctx->zero_mem_used)
     {
         const char* str =
-            "static void _zmem(void *dest, register unsigned int len)\n"
+            "static void _cake_zmem(void *dest, register unsigned int len)\n"
             "{\n"
             "  register unsigned char *ptr = (unsigned char*)dest;\n"
             "  while (len-- > 0) *ptr++ = 0;\n"
@@ -2560,13 +2602,14 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         ss_fprintf(oss, "%s", str);
     }
 
-    if (ctx->memset_used)
+    if (ctx->memcpy_used)
     {
         const char* str =
-            "static void *memset(void *dest, int c, unsigned long long n)\n"
+            "static void _cake_memcpy(void * dest, const void * src, unsigned long n)\n"
             "{\n"
-            "  register unsigned char *s = dest;\n"
-            "  for (; n; n--, s++) *s = c;\n"
+            "  char *csrc = (char *)src;\n"
+            "  char *cdest = (char *)dest;\n"
+            "  for (int i=0; i<n; i++) cdest[i] = csrc[i]; \n"
             "}\n\n";
         ss_fprintf(oss, "%s", str);
     }

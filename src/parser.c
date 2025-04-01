@@ -7763,7 +7763,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                     p_unlabeled_statement->expression_statement != NULL &&
                     p_unlabeled_statement->expression_statement->expression_opt &&
                     !type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type) &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != ASSIGNMENT_EXPRESSION &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != ASSIGNMENT_EXPRESSION_ASSIGN &&
                     p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_FUNCTION_CALL &&
                     p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_INCREMENT &&
                     p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_DECREMENT &&

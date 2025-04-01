@@ -5197,7 +5197,45 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
                 throw;
 
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = ASSIGNMENT_EXPRESSION;
+
+            switch (op_token->type)
+            {
+            case '=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_ASSIGN;
+                break;
+            case '*=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_MULTI_ASSIGN;
+                break;
+            case '/=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_DIV_ASSIGN;
+                break;
+            case '%=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_MOD_ASSIGN;
+                break;
+            case '+=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_PLUS_ASSIGN;
+                break;
+            case '-=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_MINUS_ASSIGN;
+                break;
+            case '<<=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN;
+                break;
+            case '>>=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN;
+                break;
+            case '&=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_AND_ASSIGN;
+                break;
+            case '^=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_NOT_ASSIGN;
+                break;
+            case '|=':
+                new_expression->expression_type = ASSIGNMENT_EXPRESSION_OR_ASSIGN;
+                break;
+            }
+
+
             new_expression->left = p_expression_node;
             p_expression_node = NULL; // MOVED
 
@@ -5472,7 +5510,7 @@ bool expression_is_null_pointer_constant(const struct expression* expression)
     /*
       An integer constant expression with the value 0,
       such an expression cast to type void *, or the
-      predefined constant nullptr is called a null pointer constant.57) 
+      predefined constant nullptr is called a null pointer constant.57)
     */
     if (type_is_integer(&expression->type) &&
         object_has_constant_value(&expression->object) &&
@@ -5491,7 +5529,7 @@ bool expression_is_null_pointer_constant(const struct expression* expression)
     {
         return true;
     }
-   
+
     return false;
 }
 

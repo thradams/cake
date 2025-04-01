@@ -1,5 +1,6 @@
-﻿long long long i;
-#pragma cake diagnostic check "-E980"
-
-signed unsigned i;
-#pragma cake diagnostic check "-E1300"
+﻿int main(){
+   char b[] = "abc"; 
+   int a = 0;
+   a += 1;
+   a -= 1;
+}
