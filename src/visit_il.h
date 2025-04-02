@@ -29,6 +29,12 @@ struct d_visit_ctx
     struct osstream function_types;
     bool zero_mem_used;
     bool memcpy_used;
+    /*
+    * Points to the function we're in. Or null in file scope.
+    */
+    struct declarator* _Opt p_current_function_opt;
+    bool func_added;
+
     _View struct ast ast;    
 };
 

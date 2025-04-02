@@ -329,7 +329,7 @@ struct type get_array_item_type(const struct type* p_type);
 
 struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled);
 
-struct type type_make_literal_string(int size, enum type_specifier_flags chartype);
+struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers);
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t();

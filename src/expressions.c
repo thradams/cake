@@ -1084,8 +1084,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
-
-                p_expression_node->type = type_make_literal_string(strlen(func_str) + 1, TYPE_SPECIFIER_CHAR);
+                
+                p_expression_node->type = type_make_literal_string(strlen(func_str) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST);
             }
             else
             {
@@ -1189,7 +1189,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 }
             }
 
-            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type);
+            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, TYPE_QUALIFIER_NONE);
             //static_assert(false);
             //struct object * it = p_expression_node->object.members;
             //for (int i = 0 ; i < number_of_bytes; i++)

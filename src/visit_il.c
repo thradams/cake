@@ -406,7 +406,21 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case PRIMARY_EXPRESSION__FUNC__:
-        break;
+    {
+        char name[100] = { 0 };
+        snprintf(name, sizeof(name), "__cake_func");
+        if (!ctx->func_added)
+        {            
+            assert(ctx->p_current_function_opt);
+            assert(ctx->p_current_function_opt->name_opt);
+            ctx->func_added = true;
+            print_identation_core(&ctx->add_this_before, ctx->indentation);
+            ss_fprintf(&ctx->add_this_before, "static const char %s[] = \"%s\";\n", name, ctx->p_current_function_opt->name_opt->lexeme);
+        }
+        ss_fprintf(oss, "%s", name);
+
+    }
+    break;
 
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
@@ -2359,6 +2373,9 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
             if (p_init_declarator->p_declarator->function_body)
             {
+                ctx->func_added = false;
+                ctx->p_current_function_opt = p_init_declarator->p_declarator;
+
                 struct hash_item_set i = { 0 };
                 i.number = 1;
                 hashmap_set(&ctx->function_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);

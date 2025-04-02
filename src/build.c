@@ -146,34 +146,34 @@ int main()
     remove("amalgamator.exe");
 
 #ifdef BUILD_WINDOWS_HLC
-     execute_cmd(CC CAKE_SOURCE_FILES " main.c "
+    execute_cmd(CC CAKE_SOURCE_FILES " main.c "
 
 #ifdef DISABLE_COLORS
-               " /DDISABLE_COLORS "
+              " /DDISABLE_COLORS "
 #endif
 
 #if defined DEBUG
-               " /Od /MDd /RTC1 "
-               " /Dstrdup=_strdup" /*nao linka em release*/
+              " /Od /MDd /RTC1 "
+              " /Dstrdup=_strdup" /*nao linka em release*/
 #else                              // RELEASE
-               " /MT "
-               " /DNDEBUG "
-               
+              " /MT "
+              " /DNDEBUG "
+
 #endif
-               " /D_CRT_NONSTDC_NO_WARNINGS "
-               " /wd4996 "
-               " /wd4100 " //unreferenced formal paramet
-               " /wd4068 " //unknown pragma                              
-               " /W4 "
+              " /D_CRT_NONSTDC_NO_WARNINGS "
+              " /wd4996 "
+              " /wd4100 " //unreferenced formal paramet
+              " /wd4068 " //unknown pragma                              
+              " /W4 "
 #ifdef TEST
-               "-DTEST"
+              "-DTEST"
 #endif
-               " /D_CRT_SECURE_NO_WARNINGS "
-               " /link "
-               " ucrt.lib "
-               " Kernel32.lib User32.lib Advapi32.lib"
-               " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
-               " /out:cake.exe");
+              " /D_CRT_SECURE_NO_WARNINGS "
+              " /link "
+              " ucrt.lib "
+              " Kernel32.lib User32.lib Advapi32.lib"
+              " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
+              " /out:cake.exe");
 
     //Runs cake on its own source
     execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
@@ -229,10 +229,11 @@ int main()
     //Runs cake on its own source
     execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " " main.c " CAKE_SOURCE_FILES);
 
+#ifndef TEST
     //compiling the generated code
     echo_chdir("../out/src");
     execute_cmd("cl main.c " CAKE_SOURCE_FILES);
-
+#endif
 
 #endif
 
@@ -299,7 +300,7 @@ int main()
 
     //Uses previouly generated cakeconfig.h to find include dir
     execute_cmd("./cake "
-               " -fanalyzer "               
+               " -fanalyzer "
                CAKE_SOURCE_FILES);
 
     //run unit test if -DTEST
