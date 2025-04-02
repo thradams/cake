@@ -89,7 +89,12 @@ sample["C99"]["_Pragma"] =
 
 sample["C99"]["__func__"] =
 `
-   //TODO not implemented yet
+#include <stdio.h>
+int main()
+{
+    printf("%s\\n", __func__);
+    printf("%s\\n", __func__);
+}
 `;
 
 
