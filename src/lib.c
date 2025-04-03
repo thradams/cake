@@ -768,7 +768,7 @@ enum diagnostic_id {
     W_ERROR_INCOMPATIBLE_TYPES,
     W_UNUSED_LABEL,
     W_REDEFINING_BUITIN_MACRO,
-    W_NOT_DEFINED56,
+    W_UNUSED_FUNCTION,
     W_NOT_DEFINED57,
     W_NOT_DEFINED58,
     W_NOT_DEFINED59,
@@ -12133,8 +12133,7 @@ struct diagnostic default_diagnostic = {
         NULLABLE_DISABLE_REMOVED_WARNINGS |
         (1ULL << W_NOTE) |
         (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER) |
-        (1ULL << W_UNUSED_VARIABLE))
+        (1ULL << W_UNUSED_PARAMETER))
 };
 
 static struct w {
@@ -12143,6 +12142,7 @@ static struct w {
 }
 s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
+    {W_UNUSED_FUNCTION, "unused-function"},    
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
 
@@ -12897,7 +12897,7 @@ struct type
     const struct expression* _Opt array_num_elements_expression;
 
     int num_of_elements;
-    bool static_array;
+    bool has_static_array_size;
 
     /*
       address_of is true when the type is created by address of operator.
@@ -12972,6 +12972,7 @@ bool type_is_deprecated(const struct type* p_type);
 bool type_is_maybe_unused(const struct type* p_type);
 bool type_is_pointer_or_array(const struct type* p_type);
 bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers);
+bool type_is_compatible(const struct type* a, const struct type* b);
 bool type_is_scalar(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);
@@ -23179,15 +23180,12 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (!type_is_same(p_a_type, &lvalue_right_type, false))
     {
-        //TODO more rules..but it is good to check worst case!
-        //
-        //  compiler_diagnostic_message(C1, ctx,
-        //      right->first_token,
-        //      " incompatible types ");
+       // compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES,
+       //     ctx,
+       //       p_b_expression->first_token, 
+       //       NULL,
+       //       " incompatible types ");
     }
-
-
-
 
 
     type_destroy(&lvalue_right_type);
@@ -24604,7 +24602,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.1"
+#define CAKE_VERSION "0.10.2"
 
 
 
@@ -24645,7 +24643,7 @@ struct d_visit_ctx
     * Points to the function we're in. Or null in file scope.
     */
     struct declarator* _Opt p_current_function_opt;
-    bool func_added;
+    bool is__func__predefined_identifier_added;
 
     _View struct ast ast;    
 };
@@ -27370,7 +27368,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         {
             if (type_is_array(&p_init_declarator->p_declarator->type))
                 if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
-                    p_init_declarator->p_declarator->type.static_array)
+                    p_init_declarator->p_declarator->type.has_static_array_size)
                 {
                     if (p_init_declarator->p_declarator->first_token_opt)
                     {
@@ -34072,6 +34070,42 @@ void declaration_list_destroy(_Dtor struct declaration_list* list)
     }
 }
 
+static void check_unused_static_declarators(struct parser_ctx* ctx, struct declaration_list* declaration_list)
+{
+    struct declaration* _Opt p = declaration_list->head;
+    while (p)
+    {
+        if (p->declaration_specifiers &&
+            p->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+        {
+            if (p->init_declarator_list.head &&
+                p->init_declarator_list.head->p_declarator &&
+                p->init_declarator_list.head->p_declarator->num_uses == 0)
+            {
+                if (type_is_function(&p->init_declarator_list.head->p_declarator->type))
+                {
+                    compiler_diagnostic_message(W_UNUSED_FUNCTION,
+                    ctx,
+                    p->init_declarator_list.head->p_declarator->name_opt,
+                    NULL,
+                    "warning: static function '%s' defined but not used.",
+                    p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                }
+                else
+                {
+                    compiler_diagnostic_message(W_UNUSED_VARIABLE,
+                    ctx,
+                    p->init_declarator_list.head->p_declarator->name_opt,
+                    NULL,
+                    "warning: '%s' defined but not used.",
+                    p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                }                
+            }
+        }
+        p = p->next;
+    }
+}
+
 struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
 {
     *berror = false;
@@ -34090,6 +34124,8 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
                 throw;
             declaration_list_add(&declaration_list, p);
         }
+
+        check_unused_static_declarators(ctx, &declaration_list);
     }
     catch
     {
@@ -34189,65 +34225,6 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
-static void show_unused_file_scope(struct parser_ctx* ctx)
-{
-    if (ctx->scopes.head == NULL)
-        return;
-
-    for (int i = 0; i < ctx->scopes.head->variables.capacity; i++)
-    {
-        if (ctx->scopes.head->variables.table == NULL)
-            continue;
-        struct map_entry* _Opt entry = ctx->scopes.head->variables.table[i];
-        while (entry)
-        {
-
-            if (entry->type != TAG_TYPE_DECLARATOR &&
-                entry->type != TAG_TYPE_INIT_DECLARATOR)
-            {
-                entry = entry->next;
-                continue;
-            }
-
-            struct declarator* _Opt p_declarator = NULL;
-            struct init_declarator* _Opt p_init_declarator = NULL;
-            if (entry->type == TAG_TYPE_INIT_DECLARATOR)
-            {
-                assert(entry->data.p_init_declarator != NULL);
-                p_init_declarator = entry->data.p_init_declarator;
-                p_declarator = p_init_declarator->p_declarator;
-            }
-            else
-            {
-                p_declarator = entry->data.p_declarator;
-            }
-
-            if (p_declarator &&
-                p_declarator->first_token_opt &&
-                p_declarator->first_token_opt->level == 0 &&
-                declarator_is_function(p_declarator) &&
-                p_declarator->declaration_specifiers &&
-                (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
-            {
-                if (!type_is_maybe_unused(&p_declarator->type) &&
-                    p_declarator->num_uses == 0)
-                {
-                    if (p_declarator->name_opt)
-                    {
-                        compiler_diagnostic_message(W_UNUSED_VARIABLE,
-                            ctx,
-                            p_declarator->name_opt,
-                            NULL,
-                            "declarator '%s' not used", p_declarator->name_opt->lexeme);
-                    }
-                }
-            }
-
-            entry = entry->next;
-        }
-    }
-}
-
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror)
 {
     *berror = false;
@@ -34264,8 +34241,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         bool local_error = false;
         l = translation_unit(ctx, &local_error);
         if (local_error)
-            throw;
-        show_unused_file_scope(ctx); // cannot be executed on error becase scope have dangling pointers
+            throw;        
     }
     catch
     {
@@ -37513,15 +37489,17 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case PRIMARY_EXPRESSION__FUNC__:
     {
+        const char * func_name = 
+            ctx->p_current_function_opt->name_opt->lexeme;
+
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), "__cake_func");
-        if (!ctx->func_added)
+        snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+        if (!ctx->is__func__predefined_identifier_added)
         {            
             assert(ctx->p_current_function_opt);
             assert(ctx->p_current_function_opt->name_opt);
-            ctx->func_added = true;
-            print_identation_core(&ctx->add_this_before, ctx->indentation);
-            ss_fprintf(&ctx->add_this_before, "static const char %s[] = \"%s\";\n", name, ctx->p_current_function_opt->name_opt->lexeme);
+            ctx->is__func__predefined_identifier_added = true;
+            ss_fprintf(&ctx->add_this_before_external_decl, "static const char %s[] = \"%s\";\n", name, func_name);
         }
         ss_fprintf(oss, "%s", name);
 
@@ -39479,7 +39457,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
             if (p_init_declarator->p_declarator->function_body)
             {
-                ctx->func_added = false;
+                ctx->is__func__predefined_identifier_added = false;
                 ctx->p_current_function_opt = p_init_declarator->p_declarator;
 
                 struct hash_item_set i = { 0 };
@@ -47891,7 +47869,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             ss_fprintf(ss, "[");
 
             bool b = true;
-            if (p->static_array)
+            if (p->has_static_array_size)
             {
                 ss_fprintf(ss, "static");
                 b = false;
@@ -50176,17 +50154,15 @@ bool enum_specifier_is_same(struct enum_specifier* _Opt a, struct enum_specifier
 }
 
 
-
-
-bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
+static bool type_is_same_core(const struct type* a,
+                              const struct type* b,
+                              bool compare_qualifiers)
 {
     const struct type* _Opt pa = a;
     const struct type* _Opt pb = b;
 
     while (pa && pb)
     {
-
-
         if (pa->num_of_elements != pb->num_of_elements)
             return false;
 
@@ -50217,7 +50193,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         }
 
         //if (pa->name_opt != pb->name_opt) return false;
-        if (pa->static_array != pb->static_array)
+        if (pa->has_static_array_size != pb->has_static_array_size)
             return false;
 
         if (pa->category == TYPE_CATEGORY_FUNCTION)
@@ -50269,13 +50245,13 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             enum type_qualifier_flags bq = pb->type_qualifier_flags;
 
             unsigned int all = (TYPE_QUALIFIER_OWNER | TYPE_QUALIFIER_VIEW |
-             TYPE_QUALIFIER_OPT |TYPE_QUALIFIER_DTOR | TYPE_QUALIFIER_CTOR);
+             TYPE_QUALIFIER_OPT | TYPE_QUALIFIER_DTOR | TYPE_QUALIFIER_CTOR);
 
-             aq = aq & ~ all;
-             bq = bq & ~ all;
+            aq = aq & ~all;
+            bq = bq & ~all;
 
             if (aq != bq)
-                return false;            
+                return false;
         }
 
         if (pa->type_specifier_flags != pb->type_specifier_flags)
@@ -50290,6 +50266,15 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
     return pa == NULL && pb == NULL;
 }
 
+bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
+{
+    return type_is_same_core(a, b, compare_qualifiers);
+}
+
+bool type_is_compatible(const struct type* a, const struct type* b)
+{
+    return type_is_same_core(a, b, false);
+}
 
 void type_clear(struct type* a)
 {
@@ -50578,7 +50563,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             if (pdirectdeclarator->array_declarator->static_token_opt)
             {
-                p->static_array = true;
+                p->has_static_array_size = true;
             }
 
             if (pdirectdeclarator->array_declarator->type_qualifier_list_opt)

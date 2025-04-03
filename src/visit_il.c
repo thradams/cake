@@ -407,15 +407,17 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case PRIMARY_EXPRESSION__FUNC__:
     {
+        const char * func_name = 
+            ctx->p_current_function_opt->name_opt->lexeme;
+
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), "__cake_func");
-        if (!ctx->func_added)
+        snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+        if (!ctx->is__func__predefined_identifier_added)
         {            
             assert(ctx->p_current_function_opt);
             assert(ctx->p_current_function_opt->name_opt);
-            ctx->func_added = true;
-            print_identation_core(&ctx->add_this_before, ctx->indentation);
-            ss_fprintf(&ctx->add_this_before, "static const char %s[] = \"%s\";\n", name, ctx->p_current_function_opt->name_opt->lexeme);
+            ctx->is__func__predefined_identifier_added = true;
+            ss_fprintf(&ctx->add_this_before_external_decl, "static const char %s[] = \"%s\";\n", name, func_name);
         }
         ss_fprintf(oss, "%s", name);
 
@@ -2373,7 +2375,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
             if (p_init_declarator->p_declarator->function_body)
             {
-                ctx->func_added = false;
+                ctx->is__func__predefined_identifier_added = false;
                 ctx->p_current_function_opt = p_init_declarator->p_declarator;
 
                 struct hash_item_set i = { 0 };

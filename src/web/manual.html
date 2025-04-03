@@ -486,6 +486,23 @@ On Linux, it calls GCC with echo | gcc -v -E - 2&gt;&amp;1 and reads the output.
 
 <h2 id="toc_7">Output</h2>
 
+<p>The current backend generates C89-compatible code, which can be pipelined with existing 
+compilers to produce executables. </p>
+
+<p>The output is a simplified version of C89.
+It does not include the following features:</p>
+
+<ul>
+<li>preprocessor</li>
+<li>typedefs</li>
+<li>enums</li>
+<li>const</li>
+<li>auto</li>
+<li>Structs/unions declared inside other structs/unions</li>
+</ul>
+
+<p>The goal is for this simplified version to function as an intermediate language (IL).</p>
+
 <p>One directory called <strong>out</strong> is created keeping the same directory structure of the input files.</p>
 
 <p>For instance:</p>

@@ -325,7 +325,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             ss_fprintf(ss, "[");
 
             bool b = true;
-            if (p->static_array)
+            if (p->has_static_array_size)
             {
                 ss_fprintf(ss, "static");
                 b = false;
@@ -2610,17 +2610,15 @@ bool enum_specifier_is_same(struct enum_specifier* _Opt a, struct enum_specifier
 }
 
 
-
-
-bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
+static bool type_is_same_core(const struct type* a,
+                              const struct type* b,
+                              bool compare_qualifiers)
 {
     const struct type* _Opt pa = a;
     const struct type* _Opt pb = b;
 
     while (pa && pb)
     {
-
-
         if (pa->num_of_elements != pb->num_of_elements)
             return false;
 
@@ -2651,7 +2649,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
         }
 
         //if (pa->name_opt != pb->name_opt) return false;
-        if (pa->static_array != pb->static_array)
+        if (pa->has_static_array_size != pb->has_static_array_size)
             return false;
 
         if (pa->category == TYPE_CATEGORY_FUNCTION)
@@ -2703,13 +2701,13 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             enum type_qualifier_flags bq = pb->type_qualifier_flags;
 
             unsigned int all = (TYPE_QUALIFIER_OWNER | TYPE_QUALIFIER_VIEW |
-             TYPE_QUALIFIER_OPT |TYPE_QUALIFIER_DTOR | TYPE_QUALIFIER_CTOR);
+             TYPE_QUALIFIER_OPT | TYPE_QUALIFIER_DTOR | TYPE_QUALIFIER_CTOR);
 
-             aq = aq & ~ all;
-             bq = bq & ~ all;
+            aq = aq & ~all;
+            bq = bq & ~all;
 
             if (aq != bq)
-                return false;            
+                return false;
         }
 
         if (pa->type_specifier_flags != pb->type_specifier_flags)
@@ -2724,6 +2722,15 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
     return pa == NULL && pb == NULL;
 }
 
+bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
+{
+    return type_is_same_core(a, b, compare_qualifiers);
+}
+
+bool type_is_compatible(const struct type* a, const struct type* b)
+{
+    return type_is_same_core(a, b, false);
+}
 
 void type_clear(struct type* a)
 {
@@ -3012,7 +3019,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             if (pdirectdeclarator->array_declarator->static_token_opt)
             {
-                p->static_array = true;
+                p->has_static_array_size = true;
             }
 
             if (pdirectdeclarator->array_declarator->type_qualifier_list_opt)

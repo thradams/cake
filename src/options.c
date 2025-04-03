@@ -68,8 +68,7 @@ struct diagnostic default_diagnostic = {
         NULLABLE_DISABLE_REMOVED_WARNINGS |
         (1ULL << W_NOTE) |
         (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER) |
-        (1ULL << W_UNUSED_VARIABLE))
+        (1ULL << W_UNUSED_PARAMETER))
 };
 
 static struct w {
@@ -78,6 +77,7 @@ static struct w {
 }
 s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
+    {W_UNUSED_FUNCTION, "unused-function"},    
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
 

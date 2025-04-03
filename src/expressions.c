@@ -6148,15 +6148,12 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (!type_is_same(p_a_type, &lvalue_right_type, false))
     {
-        //TODO more rules..but it is good to check worst case!
-        //
-        //  compiler_diagnostic_message(C1, ctx,
-        //      right->first_token,
-        //      " incompatible types ");
+       // compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES,
+       //     ctx,
+       //       p_b_expression->first_token, 
+       //       NULL,
+       //       " incompatible types ");
     }
-
-
-
 
 
     type_destroy(&lvalue_right_type);

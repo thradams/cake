@@ -33,7 +33,7 @@ struct d_visit_ctx
     * Points to the function we're in. Or null in file scope.
     */
     struct declarator* _Opt p_current_function_opt;
-    bool func_added;
+    bool is__func__predefined_identifier_added;
 
     _View struct ast ast;    
 };

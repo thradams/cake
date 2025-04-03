@@ -217,7 +217,7 @@ struct type
     const struct expression* _Opt array_num_elements_expression;
 
     int num_of_elements;
-    bool static_array;
+    bool has_static_array_size;
 
     /*
       address_of is true when the type is created by address of operator.
@@ -292,6 +292,7 @@ bool type_is_deprecated(const struct type* p_type);
 bool type_is_maybe_unused(const struct type* p_type);
 bool type_is_pointer_or_array(const struct type* p_type);
 bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers);
+bool type_is_compatible(const struct type* a, const struct type* b);
 bool type_is_scalar(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);

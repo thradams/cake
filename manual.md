@@ -168,6 +168,22 @@ On Linux, it calls GCC with echo | gcc -v -E - 2>&1 and reads the output.
 
 ## Output
 
+The current backend generates C89-compatible code, which can be pipelined with existing 
+compilers to produce executables. 
+
+The output is a simplified version of C89.
+It does not include the following features:
+
+ - preprocessor
+ - typedefs
+ - enums
+ - const
+ - auto
+ - Structs/unions declared inside other structs/unions
+
+The goal is for this simplified version to function as an intermediate language (IL).
+ 
+
 One directory called **out** is created keeping the same directory structure of the input files.
 
 For instance:
@@ -203,7 +219,6 @@ output
       ├── other
           ├── file2.c
 ```
-
 
 ## Pre-defined macros
 

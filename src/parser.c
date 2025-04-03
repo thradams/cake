@@ -2753,7 +2753,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         {
             if (type_is_array(&p_init_declarator->p_declarator->type))
                 if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
-                    p_init_declarator->p_declarator->type.static_array)
+                    p_init_declarator->p_declarator->type.has_static_array_size)
                 {
                     if (p_init_declarator->p_declarator->first_token_opt)
                     {
@@ -9455,6 +9455,42 @@ void declaration_list_destroy(_Dtor struct declaration_list* list)
     }
 }
 
+static void check_unused_static_declarators(struct parser_ctx* ctx, struct declaration_list* declaration_list)
+{
+    struct declaration* _Opt p = declaration_list->head;
+    while (p)
+    {
+        if (p->declaration_specifiers &&
+            p->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+        {
+            if (p->init_declarator_list.head &&
+                p->init_declarator_list.head->p_declarator &&
+                p->init_declarator_list.head->p_declarator->num_uses == 0)
+            {
+                if (type_is_function(&p->init_declarator_list.head->p_declarator->type))
+                {
+                    compiler_diagnostic_message(W_UNUSED_FUNCTION,
+                    ctx,
+                    p->init_declarator_list.head->p_declarator->name_opt,
+                    NULL,
+                    "warning: static function '%s' defined but not used.",
+                    p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                }
+                else
+                {
+                    compiler_diagnostic_message(W_UNUSED_VARIABLE,
+                    ctx,
+                    p->init_declarator_list.head->p_declarator->name_opt,
+                    NULL,
+                    "warning: '%s' defined but not used.",
+                    p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                }                
+            }
+        }
+        p = p->next;
+    }
+}
+
 struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
 {
     *berror = false;
@@ -9473,6 +9509,8 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
                 throw;
             declaration_list_add(&declaration_list, p);
         }
+
+        check_unused_static_declarators(ctx, &declaration_list);
     }
     catch
     {
@@ -9572,65 +9610,6 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
-static void show_unused_file_scope(struct parser_ctx* ctx)
-{
-    if (ctx->scopes.head == NULL)
-        return;
-
-    for (int i = 0; i < ctx->scopes.head->variables.capacity; i++)
-    {
-        if (ctx->scopes.head->variables.table == NULL)
-            continue;
-        struct map_entry* _Opt entry = ctx->scopes.head->variables.table[i];
-        while (entry)
-        {
-
-            if (entry->type != TAG_TYPE_DECLARATOR &&
-                entry->type != TAG_TYPE_INIT_DECLARATOR)
-            {
-                entry = entry->next;
-                continue;
-            }
-
-            struct declarator* _Opt p_declarator = NULL;
-            struct init_declarator* _Opt p_init_declarator = NULL;
-            if (entry->type == TAG_TYPE_INIT_DECLARATOR)
-            {
-                assert(entry->data.p_init_declarator != NULL);
-                p_init_declarator = entry->data.p_init_declarator;
-                p_declarator = p_init_declarator->p_declarator;
-            }
-            else
-            {
-                p_declarator = entry->data.p_declarator;
-            }
-
-            if (p_declarator &&
-                p_declarator->first_token_opt &&
-                p_declarator->first_token_opt->level == 0 &&
-                declarator_is_function(p_declarator) &&
-                p_declarator->declaration_specifiers &&
-                (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
-            {
-                if (!type_is_maybe_unused(&p_declarator->type) &&
-                    p_declarator->num_uses == 0)
-                {
-                    if (p_declarator->name_opt)
-                    {
-                        compiler_diagnostic_message(W_UNUSED_VARIABLE,
-                            ctx,
-                            p_declarator->name_opt,
-                            NULL,
-                            "declarator '%s' not used", p_declarator->name_opt->lexeme);
-                    }
-                }
-            }
-
-            entry = entry->next;
-        }
-    }
-}
-
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror)
 {
     *berror = false;
@@ -9647,8 +9626,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         bool local_error = false;
         l = translation_unit(ctx, &local_error);
         if (local_error)
-            throw;
-        show_unused_file_scope(ctx); // cannot be executed on error becase scope have dangling pointers
+            throw;        
     }
     catch
     {
