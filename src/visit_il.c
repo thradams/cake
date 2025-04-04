@@ -392,6 +392,8 @@ static const char* get_op_by_expression_type(enum expression_type type)
         return "|=";
     case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
         return "^=";
+    default:
+        break;
     }
     assert(false);
     return "";
@@ -407,6 +409,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case PRIMARY_EXPRESSION__FUNC__:
     {
+        assert(ctx->p_current_function_opt);
+        assert(ctx->p_current_function_opt->name_opt);
+
         const char * func_name = 
             ctx->p_current_function_opt->name_opt->lexeme;
 
@@ -943,10 +948,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
 static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration);
 
-static void d_visit_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct declarator* p_declarator)
-{
-
-}
 
 static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct expression_statement* p_expression_statement)
 {

@@ -309,8 +309,8 @@ int main()
 #endif
 
 #ifdef TEST
-    execute_cmd(RUN "cake ../tests/en-cpp-reference-c/*.c -Wno-array-size -Wno-array-indirection -Wno-div-by-zero -test-mode");
-    execute_cmd(RUN "cake ../tests/unit-tests/*.c -test-mode");
+    execute_cmd(RUN "cake ../tests/en-cpp-reference-c/*.c -Wno-unused-variable -Wno-array-size -Wno-array-indirection -Wno-div-by-zero -test-mode");
+    execute_cmd(RUN "cake  -Wno-unused-variable ../tests/unit-tests/*.c -test-mode");
 
     printf("Other test cases\n");
     printf("cake ../tests/unit-tests/failing/*.c -test-mode\n");

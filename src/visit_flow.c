@@ -2168,12 +2168,20 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
         //state somewhere!
         if (p_visitor->p_object->current.state & FLOW_OBJECT_STATE_LIFE_TIME_ENDED)
         {
-            compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
-                ctx->ctx,
-                position_token_opt,
-                p_marker_opt,
-                "lifetime ended '%s'",
-                previous_names);
+            /*
+               current implementation does not handle
+               "dependent states". Many times the pointer is null
+               and the pointed object does not exist anymore.
+               But these two states are not related and it is causing
+               too many false positives
+            */
+                
+            //compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
+            //    ctx->ctx,
+            //     position_token_opt,
+            //    p_marker_opt,
+            //    "lifetime ended '%s'",
+            //    previous_names);
         }
 
 

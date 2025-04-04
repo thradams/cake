@@ -8,7 +8,7 @@
 #define WCHAR_MIN 0x0000
 #define WCHAR_MAX 0xffff
 
-typedef long unsigned int size_t;
+typedef unsigned long size_t;
 typedef int wchar_t;
 
 typedef struct

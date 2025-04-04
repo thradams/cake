@@ -1,8 +1,8 @@
  
 typedef int errno_t;
-typedef unsigned long long size_t;
-typedef unsigned long long rsize_t;
-typedef unsigned short wchar_t;
+typedef unsigned long size_t;
+typedef unsigned long rsize_t;
+typedef int wchar_t;
 void* memchr(void const* _Buf, int _Val, size_t _MaxCount);
 int memcmp(void const* _Buf1, void const* _Buf2, size_t _Size);
 void* memcpy(void* _Dst, void const* _Src, size_t _Size);

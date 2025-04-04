@@ -5233,6 +5233,9 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
             case '|=':
                 new_expression->expression_type = ASSIGNMENT_EXPRESSION_OR_ASSIGN;
                 break;
+            default:
+                assert(false);
+                break;
             }
 
 

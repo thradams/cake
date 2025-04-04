@@ -4,7 +4,7 @@
 */
 
 typedef long long fpos_t;
-typedef long unsigned int size_t;
+typedef unsigned long size_t;
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1

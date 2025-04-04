@@ -35,7 +35,7 @@ extern FILE* stdin;
 extern FILE* stdout;
 extern FILE* stderr;
 
-typedef long unsigned int size_t;
+typedef unsigned long size_t;
 typedef void* va_list;
 int remove(const char* filename);
 int rename(const char* old, const char* news);

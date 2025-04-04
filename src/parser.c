@@ -2213,8 +2213,10 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             {
                 //This visit will fill the defer list of blocks and jumps
                 //
-                struct defer_visit_ctx ctx2 = { 0 };
-                ctx2.ctx = ctx;
+                struct defer_visit_ctx ctx2 = { 
+                  .ctx = ctx
+                };
+
                 defer_start_visit_declaration(&ctx2, p_declaration);
                 defer_visit_ctx_destroy(&ctx2);
             }
@@ -9464,27 +9466,53 @@ static void check_unused_static_declarators(struct parser_ctx* ctx, struct decla
             p->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
         {
             if (p->init_declarator_list.head &&
-                p->init_declarator_list.head->p_declarator &&
-                p->init_declarator_list.head->p_declarator->num_uses == 0)
+                p->init_declarator_list.head->p_declarator)
             {
-                if (type_is_function(&p->init_declarator_list.head->p_declarator->type))
+                struct map_entry* _Opt p_entry = find_variables(ctx, p->init_declarator_list.head->p_declarator->name_opt->lexeme, NULL);
+                if (p_entry && (p_entry->type == TAG_TYPE_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
                 {
-                    compiler_diagnostic_message(W_UNUSED_FUNCTION,
-                    ctx,
-                    p->init_declarator_list.head->p_declarator->name_opt,
-                    NULL,
-                    "warning: static function '%s' defined but not used.",
-                    p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                    /*
+                       Consider
+                       static void f();
+                       static void f(){}
+                       int main(){
+                         f();
+                       }
+                       num_uses if incremented only at the pointer returned by find_variables
+                    */
+                    struct declarator* p_declarator_local = NULL;
+                    if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
+                    {
+                        p_declarator_local = p_entry->data.p_init_declarator->p_declarator;
+                    }
+                    else
+                    {
+                        p_declarator_local = p_entry->data.p_declarator;
+
+                    }
+                    int num_uses = p_declarator_local->num_uses;
+                    if (num_uses == 0)
+                    {
+                        if (type_is_function(&p->init_declarator_list.head->p_declarator->type))
+                        {
+                            compiler_diagnostic_message(W_UNUSED_FUNCTION,
+                            ctx,
+                            p->init_declarator_list.head->p_declarator->name_opt,
+                            NULL,
+                            "warning: static function '%s' not used.",
+                            p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                        }
+                        else
+                        {
+                            compiler_diagnostic_message(W_UNUSED_VARIABLE,
+                            ctx,
+                            p->init_declarator_list.head->p_declarator->name_opt,
+                            NULL,
+                            "warning: '%s' not used.",
+                            p->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                        }
+                    }
                 }
-                else
-                {
-                    compiler_diagnostic_message(W_UNUSED_VARIABLE,
-                    ctx,
-                    p->init_declarator_list.head->p_declarator->name_opt,
-                    NULL,
-                    "warning: '%s' defined but not used.",
-                    p->init_declarator_list.head->p_declarator->name_opt->lexeme);
-                }                
             }
         }
         p = p->next;
@@ -9626,7 +9654,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         bool local_error = false;
         l = translation_unit(ctx, &local_error);
         if (local_error)
-            throw;        
+            throw;
     }
     catch
     {
@@ -10789,40 +10817,6 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
     }
 }
 
-static void designation_to_string(struct parser_ctx* ctx, struct designation* designation, char buffer[], int sz)
-{
-    buffer[0] = '\0';//out
-    try
-    {
-        struct designator* _Opt designator = designation->designator_list->head;
-        while (designator)
-        {
-            if (designator->constant_expression_opt)
-            {
-                if (!object_has_constant_value(&designator->constant_expression_opt->object))
-                {
-                    throw;
-                }
-
-                unsigned long long index =
-                    object_to_unsigned_long_long(&designator->constant_expression_opt->object);
-
-                snprintf(buffer, sz, "%s[%llu]", buffer, index);
-            }
-            else if (designator->token)
-            {
-                //TODO diminiar sz
-                snprintf(buffer, sz, "%s.%s", buffer, designator->token->lexeme);
-            }
-
-            designator = designator->next;
-        }
-    }
-    catch
-    {
-    }
-}
-
 static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
@@ -10966,6 +10960,7 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
             {
                 if (find_next_subobject_core(&item_type, it, subobj, result))
                 {
+                    type_destroy(&item_type);
                     return true;
                 }
             }
@@ -11045,20 +11040,6 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
     return false;
 }
 
-
-static struct object* _Opt next_sub_object2(struct type* p_type, struct object* obj, struct object* subobj, struct type* p_type_out)
-{
-    type_clear(p_type_out);
-    struct find_object_result find_object_result = { 0 };
-    if (find_next_subobject_core(p_type, obj, subobj, &find_object_result))
-    {
-        type_swap(&find_object_result.type, p_type_out);
-        return find_object_result.object;
-    }
-    return NULL;
-}
-
-
 static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct type* p_current_object_type,
     struct object* current_object,
@@ -11085,7 +11066,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
             struct member_declarator* _Opt p_member_declarator = NULL;
 
             const char* name = p_designator->token->lexeme;
-            struct object* p_member_object = current_object->members;
+            struct object* _Opt p_member_object = current_object->members;
             while (p_member_declaration)
             {
                 if (p_member_declaration->member_declarator_list_opt)
@@ -11126,7 +11107,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                             t.struct_or_union_specifier = p_complete;
                             t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
-                            struct object* p = find_designated_subobject(ctx,
+                            struct object* _Opt p = find_designated_subobject(ctx,
                                                                          &t,
                                                                          p_member_object,
                                                                          p_designator,
@@ -11134,8 +11115,12 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                                                                          p_type_out,
                                                                          true);
                             if (p)
+                            {
+                                type_destroy(&t);
                                 return p;
+                            }
                             p_member_object = p_member_object->next;
+                            type_destroy(&t);
                         }
                     }
                 }
@@ -11164,7 +11149,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
             int max_index = -1;
             struct type array_item_type = get_array_item_type(p_current_object_type);
 
-            struct object* member_obj = current_object->members;
+            struct object* _Opt member_obj = current_object->members;
 
             if (p_designator->constant_expression_opt)
             {
@@ -11227,6 +11212,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
             {
                 //oops
             }
+            type_destroy(&array_item_type);
         }
     }
     catch
@@ -11241,9 +11227,9 @@ int initializer_init_new(struct parser_ctx* ctx,
                         struct initializer* initializer, /*rtocar para initializer item??*/
                         bool is_constant);
 
-static struct initializer_list_item* find_innner_initializer_list_item(struct braced_initializer* braced_initializer)
+static struct initializer_list_item* _Opt find_innner_initializer_list_item(struct braced_initializer* braced_initializer)
 {
-    struct initializer_list_item* p_initializer_list_item = braced_initializer->initializer_list->head;
+    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
 
     while (p_initializer_list_item->initializer->braced_initializer)
     {
@@ -11277,7 +11263,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
     if (type_is_scalar(p_current_object_type) &&
     braced_initializer != NULL)
     {
-        struct initializer_list_item* p_initializer_list_item =
+        struct initializer_list_item* _Opt p_initializer_list_item =
             find_innner_initializer_list_item(braced_initializer);
 
         if (p_initializer_list_item == NULL)
@@ -11309,7 +11295,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
     struct object* const _Opt parent_copy = current_object->parent;
     current_object->parent = NULL; //to be only here
-    struct initializer_list_item* p_initializer_list_item = braced_initializer->initializer_list->head;
+    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
     long long array_to_expand_index = -1;
     int array_to_expand_max_index = -1;
     bool compute_array_size = false;
@@ -11320,7 +11306,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
         if (type_is_char(&array_item_type))
         {
-            struct initializer_list_item* p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
+            struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
             if (p_initializer_list_item2 == NULL)
             {
                 type_destroy(&array_item_type);
@@ -11392,7 +11378,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             if (compute_array_size)
             {
 
-                struct object* po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                struct object* _Opt po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
                 if (po == NULL)
                 {
                     array_to_expand_index++;

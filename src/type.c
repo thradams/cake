@@ -2947,6 +2947,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             p_func->category = TYPE_CATEGORY_FUNCTION;
 
+            assert(pdirectdeclarator->function_declarator->direct_declarator != NULL);
             if (pdirectdeclarator->function_declarator->direct_declarator->p_calling_convention)
             {
                 const char* calling_convention_lexeme =
@@ -2959,7 +2960,10 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 else if (strcmp(calling_convention_lexeme, "__cdecl") == 0)
                     p_func->attributes_flags |= CAKE_ATTRIBUTE_CDECL;
                 else
+                {
+                    type_delete(p_func);
                     throw;
+                }
             }
 
             if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
@@ -3085,12 +3089,14 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
                 else if (strcmp(calling_convention_lexeme, "__cdecl") == 0)
                     p_flat->attributes_flags |= CAKE_ATTRIBUTE_CDECL;
                 else
+                {
+                    type_list_destroy(&pointers);
+                    type_delete(p_flat);
                     throw;
-
+                }
             }
 
-
-            type_list_push_front(&pointers, p_flat); /*invertido*/
+            type_list_push_front(&pointers, p_flat); /*inverted*/
             pointer = pointer->pointer;
         }
 

@@ -180,6 +180,7 @@ It does not include the following features:
  - const
  - auto
  - Structs/unions declared inside other structs/unions
+ - constant expressions are pre-computed
 
 The goal is for this simplified version to function as an intermediate language (IL).
  
@@ -478,8 +479,15 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm
 Not implemented. TODO!
 
 ### C99 \_\_func\_\_ predefined identifier
-Parsed.
-C89 not implemented yet. TODO!
+
+```c
+#include <stdio.h>
+int main()
+{
+    printf("%s\n", __func__);
+    printf("%s\n", __func__);
+}
+```
 
 ###  C99 Variadic macros
 
@@ -497,17 +505,14 @@ int main()
 }
 ```
 
-C89 backend n/a  
 
 N707
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
 
 
 ###  C99 \_Bool
-When compiling to C89 _Bool is replaced by unsigned char.
 
 ```c
-//line comments
 int main(void)
 {
     _Bool b = 1;
@@ -515,16 +520,6 @@ int main(void)
 }
 ```
 
-Becomes in C89
-
-```c
-/*line comments*/
-int main(void)
-{
-    unsigned char b = 123;
-    return 0;
-}
-```
 
 TODO. Conversion to 1 or 0 at backend.
 
@@ -541,9 +536,12 @@ https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf
 
 ###  C11 \_Static\_assert
 
-Implemented.
-C89 backend n/a
-
+```c
+int main()
+{
+    _Static_assert(1 == 1, "error");    
+}
+```
 
 ### C11 Anonymous structures and unions
 
@@ -563,7 +561,6 @@ int main(){
 }
 ```
 
-C89 backend, names are generated for the anonymous parts.
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf
 
@@ -584,7 +581,6 @@ C89 backend TODO.
 
 ###  C11 type-generic expressions (\_Generic)
 
-Implemented
 
 N1441
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm
@@ -604,7 +600,6 @@ int main(void)
     cbrt(1.0);
 }
 ```
-C89 backend will have the selected expression.
 
 
 ###  C11 u' ' U' ' character constants
@@ -614,29 +609,13 @@ C89 backend will have the selected expression.
  int i2 = u'ç';
 ```
 
-C89 backend
-
-```c
- int i = 231u;
- int i2 = ((unsigned short)231);
-```
-
 Important: Cake assume source is utf8 encoded.
 
 ###  C11 u8"literals"
 
-u8 literals are converted to escape sequences.
-
 ```c
 char * s1 = u8"maçã";
 char * s2 = u8"maca";
-```
-
-C89 backend 
-
-```c
-char * s1 = "ma\xc3\xa7\xc3\xa3";
-char * s2 = "maca";
 ```
 
 N1488
@@ -651,15 +630,6 @@ Important: Cake assume source is utf8 encoded.
  int main()
  {
    int align = alignof(int);
- }
-```
-
-The C89 backend replaces by its constant value.
-
-```c
- int main()
- {
-   int align = 4;
  }
 ```
 
@@ -678,21 +648,17 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf
 ```
 
 ###  C23 \_Decimal32, \_Decimal64, and \_Decimal128
+
 Not implemented.
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1107.htm
 
 ### C23 static\_assert / single-argument static_assert
 
-Implemented. 
-C89 backend n/a
-
 N1330
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf
 
-
 ###  C23 u8 character prefix
 
-Implemented.
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf
 
 ```c
@@ -701,18 +667,8 @@ int main(){
 }
 ```
 
-C89 backend
-
-```c
-int main(){
-    unsigned char c = ((unsigned char)'~');
-}
-```
-
-
 ### C23 No function declarators without prototypes
 
-Implemented.
 https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm
 
 ```c
@@ -741,16 +697,6 @@ void bar(void)
 }
 ```
 
-Becomes < C23
-
-```c
-struct foo { int a; } p;
-void bar(void)
-{
-  struct foo  q;
-  q = p;
-}
-```
 
 ### C23 Unnamed parameters in function definitions
   
@@ -774,15 +720,6 @@ int main()
     int a = 1000'00;
 }
 ```
-  
-C89 backend
-
-```c
-int main()
-{
-    int a = 100000;
-}  
-```
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf
 
@@ -799,16 +736,6 @@ int main()
 
 ```
 
-C89 backend it will be decimal
-
-```c
-int main()
-{
-    int a = 10;
-    int b = 10;
-}
-```
-
 
 ### C23 Introduce the nullptr constant
 
@@ -823,28 +750,11 @@ int main()
 
 ```
 
-C89 backend converts to ((void*)0)
-
-```
-int main()
-{
-  void * p = ((void*)0);
-  void  * p2 = ((void*)0);
-  void  * p3 = ((void*)0);
-}
-
-```
-
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
 ### C23 Make false and true first-class language features
 
-Implemented
-
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf
-
-C89 backend. bool specifier is replaced by unsigned char;
-true by the constant 1 ; false by the constant 0.
 
 ###  C23 {} empty initializer
 
@@ -866,28 +776,6 @@ int main()
 
 ```
 
-C89 backend
-
-```c
-
-int main()
-{
-    struct X {
-        int i;
-    } x = {0};
-
-    x = (struct X) {0};
-
-    struct Y
-    {
-        struct X x;
-    } y = { {0} };
-}
-
-```
-
-> Note: Cake code is 100% equivalent because it does not make padding bit zero.
-
 ###  C23 auto
 
 ```c
@@ -899,22 +787,10 @@ auto pA = A;
 auto qA = &A;
 ```
 
-C89 backend the final type is used.
-
-```c
-static double a = 3.5;
-double  * p = &a;
-
-double A[3] = { 0 };
-double  * pA = A;
-double  (* qA)[3] = &A;
-```
-
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm
 
 
 ###  C23 typeof / typeof_unqual
-
 
 ```c
 
@@ -957,64 +833,6 @@ int main()
 
 ```
   
-C89 backend
-
-```c
-
-struct _struct_tag_0 {
-    int i;
-};
-
-
-int (* g1)(int a);
-int (* g2)(int a);
-int *(* f3)(int a);
-int f()
-{
-    return 1;
-}
-
-void f4(int a[2])
-{
-    int * p;
-}
-
-int main()
-{
-    int a = 1;
-    int b = 1;
-    int * p1;
-    int * p2;
-    int * p3;
-    int * p4;
-    int p5;
-    int * p6;
-    do
-    {
-        int temp = a;
-        a = b;
-        b = temp;
-    }
-    while (0);
-    struct _struct_tag_0  x;
-    struct _struct_tag_0  x2;
-    struct _struct_tag_0  x3;
-    int *array[2];
-    int *a1[2];
-    int *a2[2];
-    int *a3[3][2];
-    int *(*a4[4])[2];
-    int k = sizeof (int *[2]);
-    void (* pf)(int) = ((void *)0);
-}
-
-int f5()
-{
-    int (* p1)[2] = 0;
-    int (* p2)[2] = (int (*)[2])p1;
-}
-```
-
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf
 
@@ -1042,8 +860,6 @@ The type of the enum must be adjusted.
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
-Cake convert constexpr declarator with a cast and the value.
-addressof constexpr declarator is not implemented.
 
 ```c
 
@@ -1090,38 +906,7 @@ int main()
 
 ```
   
-C89 backend will replace by constants in places where a constant expression is required.
-
-```c
-struct Y {
-    int a;
-    int ar[3];
-    int b;
-};
-
-
-int c = 123;
-int c2 = c + 1000;
-int a[123];
-double PI = 3.140000;
-void T3()
-{
-    struct Y  y = {0, 0, 2, 3, 4};
-}
-
-int printf(char * format, ...);
-
-int main()
-{
-    char ch = 97;
-    printf("%f %c", PI, ch);
-}
-
-
-```
   
-TODO: Maybe suffix like ULL etc makes the code easier to read.
-
 ###  C23 Enhancements to Enumerations
 
 ```c
@@ -1134,18 +919,6 @@ int main() {
 }
 ```
 
-C89 backend.
-
-```c
-enum X {
-  A
-};
-
-int main() {
-   short x = ((short)A);   
-}
-```
-
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 
 
@@ -1154,12 +927,8 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf
 
-Related: Standard Attributes in C and C++ - Timur Doumler - ACCU 2023
-https://youtu.be/EpAEFjbTh3I
-
 ### C23 fallthrough attribute
 Not implemented
-C89 backend - n/a
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf
 
@@ -1167,14 +936,12 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf
 
 Partially implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf
-C89 backend - n/a
 
 ### C23 maybe_unused attribute
 
 Implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf
 
-C89 backend - n/a
 
 ### C23 nodiscard attribute
 Partially implemented
@@ -1183,7 +950,6 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2448.pdf
 
-C89 backend - n/a
 
 ### C23 [[unsequenced]] and [[reproducible]]
 
@@ -1193,8 +959,6 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm
 
 ###  C23 \_\_has\_attribute
 
-Implemented
-C89 backend - n/a
 
 ###  C23 \_\_has\_include
 
@@ -1212,13 +976,9 @@ C89 backend - n/a
 
 ```
 
-Implemented
-C89 backend - n/a
-
 
 ###  C23 \#warning
   
-Implemented
 
 ```c
 int main()
@@ -1250,26 +1010,6 @@ int main()
 }
 ```
 
-C89 backend. TODO fix bug.
-
-```c
-
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3017.htm
-
-#include <stdio.h>
-
-int main()
-{
-  static const char file_txt[] = {
-    35,112,114,/*lot more here ...*/ 13,10
-   ,0
-  };
-
-  printf("%s\n", file_txt);
-}
-
-```
-
 
 ###  C23 \#elifdef \#elifndef
 
@@ -1287,7 +1027,6 @@ Implemented
 #endif
 ```
 
-C89 backend - n/a
   
 ###  C23 \_\_VA_OPT\_\_
 Implemented.
@@ -1321,9 +1060,6 @@ int main()
 ```
 
 
-C89 backend - n/a
-
-
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm
 
 ###  C23 BitInt(N))
@@ -1343,17 +1079,7 @@ int main()
 }
 ```
 
-Becomes (not implemented yet)
 
-```c
-void F(int *p){}
-
-int main()
-{
-    static int _compound_1[] = {1, 2, 3, 0};
-    F(_compound_1);
-x   }
-```
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 
@@ -1418,36 +1144,6 @@ int main() {
 }
 ```
 
-C89 backend
-
-```c
-
-int *fopen(char * filename, char * mode);
-int fclose(int * stream);
-
-int main()
-{
-    do
-    {
-        int * f = fopen("in.txt", "r");
-        if (f == ((void *)0))
-        {
-            break;
-        }
-        int * f2 = fopen("out.txt", "w");
-        if (f2 == ((void *)0))
-        {
-            fclose(f);
-            break;
-        }
-        fclose(f2);
-        fclose(f);
-    }
-    while (0);
-}
-
-```
-
 ###  if declarations, v4
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm
@@ -1464,26 +1160,6 @@ int main()
      fclose(f);
    }
 }
-```
-
-C89 backend
-
-```c
-int *fopen(char * filename, char * mode);
-int fclose(int * stream);
-
-int main()
-{
-    int size = 10;
-    {
-        int * f = fopen("file.txt", "r");
-        if (f)
-        {
-            fclose(f);
-        }
-    }
-}
-
 ```
 
 C++ proposal
@@ -1507,7 +1183,6 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf
 }
 ```
 
-C89 backend see \_Generic.
 
 ## Cake Extensions (Not in C23, C2Y)
 
@@ -1567,28 +1242,6 @@ void create_app(const char* appname)
     struct capture* capture = p;    
   }(&capture); 
 }
-```
-
-C89 backend
-```c
-struct capture {
-    char * name;
-};
-
-extern char *strdup(char * s);
-
-static void _lambda_0(void * p)
-{
-    struct capture * capture = p;
-}
-
-void create_app(char * appname)
-{
-    struct capture  capture = {0};
-    capture.name = strdup(appname);
-    _lambda_0(&capture);
-}
-
 ```
 
 Code generation is already working, but static analysis
