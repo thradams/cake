@@ -24605,7 +24605,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.2"
+#define CAKE_VERSION "0.10.3"
 
 
 
@@ -26798,6 +26798,12 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             {
                 for (;;)
                 {
+                    if (ctx->current == NULL)
+                    {
+                        unexpected_end_of_file(ctx);
+                        throw;
+                    }
+
                     enum token_type type = ctx->current->type;
                     if (type != TK_KEYWORD_TRUE &&
                         type != TK_KEYWORD_FALSE &&
@@ -26831,8 +26837,10 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             {
                 //This visit will fill the defer list of blocks and jumps
                 //
-                struct defer_visit_ctx ctx2 = { 0 };
-                ctx2.ctx = ctx;
+                struct defer_visit_ctx ctx2 = {
+                  .ctx = ctx
+                };
+
                 defer_start_visit_declaration(&ctx2, p_declaration);
                 defer_visit_ctx_destroy(&ctx2);
             }
@@ -35151,6 +35159,9 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
                 ctx2.ast = ast;
                 d_visit(&ctx2, &ss);
                 s = ss.c_str; //MOVED                
+                //ss.c_str = NULL;
+                //ss_close(&ss);
+                d_visit_ctx_destroy(&ctx2);
             }
 
         }
@@ -35484,7 +35495,7 @@ static struct object* _Opt find_last_suboject_of_suboject(struct type* p_type_no
 }
 
 
-static struct object* find_next_subobject_old(struct type* p_top_object_not_used,
+static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not_used,
     struct object* current_object,
     struct object* it,
     struct type* p_type_out,
@@ -35529,10 +35540,10 @@ static struct object* find_next_subobject_old(struct type* p_top_object_not_used
 }
 
 
-static struct object* find_next_subobject(struct type* p_top_object_not_used,
+static struct object* _Opt find_next_subobject(struct type* p_top_object_not_used,
     struct object* current_object,
     struct object* it,
-    struct type* p_type_out,
+    _Ctor struct type* p_type_out,
     bool* sub_object_of_union)
 {
     return find_next_subobject_old(p_top_object_not_used,
@@ -35661,13 +35672,17 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct object* current_object,
     struct designator* p_designator,
     bool is_constant,
-    struct type* p_type_out,
+    _Ctor struct type* p_type_out,
     bool not_error)
 {
+    *p_type_out = (struct type){0};
+
     try
     {
         if (type_is_struct_or_union(p_current_object_type))
         {
+            assert(p_current_object_type->struct_or_union_specifier);
+
             struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
                 get_complete_struct_or_union_specifier(p_current_object_type->struct_or_union_specifier);
 
@@ -35723,7 +35738,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                             t.struct_or_union_specifier = p_complete;
                             t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
-                            struct object* p = find_designated_subobject(ctx,
+                            struct object* _Opt p = find_designated_subobject(ctx,
                                                                          &t,
                                                                          p_member_object,
                                                                          p_designator,
@@ -35809,7 +35824,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
 
                 if (p_designator->next != NULL)
                 {
-                    struct object* p =
+                    struct object* _Opt p =
                         find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out, false);
 
                     type_destroy(&array_item_type);
@@ -35828,10 +35843,12 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
             {
                 //oops
             }
+            type_destroy(&array_item_type);
         }
     }
     catch
     {
+        
     }
     return NULL;
 }
@@ -35982,7 +35999,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false);
             if (p_subobject == NULL)
             {
-                //ja temos o erro , nao precisa dizer que nao foi consumido
+                // already have the error, need not say that it was not consumed
                 p_initializer_list_item = p_initializer_list_item->next;
                 type_destroy(&subobject_type);
                 break;
@@ -36037,7 +36054,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             type_swap(&t, &subobject_type);
             type_destroy(&t);
         }
-        else
+        else if (p_initializer_list_item->initializer->assignment_expression)
         {
             bool entire_object_initialized = false;
 
@@ -36084,9 +36101,12 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
             if (is_subobject_of_union)
             {
+                assert(p_subobject->parent);
                 struct type t = { 0 };
                 is_subobject_of_union = true;
-                p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type, p_subobject->parent, &t);
+                p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type,
+                                                             p_subobject->parent,
+                                                             &t);
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);
                 if (p_subobject)
@@ -37084,6 +37104,19 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 
+void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
+{
+    hashmap_destroy(&ctx->tag_names);
+    hashmap_destroy(&ctx->structs_map);
+    hashmap_destroy(&ctx->function_map);
+
+    ss_close(&ctx->local_declarators);
+    ss_close(&ctx->add_this_before);
+    ss_close(&ctx->add_this_before_external_decl);
+
+    ss_close(&ctx->data_types);
+    ss_close(&ctx->function_types);
+}
 
 /*
   Moral da historia!
@@ -37480,13 +37513,13 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(ctx->p_current_function_opt);
         assert(ctx->p_current_function_opt->name_opt);
 
-        const char * func_name = 
+        const char* func_name =
             ctx->p_current_function_opt->name_opt->lexeme;
 
         char name[100] = { 0 };
         snprintf(name, sizeof(name), "__cake_func_%s", func_name);
         if (!ctx->is__func__predefined_identifier_added)
-        {            
+        {
             assert(ctx->p_current_function_opt);
             assert(ctx->p_current_function_opt->name_opt);
             ctx->is__func__predefined_identifier_added = true;
@@ -39550,10 +39583,30 @@ static void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, 
                         member_declarator->declarator->name_opt)
                     {
                         ss_fprintf(ss, "    ");
-                        d_print_type(ctx,
-                            ss,
-                            &member_declarator->declarator->type,
-                            member_declarator->declarator->name_opt->lexeme);
+
+                        if (type_is_array(&member_declarator->declarator->type) &&
+                            member_declarator->declarator->type.num_of_elements == 0)
+                        {
+                            //Flexible array members - we print as [1] instead 
+                            // of [0] or []
+                            //sizeof is not used in generated code, so this will not cause 
+                            //problems
+                            member_declarator->declarator->type.num_of_elements = 1;
+                            
+                            d_print_type(ctx,
+                             ss,
+                             &member_declarator->declarator->type,
+                             member_declarator->declarator->name_opt->lexeme);
+
+                            member_declarator->declarator->type.num_of_elements = 0; //restore
+                        }
+                        else
+                        {
+                            d_print_type(ctx,
+                                ss,
+                                &member_declarator->declarator->type,
+                                member_declarator->declarator->name_opt->lexeme);
+                        }
                         ss_fprintf(ss, ";\n");
                     }
                     member_declarator = member_declarator->next;
@@ -41469,7 +41522,7 @@ void flow_object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_
     _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
-    object_set_end_of_lifetime_core(&visitor);  
+    object_set_end_of_lifetime_core(&visitor);
 }
 
 //returns true if all parts that need to be moved weren't moved.
@@ -41667,7 +41720,7 @@ void object_get_name(const struct type* p_type,
         int bytes_written = 0;
         struct token* _Opt p = p_object->p_expression_origin->first_token;
         for (int i = 0; i < 10; i++)
-        {
+        {           
             const char* ps = p->lexeme;
             while (*ps)
             {
@@ -41683,6 +41736,7 @@ void object_get_name(const struct type* p_type,
                 break;
 
             p = p->next;
+            assert(p != NULL);                            
         }
 
         if (bytes_written < (out_size - 1))
@@ -41707,10 +41761,6 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
     unsigned int visit_number)
 {
     assert(previous_names != NULL);
-    if (p_visitor->p_object == NULL)
-    {
-        return;
-    }
 
     if (p_visitor->p_object->visit_number == visit_number) return;
     p_visitor->p_object->visit_number = visit_number;
@@ -41877,7 +41927,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
                But these two states are not related and it is causing
                too many false positives
             */
-                
+
             //compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
             //    ctx->ctx,
             //     position_token_opt,
@@ -41929,10 +41979,6 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
     const char* previous_names,
     unsigned int visit_number)
 {
-    if (p_visitor->p_object == NULL)
-    {
-        return;
-    }
 
     if (p_visitor->p_object->visit_number == visit_number) return;
     p_visitor->p_object->visit_number = visit_number;
@@ -42715,13 +42761,11 @@ static void flow_assignment_core(
 
 struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled)
 {
-    if (p_expression == NULL)
-        return NULL;
-
     try
     {
         if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
         {
+            assert(p_expression->declarator);
             if (p_expression->declarator->p_alias_of_expression)
             {
                 /*We need to original object*/
@@ -42855,15 +42899,15 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
                                     pointed->members.data[p_expression->member_index]->current.state;
                                 objects_view_merge(&p_object->current.ref, &pointed->members.data[p_expression->member_index]->current.ref);
                                 //return pointed->members.data[p_expression->member_index];
-            }
+                            }
                             else
                             {
                                 //return NULL;
                             }
-        }
-    }
+                        }
+                    }
                     return p_object;
-}
+                }
 #endif
             }
             return NULL;
@@ -45363,7 +45407,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
     case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
     case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:    
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -47066,15 +47110,6 @@ void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p)
     flow_objects_destroy(&p->arena);
 }
 
-static void flow_analysis_visit(struct flow_visit_ctx* ctx)
-{
-    struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
-    while (p_declaration)
-    {
-        flow_visit_declaration(ctx, p_declaration);
-        p_declaration = p_declaration->next;
-    }
-}
 
 
 

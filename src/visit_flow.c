@@ -1767,7 +1767,7 @@ void flow_object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_
     _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
-    object_set_end_of_lifetime_core(&visitor);  
+    object_set_end_of_lifetime_core(&visitor);
 }
 
 //returns true if all parts that need to be moved weren't moved.
@@ -1965,7 +1965,7 @@ void object_get_name(const struct type* p_type,
         int bytes_written = 0;
         struct token* _Opt p = p_object->p_expression_origin->first_token;
         for (int i = 0; i < 10; i++)
-        {
+        {           
             const char* ps = p->lexeme;
             while (*ps)
             {
@@ -1981,6 +1981,7 @@ void object_get_name(const struct type* p_type,
                 break;
 
             p = p->next;
+            assert(p != NULL);                            
         }
 
         if (bytes_written < (out_size - 1))
@@ -2005,10 +2006,6 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
     unsigned int visit_number)
 {
     assert(previous_names != NULL);
-    if (p_visitor->p_object == NULL)
-    {
-        return;
-    }
 
     if (p_visitor->p_object->visit_number == visit_number) return;
     p_visitor->p_object->visit_number = visit_number;
@@ -2175,7 +2172,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
                But these two states are not related and it is causing
                too many false positives
             */
-                
+
             //compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
             //    ctx->ctx,
             //     position_token_opt,
@@ -2227,10 +2224,6 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
     const char* previous_names,
     unsigned int visit_number)
 {
-    if (p_visitor->p_object == NULL)
-    {
-        return;
-    }
 
     if (p_visitor->p_object->visit_number == visit_number) return;
     p_visitor->p_object->visit_number = visit_number;
@@ -3013,13 +3006,11 @@ static void flow_assignment_core(
 
 struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled)
 {
-    if (p_expression == NULL)
-        return NULL;
-
     try
     {
         if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
         {
+            assert(p_expression->declarator);
             if (p_expression->declarator->p_alias_of_expression)
             {
                 /*We need to original object*/
@@ -3153,15 +3144,15 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
                                     pointed->members.data[p_expression->member_index]->current.state;
                                 objects_view_merge(&p_object->current.ref, &pointed->members.data[p_expression->member_index]->current.ref);
                                 //return pointed->members.data[p_expression->member_index];
-            }
+                            }
                             else
                             {
                                 //return NULL;
                             }
-        }
-    }
+                        }
+                    }
                     return p_object;
-}
+                }
 #endif
             }
             return NULL;
@@ -5661,7 +5652,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
     case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
     case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
-    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:    
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
     {
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
@@ -7364,13 +7355,4 @@ void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p)
     flow_objects_destroy(&p->arena);
 }
 
-static void flow_analysis_visit(struct flow_visit_ctx* ctx)
-{
-    struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
-    while (p_declaration)
-    {
-        flow_visit_declaration(ctx, p_declaration);
-        p_declaration = p_declaration->next;
-    }
-}
 

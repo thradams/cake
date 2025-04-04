@@ -2180,6 +2180,12 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             {
                 for (;;)
                 {
+                    if (ctx->current == NULL)
+                    {
+                        unexpected_end_of_file(ctx);
+                        throw;
+                    }
+
                     enum token_type type = ctx->current->type;
                     if (type != TK_KEYWORD_TRUE &&
                         type != TK_KEYWORD_FALSE &&
@@ -2213,7 +2219,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             {
                 //This visit will fill the defer list of blocks and jumps
                 //
-                struct defer_visit_ctx ctx2 = { 
+                struct defer_visit_ctx ctx2 = {
                   .ctx = ctx
                 };
 
@@ -10535,6 +10541,9 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
                 ctx2.ast = ast;
                 d_visit(&ctx2, &ss);
                 s = ss.c_str; //MOVED                
+                //ss.c_str = NULL;
+                //ss_close(&ss);
+                d_visit_ctx_destroy(&ctx2);
             }
 
         }
@@ -10868,7 +10877,7 @@ static struct object* _Opt find_last_suboject_of_suboject(struct type* p_type_no
 }
 
 
-static struct object* find_next_subobject_old(struct type* p_top_object_not_used,
+static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not_used,
     struct object* current_object,
     struct object* it,
     struct type* p_type_out,
@@ -10913,10 +10922,10 @@ static struct object* find_next_subobject_old(struct type* p_top_object_not_used
 }
 
 
-static struct object* find_next_subobject(struct type* p_top_object_not_used,
+static struct object* _Opt find_next_subobject(struct type* p_top_object_not_used,
     struct object* current_object,
     struct object* it,
-    struct type* p_type_out,
+    _Ctor struct type* p_type_out,
     bool* sub_object_of_union)
 {
     return find_next_subobject_old(p_top_object_not_used,
@@ -11045,13 +11054,17 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct object* current_object,
     struct designator* p_designator,
     bool is_constant,
-    struct type* p_type_out,
+    _Ctor struct type* p_type_out,
     bool not_error)
 {
+    *p_type_out = (struct type){0};
+
     try
     {
         if (type_is_struct_or_union(p_current_object_type))
         {
+            assert(p_current_object_type->struct_or_union_specifier);
+
             struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
                 get_complete_struct_or_union_specifier(p_current_object_type->struct_or_union_specifier);
 
@@ -11193,7 +11206,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
 
                 if (p_designator->next != NULL)
                 {
-                    struct object* p =
+                    struct object* _Opt p =
                         find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out, false);
 
                     type_destroy(&array_item_type);
@@ -11217,6 +11230,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     }
     catch
     {
+        
     }
     return NULL;
 }
@@ -11260,8 +11274,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         object_default_initialization(current_object, is_constant);
     }
 
-    if (type_is_scalar(p_current_object_type) &&
-    braced_initializer != NULL)
+    if (type_is_scalar(p_current_object_type))
     {
         struct initializer_list_item* _Opt p_initializer_list_item =
             find_innner_initializer_list_item(braced_initializer);
@@ -11367,7 +11380,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false);
             if (p_subobject == NULL)
             {
-                //ja temos o erro , nao precisa dizer que nao foi consumido
+                // already have the error, need not say that it was not consumed
                 p_initializer_list_item = p_initializer_list_item->next;
                 type_destroy(&subobject_type);
                 break;
@@ -11422,7 +11435,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             type_swap(&t, &subobject_type);
             type_destroy(&t);
         }
-        else
+        else if (p_initializer_list_item->initializer->assignment_expression)
         {
             bool entire_object_initialized = false;
 
@@ -11469,9 +11482,12 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
             if (is_subobject_of_union)
             {
+                assert(p_subobject->parent);
                 struct type t = { 0 };
                 is_subobject_of_union = true;
-                p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type, p_subobject->parent, &t);
+                p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type,
+                                                             p_subobject->parent,
+                                                             &t);
                 type_swap(&t, &subobject_type);
                 type_destroy(&t);
                 if (p_subobject)

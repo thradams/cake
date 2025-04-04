@@ -181,7 +181,8 @@ It does not include the following features:
  - auto
  - Structs/unions declared inside other structs/unions
  - constant expressions are pre-computed
-
+ - no sizeof
+ - 
 The goal is for this simplified version to function as an intermediate language (IL).
  
 
@@ -242,28 +243,11 @@ https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html
 
 ## K & R
 
-### Bitfileld 
-not implemented yet
 
 ## C89
 
 C89 
 https://port70.net/~nsz/c/c89/c89-draft.html
-
-### enums
-
-Implemented.
-C89 backend. enum specifiers become the corresponding type and the enumerators becomes constants.
-See C23 enum
-
-### const
-Implemented.
-C89 backend removes const.
-
-### Function prototypes
-In C23 the old K&R was removed.
-
-## C99
 
 
 C99
@@ -278,10 +262,6 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
 ```c
 void f(const char* restrict s);
 ```
-
-Backend is removing restrict this. (TODO It will be added with a compiler flag)
-
-N448
 
 ###  C99 Variable-length array (VLA) 
 
@@ -302,50 +282,54 @@ int main() {
 
 ```
 
-Becomes C89 (not implemented)
-
-```c
-#include <stdlib.h>
-#include <stdio.h>
-
-int main() {
-	int n = 2;
-	int m = 3;
-    
-    /*these variables are created to store the dynamic size*/
-    const int vla_1_n = n;
-	const int vla_1_m = m;
-    
-	int (*p)[n][m] = malloc((vla_1_n*vla_1_m)*sizeof(int));
-
-	printf("%zu\n", (vla_1_n*vla_1_m)*sizeof(int));
-
-	free(p);
-}
-
-```
-
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
+
+Not implemented yet.
 
 ### C99 Flexible array members
 
 ```c
-struct s {
-    int n;
-    double d[]; 
-};
-```
 
-Becomes (not implemented)
+#include <stdio.h>
+#include <stdlib.h>
 
-```c
-struct s {
-    int n;
-    double d[1];
+struct X {
+    int count;
+    double values[]; // flexible array
 };
 
-//TODO sizeof
+/*
+    The size of a structure with a flexible array member is
+    determined as if the flexible array member were omitted,
+    EXCEPT that it may have more trailing padding than the
+    omission would imply
+*/
+
+int main() {
+
+    int n = 3;
+
+    printf("sizeof(struct X) = %d\\n", (int) sizeof(struct X));
+    printf("allocated = %d\\n", (int) sizeof(struct X) + n * sizeof(double));
+
+    struct X* p = malloc(sizeof(struct X) + n * sizeof(double));
+    if (p == NULL) return 0;
+
+    p->count = n;
+    p->values[0] = 10.0;
+    p->values[1] = 20.0;
+    p->values[2] = 30.0;
+
+    for (int i = 0; i < p->count; ++i)
+        printf("%f\\n", p->values[i]);
+
+    free(p);
+
+    return 0;
+}
+
 ```
+
 
 
 ### C99 static and type qualifiers in parameter array declarators
@@ -374,9 +358,6 @@ int main()
 
 ```
   
-Cake verifies that the argument is an array with at 
-least the specified number of elements. 
-It extends this check to arrays without a static size as well.
 
 ### C99 Complex and imaginary support
 Not implemented
@@ -390,14 +371,9 @@ Not implemented
 double d = 0x1p+1;
 ```
   
-Becomes in C89
-
-```c
-double d = 2.000000;
-```
-
-Cake converts hexadecimal floating-point values to decimal floating-point 
-representation using strtod followed by snprintf. 
+Backend:
+Cake converts hexadecimal floating-point values to decimal 
+floating-point representation using strtod followed by snprintf.
 This conversion may introduce precision loss.
 
 ### C99 Compound literals
@@ -417,22 +393,6 @@ int f(void) {
 }
 ```
 
-Becomes in C89
-
-```c
-struct s {
-  int i;
-};
-int f(void) {
-  struct s * p = 0, * q;
-  int j = 0;
-  again:
-    struct s compound_literal_1 = { j++ };
-    q = p, p = & compound_literal_1;
-  if (j < 2) goto again;
-  return p == q && q -> i == 1;
-}
-```
 
 N716
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm
@@ -451,25 +411,11 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm
 
 ```
 
-Becomes C89
-
-```c
-int main()
-{
-  int a[6] = { 0, 0, 15, 0, 29, 0 };
-  struct point { int x, y; };
-  struct point p = { 3, 2 }
-}
-```
 
 N494
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 ### C99 Line comments
-Implemented. 
-
-C89 backend n/a.
-
 
 ### C99 inline functions
 
@@ -521,8 +467,6 @@ int main(void)
 ```
 
 
-TODO. Conversion to 1 or 0 at backend.
-
 ## C11 Transformations
 
 ```c
@@ -573,11 +517,8 @@ _Noreturn void f () {
 }
 ```
 
-C89 backend it is removed.
-
 ###  C11 Thread_local/Atomic
-Parsed but not transformed.
-C89 backend TODO.
+Not implemented yet
 
 ###  C11 type-generic expressions (\_Generic)
 

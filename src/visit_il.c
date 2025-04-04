@@ -16,6 +16,19 @@
 #include "expressions.h"
 
 
+void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
+{
+    hashmap_destroy(&ctx->tag_names);
+    hashmap_destroy(&ctx->structs_map);
+    hashmap_destroy(&ctx->function_map);
+
+    ss_close(&ctx->local_declarators);
+    ss_close(&ctx->add_this_before);
+    ss_close(&ctx->add_this_before_external_decl);
+
+    ss_close(&ctx->data_types);
+    ss_close(&ctx->function_types);
+}
 
 /*
   Moral da historia!
@@ -412,13 +425,13 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(ctx->p_current_function_opt);
         assert(ctx->p_current_function_opt->name_opt);
 
-        const char * func_name = 
+        const char* func_name =
             ctx->p_current_function_opt->name_opt->lexeme;
 
         char name[100] = { 0 };
         snprintf(name, sizeof(name), "__cake_func_%s", func_name);
         if (!ctx->is__func__predefined_identifier_added)
-        {            
+        {
             assert(ctx->p_current_function_opt);
             assert(ctx->p_current_function_opt->name_opt);
             ctx->is__func__predefined_identifier_added = true;
@@ -2482,10 +2495,30 @@ static void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, 
                         member_declarator->declarator->name_opt)
                     {
                         ss_fprintf(ss, "    ");
-                        d_print_type(ctx,
-                            ss,
-                            &member_declarator->declarator->type,
-                            member_declarator->declarator->name_opt->lexeme);
+
+                        if (type_is_array(&member_declarator->declarator->type) &&
+                            member_declarator->declarator->type.num_of_elements == 0)
+                        {
+                            //Flexible array members - we print as [1] instead 
+                            // of [0] or []
+                            //sizeof is not used in generated code, so this will not cause 
+                            //problems
+                            member_declarator->declarator->type.num_of_elements = 1;
+                            
+                            d_print_type(ctx,
+                             ss,
+                             &member_declarator->declarator->type,
+                             member_declarator->declarator->name_opt->lexeme);
+
+                            member_declarator->declarator->type.num_of_elements = 0; //restore
+                        }
+                        else
+                        {
+                            d_print_type(ctx,
+                                ss,
+                                &member_declarator->declarator->type,
+                                member_declarator->declarator->name_opt->lexeme);
+                        }
                         ss_fprintf(ss, ";\n");
                     }
                     member_declarator = member_declarator->next;
