@@ -1929,6 +1929,10 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 if (a->members == NULL)
                     throw;
 
+                char name[100]={0};
+                snprintf(name, sizeof name, "[%d]", count);
+                a->members->debug_name = strdup(name);
+
                 object_default_initialization(a->members, is_constant);
 
                 it = a->members;
@@ -1940,6 +1944,11 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 struct object* _Owner _Opt p = make_object_ptr(p_type);
                 if (p == NULL)
                     throw;
+                char name[100]={0};
+                snprintf(name, sizeof name, "[%d]", count);
+                p->debug_name = strdup(name);
+
+
                 p->parent = a;
                 object_default_initialization(p, is_constant);
 
