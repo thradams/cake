@@ -412,8 +412,7 @@ enum token_type
     TK_SHIFTRIGHT = '>>',
     TK_LOGICAL_OPERATOR_OR = '||',
     TK_LOGICAL_OPERATOR_AND = '&&',
-
-    //ASSIGNMENT_EXPRESSION_ASSIGN,
+    
     TK_PLUS_ASSIGN = '+=',
     TK_MINUS_ASSIGN = '-=',
     TK_MULTI_ASSIGN = '*=',
@@ -24617,7 +24616,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.4"
+#define CAKE_VERSION "0.10.5"
 
 
 
@@ -37609,17 +37608,16 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case PRIMARY_EXPRESSION_STRING_LITERAL:
     {
         struct token* ptk = p_expression->first_token;
-        do 
+        do
         {
-          if (ptk->type == TK_STRING_LITERAL)
-            il_visit_literal_string(ptk, oss);
+            if (ptk->type == TK_STRING_LITERAL)
+                il_visit_literal_string(ptk, oss);
 
-          if (ptk == p_expression->last_token)
-              break;
+            if (ptk == p_expression->last_token)
+                break;
 
-          ptk = ptk->next;
-        }
-        while (ptk);
+            ptk = ptk->next;
+        } while (ptk);
     }
     break;
 
@@ -37797,12 +37795,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-        object_print_value(oss, &p_expression->object);        
+        object_print_value(oss, &p_expression->object);
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-        object_print_value(oss, &p_expression->object);        
-    break;
+        object_print_value(oss, &p_expression->object);
+        break;
 
     case UNARY_EXPRESSION_ALIGNOF:
     case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
@@ -39117,8 +39115,10 @@ static bool is_all_zero(const struct object* object)
     {
         if (object_has_constant_value(&object->p_init_expression->object))
         {
-            if (object->p_init_expression->object.value.bool_value != 0)
+            if (object_to_bool(&object->p_init_expression->object) != 0)
+            {
                 return false;
+            }
         }
         else
             return false;

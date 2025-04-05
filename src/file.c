@@ -1,6 +1,7 @@
-﻿void f(const char* s){}
-int main(void)
+﻿int main(void)
 {
-    f("a" "b");
+    constexpr int arr[] = { 12 };
+    static_assert(arr[0]==12);
+    static_assert(_Countof(arr)==1);
     return 0;
 }

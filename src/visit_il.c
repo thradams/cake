@@ -510,17 +510,16 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case PRIMARY_EXPRESSION_STRING_LITERAL:
     {
         struct token* ptk = p_expression->first_token;
-        do 
+        do
         {
-          if (ptk->type == TK_STRING_LITERAL)
-            il_visit_literal_string(ptk, oss);
+            if (ptk->type == TK_STRING_LITERAL)
+                il_visit_literal_string(ptk, oss);
 
-          if (ptk == p_expression->last_token)
-              break;
+            if (ptk == p_expression->last_token)
+                break;
 
-          ptk = ptk->next;
-        }
-        while (ptk);
+            ptk = ptk->next;
+        } while (ptk);
     }
     break;
 
@@ -698,12 +697,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-        object_print_value(oss, &p_expression->object);        
+        object_print_value(oss, &p_expression->object);
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-        object_print_value(oss, &p_expression->object);        
-    break;
+        object_print_value(oss, &p_expression->object);
+        break;
 
     case UNARY_EXPRESSION_ALIGNOF:
     case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
@@ -2018,8 +2017,10 @@ static bool is_all_zero(const struct object* object)
     {
         if (object_has_constant_value(&object->p_init_expression->object))
         {
-            if (object->p_init_expression->object.value.bool_value != 0)
+            if (object_to_bool(&object->p_init_expression->object) != 0)
+            {
                 return false;
+            }
         }
         else
             return false;
