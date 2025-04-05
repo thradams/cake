@@ -240,17 +240,25 @@ https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-1
 https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html
 
 
+## Pre K & R
+
+struct, int, char, float..
+https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cman74.pdf
+https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cman.pdf
+
 
 ## K & R
 
+unions
 
 ## C89
 
 C89 
 https://port70.net/~nsz/c/c89/c89-draft.html
 
+const, enuns
 
-C99
+## C99
 https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
 
 ```c
@@ -279,7 +287,7 @@ int main() {
 
 	free(p);
 }
-
+cdd
 ```
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
@@ -716,6 +724,8 @@ int main()
 }  
 
 ```
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3011.htm
 
 ###  C23 auto
 

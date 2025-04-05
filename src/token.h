@@ -75,6 +75,17 @@ enum token_type
     TK_SHIFTRIGHT = '>>',
     TK_LOGICAL_OPERATOR_OR = '||',
     TK_LOGICAL_OPERATOR_AND = '&&',
+    
+    TK_PLUS_ASSIGN = '+=',
+    TK_MINUS_ASSIGN = '-=',
+    TK_MULTI_ASSIGN = '*=',
+    TK_DIV_ASSIGN = '/=',
+    TK_MOD_ASSIGN = '%=',
+    TK_SHIFT_LEFT_ASSIGN = '<<=',
+    TK_SHIFT_RIGHT_ASSIGN = '>>=',
+    TK_AND_ASSIGN = '&=',
+    TK_OR_ASSIGN ='|=',
+    TK_NOT_ASSIGN = '^=',
 
     TK_MACRO_CONCATENATE_OPERATOR = '##',
 

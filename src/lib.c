@@ -413,6 +413,18 @@ enum token_type
     TK_LOGICAL_OPERATOR_OR = '||',
     TK_LOGICAL_OPERATOR_AND = '&&',
 
+    //ASSIGNMENT_EXPRESSION_ASSIGN,
+    TK_PLUS_ASSIGN = '+=',
+    TK_MINUS_ASSIGN = '-=',
+    TK_MULTI_ASSIGN = '*=',
+    TK_DIV_ASSIGN = '/=',
+    TK_MOD_ASSIGN = '%=',
+    TK_SHIFT_LEFT_ASSIGN = '<<=',
+    TK_SHIFT_RIGHT_ASSIGN = '>>=',
+    TK_AND_ASSIGN = '&=',
+    TK_OR_ASSIGN ='|=',
+    TK_NOT_ASSIGN = '^=',
+
     TK_MACRO_CONCATENATE_OPERATOR = '##',
 
     TK_IDENTIFIER,
@@ -24605,7 +24617,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.3"
+#define CAKE_VERSION "0.10.4"
 
 
 
@@ -35892,8 +35904,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         object_default_initialization(current_object, is_constant);
     }
 
-    if (type_is_scalar(p_current_object_type) &&
-    braced_initializer != NULL)
+    if (type_is_scalar(p_current_object_type))
     {
         struct initializer_list_item* _Opt p_initializer_list_item =
             find_innner_initializer_list_item(braced_initializer);
@@ -37596,8 +37607,21 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case PRIMARY_EXPRESSION_STRING_LITERAL:
-        il_visit_literal_string(p_expression->first_token, oss);
-        break;
+    {
+        struct token* ptk = p_expression->first_token;
+        do 
+        {
+          if (ptk->type == TK_STRING_LITERAL)
+            il_visit_literal_string(ptk, oss);
+
+          if (ptk == p_expression->last_token)
+              break;
+
+          ptk = ptk->next;
+        }
+        while (ptk);
+    }
+    break;
 
     case PRIMARY_EXPRESSION_ENUMERATOR:
     case PRIMARY_EXPRESSION_CHAR_LITERAL:
@@ -37773,59 +37797,42 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-
-        object_print_value(oss, &p_expression->object);
-
-        //ss_fprintf(oss, "sizeof ");
-        //d_visit_expression(ctx, oss, p_expression->right);
+        object_print_value(oss, &p_expression->object);        
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-    {
-        object_print_value(oss, &p_expression->object);
-        //struct osstream local0 = { 0 };
-        //d_print_type(ctx, &local0, &p_expression->type_name->type, false);
-        //ss_fprintf(oss, "sizeof (%s)", local0.c_str);
-        //ss_close(&local0);
-    }
+        object_print_value(oss, &p_expression->object);        
     break;
 
     case UNARY_EXPRESSION_ALIGNOF:
     case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
-
-
         object_print_value(oss, &p_expression->object);
         break;
 
     case UNARY_EXPRESSION_INCREMENT:
-
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "++");
         d_visit_expression(ctx, oss, p_expression->right);
-
         break;
 
     case UNARY_EXPRESSION_DECREMENT:
-
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "--");
         d_visit_expression(ctx, oss, p_expression->right);
-
-
         break;
 
     case UNARY_EXPRESSION_NOT:
-
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "!");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
-    case UNARY_EXPRESSION_BITNOT:
 
+    case UNARY_EXPRESSION_BITNOT:
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "~");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
+
     case UNARY_EXPRESSION_NEG:
 
         assert(p_expression->right != NULL);
@@ -37917,7 +37924,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case CAST_EXPRESSION:
-
     {
         assert(p_expression->left != NULL);
 
@@ -37952,6 +37958,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(oss, " > ");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
+
     case RELATIONAL_EXPRESSION_LESS_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
@@ -37968,6 +37975,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(oss, " == ");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
+
     case EQUALITY_EXPRESSION_NOT_EQUAL:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
@@ -37975,6 +37983,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(oss, " != ");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
+
     case AND_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
@@ -37982,6 +37991,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(oss, " & ");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
+
     case EXCLUSIVE_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
@@ -37989,6 +37999,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(oss, " ^ ");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
+
     case INCLUSIVE_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
@@ -38004,6 +38015,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(oss, " <= ");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
+
     case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
@@ -38019,6 +38031,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(oss, " && ");
         d_visit_expression(ctx, oss, p_expression->right);
         break;
+
     case LOGICAL_OR_EXPRESSION:
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
@@ -38074,9 +38087,6 @@ static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstrea
 
 static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
 {
-
-
-
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
@@ -39592,7 +39602,7 @@ static void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, 
                             //sizeof is not used in generated code, so this will not cause 
                             //problems
                             member_declarator->declarator->type.num_of_elements = 1;
-                            
+
                             d_print_type(ctx,
                              ss,
                              &member_declarator->declarator->type,

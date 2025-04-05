@@ -1,9 +1,6 @@
-﻿struct s {
-    int n;
-    double d[]; 
-};
-
-int main(){
-
-  struct s s;
+﻿void f(const char* s){}
+int main(void)
+{
+    f("a" "b");
+    return 0;
 }
