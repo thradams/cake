@@ -135,8 +135,8 @@ int struct_entry_list_push_back(struct struct_entry_list* p, struct struct_entry
 
 static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
 static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
-static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, bool binline);
-static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, bool binline);
+static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, bool binline, bool bstatic);
+static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, bool binline, bool bstatic);
 static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
@@ -1177,7 +1177,7 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
 
 static void d_visit_simple_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct simple_declaration* p_simple_declaration)
 {
-    d_visit_init_declarator_list(ctx, oss, &p_simple_declaration->init_declarator_list, false);
+    d_visit_init_declarator_list(ctx, oss, &p_simple_declaration->init_declarator_list, false, false);
 }
 
 static void d_visit_init_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct init_statement* p_init_statement)
@@ -1191,7 +1191,7 @@ static void d_visit_init_statement(struct d_visit_ctx* ctx, struct osstream* oss
 static void d_visit_condition(struct d_visit_ctx* ctx, struct osstream* oss, struct condition* p_condition)
 {
     if (p_condition->p_init_declarator)
-        d_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, false);
+        d_visit_init_declarator(ctx, oss, p_condition->p_init_declarator, false, false);
 
     if (p_condition->expression)
         d_visit_expression(ctx, oss, p_condition->expression);
@@ -1255,7 +1255,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 ss_swap(&local_declarators, &ctx->local_declarators);
 
                 struct osstream local2 = { 0 };
-                d_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, false);
+                d_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, false, false);
                 ss_fprintf(oss, "%s", ctx->local_declarators.c_str);
                 ss_fprintf(oss, "\n");
                 ss_fprintf(oss, "%s", local2.c_str);
@@ -2221,10 +2221,13 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
     }
 }
 
-static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, bool binline)
+static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, bool binline, bool bstatic)
 {
     try
     {
+        const bool is_local = ctx->is_local;//p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
+
+
         if (type_is_function(&p_init_declarator->p_declarator->type) && p_init_declarator->p_declarator->function_body == NULL)
         {
             //function declarations are on-demand
@@ -2249,7 +2252,8 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
             struct osstream ss = { 0 };
 
-            if (ctx->is_local)
+            
+            if (is_local && !bstatic)
             {
                 d_print_type(ctx, &ss,
                     &p_init_declarator->p_declarator->type,
@@ -2262,6 +2266,10 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
             }
             else
             {
+                if (is_local)
+                    print_identation(ctx, &ss);
+
+
                 d_print_type(ctx, &ss,
                     &p_init_declarator->p_declarator->type,
                     p_init_declarator->p_declarator->name_opt->lexeme);
@@ -2278,12 +2286,10 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
             if (p_init_declarator->initializer)
             {
-                bool is_local = ctx->is_local;//p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
-
 
                 if (p_init_declarator->initializer->assignment_expression)
                 {
-                    if (is_local)
+                    if (is_local && !bstatic)
                     {
                         if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL &&
                             type_is_array(&p_init_declarator->p_declarator->type))
@@ -2324,7 +2330,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
                         {
                             if (is_all_zero(&p_init_declarator->p_declarator->object))
                             {
-                                if (is_local)
+                                if (is_local && !bstatic)
                                 {
                                     int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
                                     // ss_fprintf(oss, ";\n");
@@ -2344,7 +2350,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
                             {
 
                                 bool first = true;
-                                if (!is_local)
+                                if (!is_local || bstatic)
                                 {
                                     ss_fprintf(oss, " = ");
                                     ss_fprintf(oss, "{");
@@ -2361,7 +2367,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
                         }
                         else
                         {
-                            if (is_local)
+                            if (is_local && !bstatic)
                             {
                                 int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
                                 //ss_fprintf(oss, ";\n");
@@ -2413,13 +2419,14 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
     struct osstream* oss,
     struct init_declarator_list* p_init_declarator_list,
-    bool binline)
+    bool binline,
+    bool bstatic)
 {
     struct init_declarator* _Opt p_init_declarator = p_init_declarator_list->head;
 
     while (p_init_declarator)
     {
-        d_visit_init_declarator(ctx, oss, p_init_declarator, binline);
+        d_visit_init_declarator(ctx, oss, p_init_declarator, binline, bstatic);
         p_init_declarator = p_init_declarator->next;
     }
 }
@@ -2446,8 +2453,10 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
 
     if (p_declaration->init_declarator_list.head)
     {
+        bool is_static = p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
+
         if (!binline)
-            d_visit_init_declarator_list(ctx, oss, &p_declaration->init_declarator_list, binline);
+            d_visit_init_declarator_list(ctx, oss, &p_declaration->init_declarator_list, binline, is_static);
     }
 }
 

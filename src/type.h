@@ -172,6 +172,7 @@ enum assigment_type
     ASSIGMENT_TYPE_RETURN,    // T f() { return b; }
     ASSIGMENT_TYPE_PARAMETER, // void f(T a); f(b);
     ASSIGMENT_TYPE_OBJECTS,   // a = b
+    ASSIGMENT_TYPE_INIT,   // T a = b
 };
 
 

@@ -1,5 +1,5 @@
-﻿int main(void)
-{
-    int arr[] = { 12 , 23};
-    return 0;
-}
+﻿#def M(A) \
+  #A
+
+ M(2)
+

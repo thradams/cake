@@ -2714,7 +2714,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     type_destroy(&t);
                 }
 
-                check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_OBJECTS);
+                check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_INIT);
 
 
                 int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);

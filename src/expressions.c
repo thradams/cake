@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 #include "ownership.h"
 #include <limits.h>
@@ -320,7 +320,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
     struct generic_assoc_list list = { 0 };
     try
     {
-        struct generic_association* p_default_generic_association = NULL;
+        struct generic_association* _Opt p_default_generic_association = NULL;
 
         struct generic_association* _Owner _Opt p_generic_association =
             generic_association(ctx);
@@ -1084,7 +1084,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
-                
+
                 p_expression_node->type = type_make_literal_string(strlen(func_str) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST);
             }
             else
@@ -1189,7 +1189,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 }
             }
 
-            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, TYPE_QUALIFIER_NONE);
+            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, TYPE_QUALIFIER_CONST);
             //static_assert(false);
             //struct object * it = p_expression_node->object.members;
             //for (int i = 0 ; i < number_of_bytes; i++)
@@ -5857,7 +5857,7 @@ void check_comparison(struct parser_ctx* ctx,
 void check_assigment(struct parser_ctx* ctx,
     const struct type* p_a_type, /*this is not expression because function parameters*/
     const struct expression* p_b_expression,
-    enum assigment_type assignment_type /*ASSIGMENT_TYPE_RETURN, ASSIGMENT_TYPE_PARAMETER, ASSIGMENT_TYPE_OBJECTS*/)
+    enum assigment_type assignment_type)
 {
     const struct type* const p_b_type = &p_b_expression->type;
 
@@ -5907,16 +5907,15 @@ void check_assigment(struct parser_ctx* ctx,
         "implicit conversion of nullptr constant to 'bool'");
     }
 
-    struct type lvalue_right_type = { 0 };
-    struct type t2 = { 0 };
+    struct type b_type_lvalue = { 0 };
 
     if (expression_is_subjected_to_lvalue_conversion(p_b_expression))
     {
-        lvalue_right_type = type_lvalue_conversion(p_b_type, ctx->options.null_checks_enabled);
+        b_type_lvalue = type_lvalue_conversion(p_b_type, ctx->options.null_checks_enabled);
     }
     else
     {
-        lvalue_right_type = type_dup(p_b_type);
+        b_type_lvalue = type_dup(p_b_type);
     }
 
 
@@ -5925,8 +5924,8 @@ void check_assigment(struct parser_ctx* ctx,
         if (!is_null_pointer_constant)
         {
             compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, NULL, "cannot assign a non-owner to owner");
-            type_destroy(&lvalue_right_type);
-            type_destroy(&t2);
+            type_destroy(&b_type_lvalue);
+            //type_destroy(&t2);
             return;
         }
     }
@@ -5939,8 +5938,8 @@ void check_assigment(struct parser_ctx* ctx,
                 ctx,
                 p_b_expression->first_token, NULL,
                 "cannot assign a temporary owner to non-owner object.");
-            type_destroy(&lvalue_right_type);
-            type_destroy(&t2);
+            type_destroy(&b_type_lvalue);
+            //type_destroy(&t2);
             return;
         }
     }
@@ -5955,8 +5954,8 @@ void check_assigment(struct parser_ctx* ctx,
                     ctx,
                     p_b_expression->first_token, NULL,
                     "cannot return a automatic storage duration _Owner to non-owner");
-                type_destroy(&lvalue_right_type);
-                type_destroy(&t2);
+                type_destroy(&b_type_lvalue);
+                // type_destroy(&t2);
                 return;
             }
         }
@@ -6005,8 +6004,8 @@ void check_assigment(struct parser_ctx* ctx,
             p_b_expression->first_token, NULL,
             "cannot convert a null pointer constant to non-nullable pointer");
 
-        type_destroy(&lvalue_right_type);
-        type_destroy(&t2);
+        type_destroy(&b_type_lvalue);
+        //type_destroy(&t2);
 
         return;
 
@@ -6027,16 +6026,16 @@ void check_assigment(struct parser_ctx* ctx,
         }
 
 
-        type_destroy(&lvalue_right_type);
-        type_destroy(&t2);
+        type_destroy(&b_type_lvalue);
+        // type_destroy(&t2);
         return;
     }
 
     if (type_is_arithmetic(p_b_type) && type_is_arithmetic(p_a_type))
     {
 
-        type_destroy(&lvalue_right_type);
-        type_destroy(&t2);
+        type_destroy(&b_type_lvalue);
+        //type_destroy(&t2);
         return;
     }
 
@@ -6048,8 +6047,8 @@ void check_assigment(struct parser_ctx* ctx,
 
         /*can be converted to any type*/
 
-        type_destroy(&lvalue_right_type);
-        type_destroy(&t2);
+        type_destroy(&b_type_lvalue);
+        //type_destroy(&t2);
         return;
     }
 
@@ -6061,8 +6060,8 @@ void check_assigment(struct parser_ctx* ctx,
             " passing null as array");
 
 
-        type_destroy(&lvalue_right_type);
-        type_destroy(&t2);
+        type_destroy(&b_type_lvalue);
+        //type_destroy(&t2);
         return;
     }
 
@@ -6075,8 +6074,8 @@ void check_assigment(struct parser_ctx* ctx,
         {
             /*void pointer can be converted to any type*/
 
-            type_destroy(&lvalue_right_type);
-            type_destroy(&t2);
+            type_destroy(&b_type_lvalue);
+            //type_destroy(&t2);
             return;
         }
 
@@ -6084,82 +6083,109 @@ void check_assigment(struct parser_ctx* ctx,
         {
             /*any pointer can be converted to void* */
 
-            type_destroy(&lvalue_right_type);
-            type_destroy(&t2);
+            type_destroy(&b_type_lvalue);
+            // type_destroy(&t2);
             return;
         }
 
 
         //TODO  lvalue
 
+        struct type a_type_lvalue = { 0 };
+
         if (type_is_array(p_a_type))
         {
-            int parameter_array_size = p_a_type->num_of_elements;
-            if (type_is_array(p_b_type))
+            if (assignment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                int argument_array_size = p_b_type->num_of_elements;
-                if (parameter_array_size != 0 &&
-                    argument_array_size < parameter_array_size)
+                int parameter_array_size = p_a_type->num_of_elements;
+                if (type_is_array(p_b_type))
                 {
-                    compiler_diagnostic_message(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
+                    int argument_array_size = p_b_type->num_of_elements;
+                    if (parameter_array_size != 0 &&
+                        argument_array_size < parameter_array_size)
+                    {
+                        compiler_diagnostic_message(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
+                            p_b_expression->first_token, NULL,
+                            " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
+                    }
+                }
+                else if (is_null_pointer_constant || type_is_nullptr_t(p_b_type))
+                {
+                    compiler_diagnostic_message(W_PASSING_NULL_AS_ARRAY, ctx,
                         p_b_expression->first_token, NULL,
-                        " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
+                        " passing null as array");
                 }
             }
-            else if (is_null_pointer_constant || type_is_nullptr_t(p_b_type))
-            {
-                compiler_diagnostic_message(W_PASSING_NULL_AS_ARRAY, ctx,
-                    p_b_expression->first_token, NULL,
-                    " passing null as array");
-            }
-            t2 = type_lvalue_conversion(p_a_type, ctx->options.null_checks_enabled);
+            a_type_lvalue = type_lvalue_conversion(p_a_type, ctx->options.null_checks_enabled);
         }
         else
         {
-            t2 = type_dup(p_a_type);
+            a_type_lvalue = type_dup(p_a_type);
         }
 
 
 
-        if (!type_is_same(&lvalue_right_type, &t2, false))
+        if (!type_is_same(&b_type_lvalue, &a_type_lvalue, false))
         {
-            type_print(&lvalue_right_type);
-            type_print(&t2);
+            type_print(&b_type_lvalue);
+            type_print(&a_type_lvalue);
 
             compiler_diagnostic_message(W_ERROR_INCOMPATIBLE_TYPES, ctx,
                 p_b_expression->first_token, NULL,
                 " incompatible types");
         }
 
-        if (type_is_pointer(&lvalue_right_type) && type_is_pointer(&t2))
+
+        if (assignment_type == ASSIGMENT_TYPE_PARAMETER)
         {
-            //parameter pointer do non const
-            //argument const.
-            struct type argument_pointer_to = type_remove_pointer(&lvalue_right_type);
-            struct type parameter_pointer_to = type_remove_pointer(&t2);
-            if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
+            if (type_is_pointer(&b_type_lvalue) && type_is_pointer(&a_type_lvalue))
             {
-                compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
-                    p_b_expression->first_token, NULL,
-                    " discarding const at argument ");
+                //parameter pointer do non const
+                //argument const.
+                struct type b_pointed_type_lvalue = type_remove_pointer(&b_type_lvalue);
+                struct type a_lvalue_pointed_type = type_remove_pointer(&a_type_lvalue);
+                if (type_is_const(&b_pointed_type_lvalue) && !type_is_const(&a_lvalue_pointed_type))
+                {
+                    compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
+                        p_b_expression->first_token, NULL,
+                        " discarding const at argument ");
+                }
+                type_destroy(&b_pointed_type_lvalue);
+                type_destroy(&a_lvalue_pointed_type);
             }
-            type_destroy(&argument_pointer_to);
-            type_destroy(&parameter_pointer_to);
         }
+        else
+        {
+            if (type_is_pointer(p_a_type) && type_is_pointer(&b_type_lvalue))
+            {
+                struct type b_pointed_type = type_remove_pointer(&b_type_lvalue);
+                struct type a_pointed_type = type_remove_pointer(p_a_type);
+                if (type_is_const(&b_pointed_type) && !type_is_const(&a_pointed_type))
+                {
+                    compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
+                        p_b_expression->first_token, NULL,
+                        " discarding const");
+                }
+                type_destroy(&b_pointed_type);
+                type_destroy(&a_pointed_type);
+            }
+        }
+
         //return true;
+        type_destroy(&a_type_lvalue);
     }
 
-    if (!type_is_same(p_a_type, &lvalue_right_type, false))
+    if (!type_is_same(p_a_type, &b_type_lvalue, false))
     {
-       // compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES,
-       //     ctx,
-       //       p_b_expression->first_token, 
-       //       NULL,
-       //       " incompatible types ");
+        // compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES,
+        //     ctx,
+        //       p_b_expression->first_token, 
+        //       NULL,
+        //       " incompatible types ");
     }
 
 
-    type_destroy(&lvalue_right_type);
-    type_destroy(&t2);
+    type_destroy(&b_type_lvalue);
+
 
 }

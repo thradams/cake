@@ -101,6 +101,7 @@ struct macro
     int usage;
 
     bool expand;
+    bool def_macro;
 };
 
 
@@ -799,7 +800,10 @@ void stream_match(struct stream* stream)
         return;
     stream->current++;
 
-    while (stream->current[0] == '\\' && stream->current[1] == '\n')
+    while (stream->current[0] == '\\' &&
+             (stream->current[1] == '\n' ||
+                 (stream->current[1] == '\r' && stream->current[2] == '\n')
+                 ))
     {
         /*
             2. Each instance of a backslash character (\) immediately followed by a new-line character is
@@ -808,8 +812,18 @@ void stream_match(struct stream* stream)
             not empty shall end in a new-line character, which shall not be immediately preceded by a
             backslash character before any such splicing takes place.
         */
-        stream->current++;
-        stream->current++;
+        if (stream->current[1] == '\r' && stream->current[2] == '\n')
+        {
+            stream->current++; // 
+            stream->current++; // r 
+            stream->current++; // n
+        }
+        else
+        {
+            stream->current++;
+            stream->current++;  // n
+        }
+
         stream->line++;
         stream->col = 1;
 
@@ -2934,6 +2948,315 @@ struct token_list endif_line(struct preprocessor_ctx* ctx, struct token_list* in
 
     return r;
 }
+struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level);
+struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level);
+static bool is_empty_assert(struct token_list* replacement_list);
+
+struct token_list def_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct macro** pp_macro)
+{
+    //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
+
+    /*
+    def-line:
+       # def identifier new-line
+       # def identifier lparen identifier-list(opt) ) new-line
+       # def identifier lparen ... ) new-line
+       # def identifier lparen identifier-list , ... ) new-line
+    */
+    struct token_list r = { 0 };
+
+    try
+    {
+        /*
+          This code is the same of define...TODO share
+        */
+        struct macro* _Owner _Opt macro = calloc(1, sizeof * macro);
+        if (macro == NULL)
+        {
+            preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "out of mem");
+            throw;
+        }
+
+        macro->def_macro = true;
+
+        match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx); //#
+
+        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //def
+        skip_blanks_level(ctx, &r, input_list, level);
+
+        if (input_list->head == NULL)
+        {
+            macro_delete(macro);
+            pre_unexpected_end_of_file(r.tail, ctx);
+            throw;
+        }
+
+        struct token* macro_name_token = input_list->head;
+
+        if (is_builtin_macro(macro_name_token->lexeme))
+        {
+            preprocessor_diagnostic_message(W_REDEFINING_BUITIN_MACRO,
+                ctx,
+                input_list->head,
+                "redefining builtin macro");
+        }
+
+        if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
+        {
+            //printf("warning: '%s' macro redefined at %s %d\n",
+              //     input_list->head->lexeme,
+                ///   input_list->head->token_origin->lexeme,
+                  // input_list->head->line);
+        }
+
+        char* _Owner _Opt temp = strdup(input_list->head->lexeme);
+        if (temp == NULL)
+        {
+            macro_delete(macro);
+            throw;
+        }
+        assert(macro->name == NULL);
+        macro->name = temp;
+
+
+        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //nome da macro
+
+        if (input_list->head == NULL)
+        {
+            macro_delete(macro);
+            pre_unexpected_end_of_file(r.tail, ctx);
+            throw;
+        }
+
+        /*sem skip*/
+        //p = preprocessor_match_token(p, is_active, level, false, IDENTIFIER); /*name*/
+        if (input_list->head->type == '(')
+        {
+            macro->is_function = true;
+
+            match_token_level(&r, input_list, '(', level, ctx);
+            skip_blanks_level(ctx, &r, input_list, level);
+
+            if (input_list->head == NULL)
+            {
+                macro_delete(macro);
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
+
+            if (input_list->head->type == '...')
+            {
+                struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                if (p_macro_parameter == NULL)
+                {
+                    macro_delete(macro);
+                    throw;
+                }
+
+                char* _Owner _Opt temp2 = strdup("__VA_ARGS__");
+                if (temp2 == NULL)
+                {
+                    macro_delete(macro);
+                    macro_parameters_delete(p_macro_parameter);
+                    throw;
+                }
+
+                p_macro_parameter->name = temp2;
+                macro->parameters = p_macro_parameter;
+
+                // assert(false);
+                match_token_level(&r, input_list, '...', level, ctx); //nome da macro
+                skip_blanks_level(ctx, &r, input_list, level);
+                match_token_level(&r, input_list, ')', level, ctx); //nome da macro
+            }
+            else if (input_list->head->type == ')')
+            {
+                match_token_level(&r, input_list, ')', level, ctx);
+                skip_blanks_level(ctx, &r, input_list, level);
+            }
+            else
+            {
+                struct token_list r3 = identifier_list(ctx, macro, input_list, level);
+                token_list_append_list(&r, &r3);
+                token_list_destroy(&r3);
+
+                skip_blanks_level(ctx, &r, input_list, level);
+                if (input_list->head == NULL)
+                {
+                    macro_delete(macro);
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
+                if (input_list->head->type == '...')
+                {
+                    struct macro_parameter* _Owner _Opt p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                    if (p_macro_parameter == NULL)
+                    {
+                        macro_delete(macro);
+                        throw;
+                    }
+
+                    char* _Owner _Opt temp3 = strdup("__VA_ARGS__");
+                    if (temp3 == NULL)
+                    {
+                        macro_delete(macro);
+                        macro_parameters_delete(p_macro_parameter);
+                        throw;
+                    }
+
+                    p_macro_parameter->name = temp3;
+                    struct macro_parameter* _Opt p_last = macro->parameters;
+                    assert(p_last != NULL);
+                    while (p_last->next)
+                    {
+                        p_last = p_last->next;
+                    }
+                    p_last->next = p_macro_parameter;
+
+                    match_token_level(&r, input_list, '...', level, ctx);
+                }
+                skip_blanks_level(ctx, &r, input_list, level);
+                match_token_level(&r, input_list, ')', level, ctx);
+            }
+        }
+        else
+        {
+            macro->is_function = false;
+        }
+        skip_blanks_level(ctx, &r, input_list, level);
+        if (input_list->head == NULL)
+        {
+            macro_delete(macro);
+            pre_unexpected_end_of_file(r.tail, ctx);
+            throw;
+        }
+
+        naming_convention_macro(ctx, macro_name_token);
+
+        struct hash_item_set item = { 0 };
+        item.p_macro = macro;
+        hashmap_set(&ctx->macros, macro->name, &item);
+        hash_item_set_destroy(&item);
+        *pp_macro = macro;
+    }
+    catch
+    {
+    }
+
+    return r;
+}
+struct token_list replacement_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
+{
+    //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
+
+    /*replacement-group:
+        pp-tokens(opt) new-line
+        replacement-group pp-tokens(opt) new-line
+    */
+    struct token_list r = { 0 };
+    try
+    {
+        for (;;)
+        {
+            if (input_list->head == NULL)
+            {
+                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, r.tail, "missing #enddef");
+                throw;
+            }
+
+            if (input_list->head->type == TK_PREPROCESSOR_LINE && (
+                preprocessor_token_ahead_is_identifier(input_list->head, "enddef")))
+            {
+                break;
+            }
+            prematch_level(&r, input_list, level);
+        }
+    }
+    catch
+    {
+    }
+    return r;
+}
+
+
+struct token_list enddef_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
+{
+    //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
+    /*
+      enddef-line:
+        # enddef new-line
+    */
+
+    struct token_list r = { 0 };
+    try
+    {
+        if (input_list->head == NULL)
+        {
+            pre_unexpected_end_of_file(r.tail, ctx);
+            throw;
+        }
+
+        match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx); //#
+        skip_blanks_level(ctx, &r, input_list, level);
+        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //enddef
+        skip_blanks_level(ctx, &r, input_list, level);
+        match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
+    }
+    catch
+    {
+    }
+    return r;
+}
+
+struct token_list def_section(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
+{
+    /*
+     def-section:
+       def-line replacement-group(opt) enddef-line
+    */
+    struct token_list r = { 0 };
+    try
+    {
+        struct macro* p_macro = NULL;
+        struct token_list r2 = def_line(ctx, input_list, is_active, level, &p_macro);
+        token_list_append_list(&r, &r2);
+
+        if (ctx->n_errors > 0 || p_macro == NULL)
+        {
+            token_list_destroy(&r2);
+            throw;
+        }
+
+        struct token_list r3 = replacement_group(ctx, input_list, is_active, level);
+
+        if (ctx->n_errors > 0)
+        {
+            
+            token_list_destroy(&r2);
+            token_list_destroy(&r3);
+            throw;
+        }
+
+        struct token_list copy = copy_replacement_list(&r3);
+        token_list_append_list(&p_macro->replacement_list, &copy);
+
+        token_list_append_list(&r, &r3);
+        struct token_list r4 = enddef_line(ctx, input_list, is_active, level);
+        token_list_append_list(&r, &r4);
+
+        token_list_destroy(&r2);
+        token_list_destroy(&r3);
+        token_list_destroy(&r4);
+        token_list_destroy(&copy);
+    }
+    catch
+    {
+    }
+
+
+    return r;
+}
 
 struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -3457,11 +3780,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token* macro_name_token = input_list->head;
 
             if (is_builtin_macro(macro_name_token->lexeme))
-            {                
-                 preprocessor_diagnostic_message(W_REDEFINING_BUITIN_MACRO, 
-                     ctx, 
-                     input_list->head,
-                     "redefining builtin macro");
+            {
+                preprocessor_diagnostic_message(W_REDEFINING_BUITIN_MACRO,
+                    ctx,
+                    input_list->head,
+                    "redefining builtin macro");
             }
 
             if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
@@ -4459,7 +4782,6 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
     {
     }
 
-
     return r;
 }
 
@@ -4645,10 +4967,23 @@ void remove_line_continuation(char* s)
     char* pwrite = s;
     while (*pread)
     {
-        if (pread[0] == '\\' && pread[1] == '\n')
+        if (pread[0] == '\\' &&
+              (pread[1] == '\n' ||
+                  (pread[1] == '\r' && pread[2] == '\n'))
+            )
         {
-            pread++;
-            pread++;
+            if (pread[1] == '\r' && pread[2] == '\n')
+            {
+                pread++;
+                pread++;
+                pread++;
+            }
+            else
+            {
+                pread++;
+                pread++;
+            }
+
         }
         else
         {
@@ -4816,13 +5151,26 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             token_list_destroy(&copy);
             token_list_destroy(&r3);
         }
+        /*
+        //This option would preprocess the macro before continue...
+        if (ctx->options.def_macro_preprocess && macro->def_macro)
+        {
+            if (ctx->n_errors > 0) throw;
+
+            struct token_list r0 = { 0 };
+            token_list_append_list(&r0, &r);
+
+            struct token_list list2 = preprocessor(ctx, &r0, level + 1);
+            token_list_append_list(&r, &list2);
+        }*/
+
     }
     catch
     {
     }
 
     //printf("result=");
-    //print_list(&r);
+    //print_tokens(r.head);
     return r;
 }
 void print_token(const struct token* p_token);
@@ -5115,6 +5463,11 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
         {
             return if_section(ctx, input_list, is_active, level);
         }
+        else if (preprocessor_token_ahead_is_identifier(input_list->head, "def"))
+        {
+            //C2Y
+            return def_section(ctx, input_list, is_active, level);
+        }
         else if (preprocessor_token_ahead_is_identifier(input_list->head, "include") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "embed") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "define") ||
@@ -5263,13 +5616,13 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
 
 static bool is_builtin_macro(const char* name)
 {
-   if (strcmp(name, "__FILE__") == 0)
-       return true;
-   
-   if (strcmp(name, "__CAKE__") == 0)
-       return true;
+    if (strcmp(name, "__FILE__") == 0)
+        return true;
 
-   return false;
+    if (strcmp(name, "__CAKE__") == 0)
+        return true;
+
+    return false;
 }
 
 void add_standard_macros(struct preprocessor_ctx* ctx)
@@ -5325,16 +5678,16 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __LINE__ 0\n"
         "#define __COUNTER__ 0\n"
         "#define _CONSOLE\n"
-        "#define __STDC_OWNERSHIP__ 1\n" /*cake extension*/        
+        "#define __STDC_OWNERSHIP__ 1\n" /*cake extension*/
         "#define __STDC_HOSTED__ " TOSTRING(__STDC_HOSTED__) "\n"
         "#define __STDC_NO_ATOMICS__ " TOSTRING(__STDC_NO_ATOMICS__) "\n"
         "#define __STDC_NO_COMPLEX__  " TOSTRING(__STDC_NO_COMPLEX__) "\n"
-        "#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__ ) "\n"
-        "#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__  ) "\n"
+        "#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__) "\n"
+        "#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__) "\n"
         //"#define __STDC__    " TOSTRING(__STDC__) "\n"
-         
-         
-        
+
+
+
 #ifdef __EMSCRIPTEN__
         //include dir on emscripten
         "#pragma dir \"c:/\"\n"
@@ -5354,7 +5707,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
 
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
-        "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"        
+        "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
         "#define __pragma(a)\n"
         "#define __declspec(a)\n"
         "#define __builtin_offsetof(type, member) 0\n"
@@ -5368,7 +5721,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
         /*some gcc stuff need to parse linux headers*/
     "#define __linux__\n"
-        "#define __builtin_va_list void* \n"        
+        "#define __builtin_va_list void* \n"
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
         "#define __builtin_va_arg(a, b) ((b)a)\n"
@@ -5679,12 +6032,12 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__ALIGNAS: return "TK_KEYWORD__ALIGNAS";
     case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
     case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
-        
-//#ifdef _WIN32
+
+        //#ifdef _WIN32
     case TK_KEYWORD__FASTCALL: return "TK_KEYWORD__FASTCALL";
     case TK_KEYWORD__STDCALL:return "TK_KEYWORD__STDCALL";
     case TK_KEYWORD__CDECL:return "TK_KEYWORD__CDECL";
-//#endif
+        //#endif
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
         //end microsoft
     case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";

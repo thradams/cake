@@ -1931,6 +1931,8 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
 
                 char name[100]={0};
                 snprintf(name, sizeof name, "[%d]", count);
+                
+                free(a->members->debug_name);
                 a->members->debug_name = strdup(name);
 
                 object_default_initialization(a->members, is_constant);
@@ -1946,6 +1948,8 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                     throw;
                 char name[100]={0};
                 snprintf(name, sizeof name, "[%d]", count);
+                
+                free(p->debug_name);
                 p->debug_name = strdup(name);
 
 

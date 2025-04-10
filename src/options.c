@@ -306,6 +306,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-def-preprocess") == 0)
+        {
+            options->def_macro_preprocess = true;
+            continue;
+        }
+       
         if (strcmp(argv[i], "-o") == 0)
         {
             if (i + 1 < argc)

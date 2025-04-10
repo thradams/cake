@@ -1004,6 +1004,45 @@ int main()
 `;
 
 
+sample["C2Y"]["#def"] =
+    `
+/*
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
+*/
+
+#def foo(x)
+		do {
+			bar(x);
+			baz(x);
+		}
+        while (0)
+#enddef
+
+foo(1)
+foo(2)
+
+`;
+
+sample["C2Y"]["#def II"] =
+    `
+/*
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
+*/
+
+#def foo(x)
+		do {
+#if 0
+			bar(x);
+#endif
+			baz(x);
+		}
+        while (0)
+#enddef
+
+foo(2)
+
+`;
+
 sample["C2Y"]["Obsolete implicitly octal literals"] =
     `
 //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm

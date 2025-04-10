@@ -336,6 +336,10 @@ struct options
     */
     bool no_output;
 
+    /*
+     -def-preprocess
+    */
+    bool def_macro_preprocess;
 
     /*
       -fdiagnostics-format=msvc
