@@ -3232,7 +3232,7 @@ struct token_list def_section(struct preprocessor_ctx* ctx, struct token_list* i
 
         if (ctx->n_errors > 0)
         {
-            
+
             token_list_destroy(&r2);
             token_list_destroy(&r3);
             throw;
@@ -5151,18 +5151,22 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             token_list_destroy(&copy);
             token_list_destroy(&r3);
         }
-        /*
-        //This option would preprocess the macro before continue...
-        if (ctx->options.def_macro_preprocess && macro->def_macro)
-        {
-            if (ctx->n_errors > 0) throw;
 
+        if (ctx->n_errors > 0) throw;
+        if (macro->def_macro)
+        {
             struct token_list r0 = { 0 };
             token_list_append_list(&r0, &r);
 
             struct token_list list2 = preprocessor(ctx, &r0, level + 1);
-            token_list_append_list(&r, &list2);
-        }*/
+            struct tokenizer_ctx tctx = { 0 };
+            const char* _Opt _Owner result = print_preprocessed_to_string2(list2.head);
+
+            token_list_clear(&r);
+            r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
+            free(result);
+            token_list_destroy(&list2);
+        }
 
     }
     catch
@@ -6090,6 +6094,16 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
     case TK_PRAGMA_END: return "TK_PRAGMA_END";
     case TK_KEYWORD__COUNTOF: return "TK_KEYWORD__COUNTOF";
+    case TK_PLUS_ASSIGN: return "TK_PLUS_ASSIGN";
+    case TK_MINUS_ASSIGN: return "TK_MINUS_ASSIGN";
+    case TK_MULTI_ASSIGN: return "TK_MULTI_ASSIGN";
+    case TK_DIV_ASSIGN: return "TK_DIV_ASSIGN";
+    case TK_MOD_ASSIGN: return "TK_MOD_ASSIGN";
+    case TK_SHIFT_LEFT_ASSIGN: return "TK_SHIFT_LEFT_ASSIGN";
+    case TK_SHIFT_RIGHT_ASSIGN: return "TK_SHIFT_RIGHT_ASSIGN";
+    case TK_AND_ASSIGN: return "TK_AND_ASSIGN";
+    case TK_OR_ASSIGN: return "TK_OR_ASSIGN";
+    case TK_NOT_ASSIGN: return "TK_NOT_ASSIGN";
 
     }
     return "TK_X_MISSING_NAME";

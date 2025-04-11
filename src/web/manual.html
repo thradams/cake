@@ -262,39 +262,42 @@
 <a href="#toc_73">Obsolete implicitly octal literals</a>
 </li>
 <li>
-<a href="#toc_74">_Countof operator</a>
+<a href="#toc_74">#def</a>
 </li>
 <li>
-<a href="#toc_75">defer</a>
+<a href="#toc_75">_Countof operator</a>
 </li>
 <li>
-<a href="#toc_76">if declarations, v4</a>
+<a href="#toc_76">defer</a>
 </li>
 <li>
-<a href="#toc_77">Extension typename on _Generic</a>
+<a href="#toc_77">if declarations, v4</a>
+</li>
+<li>
+<a href="#toc_78">Extension typename on _Generic</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_78">Cake Extensions (Not in C23, C2Y)</a>
+<a href="#toc_79">Cake Extensions (Not in C23, C2Y)</a>
 <ul>
 <li>
-<a href="#toc_79">Extension - try catch throw</a>
+<a href="#toc_80">Extension - try catch throw</a>
 </li>
 <li>
-<a href="#toc_80">Extension Literal function - lambdas</a>
+<a href="#toc_81">Extension Literal function - lambdas</a>
 </li>
 <li>
-<a href="#toc_81">Extension #pragma dir</a>
+<a href="#toc_82">Extension #pragma dir</a>
 </li>
 <li>
-<a href="#toc_82">Type traits</a>
+<a href="#toc_83">Type traits</a>
 </li>
 <li>
-<a href="#toc_83">Extension - Object lifetime checks</a>
+<a href="#toc_84">Extension - Object lifetime checks</a>
 </li>
 <li>
-<a href="#toc_84">Extension assert built-in</a>
+<a href="#toc_85">Extension assert built-in</a>
 </li>
 </ul>
 </li>
@@ -437,9 +440,10 @@ See <a href="warnings.html">warnings</a></p>
 
 <p>disable cake extension where assert is an statement. See extensions</p>
 
-<h4>-showIncludes</h4>
+<h4>-show-includes</h4>
 
-<p>Causes the compiler to output a list of the include files. The option also displays nested include files, that is, the files included by the files that you include.</p>
+<p>Causes the compiler to output a list of the include files. 
+The option also displays nested include files, that is, the files included by the files that you include.</p>
 
 <h4>-Wall</h4>
 
@@ -1294,11 +1298,15 @@ int main()
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm</a></p>
 
-<h3 id="toc_74">_Countof operator</h3>
+<h3 id="toc_74">#def</h3>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt</a></p>
+
+<h3 id="toc_75">_Countof operator</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf</a></p>
 
-<h3 id="toc_75">defer</h3>
+<h3 id="toc_76">defer</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm</a></p>
 
@@ -1327,7 +1335,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_76">if declarations, v4</h3>
+<h3 id="toc_77">if declarations, v4</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm</a></p>
 
@@ -1346,7 +1354,7 @@ int main()
 <p>C++ proposal
 <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html</a></p>
 
-<h3 id="toc_77">Extension typename on _Generic</h3>
+<h3 id="toc_78">Extension typename on _Generic</h3>
 
 <p>This feature was created in Cake and now it is part of C2Y!</p>
 
@@ -1363,9 +1371,9 @@ int main()
 }
 </code></pre>
 
-<h2 id="toc_78">Cake Extensions (Not in C23, C2Y)</h2>
+<h2 id="toc_79">Cake Extensions (Not in C23, C2Y)</h2>
 
-<h3 id="toc_79">Extension - try catch throw</h3>
+<h3 id="toc_80">Extension - try catch throw</h3>
 
 <pre><code>   try-statement:
       try secondary-block
@@ -1397,7 +1405,7 @@ catch
 }
 </code></pre>
 
-<h3 id="toc_80">Extension Literal function - lambdas</h3>
+<h3 id="toc_81">Extension Literal function - lambdas</h3>
 
 <p>Lambdas without capture where implemented using a compound literal syntax.
 Since, we cannot have compound literal of function types (only pointer to function) the
@@ -1421,14 +1429,14 @@ void create_app(const char* appname)
 <p>Code generation is already working, but static analysis
 is not implemented. </p>
 
-<h3 id="toc_81">Extension #pragma dir</h3>
+<h3 id="toc_82">Extension #pragma dir</h3>
 
 <pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
 </code></pre>
 
 <p>pragma dir makes the preprocessor include the directory when searching for includes.</p>
 
-<h3 id="toc_82">Type traits</h3>
+<h3 id="toc_83">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.</p>
 
@@ -1463,11 +1471,11 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 <p>Note: Type traits that can be easily created with _Generic will be removed.
 _</p>
 
-<h3 id="toc_83">Extension - Object lifetime checks</h3>
+<h3 id="toc_84">Extension - Object lifetime checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
-<h3 id="toc_84">Extension assert built-in</h3>
+<h3 id="toc_85">Extension assert built-in</h3>
 
 <p>In cake assert is an built-in function.
 The reason is because it works as tips for flow analysis.</p>

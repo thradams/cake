@@ -134,8 +134,9 @@ See [warnings](warnings.html)
 #### -disable-assert
 disable cake extension where assert is an statement. See extensions
 
-#### -showIncludes
-Causes the compiler to output a list of the include files. The option also displays nested include files, that is, the files included by the files that you include.
+#### -show-includes
+Causes the compiler to output a list of the include files. 
+The option also displays nested include files, that is, the files included by the files that you include.
 
 #### -Wall
 Enables all warnings
@@ -1058,6 +1059,11 @@ int main()
 
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm
+
+### \#def
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
+
 
 ### \_Countof operator 
 

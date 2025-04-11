@@ -2901,7 +2901,8 @@ static void flow_assignment_core(
 
             while (p_a_member_declaration && p_b_member_declaration)
             {
-                if (p_a_member_declaration->member_declarator_list_opt)
+                if (p_a_member_declaration->member_declarator_list_opt &&
+                    p_b_member_declaration->member_declarator_list_opt)
                 {
                     struct member_declarator* _Opt p_a_member_declarator =
                         p_a_member_declaration->member_declarator_list_opt->head;

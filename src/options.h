@@ -332,14 +332,15 @@ struct options
 
     /*
       -no-output
-      if true cake does not generate ouput
+      if true cake does not generate output
     */
     bool no_output;
 
     /*
-     -def-preprocess
+     -const-literal
+     makes literal strings const
     */
-    bool def_macro_preprocess;
+    bool const_literal;
 
     /*
       -fdiagnostics-format=msvc

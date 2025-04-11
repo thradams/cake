@@ -306,9 +306,9 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-def-preprocess") == 0)
+        if (strcmp(argv[i], "-const-literal") == 0)
         {
-            options->def_macro_preprocess = true;
+            options->const_literal = true;
             continue;
         }
        
@@ -575,6 +575,8 @@ void print_help()
         "\n"
         LIGHTCYAN "  -disable-assert       " RESET "disables built-in assert\n"
         "\n"
+        LIGHTCYAN "  -const-literal        " RESET "literal string becomes const\n"
+        "\n"       
         "More details at http://thradams.com/cake/manual.html\n"
         ;
 

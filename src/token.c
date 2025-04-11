@@ -597,12 +597,26 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 
     struct token* _Opt before_first = first->prev;
     struct token* _Owner _Opt after_last = last->next; /*MOVED*/
-    last->next = NULL; /*MOVED*/
+
     if (before_first)
+    {
         before_first->next = after_last;
+    }
+    else
+    {
+        list->head = last->next;
+    }
 
     if (after_last)
+    {
         after_last->prev = before_first;
+    }
+    else
+    {
+        list->tail = NULL;
+    }
+
+    last->next = NULL; /*MOVED*/
 
     r.head = (struct token* _Owner)first;
     first->prev = NULL;
@@ -1514,6 +1528,22 @@ void token_list_remove_get_test()
     struct token* pnew = calloc(1, sizeof * pnew);
     token_list_add(&list, pnew);
     struct token_list r = token_list_remove_get(&list, pnew, pnew);
+    assert(list.head == NULL);
+    assert(list.tail == NULL);
 }
+
+void token_list_remove_get_test2()
+{
+    struct token_list list = { 0 };
+    struct token* pnew1 = calloc(1, sizeof * pnew1);
+    token_list_add(&list, pnew1);
+    struct token* pnew2 = calloc(1, sizeof * pnew2);
+    token_list_add(&list, pnew2);
+
+    struct token_list r = token_list_remove_get(&list, pnew1, pnew1);
+    assert(list.head == pnew2);
+    assert(list.tail == pnew2);
+}
+
 
 #endif

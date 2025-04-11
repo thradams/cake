@@ -1189,13 +1189,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 }
             }
 
-            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, TYPE_QUALIFIER_CONST);
-            //static_assert(false);
-            //struct object * it = p_expression_node->object.members;
-            //for (int i = 0 ; i < number_of_bytes; i++)
-            //{
-
-            //}
+            enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
+            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, lit_flags);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {

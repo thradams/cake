@@ -509,7 +509,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case PRIMARY_EXPRESSION_STRING_LITERAL:
     {
-        struct token* ptk = p_expression->first_token;
+        struct token* _Opt ptk = p_expression->first_token;
         do
         {
             if (ptk->type == TK_STRING_LITERAL)
@@ -2453,6 +2453,8 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
 
     if (p_declaration->init_declarator_list.head)
     {
+        assert(p_declaration->declaration_specifiers != NULL);
+
         bool is_static = p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
 
         if (!binline)

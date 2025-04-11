@@ -13,6 +13,7 @@ int g_unit_test_success_count = 0;
 
 /* tests from token.c*/
 void token_list_remove_get_test(void);
+void token_list_remove_get_test2(void);
 
 /* tests from tokenizer.c*/
 void test_lexeme_cmp(void);
@@ -81,6 +82,7 @@ int test_main(void)
 g_unit_test_error_count = 0;
 g_unit_test_success_count = 0;
     token_list_remove_get_test();
+    token_list_remove_get_test2();
     test_lexeme_cmp();
     token_list_pop_front_test();
     token_list_pop_back_test();

@@ -1022,14 +1022,15 @@ struct options
 
     /*
       -no-output
-      if true cake does not generate ouput
+      if true cake does not generate output
     */
     bool no_output;
 
     /*
-     -def-preprocess
+     -const-literal
+     makes literal strings const
     */
-    bool def_macro_preprocess;
+    bool const_literal;
 
     /*
       -fdiagnostics-format=msvc
@@ -1755,12 +1756,26 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 
     struct token* _Opt before_first = first->prev;
     struct token* _Owner _Opt after_last = last->next; /*MOVED*/
-    last->next = NULL; /*MOVED*/
+
     if (before_first)
+    {
         before_first->next = after_last;
+    }
+    else
+    {
+        list->head = last->next;
+    }
 
     if (after_last)
+    {
         after_last->prev = before_first;
+    }
+    else
+    {
+        list->tail = NULL;
+    }
+
+    last->next = NULL; /*MOVED*/
 
     r.head = (struct token* _Owner)first;
     first->prev = NULL;
@@ -2672,7 +2687,23 @@ void token_list_remove_get_test()
     struct token* pnew = calloc(1, sizeof * pnew);
     token_list_add(&list, pnew);
     struct token_list r = token_list_remove_get(&list, pnew, pnew);
+    assert(list.head == NULL);
+    assert(list.tail == NULL);
 }
+
+void token_list_remove_get_test2()
+{
+    struct token_list list = { 0 };
+    struct token* pnew1 = calloc(1, sizeof * pnew1);
+    token_list_add(&list, pnew1);
+    struct token* pnew2 = calloc(1, sizeof * pnew2);
+    token_list_add(&list, pnew2);
+
+    struct token_list r = token_list_remove_get(&list, pnew1, pnew1);
+    assert(list.head == pnew2);
+    assert(list.tail == pnew2);
+}
+
 
 #endif
 
@@ -6475,7 +6506,7 @@ struct token_list def_section(struct preprocessor_ctx* ctx, struct token_list* i
 
         if (ctx->n_errors > 0)
         {
-            
+
             token_list_destroy(&r2);
             token_list_destroy(&r3);
             throw;
@@ -8394,18 +8425,22 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             token_list_destroy(&copy);
             token_list_destroy(&r3);
         }
-        /*
-        //This option would preprocess the macro before continue...
-        if (ctx->options.def_macro_preprocess && macro->def_macro)
-        {
-            if (ctx->n_errors > 0) throw;
 
+        if (ctx->n_errors > 0) throw;
+        if (macro->def_macro)
+        {
             struct token_list r0 = { 0 };
             token_list_append_list(&r0, &r);
 
             struct token_list list2 = preprocessor(ctx, &r0, level + 1);
-            token_list_append_list(&r, &list2);
-        }*/
+            struct tokenizer_ctx tctx = { 0 };
+            const char* _Opt _Owner result = print_preprocessed_to_string2(list2.head);
+
+            token_list_clear(&r);
+            r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
+            free(result);
+            token_list_destroy(&list2);
+        }
 
     }
     catch
@@ -9333,6 +9368,16 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
     case TK_PRAGMA_END: return "TK_PRAGMA_END";
     case TK_KEYWORD__COUNTOF: return "TK_KEYWORD__COUNTOF";
+    case TK_PLUS_ASSIGN: return "TK_PLUS_ASSIGN";
+    case TK_MINUS_ASSIGN: return "TK_MINUS_ASSIGN";
+    case TK_MULTI_ASSIGN: return "TK_MULTI_ASSIGN";
+    case TK_DIV_ASSIGN: return "TK_DIV_ASSIGN";
+    case TK_MOD_ASSIGN: return "TK_MOD_ASSIGN";
+    case TK_SHIFT_LEFT_ASSIGN: return "TK_SHIFT_LEFT_ASSIGN";
+    case TK_SHIFT_RIGHT_ASSIGN: return "TK_SHIFT_RIGHT_ASSIGN";
+    case TK_AND_ASSIGN: return "TK_AND_ASSIGN";
+    case TK_OR_ASSIGN: return "TK_OR_ASSIGN";
+    case TK_NOT_ASSIGN: return "TK_NOT_ASSIGN";
 
     }
     return "TK_X_MISSING_NAME";
@@ -12739,9 +12784,9 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-def-preprocess") == 0)
+        if (strcmp(argv[i], "-const-literal") == 0)
         {
-            options->def_macro_preprocess = true;
+            options->const_literal = true;
             continue;
         }
        
@@ -13008,6 +13053,8 @@ void print_help()
         "\n"
         LIGHTCYAN "  -disable-assert       " RESET "disables built-in assert\n"
         "\n"
+        LIGHTCYAN "  -const-literal        " RESET "literal string becomes const\n"
+        "\n"       
         "More details at http://thradams.com/cake/manual.html\n"
         ;
 
@@ -18609,13 +18656,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 }
             }
 
-            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, TYPE_QUALIFIER_CONST);
-            //static_assert(false);
-            //struct object * it = p_expression_node->object.members;
-            //for (int i = 0 ; i < number_of_bytes; i++)
-            //{
-
-            //}
+            enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
+            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, lit_flags);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
@@ -25019,7 +25061,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.7"
+#define CAKE_VERSION "0.10.10"
 
 
 
@@ -27229,12 +27271,26 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                     parser_match(ctx); //(
 
                     if (type != TK_KEYWORD_FALSE)
+                    {
+                        assert(p_declarator->p_expression_true == NULL);
                         p_declarator->p_expression_true = expression(ctx);
+                    }
                     else
+                    {
+                        assert(p_declarator->p_expression_false == NULL);
                         p_declarator->p_expression_false = expression(ctx);
+                    }
                     parser_match(ctx); //)
+
+                    if (ctx->current == NULL)
+                    {
+                        unexpected_end_of_file(ctx);
+                        throw;
+                    }
+
                     if (ctx->current->type != ',')
                         break;
+
                     parser_match(ctx); //)
                 }
             }
@@ -34671,8 +34727,11 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     ctx->try_catch_block_index = 0;
     ctx->p_current_try_statement_opt = NULL;
     label_list_clear(&ctx->label_list);
-    struct compound_statement* p_compound_statement = compound_statement(ctx);
-    check_labels(ctx);
+    struct compound_statement* _Owner _Opt p_compound_statement = compound_statement(ctx);
+    if (p_compound_statement)
+    {
+        check_labels(ctx);        
+    }
     label_list_clear(&ctx->label_list);
     return p_compound_statement;
 }
@@ -35057,8 +35116,6 @@ int compile_one_file(const char* file_name,
             if (berror || report->error_count > 0)
                 throw;
 
-            // ast_wasm_visit(&ast);
-
             if (!options->no_output)
             {
                 if (options->target == TARGET_C89_IL)
@@ -35068,6 +35125,7 @@ int compile_one_file(const char* file_name,
                     ctx2.ast = ast;
                     d_visit(&ctx2, &ss);
                     s = ss.c_str; //MOVE
+                    d_visit_ctx_destroy(&ctx2);
                 }
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
@@ -35077,7 +35135,6 @@ int compile_one_file(const char* file_name,
                         fprintf(outfile, "%s", s);
 
                     fclose(outfile);
-                    // printf("%-30s ", path);
                 }
                 else
                 {
@@ -35866,12 +35923,19 @@ static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used
     if (p_object->members == NULL)
     {
         *sub_object_of_union = false;
-        *p_type_out = type_dup(&p_object->type);
+
+        struct type t = type_dup(&p_object->type);
+        type_swap(&t, p_type_out);
+        type_destroy(&t);
+
         return p_object; //tODO
     }
 
     *sub_object_of_union = type_is_union(&p_object->type);
-    *p_type_out = type_dup(&p_object->members->type);
+    struct type t = type_dup(&p_object->members->type);
+    type_swap(&t, p_type_out);
+    type_destroy(&t);
+
     return p_object->members; //tODO
 }
 
@@ -35886,7 +35950,9 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
 
     if (p_object->members == NULL)
     {
-        *p_type_out = type_dup(&p_object->type);
+        struct type t = type_dup(&p_object->type);
+        type_swap(&t, p_type_out);
+        type_destroy(&t);
         return p_object; //tODO
     }
 
@@ -35900,7 +35966,11 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
         it = it->next;
     }
 
-    *p_type_out = type_dup(&p_object->type);
+    struct type t = type_dup(&p_object->type);
+    type_swap(&t, p_type_out);
+    type_destroy(&t);
+
+
     return p_object;
 }
 
@@ -35927,7 +35997,10 @@ static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not
         *sub_object_of_union = type_is_union(&it->type);
 
         it = it->members;
-        *p_type_out = type_dup(&it->type);
+
+        struct type t = type_dup(&it->type);
+        type_swap(&t, p_type_out);
+        type_destroy(&t);
 
         return it;
     }
@@ -35949,8 +36022,14 @@ static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not
 
         it = it->parent;
     }
+
     if (it != NULL)
-        *p_type_out = type_dup(&it->type);
+    {
+        struct type t = type_dup(&it->type);
+        type_swap(&t, p_type_out);
+        type_destroy(&t);
+    }
+
     return it;
 }
 
@@ -35958,7 +36037,7 @@ static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not
 static struct object* _Opt find_next_subobject(struct type* p_top_object_not_used,
     struct object* current_object,
     struct object* it,
-    _Ctor struct type* p_type_out,
+    struct type* p_type_out,
     bool* sub_object_of_union)
 {
     return find_next_subobject_old(p_top_object_not_used,
@@ -36087,11 +36166,9 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct object* current_object,
     struct designator* p_designator,
     bool is_constant,
-    _Ctor struct type* p_type_out,
+    struct type* p_type_out2,
     bool not_error)
 {
-    *p_type_out = (struct type){0};
-
     try
     {
         if (type_is_struct_or_union(p_current_object_type))
@@ -36127,10 +36204,13 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                                 strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
                             {
                                 if (p_designator->next != NULL)
-                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out, false);
+                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out2, false);
                                 else
                                 {
-                                    *p_type_out = type_dup(&p_member_declarator->declarator->type);
+                                    struct type t = type_dup(&p_member_declarator->declarator->type);
+                                    type_swap(&t, p_type_out2);
+                                    type_destroy(&t);
+
                                     return p_member_object;
                                 }
                             }
@@ -36158,7 +36238,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                                                                          p_member_object,
                                                                          p_designator,
                                                                          is_constant,
-                                                                         p_type_out,
+                                                                         p_type_out2,
                                                                          true);
                             if (p)
                             {
@@ -36240,15 +36320,14 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                 if (p_designator->next != NULL)
                 {
                     struct object* _Opt p =
-                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out, false);
+                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out2, false);
 
                     type_destroy(&array_item_type);
                     return p;
                 }
                 else
                 {
-                    //                    *p_type_out = type_dup(&array_item_type);
-                    type_swap(p_type_out, &array_item_type);
+                    type_swap(p_type_out2, &array_item_type);
                     type_destroy(&array_item_type);
                 }
 
@@ -36263,7 +36342,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     }
     catch
     {
-        
+
     }
     return NULL;
 }
@@ -36276,14 +36355,24 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 static struct initializer_list_item* _Opt find_innner_initializer_list_item(struct braced_initializer* braced_initializer)
 {
+    assert(braced_initializer->initializer_list);
+
     struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
 
     while (p_initializer_list_item->initializer->braced_initializer)
     {
         //int i = {{1}};
         p_initializer_list_item = p_initializer_list_item->initializer->braced_initializer->initializer_list->head;
+
+        if (p_initializer_list_item == NULL)
+        {
+            assert(false);
+            return NULL;
+        }
+
         if (p_initializer_list_item->next == NULL)
             return p_initializer_list_item;
+
         p_initializer_list_item = p_initializer_list_item->next;
     }
 
@@ -38011,7 +38100,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case PRIMARY_EXPRESSION_STRING_LITERAL:
     {
-        struct token* ptk = p_expression->first_token;
+        struct token* _Opt ptk = p_expression->first_token;
         do
         {
             if (ptk->type == TK_STRING_LITERAL)
@@ -39955,6 +40044,8 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
 
     if (p_declaration->init_declarator_list.head)
     {
+        assert(p_declaration->declaration_specifiers != NULL);
+
         bool is_static = p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
 
         if (!binline)
@@ -43079,7 +43170,8 @@ static void flow_assignment_core(
 
             while (p_a_member_declaration && p_b_member_declaration)
             {
-                if (p_a_member_declaration->member_declarator_list_opt)
+                if (p_a_member_declaration->member_declarator_list_opt &&
+                    p_b_member_declaration->member_declarator_list_opt)
                 {
                     struct member_declarator* _Opt p_a_member_declarator =
                         p_a_member_declaration->member_declarator_list_opt->head;
