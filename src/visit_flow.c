@@ -1284,7 +1284,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
         else
         {
 
-            compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
+            compiler_diagnostic(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 NULL,
                 p_marker,
@@ -2109,7 +2109,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
             !type_is_opt(p_visitor->p_type, ctx->ctx->options.null_checks_enabled) &&
             flow_object_can_be_null(p_visitor->p_object))
         {
-            compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
+            compiler_diagnostic(W_FLOW_NULL_DEREFERENCE,
                 ctx->ctx,
                 NULL,
                 p_marker_opt,
@@ -2151,7 +2151,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
             }
             else
             {
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                compiler_diagnostic(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     position_token_opt,
                     p_marker_opt,
@@ -2173,7 +2173,7 @@ static void checked_read_object_core(struct flow_visit_ctx* ctx,
                too many false positives
             */
 
-            //compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
+            //compiler_diagnostic(W_FLOW_LIFETIME_ENDED,
             //    ctx->ctx,
             //     position_token_opt,
             //    p_marker_opt,
@@ -2248,7 +2248,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             *  have been moved.
             */
             const struct token* _Opt name = flow_object_get_token(p_visitor->p_object);
-            if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 name, NULL,
                 "members of '%s' were not released.",
@@ -2256,7 +2256,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             {
 
                 if (p_visitor->p_object->p_declarator_origin)
-                    compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, NULL, "end of '%s' scope", previous_names);
+                    compiler_diagnostic(W_LOCATION, ctx->ctx, position_token, NULL, "end of '%s' scope", previous_names);
             }
         }
         else
@@ -2365,12 +2365,12 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             type_is_owner(p_visitor->p_type) &&
             p_visitor->p_object->current.state & FLOW_OBJECT_STATE_NOT_NULL)
         {
-            if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 position, NULL,
                 "object pointed by '%s' was not released.", previous_names))
             {
-                compiler_diagnostic_message(W_LOCATION,
+                compiler_diagnostic(W_LOCATION,
                 ctx->ctx,
                 position_token, NULL,
                 "end of '%s' lifetime", previous_names);
@@ -2403,12 +2403,12 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             }
             else
             {
-                if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
+                if (compiler_diagnostic(W_FLOW_MISSING_DTOR,
                     ctx->ctx,
                     position, NULL,
                     "object pointed by '%s' was not released.", previous_names))
                 {
-                    compiler_diagnostic_message(W_LOCATION,
+                    compiler_diagnostic(W_LOCATION,
                     ctx->ctx,
                     position_token, NULL,
                     "end of '%s' lifetime", previous_names);
@@ -2538,7 +2538,7 @@ static void flow_assignment_core(
                 {
                     char b_object_name[100] = { 0 };
                     object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, sizeof b_object_name);
-                    compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                    compiler_diagnostic(W_FLOW_UNINITIALIZED,
                                 ctx->ctx,
                                 NULL,
                                 p_b_marker,
@@ -2555,7 +2555,7 @@ static void flow_assignment_core(
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                compiler_diagnostic(W_FLOW_UNINITIALIZED,
                             ctx->ctx,
                             NULL,
                             p_b_marker,
@@ -2563,7 +2563,7 @@ static void flow_assignment_core(
             }
             else if (assigment_type == ASSIGMENT_TYPE_RETURN)
             {
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                compiler_diagnostic(W_FLOW_UNINITIALIZED,
                             ctx->ctx,
                             NULL,
                             p_b_marker,
@@ -2571,7 +2571,7 @@ static void flow_assignment_core(
             }
             else
             {
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                compiler_diagnostic(W_FLOW_UNINITIALIZED,
                             ctx->ctx,
                             NULL,
                             p_b_marker,
@@ -2588,7 +2588,7 @@ static void flow_assignment_core(
         char buffer[100] = { 0 };
         object_get_name(p_visitor_a->p_type, p_visitor_a->p_object, buffer, sizeof buffer);
 
-        compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
+        compiler_diagnostic(W_FLOW_LIFETIME_ENDED,
                     ctx->ctx,
                     NULL,
                     p_a_marker,
@@ -2610,7 +2610,7 @@ static void flow_assignment_core(
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                compiler_diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                        ctx->ctx,
                        NULL,
                        p_b_marker,
@@ -2618,7 +2618,7 @@ static void flow_assignment_core(
             }
             else if (assigment_type == ASSIGMENT_TYPE_RETURN)
             {
-                compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                compiler_diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                        ctx->ctx,
                        NULL,
                        p_b_marker,
@@ -2626,7 +2626,7 @@ static void flow_assignment_core(
             }
             else
             {
-                compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                compiler_diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                        ctx->ctx,
                        NULL,
                        p_b_marker,
@@ -2683,7 +2683,7 @@ static void flow_assignment_core(
             */
             if (flow_object_can_be_moved(p_visitor_b->p_object))
             {
-                compiler_diagnostic_message(W_FLOW_MOVED,
+                compiler_diagnostic(W_FLOW_MOVED,
                                             ctx->ctx,
                                             NULL,
                                             p_b_marker,
@@ -2703,7 +2703,7 @@ static void flow_assignment_core(
                     type_is_owner(&t))
                 {
                     //if the anwser is yes then we need a warning
-                    compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
+                    compiler_diagnostic(W_FLOW_MISSING_DTOR,
                                                 ctx->ctx,
                                                 NULL,
                                                 p_a_marker,
@@ -2768,7 +2768,7 @@ static void flow_assignment_core(
             if (flow_object_can_be_moved(p_visitor_b->p_object))
             {
                 //TODO we need 2 positions, source, dest
-                compiler_diagnostic_message(W_FLOW_MOVED,
+                compiler_diagnostic(W_FLOW_MOVED,
                    ctx->ctx,
                    error_position, NULL,
                    "source object has already been moved");
@@ -3887,7 +3887,7 @@ static void flow_exit_block_visit_defer_item(struct flow_visit_ctx* ctx,
             warnings_count != ctx->ctx->p_report->warnings_count ||
             info_count != ctx->ctx->p_report->info_count)
         {
-            compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, NULL, "defer end of scope");
+            compiler_diagnostic(W_LOCATION, ctx->ctx, position_token, NULL, "defer end of scope");
         }
     }
     else if (p_item->declarator)
@@ -4993,13 +4993,13 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 p_expression->declarator &&
                 p_expression->declarator->name_opt)
             {
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                compiler_diagnostic(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, NULL, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
             }
             else
             {
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                compiler_diagnostic(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, NULL, "using a uninitialized object");
             }
@@ -5010,7 +5010,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
             {
                 if (p_expression->declarator && p_expression->declarator->name_opt)
                 {
-                    compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                    compiler_diagnostic(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->first_token,
                         NULL,
@@ -5019,7 +5019,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 }
                 else
                 {
-                    compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                    compiler_diagnostic(W_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->first_token, NULL, "maybe using a uninitialized object");
                 }
@@ -5072,7 +5072,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
 
             if (!ctx->inside_loop && flow_object_is_null(p_object))
             {
-                compiler_diagnostic_message(W_FLOW_NON_NULL,
+                compiler_diagnostic(W_FLOW_NON_NULL,
                         ctx->ctx,
                         NULL,
                         &marker,
@@ -5081,7 +5081,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
             }
             else if (!ctx->inside_loop && flow_object_is_not_null(p_object))
             {
-                compiler_diagnostic_message(W_FLOW_NON_NULL,
+                compiler_diagnostic(W_FLOW_NON_NULL,
                         ctx->ctx,
                         NULL,
                         &marker,
@@ -5292,7 +5292,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     struct marker marker = { 0 };
                     marker.p_token_begin = p_expression->left->first_token;
                     marker.p_token_end = p_expression->left->last_token;
-                    compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
+                    compiler_diagnostic(W_FLOW_NULL_DEREFERENCE,
                             ctx->ctx,
                             NULL,
                             &marker,
@@ -5306,7 +5306,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
-                    compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
+                    compiler_diagnostic(W_FLOW_NULL_DEREFERENCE,
                             ctx->ctx,
                             p_expression->left->first_token, NULL, "object is possibly uninitialized");
                 }
@@ -5318,7 +5318,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
-                    compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
+                    compiler_diagnostic(W_FLOW_LIFETIME_ENDED,
                             ctx->ctx,
                             p_expression->left->first_token, NULL, "object lifetime ended");
                 }
@@ -5334,7 +5334,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     .p_token_begin = p_expression->first_token,
                     .p_token_end = p_expression->last_token
                 };
-                compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
+                compiler_diagnostic(W_FLOW_LIFETIME_ENDED,
                         ctx->ctx,
                         NULL,
                         &marker,
@@ -5618,7 +5618,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 struct marker marker = { 0 };
                 marker.p_token_begin = p_expression->right->first_token;
                 marker.p_token_end = p_expression->right->last_token;
-                compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                compiler_diagnostic(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     NULL, &marker, "using a uninitialized object");
             }
@@ -5630,7 +5630,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             */
             if (!ctx->expression_is_not_evaluated)
             {
-                compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
+                compiler_diagnostic(W_FLOW_NULL_DEREFERENCE,
                     ctx->ctx,
                     p_expression->right->first_token, NULL, "dereference a NULL object");
             }
@@ -5753,7 +5753,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             if (flow_object_can_be_zero(p_object))
             {
-                compiler_diagnostic_message(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
+                compiler_diagnostic(W_FLOW_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, NULL, "possible division by zero");
             }
         }
 
@@ -5918,12 +5918,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             if (type_is_pointer(&p_comp_expression->type))
                             {
                                 if (!ctx->inside_loop)
-                                    compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
+                                    compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
                             }
                             else
                             {
                                 if (!ctx->inside_loop)
-                                    compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always zero");
+                                    compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always zero");
                             }
                         }
                     }
@@ -5934,9 +5934,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                            assert(p != NULL);
                         */
                         if (type_is_pointer(&p_comp_expression->type))
-                            compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
+                            compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always null");
                         else
-                            compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always zero");
+                            compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always zero");
                     }
                 }
                 else if ((flow_object_is_not_null(p_object) || flow_object_is_not_zero(p_object)) && value == 0)
@@ -5950,12 +5950,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                         if (type_is_pointer(&p_comp_expression->type))
                         {
                             if (!ctx->inside_loop)
-                                compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
+                                compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
                         }
                         else
                         {
                             if (!ctx->inside_loop)
-                                compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
+                                compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
                         }
                     }
                     else if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
@@ -5976,12 +5976,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             if (type_is_pointer(&p_comp_expression->type))
                             {
                                 if (!ctx->inside_loop)
-                                    compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
+                                    compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "pointer is always non-null");
                             }
                             else
                             {
                                 if (!ctx->inside_loop)
-                                    compiler_diagnostic_message(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
+                                    compiler_diagnostic(W_FLOW_NON_NULL, ctx->ctx, NULL, &marker, "value is always non-zero");
                             }
                         }
                     }
@@ -6825,7 +6825,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     {
         bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX;
 
-        compiler_diagnostic_message(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_debug");
+        compiler_diagnostic(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_debug");
 
         struct flow_object* _Opt p_obj =
             expression_get_flow_object(ctx, p_static_assert_declaration->constant_expression, nullable_enabled);
@@ -6857,7 +6857,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             e = parse_string_state(p_static_assert_declaration->string_literal_opt->lexeme, &is_invalid);
         if (is_invalid)
         {
-            compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+            compiler_diagnostic(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
         }
         else
         {
@@ -6870,7 +6870,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
                 if (e != p_obj->current.state)
                 {
-                    compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
+                    compiler_diagnostic(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
                     if (p_static_assert_declaration->string_literal_opt)
                         printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
                     printf("current  :");
@@ -6882,7 +6882,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             {
                 if (e != FLOW_OBJECT_STATE_NOT_APPLICABLE)
                 {
-                    compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
+                    compiler_diagnostic(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
                 }
             }
 
@@ -6920,13 +6920,13 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     {
                         if (p_obj->members.size > 0)
                         {
-                            compiler_diagnostic_message(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "use only for non agregates");
+                            compiler_diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "use only for non agregates");
                         }
                         p_obj->current.state = e;
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                        compiler_diagnostic(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                     }
                 }
             }

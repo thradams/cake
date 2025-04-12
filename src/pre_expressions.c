@@ -80,7 +80,7 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
     const enum token_type type = parse_number(token->lexeme, suffix, errormsg);
     if (type == TK_NONE)
     {
-        preprocessor_diagnostic_message(
+        preprocessor_diagnostic(
             C_INVALID_TOKEN,
             ctx,
             token,
@@ -117,7 +117,7 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
 
         if (value == ULLONG_MAX && errno == ERANGE)
         {
-            //compiler_diagnostic_message(
+            //compiler_diagnostic(
             //C_ERROR_LITERAL_OVERFLOW,
             //ctx,
             //token,
@@ -450,7 +450,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
             struct object v = char_constant_to_value(p, errmsg, sizeof errmsg);
             if (errmsg[0] != '\0')
             {
-                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "%s", errmsg);
+                preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, "%s", errmsg);
             }
             ectx->value = object_to_signed_long_long(&v);
             pre_match(ctx);
@@ -469,14 +469,14 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
                 throw;
             if (ctx->current && ctx->current->type != ')')
             {
-                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "expected )");
+                preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, "expected )");
                 throw;
             }
             pre_match(ctx);
         }
         else
         {
-            preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
+            preprocessor_diagnostic(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
                                               ctx,
                                               ctx->current,
                                               "token '%s' is not valid in preprocessor expressions",
@@ -536,7 +536,7 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx, struct pre_expres
     {
         if (ctx->current && (ctx->current->type == '++' || ctx->current->type == '--'))
         {
-            preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
+            preprocessor_diagnostic(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
                                               ctx,
                                               ctx->current,
                                               "token '%s' is not valid in preprocessor expressions",
@@ -563,15 +563,15 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx, struct pre_expres
                 ectx->value = +ectx->value;
             else if (op == '*')
             {
-                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
+                preprocessor_diagnostic(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
             }
             else if (op == '&')
             {
-                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
+                preprocessor_diagnostic(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
             }
             else
             {
-                preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
+                preprocessor_diagnostic(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, p_old, "token '%s' is not valid in preprocessor expressions", p_old->lexeme);
             }
         }
         else
@@ -630,7 +630,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
             {
                 if (ectx->value == 0)
                 {
-                    preprocessor_diagnostic_message(C_PRE_DIVISION_BY_ZERO, ctx, op_token, "division by zero");
+                    preprocessor_diagnostic(C_PRE_DIVISION_BY_ZERO, ctx, op_token, "division by zero");
                     throw;
                 }
                 else
@@ -1019,7 +1019,7 @@ static void pre_assignment_expression(struct preprocessor_ctx* ctx, struct pre_e
                    ctx->current->type == '^=' ||
                    ctx->current->type == '|='))
         {
-            preprocessor_diagnostic_message(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+            preprocessor_diagnostic(C_ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             throw;
         }
     }

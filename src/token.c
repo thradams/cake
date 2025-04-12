@@ -346,6 +346,26 @@ void token_list_insert_before(struct token_list* token_list, struct token* after
     token_list_insert_after(token_list, after->prev, append_list);
 }
 
+bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b)
+{
+    struct token* p_tka = list_a->head;
+    struct token* p_tkb = list_b->head;
+
+    while (p_tka && p_tkb)
+    {
+        if (p_tka->type != p_tkb->type)
+            return false;
+
+        if (strcmp(p_tka->lexeme, p_tkb->lexeme) != 0)
+            return false;
+
+        p_tka = p_tka->next;
+        p_tkb = p_tkb->next;
+    }
+
+    return p_tka == NULL && p_tkb == NULL;
+}
+
 struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
 {
     /*avoid accidentally being in 2 different lists*/

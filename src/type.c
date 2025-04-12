@@ -1069,7 +1069,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         //ok
         if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
-            compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
+            compiler_diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token, NULL,
                 "passing a temporary owner to a view");
@@ -1078,7 +1078,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
     }////////////////////////////////////////////////////////////
     else if (argument_is_obj_owner && paramer_is_owner)
     {
-        compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+        compiler_diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
             ctx,
             current_argument->expression->first_token, NULL,
             "cannot move _Dtor to _Owner");
@@ -1093,7 +1093,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         //ok
         if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
-            compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
+            compiler_diagnostic(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token, NULL,
                 "passing a temporary owner to a view");
@@ -1105,7 +1105,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
     {
         if (!expression_is_null_pointer_constant(current_argument->expression))
         {
-            compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+            compiler_diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                 ctx,
                 current_argument->expression->first_token, NULL,
                 "passing a _View argument to a _Owner parameter");
@@ -1120,7 +1120,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             if (!type_is_owner(&t2))
             {
 
-                compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                compiler_diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token, NULL,
                     "pointed object is not _Owner");
@@ -1132,7 +1132,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
                 if (!argument_type->address_of)
                 {
                     //we need something created with address of.
-                    compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
+                    compiler_diagnostic(W_MUST_USE_ADDRESSOF,
                         ctx,
                         current_argument->expression->first_token, NULL,
                         "_Dtor pointer must be created using address of operator &");
@@ -1145,7 +1145,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         {
             if (!expression_is_null_pointer_constant(current_argument->expression))
             {
-                compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                compiler_diagnostic(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token, NULL,
                     "passing a _View argument to a _Dtor parameter");
@@ -1175,7 +1175,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
                 if (type_is_pointer(&current_argument->expression->type) &&
                     !type_is_pointer_to_owner(&current_argument->expression->type))
                 {
-                    compiler_diagnostic_message(W_OWNERSHIP_NOT_OWNER, ctx,
+                    compiler_diagnostic(W_OWNERSHIP_NOT_OWNER, ctx,
                         current_argument->expression->first_token, NULL,
                         "parameter %d requires a pointer to _Owner object",
                         param_num);
@@ -1183,7 +1183,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
             }
             else
             {
-                compiler_diagnostic_message(W_OWNERSHIP_NOT_OWNER, ctx,
+                compiler_diagnostic(W_OWNERSHIP_NOT_OWNER, ctx,
                     current_argument->expression->first_token, NULL,
                     "parameter %d requires a pointer to _Owner type",
                     param_num);
@@ -1211,7 +1211,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
     {
         if (!type_is_same(argument_type, paramer_type, false))
         {
-            compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES, ctx,
+            compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx,
                 current_argument->expression->first_token, NULL,
                 " incompatible types at argument %d", param_num);
         }
@@ -1260,7 +1260,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(paramer_type))
     {
-        compiler_diagnostic_message(W_FLOW_NON_NULL,
+        compiler_diagnostic(W_FLOW_NON_NULL,
             ctx,
             current_argument->expression->first_token, NULL,
             " passing null as array");
@@ -1321,7 +1321,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
                 if (parameter_array_size != 0 &&
                     argument_array_size < parameter_array_size)
                 {
-                    compiler_diagnostic_message(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
+                    compiler_diagnostic(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
                         ctx,
                         current_argument->expression->first_token, NULL,
                         " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
@@ -1329,7 +1329,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
             }
             else if (is_null_pointer_constant || type_is_nullptr_t(argument_type))
             {
-                compiler_diagnostic_message(W_PASSING_NULL_AS_ARRAY,
+                compiler_diagnostic(W_PASSING_NULL_AS_ARRAY,
                     ctx,
                     current_argument->expression->first_token, NULL,
                     " passing null as array");
@@ -1343,7 +1343,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
             type_print(&argument_type_converted);
             type_print(&parameter_type_converted);
 
-            compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES, ctx,
+            compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx,
                 current_argument->expression->first_token, NULL,
                 " incompatible types at argument %d", param_num);
             //disabled for now util it works correctly
@@ -1360,7 +1360,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
                 !type_is_const(&parameter_pointer_to) &&
                 !type_is_owner_or_pointer_to_dtor(&parameter_pointer_to))
             {
-                compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
+                compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                     current_argument->expression->first_token, NULL,
                     " discarding const at argument %d", param_num);
             }
@@ -1373,7 +1373,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
     //TODO
     //if (!type_is_same(paramer_type, &current_argument->expression->type, false))
     //{
-    //    compiler_diagnostic_message(C1, ctx,
+    //    compiler_diagnostic(C1, ctx,
     //        current_argument->expression->first_token,
     //        " incompatible types at argument %d ", param_num);
     //}
@@ -3196,7 +3196,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
         {
             if (p->next && p->next->category == TYPE_CATEGORY_FUNCTION)
             {
-                compiler_diagnostic_message(C_ERROR_FUNCTION_RETURNS_FUNCTION,
+                compiler_diagnostic(C_ERROR_FUNCTION_RETURNS_FUNCTION,
                                             ctx,
                                             p_token,
                                             NULL,
@@ -3205,7 +3205,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
             }
             else if (p->next && p->next->category == TYPE_CATEGORY_ARRAY)
             {
-                compiler_diagnostic_message(C_ERROR_FUNCTION_RETURNS_ARRAY,
+                compiler_diagnostic(C_ERROR_FUNCTION_RETURNS_ARRAY,
                                             ctx,
                                             p_token,
                                             NULL,
@@ -3216,7 +3216,7 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
         else if (p->category == TYPE_CATEGORY_ITSELF &&
                  p->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            compiler_diagnostic_message(C_ERROR_INVALID_TYPE,
+            compiler_diagnostic(C_ERROR_INVALID_TYPE,
                                         ctx,
                                         p_token,
                                         NULL,
