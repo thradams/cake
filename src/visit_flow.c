@@ -2347,7 +2347,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
         {
             assert(false);
         }
-
+             
         if (name[0] == '\0')
         {
             /*function arguments without name*/

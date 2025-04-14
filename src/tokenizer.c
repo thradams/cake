@@ -4267,6 +4267,20 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             r.tail->flags |= TK_FLAG_FINAL;
             token_list_destroy(&r7);
         }
+        else if (input_list->head->type == TK_NEWLINE)
+        {
+            skip_blanks_level(ctx, &r, input_list, level);
+            match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
+        }
+        else
+        {
+            //handled by the caller
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+                ctx,
+                input_list->head,
+                "unexpected\n");
+            throw;
+        }
     }
     catch
     {
@@ -5512,12 +5526,25 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
             preprocessor_token_ahead_is_identifier(input_list->head, "warning") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "line") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "error") ||
-            preprocessor_token_ahead_is_identifier(input_list->head, "pragma"))
+            preprocessor_token_ahead_is_identifier(input_list->head, "pragma") ||
+            preprocessor_token_ahead_is(input_list->head, TK_NEWLINE))
         {
             return control_line(ctx, input_list, is_active, level);
         }
         else
         {
+            if (is_active)
+            {
+                struct token* _Opt p_token = preprocessor_look_ahead_core(input_list->head);
+                const char* directive_name = p_token ? p_token->lexeme : "";
+                /*
+                   13 The execution of a non-directive preprocessing directive results in undefined behavior.
+                */
+                preprocessor_diagnostic(C_ERROR_INVALID_PREPROCESSING_DIRECTIVE,
+                    ctx,
+                    input_list->head,
+                    "invalid preprocessor directive '#%s'\n", directive_name);
+            }
             //here I will consume the # inside to make it symmetrical
             return non_directive(ctx, input_list, level);
         }

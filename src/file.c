@@ -1,3 +1,3 @@
-﻿#define M 1
-#define M 2
+﻿# iuiu
+//fdg
 
