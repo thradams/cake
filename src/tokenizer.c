@@ -543,7 +543,6 @@ struct macro_argument
 void macro_argument_delete(struct macro_argument* _Owner _Opt p);
 
 
-struct token_list copy_replacement_list(const struct token_list* list);
 
 struct token_list copy_argument_list_tokens(struct token_list* list)
 {
@@ -2580,7 +2579,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         r.tail->flags &= ~TK_FLAG_LINE_CONTINUATION;
     }
 
-    struct token_list list1 = copy_replacement_list(&r);
+    struct token_list list1 = copy_replacement_list(ctx, &r);
     token_list_swap(output_list, &r);
 
 
@@ -3264,7 +3263,7 @@ struct token_list def_section(struct preprocessor_ctx* ctx, struct token_list* i
             throw;
         }
 
-        struct token_list copy = copy_replacement_list(&r3);
+        struct token_list copy = copy_replacement_list(ctx, &r3);
         token_list_append_list(&p_macro->replacement_list, &copy);
 
         token_list_append_list(&r, &r3);
@@ -3468,7 +3467,7 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
         }
 
         assert(macro->replacement_list.head == NULL);
-        struct token_list copy = copy_replacement_list(&r);
+        struct token_list copy = copy_replacement_list(ctx, &r);
         token_list_append_list(&macro->replacement_list, &copy);
         token_list_destroy(&copy);
     }
@@ -4538,7 +4537,8 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             //printf("r="); print_list(&r);
             //printf("input="); print_list(input_list);
 
-            assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+            //#def macro
+            //assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
             if (input_list->head->type == '##')
             {
                 if (r.tail == NULL)
@@ -4867,8 +4867,10 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
         struct token_list new_list = concatenate(ctx, oldlist);
         while (new_list.head != NULL)
         {
-            assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-            assert(!token_is_blank(new_list.head));
+            //OBS: #def macro have newlinew
+            //assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+            // assert(!token_is_blank(new_list.head));
+
             struct macro* _Opt macro = NULL;
             if (new_list.head->type == TK_IDENTIFIER)
             {
@@ -4950,7 +4952,9 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
                 */
                 new_list.head->level = level;
                 new_list.head->flags |= TK_FLAG_MACRO_EXPANDED;
-                assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+
+                //OBS: #def macro have newlinew
+                //assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
                 prematch(&r, &new_list); //it wasn't macro
             }
         }
@@ -5042,7 +5046,9 @@ void remove_line_continuation(char* s)
     *pwrite = *pread;
 }
 
-struct token_list  copy_replacement_list(const struct token_list* list)
+struct token_list  copy_replacement_list_core(struct preprocessor_ctx* ctx,
+    const struct token_list* list,
+    bool new_line_is_space)
 {
     //Makes a copy of the tokens by trimming the beginning and end 
     //any space in comments etc. becomes a single space
@@ -5051,9 +5057,19 @@ struct token_list  copy_replacement_list(const struct token_list* list)
     struct token* _Opt current = list->head;
 
     //get off all initial whites
-    while (current && token_is_blank(current))
+    if (!new_line_is_space)
     {
-        current = current->next;
+        while (current && token_is_blank(current))
+        {
+            current = current->next;
+        }
+    }
+    else
+    {
+        while (current && (token_is_blank(current) || current->type == TK_NEWLINE))
+        {
+            current = current->next;
+        }
     }
 
     //remove space flag before if present
@@ -5061,15 +5077,38 @@ struct token_list  copy_replacement_list(const struct token_list* list)
 
     for (; current;)
     {
-        if (current && token_is_blank(current))
+        if (!new_line_is_space)
         {
-            if (current == list->tail)
-                break;
+            if (current && token_is_blank(current))
+            {
+                if (current == list->tail)
+                    break;
 
-            current = current->next;
-            continue;
+                current = current->next;
+                continue;
+            }
+        }
+        else
+        {
+            if (current && (token_is_blank(current) || current->type == TK_NEWLINE))
+            {
+                if (current == list->tail)
+                    break;
+
+                current = current->next;
+                continue;
+            }
         }
         struct token* token_added = token_list_clone_and_add(&r, current);
+
+
+        if (!ctx->options.preprocess_def_macro && token_added->type == TK_PREPROCESSOR_LINE)
+        {
+            token_added->type = '#';
+            free(token_added->lexeme);
+            token_added->lexeme = strdup("#");
+        }
+
         if (token_added->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
             token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
@@ -5089,6 +5128,12 @@ struct token_list  copy_replacement_list(const struct token_list* list)
 
     }
     return r;
+}
+
+struct token_list  copy_replacement_list(struct preprocessor_ctx* ctx,
+    const struct token_list* list)
+{
+    return copy_replacement_list_core(ctx, list, !ctx->options.preprocess_def_macro);
 }
 
 struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin)
@@ -5147,7 +5192,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
         return r;
     }
 
-    return copy_replacement_list(&macro->replacement_list);
+    return copy_replacement_list(ctx, &macro->replacement_list);
 }
 
 void print_literal2(const char* s);
@@ -5200,7 +5245,8 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
         }
 
         if (ctx->n_errors > 0) throw;
-        if (macro->def_macro)
+
+        if (ctx->options.preprocess_def_macro && macro->def_macro)
         {
             struct token_list r0 = { 0 };
             token_list_append_list(&r0, &r);
@@ -5211,8 +5257,11 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
 
             token_list_clear(&r);
             r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
+            struct token_list list3 = copy_replacement_list_core(ctx, &r, true);
+            token_list_swap(&list3, &r);
             free(result);
             token_list_destroy(&list2);
+            token_list_destroy(&list3);
         }
 
     }

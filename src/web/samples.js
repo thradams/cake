@@ -1029,6 +1029,13 @@ sample["C2Y"]["#def II"] =
   https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
 */
 
+/*
+
+  use -preprocess-def-macro
+  to preprocess #def macro after expansion
+*/
+
+
 #def foo(x)
 		do {
 #if 0

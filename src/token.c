@@ -348,8 +348,8 @@ void token_list_insert_before(struct token_list* token_list, struct token* after
 
 bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b)
 {
-    struct token* p_tka = list_a->head;
-    struct token* p_tkb = list_b->head;
+    struct token* _Opt p_tka = list_a->head;
+    struct token* _Opt p_tkb = list_b->head;
 
     while (p_tka && p_tkb)
     {

@@ -345,9 +345,16 @@ int fill_options(struct options* options,
             options->show_includes = true;
             continue;
         }
+        
         if (strcmp(argv[i], "-E") == 0)
         {
             options->preprocess_only = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-preprocess-def-macro") == 0)
+        {
+            options->preprocess_def_macro = true;
             continue;
         }
 
@@ -577,6 +584,8 @@ void print_help()
         "\n"
         LIGHTCYAN "  -const-literal        " RESET "literal string becomes const\n"
         "\n"       
+        LIGHTCYAN "  -preprocess-def-macro " RESET "preprocess def macros after expansion\n"
+        
         "More details at http://thradams.com/cake/manual.html\n"
         ;
 

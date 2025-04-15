@@ -610,6 +610,8 @@ bool type_is_pointed_dtor(const struct type* p_type)
     if (!type_is_pointer(p_type))
         return false;
 
+    assert(p_type->next != NULL);
+
     return type_is_dtor(p_type->next);
 }
 

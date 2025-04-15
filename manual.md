@@ -138,6 +138,9 @@ disable cake extension where assert is an statement. See extensions
 Causes the compiler to output a list of the include files. 
 The option also displays nested include files, that is, the files included by the files that you include.
 
+#### -preprocess-def-macro 
+preprocess def macros after expansion
+
 #### -Wall
 Enables all warnings
 

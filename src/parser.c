@@ -1138,7 +1138,7 @@ enum token_type is_keyword(const char* text)
         if (strcmp("int", text) == 0)
             return TK_KEYWORD_INT;
         break;
-    
+
     case 'n':
         if (strcmp("nullptr", text) == 0)
             return TK_KEYWORD_NULLPTR;
@@ -1148,7 +1148,7 @@ enum token_type is_keyword(const char* text)
         if (strcmp("long", text) == 0)
             return TK_KEYWORD_LONG;
         break;
-    
+
     case 'r':
         if (strcmp("register", text) == 0)
             return TK_KEYWORD_REGISTER;
@@ -3737,6 +3737,25 @@ struct member_declarator* _Owner _Opt member_declarator(
 #pragma cake diagnostic ignored "-Wmissing-destructor"    
         p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
 #pragma cake diagnostic pop
+
+        if (type_is_function(&p_member_declarator->declarator->type))
+        {
+            //A structure or union shall not contain a member with incomplete 
+            // or function type 
+
+            struct token* p_token =
+                p_member_declarator->declarator->first_token_opt;
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            compiler_diagnostic(C_ERROR_FUNCTION_CANNOT_BE_MEMBER,
+                ctx,
+                p_token,
+                NULL,
+                "members having a function type are not allowed");
+
+            throw;
+        }
 
         /*extension*/
         if (type_is_owner(&p_member_declarator->declarator->type))

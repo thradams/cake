@@ -197,6 +197,7 @@ enum diagnostic_id {
     C_ERROR_NULLPTR_CAST_ERROR = 1810,
     C_ERROR_MACRO_REDEFINITION = 1820,
     C_ERROR_INVALID_PREPROCESSING_DIRECTIVE = 1830,
+    C_ERROR_FUNCTION_CANNOT_BE_MEMBER  = 1840
 };
 
 
@@ -324,6 +325,11 @@ struct options
       -E
     */
     bool preprocess_only;
+
+    /*
+      -preprocess-def-macro
+    */
+    bool preprocess_def_macro;
 
     bool clear_error_at_end; //used by tests
     
