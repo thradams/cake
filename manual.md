@@ -186,6 +186,8 @@ It does not include the following features:
  - Structs/unions declared inside other structs/unions
  - constant expressions are pre-computed
  - no sizeof
+ - static variables are non-local.
+ - arrays size [] = {...} are pre-calculated
  - 
 The goal is for this simplified version to function as an intermediate language (IL).
  

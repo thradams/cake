@@ -20,13 +20,19 @@ struct d_visit_ctx
     struct hash_map tag_names;
     struct hash_map structs_map;
     struct hash_map function_map;
+    
+    /*
+       static local are placed in the global scope on-demand.
+       This map tell us if some declarator was already exported.
+    */
+    struct hash_map static_declarators;
 
     struct osstream local_declarators;
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;
     bool is_local;
     struct osstream data_types;
-    struct osstream function_types;
+    struct osstream function_types;    
     bool zero_mem_used;
     bool memcpy_used;
     /*

@@ -15,7 +15,8 @@ The C Programming language Second Edition 1988
 # 🍰 Cake
 
 Cake is a compiler front-end written from scratch in C, adhering to the C23 language 
-specification and beyond. 
+specification and beyond.
+
 It serves as a platform for experimenting with new features, 
 including C2Y language proposals, safety enhancements, and extensions such as 
 lambda expressions and defer statements.

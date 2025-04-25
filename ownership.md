@@ -7,11 +7,13 @@ This is a work in progress. Cake source is currently being used to validate the 
 ## Abstract
   
 The objective is to statically check code and prevent bugs, including memory bugs like double free, 
-null dereference and memory leaks. New qualifiers have been created to extend the type system and 
-insert information at function declarations.
+null dereference and memory leaks. New type-annotations have been created to extend the type system 
+and insert information that defines contracts.
 
-Ultimately, we still have the same language, but with an improved type system that checks new contracts.
-These new contracts can be ignored, the language **and existing code patterns** remains unmodified. 
+Ultimately, we still have the same language, but with an improved type system that checks these 
+contracts.
+
+These new type-annotations can be ignored, the language **and existing code patterns** remains unmodified. 
 
 
 ## Concepts

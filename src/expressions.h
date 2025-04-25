@@ -17,7 +17,7 @@ enum expression_type
     EXPRESSION_TYPE_INVALID, 
 
     PRIMARY_EXPRESSION_ENUMERATOR,
-    PRIMARY_EXPRESSION_DECLARATOR,
+    PRIMARY_EXPRESSION_DECLARATOR,    
     PRIMARY_EXPRESSION_STRING_LITERAL,
     PRIMARY_EXPRESSION__FUNC__, /*predefined identifier __func__ */
     PRIMARY_EXPRESSION_CHAR_LITERAL,
@@ -197,6 +197,8 @@ struct expression
 
     /*if expression is an identifier it points to its declaration*/
     struct declarator* _Opt declarator;
+    struct init_declarator* _Opt p_init_declarator;
+
     int member_index; //used in post_fix .
 
     /*se for POSTFIX_FUNCTION_CALL post*/

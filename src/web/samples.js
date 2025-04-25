@@ -1,16 +1,63 @@
 ﻿var sample = {};
 
+sample["C89"] = [];
+sample["C89"]["Backend"] =
+`
+
+/*
+  Cake output is compatible with C89;
+  however, it is even simpler than C89.
+
+  - no preprocessor
+  - no enums
+  - no typedefs
+  - no constant-expression (everything is pre-calculated)
+  - array [] size are calculated
+  - no local static.
+
+  The objective is to have a subset of C89 that works as an
+  intermediate language.
+
+*/
+
+#define MACRO 1
+
+enum {A = 1 + MACRO};
+
+int main(void)
+{
+    return A + 1;
+}
+
+`;
+
 sample["C99"] = [];
 sample["C99"]["_Bool"] =
  `
+
 int main(void)
 {
-    _Bool b = 1;
+    _Bool b = true;
+    _Bool b2 = 123;
 
-    _Bool b2 = 123; //TODO
+     b2 = b;
+     b2 = 12;
 
     return 0;
 }
+
+
+void f1(_Bool i)
+{
+}
+
+_Bool f2(int i)
+{
+    _Bool b2 = i;
+    f1(i);//TODO
+    return i; //TODO
+}
+
 `;
 
 sample["C99"]["Flexible array members"] = 

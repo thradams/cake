@@ -1060,6 +1060,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
 
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
+                p_expression_node->p_init_declarator = p_init_declarator;
+
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
                 p_expression_node->type = type_dup(&p_declarator->type);
