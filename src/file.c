@@ -1,5 +1,6 @@
 ﻿
-static int i = 1;
 int main(){
-  return i;
+  int i;
+  static_assert((1 || i) == 1);
+  static_assert((0 && i) == 0);
 }

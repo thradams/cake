@@ -20934,6 +20934,8 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       struct object* result)
 {
 
+    assert(!ctx->evaluation_is_disabled);
+
     struct type common_type = { 0 };
 
     try
@@ -21687,7 +21689,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
             }
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
 
-            if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+            if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
             {
                 expression_delete(new_expression);
                 throw;
@@ -21792,7 +21794,8 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
                     new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
-                    if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+
+                    if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
                         expression_delete(new_expression);
                         throw;
@@ -21860,7 +21863,8 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
                     new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
-                    if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+
+                    if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
                         expression_delete(new_expression);
                         throw;
@@ -22079,7 +22083,8 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
                 type_is_arithmetic(&new_expression->right->type))
             {
                 new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
-                if (execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+
+                if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                 {
                     expression_delete(new_expression);
                     new_expression = NULL;
@@ -22234,9 +22239,10 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             if (type_is_arithmetic(&new_expression->left->type) &&
                 type_is_arithmetic(&new_expression->right->type))
             {
-
-                if (execute_arithmetic(ctx, new_expression, operator_token->type, &new_expression->object) != 0)
+                if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, operator_token->type, &new_expression->object) != 0)
+                {
                     throw;
+                }
             }
 
             new_expression->type = type_make_int_bool_like();
@@ -22624,7 +22630,23 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
+            bool right_evaluation_is_disabled = false;
+
+            if (object_has_constant_value(&new_expression->left->object))
+            {
+                if (!object_to_bool(&new_expression->left->object))
+                {
+                    right_evaluation_is_disabled = true;
+                }
+            }
+
+            const bool old_evaluation_is_disabled = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = right_evaluation_is_disabled;
+
             new_expression->right = inclusive_or_expression(ctx);
+
+            ctx->evaluation_is_disabled = old_evaluation_is_disabled; //restore
+
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -22632,15 +22654,26 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
             }
             new_expression->last_token = new_expression->right->last_token;
 
-            if (!ctx->evaluation_is_disabled &&
-                object_has_constant_value(&new_expression->left->object) &&
-                object_has_constant_value(&new_expression->right->object))
+            if (!ctx->evaluation_is_disabled)
             {
-                //The && operator shall yield 1 if both of its operands compare unequal to 0;
-                // otherwise, it yields 0. The result has type int
-                bool a = object_to_bool(&new_expression->left->object);
-                bool b = object_to_bool(&new_expression->right->object);
-                new_expression->object = object_make_signed_int(a && b);
+                if (object_has_constant_value(&new_expression->left->object))
+                {
+                    bool a = object_to_bool(&new_expression->left->object);
+                    if (a == 0)
+                    {
+                        // 0 && something
+                        new_expression->object = object_make_signed_int(0);
+                    }
+                    else
+                    {
+                        // 1 && something
+                        if (object_has_constant_value(&new_expression->right->object))
+                        {
+                            bool b = object_to_bool(&new_expression->right->object);
+                            new_expression->object = object_make_signed_int(a && b);
+                        }
+                    }
+                }
             }
 
             //Each of the operands shall have scalar type
@@ -22692,9 +22725,6 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
         while (ctx->current != NULL &&
                (ctx->current->type == '||'))
         {
-
-
-
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -22711,7 +22741,26 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
+            bool right_evaluation_is_disabled = false;
+
+            if (object_has_constant_value(&new_expression->left->object))
+            {
+                if (object_to_bool(&new_expression->left->object))
+                {
+                    /*
+                      If the first operand compares unequal to 0, the second operand is not evaluated.
+                    */
+                    right_evaluation_is_disabled = true;
+                }
+            }
+
+            const bool old_evaluation_is_disabled = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = right_evaluation_is_disabled;
+
             new_expression->right = logical_and_expression(ctx);
+
+            ctx->evaluation_is_disabled = old_evaluation_is_disabled; //restore
+
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -22720,14 +22769,28 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
 
             new_expression->last_token = new_expression->right->last_token;
 
-            if (!ctx->evaluation_is_disabled &&
-                object_has_constant_value(&new_expression->left->object) &&
-                object_has_constant_value(&new_expression->right->object))
+            if (!ctx->evaluation_is_disabled)
             {
-                bool a = object_to_bool(&new_expression->left->object);
-                bool b = object_to_bool(&new_expression->right->object);
-                new_expression->object = object_make_signed_int(a || b);
+                if (object_has_constant_value(&new_expression->left->object))
+                {
+                    bool a = object_to_bool(&new_expression->left->object);
+                    if (a == 1)
+                    {
+                        // 1 || something
+                        new_expression->object = object_make_signed_int(1);
+                    }
+                    else
+                    {
+                        // 0 || something
+                        if (object_has_constant_value(&new_expression->right->object))
+                        {
+                            bool b = object_to_bool(&new_expression->right->object);
+                            new_expression->object = object_make_signed_int(a || b);
+                        }
+                    }
+                }
             }
+
 
             //Each of the operands shall have scalar type
             if (!type_is_scalar(&new_expression->left->type))
@@ -25211,7 +25274,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.17"
+#define CAKE_VERSION "0.10.18"
 
 
 
