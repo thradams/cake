@@ -1,6 +1,1 @@
-﻿
-int main(){
-  int i;
-  static_assert((1 || i) == 1);
-  static_assert((0 && i) == 0);
-}
+﻿enum {A = 18446744073709551615ULL*2};

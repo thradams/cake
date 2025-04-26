@@ -25,28 +25,6 @@
 #include <debugapi.h>
 #endif
 
-#if ULONG_MAX == UINT_MAX
-
-#define TYPE_SIGNED_INT_OR_SIGNED_LONG      TYPE_SIGNED_INT:    case TYPE_SIGNED_LONG
-#define TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG  TYPE_UNSIGNED_INT:  case TYPE_UNSIGNED_LONG
-
-#define TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG     TYPE_SIGNED_LONG_LONG
-#define TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG TYPE_UNSIGNED_LONG_LONG
-
-#else
-
-#define TYPE_SIGNED_INT_OR_SIGNED_LONG     TYPE_SIGNED_INT
-#define TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG TYPE_UNSIGNED_INT
-
-#define TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG     TYPE_SIGNED_LONG_LONG:case TYPE_SIGNED_LONG
-#define TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG TYPE_UNSIGNED_LONG_LONG:case TYPE_UNSIGNED_LONG
-
-#endif
-
-
-
-
-
 struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx);
@@ -2477,7 +2455,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     enum object_value_type vt = type_to_object_type(&new_expression->type);
                     switch (vt)
                     {
-                    case TYPE_SIGNED_INT_OR_SIGNED_LONG:
+                    case TYPE_SIGNED_INT:
                     {
                         const int a = object_to_signed_int(&new_expression->right->object);
                         if (op == '-')
@@ -2487,7 +2465,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
+                    case TYPE_UNSIGNED_INT:
                     {
                         unsigned int a = object_to_unsigned_int(&new_expression->right->object);
                         if (op == '-')
@@ -2500,9 +2478,35 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
+                    case TYPE_SIGNED_LONG:
                     {
-                        long long a = object_to_signed_long_long(&new_expression->right->object);
+                        const signed long a = object_to_signed_long(&new_expression->right->object);
+                        if (op == '-')
+                        {
+                            //TODO check overflow
+                            new_expression->object = object_make_signed_long(-a);
+                        }
+                        else
+                            new_expression->object = object_make_signed_long(+a);
+                    }
+                    break;
+                    case TYPE_UNSIGNED_LONG:
+                    {
+                        unsigned long a = object_to_unsigned_long(&new_expression->right->object);
+                        if (op == '-')
+                        {
+                            //
+                            //error C4146: unary minus operator applied to unsigned type, result still unsigned
+                            new_expression->object = object_make_unsigned_long(-a);
+                        }
+                        else
+                            new_expression->object = object_make_unsigned_long(+a);
+                    }
+                    break;
+
+                    case TYPE_SIGNED_LONG_LONG:
+                    {
+                        signed long long a = object_to_signed_long_long(&new_expression->right->object);
                         if (op == '-')
                             new_expression->object = object_make_signed_long_long(-a);
                         else
@@ -2510,7 +2514,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
+                    case TYPE_UNSIGNED_LONG_LONG:
                     {
                         unsigned long long a = object_to_unsigned_long_long(&new_expression->right->object);
 
@@ -3385,7 +3389,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             enum object_value_type vt = type_to_object_type(&common_type);
             switch (vt)
             {
-            case TYPE_SIGNED_INT_OR_SIGNED_LONG:
+            case TYPE_SIGNED_INT:
             {
                 const int a = object_to_signed_int(&new_expression->left->object);
                 const int b = object_to_signed_int(&new_expression->right->object);
@@ -3484,7 +3488,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
+            case TYPE_UNSIGNED_INT:
             {
                 unsigned int a = object_to_unsigned_int(&new_expression->left->object);
                 unsigned int b = object_to_unsigned_int(&new_expression->right->object);
@@ -3587,7 +3591,210 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
+            case TYPE_SIGNED_LONG:
+            {
+                const signed long a = object_to_signed_long(&new_expression->left->object);
+                const signed long b = object_to_signed_long(&new_expression->right->object);
+
+                if (op == '+')
+                {
+                    const signed long computed_result = a + b;
+                    signed long long exact_result;
+                    if (signed_long_long_add(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
+                    value = object_make_signed_long(computed_result);
+                }
+                else if (op == '-')
+                {
+                    const signed long computed_result = a - b;
+                    signed long long exact_result;
+                    if (signed_long_long_sub(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
+                    value = object_make_signed_long(computed_result);
+                }
+                else if (op == '*')
+                {
+                    const signed long computed_result = a * b;
+                    signed long long exact_result;
+                    if (signed_long_long_mul(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
+                    value = object_make_signed_long(computed_result);
+                }
+                else if (op == '/')
+                {
+                    if (b == 0)
+                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else
+                        value = object_make_signed_long(a / b);
+                }
+                else if (op == '%')
+                {
+                    if (b == 0)
+                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else
+                        value = object_make_signed_long(a % b);
+                }
+                //////////
+                else if (op == '>')
+                {
+                    value = object_make_signed_long(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = object_make_signed_long(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = object_make_signed_long(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = object_make_signed_long(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = object_make_signed_long(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = object_make_signed_long(a != b);
+                }
+            }
+            break;
+
+            case TYPE_UNSIGNED_LONG:
+            {
+                unsigned long a = object_to_unsigned_long(&new_expression->left->object);
+                unsigned long b = object_to_unsigned_long(&new_expression->right->object);
+
+                if (op == '+')
+                {
+                    const unsigned long computed_result = a + b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_add(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
+                    value = object_make_unsigned_long(computed_result);
+                }
+                else if (op == '-')
+                {
+                    const unsigned long computed_result = a - b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_sub(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
+                    value = object_make_unsigned_long(computed_result);
+                }
+                else if (op == '*')
+                {
+                    const unsigned long computed_result = a * b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_mul(&exact_result, a, b))
+                    {
+                        if (computed_result != exact_result)
+                        {
+                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
+                        }
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
+
+                    value = object_make_unsigned_long(computed_result);
+                }
+                else if (op == '/')
+                {
+                    if (b == 0)
+                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else
+                        value = object_make_unsigned_long(a / b);
+                }
+                else if (op == '%')
+                {
+                    if (b == 0)
+                    {
+                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                        throw;
+                    }
+
+                    value = object_make_unsigned_long(a % b);
+                }
+                //////////                
+                else if (op == '>')
+                {
+                    value = object_make_unsigned_long(a > b);
+                }
+                else if (op == '<')
+                {
+                    value = object_make_unsigned_long(a < b);
+                }
+                else if (op == '>=')
+                {
+                    value = object_make_unsigned_long(a >= b);
+                }
+                else if (op == '<=')
+                {
+                    value = object_make_unsigned_long(a <= b);
+                }
+                //
+                else if (op == '==')
+                {
+                    value = object_make_unsigned_long(a == b);
+                }
+                else if (op == '!=')
+                {
+                    value = object_make_unsigned_long(a != b);
+                }
+
+            }
+            break;
+
+            case TYPE_SIGNED_LONG_LONG:
             {
                 long long a = object_to_signed_long_long(&new_expression->left->object);
                 long long b = object_to_signed_long_long(&new_expression->right->object);
@@ -3673,22 +3880,51 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
+            case TYPE_UNSIGNED_LONG_LONG:
             {
-                unsigned long long a = object_to_unsigned_long(&new_expression->left->object);
-                unsigned long long b = object_to_unsigned_long(&new_expression->right->object);
+                unsigned long long a = object_to_unsigned_long_long(&new_expression->left->object);
+                unsigned long long b = object_to_unsigned_long_long(&new_expression->right->object);
 
 
                 if (op == '+')
                 {
+                    //const unsigned long long computed_result = a + b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_add(&exact_result, a, b))
+                    {
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
+
                     value = object_make_unsigned_long_long(a + b);
                 }
                 else if (op == '-')
                 {
+                    //const unsigned long long computed_result = a - b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_sub(&exact_result, a, b))
+                    {
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
+
                     value = object_make_unsigned_long_long(a - b);
                 }
                 else if (op == '*')
                 {
+                    //const unsigned long long computed_result = a * b;
+                    unsigned long long exact_result;
+                    if (unsigned_long_long_mul(&exact_result, a, b))
+                    {
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
+                    }
                     value = object_make_unsigned_long_long(a * b);
                 }
                 else if (op == '/')
@@ -4805,7 +5041,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             enum object_value_type vt = type_to_object_type(&new_expression->type);
             switch (vt)
             {
-            case TYPE_SIGNED_INT_OR_SIGNED_LONG:
+            case TYPE_SIGNED_INT:
             {
                 int a = object_to_signed_int(&new_expression->left->object);
                 int b = object_to_signed_int(&new_expression->right->object);
@@ -4826,8 +5062,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 new_expression->object = object_make_signed_int(r);
             }
             break;
-
-            case TYPE_UNSIGNED_INT_OR_UNSIGNEG_LONG:
+            case TYPE_UNSIGNED_INT:
             {
                 unsigned int a = object_to_unsigned_int(&new_expression->left->object);
                 unsigned int b = object_to_unsigned_int(&new_expression->right->object);
@@ -4847,11 +5082,54 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            case TYPE_SIGNED_LONG_LONG_OR_SIGNED_LONG:
+            case TYPE_SIGNED_LONG:
             {
-                long long a = object_to_signed_long(&new_expression->left->object);
-                long long b = object_to_signed_long(&new_expression->right->object);
-                long long r = 0;
+                signed long a = object_to_signed_long(&new_expression->left->object);
+                signed long b = object_to_signed_long(&new_expression->right->object);
+
+                int r = 0;
+                if (op == '|')
+                    r = a | b;
+                else if (op == '^')
+                    r = a ^ b;
+                else if (op == '&')
+                    r = a & b;
+                //
+                else if (op == '>>')
+                    r = a >> b;
+                else if (op == '<<')
+                    r = a << b;
+
+                new_expression->object = object_make_signed_long(r);
+            }
+            break;
+
+            case TYPE_UNSIGNED_LONG:
+            {
+                unsigned long a = object_to_unsigned_long(&new_expression->left->object);
+                unsigned long b = object_to_unsigned_long(&new_expression->right->object);
+                int r = 0;
+                if (op == '|')
+                    r = a | b;
+                else if (op == '^')
+                    r = a ^ b;
+                else if (op == '&')
+                    r = a & b;
+                //
+                else if (op == '>>')
+                    r = a >> b;
+                else if (op == '<<')
+                    r = a << b;
+                new_expression->object = object_make_unsigned_long(r);
+            }
+            break;
+
+
+            case TYPE_SIGNED_LONG_LONG:
+            {
+                signed long long a = object_to_signed_long_long(&new_expression->left->object);
+                signed long long b = object_to_signed_long_long(&new_expression->right->object);
+                signed long long r = 0;
                 if (op == '|')
                     r = a | b;
                 else if (op == '^')
@@ -4868,10 +5146,10 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            case TYPE_UNSIGNED_LONG_LONG_OR_UNSIGNEG_LONG:
+            case TYPE_UNSIGNED_LONG_LONG:
             {
-                unsigned long long a = object_to_unsigned_long(&new_expression->left->object);
-                unsigned long long b = object_to_unsigned_long(&new_expression->right->object);
+                unsigned long long a = object_to_unsigned_long_long(&new_expression->left->object);
+                unsigned long long b = object_to_unsigned_long_long(&new_expression->right->object);
                 unsigned long long r = 0;
                 if (op == '|')
                     r = a | b;

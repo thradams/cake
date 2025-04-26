@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <string.h>
 
+NODISCARD
 bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -28,6 +29,7 @@ bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
+NODISCARD
 bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -49,6 +51,7 @@ bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
+NODISCARD
 bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -63,6 +66,7 @@ bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
+NODISCARD
 bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
@@ -106,6 +110,7 @@ bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
+NODISCARD
 bool signed_long_long_add(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
@@ -144,6 +149,7 @@ bool signed_long_long_add(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
+NODISCARD
 bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
@@ -201,7 +207,7 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
 void object_destroy(_Opt _Dtor struct object* p)
 {
     type_destroy(&p->type);
-    free(p->debug_name);
+    free((void*)p->debug_name);
 }
 
 void object_delete(struct object* _Opt _Owner p)
@@ -1932,7 +1938,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 char name[100]={0};
                 snprintf(name, sizeof name, "[%d]", count);
                 
-                free(a->members->debug_name);
+                free((void*)a->members->debug_name);
                 a->members->debug_name = strdup(name);
 
                 object_default_initialization(a->members, is_constant);
@@ -1949,7 +1955,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 char name[100]={0};
                 snprintf(name, sizeof name, "[%d]", count);
                 
-                free(p->debug_name);
+                free((void*)p->debug_name);
                 p->debug_name = strdup(name);
 
 
