@@ -69,6 +69,7 @@ int test_stringfy(void);
 int test_tokens(void);
 int test_predefined_macros(void);
 int test_utf8(void);
+int bug_test(void);
 int test_line_continuation(void);
 int stringify_test(void);
 
@@ -136,6 +137,7 @@ g_unit_test_success_count = 0;
     test_tokens();
     test_predefined_macros();
     test_utf8();
+    bug_test();
     test_line_continuation();
     stringify_test();
     test_get_warning_name();

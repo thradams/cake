@@ -4734,7 +4734,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                       antes copia flags dele
                     */
 
-                    const enum token_flags flags = input_list->head->flags;
+                    const enum token_flags flags = r.tail->flags;
                     token_list_pop_front(input_list);
 
                     //deleta tambem # do fim
@@ -7671,6 +7671,7 @@ int test_predefined_macros()
     }
     if (strcmp(result, output) != 0)
     {
+
     }
 
 
@@ -7691,7 +7692,26 @@ int test_utf8()
     return 0;
 }
 
+int bug_test()
+{
+    const char* input =
+        "#define M(b) a #b \n"
+        "M(1)\n";
 
+    const char* output =
+        "a \"1\""
+        ;
+
+
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+
+    return 0;
+}
 int test_line_continuation()
 {
 

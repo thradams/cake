@@ -1,1 +1,2 @@
-﻿enum {A = 18446744073709551615ULL*2};
+﻿#define foo(b) a #b
+foo(1)
