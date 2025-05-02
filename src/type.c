@@ -2233,16 +2233,13 @@ size_t type_get_sizeof(const struct type* p_type)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        if (p_type->enum_specifier && p_type->enum_specifier->specifier_qualifier_list)
-        {
-            struct type t = make_with_type_specifier_flags(p_type->enum_specifier->specifier_qualifier_list->type_specifier_flags);
-            size_t r = type_get_sizeof(&t);
-            type_destroy(&t);
-            return r;
-        }
+        const struct enum_specifier* p = 
+            get_complete_enum_specifier(p_type->enum_specifier);
+        if (p == 0)
+            return (size_t)-2;
 
-        //TODO bigger size depending on items
-        return  (int)sizeof(int);
+        size_t r = type_get_sizeof(&p->type);
+        return r;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)

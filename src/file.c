@@ -1,8 +1,8 @@
-﻿enum E : double
-{
-  A  = 1
+﻿enum X : short {
+    A
 };
 
-int main(){
-  
+int main() {
+    enum X x = A;
+    static_assert(sizeof(x) == sizeof(short));
 }

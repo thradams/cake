@@ -8562,7 +8562,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
             struct token_list list3 = copy_replacement_list_core(ctx, &r, true);
             token_list_swap(&list3, &r);
-            free(result);
+            free((void*)result);
             token_list_destroy(&list2);
             token_list_destroy(&list3);
         }
@@ -14683,8 +14683,10 @@ struct enum_specifier
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
     struct enum_specifier* _Opt complete_enum_specifier2;
+    struct type type;
 };
 
+bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier*);
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx*);
 
 struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p);
@@ -30105,6 +30107,11 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
     }
 }
 
+bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier* p_enum_specifier)
+{
+    return p_enum_specifier->specifier_qualifier_list != NULL;
+}
+
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 {
     /*
@@ -30178,27 +30185,28 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 if (p_enum_specifier->specifier_qualifier_list == NULL)
                     throw;
 
-                struct type t  =
-                     make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
-                
-                if (!type_is_integer(&t))                
+                p_enum_specifier->type =
+                    make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+
+                if (!type_is_integer(&p_enum_specifier->type))
                 {
-                    compiler_diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE, 
-                        ctx, 
-                        p_enum_specifier->specifier_qualifier_list->first_token, 
+                    compiler_diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE,
+                        ctx,
+                        p_enum_specifier->specifier_qualifier_list->first_token,
                         NULL,
                         "expected an integer type");
 
-                    type_destroy(&t);
                     throw;
                 }
-
-                type_destroy(&t);
             }
             else
             {
-                //TODO
             }
+        }
+        else
+        {
+            /*can change with enumerators*/
+            p_enum_specifier->type = type_make_int();
         }
 
         if (ctx->current == NULL)
@@ -30432,21 +30440,16 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             p_enumerator->constant_expression_opt = constant_expression(ctx, true);
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
-            if (p_enum_specifier->specifier_qualifier_list)
+            if (enum_specifier_has_fixed_underlying_type(p_enum_specifier))
             {
-                struct type t = make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
-                //TODO
-                //enumerator value outside the range of underlying type
-                //the value from p_enumerator->constant_expression_opt->object
-                //must fit on t
-                type_destroy(&t);
+
             }
             else
             {
                 //if the value is bigger than int the enum whould type must be fixed
             }
             p_enumerator->value = p_enumerator->constant_expression_opt->object;
-            
+
             //fixes #257
             *p_next_enumerator_value = *object_get_referenced(&p_enumerator->value);
 
@@ -51127,16 +51130,13 @@ size_t type_get_sizeof(const struct type* p_type)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        if (p_type->enum_specifier && p_type->enum_specifier->specifier_qualifier_list)
-        {
-            struct type t = make_with_type_specifier_flags(p_type->enum_specifier->specifier_qualifier_list->type_specifier_flags);
-            size_t r = type_get_sizeof(&t);
-            type_destroy(&t);
-            return r;
-        }
+        const struct enum_specifier* p = 
+            get_complete_enum_specifier(p_type->enum_specifier);
+        if (p == 0)
+            return (size_t)-2;
 
-        //TODO bigger size depending on items
-        return  (int)sizeof(int);
+        size_t r = type_get_sizeof(&p->type);
+        return r;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)

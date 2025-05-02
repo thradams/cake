@@ -613,8 +613,10 @@ struct enum_specifier
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
     struct enum_specifier* _Opt complete_enum_specifier2;
+    struct type type;
 };
 
+bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier*);
 struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx*);
 
 struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p);

@@ -5259,7 +5259,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
             struct token_list list3 = copy_replacement_list_core(ctx, &r, true);
             token_list_swap(&list3, &r);
-            free(result);
+            free((void*)result);
             token_list_destroy(&list2);
             token_list_destroy(&list3);
         }

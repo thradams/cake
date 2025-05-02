@@ -961,18 +961,31 @@ int main()
 
 `;
 
-sample["C23"]["enum"] =
-    `
-
+sample["C23"]["Enhancements to Enumerations"] =
+`
+//https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 enum X : short {
     A
 };
 
 int main() {
     enum X x = A;
+    static_assert(sizeof(x) == sizeof(short));
 }
-//TODO _Generic on enum X
 `;
+
+sample["C23"]["Improved Enumerations"] =
+`
+//TODO
+//https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm
+
+enum a {
+	a0 = 0xFFFFFFFFFFFFFFFFULL
+};
+
+int main () {}
+`;
+
 
 sample["C2Y"] = [];
 sample["C2Y"]["if with initialization (Like C++17)"] =
