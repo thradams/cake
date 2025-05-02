@@ -4544,6 +4544,25 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 /*C23*/
                 parser_match(ctx);
                 p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
+                if (p_enum_specifier->specifier_qualifier_list == NULL)
+                    throw;
+
+                struct type t  =
+                     make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+                
+                if (!type_is_integer(&t))                
+                {
+                    compiler_diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE, 
+                        ctx, 
+                        p_enum_specifier->specifier_qualifier_list->first_token, 
+                        NULL,
+                        "expected an integer type");
+
+                    type_destroy(&t);
+                    throw;
+                }
+
+                type_destroy(&t);
             }
             else
             {
@@ -4782,8 +4801,24 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             p_enumerator->constant_expression_opt = constant_expression(ctx, true);
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
+            if (p_enum_specifier->specifier_qualifier_list)
+            {
+                struct type t = make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+                //TODO
+                //enumerator value outside the range of underlying type
+                //the value from p_enumerator->constant_expression_opt->object
+                //must fit on t
+                type_destroy(&t);
+            }
+            else
+            {
+                //if the value is bigger than int the enum whould type must be fixed
+            }
             p_enumerator->value = p_enumerator->constant_expression_opt->object;
-            *p_next_enumerator_value = p_enumerator->value;
+            
+            //fixes #257
+            *p_next_enumerator_value = *object_get_referenced(&p_enumerator->value);
+
             if (object_increment_value(p_next_enumerator_value) != 0)
             {
                 //overflow TODO

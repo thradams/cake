@@ -3449,6 +3449,11 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 {
                     if (b == 0)
                         compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else if (a == INT_MIN && b == -1)
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, new_expression->right->first_token, NULL, "integer overflow");
+                        value = object_make_signed_int(INT_MIN); //this is what other compiler are doing
+                    }
                     else
                         value = object_make_signed_int(a / b);
                 }
@@ -3651,6 +3656,11 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 {
                     if (b == 0)
                         compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
+                    else if (a == LONG_MIN && b == -1)
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, new_expression->right->first_token, NULL, "integer overflow");
+                        value = object_make_signed_long(LONG_MIN); //this is what compilers are doing
+                    }
                     else
                         value = object_make_signed_long(a / b);
                 }
@@ -3832,13 +3842,14 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 else if (op == '/')
                 {
                     if (b == 0)
-                    {
                         compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                        throw;
+                    else if (a == LLONG_MIN && b == -1)
+                    {
+                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, new_expression->right->first_token, NULL, "integer overflow");
+                        value = object_make_signed_long_long(LLONG_MIN); //this is what compilers are doing
                     }
-
-                    value = object_make_signed_long_long(a / b);
-
+                    else
+                        value = object_make_signed_long_long(a / b);
                 }
                 else if (op == '%')
                 {
@@ -3929,12 +3940,9 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 }
                 else if (op == '/')
                 {
-
                     if (b == 0)
-                    {
                         compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                        throw;
-                    }
+
 
                     value = object_make_unsigned_long_long(a / b);
                 }
@@ -4009,8 +4017,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 {
                     if (b == 0)
                     {
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                        throw;
+                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");                        
                     }
 
                     value = object_make_float(a / b);

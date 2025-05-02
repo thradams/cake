@@ -1,2 +1,8 @@
-﻿#define foo(b) a #b
-foo(1)
+﻿enum E : double
+{
+  A  = 1
+};
+
+int main(){
+  
+}

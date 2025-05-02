@@ -344,6 +344,8 @@ struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
 struct type make_size_t_type();
+struct type make_with_type_specifier_flags(enum type_specifier_flags f);
+
 
 struct type get_function_return_type(const struct type* p_type);
 bool function_returns_void(const struct type* p_type);

@@ -2433,10 +2433,10 @@ static void print_initializer(struct d_visit_ctx* ctx,
                 {
                     if (is_local && !bstatic)
                     {
-                        int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+                        size_t sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
                         // ss_fprintf(oss, ";\n");
                         print_identation_core(oss, ctx->indentation);
-                        ss_fprintf(oss, "_cake_zmem(&%s, %d);\n",
+                        ss_fprintf(oss, "_cake_zmem(&%s, %zu);\n",
                         p_init_declarator->p_declarator->name_opt->lexeme,
                         sz);
                         ctx->zero_mem_used = true;
@@ -2470,10 +2470,10 @@ static void print_initializer(struct d_visit_ctx* ctx,
             {
                 if (is_local && !bstatic)
                 {
-                    int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+                    size_t sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
                     //ss_fprintf(oss, ";\n");
                     print_identation_core(oss, ctx->indentation);
-                    ss_fprintf(oss, "_cake_zmem(&%s, %d);\n",
+                    ss_fprintf(oss, "_cake_zmem(&%s, %zu);\n",
                     p_init_declarator->p_declarator->name_opt->lexeme,
                     sz);
                     ctx->zero_mem_used = true;

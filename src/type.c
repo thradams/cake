@@ -2233,7 +2233,15 @@ size_t type_get_sizeof(const struct type* p_type)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        //TODO enum type
+        if (p_type->enum_specifier && p_type->enum_specifier->specifier_qualifier_list)
+        {
+            struct type t = make_with_type_specifier_flags(p_type->enum_specifier->specifier_qualifier_list->type_specifier_flags);
+            size_t r = type_get_sizeof(&t);
+            type_destroy(&t);
+            return r;
+        }
+
+        //TODO bigger size depending on items
         return  (int)sizeof(int);
     }
 
@@ -2508,6 +2516,14 @@ struct type type_make_int_bool_like()
     struct type t = { 0 };
     t.type_specifier_flags = TYPE_SPECIFIER_INT;
     t.attributes_flags = CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type make_with_type_specifier_flags(enum type_specifier_flags f)
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = f;
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
