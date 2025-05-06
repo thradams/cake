@@ -14,6 +14,8 @@
 #include "error.h"
 #include "type.h"
 
+struct parser_ctx;
+
 enum object_value_type 
 {
 
@@ -164,7 +166,14 @@ bool object_is_derived(const struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 
-void object_set(struct object* to, struct expression* _Opt init_expression, const struct object* from, bool is_constant);
+NODISCARD
+int object_set(
+    struct parser_ctx* ctx, 
+    struct object* to,
+    struct expression* _Opt init_expression, 
+    const struct object* from, 
+    bool is_constant,
+    bool requires_constant_initialization);
 
 struct type;
 

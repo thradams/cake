@@ -889,6 +889,7 @@ enum diagnostic_id {
     C_ERROR_INVALID_PREPROCESSING_DIRECTIVE = 1830,
     C_ERROR_FUNCTION_CANNOT_BE_MEMBER  = 1840,
     C_ERROR_NON_INTEGRAL_ENUM_TYPE = 1850,
+    C_ERROR_REQUIRES_COMPILE_TIME_VALUE = 1860,
 };
 
 
@@ -13663,6 +13664,8 @@ const struct type* type_get_specifer_part(const struct type* p_type);
 
 
 
+struct parser_ctx;
+
 enum object_value_type 
 {
 
@@ -13813,7 +13816,14 @@ bool object_is_derived(const struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 
-void object_set(struct object* to, struct expression* _Opt init_expression, const struct object* from, bool is_constant);
+NODISCARD
+int object_set(
+    struct parser_ctx* ctx, 
+    struct object* to,
+    struct expression* _Opt init_expression, 
+    const struct object* from, 
+    bool is_constant,
+    bool requires_constant_initialization);
 
 struct type;
 
@@ -15710,7 +15720,8 @@ int initializer_init_new(struct parser_ctx* ctx,
                          struct type* p_current_object_type,
                          struct object* p_current_object,
                          struct initializer* braced_initializer,
-                         bool is_constant);
+                         bool is_constant,
+                         bool requires_constant_initialization);
 
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
@@ -17148,60 +17159,90 @@ struct object* _Opt object_get_member(struct object* p_object, int index)
     return NULL;
 }
 
-void object_set(struct object* to, struct expression* _Opt p_init_expression, const struct object* from, bool is_constant)
+int object_set(
+    struct parser_ctx* ctx,
+    struct object* to,
+    struct expression* _Opt p_init_expression,
+    const struct object* from,
+    bool is_constant,
+    bool requires_constant_initialization)
 {
-    from = object_get_referenced(from);
-
-    to->p_init_expression = p_init_expression;
-
-    if (object_is_derived(to))
+    try
     {
-        struct object* _Opt it_to = to->members;
-        struct object* _Opt it_from = from->members;
+        from = object_get_referenced(from);
 
-        while (it_from && it_to)
-        {
-            object_set(it_to, NULL, it_from, is_constant);
-            it_to = it_to->next;
-            it_from = it_from->next;
-        }
-        if (it_from != NULL || it_to != NULL)
-        {
-            //TODO  in dev
-          // assert(false);//TODO
-        }
-        //assert(it_from == NULL);
-        //assert(it_to == NULL);
-    }
-    else
-    {
-        assert(to->members == NULL);
+        to->p_init_expression = p_init_expression;
 
-        to->state = from->state;
-        to->value = object_cast(to->value_type, from).value;
-
-        if (is_constant)
+        if (object_is_derived(to))
         {
-            if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT ||
-                to->state == CONSTANT_VALUE_STATE_EXACT)
+            struct object* _Opt it_to = to->members;
+            struct object* _Opt it_from = from->members;
+
+            while (it_from && it_to)
             {
-                /*
-                struct X {int x;};
-                int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
-                to->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT ;
+                object_set(ctx, it_to, NULL, it_from, is_constant, requires_constant_initialization);
+                it_to = it_to->next;
+                it_from = it_from->next;
             }
+            if (it_from != NULL || it_to != NULL)
+            {
+                //TODO  in dev
+              // assert(false);//TODO
+            }
+            //assert(it_from == NULL);
+            //assert(it_to == NULL);
         }
         else
         {
-            if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
+            assert(to->members == NULL);
+
+            to->state = from->state;
+            to->value = object_cast(to->value_type, from).value;
+
+            if (requires_constant_initialization &&
+                !object_has_constant_value(from))
             {
-                //Sample int i = 1; 1 is constant but i will not be
-                to->state = CONSTANT_VALUE_STATE_EXACT;
+                if (!type_is_pointer_or_array(&p_init_expression->type) &&
+                    !type_is_function(&p_init_expression->type))
+                {
+                    struct token* tk = p_init_expression ?
+                        p_init_expression->first_token : ctx->current;
+
+                    compiler_diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
+                        ctx,
+                        tk,
+                        NULL,
+                        "requires a compile time object");
+                    throw;
+                }
+            }
+
+            if (is_constant)
+            {
+                if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT ||
+                    to->state == CONSTANT_VALUE_STATE_EXACT)
+                {
+                    /*
+                    struct X {int x;};
+                    int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
+                    to->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                }
+            }
+            else
+            {
+                if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
+                {
+                    //Sample int i = 1; 1 is constant but i will not be
+                    to->state = CONSTANT_VALUE_STATE_EXACT;
+                }
             }
         }
-
-
     }
+    catch
+    {
+        return 1;
+    }
+    return 0;
 }
 
 struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const char* name)
@@ -17633,9 +17674,9 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 if (a->members == NULL)
                     throw;
 
-                char name[100]={0};
+                char name[100] = { 0 };
                 snprintf(name, sizeof name, "[%d]", count);
-                
+
                 free((void*)a->members->debug_name);
                 a->members->debug_name = strdup(name);
 
@@ -17650,9 +17691,9 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 struct object* _Owner _Opt p = make_object_ptr(p_type);
                 if (p == NULL)
                     throw;
-                char name[100]={0};
+                char name[100] = { 0 };
                 snprintf(name, sizeof name, "[%d]", count);
-                
+
                 free((void*)p->debug_name);
                 p->debug_name = strdup(name);
 
@@ -19702,11 +19743,14 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             initializer.braced_initializer = p_expression_node->braced_initializer;
             initializer.first_token = p_expression_node->first_token;
 
+            const bool requires_constant_initialization = false;
+
             initializer_init_new(ctx,
                          &p_expression_node->type,
                          &p_expression_node->object,
                          &initializer,
-                         is_constant);
+                         is_constant,
+                         requires_constant_initialization);
         }
 
         if (ctx->previous == NULL)
@@ -25613,7 +25657,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.21"
+#define CAKE_VERSION "0.10.22"
 
 
 
@@ -25676,11 +25720,13 @@ void d_visit_ctx_destroy( _Dtor struct d_visit_ctx* ctx);
 #define MYMAX_PATH MAX_PATH
 #endif
 
+NODISCARD
 int initializer_init_new(struct parser_ctx* ctx,
                        struct type* p_type, /*in (in/out for arrays [])*/
                         struct object* object, /*in (in/out for arrays [])*/
                         struct initializer* initializer, /*rtocar para initializer item??*/
-                        bool is_constant);
+                        bool is_constant,
+                        bool requires_constant_initialization);
 
 struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx);
 
@@ -27665,6 +27711,9 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 {
                     p_declaration->init_declarator_list = init_declarator_list(ctx,
                         p_declaration->declaration_specifiers);
+                
+                  if (p_declaration->init_declarator_list.head == NULL)
+                      throw;
                 }
 
                 if (ctx->current == NULL)
@@ -28260,6 +28309,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         if (ctx->current->type == '=')
         {
+            const bool requires_constant_initialization =
+                (ctx->p_current_function_opt == NULL) ||
+                (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+
             parser_match(ctx);
 
             assert(p_init_declarator->initializer == NULL);
@@ -28289,11 +28342,15 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
 
 
-                initializer_init_new(ctx,
-                             &p_init_declarator->p_declarator->type,
-                             &p_init_declarator->p_declarator->object,
-                             p_init_declarator->initializer,
-                             is_constant);
+                if (initializer_init_new(ctx,
+                    &p_init_declarator->p_declarator->type,
+                    &p_init_declarator->p_declarator->object,
+                    p_init_declarator->initializer,
+                    is_constant,
+                    requires_constant_initialization) != 0)
+                {
+                    throw;
+                }
 
                 p_init_declarator->p_declarator->object.type.num_of_elements =
                     p_init_declarator->p_declarator->type.num_of_elements;
@@ -28339,8 +28396,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                     if (p_init_declarator->p_declarator->pointer != NULL)
                     {
-                        compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
-                        throw;
+                        compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");                        
                     }
 
                     struct type t = { 0 };
@@ -28382,11 +28438,15 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                 //intf("\n");                
 
-                initializer_init_new(ctx,
+                if (initializer_init_new(ctx,
                                  &p_init_declarator->p_declarator->type,
                                  &p_init_declarator->p_declarator->object,
                                  p_init_declarator->initializer,
-                                 is_constant);
+                                 is_constant,
+                                 requires_constant_initialization) != 0)
+                {
+                    throw;
+                }
                 //object_print_to_debug(&p_init_declarator->p_declarator->object);
             }
         }
@@ -36972,7 +37032,8 @@ int initializer_init_new(struct parser_ctx* ctx,
                         struct type* p_type, /*in (in/out for arrays [])*/
                         struct object* object, /*in (in/out for arrays [])*/
                         struct initializer* initializer, /*rtocar para initializer item??*/
-                        bool is_constant);
+                        bool is_constant,
+                        bool requires_constant_initialization);
 
 static struct initializer_list_item* _Opt find_innner_initializer_list_item(struct braced_initializer* braced_initializer)
 {
@@ -37000,40 +37061,291 @@ static struct initializer_list_item* _Opt find_innner_initializer_list_item(stru
     return p_initializer_list_item;
 }
 
+NODISCARD
 static int braced_initializer_new(struct parser_ctx* ctx,
                                   struct type* p_current_object_type,
                                   struct object* current_object,
                                   struct braced_initializer* braced_initializer,
-                                  bool is_constant)
+                                  bool is_constant,
+                                  bool requires_constant_initialization)
 {
-    if (braced_initializer->initializer_list == NULL)
+    try
     {
-        object_default_initialization(current_object, is_constant);
-        return 0;
-    }
-
-    if (!type_is_union(p_current_object_type))
-    {
-        object_default_initialization(current_object, is_constant);
-    }
-
-    if (type_is_scalar(p_current_object_type))
-    {
-        struct initializer_list_item* _Opt p_initializer_list_item =
-            find_innner_initializer_list_item(braced_initializer);
-
-        if (p_initializer_list_item == NULL)
+        if (braced_initializer->initializer_list == NULL)
         {
+            object_default_initialization(current_object, is_constant);
             return 0;
         }
 
-        if (p_initializer_list_item->initializer->assignment_expression != NULL)
+        if (!type_is_union(p_current_object_type))
         {
-            object_set(current_object, p_initializer_list_item->initializer->assignment_expression,
-                &p_initializer_list_item->initializer->assignment_expression->object, is_constant);
+            object_default_initialization(current_object, is_constant);
         }
 
-        p_initializer_list_item = p_initializer_list_item->next;
+        if (type_is_scalar(p_current_object_type))
+        {
+            struct initializer_list_item* _Opt p_initializer_list_item =
+                find_innner_initializer_list_item(braced_initializer);
+
+            if (p_initializer_list_item == NULL)
+            {
+                return 0;
+            }
+
+            if (p_initializer_list_item->initializer->assignment_expression != NULL)
+            {
+                if (object_set(ctx,
+                    current_object, p_initializer_list_item->initializer->assignment_expression,
+                    &p_initializer_list_item->initializer->assignment_expression->object,
+                    is_constant,
+                    requires_constant_initialization) != 0)
+                {
+                    throw;
+                }
+            }
+
+            p_initializer_list_item = p_initializer_list_item->next;
+
+            if (p_initializer_list_item != NULL)
+            {
+                compiler_diagnostic(W_TO_MANY_INITIALIZERS,
+                                            ctx,
+                                            p_initializer_list_item->initializer->first_token,
+                                            NULL,
+                                            "warning: excess elements in initializer");
+            }
+            return 0;
+        }
+
+
+        //TODO Array char
+
+        struct object* const _Opt parent_copy = current_object->parent;
+        current_object->parent = NULL; //to be only here
+        struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
+        long long array_to_expand_index = -1;
+        int array_to_expand_max_index = -1;
+        bool compute_array_size = false;
+        struct type array_item_type = { 0 };
+        if (type_is_array(p_current_object_type))
+        {
+            array_item_type = get_array_item_type(p_current_object_type);
+            compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
+            if (type_is_char(&array_item_type))
+            {
+                struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
+                if (p_initializer_list_item2 == NULL)
+                {
+                    type_destroy(&array_item_type);
+                    return 0;
+                }
+                if (p_initializer_list_item2->initializer->assignment_expression != NULL)
+                {
+                    if (p_initializer_list_item2->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                    {
+                        unsigned long long num_of_elements =
+                            p_initializer_list_item2->initializer->assignment_expression->type.num_of_elements;
+
+                        if (compute_array_size)
+                        {
+                            object_extend_array_to_index(&array_item_type, current_object, num_of_elements - 1, is_constant);
+                        }
+
+                        if (object_set(ctx,
+                            current_object,
+                            p_initializer_list_item2->initializer->assignment_expression,
+                            &p_initializer_list_item2->initializer->assignment_expression->object,
+                            is_constant,
+                            requires_constant_initialization) != 0)
+                        {
+                            throw;
+                        }
+                        //current_object->type2.num_of_elements = num_of_elements;
+                        p_current_object_type->num_of_elements = num_of_elements;
+
+                        //printf("\n");
+                        //object_print_to_debug(current_object);
+                        type_destroy(&array_item_type);
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        struct object* _Opt p_subobject = NULL;
+
+        for (;;)
+        {
+            bool is_subobject_of_union = false;
+            struct type subobject_type = { 0 };
+
+            if (p_initializer_list_item == NULL)
+            {
+                break;
+            }
+
+            if (p_initializer_list_item->designation)
+            {
+                if (compute_array_size)
+                {
+                    array_to_expand_index = object_to_signed_long_long(&p_initializer_list_item->designation->designator_list->head->constant_expression_opt->object);
+
+                    if (array_to_expand_index > array_to_expand_max_index)
+                        array_to_expand_max_index = array_to_expand_index;
+
+                    object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
+                }
+                is_subobject_of_union = type_is_union(&subobject_type);
+                p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false);
+                if (p_subobject == NULL)
+                {
+                    // already have the error, need not say that it was not consumed
+                    p_initializer_list_item = p_initializer_list_item->next;
+                    type_destroy(&subobject_type);
+                    break;
+                }
+            }
+            else
+            {
+                if (compute_array_size)
+                {
+
+                    struct object* _Opt po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                    if (po == NULL)
+                    {
+                        array_to_expand_index++;
+                        if (array_to_expand_index > array_to_expand_max_index)
+                            array_to_expand_max_index = array_to_expand_index;
+
+                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
+                    }
+                }
+
+                if (p_subobject == NULL)
+                {
+
+                    p_subobject = find_first_subobject(p_current_object_type, current_object, &subobject_type, &is_subobject_of_union);
+                }
+                else
+                {
+                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                }
+            }
+
+            if (p_subobject == NULL)
+            {
+                type_destroy(&subobject_type);
+                break;
+            }
+
+
+
+            if (p_initializer_list_item->initializer->braced_initializer)
+            {
+                if (braced_initializer_new(ctx,
+                    &subobject_type,
+                    p_subobject,
+                    p_initializer_list_item->initializer->braced_initializer,
+                    is_constant,
+                    requires_constant_initialization) != 0)
+                {
+                    throw;
+                }
+
+                struct type t = { 0 };
+
+                is_subobject_of_union = type_is_union(&subobject_type);
+                p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
+                type_swap(&t, &subobject_type);
+                type_destroy(&t);
+            }
+            else if (p_initializer_list_item->initializer->assignment_expression)
+            {
+                bool entire_object_initialized = false;
+
+                if (type_is_array_of_char(&subobject_type) &&
+                    p_initializer_list_item->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                {
+                    /*
+                    struct X { int i; char text[4]; };
+                    constexpr struct X x = {1, "abc"};
+                    */
+                    entire_object_initialized = true;
+                }
+                else if (type_is_array(&subobject_type))
+                {
+                    while (type_is_array(&subobject_type))
+                    {
+                        /*
+                          struct X { int i[2]; };
+                          int a[2]={};
+                          struct  X b = { a };    //error
+                        */
+                        //sub_object_of_union = false;
+                        p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                    }
+                }
+                else if (type_is_struct_or_union(&subobject_type))
+                {
+                    if (type_is_struct_or_union(&p_initializer_list_item->initializer->assignment_expression->type))
+                    {
+                        //mesmo tipo
+                        entire_object_initialized = true;
+                    }
+                    else
+                    {
+                        p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                    }
+                }
+
+                if (object_set(ctx,
+                    p_subobject,
+                    p_initializer_list_item->initializer->assignment_expression,
+                    &p_initializer_list_item->initializer->assignment_expression->object,
+                    is_constant,
+                    requires_constant_initialization) != 0)
+                {
+                    throw;
+                }
+
+
+                if (is_subobject_of_union)
+                {
+                    assert(p_subobject);
+                    assert(p_subobject->parent);
+                    struct type t = { 0 };
+                    is_subobject_of_union = true;
+                    p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type,
+                                                                 p_subobject->parent,
+                                                                 &t);
+                    type_swap(&t, &subobject_type);
+                    type_destroy(&t);
+                    if (p_subobject)
+                    {
+                        type_destroy(&subobject_type);
+                        subobject_type = type_dup(&p_subobject->type);
+                    }
+
+                }
+                else if (entire_object_initialized)
+                {
+                    assert(p_subobject);
+
+                    struct type t = { 0 };
+                    is_subobject_of_union = type_is_union(p_current_object_type);
+                    p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
+                    type_swap(&t, &subobject_type);
+                    type_destroy(&t);
+                    if (p_subobject)
+                    {
+                        type_destroy(&subobject_type);
+                        subobject_type = type_dup(&p_subobject->type);
+                    }
+                }
+            }
+            p_initializer_list_item = p_initializer_list_item->next;
+            type_destroy(&subobject_type);
+        }
 
         if (p_initializer_list_item != NULL)
         {
@@ -37042,242 +37354,22 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                                         p_initializer_list_item->initializer->first_token,
                                         NULL,
                                         "warning: excess elements in initializer");
+
         }
-        return 0;
+        if (compute_array_size)
+        {
+            current_object->type.num_of_elements = array_to_expand_max_index + 1;
+            p_current_object_type->num_of_elements = array_to_expand_max_index + 1;
+        }
+
+        current_object->parent = parent_copy; //restore
+        type_destroy(&array_item_type);
     }
-
-
-    //TODO Array char
-
-    struct object* const _Opt parent_copy = current_object->parent;
-    current_object->parent = NULL; //to be only here
-    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
-    long long array_to_expand_index = -1;
-    int array_to_expand_max_index = -1;
-    bool compute_array_size = false;
-    struct type array_item_type = { 0 };
-    if (type_is_array(p_current_object_type))
+    catch
     {
-        array_item_type = get_array_item_type(p_current_object_type);
-        compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
-        if (type_is_char(&array_item_type))
-        {
-            struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
-            if (p_initializer_list_item2 == NULL)
-            {
-                type_destroy(&array_item_type);
-                return 0;
-            }
-            if (p_initializer_list_item2->initializer->assignment_expression != NULL)
-            {
-                if (p_initializer_list_item2->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
-                {
-                    unsigned long long num_of_elements =
-                        p_initializer_list_item2->initializer->assignment_expression->type.num_of_elements;
-
-                    if (compute_array_size)
-                    {
-                        object_extend_array_to_index(&array_item_type, current_object, num_of_elements - 1, is_constant);
-                    }
-
-                    object_set(current_object,
-                        p_initializer_list_item2->initializer->assignment_expression,
-                        &p_initializer_list_item2->initializer->assignment_expression->object,
-                        is_constant);
-                    //current_object->type2.num_of_elements = num_of_elements;
-                    p_current_object_type->num_of_elements = num_of_elements;
-
-                    //printf("\n");
-                    //object_print_to_debug(current_object);
-                    type_destroy(&array_item_type);
-                    return 0;
-                }
-            }
-        }
+        return 1;
     }
 
-    struct object* _Opt p_subobject = NULL;
-
-    for (;;)
-    {
-        bool is_subobject_of_union = false;
-        struct type subobject_type = { 0 };
-
-        if (p_initializer_list_item == NULL)
-        {
-            break;
-        }
-
-        if (p_initializer_list_item->designation)
-        {
-            if (compute_array_size)
-            {
-                array_to_expand_index = object_to_signed_long_long(&p_initializer_list_item->designation->designator_list->head->constant_expression_opt->object);
-
-                if (array_to_expand_index > array_to_expand_max_index)
-                    array_to_expand_max_index = array_to_expand_index;
-
-                object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
-            }
-            is_subobject_of_union = type_is_union(&subobject_type);
-            p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false);
-            if (p_subobject == NULL)
-            {
-                // already have the error, need not say that it was not consumed
-                p_initializer_list_item = p_initializer_list_item->next;
-                type_destroy(&subobject_type);
-                break;
-            }
-        }
-        else
-        {
-            if (compute_array_size)
-            {
-
-                struct object* _Opt po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
-                if (po == NULL)
-                {
-                    array_to_expand_index++;
-                    if (array_to_expand_index > array_to_expand_max_index)
-                        array_to_expand_max_index = array_to_expand_index;
-
-                    object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
-                }
-            }
-
-            if (p_subobject == NULL)
-            {
-
-                p_subobject = find_first_subobject(p_current_object_type, current_object, &subobject_type, &is_subobject_of_union);
-            }
-            else
-            {
-                p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
-            }
-        }
-
-        if (p_subobject == NULL)
-        {
-            type_destroy(&subobject_type);
-            break;
-        }
-
-
-
-        if (p_initializer_list_item->initializer->braced_initializer)
-        {
-            braced_initializer_new(ctx,
-                                  &subobject_type,
-                                  p_subobject,
-                                  p_initializer_list_item->initializer->braced_initializer,
-                                  is_constant);
-            struct type t = { 0 };
-
-            is_subobject_of_union = type_is_union(&subobject_type);
-            p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
-            type_swap(&t, &subobject_type);
-            type_destroy(&t);
-        }
-        else if (p_initializer_list_item->initializer->assignment_expression)
-        {
-            bool entire_object_initialized = false;
-
-            if (type_is_array_of_char(&subobject_type) &&
-                p_initializer_list_item->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
-            {
-                /*
-                struct X { int i; char text[4]; };
-                constexpr struct X x = {1, "abc"};
-                */
-                entire_object_initialized = true;
-            }
-            else if (type_is_array(&subobject_type))
-            {
-                while (type_is_array(&subobject_type))
-                {
-                    /*
-                      struct X { int i[2]; };
-                      int a[2]={};
-                      struct  X b = { a };    //error
-                    */
-                    //sub_object_of_union = false;
-                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
-                }
-            }
-            else if (type_is_struct_or_union(&subobject_type))
-            {
-                if (type_is_struct_or_union(&p_initializer_list_item->initializer->assignment_expression->type))
-                {
-                    //mesmo tipo
-                    entire_object_initialized = true;
-                }
-                else
-                {
-                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
-                }
-            }
-
-            object_set(p_subobject,
-                   p_initializer_list_item->initializer->assignment_expression,
-                   &p_initializer_list_item->initializer->assignment_expression->object,
-                   is_constant);
-
-
-            if (is_subobject_of_union)
-            {
-                assert(p_subobject);
-                assert(p_subobject->parent);
-                struct type t = { 0 };
-                is_subobject_of_union = true;
-                p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type,
-                                                             p_subobject->parent,
-                                                             &t);
-                type_swap(&t, &subobject_type);
-                type_destroy(&t);
-                if (p_subobject)
-                {
-                    type_destroy(&subobject_type);
-                    subobject_type = type_dup(&p_subobject->type);
-                }
-
-            }
-            else if (entire_object_initialized)
-            {
-                assert(p_subobject);
-
-                struct type t = { 0 };
-                is_subobject_of_union = type_is_union(p_current_object_type);
-                p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
-                type_swap(&t, &subobject_type);
-                type_destroy(&t);
-                if (p_subobject)
-                {
-                    type_destroy(&subobject_type);
-                    subobject_type = type_dup(&p_subobject->type);
-                }
-            }
-        }
-        p_initializer_list_item = p_initializer_list_item->next;
-        type_destroy(&subobject_type);
-    }
-
-    if (p_initializer_list_item != NULL)
-    {
-        compiler_diagnostic(W_TO_MANY_INITIALIZERS,
-                                    ctx,
-                                    p_initializer_list_item->initializer->first_token,
-                                    NULL,
-                                    "warning: excess elements in initializer");
-
-    }
-    if (compute_array_size)
-    {
-        current_object->type.num_of_elements = array_to_expand_max_index + 1;
-        p_current_object_type->num_of_elements = array_to_expand_max_index + 1;
-    }
-
-    current_object->parent = parent_copy; //restore
-    type_destroy(&array_item_type);
     return 0;
 }
 
@@ -37285,30 +37377,44 @@ int initializer_init_new(struct parser_ctx* ctx,
                         struct type* p_type,
                         struct object* object, /*in (in/out for arrays [])*/
                         struct initializer* initializer, /*rtocar para initializer item??*/
-                        bool is_constant)
+                        bool is_constant,
+                        bool requires_constant_initialization)
 {
-    if (initializer->assignment_expression != NULL)
+    try
     {
-        //types must be compatible
-        object_set(object,
-            initializer->assignment_expression,
-            &initializer->assignment_expression->object,
-            is_constant);
-    }
-    else if (initializer->braced_initializer)
-    {
-        if (braced_initializer_new(ctx,
-            p_type,
-            object,
-            initializer->braced_initializer,
-            is_constant) != 0)
+        if (initializer->assignment_expression != NULL)
         {
-            return 1;
+            //types must be compatible
+            if (object_set(ctx,
+                object,
+                initializer->assignment_expression,
+                &initializer->assignment_expression->object,
+                is_constant,
+                requires_constant_initialization) != 0)
+            {
+                throw;
+            }
+        }
+        else if (initializer->braced_initializer)
+        {
+            if (braced_initializer_new(ctx,
+                p_type,
+                object,
+                initializer->braced_initializer,
+                is_constant,
+                requires_constant_initialization) != 0)
+            {
+                throw;
+            }
         }
     }
+    catch
+    {
+        return 1;
+    }
+
     return 0;
 }
-
 
 /*
  *  This file is part of cake compiler

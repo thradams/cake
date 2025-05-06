@@ -1450,60 +1450,92 @@ struct object* _Opt object_get_member(struct object* p_object, int index)
     return NULL;
 }
 
-void object_set(struct object* to, struct expression* _Opt p_init_expression, const struct object* from, bool is_constant)
+int object_set(
+    struct parser_ctx* ctx,
+    struct object* to,
+    struct expression* _Opt p_init_expression,
+    const struct object* from,
+    bool is_constant,
+    bool requires_constant_initialization)
 {
-    from = object_get_referenced(from);
-
-    to->p_init_expression = p_init_expression;
-
-    if (object_is_derived(to))
+    try
     {
-        struct object* _Opt it_to = to->members;
-        struct object* _Opt it_from = from->members;
+        from = object_get_referenced(from);
 
-        while (it_from && it_to)
-        {
-            object_set(it_to, NULL, it_from, is_constant);
-            it_to = it_to->next;
-            it_from = it_from->next;
-        }
-        if (it_from != NULL || it_to != NULL)
-        {
-            //TODO  in dev
-          // assert(false);//TODO
-        }
-        //assert(it_from == NULL);
-        //assert(it_to == NULL);
-    }
-    else
-    {
-        assert(to->members == NULL);
+        to->p_init_expression = p_init_expression;
 
-        to->state = from->state;
-        to->value = object_cast(to->value_type, from).value;
-
-        if (is_constant)
+        if (object_is_derived(to))
         {
-            if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT ||
-                to->state == CONSTANT_VALUE_STATE_EXACT)
+            struct object* _Opt it_to = to->members;
+            struct object* _Opt it_from = from->members;
+
+            while (it_from && it_to)
             {
-                /*
-                struct X {int x;};
-                int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
-                to->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT ;
+                object_set(ctx, it_to, NULL, it_from, is_constant, requires_constant_initialization);
+                it_to = it_to->next;
+                it_from = it_from->next;
             }
+            if (it_from != NULL || it_to != NULL)
+            {
+                //TODO  in dev
+              // assert(false);//TODO
+            }
+            //assert(it_from == NULL);
+            //assert(it_to == NULL);
         }
         else
         {
-            if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
+            assert(to->members == NULL);
+
+            to->state = from->state;
+            to->value = object_cast(to->value_type, from).value;
+
+            if (requires_constant_initialization &&
+                !object_has_constant_value(from))
             {
-                //Sample int i = 1; 1 is constant but i will not be
-                to->state = CONSTANT_VALUE_STATE_EXACT;
+                if (!type_is_pointer_or_array(&p_init_expression->type) &&
+                    !type_is_function(&p_init_expression->type))
+                {
+                    struct token* tk = p_init_expression ?
+                        p_init_expression->first_token : ctx->current;
+
+                    compiler_diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
+                        ctx,
+                        tk,
+                        NULL,
+                        "requires a compile time object");
+
+                    throw;
+                }
+            }
+
+            if (is_constant)
+            {
+                if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT ||
+                    to->state == CONSTANT_VALUE_STATE_EXACT)
+                {
+                    /*
+                    struct X {int x;};
+                    int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
+                    to->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                }
+            }
+            else
+            {
+                if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
+                {
+                    //Sample int i = 1; 1 is constant but i will not be
+                    to->state = CONSTANT_VALUE_STATE_EXACT;
+                }
             }
         }
-
-
     }
+    catch
+    {
+        return 1;
+    }
+
+    return 0;
 }
 
 struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const char* name)
@@ -1935,9 +1967,9 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 if (a->members == NULL)
                     throw;
 
-                char name[100]={0};
+                char name[100] = { 0 };
                 snprintf(name, sizeof name, "[%d]", count);
-                
+
                 free((void*)a->members->debug_name);
                 a->members->debug_name = strdup(name);
 
@@ -1952,9 +1984,9 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 struct object* _Owner _Opt p = make_object_ptr(p_type);
                 if (p == NULL)
                     throw;
-                char name[100]={0};
+                char name[100] = { 0 };
                 snprintf(name, sizeof name, "[%d]", count);
-                
+
                 free((void*)p->debug_name);
                 p->debug_name = strdup(name);
 

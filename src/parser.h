@@ -1640,6 +1640,7 @@ int initializer_init_new(struct parser_ctx* ctx,
                          struct type* p_current_object_type,
                          struct object* p_current_object,
                          struct initializer* braced_initializer,
-                         bool is_constant);
+                         bool is_constant,
+                         bool requires_constant_initialization);
 
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);

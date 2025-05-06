@@ -2033,11 +2033,14 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             initializer.braced_initializer = p_expression_node->braced_initializer;
             initializer.first_token = p_expression_node->first_token;
 
+            const bool requires_constant_initialization = false;
+
             initializer_init_new(ctx,
                          &p_expression_node->type,
                          &p_expression_node->object,
                          &initializer,
-                         is_constant);
+                         is_constant,
+                         requires_constant_initialization);
         }
 
         if (ctx->previous == NULL)

@@ -1,8 +1,9 @@
-﻿enum X : short {
-    A
-};
+﻿int main()
+{
 
-int main() {
-    enum X x = A;
-    static_assert(sizeof(x) == sizeof(short));
+    int x = 1;
+    auto* p = &x;
+#pragma cake diagnostic check "-E1290"
+    * p = 0;
 }
+
