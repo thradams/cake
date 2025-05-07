@@ -23680,7 +23680,6 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             //restore original state (before throw)
             ctx->evaluation_is_disabled = old_evaluation_is_disabled;
 
-
             if (p_right == NULL)
             {
                 expression_delete(p_conditional_expression);
