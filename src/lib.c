@@ -17213,6 +17213,7 @@ int object_set(
                         tk,
                         NULL,
                         "requires a compile time object");
+
                     throw;
                 }
             }
@@ -17242,6 +17243,7 @@ int object_set(
     {
         return 1;
     }
+
     return 0;
 }
 
@@ -21730,7 +21732,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 {
                     if (b == 0)
                     {
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");                        
+                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
                     }
 
                     value = object_make_float(a / b);
@@ -23624,14 +23626,32 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             parser_match(ctx); //?
             if (ctx->current == NULL)
             {
-
                 unexpected_end_of_file(ctx);
-
                 expression_delete(p_conditional_expression);
                 throw;
             }
 
+            bool constant_expression_is_true = false;
+            bool has_constant_expression = false;
+
+            if (object_has_constant_value(&p_conditional_expression->condition_expr->object))
+            {
+                has_constant_expression = true;
+                if (object_to_bool(&p_conditional_expression->condition_expr->object))
+                {
+                    constant_expression_is_true = true;
+                }
+            }
+
+            const bool old_evaluation_is_disabled = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = has_constant_expression && !constant_expression_is_true;
+
             struct expression* _Owner _Opt p_left = expression(ctx);
+            
+            //restore original state (before throw)
+            ctx->evaluation_is_disabled = old_evaluation_is_disabled;
+
+
             if (p_left == NULL)
             {
                 expression_delete(p_conditional_expression);
@@ -23639,7 +23659,14 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             }
             p_conditional_expression->left = p_left;
 
-            parser_match(ctx); //:
+     
+            if (parser_match_tk(ctx, TK_COLON) != 0)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(p_conditional_expression);
+                throw;
+            }
+
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
@@ -23647,27 +23674,29 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
                 throw;
             }
 
+            ctx->evaluation_is_disabled = has_constant_expression && constant_expression_is_true;
+
             struct expression* _Owner _Opt p_right = conditional_expression(ctx);
+            //restore original state (before throw)
+            ctx->evaluation_is_disabled = old_evaluation_is_disabled;
+
+
             if (p_right == NULL)
             {
                 expression_delete(p_conditional_expression);
                 throw;
             }
             p_conditional_expression->right = p_right;
-
+            
             if (object_has_constant_value(&p_conditional_expression->condition_expr->object))
             {
                 if (object_to_bool(&p_conditional_expression->condition_expr->object))
                 {
-                    /*this is an extensions.. in constant expression we can mix types!*/
-                    p_conditional_expression->type = type_dup(&p_conditional_expression->left->type);
-                    p_conditional_expression->object = p_conditional_expression->left->object;
+                    p_conditional_expression->object = object_make_reference(&p_conditional_expression->left->object);
                 }
                 else
                 {
-                    /*this is an extensions.. in constant expression we can mix types!*/
-                    p_conditional_expression->type = type_dup(&p_conditional_expression->right->type);
-                    p_conditional_expression->object = p_conditional_expression->right->object;
+                    p_conditional_expression->object = object_make_reference(&p_conditional_expression->right->object);
                 }
             }
 
@@ -25657,7 +25686,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.22"
+#define CAKE_VERSION "0.10.23"
 
 
 
