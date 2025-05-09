@@ -1013,7 +1013,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
     }
 }
 
-static void digit_sequence(struct stream* stream)
+static void digit_sequence_opt(struct stream* stream)
 {
     while (is_digit(stream))
     {
@@ -1031,7 +1031,7 @@ static void binary_exponent_part(struct stream* stream)
     {
         stream_match(stream); // p or P
     }
-    digit_sequence(stream);
+    digit_sequence_opt(stream);
 }
 
 static bool is_hexadecimal_digit(struct stream* stream)
@@ -1183,7 +1183,7 @@ static void exponent_part_opt(struct stream* stream)
         {
             stream_match(stream);
         }
-        digit_sequence(stream);
+        digit_sequence_opt(stream);
     }
 }
 
@@ -1221,7 +1221,14 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
     {
         type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
         stream_match(stream);
-        digit_sequence(stream);
+
+        if (stream->current[0] == '.')
+        {
+            snprintf(errmsg, 100, "too many decimal points in number");
+            return TK_NONE;
+        }
+
+        digit_sequence_opt(stream);
         exponent_part_opt(stream);
         floating_suffix_opt(stream, suffix);
     }
@@ -1331,7 +1338,15 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
         {
             stream_match(stream);
             type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
-            digit_sequence(stream);
+
+            if (stream->current[0] == '.')
+            {
+                snprintf(errmsg, 100, "too many decimal points in number");
+                return TK_NONE;
+            }
+
+            digit_sequence_opt(stream);
+
             exponent_part_opt(stream);
             floating_suffix_opt(stream, suffix);
         }

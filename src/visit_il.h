@@ -13,7 +13,10 @@
 struct d_visit_ctx
 {
     int indentation;
+
+    /*used to create unique variable names inside functions*/
     int locals_count;
+
     int extern_count;
 
     int tag_name_count;
@@ -39,6 +42,13 @@ struct d_visit_ctx
     * Points to the function we're in. Or null in file scope.
     */
     struct declarator* _Opt p_current_function_opt;
+
+    struct break_reference
+    {
+      struct selection_statement * _Opt p_selection_statement;
+      struct iteration_statement * _Opt p_iteration_statement;
+    } break_reference;
+
     bool is__func__predefined_identifier_added;
 
     _View struct ast ast;    

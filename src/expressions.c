@@ -3386,8 +3386,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 .p_token_end = new_expression->right->last_token
             };
 
-            common_type = type_common(&new_expression->left->type,
-                                                  &new_expression->right->type);
+            common_type = type_common(&new_expression->left->type, &new_expression->right->type);
 
             enum object_value_type vt = type_to_object_type(&common_type);
             switch (vt)

@@ -235,54 +235,6 @@ void scope_list_pop(struct scope_list* list)
     p->previous = NULL;
 }
 
-void switch_value_destroy(_Dtor struct switch_value_list* p)
-{
-    struct switch_value* _Owner _Opt item = p->head;
-    while (item)
-    {
-        struct switch_value* _Owner _Opt next = item->next;
-        item->next = NULL;
-        free(item);
-        item = next;
-    }
-
-    if (p->p_default)
-    {
-        assert(p->p_default->next == NULL);
-        free(p->p_default);
-    }
-}
-
-void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew)
-{
-    if (list->head == NULL)
-    {
-        list->head = pnew;
-        list->tail = pnew;
-    }
-    else
-    {
-        assert(list->tail != NULL);
-        assert(list->tail->next == NULL);
-        list->tail->next = pnew;
-        list->tail = pnew;
-    }
-}
-
-struct switch_value* _Opt switch_value_list_find(const struct switch_value_list* list, long long value)
-{
-    struct switch_value* _Opt p = list->head;
-    while (p)
-    {
-        if (p->value == value)
-        {
-            return p;
-        }
-        p = p->next;
-    }
-    return NULL;
-}
-
 void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx)
 {
     label_list_clear(&ctx->label_list);
@@ -2034,9 +1986,9 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 {
                     p_declaration->init_declarator_list = init_declarator_list(ctx,
                         p_declaration->declaration_specifiers);
-                
-                  if (p_declaration->init_declarator_list.head == NULL)
-                      throw;
+
+                    if (p_declaration->init_declarator_list.head == NULL)
+                        throw;
                 }
 
                 if (ctx->current == NULL)
@@ -2136,7 +2088,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 throw; //unexpected
             }
 
-            ctx->p_current_function_opt = p_declaration;
+            ctx->p_current_function_opt = p_declaration;            
 
             /*
                 scope of parameters is the inner declarator
@@ -2719,7 +2671,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                     if (p_init_declarator->p_declarator->pointer != NULL)
                     {
-                        compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");                        
+                        compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
                     }
 
                     struct type t = { 0 };
@@ -2762,11 +2714,11 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 //intf("\n");                
 
                 if (initializer_init_new(ctx,
-                                 &p_init_declarator->p_declarator->type,
-                                 &p_init_declarator->p_declarator->object,
-                                 p_init_declarator->initializer,
-                                 is_constant,
-                                 requires_constant_initialization) != 0)
+                    &p_init_declarator->p_declarator->type,
+                    &p_init_declarator->p_declarator->object,
+                    p_init_declarator->initializer,
+                    is_constant,
+                    requires_constant_initialization) != 0)
                 {
                     throw;
                 }
@@ -4447,7 +4399,7 @@ struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier(struct par
     return type_specifier_qualifier;
 }
 
-const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value)
+const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, const struct object* object)
 {
     if (p_enum_specifier->enumerator_list.head == NULL)
     {
@@ -4457,7 +4409,7 @@ const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifi
     struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
     while (p)
     {
-        if (object_to_signed_long_long(&p->value) == value)
+        if (object_equal(&p->value, object))
             return p;
         p = p->next;
     }
@@ -7917,6 +7869,8 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
         if (p_label == NULL)
             throw;
 
+        p_label->label_id = ctx->label_id++;
+
         p_label->p_first_token = ctx->current;
 
         if (ctx->current->type == TK_IDENTIFIER)
@@ -7968,41 +7922,80 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
             if (p_label->constant_expression == NULL)
                 throw;
 
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (ctx->current->type == '...')
+            {
+                parser_match(ctx);
+                p_label->constant_expression_end = constant_expression(ctx, true);
+                if (p_label->constant_expression_end == NULL)
+                    throw;
+                /*
+                n3550.pdf
+                If the arithmetic value of the first constant expression is
+                greater than the one of the second, the range
+                described by the constant range expression is empty.
+                */
+
+                struct label* _Opt p_existing_label = case_label_list_find_range(&ctx->p_current_selection_statement->label_list,
+                    &p_label->constant_expression->object,
+                    &p_label->constant_expression_end->object);
+
+
+                if (p_existing_label)
+                {  //we have a case with a single value that is inside this begin...end
+                    char str1[50];
+                    object_to_str(&p_label->constant_expression->object, 50, str1);
+
+                    char str2[50];
+                    object_to_str(&p_label->constant_expression_end->object, 50, str2);
+
+
+                    //current range x existing range
+                    //current range x existing single value
+
+                    compiler_diagnostic(C_ERROR_DUPLICATED_CASE,
+                            ctx,
+                            p_label->constant_expression->first_token, NULL,
+                            "case '%s' ... '%s' is duplicating values", str1, str2);
+
+                    assert(p_label->constant_expression != NULL); //because case have values
+                    compiler_diagnostic(W_LOCATION,
+                        ctx,
+                        p_existing_label->constant_expression->first_token, NULL, "previous case");
+                }
+            }
+            else
+            {
+                struct label* _Opt p_existing_label = case_label_list_find(&ctx->p_current_selection_statement->label_list, &p_label->constant_expression->object);
+                if (p_existing_label)
+                {
+
+                    //current single value x existing single value
+                    //current single value x existing range
+                    char str[50];
+                    object_to_str(&p_label->constant_expression->object, 50, str);
+
+                    compiler_diagnostic(C_ERROR_DUPLICATED_CASE,
+                            ctx,
+                            p_label->constant_expression->first_token, NULL,
+                            "duplicate case '%s'", str);
+
+                    assert(p_label->constant_expression != NULL); //because case have values
+                    compiler_diagnostic(W_LOCATION,
+                        ctx,
+                        p_existing_label->constant_expression->first_token, NULL, "previous declaration");
+                }
+            }
+
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
 
-            const long long case_value = object_to_signed_long_long(&p_label->constant_expression->object);
-
-            if (ctx->p_switch_value_list == NULL)
-            {
-                //unexpected because we are in case
-                throw;
-            }
-
-
-
-            struct switch_value* _Opt p_switch_value = switch_value_list_find(ctx->p_switch_value_list, case_value);
-
-            if (p_switch_value)
-            {
-                compiler_diagnostic(C_ERROR_DUPLICATED_CASE,
-                        ctx,
-                        p_label->constant_expression->first_token, NULL,
-                        "duplicate case value '%lld'", case_value);
-
-                assert(p_switch_value->p_label->constant_expression != NULL); //because case have values
-                compiler_diagnostic(W_LOCATION,
-                    ctx,
-                    p_switch_value->p_label->constant_expression->first_token, NULL, "previous declaration");
-            }
-
-            struct  switch_value* _Owner _Opt newvalue = calloc(1, sizeof * newvalue);
-            if (newvalue == NULL)
-                throw;
-
-            newvalue->p_label = p_label;
-            newvalue->value = case_value;
-            switch_value_list_push(ctx->p_switch_value_list, newvalue);
+            case_label_list_push(&ctx->p_current_selection_statement->label_list, p_label);
 
             if (ctx->p_current_selection_statement &&
                 ctx->p_current_selection_statement->condition &&
@@ -8041,14 +8034,17 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
 
                 if (p_enum_specifier)
                 {
-                    const struct enumerator* _Opt p_enumerator = find_enumerator_by_value(p_enum_specifier, case_value);
+                    const struct enumerator* _Opt p_enumerator = find_enumerator_by_value(p_enum_specifier, &p_label->constant_expression->object);
                     if (p_enumerator == NULL)
                     {
+                        char str[50];
+                        object_to_str(&p_label->constant_expression->object, 50, str);
+
                         compiler_diagnostic(W_ENUN_CONVERSION,
                                         ctx,
                                         p_label->constant_expression->first_token, NULL,
-                                        "case value '%lld' not in enumerated type 'enum %s'",
-                                        case_value,
+                                        "case value '%s' not in enumerated type 'enum %s'",
+                                        str,
                                         p_enum_specifier->tag_name);
                     }
                     else
@@ -8061,13 +8057,9 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
-            if (ctx->p_switch_value_list == NULL)
-            {
-                //unexpected
-                throw;
-            }
+            struct label* _Opt p_existing_default_label = case_label_list_find_default(&ctx->p_current_selection_statement->label_list);
 
-            if (ctx->p_switch_value_list->p_default)
+            if (p_existing_default_label)
             {
                 compiler_diagnostic(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
                     ctx,
@@ -8077,25 +8069,18 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
 
                 compiler_diagnostic(W_NOTE,
                     ctx,
-                    ctx->p_switch_value_list->p_default->p_label->p_first_token,
+                    p_existing_default_label->p_first_token,
                     NULL,
                     "previous default");
 
                 throw;
             }
 
-            struct  switch_value* _Owner _Opt p_default = calloc(1, sizeof * p_default);
-            if (p_default == NULL)
-            {
-                throw;
-            }
-
-            p_default->p_label = p_label;
-            ctx->p_switch_value_list->p_default = p_default;
-
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
+            
+            case_label_list_push(&ctx->p_current_selection_statement->label_list, p_label);
         }
         // attribute_specifier_sequence_opt identifier ':'
         // attribute_specifier_sequence_opt 'case' constant_expression ':'
@@ -8107,6 +8092,81 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
         p_label = NULL;
     }
     return p_label;
+}
+
+
+struct label* _Opt case_label_list_find_default(const struct case_label_list* list)
+{
+    struct label* _Opt p = list->head;
+    while (p)
+    {
+        if (p->p_first_token->type == TK_KEYWORD_DEFAULT)
+            return p;
+        p = p->next;
+    }
+    return NULL;
+}
+
+
+struct label* _Opt case_label_list_find_range(const struct case_label_list* list, const struct object* begin, const struct object* end)
+{
+    struct label* _Opt p = list->head;
+    while (p)
+    {
+        if (p->constant_expression_end == NULL)
+        {
+            if (object_greater_than_or_equal(&p->constant_expression->object, begin) &&
+                object_smaller_than_or_equal(&p->constant_expression_end->object, end))
+            {
+                return p;
+            }
+        }
+        else
+        {
+            //range with range intersection
+            if (object_smaller_than_or_equal(&p->constant_expression->object, end) &&
+                object_smaller_than_or_equal(begin, &p->constant_expression_end->object))
+                return p;
+        }
+        p = p->next;
+    }
+    return NULL;
+}
+
+struct label* _Opt case_label_list_find(const struct case_label_list* list, const struct object* object)
+{
+    struct label* _Opt p = list->head;
+    while (p)
+    {
+        if (p->constant_expression_end == NULL)
+        {
+            if (object_equal(&p->constant_expression->object, object))
+                return p;
+        }
+        else
+        {
+            if (object_greater_than_or_equal(object, &p->constant_expression->object) &&
+                object_smaller_than_or_equal(object, &p->constant_expression_end->object))
+                return p;
+        }
+        p = p->next;
+    }
+    return NULL;
+}
+
+void case_label_list_push(struct case_label_list* list, struct label* pnew)
+{
+    if (list->head == NULL)
+    {
+        list->head = pnew;
+        list->tail = pnew;
+    }
+    else
+    {
+        assert(list->tail != NULL);
+        list->tail->next = pnew;
+        list->tail = pnew;
+    }
 }
 
 void labeled_statement_delete(struct labeled_statement* _Owner _Opt p)
@@ -8539,8 +8599,8 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
         assert(ctx->current->type == TK_KEYWORD_TRY);
         const struct try_statement* _Opt try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
-        ctx->try_catch_block_index++;
-        p_try_statement->try_catch_block_index = ctx->try_catch_block_index;
+        
+        p_try_statement->catch_label_id = ctx->label_id++;
 
 
         if (parser_match_tk(ctx, TK_KEYWORD_TRY) != 0)
@@ -8638,6 +8698,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             throw;
         }
 
+        p_selection_statement->label_id = ctx->label_id++;
         p_selection_statement->first_token = ctx->current;
 
         const bool is_if = (ctx->current->type == TK_KEYWORD_IF);
@@ -8781,15 +8842,10 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         const struct selection_statement* _Opt previous = ctx->p_current_selection_statement;
         ctx->p_current_selection_statement = p_selection_statement;
 
-        struct  switch_value_list* _Opt previous_switch_value_list = ctx->p_switch_value_list;
-        struct  switch_value_list  switch_value_list = { 0 };
-        ctx->p_switch_value_list = &switch_value_list;
-
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
 
         if (p_secondary_block == NULL)
         {
-            switch_value_destroy(&switch_value_list);
             throw;
         }
 
@@ -8812,7 +8868,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
         {
             //switch of enum without default, then we check if all items were used
-            if (switch_value_list.p_default == NULL)
+            if (case_label_list_find_default(&p_selection_statement->label_list) == NULL)
             {
                 const struct enum_specifier* _Opt p_enum_specifier = NULL;
 
@@ -8829,14 +8885,14 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                     struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
                     while (p)
                     {
-                        struct switch_value* _Opt p_used = switch_value_list_find(&switch_value_list, object_to_signed_long_long(&p->value));
+                        struct label* _Opt p_used = case_label_list_find(&p_selection_statement->label_list, &p->value);
 
                         if (p_used == NULL)
                         {
                             compiler_diagnostic(W_SWITCH,
                                 ctx,
                                 ctx->current, NULL,
-                                "enumeration value '%s' not handled in switch", p->token->lexeme);
+                                "enumeration '%s' not handled in switch", p->token->lexeme);
                         }
                         p = p->next;
                     }
@@ -8846,9 +8902,8 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         ctx->p_current_selection_statement = previous;
 
-        ctx->p_switch_value_list = previous_switch_value_list;
 
-        switch_value_destroy(&switch_value_list);
+
 
         if (is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE)
         {
@@ -9235,7 +9290,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
             }
             else
             {
-                p_jump_statement->try_catch_block_index = ctx->p_current_try_statement_opt->try_catch_block_index;
+                p_jump_statement->label_id = ctx->p_current_try_statement_opt->catch_label_id;
             }
 
             parser_match(ctx);
@@ -9727,8 +9782,9 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
      * Used to give an unique index (inside the function)
      * for try-catch blocks
      */
-    ctx->try_catch_block_index = 0;
+    
     ctx->p_current_try_statement_opt = NULL;
+    ctx->label_id = 0; /*reset*/
     label_list_clear(&ctx->label_list);
     struct compound_statement* _Owner _Opt p_compound_statement = compound_statement(ctx);
     if (p_compound_statement)

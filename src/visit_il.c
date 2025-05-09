@@ -1122,7 +1122,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
-        ss_fprintf(oss, "goto _catch_label_%d;\n", p_jump_statement->try_catch_block_index);
+        ss_fprintf(oss, "/*throw*/ goto _CKL%d;\n", p_jump_statement->label_id);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
@@ -1200,9 +1200,20 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
         print_identation(ctx, oss);
 
         if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK)
-            ss_fprintf(oss, "break;\n");
+        {
+            if (ctx->break_reference.p_selection_statement)
+            {
+                ss_fprintf(oss, "/*break*/ goto _CKL%d;\n\n", ctx->break_reference.p_selection_statement->label_id);
+            }
+            else
+            {
+                ss_fprintf(oss, "break;\n");
+            }
+        }
         else
+        {
             ss_fprintf(oss, "continue;\n");
+        }
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
     {
@@ -1241,6 +1252,10 @@ static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* os
 
 static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct iteration_statement* p_iteration_statement)
 {
+    struct break_reference old = ctx->break_reference;
+    ctx->break_reference.p_iteration_statement = p_iteration_statement;
+    ctx->break_reference.p_selection_statement = NULL;
+
     print_identation(ctx, oss);
     if (p_iteration_statement->first_token->type == TK_KEYWORD_WHILE)
     {
@@ -1324,6 +1339,9 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
             ss_fprintf(oss, "}\n");
         }
     }
+
+    //restore
+    ctx->break_reference = old;
 }
 
 static void d_visit_simple_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct simple_declaration* p_simple_declaration)
@@ -1367,11 +1385,89 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
     print_identation(ctx, oss);
     if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
     {
+        struct break_reference old = ctx->break_reference;
+        ctx->break_reference.p_iteration_statement = NULL;
+        ctx->break_reference.p_selection_statement = p_selection_statement;
         assert(p_selection_statement->condition != NULL);
-        ss_fprintf(oss, "switch (");
-        d_visit_condition(ctx, oss, p_selection_statement->condition);
-        ss_fprintf(oss, ")\n");
-        d_visit_secondary_block(ctx, oss, p_selection_statement->secondary_block);
+
+        struct osstream ss = { 0 };
+        
+        
+        ss_fprintf(&ss, "/*switch*/\n");
+        print_identation(ctx, &ss);
+        ss_fprintf(&ss, "{\n");
+        ctx->indentation++;
+
+
+        char name[100] = { 0 };
+        snprintf(name, sizeof(name), "_R%d", ctx->locals_count++);
+
+        print_identation(ctx, &ss);
+        ss_fprintf(&ss, "register ");
+        d_print_type(ctx, &ss, &p_selection_statement->condition->expression->type, name);
+
+        ss_fprintf(&ss, " = ");
+        d_visit_condition(ctx, &ss, p_selection_statement->condition);
+        ss_fprintf(&ss, ";\n");
+
+        struct label* _Opt p_label = p_selection_statement->label_list.head;
+        struct label* _Opt p_label_default = NULL;
+        while (p_label)
+        {
+            
+            if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
+            {
+                p_label_default = p_label;
+            }
+            else
+            {
+                print_identation(ctx, &ss);
+                if (p_label->constant_expression_end == NULL)
+                {
+                    char str[50];
+                    object_to_str(&p_label->constant_expression->object, 50, str);
+                    ss_fprintf(&ss, "if (%s == %s) goto _CKL%d; /*case %s*/\n", name, str, p_label->label_id, str);
+
+                }
+                else
+                {
+                    char str_begin[50];
+                    object_to_str(&p_label->constant_expression->object, 50, str_begin);
+                    char str_end[50];
+                    object_to_str(&p_label->constant_expression_end->object, 50, str_end);
+                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto _CKL%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
+                }
+            }
+
+            p_label = p_label->next;
+        }
+
+        print_identation(ctx, &ss);
+
+        if (p_label_default)
+        {
+            ss_fprintf(&ss, "goto /*default*/ _CKL%d;\n", p_label_default->label_id);
+        }
+        else
+        {
+            ss_fprintf(&ss, "goto _CKL%d;\n", p_selection_statement->label_id);
+        }
+
+        ss_fprintf(&ss, "\n");
+
+        d_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
+
+        print_identation(ctx, &ss);
+        ss_fprintf(&ss, "_CKL%d:;\n", ctx->break_reference.p_selection_statement->label_id);
+
+        ctx->indentation--;
+        print_identation(ctx, &ss);
+        ss_fprintf(&ss, "}\n");
+
+        ss_fprintf(oss, "%s", ss.c_str);
+        ss_close(&ss);
+        //restore
+        ctx->break_reference = old;
     }
     else if (p_selection_statement->first_token->type == TK_KEYWORD_IF)
     {
@@ -1474,19 +1570,17 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         }
     }
-
-
 }
 
 static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
     print_identation(ctx, oss);
-    ss_fprintf(oss, "if (1)\n");
+    ss_fprintf(oss, "/*try*/ if (1)\n");
 
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "else _catch_label_%d:\n", p_try_statement->try_catch_block_index);
+    ss_fprintf(oss, "/*catch*/ else _CKL%d:\n", p_try_statement->catch_label_id);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -1543,12 +1637,20 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
 {
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
-        print_identation(ctx, oss);
-        ss_fprintf(oss, "case ");
-
-        object_print_value(oss, &p_label->constant_expression->object);
-
-        ss_fprintf(oss, " :\n");
+        print_identation(ctx, oss);        
+        char str[50];
+        object_to_str(&p_label->constant_expression->object, 50, str);
+        if (p_label->constant_expression_end == NULL)
+        {
+            ss_fprintf(oss, "/*case %s*/ ", str);
+        }
+        else
+        {
+            char str2[50];
+            object_to_str(&p_label->constant_expression_end->object, 50, str2);
+            ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
+        }
+        ss_fprintf(oss, "_CKL%d:\n", p_label->label_id);                
     }
     else if (p_label->p_first_token->type == TK_IDENTIFIER)
     {
@@ -1558,7 +1660,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "default:\n");
+        ss_fprintf(oss, "/*default*/ _CKL%d:\n", p_label->label_id);        
     }
 
 }

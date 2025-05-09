@@ -188,6 +188,7 @@ It does not include the following features:
  - no sizeof
  - static variables are non-local.
  - arrays size [] = {...} are pre-calculated
+ - no switch 
  - 
 The goal is for this simplified version to function as an intermediate language (IL).
  
@@ -1064,6 +1065,11 @@ int main()
 
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm
+
+### case range expressions
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm
+
 
 ### \#def
 

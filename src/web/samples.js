@@ -2,7 +2,7 @@
 
 sample["C89"] = [];
 sample["C89"]["Backend"] =
-`
+    `
 
 /*
   Cake output is compatible with C89;
@@ -33,7 +33,7 @@ int main(void)
 
 sample["C99"] = [];
 sample["C99"]["_Bool"] =
- `
+    `
 
 int main(void)
 {
@@ -60,8 +60,8 @@ _Bool f2(int i)
 
 `;
 
-sample["C99"]["Flexible array members"] = 
-`
+sample["C99"]["Flexible array members"] =
+    `
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -148,7 +148,7 @@ int a[A_MAX] = { 1, 3, 5, 7, 9, [A_MAX-5] = 8, 6, 4, 2, 0 };
 `;
 
 sample["C99"]["Compound literals"] =
-`
+    `
 struct X {
   int i;
 };
@@ -172,12 +172,12 @@ const double dmin = 0x1p-1022;
 `;
 
 sample["C99"]["_Pragma"] =
-`
+    `
    //TODO !!
 `;
 
 sample["C99"]["__func__"] =
-`
+    `
 #include <stdio.h>
 int main()
 {
@@ -188,7 +188,7 @@ int main()
 
 
 sample["C99"]["init-clause of the for loop"] =
-`
+    `
 int main()
 {
    const int max = 10;
@@ -212,7 +212,7 @@ int main()
 `;
 
 sample["C99"]["restrict pointers"] =
-`
+    `
    void copy_array(int n, int *restrict a, int *restrict b)
    {
       while (n-- > 0)
@@ -221,7 +221,7 @@ sample["C99"]["restrict pointers"] =
 `;
 
 sample["C99"]["Complex"] =
-`
+    `
    /*not implemented*/
 `;
 
@@ -324,7 +324,7 @@ int main(void)
 `;
 
 sample["C11"]["_Static_assert"] =
- `
+    `
 /*
    See also C23 static_assert
 */
@@ -337,7 +337,7 @@ int main()
 
 
 sample["C11"]["_Noreturn"] =
-`
+    `
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -400,7 +400,7 @@ int main(void)
 
 sample["C23"] = []
 sample["C23"]["Digit Separator"] =
-`
+    `
 int main()
 {
     int a = 1000'00;
@@ -409,7 +409,7 @@ int main()
 `;
 
 sample["C23"]["Binary Literal"] =
-`
+    `
 int main()
 {
     int b = 0B10;
@@ -418,7 +418,7 @@ int main()
 
 
 sample["C23"]["static_assert"] =
-`
+    `
 //https://en.cppreference.com/w/c/language/_Static_assert
 #include <assert.h> // no longer needed since C23
 
@@ -774,7 +774,7 @@ int main()
 
 
 sample["C23"]["bool true false"] =
- `
+    `
 
 #include <stdio.h>
 
@@ -796,7 +796,7 @@ int main()
 `;
 
 sample["C23"]["nullptr"] =
-`
+    `
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -962,7 +962,7 @@ int main()
 `;
 
 sample["C23"]["Enhancements to Enumerations"] =
-`
+    `
 //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 enum X : short {
     A
@@ -975,7 +975,7 @@ int main() {
 `;
 
 sample["C23"]["Improved Enumerations"] =
-`
+    `
 //TODO
 //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm
 
@@ -988,6 +988,40 @@ int main () {}
 
 
 sample["C2Y"] = [];
+
+sample["C2Y"]["_Generic(type-name)"] =
+    `
+/*
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3214.pdf
+*/
+
+int main(void)
+{
+    const int * const p;
+    static_assert(_Generic(p, const int * : 1 ));
+    static_assert(_Generic(typeof(p), const int * const: 1));
+  
+    static_assert(_Generic(int, int : 1));    
+    static_assert(_Generic(typeof("abc"), char [4]: 1));
+}
+
+`;
+
+sample["C2Y"]["new 0o and 0O prefixes for octal literals"] =
+    `
+ //Obsolete implicitly octal literals
+ //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
+
+static_assert(0o52 == 052);
+static_assert(0O52 == 052);
+static_assert(0O52 == 42);
+
+int main()
+{
+    int i = 0o52;
+}
+`;
+
 sample["C2Y"]["if with initialization (Like C++17)"] =
     `
 /*
@@ -1020,25 +1054,6 @@ int main()
 }
 `;
 
-
-sample["C2Y"]["_Generic(type-name)"] =
-    `
-/*
-  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3214.pdf
-*/
-
-int main(void)
-{
-    const int * const p;
-    static_assert(_Generic(p, const int * : 1 ));
-    static_assert(_Generic(typeof(p), const int * const: 1));
-  
-    static_assert(_Generic(int, int : 1));    
-    static_assert(_Generic(typeof("abc"), char [4]: 1));
-}
-
-`;
-
 sample["C2Y"]["_Countof"] =
     `
 /*
@@ -1064,6 +1079,31 @@ int main()
 `;
 
 
+sample["C2Y"]["case range ..."] =
+`
+  //Case range expressions
+  //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm
+
+  #include <stdio.h>
+
+  void f(int n)
+  {
+    switch (n)
+    {
+       case 1 ... 10:
+       printf("n in range 1...10\\n");
+       break;
+       default:
+       break;
+    }
+  }
+
+  int main(){
+    f(1);
+    f(11);
+  }
+`;
+
 sample["C2Y"]["#def"] =
     `
 /*
@@ -1084,13 +1124,11 @@ foo(2)
 `;
 
 sample["C2Y"]["#def II"] =
-    `
-/*
-  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
-*/
+`
+  // Add directives #def and #enddef
+  // https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
 
 /*
-
   use -preprocess-def-macro
   to preprocess #def macro after expansion
 */
@@ -1110,19 +1148,6 @@ foo(2)
 
 `;
 
-sample["C2Y"]["Obsolete implicitly octal literals"] =
-    `
-//https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
-
-static_assert(0o52 == 052);
-static_assert(0O52 == 052);
-static_assert(0O52 == 42);
-
-int main()
-{
-    int i = 0o52;
-}
-`;
 
 
 sample["C2Y"]["defer inside try blocks"] =
@@ -1322,7 +1347,6 @@ int main()
 }
 
 `;
-
 
 sample["Extensions"]["try catch throw II"] =
     `
@@ -1637,7 +1661,7 @@ int main() {
 `;
 
 sample["Enable Safety"]["ctor and dtor"] =
-`
+    `
 #pragma safety enable
 
 #include <stdlib.h>
@@ -1945,7 +1969,7 @@ int main()
 `;
 
 sample["Enable Safety"]["static_set/realloc"] =
-`
+    `
 #pragma safety enable
 
 void* _Owner _Opt realloc(void* _Opt ptr, unsigned size);
@@ -2245,7 +2269,7 @@ int main()
 
 
 sample["Find the bug"]["Bug #3"] =
-`
+    `
 #pragma safety enable
 
 #include <stdlib.h>

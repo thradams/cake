@@ -345,6 +345,51 @@ struct object object_make_bool(bool value)
 #pragma warning( push )
 #pragma warning( disable : 4244 )
 
+int object_to_str(const struct object* a, int n, char str[/*n*/])
+{
+    str[0] = '\0';
+
+    a = object_get_referenced(a);
+
+    switch (a->value_type)
+    {
+
+    case TYPE_BOOL:
+    case TYPE_SIGNED_CHAR:
+    case TYPE_SIGNED_SHORT:
+    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_LONG:
+    case TYPE_SIGNED_LONG_LONG:
+    {
+        long long v = object_to_signed_long_long(a);
+        snprintf(str, n, "%lld", v);
+    }
+    break;
+
+    case TYPE_UNSIGNED_CHAR:
+    case TYPE_UNSIGNED_SHORT:
+    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_LONG:
+    case TYPE_UNSIGNED_LONG_LONG:
+    {
+        unsigned long long v = object_to_unsigned_long_long(a);
+        snprintf(str, n, "%llu", v);
+    }
+    break;
+
+    case TYPE_FLOAT: return a->value.float_value;
+    case TYPE_DOUBLE: return a->value.double_value;
+    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    {
+        long double v = object_to_long_double(a);
+        snprintf(str, n, "%Lf", v);
+    }
+    break;
+    }
+    
+    return 0;
+}
+
 bool object_to_bool(const struct object* a)
 {
     a = object_get_referenced(a);
@@ -387,35 +432,51 @@ errno_t object_increment_value(struct object* a)
     {
 
     case TYPE_BOOL:
-        return a->value.bool_value++;
+        a->value.bool_value++;
+        break;
     case TYPE_SIGNED_CHAR:
-        return a->value.signed_char_value++;
+        a->value.signed_char_value++;
+        break;
     case TYPE_UNSIGNED_CHAR:
-        return a->value.unsigned_char_value++;
+        a->value.unsigned_char_value++;
+        break;
     case TYPE_SIGNED_SHORT:
-        return a->value.signed_short_value++;
+        a->value.signed_short_value++;
+        break;
     case TYPE_UNSIGNED_SHORT:
-        return a->value.unsigned_short_value++;
+        a->value.unsigned_short_value++;
+        break;
     case TYPE_SIGNED_INT:
-        return a->value.signed_int_value++;
+        a->value.signed_int_value++;
+        break;
     case TYPE_UNSIGNED_INT:
-        return a->value.unsigned_int_value++;
+        a->value.unsigned_int_value++;
+        break;
     case TYPE_SIGNED_LONG:
-        return a->value.signed_long_value++;
+        a->value.signed_long_value++;
+        break;
     case TYPE_UNSIGNED_LONG:
-        return a->value.unsigned_long_value++;
+        a->value.unsigned_long_value++;
+        break;
     case TYPE_SIGNED_LONG_LONG:
-        return a->value.signed_long_long_value++;
+        a->value.signed_long_long_value++;
+        break;
     case TYPE_UNSIGNED_LONG_LONG:
-        return a->value.unsigned_long_long_value++;
+        a->value.unsigned_long_long_value++;
+        break;
     case TYPE_FLOAT:
-        return a->value.float_value++;
+        a->value.float_value++;
+        break;
     case TYPE_DOUBLE:
-        return a->value.double_value++;
+        a->value.double_value++;
+        break;
     case TYPE_LONG_DOUBLE:
-        return a->value.long_double_value++;
+        a->value.long_double_value++;
+        break;
+    default:
+        return 1;
     }
-    assert(0);
+    
     return 0;
 }
 
@@ -1407,6 +1468,26 @@ const struct object* object_get_referenced(const struct object* p_object)
     return p_object;
 }
 
+bool object_is_signed(const struct object* p_object)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+    switch (p_object->value_type)
+    {
+    case TYPE_BOOL:
+    case TYPE_SIGNED_CHAR:
+    case TYPE_SIGNED_SHORT:
+    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_LONG:
+    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
+        return true;
+    default:
+        break;
+    }
+    return false;
+}
+
 bool object_is_derived(const struct object* p_object)
 {
     if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
@@ -2008,4 +2089,35 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
     return it;
 }
 
+
+int object_greater_than_or_equal(const struct object* a, const struct object* b)
+{
+    //TODO integer promotion!
+
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+    long long av = object_to_signed_long(a);
+    long long bv = object_to_signed_long(b);
+    return av >= bv;
+}
+
+int object_smaller_than_or_equal(const struct object* a, const struct object* b)
+{
+    //TODO integer promotion!
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+    long long av = object_to_signed_long(a);
+    long long bv = object_to_signed_long(b);
+    return av <= bv;
+}
+
+int object_equal(const struct object* a, const struct object* b)
+{
+    //TODO integer promotion!
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+    long long av = object_to_signed_long(a);
+    long long bv = object_to_signed_long(b);
+    return av == bv;
+}
 

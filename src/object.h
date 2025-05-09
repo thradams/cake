@@ -147,6 +147,13 @@ double object_to_double(const struct object* a);
 long double object_to_long_double(const struct object* a);
 bool object_to_bool(const struct object* a);
 
+int object_to_str(const struct object* a, int n, char str[/*n*/]);
+
+int object_greater_than_or_equal(const struct object* a, const struct object* b);
+int object_smaller_than_or_equal(const struct object* a, const struct object* b);
+int object_equal(const struct object* a, const struct object* b);
+
+
 //Overflow checks
 bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b);
 bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b);
@@ -163,6 +170,7 @@ int make_object(const struct type* p_type, struct object* obj);
 
 bool object_is_reference(const struct object* p_object);
 bool object_is_derived(const struct object* p_object);
+bool object_is_signed(const struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 

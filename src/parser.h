@@ -69,24 +69,6 @@ struct report
     bool ignore_this_report;
 };
 
-struct switch_value
-{
-    long long value;
-    struct label* _Opt p_label;
-    struct switch_value* _Owner _Opt next;
-};
-
-struct switch_value_list
-{
-    struct switch_value* _Owner _Opt head;
-    struct switch_value* _Opt tail;
-    struct switch_value* _Owner _Opt p_default;
-};
-
-void switch_value_destroy(_Dtor struct switch_value_list* list);
-void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
-struct switch_value* _Opt switch_value_list_find(const struct switch_value_list* list, long long value);
-
 struct label_list_item
 {
     struct token* p_last_usage;
@@ -136,17 +118,14 @@ struct parser_ctx
     * Points to the selection_statement we're in. Or null.
     */
     const struct selection_statement* _Opt p_current_selection_statement;
-
-    struct  switch_value_list* _Opt p_switch_value_list;
+    
 
     FILE* _Owner _Opt sarif_file;
     unsigned int sarif_entries;
 
     _View struct token_list input_list;
     struct token* _Opt current;
-    struct token* _Opt previous;
-    int try_catch_block_index;
-
+    struct token* _Opt previous;    
     /*
        Expression inside sizeof etc.. are not evaluated
     */
@@ -154,6 +133,7 @@ struct parser_ctx
 
     bool inside_generic_association;
 
+    int label_id; /*generates unique ids for labels*/
 
     struct report* p_report;
 
@@ -623,7 +603,7 @@ struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p);
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 
-const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value);
+const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, const struct object* object);
 
 struct member_declaration_list
 {
@@ -1189,12 +1169,26 @@ struct try_statement
     struct token* first_token; /*try*/
     struct token* last_token;
     struct token* _Opt catch_token_opt; /*catch*/
-    /*Used to generate label names*/
-    int try_catch_block_index;
+    
+    int catch_label_id;
 };
 
 struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx);
 void try_statement_delete(struct try_statement* _Owner _Opt p);
+
+struct case_label_list
+{
+   /*
+      it is not the owner. The owner is the label statement
+   */
+   struct label* _Opt head;
+   struct label* _Opt tail;
+};
+
+void case_label_list_push(struct case_label_list* list, struct label* pnew);
+struct label* _Opt case_label_list_find(const struct case_label_list* list, const struct object* object);
+struct label* _Opt case_label_list_find_default(const struct case_label_list* list);
+struct label* _Opt case_label_list_find_range(const struct case_label_list* list, const struct object* begin, const struct object* end);
 
 struct selection_statement
 {
@@ -1205,14 +1199,23 @@ struct selection_statement
         "switch" ( expression ) secondary-block
     */
 
-    /*
-    Extension to support C++ 17 if with initialization
+    //TODO rename
+    /*C2Y
+      selection-statement:
+         if ( selection-header ) secondary-block
+         if ( selection-header ) secondary-block else secondary-block
+         switch ( selection-header ) secondary-block
 
-    selection-statement:
-       "if" ( init-statement _Opt condition ) secondary-block
-       "if" ( init-statement _Opt condition ) secondary-block "else" secondary-block
-       switch ( init-statement _Opt condition ) secondary-block
+     selection-header:
+       expression
+       declaration expression
+       simple-declaration
+
+
+     simple-declaration:
+        attribute-specifier-sequenceopt declaration-specifiers declarator = initializer
     */
+
     struct init_statement* _Owner _Opt p_init_statement;
     struct condition* _Owner _Opt _Opt condition;
 
@@ -1222,10 +1225,15 @@ struct selection_statement
     struct token* open_parentesis_token;
     struct token* close_parentesis_token;
 
+    //case labels inside the switch
+    struct case_label_list label_list;
+
     struct token* first_token;
     struct token* last_token;
     struct token* _Opt else_token_opt;
     struct defer_list defer_list;
+    
+    int label_id;
 };
 
 struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* ctx);
@@ -1271,7 +1279,7 @@ struct jump_statement
     struct token* last_token;
     struct expression* _Owner _Opt expression_opt;
 
-    int try_catch_block_index;
+    int label_id;
     struct defer_list defer_list;
 };
 
@@ -1614,8 +1622,13 @@ struct label
        attribute-specifier-sequence opt "default" :
     */
     struct expression* _Owner _Opt constant_expression;
+    struct expression* _Owner _Opt constant_expression_end;
+
     struct token* _Opt p_identifier_opt;
     struct token* p_first_token;
+    struct label* _Opt next;
+
+    int label_id; //unique id inside the function scope
 };
 
 struct label* _Owner _Opt label(struct parser_ctx* ctx);
