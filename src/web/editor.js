@@ -105,7 +105,7 @@ function Run()
     document.getElementById("output").value = "";
     var http = new XMLHttpRequest();
 
-    http.open("POST", "http://coliru.stacked-crooked.com/compile", false);
+    http.open("POST", "https://coliru.stacked-crooked.com/compile", false);
     http.send(JSON.stringify({ "cmd": "gcc  -x c main.cpp && ./a.out", "src": outputEditor.getValue() }));
     var text = http.response;
     if (text.length == 0)
