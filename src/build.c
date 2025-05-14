@@ -29,7 +29,7 @@
     " parser.c "          \
     " visit_defer.c "     \
     " visit_il.c "        \
-    " visit_flow.c "      \
+    " flow.c "            \
     " error.c "           \
     " type.c "
 

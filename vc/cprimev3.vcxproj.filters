@@ -46,9 +46,6 @@
     <ClCompile Include="..\src\type.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\visit_flow.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\object.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -56,6 +53,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\visit_defer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\flow.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -96,9 +96,6 @@
     <ClInclude Include="..\src\type.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\visit_flow.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\version.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -109,6 +106,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\visit_defer.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\flow.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -250,9 +250,5 @@ struct flow_visit_ctx
     int labels_size;
 };
 
-struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx);
-
 void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p);
-
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
-void print_arena(struct flow_visit_ctx* ctx);

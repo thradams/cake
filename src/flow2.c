@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <string.h>
 #include <assert.h>
-#include "visit_flow.h"
+#include "flow2.h"
 #include "expressions.h"
 #include "ownership.h"
 #include <ctype.h>
@@ -18,6 +18,90 @@
 #include <stdint.h>
 #include <limits.h>
 #include "console.h"
+
+void int_array_clear(struct int_array* p)
+{
+    p->size = 0;
+}
+
+int int_array_reserve(struct int_array* p, int n)
+{
+    if (n > p->capacity)
+    {
+
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
+        {
+
+            return EOVERFLOW;
+
+        }
+
+        void* pnew = realloc(p->data, n * sizeof(p->data[0]));
+        if (pnew == NULL) return ENOMEM;
+
+        p->data = pnew;
+        p->capacity = n;
+    }
+    return 0;
+}
+
+
+
+int int_array_push_back(struct int_array* p, int value)
+
+{
+    if (p->size == INT_MAX)
+    {
+        return EOVERFLOW;
+    }
+
+    if (p->size + 1 > p->capacity)
+    {
+        int new_capacity = 0;
+        if (p->capacity > (INT_MAX - p->capacity / 2))
+        {
+            /*overflow*/
+            new_capacity = INT_MAX;
+        }
+        else
+        {
+            new_capacity = p->capacity + p->capacity / 2;
+            if (new_capacity < p->size + 1)
+            {
+                new_capacity = p->size + 1;
+            }
+        }
+
+        int error = int_array_reserve(p, new_capacity);
+
+        if (error != 0)
+        {
+            return error;
+        }
+    }
+
+    p->data[p->size] = value;
+    p->size++;
+    return 0;
+}
+
+void int_array_destroy(struct int_array* p)
+{
+    free(p->data);
+}
+
+void flow_object_state_list_push_back(struct flow_object_state_list* list, struct flow_object_state2* _Owner state)
+{
+    if (list->tail == NULL)
+    {
+        list->head = state;
+    }
+    else
+    {
+        list->tail->next = state;
+    }
+    list->tail = state;
+}
 
 struct object_visitor
 {
@@ -199,7 +283,26 @@ void flow_object_state_copy(struct flow_object_state* to, const struct flow_obje
 
 void flow_object_print_state(struct flow_object* p)
 {
-    object_state_to_string_core(p->current.state);
+    struct flow_object_state2* p_state = p->states.head;
+    while (p_state)
+    {
+        printf("{%d:", p_state->state_id);
+
+        switch (p_state->meaning)
+        {
+        case FLOW_OBJECT_MEANING_EQUAL: printf("=="); break;
+        case FLOW_OBJECT_MEANING_NOT_EQUAL:printf("!="); break;
+        case FLOW_OBJECT_MEANING_UNINITIALIZED: printf("_"); break;
+        case FLOW_OBJECT_MEANING_UNKNOWN: printf("?"); break;
+        case FLOW_OBJECT_MEANING_REFERENCE: printf("^"); break;
+        }
+        printf(" ");
+        object_print_value_debug(&p_state->value);
+        printf("}");
+        p_state = p_state->next;
+    }
+
+    //object_state_to_string_core(p->current.state);
 }
 
 void object_state_set_item_print(struct flow_object_state* item)
@@ -682,6 +785,18 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
         }
 
 
+        //Flow II
+        for (int i = 0; i < ctx->current_states.size; i++)
+        {
+            struct flow_object_state2* _Owner p_flow_object_state2 =
+                calloc(1, sizeof * p_flow_object_state2);
+            if (p_flow_object_state2 == NULL)
+                throw;
+            p_flow_object_state2->state_id = ctx->current_states.data[i];
+            p_flow_object_state2->meaning = FLOW_OBJECT_MEANING_UNINITIALIZED;
+            flow_object_state_list_push_back(&p_object->states, p_flow_object_state2);
+        }
+
         p_object->current.state = FLOW_OBJECT_STATE_UNINITIALIZED;
     }
     catch
@@ -846,7 +961,7 @@ void print_object_core(int ident,
 
         if (short_version)
         {
-            printf("#%02d %s == ", p_visitor->p_object->id, previous_names);
+            printf("#%02d %s ", p_visitor->p_object->id, previous_names);
             flow_object_print_state(p_visitor->p_object);
             if (flow_object_is_null(p_visitor->p_object))
             {
@@ -870,7 +985,7 @@ void print_object_core(int ident,
         }
         else
         {
-            printf("%p:%s == ", p_visitor->p_object, previous_names);
+            printf("%p:%s ", p_visitor->p_object, previous_names);
             printf("{");
 
             struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
@@ -922,12 +1037,12 @@ void print_object_core(int ident,
 
         if (short_version)
         {
-            printf("#%02d %s == ", p_visitor->p_object->id, previous_names);
+            printf("#%02d %s  ", p_visitor->p_object->id, previous_names);
             flow_object_print_state(p_visitor->p_object);
         }
         else
         {
-            printf("%p:%s == ", p_visitor->p_object, previous_names);
+            printf("%p:%s ", p_visitor->p_object, previous_names);
             printf("{");
 
             struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
@@ -1762,6 +1877,17 @@ void object_set_end_of_lifetime_core(struct object_visitor* p_visitor)
     p_visitor->p_object->current.state = FLOW_OBJECT_STATE_LIFE_TIME_ENDED;
 }
 
+void flow_object_set_equal(struct flow_object* p_flow_object, struct object* p_object)
+{
+    struct flow_object_state2* p_state = p_flow_object->states.head;
+    while (p_state)
+    {
+        p_state->meaning = FLOW_OBJECT_MEANING_EQUAL;
+        p_state->value = object_clone(p_object);
+        p_state = p_state->next;
+    }
+}
+
 void flow_object_set_end_of_lifetime(struct type* p_type, struct flow_object* p_object)
 {
     _Opt struct object_visitor visitor = { 0 };
@@ -1965,7 +2091,7 @@ void object_get_name(const struct type* p_type,
         int bytes_written = 0;
         struct token* _Opt p = p_object->p_expression_origin->first_token;
         for (int i = 0; i < 10; i++)
-        {           
+        {
             const char* ps = p->lexeme;
             while (*ps)
             {
@@ -1981,7 +2107,7 @@ void object_get_name(const struct type* p_type,
                 break;
 
             p = p->next;
-            assert(p != NULL);                            
+            assert(p != NULL);
         }
 
         if (bytes_written < (out_size - 1))
@@ -2347,7 +2473,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
         {
             assert(false);
         }
-             
+
         if (name[0] == '\0')
         {
             /*function arguments without name*/
@@ -2994,6 +3120,7 @@ static void flow_assignment_core(
         }
     }
 
+    
     p_visitor_a->p_object->current.state = p_visitor_b->p_object->current.state;
     if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
     {
@@ -3366,11 +3493,17 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             {
                 if (object_has_constant_value(&p_expression->object))
                 {
+                    //FLOWII
+                    flow_object_set_equal(p_object, &p_expression->object);
+
                     bool not_zero = object_to_bool(&p_expression->object);
                     p_object->current.state = not_zero ? FLOW_OBJECT_STATE_NOT_ZERO : FLOW_OBJECT_STATE_ZERO;
                 }
                 else
                 {
+                    //FLOWII
+                    flow_object_set_unknown2(p_object);
+
                     p_object->current.state = FLOW_OBJECT_STATE_NOT_ZERO | FLOW_OBJECT_STATE_ZERO;
                 }
             }
@@ -6839,6 +6972,15 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             }
         }
 
+        printf("states=[");
+        for (int i = 0; i < ctx->current_states.size; i++)
+        {
+            if (i > 0)
+                printf(",");
+            printf("%d", ctx->current_states.data[i]);
+        }
+        printf("]\n");
+
         if (ex)
         {
             print_arena(ctx);
@@ -6983,6 +7125,22 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
     }
 }
 
+void flow_object_set_unknown2(struct flow_object* p)
+{
+    //FLOWII
+    struct flow_object_state2* p_state = p->states.head;
+    while (p_state)
+    {
+        p_state->meaning = FLOW_OBJECT_MEANING_UNKNOWN;
+        p_state = p_state->next;
+    }
+
+    for (int i = 0; i < p->members.size; i++)
+    {
+        flow_object_set_unknown2(p->members.data[i]);
+    }
+}
+
 static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator* p_declarator)
 {
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
@@ -7069,7 +7227,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 }
                 else
                 {
-                    p_declarator->p_flow_object->current.state = FLOW_OBJECT_STATE_ZERO | FLOW_OBJECT_STATE_NOT_ZERO;
+                    flow_object_set_unknown2(p_declarator->p_flow_object);
+                    //p_declarator->p_flow_object->current.state = FLOW_OBJECT_STATE_ZERO | FLOW_OBJECT_STATE_NOT_ZERO;
                 }
 
 
@@ -7311,6 +7470,9 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
     flow_objects_clear(&ctx->arena);
 
     ctx->state_number_generator = 1; //reserva 0 p current
+
+    int_array_clear(&ctx->current_states);
+    int_array_push_back(&ctx->current_states, 1 /*first state*/);
 
     if (p_declaration->function_body)
     {

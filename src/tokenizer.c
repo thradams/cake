@@ -222,12 +222,6 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     bool is_warning = false;
     bool is_note = false;
 
-    if (included_file_location)
-    {
-        //no message for include dir
-        return false;
-    }
-
     if (w > W_NOTE)
     {
         is_error = true;
@@ -260,7 +254,12 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     {
         return false;
     }
-
+        
+    if (!is_error && included_file_location)
+    {
+        //notes are warning are not printed in included files
+        return false;
+    }
 
     print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
 
@@ -401,7 +400,8 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
     bool is_angle_bracket_form,
     bool* p_already_included, /*out file already included pragma once*/
     char full_path_out[], /*this is the final full path of the file*/
-    int full_path_out_size)
+    int full_path_out_size,
+   bool include_next)
 {
     char newpath[200] = { 0 };
     full_path_out[0] = '\0';
@@ -491,6 +491,13 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
         content = read_file(full_path_out, true);
         if (content != NULL)
         {
+            if (include_next)
+            {
+                free(content);
+                 content = NULL;
+                include_next = false;
+            }
+            else 
             return content;
         }
         current = current->next;
@@ -2337,7 +2344,8 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     is_angle_bracket_form,
                     &already_included,
                     full_path_result,
-                    sizeof full_path_result);
+                    sizeof full_path_result,
+                  false);
 
                 bool has_include = s != NULL;
                 free((void* _Owner)s);
@@ -3572,8 +3580,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             throw;
         }
 
-        if (strcmp(input_list->head->lexeme, "include") == 0)
+        if (strcmp(input_list->head->lexeme, "include") == 0||
+            strcmp(input_list->head->lexeme, "include_next") == 0)
         {
+            bool include_next = strcmp(input_list->head->lexeme, "include_next") == 0;
             /*
               # include pp-tokens new-line
             */
@@ -3640,7 +3650,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 is_angle_bracket_form,
                 &already_included,
                 full_path_result,
-                sizeof full_path_result);
+                sizeof full_path_result,
+                include_next);
 
             if (content != NULL)
             {
@@ -5569,6 +5580,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
             return def_section(ctx, input_list, is_active, level);
         }
         else if (preprocessor_token_ahead_is_identifier(input_list->head, "include") ||
+        preprocessor_token_ahead_is_identifier(input_list->head, "include_next") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "embed") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "define") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "undef") ||
@@ -5792,7 +5804,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __COUNTER__ 0\n"
         "#define _CONSOLE\n"
         "#define __STDC_OWNERSHIP__ 1\n" /*cake extension*/
-        "#define __STDC_HOSTED__ " TOSTRING(__STDC_HOSTED__) "\n"
+        //"#define __STDC_HOSTED__ " TOSTRING(__STDC_HOSTED__) "\n" /*breaks linux*/
         "#define __STDC_NO_ATOMICS__ " TOSTRING(__STDC_NO_ATOMICS__) "\n"
         "#define __STDC_NO_COMPLEX__  " TOSTRING(__STDC_NO_COMPLEX__) "\n"
         "#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__) "\n"
@@ -5843,7 +5855,8 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         //see
         //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
         //We parse and ignore GCC __attribute__
-        "#define __attribute__(x)\n"
+        //"#define __attribute__(x)\n"
+        "#define __x86_64__ " TOSTRING(__x86_64__) "\n"
 
         "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
         "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"

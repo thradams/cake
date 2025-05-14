@@ -5,6 +5,7 @@
 
 #pragma safety enable
 
+#include "ownership.h"
 #include "fs.h"
 #include <wchar.h>
 

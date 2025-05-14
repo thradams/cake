@@ -207,7 +207,7 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
 void object_destroy(_Opt _Dtor struct object* p)
 {
     type_destroy(&p->type);
-    free((void*)p->debug_name);
+    free((void* _Owner)p->debug_name);
 }
 
 void object_delete(struct object* _Opt _Owner p)
@@ -225,6 +225,32 @@ bool object_has_constant_value(const struct object* a)
     return a->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT;
 }
 
+struct object object_clone(const struct object* p)
+{
+    struct object r = { 0 };
+    try
+    {
+        r = *p;
+        r.debug_name = NULL;
+        r.members = NULL;
+
+        struct object* p_member = p->members;
+        while (p_member)
+        {
+            struct object* p_new_member = calloc(1, sizeof * p_new_member);
+            if (p_new_member == NULL)
+                throw;                
+            *p_new_member = object_clone(p_member);
+            p_member = p_member->next;
+        }
+    }
+    catch
+    {
+        //exit();
+    }
+
+    return r;
+}
 void object_to_string(const struct object* a, char buffer[], int sz)
 {
     a = object_get_referenced(a);
@@ -386,7 +412,7 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     }
     break;
     }
-    
+
     return 0;
 }
 
@@ -476,7 +502,7 @@ errno_t object_increment_value(struct object* a)
     default:
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -1468,10 +1494,72 @@ const struct object* object_get_referenced(const struct object* p_object)
     return p_object;
 }
 
-bool object_is_signed(const struct object* p_object)
+
+int get_rank(enum object_value_type t)
 {
-    p_object = (struct object* _Opt) object_get_referenced(p_object);
-    switch (p_object->value_type)
+    //https://cigix.me/c23#6.3.1.1
+    if (t == TYPE_SIGNED_LONG_LONG ||
+        t == TYPE_UNSIGNED_LONG_LONG)
+    {
+        return 80;
+    }
+    else if (t == TYPE_SIGNED_LONG ||
+             t == TYPE_UNSIGNED_LONG)
+    {
+        return 50;
+    }
+    else if (t == TYPE_SIGNED_INT ||
+             t == TYPE_UNSIGNED_INT)
+    {
+        return 40;
+    }
+    else if (t == TYPE_SIGNED_SHORT ||
+             t == TYPE_UNSIGNED_SHORT)
+    {
+        return 30;
+    }
+    else if (t == TYPE_SIGNED_CHAR ||
+             t == TYPE_UNSIGNED_CHAR)
+    {
+        return 20;
+    }
+    return 0;
+}
+
+
+int get_size(enum object_value_type t)
+{
+    if (t == TYPE_SIGNED_LONG_LONG ||
+        t == TYPE_UNSIGNED_LONG_LONG)
+    {
+        return sizeof(long long);
+    }
+    else if (t == TYPE_SIGNED_LONG ||
+             t == TYPE_UNSIGNED_LONG)
+    {
+        return sizeof(long);
+    }
+    else if (t == TYPE_SIGNED_INT ||
+             t == TYPE_UNSIGNED_INT)
+    {
+        return sizeof(int);
+    }
+    else if (t == TYPE_SIGNED_SHORT ||
+             t == TYPE_UNSIGNED_SHORT)
+    {
+        return sizeof(short);
+    }
+    else if (t == TYPE_SIGNED_CHAR ||
+             t == TYPE_UNSIGNED_CHAR)
+    {
+        return sizeof(char);
+    }
+    return 1;
+}
+
+bool is_signed(enum object_value_type t)
+{
+    switch (t)
     {
     case TYPE_BOOL:
     case TYPE_SIGNED_CHAR:
@@ -1486,6 +1574,44 @@ bool object_is_signed(const struct object* p_object)
         break;
     }
     return false;
+}
+
+enum object_value_type to_unsigned(enum object_value_type t)
+{
+    switch (t)
+    {
+    case TYPE_SIGNED_CHAR: return TYPE_UNSIGNED_CHAR;
+    case TYPE_SIGNED_SHORT:return TYPE_UNSIGNED_SHORT;
+    case TYPE_SIGNED_INT: return TYPE_UNSIGNED_INT;
+    case TYPE_SIGNED_LONG:return  TYPE_UNSIGNED_LONG;
+    case TYPE_SIGNED_LONG_LONG: return TYPE_UNSIGNED_LONG_LONG;
+    default:
+        break;
+    }
+    return t;
+}
+
+bool is_unsigned(enum object_value_type t)
+{
+    switch (t)
+    {
+    case TYPE_BOOL:
+    case TYPE_UNSIGNED_CHAR:
+    case TYPE_UNSIGNED_SHORT:
+    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_LONG:
+    case TYPE_UNSIGNED_LONG_LONG:
+        return true;
+    default:
+        break;
+    }
+    return false;
+}
+
+bool object_is_signed(const struct object* p_object)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+    return is_signed(p_object->value_type);
 }
 
 bool object_is_derived(const struct object* p_object)
@@ -2051,7 +2177,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 char name[100] = { 0 };
                 snprintf(name, sizeof name, "[%d]", count);
 
-                free((void*)a->members->debug_name);
+                free((void* _Owner)a->members->debug_name);
                 a->members->debug_name = strdup(name);
 
                 object_default_initialization(a->members, is_constant);
@@ -2068,7 +2194,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 char name[100] = { 0 };
                 snprintf(name, sizeof name, "[%d]", count);
 
-                free((void*)p->debug_name);
+                free((void* _Owner)p->debug_name);
                 p->debug_name = strdup(name);
 
 
@@ -2090,34 +2216,332 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
 }
 
 
+bool object_is_promoted(const struct object* a)
+{
+    /*
+      types smaller than int are promoted to int
+    */
+    if ((a->value_type == TYPE_BOOL) ||
+        (a->value_type == TYPE_SIGNED_CHAR) ||
+        (a->value_type == TYPE_UNSIGNED_CHAR) ||
+        (a->value_type == TYPE_SIGNED_SHORT) ||
+        a->value_type == TYPE_UNSIGNED_SHORT)
+    {
+        return true;
+    }
+    return false;
+}
+
+enum object_value_type object_common(const struct object* a, const struct object* b)
+{
+
+    enum object_value_type a_type = a->value_type;
+    enum object_value_type b_type = b->value_type;
+
+    //See 6.3.1.8 Usual arithmetic conversions
+
+
+    /*
+       First, if the type of either operand is _Decimal128,
+       the other operand is converted to _Decimal128.
+    */
+
+    /*
+      Otherwise, if the type of either operand is _Decimal64,
+      the other operand is converted to _Decimal64
+    */
+
+    /*
+      Otherwise, if the type of either operand is _Decimal32,
+      the other operand is converted to _Decimal32.
+    */
+
+    /*
+      Otherwise, if the corresponding real type of either operand is long double,
+      the other operand is converted, without change of type domain, to a type whose
+      corresponding real type is long double
+    */
+    if (a_type == TYPE_LONG_DOUBLE || b_type == TYPE_LONG_DOUBLE)
+    {
+        return TYPE_LONG_DOUBLE;
+    }
+
+    /*
+      Otherwise, if the corresponding real type of either operand is double,
+      the other operand is converted, without change of type domain, to a type
+      whose corresponding real type is double.
+    */
+
+    if (a_type == TYPE_DOUBLE || b_type == TYPE_DOUBLE)
+    {
+        return TYPE_LONG_DOUBLE;
+    }
+
+    /*
+      Otherwise, if the corresponding real type of either operand is float,
+      the other operand is converted, without change of type domain,
+      to a type whose corresponding real type is float
+    */
+    if (a_type == TYPE_FLOAT || b_type == TYPE_FLOAT)
+    {
+        return TYPE_FLOAT;
+    }
+
+
+    /*
+     Otherwise, if any of the two types is an enumeration, it is converted to its underlying type.
+    */
+
+    /*
+      Then, the integer promotions are performed on both operands.
+    */
+
+
+    if (object_is_promoted(a))
+    {
+        a_type = TYPE_SIGNED_INT;
+    }
+
+    if (object_is_promoted(b))
+    {
+        b_type = TYPE_SIGNED_INT;
+    }
+
+
+    /*
+      Next, the following rules are applied to the promoted operands
+      if both operands have the same type, then no further conversion is needed
+    */
+    if (a_type == b_type)
+    {
+        return a_type;
+    }
+
+    /*
+     Otherwise, if both operands have signed integer types or both have unsigned integer
+     types, the operand with the type of lesser integer conversion rank is converted to the type
+     of the operand with greater rank.
+    */
+
+    if (is_signed(a_type) == is_signed(b_type))
+    {
+        if (get_rank(a_type) > get_rank(b_type))
+        {
+            return a_type;
+        }
+
+        return b_type;
+    }
+
+
+    /*
+     Otherwise, if the operand that has unsigned integer type has rank greater or equal to
+     the rank of the type of the other operand, then the operand with signed integer type is
+     converted to the type of the operand with unsigned integer type.
+    */
+
+
+    enum object_value_type  signed_promoted = is_signed(a_type) ? a_type : b_type;
+    enum object_value_type  unsigned_promoted = is_unsigned(a_type) ? a_type : b_type;
+
+
+    if (get_rank(unsigned_promoted) >= get_rank(signed_promoted))
+    {
+        return unsigned_promoted;
+    }
+
+    /*
+      Otherwise, if the type of the operand with signed integer type can represent all the values
+      of the type of the operand with unsigned integer type, then the operand with unsigned
+      integer type is converted to the type of the operand with signed integer type
+    */
+
+    if (get_size(signed_promoted) > get_size(unsigned_promoted))
+    {
+        return signed_promoted;
+    }
+
+    /*
+      Otherwise, both operands are converted to the unsigned integer type corresponding to
+      the type of the operand with signed integer type
+    */
+
+    return to_unsigned(signed_promoted);
+
+}
+
 int object_greater_than_or_equal(const struct object* a, const struct object* b)
 {
-    //TODO integer promotion!
-
     a = object_get_referenced(a);
     b = object_get_referenced(b);
-    long long av = object_to_signed_long(a);
-    long long bv = object_to_signed_long(b);
-    return av >= bv;
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_to_signed_int(a) >= object_to_signed_int(b);
+
+    case TYPE_UNSIGNED_INT:
+        return object_to_unsigned_int(a) >= object_to_unsigned_int(b);
+
+    case TYPE_BOOL:
+        return object_to_bool(a) >= object_to_bool(b);
+
+    case TYPE_SIGNED_CHAR:
+        return object_to_signed_char(a) >= object_to_signed_char(b);
+
+        break;
+    case TYPE_UNSIGNED_CHAR:
+        return object_to_unsigned_char(a) >= object_to_unsigned_char(b);
+
+    case TYPE_SIGNED_SHORT:
+        return object_to_signed_short(a) >= object_to_signed_short(b);
+
+    case TYPE_UNSIGNED_SHORT:
+        return object_to_unsigned_short(a) >= object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_to_signed_long(a) >= object_to_signed_long(b);
+
+    case TYPE_UNSIGNED_LONG:
+        return object_to_unsigned_long(a) >= object_to_unsigned_long(b);
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_to_signed_long_long(a) >= object_to_signed_long_long(b);
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_to_unsigned_long_long(a) >= object_to_unsigned_long_long(b);
+
+    case TYPE_FLOAT:
+        return object_to_float(a) >= object_to_float(b);
+
+    case TYPE_DOUBLE:
+        return object_to_double(a) >= object_to_double(b);
+
+    case TYPE_LONG_DOUBLE:
+        return object_to_long_double(a) >= object_to_long_double(b);
+
+    }
+
+    assert(false);
+    return object_to_unsigned_long_long(a) >= object_to_unsigned_long_long(b);
+
 }
 
 int object_smaller_than_or_equal(const struct object* a, const struct object* b)
 {
-    //TODO integer promotion!
     a = object_get_referenced(a);
     b = object_get_referenced(b);
-    long long av = object_to_signed_long(a);
-    long long bv = object_to_signed_long(b);
-    return av <= bv;
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_to_signed_int(a) <= object_to_signed_int(b);
+
+    case TYPE_UNSIGNED_INT:
+        return object_to_unsigned_int(a) <= object_to_unsigned_int(b);
+
+    case TYPE_BOOL:
+        return object_to_bool(a) <= object_to_bool(b);
+
+    case TYPE_SIGNED_CHAR:
+        return object_to_signed_char(a) <= object_to_signed_char(b);
+
+        break;
+    case TYPE_UNSIGNED_CHAR:
+        return object_to_unsigned_char(a) <= object_to_unsigned_char(b);
+
+    case TYPE_SIGNED_SHORT:
+        return object_to_signed_short(a) <= object_to_signed_short(b);
+
+    case TYPE_UNSIGNED_SHORT:
+        return object_to_unsigned_short(a) <= object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_to_signed_long(a) <= object_to_signed_long(b);
+
+    case TYPE_UNSIGNED_LONG:
+        return object_to_unsigned_long(a) <= object_to_unsigned_long(b);
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_to_signed_long_long(a) <= object_to_signed_long_long(b);
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_to_unsigned_long_long(a) <= object_to_unsigned_long_long(b);
+
+    case TYPE_FLOAT:
+        return object_to_float(a) <= object_to_float(b);
+
+    case TYPE_DOUBLE:
+        return object_to_double(a) <= object_to_double(b);
+
+    case TYPE_LONG_DOUBLE:
+        return object_to_long_double(a) <= object_to_long_double(b);
+
+    }
+
+    assert(false);
+    return object_to_unsigned_long_long(a) <= object_to_unsigned_long_long(b);
 }
 
 int object_equal(const struct object* a, const struct object* b)
 {
-    //TODO integer promotion!
     a = object_get_referenced(a);
     b = object_get_referenced(b);
-    long long av = object_to_signed_long(a);
-    long long bv = object_to_signed_long(b);
-    return av == bv;
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_to_signed_int(a) == object_to_signed_int(b);
+
+    case TYPE_UNSIGNED_INT:
+        return object_to_unsigned_int(a) == object_to_unsigned_int(b);
+
+    case TYPE_BOOL:
+        return object_to_bool(a) == object_to_bool(b);
+
+    case TYPE_SIGNED_CHAR:
+        return object_to_signed_char(a) == object_to_signed_char(b);
+
+        break;
+    case TYPE_UNSIGNED_CHAR:
+        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+
+    case TYPE_SIGNED_SHORT:
+        return object_to_signed_short(a) == object_to_signed_short(b);
+
+    case TYPE_UNSIGNED_SHORT:
+        return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_to_signed_long(a) == object_to_signed_long(b);
+
+    case TYPE_UNSIGNED_LONG:
+        return object_to_unsigned_long(a) == object_to_unsigned_long(b);
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_to_signed_long_long(a) == object_to_signed_long_long(b);
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_to_unsigned_long_long(a) == object_to_unsigned_long_long(b);
+
+    case TYPE_FLOAT:
+        return object_to_float(a) == object_to_float(b);
+
+    case TYPE_DOUBLE:
+        return object_to_double(a) == object_to_double(b);
+
+    case TYPE_LONG_DOUBLE:
+        return object_to_long_double(a) == object_to_long_double(b);
+
+    }
+
+    assert(false);
+    return object_to_unsigned_long_long(a) == object_to_unsigned_long_long(b);
 }
 

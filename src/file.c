@@ -1,5 +1,1 @@
-﻿
-  int main(){
-
-        double d = 1...1;
-  }
+﻿static_assert(_Generic(L' ', unsigned short : 1), "");

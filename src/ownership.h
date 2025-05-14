@@ -4,7 +4,24 @@
 
 #ifdef __STDC_OWNERSHIP__
 
-typedef typeof(sizeof(0)) size_t; // valid since C23
+
+#ifdef _WIN64
+    typedef struct _iobuf FILE;
+    typedef unsigned __int64 size_t;    
+#endif
+
+#ifdef  _WIN32
+    typedef struct _iobuf FILE;
+    typedef unsigned int     size_t;
+#endif
+
+
+#ifdef __linux__
+
+    typedef struct _IO_FILE FILE;
+    typedef __SIZE_TYPE__ size_t; // valid since C23
+
+#endif
 
 /*
   ownership is suported
@@ -29,7 +46,7 @@ long strtol(
     int         _Radix
     );
 
-typedef struct _iobuf FILE;
+
 FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* _Owner _Stream);
 

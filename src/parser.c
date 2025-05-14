@@ -19,7 +19,7 @@
 #include "console.h"
 #include "fs.h"
 #include <ctype.h>
-#include "visit_flow.h"
+#include "flow.h"
 #include "visit_defer.h"
 #include <errno.h>
 
@@ -1620,12 +1620,13 @@ int final_specifier(struct parser_ctx* ctx, enum type_specifier_flags* flags)
     if (((*flags) & TYPE_SPECIFIER_UNSIGNED) ||
         ((*flags) & TYPE_SPECIFIER_SIGNED))
     {
+        //TODO leave as it is..and check at comparison 
         if (!type_specifier_is_integer(*flags))
         {
             // if you didn't specify anything, it becomes integer
             (*flags) |= TYPE_SPECIFIER_INT;
         }
-    }
+    }       
 
     return 0;
 }
@@ -2088,7 +2089,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 throw; //unexpected
             }
 
-            ctx->p_current_function_opt = p_declaration;            
+            ctx->p_current_function_opt = p_declaration;
 
             /*
                 scope of parameters is the inner declarator
@@ -2526,18 +2527,25 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         //TODO type_is_same needs changes see #164
                         if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, false))
                         {
+                            struct osstream ss = { 0 };
+                            print_type_no_names(&ss, &previous->type);
+
                             compiler_diagnostic(
                                 C_ERROR_REDECLARATION,
                                 ctx,
                                 ctx->current,
                                 NULL,
-                                "conflicting types for '%s'", name);
+                                "conflicting types for '%s' (%s)", name, ss.c_str);
+
+                            ss_clear(&ss);
+                            print_type_no_names(&ss, &p_init_declarator->p_declarator->type);
 
                             compiler_diagnostic(C_ERROR_REDECLARATION,
                                 ctx,
                                 previous->name_opt,
                                 NULL,
-                                "previous declaration");
+                                "previous declaration (%s)", ss.c_str);
+                            ss_close(&ss);
                         }
                     }
                 }
@@ -8079,7 +8087,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
-            
+
             case_label_list_push(&ctx->p_current_selection_statement->label_list, p_label);
         }
         // attribute_specifier_sequence_opt identifier ':'
@@ -8599,7 +8607,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
         assert(ctx->current->type == TK_KEYWORD_TRY);
         const struct try_statement* _Opt try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
-        
+
         p_try_statement->catch_label_id = ctx->label_id++;
 
 
@@ -9782,7 +9790,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
      * Used to give an unique index (inside the function)
      * for try-catch blocks
      */
-    
+
     ctx->p_current_try_statement_opt = NULL;
     ctx->label_id = 0; /*reset*/
     label_list_clear(&ctx->label_list);

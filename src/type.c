@@ -299,7 +299,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             }
 
             struct osstream local2 = { 0 };
-            if (ss->c_str)
+            if (ss->size > 0)
                 ss_fprintf(&local2, "%s %s", local.c_str, ss->c_str);
             else
                 ss_fprintf(&local2, "%s", local.c_str);
@@ -2233,7 +2233,7 @@ size_t type_get_sizeof(const struct type* p_type)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        const struct enum_specifier* p = 
+        const struct enum_specifier* p =
             get_complete_enum_specifier(p_type->enum_specifier);
         if (p == 0)
             return (size_t)-2;
@@ -2725,7 +2725,21 @@ static bool type_is_same_core(const struct type* a,
                 return false;
         }
 
-        if (pa->type_specifier_flags != pb->type_specifier_flags)
+
+        enum type_specifier_flags a_flags = pa->type_specifier_flags;
+        enum type_specifier_flags b_flags = pb->type_specifier_flags;
+
+        if ((a_flags & TYPE_SPECIFIER_CHAR) == 0)
+        {
+            a_flags &= ~TYPE_SPECIFIER_SIGNED;
+        }
+
+        if ((b_flags & TYPE_SPECIFIER_CHAR) == 0)
+        {
+            b_flags &= ~TYPE_SPECIFIER_SIGNED;
+        }
+
+        if (a_flags != b_flags)
         {
             return false;
         }

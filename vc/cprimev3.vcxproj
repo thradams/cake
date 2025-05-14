@@ -28,12 +28,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\console.c" />
+    <ClCompile Include="..\src\flow.c" />
     <ClCompile Include="..\src\visit_defer.c" />
     <ClCompile Include="..\src\visit_il.c" />
     <ClCompile Include="..\src\object.c" />
     <ClCompile Include="..\src\error.c" />
     <ClCompile Include="..\src\expressions.c" />
-    <ClCompile Include="..\src\visit_flow.c" />
     <ClCompile Include="..\src\fs.c" />
     <ClCompile Include="..\src\hashmap.c" />
     <ClCompile Include="..\src\main.c" />
@@ -47,12 +47,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h" />
+    <ClInclude Include="..\src\flow.h" />
     <ClInclude Include="..\src\visit_defer.h" />
     <ClInclude Include="..\src\visit_il.h" />
     <ClInclude Include="..\src\object.h" />
     <ClInclude Include="..\src\error.h" />
     <ClInclude Include="..\src\expressions.h" />
-    <ClInclude Include="..\src\visit_flow.h" />
     <ClInclude Include="..\src\fs.h" />
     <ClInclude Include="..\src\hashmap.h" />
     <ClInclude Include="..\src\options.h" />
@@ -78,7 +78,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
-    <EnableASAN>false</EnableASAN>
+    <EnableASAN>true</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>

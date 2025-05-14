@@ -15,7 +15,24 @@
 
 #ifdef __STDC_OWNERSHIP__
 
-typedef typeof(sizeof(0)) size_t; // valid since C23
+
+#ifdef _WIN64
+    typedef struct _iobuf FILE;
+    typedef unsigned __int64 size_t;    
+#endif
+
+#ifdef  _WIN32
+    typedef struct _iobuf FILE;
+    typedef unsigned int     size_t;
+#endif
+
+
+#ifdef __linux__
+
+    typedef struct _IO_FILE FILE;
+    typedef __SIZE_TYPE__ size_t; // valid since C23
+
+#endif
 
 /*
   ownership is suported
@@ -40,7 +57,7 @@ long strtol(
     int         _Radix
     );
 
-typedef struct _iobuf FILE;
+
 FILE* _Owner _Opt fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* _Owner _Stream);
 
@@ -3541,12 +3558,6 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     bool is_warning = false;
     bool is_note = false;
 
-    if (included_file_location)
-    {
-        //no message for include dir
-        return false;
-    }
-
     if (w > W_NOTE)
     {
         is_error = true;
@@ -3579,7 +3590,12 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     {
         return false;
     }
-
+        
+    if (!is_error && included_file_location)
+    {
+        //notes are warning are not printed in included files
+        return false;
+    }
 
     print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
 
@@ -3720,7 +3736,8 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
     bool is_angle_bracket_form,
     bool* p_already_included, /*out file already included pragma once*/
     char full_path_out[], /*this is the final full path of the file*/
-    int full_path_out_size)
+    int full_path_out_size,
+   bool include_next)
 {
     char newpath[200] = { 0 };
     full_path_out[0] = '\0';
@@ -3810,6 +3827,13 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
         content = read_file(full_path_out, true);
         if (content != NULL)
         {
+            if (include_next)
+            {
+                free(content);
+                 content = NULL;
+                include_next = false;
+            }
+            else 
             return content;
         }
         current = current->next;
@@ -5656,7 +5680,8 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     is_angle_bracket_form,
                     &already_included,
                     full_path_result,
-                    sizeof full_path_result);
+                    sizeof full_path_result,
+                  false);
 
                 bool has_include = s != NULL;
                 free((void* _Owner)s);
@@ -6891,8 +6916,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             throw;
         }
 
-        if (strcmp(input_list->head->lexeme, "include") == 0)
+        if (strcmp(input_list->head->lexeme, "include") == 0||
+            strcmp(input_list->head->lexeme, "include_next") == 0)
         {
+            bool include_next = strcmp(input_list->head->lexeme, "include_next") == 0;
             /*
               # include pp-tokens new-line
             */
@@ -6959,7 +6986,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 is_angle_bracket_form,
                 &already_included,
                 full_path_result,
-                sizeof full_path_result);
+                sizeof full_path_result,
+                include_next);
 
             if (content != NULL)
             {
@@ -8888,6 +8916,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
             return def_section(ctx, input_list, is_active, level);
         }
         else if (preprocessor_token_ahead_is_identifier(input_list->head, "include") ||
+        preprocessor_token_ahead_is_identifier(input_list->head, "include_next") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "embed") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "define") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "undef") ||
@@ -9111,7 +9140,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __COUNTER__ 0\n"
         "#define _CONSOLE\n"
         "#define __STDC_OWNERSHIP__ 1\n" /*cake extension*/
-        "#define __STDC_HOSTED__ " TOSTRING(__STDC_HOSTED__) "\n"
+        //"#define __STDC_HOSTED__ " TOSTRING(__STDC_HOSTED__) "\n" /*breaks linux*/
         "#define __STDC_NO_ATOMICS__ " TOSTRING(__STDC_NO_ATOMICS__) "\n"
         "#define __STDC_NO_COMPLEX__  " TOSTRING(__STDC_NO_COMPLEX__) "\n"
         "#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__) "\n"
@@ -9162,7 +9191,8 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         //see
         //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
         //We parse and ignore GCC __attribute__
-        "#define __attribute__(x)\n"
+        //"#define __attribute__(x)\n"
+        "#define __x86_64__ " TOSTRING(__x86_64__) "\n"
 
         "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
         "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
@@ -13762,11 +13792,12 @@ struct object
     struct object* _Opt _Owner members;
     struct object* _Opt _Owner next;
 };
-
+void object_print_value_debug(const struct object* a);
 void object_destroy(_Opt _Dtor struct object* p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
 void object_to_string(const struct object* a, char buffer[], int sz);
+struct object object_clone(const struct object* p);
 
 //Make constant value
 struct object            object_make_wchar_t(wchar_t value);
@@ -15952,7 +15983,7 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
 void object_destroy(_Opt _Dtor struct object* p)
 {
     type_destroy(&p->type);
-    free((void*)p->debug_name);
+    free((void* _Owner)p->debug_name);
 }
 
 void object_delete(struct object* _Opt _Owner p)
@@ -15970,6 +16001,32 @@ bool object_has_constant_value(const struct object* a)
     return a->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT;
 }
 
+struct object object_clone(const struct object* p)
+{
+    struct object r = { 0 };
+    try
+    {
+        r = *p;
+        r.debug_name = NULL;
+        r.members = NULL;
+
+        struct object* p_member = p->members;
+        while (p_member)
+        {
+            struct object* p_new_member = calloc(1, sizeof * p_new_member);
+            if (p_new_member == NULL)
+                throw;                
+            *p_new_member = object_clone(p_member);
+            p_member = p_member->next;
+        }
+    }
+    catch
+    {
+        //exit();
+    }
+
+    return r;
+}
 void object_to_string(const struct object* a, char buffer[], int sz)
 {
     a = object_get_referenced(a);
@@ -16131,7 +16188,7 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     }
     break;
     }
-    
+
     return 0;
 }
 
@@ -16221,7 +16278,7 @@ errno_t object_increment_value(struct object* a)
     default:
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -17213,10 +17270,72 @@ const struct object* object_get_referenced(const struct object* p_object)
     return p_object;
 }
 
-bool object_is_signed(const struct object* p_object)
+
+int get_rank(enum object_value_type t)
 {
-    p_object = (struct object* _Opt) object_get_referenced(p_object);
-    switch (p_object->value_type)
+    //https://cigix.me/c23#6.3.1.1
+    if (t == TYPE_SIGNED_LONG_LONG ||
+        t == TYPE_UNSIGNED_LONG_LONG)
+    {
+        return 80;
+    }
+    else if (t == TYPE_SIGNED_LONG ||
+             t == TYPE_UNSIGNED_LONG)
+    {
+        return 50;
+    }
+    else if (t == TYPE_SIGNED_INT ||
+             t == TYPE_UNSIGNED_INT)
+    {
+        return 40;
+    }
+    else if (t == TYPE_SIGNED_SHORT ||
+             t == TYPE_UNSIGNED_SHORT)
+    {
+        return 30;
+    }
+    else if (t == TYPE_SIGNED_CHAR ||
+             t == TYPE_UNSIGNED_CHAR)
+    {
+        return 20;
+    }
+    return 0;
+}
+
+
+int get_size(enum object_value_type t)
+{
+    if (t == TYPE_SIGNED_LONG_LONG ||
+        t == TYPE_UNSIGNED_LONG_LONG)
+    {
+        return sizeof(long long);
+    }
+    else if (t == TYPE_SIGNED_LONG ||
+             t == TYPE_UNSIGNED_LONG)
+    {
+        return sizeof(long);
+    }
+    else if (t == TYPE_SIGNED_INT ||
+             t == TYPE_UNSIGNED_INT)
+    {
+        return sizeof(int);
+    }
+    else if (t == TYPE_SIGNED_SHORT ||
+             t == TYPE_UNSIGNED_SHORT)
+    {
+        return sizeof(short);
+    }
+    else if (t == TYPE_SIGNED_CHAR ||
+             t == TYPE_UNSIGNED_CHAR)
+    {
+        return sizeof(char);
+    }
+    return 1;
+}
+
+bool is_signed(enum object_value_type t)
+{
+    switch (t)
     {
     case TYPE_BOOL:
     case TYPE_SIGNED_CHAR:
@@ -17231,6 +17350,44 @@ bool object_is_signed(const struct object* p_object)
         break;
     }
     return false;
+}
+
+enum object_value_type to_unsigned(enum object_value_type t)
+{
+    switch (t)
+    {
+    case TYPE_SIGNED_CHAR: return TYPE_UNSIGNED_CHAR;
+    case TYPE_SIGNED_SHORT:return TYPE_UNSIGNED_SHORT;
+    case TYPE_SIGNED_INT: return TYPE_UNSIGNED_INT;
+    case TYPE_SIGNED_LONG:return  TYPE_UNSIGNED_LONG;
+    case TYPE_SIGNED_LONG_LONG: return TYPE_UNSIGNED_LONG_LONG;
+    default:
+        break;
+    }
+    return t;
+}
+
+bool is_unsigned(enum object_value_type t)
+{
+    switch (t)
+    {
+    case TYPE_BOOL:
+    case TYPE_UNSIGNED_CHAR:
+    case TYPE_UNSIGNED_SHORT:
+    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_LONG:
+    case TYPE_UNSIGNED_LONG_LONG:
+        return true;
+    default:
+        break;
+    }
+    return false;
+}
+
+bool object_is_signed(const struct object* p_object)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+    return is_signed(p_object->value_type);
 }
 
 bool object_is_derived(const struct object* p_object)
@@ -17796,7 +17953,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 char name[100] = { 0 };
                 snprintf(name, sizeof name, "[%d]", count);
 
-                free((void*)a->members->debug_name);
+                free((void* _Owner)a->members->debug_name);
                 a->members->debug_name = strdup(name);
 
                 object_default_initialization(a->members, is_constant);
@@ -17813,7 +17970,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
                 char name[100] = { 0 };
                 snprintf(name, sizeof name, "[%d]", count);
 
-                free((void*)p->debug_name);
+                free((void* _Owner)p->debug_name);
                 p->debug_name = strdup(name);
 
 
@@ -17835,35 +17992,333 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
 }
 
 
+bool object_is_promoted(const struct object* a)
+{
+    /*
+      types smaller than int are promoted to int
+    */
+    if ((a->value_type == TYPE_BOOL) ||
+        (a->value_type == TYPE_SIGNED_CHAR) ||
+        (a->value_type == TYPE_UNSIGNED_CHAR) ||
+        (a->value_type == TYPE_SIGNED_SHORT) ||
+        a->value_type == TYPE_UNSIGNED_SHORT)
+    {
+        return true;
+    }
+    return false;
+}
+
+enum object_value_type object_common(const struct object* a, const struct object* b)
+{
+
+    enum object_value_type a_type = a->value_type;
+    enum object_value_type b_type = b->value_type;
+
+    //See 6.3.1.8 Usual arithmetic conversions
+
+
+    /*
+       First, if the type of either operand is _Decimal128,
+       the other operand is converted to _Decimal128.
+    */
+
+    /*
+      Otherwise, if the type of either operand is _Decimal64,
+      the other operand is converted to _Decimal64
+    */
+
+    /*
+      Otherwise, if the type of either operand is _Decimal32,
+      the other operand is converted to _Decimal32.
+    */
+
+    /*
+      Otherwise, if the corresponding real type of either operand is long double,
+      the other operand is converted, without change of type domain, to a type whose
+      corresponding real type is long double
+    */
+    if (a_type == TYPE_LONG_DOUBLE || b_type == TYPE_LONG_DOUBLE)
+    {
+        return TYPE_LONG_DOUBLE;
+    }
+
+    /*
+      Otherwise, if the corresponding real type of either operand is double,
+      the other operand is converted, without change of type domain, to a type
+      whose corresponding real type is double.
+    */
+
+    if (a_type == TYPE_DOUBLE || b_type == TYPE_DOUBLE)
+    {
+        return TYPE_LONG_DOUBLE;
+    }
+
+    /*
+      Otherwise, if the corresponding real type of either operand is float,
+      the other operand is converted, without change of type domain,
+      to a type whose corresponding real type is float
+    */
+    if (a_type == TYPE_FLOAT || b_type == TYPE_FLOAT)
+    {
+        return TYPE_FLOAT;
+    }
+
+
+    /*
+     Otherwise, if any of the two types is an enumeration, it is converted to its underlying type.
+    */
+
+    /*
+      Then, the integer promotions are performed on both operands.
+    */
+
+
+    if (object_is_promoted(a))
+    {
+        a_type = TYPE_SIGNED_INT;
+    }
+
+    if (object_is_promoted(b))
+    {
+        b_type = TYPE_SIGNED_INT;
+    }
+
+
+    /*
+      Next, the following rules are applied to the promoted operands
+      if both operands have the same type, then no further conversion is needed
+    */
+    if (a_type == b_type)
+    {
+        return a_type;
+    }
+
+    /*
+     Otherwise, if both operands have signed integer types or both have unsigned integer
+     types, the operand with the type of lesser integer conversion rank is converted to the type
+     of the operand with greater rank.
+    */
+
+    if (is_signed(a_type) == is_signed(b_type))
+    {
+        if (get_rank(a_type) > get_rank(b_type))
+        {
+            return a_type;
+        }
+
+        return b_type;
+    }
+
+
+    /*
+     Otherwise, if the operand that has unsigned integer type has rank greater or equal to
+     the rank of the type of the other operand, then the operand with signed integer type is
+     converted to the type of the operand with unsigned integer type.
+    */
+
+
+    enum object_value_type  signed_promoted = is_signed(a_type) ? a_type : b_type;
+    enum object_value_type  unsigned_promoted = is_unsigned(a_type) ? a_type : b_type;
+
+
+    if (get_rank(unsigned_promoted) >= get_rank(signed_promoted))
+    {
+        return unsigned_promoted;
+    }
+
+    /*
+      Otherwise, if the type of the operand with signed integer type can represent all the values
+      of the type of the operand with unsigned integer type, then the operand with unsigned
+      integer type is converted to the type of the operand with signed integer type
+    */
+
+    if (get_size(signed_promoted) > get_size(unsigned_promoted))
+    {
+        return signed_promoted;
+    }
+
+    /*
+      Otherwise, both operands are converted to the unsigned integer type corresponding to
+      the type of the operand with signed integer type
+    */
+
+    return to_unsigned(signed_promoted);
+
+}
+
 int object_greater_than_or_equal(const struct object* a, const struct object* b)
 {
-    //TODO integer promotion!
-
     a = object_get_referenced(a);
     b = object_get_referenced(b);
-    long long av = object_to_signed_long(a);
-    long long bv = object_to_signed_long(b);
-    return av >= bv;
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_to_signed_int(a) >= object_to_signed_int(b);
+
+    case TYPE_UNSIGNED_INT:
+        return object_to_unsigned_int(a) >= object_to_unsigned_int(b);
+
+    case TYPE_BOOL:
+        return object_to_bool(a) >= object_to_bool(b);
+
+    case TYPE_SIGNED_CHAR:
+        return object_to_signed_char(a) >= object_to_signed_char(b);
+
+        break;
+    case TYPE_UNSIGNED_CHAR:
+        return object_to_unsigned_char(a) >= object_to_unsigned_char(b);
+
+    case TYPE_SIGNED_SHORT:
+        return object_to_signed_short(a) >= object_to_signed_short(b);
+
+    case TYPE_UNSIGNED_SHORT:
+        return object_to_unsigned_short(a) >= object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_to_signed_long(a) >= object_to_signed_long(b);
+
+    case TYPE_UNSIGNED_LONG:
+        return object_to_unsigned_long(a) >= object_to_unsigned_long(b);
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_to_signed_long_long(a) >= object_to_signed_long_long(b);
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_to_unsigned_long_long(a) >= object_to_unsigned_long_long(b);
+
+    case TYPE_FLOAT:
+        return object_to_float(a) >= object_to_float(b);
+
+    case TYPE_DOUBLE:
+        return object_to_double(a) >= object_to_double(b);
+
+    case TYPE_LONG_DOUBLE:
+        return object_to_long_double(a) >= object_to_long_double(b);
+
+    }
+
+    assert(false);
+    return object_to_unsigned_long_long(a) >= object_to_unsigned_long_long(b);
+
 }
 
 int object_smaller_than_or_equal(const struct object* a, const struct object* b)
 {
-    //TODO integer promotion!
     a = object_get_referenced(a);
     b = object_get_referenced(b);
-    long long av = object_to_signed_long(a);
-    long long bv = object_to_signed_long(b);
-    return av <= bv;
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_to_signed_int(a) <= object_to_signed_int(b);
+
+    case TYPE_UNSIGNED_INT:
+        return object_to_unsigned_int(a) <= object_to_unsigned_int(b);
+
+    case TYPE_BOOL:
+        return object_to_bool(a) <= object_to_bool(b);
+
+    case TYPE_SIGNED_CHAR:
+        return object_to_signed_char(a) <= object_to_signed_char(b);
+
+        break;
+    case TYPE_UNSIGNED_CHAR:
+        return object_to_unsigned_char(a) <= object_to_unsigned_char(b);
+
+    case TYPE_SIGNED_SHORT:
+        return object_to_signed_short(a) <= object_to_signed_short(b);
+
+    case TYPE_UNSIGNED_SHORT:
+        return object_to_unsigned_short(a) <= object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_to_signed_long(a) <= object_to_signed_long(b);
+
+    case TYPE_UNSIGNED_LONG:
+        return object_to_unsigned_long(a) <= object_to_unsigned_long(b);
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_to_signed_long_long(a) <= object_to_signed_long_long(b);
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_to_unsigned_long_long(a) <= object_to_unsigned_long_long(b);
+
+    case TYPE_FLOAT:
+        return object_to_float(a) <= object_to_float(b);
+
+    case TYPE_DOUBLE:
+        return object_to_double(a) <= object_to_double(b);
+
+    case TYPE_LONG_DOUBLE:
+        return object_to_long_double(a) <= object_to_long_double(b);
+
+    }
+
+    assert(false);
+    return object_to_unsigned_long_long(a) <= object_to_unsigned_long_long(b);
 }
 
 int object_equal(const struct object* a, const struct object* b)
 {
-    //TODO integer promotion!
     a = object_get_referenced(a);
     b = object_get_referenced(b);
-    long long av = object_to_signed_long(a);
-    long long bv = object_to_signed_long(b);
-    return av == bv;
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_to_signed_int(a) == object_to_signed_int(b);
+
+    case TYPE_UNSIGNED_INT:
+        return object_to_unsigned_int(a) == object_to_unsigned_int(b);
+
+    case TYPE_BOOL:
+        return object_to_bool(a) == object_to_bool(b);
+
+    case TYPE_SIGNED_CHAR:
+        return object_to_signed_char(a) == object_to_signed_char(b);
+
+        break;
+    case TYPE_UNSIGNED_CHAR:
+        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+
+    case TYPE_SIGNED_SHORT:
+        return object_to_signed_short(a) == object_to_signed_short(b);
+
+    case TYPE_UNSIGNED_SHORT:
+        return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_to_signed_long(a) == object_to_signed_long(b);
+
+    case TYPE_UNSIGNED_LONG:
+        return object_to_unsigned_long(a) == object_to_unsigned_long(b);
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_to_signed_long_long(a) == object_to_signed_long_long(b);
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_to_unsigned_long_long(a) == object_to_unsigned_long_long(b);
+
+    case TYPE_FLOAT:
+        return object_to_float(a) == object_to_float(b);
+
+    case TYPE_DOUBLE:
+        return object_to_double(a) == object_to_double(b);
+
+    case TYPE_LONG_DOUBLE:
+        return object_to_long_double(a) == object_to_long_double(b);
+
+    }
+
+    assert(false);
+    return object_to_unsigned_long_long(a) == object_to_unsigned_long_long(b);
 }
 
 
@@ -25787,12 +26242,8 @@ struct flow_visit_ctx
     int labels_size;
 };
 
-struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx);
-
 void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p);
-
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
-void print_arena(struct flow_visit_ctx* ctx);
 
 
 
@@ -27482,12 +27933,13 @@ int final_specifier(struct parser_ctx* ctx, enum type_specifier_flags* flags)
     if (((*flags) & TYPE_SPECIFIER_UNSIGNED) ||
         ((*flags) & TYPE_SPECIFIER_SIGNED))
     {
+        //TODO leave as it is..and check at comparison 
         if (!type_specifier_is_integer(*flags))
         {
             // if you didn't specify anything, it becomes integer
             (*flags) |= TYPE_SPECIFIER_INT;
         }
-    }
+    }       
 
     return 0;
 }
@@ -27950,7 +28402,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 throw; //unexpected
             }
 
-            ctx->p_current_function_opt = p_declaration;            
+            ctx->p_current_function_opt = p_declaration;
 
             /*
                 scope of parameters is the inner declarator
@@ -28388,18 +28840,25 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         //TODO type_is_same needs changes see #164
                         if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, false))
                         {
+                            struct osstream ss = { 0 };
+                            print_type_no_names(&ss, &previous->type);
+
                             compiler_diagnostic(
                                 C_ERROR_REDECLARATION,
                                 ctx,
                                 ctx->current,
                                 NULL,
-                                "conflicting types for '%s'", name);
+                                "conflicting types for '%s' (%s)", name, ss.c_str);
+
+                            ss_clear(&ss);
+                            print_type_no_names(&ss, &p_init_declarator->p_declarator->type);
 
                             compiler_diagnostic(C_ERROR_REDECLARATION,
                                 ctx,
                                 previous->name_opt,
                                 NULL,
-                                "previous declaration");
+                                "previous declaration (%s)", ss.c_str);
+                            ss_close(&ss);
                         }
                     }
                 }
@@ -33941,7 +34400,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
-            
+
             case_label_list_push(&ctx->p_current_selection_statement->label_list, p_label);
         }
         // attribute_specifier_sequence_opt identifier ':'
@@ -34461,7 +34920,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
         assert(ctx->current->type == TK_KEYWORD_TRY);
         const struct try_statement* _Opt try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
-        
+
         p_try_statement->catch_label_id = ctx->label_id++;
 
 
@@ -35644,7 +36103,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
      * Used to give an unique index (inside the function)
      * for try-catch blocks
      */
-    
+
     ctx->p_current_try_statement_opt = NULL;
     ctx->label_id = 0; /*reset*/
     label_list_clear(&ctx->label_list);
@@ -41544,7 +42003,6 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 #pragma safety enable
 
 
-
 struct object_visitor
 {
     int member_index;
@@ -41553,6 +42011,7 @@ struct object_visitor
 };
 
 unsigned int s_visit_number = 1; //creates a unique number
+_Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx);
 
 bool flow_object_is_not_null(const struct flow_object* p)
 {
@@ -49645,7 +50104,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             }
 
             struct osstream local2 = { 0 };
-            if (ss->c_str)
+            if (ss->size > 0)
                 ss_fprintf(&local2, "%s %s", local.c_str, ss->c_str);
             else
                 ss_fprintf(&local2, "%s", local.c_str);
@@ -51579,7 +52038,7 @@ size_t type_get_sizeof(const struct type* p_type)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        const struct enum_specifier* p = 
+        const struct enum_specifier* p =
             get_complete_enum_specifier(p_type->enum_specifier);
         if (p == 0)
             return (size_t)-2;
@@ -52071,7 +52530,21 @@ static bool type_is_same_core(const struct type* a,
                 return false;
         }
 
-        if (pa->type_specifier_flags != pb->type_specifier_flags)
+
+        enum type_specifier_flags a_flags = pa->type_specifier_flags;
+        enum type_specifier_flags b_flags = pb->type_specifier_flags;
+
+        if ((a_flags & TYPE_SPECIFIER_CHAR) == 0)
+        {
+            a_flags &= ~TYPE_SPECIFIER_SIGNED;
+        }
+
+        if ((b_flags & TYPE_SPECIFIER_CHAR) == 0)
+        {
+            b_flags &= ~TYPE_SPECIFIER_SIGNED;
+        }
+
+        if (a_flags != b_flags)
         {
             return false;
         }
