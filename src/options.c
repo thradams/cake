@@ -340,7 +340,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-show-includes") == 0)
+        if (strcmp(argv[i], "-H") == 0)
         {
             options->show_includes = true;
             continue;
@@ -571,6 +571,8 @@ void print_help()
         LIGHTCYAN "  -fanalyzer            " RESET "Runs flow analysis -  required for ownership\n"
         "\n"
         LIGHTCYAN "  -sarif                " RESET "Generates sarif files\n"
+        "\n"
+        LIGHTCYAN "  -H                    " RESET "Print the name of each header file used\n"
         "\n"
         LIGHTCYAN "  -sarif-path           " RESET "Set sarif output dir\n"
         "\n"

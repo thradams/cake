@@ -6993,8 +6993,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (ctx->options.show_includes)
                 {
-                    printf("Note: including file:");
-                    printf("%*c", level + 1, ' ');
+                    for (int i = 0; i < (level + 1); i++)
+                      printf(".");
                     printf("%s\n", full_path_result);
                 }
 
@@ -13045,7 +13045,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-show-includes") == 0)
+        if (strcmp(argv[i], "-H") == 0)
         {
             options->show_includes = true;
             continue;
@@ -13276,6 +13276,8 @@ void print_help()
         LIGHTCYAN "  -fanalyzer            " RESET "Runs flow analysis -  required for ownership\n"
         "\n"
         LIGHTCYAN "  -sarif                " RESET "Generates sarif files\n"
+        "\n"
+        LIGHTCYAN "  -H                    " RESET "Print the name of each header file used\n"
         "\n"
         LIGHTCYAN "  -sarif-path           " RESET "Set sarif output dir\n"
         "\n"

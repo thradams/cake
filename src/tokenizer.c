@@ -3657,8 +3657,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (ctx->options.show_includes)
                 {
-                    printf("Note: including file:");
-                    printf("%*c", level + 1, ' ');
+                    for (int i = 0; i < (level + 1); i++)
+                      printf(".");
                     printf("%s\n", full_path_result);
                 }
 
