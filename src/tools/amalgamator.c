@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
@@ -14,7 +14,8 @@
 
 int strcicmp(char const* a, char const* b)
 {
-    for (;; a++, b++) {
+    for (;; a++, b++)
+    {
         int d = tolower((unsigned char)*a) - tolower((unsigned char)*b);
         if (d != 0 || !*a)
             return d;
@@ -132,7 +133,7 @@ bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** 
     if (input)
     {
         found = true;
-        char c = '\0';
+        unsigned int c = '\0';
 
         bool bInclude = bHeaderMode ? false : true;
 
@@ -140,6 +141,16 @@ bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** 
         {
             previous = c;
             c = fgetc(input);
+
+            if (c == 0xef)
+            {
+                c = fgetc(input);
+                if (c == 0xbb)
+                    c = fgetc(input);
+                if (c == 0xbf)
+                    c = fgetc(input);
+            }
+
             if ((previous == '\0' || previous == '\n') && c == '#')
             {
                 c = fgetc(input);
@@ -276,7 +287,7 @@ bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** 
             }
             else
             {
-                if (c != EOF && bInclude)
+                if (c != 0xFEFF && c != EOF && bInclude)
                 {
                     fputc(c, out);
                 }
@@ -326,7 +337,7 @@ int main(int argc, char** argv)
 
         if (argv[i][1] == 'o')
         {
-            strcpy(file_name_out, argv[i]+2);
+            strcpy(file_name_out, argv[i] + 2);
         }
         else if (argv[i][1] == 'h')
         {
@@ -336,7 +347,7 @@ int main(int argc, char** argv)
     }
 
     struct strlist_node* s_included = 0;
-    
+
 
     FILE* out = fopen(file_name_out, "w");
     if (out)
@@ -360,7 +371,7 @@ int main(int argc, char** argv)
         printf("error\n");
     }
 
-    strlist_free(&s_included); 
-    
+    strlist_free(&s_included);
+
     return 0;
 }

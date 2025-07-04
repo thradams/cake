@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -22,7 +22,7 @@
 
 
 struct scope
-{
+{    
     int scope_level;
     struct hash_map tags;
     struct hash_map variables;
@@ -95,11 +95,12 @@ struct parser_ctx
       file scope -> function params -> function -> inner scope
     */
     struct scope_list scopes;
+    struct scope * p_scope;
 
     /*
     * Points to the function we're in. Or null in file scope.
     */
-    struct declaration* _Opt p_current_function_opt;
+    struct declarator* _Opt p_current_function_opt;
 
 
     /*

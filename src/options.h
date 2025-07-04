@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -200,6 +200,7 @@ enum diagnostic_id {
     C_ERROR_FUNCTION_CANNOT_BE_MEMBER  = 1840,
     C_ERROR_NON_INTEGRAL_ENUM_TYPE = 1850,
     C_ERROR_REQUIRES_COMPILE_TIME_VALUE = 1860,
+    C_ERROR_OUTER_SCOPE = 1870,
 };
 
 
@@ -374,6 +375,9 @@ struct options
       -autoconfig
     */
     bool auto_config;
+
+    bool do_static_debug;
+    int static_debug_lines;
 
     /*
       -o filename

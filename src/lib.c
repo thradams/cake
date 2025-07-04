@@ -136,86 +136,55 @@ float strtof(char const* _String, char** _Opt _EndPtr);
 
 #include <stdbool.h>
 
-#ifdef _WIN32
-
-
-#include <conio.h>
-#else
-//#include <curses.h>
-#endif
-
-
-
 bool enable_vt_mode(void);
-
-/*
-  DISABLE_COLORS is defined to generate a
-  version of cake that does not ouput colors
-  A runtime flag msvcouput is already used..
-  but some utility functions are not using
-*/
-#ifndef DISABLE_COLORS
-#define COLOR_ESC(x) x
-#define COLOR_ESC_PRINT(x) x
-#define ESC "\x1b"
-#define CSI "\x1b["
-#else
-#define COLOR_ESC(x) ""
-#define COLOR_ESC_PRINT(x)
-#define ESC ""
-#define CSI ""
-
-#endif
 
 /*change foreground color*/
 
+#define BLACK     "\x1b[30m" 
+#define BLUE     "\x1b[34m"
+#define GREEN     "\x1b[32m"
+#define CYAN     "\x1b[36m"
+#define RED "\x1b[31;1m"
+#define MAGENTA     "\x1b[35m"
+#define BROWN     "\x1b[31m"
+#define LIGHTGRAY "\x1b[37m"
+#define DARKGRAY "\x1b[90m"
+#define LIGHTBLUE    "\x1b[34;1m"
+#define  LIGHTGREEN "\x1b[92m"
+#define LIGHTCYAN "\x1b[36;1m"
+#define LIGHTRED "\x1b[91m"
+#define LIGHTMAGENTA "\x1b[95m"
+#define YELLOW "\x1b[93m"
+#define WHITE "\x1b[97m"
 
-#define BLACK     COLOR_ESC("\x1b[30m")
-#define BLUE     COLOR_ESC("\x1b[34m")
-#define GREEN     COLOR_ESC("\x1b[32m")
-#define CYAN     COLOR_ESC("\x1b[36m")
-#define RED COLOR_ESC("\x1b[31;1m")
-#define MAGENTA     COLOR_ESC("\x1b[35m")
-#define BROWN     COLOR_ESC("\x1b[31m")
-#define LIGHTGRAY COLOR_ESC("\x1b[37m")
-#define DARKGRAY COLOR_ESC("\x1b[90m")
-#define LIGHTBLUE    COLOR_ESC("\x1b[34;1m")
-#define  LIGHTGREEN COLOR_ESC("\x1b[92m")
-#define LIGHTCYAN COLOR_ESC("\x1b[36;1m")
-#define LIGHTRED COLOR_ESC("\x1b[91m")
-#define LIGHTMAGENTA COLOR_ESC("\x1b[95m")
-#define YELLOW COLOR_ESC("\x1b[93m")
-#define WHITE COLOR_ESC("\x1b[97m")
-
-    //https//en.wikipedia.org/wiki/ANSI_escape_code
+//https//en.wikipedia.org/wiki/ANSI_escape_code
 
 
-#define BK_BLACK COLOR_ESC("\x1b[40m")
-#define BK_BLUE COLOR_ESC("\x1b[44m")
-#define BK_GREEN  COLOR_ESC("\x1b[42m")
-#define BK_CYAN COLOR_ESC("\x1b[46m")
-#define BK_RED COLOR_ESC("\x1b[41;1m")
-#define BK_MAGENTA COLOR_ESC("\x1b[45m")
-#define BK_BROWN COLOR_ESC("\x1b[41m")
-#define BK_LIGHTGRAY COLOR_ESC("\x1b[40;1m")
-#define BK_DARKGRAY COLOR_ESC("\x1b[40m")
-#define BK_LIGHTBLUE COLOR_ESC("\x1b[44;1m")
-#define BK_LIGHTGREEN COLOR_ESC("\x1b[42,1m")
-#define BK_LIGHTCYAN COLOR_ESC("\x1b[46;1m")
-#define BK_LIGHTRED COLOR_ESC("\x1b[41;1m")
-#define BK_LIGHTMAGENTA COLOR_ESC("\x1b[45;1m")
-#define BK_YELLOW             COLOR_ESC("\x1b[43;1m")
-#define BK_WHITE             COLOR_ESC("\x1b[47;1m")
-#define BK_BLINK COLOR_ESC("\x1b[40m")
+#define BK_BLACK "\x1b[40m"
+#define BK_BLUE "\x1b[44m"
+#define BK_GREEN  "\x1b[42m"
+#define BK_CYAN "\x1b[46m"
+#define BK_RED "\x1b[41;1m"
+#define BK_MAGENTA "\x1b[45m"
+#define BK_BROWN "\x1b[41m"
+#define BK_LIGHTGRAY "\x1b[40;1m"
+#define BK_DARKGRAY "\x1b[40m"
+#define BK_LIGHTBLUE "\x1b[44;1m"
+#define BK_LIGHTGREEN "\x1b[42,1m"
+#define BK_LIGHTCYAN "\x1b[46;1m"
+#define BK_LIGHTRED "\x1b[41;1m"
+#define BK_LIGHTMAGENTA "\x1b[45;1m"
+#define BK_YELLOW             "\x1b[43;1m"
+#define BK_WHITE             "\x1b[47;1m"
+#define BK_BLINK "\x1b[40m"
 
-#define RESET COLOR_ESC(ESC "[0m")
+#define RESET "\x1b[0m"
 
 
 int c_kbhit(void);
 int c_getch(void);
-
 void c_clrscr();
-
+void c_gotoxy(int x, int y);
 
 
 /*
@@ -694,6 +663,9 @@ typedef int errno_t;
 
 #ifndef __CAKE__
 
+//emulate _Countof
+#define _Countof(A) (sizeof(A)/sizeof((A)[0]))
+
 #define try  
 #define catch if (0) catch_label:
 #define throw do { throw_break_point(); goto catch_label;}while (0)
@@ -907,6 +879,7 @@ enum diagnostic_id {
     C_ERROR_FUNCTION_CANNOT_BE_MEMBER  = 1840,
     C_ERROR_NON_INTEGRAL_ENUM_TYPE = 1850,
     C_ERROR_REQUIRES_COMPILE_TIME_VALUE = 1860,
+    C_ERROR_OUTER_SCOPE = 1870,
 };
 
 
@@ -1081,6 +1054,9 @@ struct options
       -autoconfig
     */
     bool auto_config;
+
+    bool do_static_debug;
+    int static_debug_lines;
 
     /*
       -o filename
@@ -1858,7 +1834,7 @@ void print_list(struct token_list* list)
             //printf("`");
         }
         print_literal2(current->lexeme);
-        COLOR_ESC_PRINT(printf(RESET));
+        printf(RESET);
         if (current == list->tail)
         {
             //printf("`");
@@ -1893,16 +1869,16 @@ void print_token(const struct token* p_token)
         printf("  ");
     }
     if (p_token->flags & TK_FLAG_FINAL)
-        COLOR_ESC_PRINT(printf(LIGHTGREEN));
+        printf(LIGHTGREEN);
     else
-        COLOR_ESC_PRINT(printf(LIGHTGRAY));
+        printf(LIGHTGRAY);
     char buffer0[50] = { 0 };
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
-        COLOR_ESC_PRINT(printf(LIGHTCYAN));
+        printf(LIGHTCYAN);
     }
     char buffer[50] = { 0 };
     strcat(buffer, "[");
@@ -1930,7 +1906,7 @@ void print_token(const struct token* p_token)
     printf("%-20s ", buffer);
     print_literal2(p_token->lexeme);
     printf("\n");
-    COLOR_ESC_PRINT(printf(RESET));
+    printf(RESET);
 }
 
 void print_tokens(const struct token* _Opt p_token)
@@ -1944,7 +1920,7 @@ void print_tokens(const struct token* _Opt p_token)
     }
     printf("\n");
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    COLOR_ESC_PRINT(printf(RESET));
+    printf(RESET);
 }
 
 
@@ -2063,7 +2039,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         const int line = p_marker->line;
 
         if (!visual_studio_ouput_format)
-            COLOR_ESC_PRINT(printf(RESET));
+            printf(RESET);
 
         char nbuffer[20] = { 0 };
         int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
@@ -2089,7 +2065,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
         if (!visual_studio_ouput_format)
-            COLOR_ESC_PRINT(printf(LIGHTBLUE));
+            printf(LIGHTBLUE);
 
         const struct token* _Opt p_item = p_line_begin;
         while (p_item)
@@ -2098,17 +2074,17 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             {
                 if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
                 {
-                    COLOR_ESC_PRINT(printf(DARKGRAY));
+                    printf(DARKGRAY);
                 }
                 else if (p_item->type >= TK_KEYWORD_AUTO &&
                          p_item->type <= TK_KEYWORD_IS_INTEGRAL)
                 {
-                    COLOR_ESC_PRINT(printf(BLUE));
+                    printf(BLUE);
                 }
                 else if (p_item->type == TK_COMMENT ||
                          p_item->type == TK_LINE_COMMENT)
                 {
-                    COLOR_ESC_PRINT(printf(YELLOW));
+                    printf(YELLOW);
                 }
             }
 
@@ -2124,7 +2100,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
 
             if (!visual_studio_ouput_format)
             {
-                COLOR_ESC_PRINT(printf(RESET));
+                printf(RESET);
             }
 
             if (p_item->type == TK_NEWLINE)
@@ -2133,7 +2109,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         }
 
         if (!visual_studio_ouput_format)
-            COLOR_ESC_PRINT(printf(RESET));
+            printf(RESET);
 
         if (p_item == NULL) printf("\n");
 
@@ -2148,7 +2124,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             if (p_item == p_token_begin)
             {
                 if (!visual_studio_ouput_format)
-                    COLOR_ESC_PRINT(printf(LIGHTGREEN));
+                    printf(LIGHTGREEN);
                 onoff = true;
                 end_col = start_col;
             }
@@ -2181,14 +2157,14 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
                 complete = true;
                 onoff = false;
                 if (!visual_studio_ouput_format)
-                    COLOR_ESC_PRINT(printf(RESET));
+                    printf(RESET);
             }
 
             p_item = p_item->next;
         }
 
         if (!visual_studio_ouput_format)
-            COLOR_ESC_PRINT(printf(RESET));
+            printf(RESET);
 
         printf("\n");
         p_marker->start_col = start_col;
@@ -3107,6 +3083,9 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
 
 #ifdef _WIN32
+
+
+#include <conio.h>
 #else
 
 
@@ -3131,8 +3110,8 @@ bool enable_vt_mode(void)
 
 int c_kbhit(void)
 {
-    struct termios oldt = {0};
-    struct termios newt = {0};
+    struct termios oldt = { 0 };
+    struct termios newt = { 0 };
     int ch;
     int oldf;
 
@@ -3160,8 +3139,8 @@ int c_kbhit(void)
 /* Read 1 character without echo */
 int c_getch(void)
 {
-    struct termios old = {0};
-    struct termios new = {0};
+    struct termios old = { 0 };
+    struct termios new = { 0 };
     int ch;
 
     tcgetattr(0, &old);
@@ -3182,7 +3161,7 @@ int c_getch(void)
 
 bool enable_vt_mode(void)
 {
-//missing in mingw (installed with codeblocs)
+    //missing in mingw (installed with codeblocs)
 #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING  
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
 #endif
@@ -3213,9 +3192,15 @@ int c_getch(void)
 void c_clrscr()
 {
     puts("\x1b[2J\x1b[1;1H");
+    puts("\x1b[3J");
     fflush(stdout);
 }
 
+void c_gotoxy(int x, int y)
+{
+    printf("\x1b[%d;%dH", y, x);
+    fflush(stdout);
+}
 
 /*
  *  This file is part of cake compiler
@@ -12759,7 +12744,7 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
 {
     if (diagnostic_stack->top_index > 0)
     {
-      diagnostic_stack->top_index--;
+        diagnostic_stack->top_index--;
     }
     else
     {
@@ -12773,7 +12758,8 @@ struct diagnostic default_diagnostic = {
         NULLABLE_DISABLE_REMOVED_WARNINGS |
         (1ULL << W_NOTE) |
         (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER))
+        (1ULL << W_UNUSED_PARAMETER) |
+        (1ULL << W_UNUSED_VARIABLE))
 };
 
 static struct w {
@@ -12782,7 +12768,7 @@ static struct w {
 }
 s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
-    {W_UNUSED_FUNCTION, "unused-function"},    
+    {W_UNUSED_FUNCTION, "unused-function"},
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
 
@@ -12876,7 +12862,7 @@ int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
             return 1;
     }
 
-    
+
     if (is_diagnostic_note(w))
         return 1;
 
@@ -13016,7 +13002,7 @@ int fill_options(struct options* options,
             options->const_literal = true;
             continue;
         }
-       
+
         if (strcmp(argv[i], "-o") == 0)
         {
             if (i + 1 < argc)
@@ -13050,7 +13036,7 @@ int fill_options(struct options* options,
             options->show_includes = true;
             continue;
         }
-        
+
         if (strcmp(argv[i], "-E") == 0)
         {
             options->preprocess_only = true;
@@ -13078,6 +13064,21 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-nullchecks") == 0)
         {
             options->null_checks_enabled = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-debug") == 0)
+        {
+            options->do_static_debug = true;
+            if (i + 1 < argc)
+            {
+                i++;
+                options->static_debug_lines = atoi(argv[i]);
+            }
+            else
+            {
+                //ops
+            }
             continue;
         }
 
@@ -13147,7 +13148,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-  
+
         if (strcmp(argv[i], "-std=c2x") == 0 ||
             strcmp(argv[i], "-std=c23") == 0)
         {
@@ -13290,9 +13291,9 @@ void print_help()
         LIGHTCYAN "  -disable-assert       " RESET "disables built-in assert\n"
         "\n"
         LIGHTCYAN "  -const-literal        " RESET "literal string becomes const\n"
-        "\n"       
+        "\n"
         LIGHTCYAN "  -preprocess-def-macro " RESET "preprocess def macros after expansion\n"
-        
+
         "More details at http://thradams.com/cake/manual.html\n"
         ;
 
@@ -13327,6 +13328,7 @@ void test_get_warning_name()
 */
 
 #pragma safety enable
+
 
 
 
@@ -13735,28 +13737,20 @@ enum object_value_type
 
     TYPE_FLOAT,
     TYPE_DOUBLE,
-    TYPE_LONG_DOUBLE
+    TYPE_LONG_DOUBLE,
+    
+    TYPE_VOID_PTR,
+    TYPE_VOID_PTR_REF,
 };
 
 enum object_value_state
-{
-    /*object has a uninitialized value*/
-    CONSTANT_VALUE_STATE_UNINITIALIZED,
-    
-    /*object has a unknown value*/
-    CONSTANT_VALUE_STATE_UNKNOWN,
-
-    /*
-       Object has a exactly but not constant value
-       I believe this can be used to execute code at compile time.(like c++ consteval)    
-    */
-    CONSTANT_VALUE_STATE_EXACT,
-
-    /*object has a exactly and immutable value*/
-    CONSTANT_VALUE_STATE_CONSTANT_EXACT,
-
-    /*indirect*/
-    CONSTANT_VALUE_STATE_REFERENCE,
+{    
+    CONSTANT_VALUE_STATE_UNINITIALIZED,        
+    CONSTANT_VALUE_STATE_ANY,
+    CONSTANT_VALUE_STATE_CONSTANT,
+    //flow analysis
+    CONSTANT_VALUE_NOT_EQUAL,
+    CONSTANT_VALUE_EQUAL,
 };
 
 struct object
@@ -13787,19 +13781,24 @@ struct object
 
         float float_value;
         double double_value;
-        long double long_double_value;              
+        long double long_double_value;            
+
+        void * void_pointer;
     } value;
     struct object* _Opt parent; //to be removed
     struct expression * _Opt p_init_expression;
+    
     struct object* _Opt _Owner members;
     struct object* _Opt _Owner next;
 };
+
+void object_swap(struct object* a, struct object* b);
 void object_print_value_debug(const struct object* a);
 void object_destroy(_Opt _Dtor struct object* p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
 void object_to_string(const struct object* a, char buffer[], int sz);
-struct object object_clone(const struct object* p);
+
 
 //Make constant value
 struct object            object_make_wchar_t(wchar_t value);
@@ -13821,9 +13820,14 @@ struct object              object_make_float(float value);
 struct object             object_make_double(double value);
 struct object        object_make_long_double(long double value);
 struct object        object_make_reference(struct object* object);
+struct object        object_make_pointer(struct object* object);
+struct object        object_make_null_pointer();
 
 
 //dynamic cast
+void object_set_signed_int(struct object* a, long long value);
+void object_set_unsigned_int(struct object* a, unsigned long long value);
+
 struct object object_cast(enum object_value_type e, const struct object* a);
 enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags);
 
@@ -13850,6 +13854,9 @@ int object_to_str(const struct object* a, int n, char str[/*n*/]);
 int object_greater_than_or_equal(const struct object* a, const struct object* b);
 int object_smaller_than_or_equal(const struct object* a, const struct object* b);
 int object_equal(const struct object* a, const struct object* b);
+int object_not_equal(const struct object* a, const struct object* b);
+struct object object_add(const struct object* a, const struct object* b);
+struct object object_sub(const struct object* a, const struct object* b);
 
 
 //Overflow checks
@@ -13864,11 +13871,14 @@ void object_default_initialization(struct object* p_object, bool is_constant);
 
 struct object* _Opt object_get_member(struct object* p_object, int index);
 
+int make_object_with_name(const struct type* p_type, struct object* obj, const char* name);
 int make_object(const struct type* p_type, struct object* obj);
+struct object object_dup(const struct object* src);
 
 bool object_is_reference(const struct object* p_object);
 bool object_is_derived(const struct object* p_object);
 bool object_is_signed(const struct object* p_object);
+void object_set_any(struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 
@@ -13889,6 +13899,19 @@ void object_print_to_debug(const struct object* object);
 
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int n, bool is_constant);
 struct object* object_get_non_const_referenced(struct object* p_object);
+
+
+
+struct objects 
+{
+    struct object** items;
+    int size;
+    int capacity;
+};
+
+void objects_destroy(struct objects* arr);
+int objects_push(struct objects* arr, struct object* obj); // returns 0 on success, ENOMEM on alloc fail
+
 
 
 
@@ -13983,8 +14006,8 @@ enum expression_type
     EXCLUSIVE_OR_EXPRESSION,
     INCLUSIVE_OR_EXPRESSION,
 
-    LOGICAL_OR_EXPRESSION,
-    LOGICAL_AND_EXPRESSION,
+    LOGICAL_OR_EXPRESSION,  //||
+    LOGICAL_AND_EXPRESSION, //&&
     
     ASSIGNMENT_EXPRESSION_ASSIGN,
     ASSIGNMENT_EXPRESSION_PLUS_ASSIGN,
@@ -14124,6 +14147,8 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
+bool expression_get_variables(const struct expression* expr, int n, struct object* variables[/*n*/]);
+
 bool expression_is_lvalue(const struct expression* expr);
 
 bool expression_is_one(const struct expression* expression);
@@ -14151,6 +14176,8 @@ void check_comparison(struct parser_ctx* ctx,
     struct expression* p_b_expression,
     const struct token* op_token);
 
+struct object expression_eval(struct expression* p_expression);
+
 
 
 //EXPERIMENTAL CONTRACTS
@@ -14158,7 +14185,7 @@ void check_comparison(struct parser_ctx* ctx,
 
 
 struct scope
-{
+{    
     int scope_level;
     struct hash_map tags;
     struct hash_map variables;
@@ -14231,11 +14258,12 @@ struct parser_ctx
       file scope -> function params -> function -> inner scope
     */
     struct scope_list scopes;
+    struct scope * p_scope;
 
     /*
     * Points to the function we're in. Or null in file scope.
     */
-    struct declaration* _Opt p_current_function_opt;
+    struct declarator* _Opt p_current_function_opt;
 
 
     /*
@@ -15982,10 +16010,28 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
+void object_swap(struct object* a, struct object* b)
+{
+    struct object temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
 void object_destroy(_Opt _Dtor struct object* p)
 {
+    assert(p->next == NULL);
+
     type_destroy(&p->type);
     free((void* _Owner)p->debug_name);
+
+    struct object* _Owner _Opt item = p->members;
+    while (item)
+    {
+        struct object* _Owner _Opt next = item->next;
+        item->next = NULL;
+        object_delete(item);
+        item = next;
+    }
 }
 
 void object_delete(struct object* _Opt _Owner p)
@@ -16000,35 +16046,9 @@ void object_delete(struct object* _Opt _Owner p)
 bool object_has_constant_value(const struct object* a)
 {
     a = object_get_referenced(a);
-    return a->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    return a->state == CONSTANT_VALUE_STATE_CONSTANT;
 }
 
-struct object object_clone(const struct object* p)
-{
-    struct object r = { 0 };
-    try
-    {
-        r = *p;
-        r.debug_name = NULL;
-        r.members = NULL;
-
-        struct object* p_member = p->members;
-        while (p_member)
-        {
-            struct object* p_new_member = calloc(1, sizeof * p_new_member);
-            if (p_new_member == NULL)
-                throw;                
-            *p_new_member = object_clone(p_member);
-            p_member = p_member->next;
-        }
-    }
-    catch
-    {
-        //exit();
-    }
-
-    return r;
-}
 void object_to_string(const struct object* a, char buffer[], int sz)
 {
     a = object_get_referenced(a);
@@ -16089,13 +16109,20 @@ void object_to_string(const struct object* a, char buffer[], int sz)
     case TYPE_LONG_DOUBLE:
         snprintf(buffer, sz, "%Lf", a->value.long_double_value);
         break;
+
+    case TYPE_VOID_PTR:
+        if (a->value.void_pointer == NULL)
+            snprintf(buffer, sz, "null");
+        else
+            snprintf(buffer, sz, "%p", a->value.void_pointer);
+        break;
     }
 }
 
 struct object object_make_size_t(size_t value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
 #if defined(_WIN64) || defined(__x86_64__) 
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
@@ -16111,7 +16138,7 @@ struct object object_make_size_t(size_t value)
 struct object object_make_nullptr()
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
     r.value_type = TYPE_SIGNED_INT;
     r.value.signed_short_value = 0;
@@ -16121,7 +16148,7 @@ struct object object_make_nullptr()
 struct object object_make_wchar_t(wchar_t value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
 #ifdef _WIN32
     static_assert(_Generic(L' ', unsigned short : 1), "");
@@ -16139,7 +16166,7 @@ struct object object_make_wchar_t(wchar_t value)
 struct object object_make_bool(bool value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
     r.value_type = TYPE_BOOL;
     r.value.bool_value = value;
@@ -16194,6 +16221,63 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     return 0;
 }
 
+void object_set_signed_int(struct object* a, long long value)
+{
+    a = object_get_non_const_referenced(a);
+    a->state = CONSTANT_VALUE_EQUAL;
+
+    switch (a->value_type)
+    {
+
+    case TYPE_BOOL: a->value.bool_value = value; break;
+    case TYPE_SIGNED_CHAR:  a->value.signed_char_value = value; break;
+    case TYPE_UNSIGNED_CHAR:  a->value.unsigned_char_value = value; break;
+    case TYPE_SIGNED_SHORT:  a->value.signed_short_value = value; break;
+    case TYPE_UNSIGNED_SHORT:  a->value.unsigned_short_value = value; break;
+    case TYPE_SIGNED_INT:  a->value.signed_int_value = value; break;
+    case TYPE_UNSIGNED_INT:  a->value.unsigned_int_value = value; break;
+    case TYPE_SIGNED_LONG:  a->value.signed_long_value = value; break;
+    case TYPE_UNSIGNED_LONG:  a->value.unsigned_long_value = value; break;
+    case TYPE_SIGNED_LONG_LONG:  a->value.signed_long_long_value = value; break;
+    case TYPE_UNSIGNED_LONG_LONG:  a->value.unsigned_long_long_value = value; break;
+    case TYPE_FLOAT:  a->value.float_value = value; break;
+    case TYPE_DOUBLE:  a->value.double_value = value; break;
+    case TYPE_LONG_DOUBLE:  a->value.long_double_value = value; break;
+
+    case TYPE_VOID_PTR:  assert(0);  break;
+
+    }
+
+}
+
+void object_set_unsigned_int(struct object* a, unsigned long long value)
+{
+    a = object_get_non_const_referenced(a);
+    a->state = CONSTANT_VALUE_EQUAL;
+
+    switch (a->value_type)
+    {
+
+    case TYPE_BOOL: a->value.bool_value = value; break;
+    case TYPE_SIGNED_CHAR:  a->value.signed_char_value = value; break;
+    case TYPE_UNSIGNED_CHAR:  a->value.unsigned_char_value = value; break;
+    case TYPE_SIGNED_SHORT:  a->value.signed_short_value = value; break;
+    case TYPE_UNSIGNED_SHORT:  a->value.unsigned_short_value = value; break;
+    case TYPE_SIGNED_INT:  a->value.signed_int_value = value; break;
+    case TYPE_UNSIGNED_INT:  a->value.unsigned_int_value = value; break;
+    case TYPE_SIGNED_LONG:  a->value.signed_long_value = value; break;
+    case TYPE_UNSIGNED_LONG:  a->value.unsigned_long_value = value; break;
+    case TYPE_SIGNED_LONG_LONG:  a->value.signed_long_long_value = value; break;
+    case TYPE_UNSIGNED_LONG_LONG:  a->value.unsigned_long_long_value = value; break;
+    case TYPE_FLOAT:  a->value.float_value = value; break;
+    case TYPE_DOUBLE:  a->value.double_value = value; break;
+    case TYPE_LONG_DOUBLE:  a->value.long_double_value = value; break;
+    case TYPE_VOID_PTR:  assert(0);  break;
+
+    }
+
+}
+
 bool object_to_bool(const struct object* a)
 {
     a = object_get_referenced(a);
@@ -16215,6 +16299,7 @@ bool object_to_bool(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: return a->value.void_pointer != 0;
     }
     assert(0);
     return 0;
@@ -16222,7 +16307,7 @@ bool object_to_bool(const struct object* a)
 struct object object_make_signed_char(signed char value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_CHAR;
     r.value.signed_char_value = value;
     return r;
@@ -16277,6 +16362,9 @@ errno_t object_increment_value(struct object* a)
     case TYPE_LONG_DOUBLE:
         a->value.long_double_value++;
         break;
+
+    case TYPE_VOID_PTR:  assert(0);  break;
+
     default:
         return 1;
     }
@@ -16305,6 +16393,7 @@ signed char object_to_signed_char(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR:  return 0;// a->value.void_pointer;  break;
     }
     assert(0);
     return 0;
@@ -16313,7 +16402,7 @@ signed char object_to_signed_char(const struct object* a)
 struct object object_make_unsigned_char(unsigned char value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_CHAR;
     r.value.unsigned_char_value = value;
     return r;
@@ -16340,6 +16429,7 @@ unsigned char object_to_unsigned_char(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+
     }
     assert(0);
     return 0;
@@ -16347,7 +16437,7 @@ unsigned char object_to_unsigned_char(const struct object* a)
 struct object object_make_signed_short(signed short value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_SHORT;
     r.value.signed_short_value = value;
     return r;
@@ -16374,6 +16464,8 @@ signed short object_to_signed_short(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
+
     }
     assert(0);
     return 0;
@@ -16381,7 +16473,7 @@ signed short object_to_signed_short(const struct object* a)
 struct object object_make_unsigned_short(unsigned short value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_SHORT;
     r.value.unsigned_short_value = value;
     return r;
@@ -16408,6 +16500,7 @@ unsigned short object_to_unsigned_short(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -16415,7 +16508,7 @@ unsigned short object_to_unsigned_short(const struct object* a)
 struct object object_make_signed_int(signed int value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT;
     r.value.signed_int_value = value;
     return r;
@@ -16442,6 +16535,7 @@ signed int object_to_signed_int(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: return (int) a->value.void_pointer; break;
     }
     assert(0);
     return 0;
@@ -16449,7 +16543,7 @@ signed int object_to_signed_int(const struct object* a)
 struct object object_make_unsigned_int(unsigned int value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_INT;
     r.value.unsigned_int_value = value;
     return r;
@@ -16476,6 +16570,7 @@ unsigned int object_to_unsigned_int(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: return (int) a->value.void_pointer; break;
     }
     assert(0);
     return 0;
@@ -16483,7 +16578,7 @@ unsigned int object_to_unsigned_int(const struct object* a)
 struct object object_make_signed_long(signed long value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG;
     r.value.signed_long_value = value;
     return r;
@@ -16510,6 +16605,7 @@ signed long object_to_signed_long(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -16517,7 +16613,7 @@ signed long object_to_signed_long(const struct object* a)
 struct object object_make_unsigned_long(unsigned long value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG;
     r.value.unsigned_long_value = value;
     return r;
@@ -16544,6 +16640,7 @@ unsigned long object_to_unsigned_long(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -16551,7 +16648,7 @@ unsigned long object_to_unsigned_long(const struct object* a)
 struct object object_make_signed_long_long(signed long long value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG_LONG;
     r.value.signed_long_long_value = value;
     return r;
@@ -16578,6 +16675,7 @@ signed long long object_to_signed_long_long(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -16585,7 +16683,7 @@ signed long long object_to_signed_long_long(const struct object* a)
 struct object object_make_unsigned_long_long(unsigned long long value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
     r.value.unsigned_long_long_value = value;
     return r;
@@ -16612,6 +16710,7 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -16619,7 +16718,7 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
 struct object object_make_float(float value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_FLOAT;
     r.value.float_value = value;
     return r;
@@ -16646,6 +16745,7 @@ float object_to_float(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -16653,7 +16753,7 @@ float object_to_float(const struct object* a)
 struct object object_make_double(double value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_DOUBLE;
     r.value.double_value = value;
     return r;
@@ -16680,24 +16780,44 @@ double object_to_double(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
 }
 
 
+struct object  object_make_null_pointer()
+{
+    struct object null_object = {
+       .value_type = TYPE_VOID_PTR,
+            .value.void_pointer = NULL,
+            .state = CONSTANT_VALUE_EQUAL,
+    };
+
+    return null_object;
+}
+
+struct object object_make_pointer(struct object* object)
+{
+    object = object_get_non_const_referenced(object);
+
+    struct object r = { 0 };
+    r.state = CONSTANT_VALUE_EQUAL;
+    r.value_type = TYPE_VOID_PTR;
+    r.value.void_pointer = object;
+
+    return r;
+}
 
 struct object object_make_reference(struct object* object)
 {
+    object = object_get_non_const_referenced(object);
+
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_REFERENCE;
-    r.value_type = TYPE_SIGNED_INT;
-    r.value.signed_int_value = 0;
-
-    //referenced object is stored at members
-
-    //If state is CONSTANT_VALUE_STATE_REFERENCE then  members is not owner
-    r.members = object_get_non_const_referenced(object);
+    r.state = CONSTANT_VALUE_EQUAL;
+    r.value_type = TYPE_VOID_PTR_REF;
+    r.value.void_pointer = object;
 
     return r;
 }
@@ -16705,7 +16825,7 @@ struct object object_make_reference(struct object* object)
 struct object object_make_long_double(long double value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_LONG_DOUBLE;
     r.value.long_double_value = value;
     return r;
@@ -16732,6 +16852,7 @@ long double object_to_long_double(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -17220,9 +17341,9 @@ void object_default_initialization(struct object* p_object, bool is_constant)
     if (p_object->members == NULL)
     {
         if (is_constant)
-            p_object->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+            p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
         else
-            p_object->state = CONSTANT_VALUE_STATE_EXACT;
+            p_object->state = CONSTANT_VALUE_EQUAL;
         p_object->value.unsigned_long_long_value = 0;
     }
 
@@ -17247,13 +17368,12 @@ void object_default_initialization(struct object* p_object, bool is_constant)
 
 struct object* object_get_non_const_referenced(struct object* p_object)
 {
-    if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
+    if (p_object->value_type == TYPE_VOID_PTR_REF)
     {
-        assert(p_object->members != NULL);
-        p_object = p_object->members;
+        p_object = p_object->value.void_pointer;
     }
 
-    assert(p_object->state != CONSTANT_VALUE_STATE_REFERENCE);
+    assert(p_object->value_type != TYPE_VOID_PTR_REF);
 
     return p_object;
 }
@@ -17261,13 +17381,12 @@ struct object* object_get_non_const_referenced(struct object* p_object)
 
 const struct object* object_get_referenced(const struct object* p_object)
 {
-    if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
+    if (p_object->value_type == TYPE_VOID_PTR_REF)
     {
-        assert(p_object->members != NULL);
-        p_object = p_object->members;
+        p_object = p_object->value.void_pointer;
     }
 
-    assert(p_object->state != CONSTANT_VALUE_STATE_REFERENCE);
+    assert(p_object->value_type != TYPE_VOID_PTR_REF);
 
     return p_object;
 }
@@ -17332,6 +17451,11 @@ int get_size(enum object_value_type t)
     {
         return sizeof(char);
     }
+    else if (t == TYPE_VOID_PTR)
+    {
+        return sizeof(void*);
+    }
+
     return 1;
 }
 
@@ -17348,6 +17472,7 @@ bool is_signed(enum object_value_type t)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return true;
+    case TYPE_VOID_PTR: break;
     default:
         break;
     }
@@ -17386,6 +17511,18 @@ bool is_unsigned(enum object_value_type t)
     return false;
 }
 
+void object_set_any(struct object* p_object)
+{
+    p_object = object_get_non_const_referenced(p_object);
+    p_object->state = CONSTANT_VALUE_STATE_ANY;
+    struct object* p = p_object->members;
+    while (p)
+    {
+        object_set_any(p);
+        p = p->next;
+    }
+}
+
 bool object_is_signed(const struct object* p_object)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
@@ -17394,7 +17531,7 @@ bool object_is_signed(const struct object* p_object)
 
 bool object_is_derived(const struct object* p_object)
 {
-    if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
+    if (p_object->value_type == TYPE_VOID_PTR_REF)
         return false;
 
     return p_object->members != NULL;
@@ -17402,7 +17539,7 @@ bool object_is_derived(const struct object* p_object)
 
 bool object_is_reference(const struct object* p_object)
 {
-    return p_object->state == CONSTANT_VALUE_STATE_REFERENCE;
+    return p_object->value_type == TYPE_VOID_PTR_REF;
 }
 
 static void object_fix_parent(struct object* p_object, struct object* parent)
@@ -17481,7 +17618,7 @@ int object_set(
                 if (!type_is_pointer_or_array(&p_init_expression->type) &&
                     !type_is_function(&p_init_expression->type))
                 {
-                    struct token* tk = p_init_expression ?
+                    struct token* _Opt tk = p_init_expression ?
                         p_init_expression->first_token : ctx->current;
 
                     compiler_diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
@@ -17496,21 +17633,21 @@ int object_set(
 
             if (is_constant)
             {
-                if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT ||
-                    to->state == CONSTANT_VALUE_STATE_EXACT)
+                if (to->state == CONSTANT_VALUE_STATE_CONSTANT ||
+                    to->state == CONSTANT_VALUE_EQUAL)
                 {
                     /*
                     struct X {int x;};
                     int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
-                    to->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                    to->state = CONSTANT_VALUE_STATE_CONSTANT;
                 }
             }
             else
             {
-                if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
+                if (to->state == CONSTANT_VALUE_STATE_CONSTANT)
                 {
                     //Sample int i = 1; 1 is constant but i will not be
-                    to->state = CONSTANT_VALUE_STATE_EXACT;
+                    to->state = CONSTANT_VALUE_EQUAL;
                 }
             }
         }
@@ -17549,6 +17686,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
             assert(p_object->debug_name == NULL);
             p_object->debug_name = strdup(name);
+
+            type_destroy(&p_object->type);
             p_object->type = type_dup(p_type);
 
             return p_object;
@@ -17578,6 +17717,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                         throw;
                     }
                     p_member_obj->parent = p_object;
+
+                    free(p_member_obj->debug_name);
                     p_member_obj->debug_name = strdup(buffer);
                     if (p_tail_object == NULL)
                     {
@@ -17657,6 +17798,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                             throw;
 
                         p_member_obj->parent = p_object;
+
+                        free(p_member_obj->debug_name);
                         p_member_obj->debug_name = strdup(buffer);
 
                         if (p_object->members == NULL)
@@ -17690,7 +17833,9 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_obj == NULL)
                         throw;
 
+                    free(p_member_obj->debug_name);
                     p_member_obj->debug_name = strdup(buffer);
+
                     p_member_obj->parent = p_object;
                     if (p_last_member_obj == NULL)
                     {
@@ -17725,9 +17870,9 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
     return make_object_ptr_core(p_type, "");
 }
 
-int make_object(const struct type* p_type, struct object* obj)
+int make_object_with_name(const struct type* p_type, struct object* obj, const char* name)
 {
-    struct object* _Owner _Opt p = make_object_ptr_core(p_type, "");
+    struct object* _Owner _Opt p = make_object_ptr_core(p_type, name);
     if (p)
     {
         *obj = *p;
@@ -17736,6 +17881,27 @@ int make_object(const struct type* p_type, struct object* obj)
         return 0;
     }
     return 1;
+}
+
+struct object object_dup(const struct object* src)
+{
+    assert(src->members == NULL);
+    //assert(src->next == NULL); ??
+
+    struct object result = *src;
+    result.type = type_dup(&src->type);
+
+    if (src->debug_name)
+        result.debug_name = strdup(src->debug_name);
+
+    result.next = NULL;
+
+    return result;
+}
+
+int make_object(const struct type* p_type, struct object* obj)
+{
+    return make_object_with_name(p_type, obj, "");
 }
 
 
@@ -17858,6 +18024,9 @@ void object_print_value_debug(const struct object* a)
     case TYPE_LONG_DOUBLE:
         printf("%Lf (long double)", a->value.long_double_value);
         break;
+    case TYPE_VOID_PTR:
+        printf("%p (void*)", a->value.void_pointer);
+        break;
     }
 
 }
@@ -17907,10 +18076,10 @@ void object_print_to_debug_core(const struct object* object, int n)
         switch (object->state)
         {
         case CONSTANT_VALUE_STATE_UNINITIALIZED: printf(" uninitialized "); break;
-        case CONSTANT_VALUE_STATE_UNKNOWN:printf(" unknown "); break;
-        case CONSTANT_VALUE_STATE_EXACT:printf(" exact "); break;
-        case CONSTANT_VALUE_STATE_CONSTANT_EXACT:printf(" constant_exact "); break;
-        case CONSTANT_VALUE_STATE_REFERENCE: assert(false); break;
+        case CONSTANT_VALUE_STATE_ANY:printf(" unknown "); break;
+        case CONSTANT_VALUE_EQUAL:printf(" exact "); break;
+        case CONSTANT_VALUE_STATE_CONSTANT:printf(" constant_exact "); break;
+
         }
 
         printf("\n");
@@ -18265,6 +18434,126 @@ int object_smaller_than_or_equal(const struct object* a, const struct object* b)
     return object_to_unsigned_long_long(a) <= object_to_unsigned_long_long(b);
 }
 
+struct object object_add(const struct object* a, const struct object* b)
+{
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_make_signed_int(object_to_signed_int(a) + object_to_signed_int(b));
+
+    case TYPE_UNSIGNED_INT:
+        return object_make_unsigned_int(object_to_unsigned_int(a) + object_to_unsigned_int(b));
+
+    case TYPE_BOOL:
+        return object_make_bool(object_to_bool(a) + object_to_bool(b));
+
+    //case TYPE_SIGNED_CHAR:
+      //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
+
+      //  break;
+    //case TYPE_UNSIGNED_CHAR:
+//        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+
+    //case TYPE_SIGNED_SHORT:
+      //  return object_to_signed_short(a) == object_to_signed_short(b);
+
+    //case TYPE_UNSIGNED_SHORT:
+      //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_make_signed_long(object_to_signed_long(a) + object_to_signed_long(b));
+
+    case TYPE_UNSIGNED_LONG:
+        return object_make_unsigned_long(object_to_unsigned_long(a) + object_to_unsigned_long(b));
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_make_signed_long_long(object_to_signed_long_long(a) + object_to_signed_long_long(b));
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_make_unsigned_long_long(object_to_unsigned_long_long(a) + object_to_unsigned_long_long(b));
+
+    case TYPE_FLOAT:
+        return object_make_float(object_to_float(a) + object_to_float(b));
+
+    case TYPE_DOUBLE:
+        return object_make_double(object_to_double(a) + object_to_double(b));
+
+    case TYPE_LONG_DOUBLE:
+        return object_make_long_double(object_to_long_double(a) + object_to_long_double(b));
+
+    }
+
+    assert(false);
+    struct object o = {0};
+    return o;
+}
+
+
+struct object object_sub(const struct object* a, const struct object* b)
+{
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_make_signed_int(object_to_signed_int(a) - object_to_signed_int(b));
+
+    case TYPE_UNSIGNED_INT:
+        return object_make_unsigned_int(object_to_unsigned_int(a) - object_to_unsigned_int(b));
+
+    case TYPE_BOOL:
+        return object_make_bool(object_to_bool(a) - object_to_bool(b));
+
+    //case TYPE_SIGNED_CHAR:
+      //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
+
+      //  break;
+    //case TYPE_UNSIGNED_CHAR:
+//        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+
+    //case TYPE_SIGNED_SHORT:
+      //  return object_to_signed_short(a) == object_to_signed_short(b);
+
+    //case TYPE_UNSIGNED_SHORT:
+      //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_make_signed_long(object_to_signed_long(a) - object_to_signed_long(b));
+
+    case TYPE_UNSIGNED_LONG:
+        return object_make_unsigned_long(object_to_unsigned_long(a) - object_to_unsigned_long(b));
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_make_signed_long_long(object_to_signed_long_long(a) - object_to_signed_long_long(b));
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_make_unsigned_long_long(object_to_unsigned_long_long(a) - object_to_unsigned_long_long(b));
+
+    case TYPE_FLOAT:
+        return object_make_float(object_to_float(a) - object_to_float(b));
+
+    case TYPE_DOUBLE:
+        return object_make_double(object_to_double(a) - object_to_double(b));
+
+    case TYPE_LONG_DOUBLE:
+        return object_make_long_double(object_to_long_double(a) - object_to_long_double(b));
+
+    }
+
+    assert(false);
+    struct object o = {0};
+    return o;
+}
+
+
 int object_equal(const struct object* a, const struct object* b)
 {
     a = object_get_referenced(a);
@@ -18322,6 +18611,100 @@ int object_equal(const struct object* a, const struct object* b)
     assert(false);
     return object_to_unsigned_long_long(a) == object_to_unsigned_long_long(b);
 }
+
+
+int object_not_equal(const struct object* a, const struct object* b)
+{
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_to_signed_int(a) != object_to_signed_int(b);
+
+    case TYPE_UNSIGNED_INT:
+        return object_to_unsigned_int(a) != object_to_unsigned_int(b);
+
+    case TYPE_BOOL:
+        return object_to_bool(a) != object_to_bool(b);
+
+    case TYPE_SIGNED_CHAR:
+        return object_to_signed_char(a) != object_to_signed_char(b);
+
+        break;
+    case TYPE_UNSIGNED_CHAR:
+        return object_to_unsigned_char(a) != object_to_unsigned_char(b);
+
+    case TYPE_SIGNED_SHORT:
+        return object_to_signed_short(a) != object_to_signed_short(b);
+
+    case TYPE_UNSIGNED_SHORT:
+        return object_to_unsigned_short(a) != object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_to_signed_long(a) != object_to_signed_long(b);
+
+    case TYPE_UNSIGNED_LONG:
+        return object_to_unsigned_long(a) != object_to_unsigned_long(b);
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_to_signed_long_long(a) != object_to_signed_long_long(b);
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_to_unsigned_long_long(a) != object_to_unsigned_long_long(b);
+
+    case TYPE_FLOAT:
+        return object_to_float(a) != object_to_float(b);
+
+    case TYPE_DOUBLE:
+        return object_to_double(a) != object_to_double(b);
+
+    case TYPE_LONG_DOUBLE:
+        return object_to_long_double(a) != object_to_long_double(b);
+
+    }
+
+    assert(false);
+    return object_to_unsigned_long_long(a) != object_to_unsigned_long_long(b);
+}
+
+
+#define OBJECTS_INITIAL_CAPACITY 8
+
+void objects_destroy(struct objects* arr)
+{
+    free(arr->items);
+}
+
+int objects_push(struct objects* arr, struct object* obj)
+{
+    if (arr->items == NULL)
+    {
+        arr->items = malloc(OBJECTS_INITIAL_CAPACITY * sizeof(struct object*));
+        if (!arr->items)
+        {
+            arr->size = 0;
+            arr->capacity = 0;
+            return ENOMEM;
+        }
+        arr->size = 0;
+        arr->capacity = OBJECTS_INITIAL_CAPACITY;
+    }
+    if (arr->size == arr->capacity)
+    {
+        size_t new_capacity = arr->capacity ? arr->capacity * 2 : OBJECTS_INITIAL_CAPACITY;
+        struct object** new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
+        if (!new_items) return ENOMEM;
+        arr->items = new_items;
+        arr->capacity = new_capacity;
+    }
+    arr->items[arr->size++] = obj;
+    return 0;
+}
+
 
 
 
@@ -19319,7 +19702,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            struct map_entry* _Opt p_entry = find_variables(ctx, ctx->current->lexeme, NULL);
+            struct scope* _Opt p_scope = NULL;
+            struct map_entry* _Opt p_entry = find_variables(ctx, ctx->current->lexeme, &p_scope);
 
             if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
@@ -19353,6 +19737,36 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
+
+                if (p_scope->scope_level == 0)
+                {
+                    //file scope
+                }
+                else if (ctx->p_scope)
+                {
+                    if (!ctx->evaluation_is_disabled)
+                    {
+                        bool inside_current_function_scope = false;
+                        while (p_scope)
+                        {
+                            if (ctx->p_scope == p_scope)
+                            {
+                                inside_current_function_scope = true;
+                                break;
+                            }
+                            p_scope = p_scope->previous;
+                        }
+                        if (!inside_current_function_scope)
+                        {
+                            compiler_diagnostic(C_ERROR_OUTER_SCOPE, 
+                                ctx, 
+                                ctx->current, 
+                                NULL, 
+                                "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                        }
+                    }
+                }
+
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
@@ -19367,22 +19781,17 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                      strcmp(ctx->current->lexeme, "__func__") == 0)
             {
 
-                const char* func_str = "?";
-
-
-                if (ctx->p_current_function_opt->init_declarator_list.head != NULL &&
-                    ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt)
-                {
-                    func_str =
-                        ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme;
-                }
+                const char* func_name = ctx->p_current_function_opt->name_opt ?
+                        ctx->p_current_function_opt->name_opt->lexeme :
+                        "unnamed";
+                
 
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = type_make_literal_string(strlen(func_str) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST);
+                p_expression_node->type = type_make_literal_string(strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST);
             }
             else
             {
@@ -19445,7 +19854,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     struct object* p_new = calloc(1, sizeof * p_new);
                     if (p_new == NULL) throw;
 
-                    p_new->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                    p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
                     p_new->value_type = TYPE_SIGNED_CHAR;
                     p_new->value.signed_char_value = value;
 
@@ -19455,7 +19864,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     }
                     else
                     {
-                        last->next = p_new;
+                        if (last)
+                            last->next = p_new;
                     }
                     last = p_new;
                 }
@@ -19463,7 +19873,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 struct object* p_new = calloc(1, sizeof * p_new);
                 if (p_new == NULL) throw;
 
-                p_new->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
                 p_new->value_type = TYPE_SIGNED_CHAR;
                 p_new->value.signed_char_value = 0;
 
@@ -20317,12 +20727,23 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
+            
+
             struct scope* parameters_scope =
                 &p_expression_node->type_name->abstract_declarator->direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
+
+            struct scope* p_scope = ctx->p_scope;
+            ctx->p_scope = ctx->scopes.tail;
+            
+            struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
+            ctx->p_current_function_opt = p_expression_node->type_name->abstract_declarator;
+
             p_expression_node->compound_statement = function_body(ctx);
             scope_list_pop(&ctx->scopes);
+            ctx->p_scope = p_scope;
+            ctx->p_current_function_opt = p_current_function_opt; //restore
         }
         else
         {
@@ -20331,11 +20752,17 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
             //TODO
 
-            int er = make_object(&p_expression_node->type, &p_expression_node->object);
-            if (er != 0)
+            if (p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
             {
-                compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
-                throw;
+            }
+            else
+            {
+                int er = make_object(&p_expression_node->type, &p_expression_node->object);
+                if (er != 0)
+                {
+                    compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
+                    throw;
+                }
             }
 
             bool is_constant = type_is_const(&p_expression_node->type) ||
@@ -23385,6 +23812,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 else if (op == '<<')
                     r = a << b;
 
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_signed_int(r);
             }
             break;
@@ -23404,6 +23832,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
+
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_unsigned_int(r);
             }
             break;
@@ -23426,6 +23856,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 else if (op == '<<')
                     r = a << b;
 
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_signed_long(r);
             }
             break;
@@ -23446,6 +23877,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
+
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_unsigned_long(r);
             }
             break;
@@ -23467,6 +23900,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
+
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_signed_long_long(r);
 
             }
@@ -23488,6 +23923,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
+
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_unsigned_long_long(r);
             }
             break;
@@ -24068,6 +24505,10 @@ void expression_delete(struct expression* _Owner _Opt p)
         generic_selection_delete(p->generic_selection);
         type_destroy(&p->type);
         argument_expression_list_destroy(&p->argument_expression_list);
+
+        //explodindo
+        //object_destroy(&p->object);
+
         free(p);
     }
 }
@@ -24218,7 +24659,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
 
         if (ctx->current && ctx->current->type == '?')
         {
-            struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof * p_conditional_expression);
+            struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof(struct expression));
             if (p_conditional_expression == NULL) throw;
 
 
@@ -24251,7 +24692,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             ctx->evaluation_is_disabled = has_constant_expression && !constant_expression_is_true;
 
             struct expression* _Owner _Opt p_left = expression(ctx);
-            
+
             //restore original state (before throw)
             ctx->evaluation_is_disabled = old_evaluation_is_disabled;
 
@@ -24263,7 +24704,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             }
             p_conditional_expression->left = p_left;
 
-     
+
             if (parser_match_tk(ctx, TK_COLON) != 0)
             {
                 unexpected_end_of_file(ctx);
@@ -24290,7 +24731,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_conditional_expression->right = p_right;
-            
+
             if (object_has_constant_value(&p_conditional_expression->condition_expr->object))
             {
                 if (object_to_bool(&p_conditional_expression->condition_expr->object))
@@ -24453,6 +24894,128 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
     }
 
     return p_expression;
+}
+
+bool expression_get_variables(const struct expression* expr, int n, struct object* variables[/*n*/])
+{
+    int count = 0;
+    switch (expr->expression_type)
+    {
+
+    case EXPRESSION_TYPE_INVALID:  break;
+
+    case PRIMARY_EXPRESSION_ENUMERATOR:  break;
+    case PRIMARY_EXPRESSION_DECLARATOR:
+        if (!object_has_constant_value(&expr->object))
+        {
+            if (count < n)
+            {
+                variables[count] = object_get_non_const_referenced(&expr->object);
+                count++;
+            }
+
+        }
+        break;
+
+    case PRIMARY_EXPRESSION_STRING_LITERAL:  break;
+    case PRIMARY_EXPRESSION__FUNC__:  break; /*predefined identifier __func__ */
+    case PRIMARY_EXPRESSION_CHAR_LITERAL:  break;
+    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:  break; /*true false*/
+    case PRIMARY_EXPRESSION_GENERIC:  break;
+    case PRIMARY_EXPRESSION_NUMBER:  break;
+
+    case PRIMARY_EXPRESSION_PARENTESIS:
+        count += expression_get_variables(expr->right, n, variables);
+        break;
+
+    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:  break;
+    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:  break;
+
+    case POSTFIX_FUNCTION_CALL:  break; // ( ) 
+    case POSTFIX_ARRAY:  break; // [ ]
+    case POSTFIX_DOT:  break; // .
+    case POSTFIX_ARROW:  break; // .
+    case POSTFIX_INCREMENT:  break;
+    case POSTFIX_DECREMENT:  break;
+
+
+    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
+    case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
+    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:  break;
+
+    case UNARY_EXPRESSION_TRAITS:  break;
+    case UNARY_EXPRESSION_IS_SAME:  break;
+    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
+    case UNARY_EXPRESSION_ALIGNOF:  break;
+    case UNARY_EXPRESSION_ASSERT:  break;
+
+    case UNARY_EXPRESSION_INCREMENT:  break;
+    case UNARY_EXPRESSION_DECREMENT:  break;
+
+    case UNARY_EXPRESSION_NOT:  break;
+    case UNARY_EXPRESSION_BITNOT:  break;
+    case UNARY_EXPRESSION_NEG:  break;
+    case UNARY_EXPRESSION_PLUS:  break;
+    case UNARY_EXPRESSION_CONTENT:  break;
+    case UNARY_EXPRESSION_ADDRESSOF:  break;
+
+    case CAST_EXPRESSION:  break;
+
+    case MULTIPLICATIVE_EXPRESSION_MULT:
+    case MULTIPLICATIVE_EXPRESSION_DIV:
+    case MULTIPLICATIVE_EXPRESSION_MOD:
+        count += expression_get_variables(expr->left, n, variables);
+        count += expression_get_variables(expr->right, n, variables);
+        break;
+
+    case ADDITIVE_EXPRESSION_PLUS:
+    case ADDITIVE_EXPRESSION_MINUS:
+        count += expression_get_variables(expr->left, n, variables);
+        count += expression_get_variables(expr->right, n, variables);
+        break;
+
+
+    case SHIFT_EXPRESSION_RIGHT:
+    case SHIFT_EXPRESSION_LEFT:
+
+    case RELATIONAL_EXPRESSION_BIGGER_THAN:
+    case RELATIONAL_EXPRESSION_LESS_THAN:
+    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
+    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
+    case EQUALITY_EXPRESSION_EQUAL:
+    case EQUALITY_EXPRESSION_NOT_EQUAL:
+        count += expression_get_variables(expr->left, n, variables);
+        count += expression_get_variables(expr->right, n, variables);
+        break;
+
+    case AND_EXPRESSION:  break;
+    case EXCLUSIVE_OR_EXPRESSION:  break;
+    case INCLUSIVE_OR_EXPRESSION:  break;
+
+    case LOGICAL_OR_EXPRESSION:
+    case LOGICAL_AND_EXPRESSION:
+        count += expression_get_variables(expr->left, n, variables);
+        count += expression_get_variables(expr->right, n, variables);
+        break; //&&
+
+    case ASSIGNMENT_EXPRESSION_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:  break;
+
+
+    case EXPRESSION_EXPRESSION:  break;
+
+    case CONDITIONAL_EXPRESSION:  break;
+    }
+    return count;
 }
 
 bool expression_is_lvalue(const struct expression* expr)
@@ -24880,6 +25443,185 @@ void check_assigment(struct parser_ctx* ctx,
 
 }
 
+struct object expression_eval(struct expression* p_expression)
+{
+    struct object result = { 0 };
+
+    switch (p_expression->expression_type)
+    {
+    case EXPRESSION_TYPE_INVALID: break;
+
+    case PRIMARY_EXPRESSION_ENUMERATOR:
+    case PRIMARY_EXPRESSION_DECLARATOR:
+        result = object_dup(&p_expression->object);
+        break;
+
+    case PRIMARY_EXPRESSION_STRING_LITERAL:  break;
+    case PRIMARY_EXPRESSION__FUNC__:  break; /*predefined identifier __func__ */
+
+    case PRIMARY_EXPRESSION_CHAR_LITERAL:
+    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
+        result = object_dup(&p_expression->object);
+        break;
+
+    case PRIMARY_EXPRESSION_GENERIC:  break;
+    case PRIMARY_EXPRESSION_NUMBER:
+        result = object_dup(&p_expression->object);
+        break;
+
+
+    case PRIMARY_EXPRESSION_PARENTESIS:
+        result = expression_eval(p_expression->right);
+        break;
+
+    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:  break;
+    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:  break;
+
+    case POSTFIX_FUNCTION_CALL:  break; // ( ) 
+    case POSTFIX_ARRAY:  break; // [ ]
+    case POSTFIX_DOT:  break; // .
+    case POSTFIX_ARROW:  break; // .
+    case POSTFIX_INCREMENT:  break;
+    case POSTFIX_DECREMENT:  break;
+
+
+    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
+    case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
+    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:  break;
+
+    case UNARY_EXPRESSION_TRAITS:  break;
+    case UNARY_EXPRESSION_IS_SAME:  break;
+    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
+    case UNARY_EXPRESSION_ALIGNOF:  break;
+    case UNARY_EXPRESSION_ASSERT:  break;
+
+    case UNARY_EXPRESSION_INCREMENT:  break;
+    case UNARY_EXPRESSION_DECREMENT:  break;
+
+    case UNARY_EXPRESSION_NOT:  break;
+    case UNARY_EXPRESSION_BITNOT:  break;
+    case UNARY_EXPRESSION_NEG:  break;
+    case UNARY_EXPRESSION_PLUS:  break;
+    case UNARY_EXPRESSION_CONTENT:  break;
+    case UNARY_EXPRESSION_ADDRESSOF:  break;
+
+    case CAST_EXPRESSION:  break;
+
+    case MULTIPLICATIVE_EXPRESSION_MULT:  break;
+    case MULTIPLICATIVE_EXPRESSION_DIV:  break;
+    case MULTIPLICATIVE_EXPRESSION_MOD:  break;
+
+    case ADDITIVE_EXPRESSION_PLUS:
+    {
+        struct object a = expression_eval(p_expression->left);
+        if (object_has_constant_value(&a))
+        {
+            struct object b = expression_eval(p_expression->right);
+            if (object_has_constant_value(&b))
+            {
+                result = object_add(&a, &b);
+            }
+        }
+    }
+    break;
+    case ADDITIVE_EXPRESSION_MINUS:
+    {
+        struct object a = expression_eval(p_expression->left);
+        if (object_has_constant_value(&a))
+        {
+            struct object b = expression_eval(p_expression->right);
+            if (object_has_constant_value(&b))
+            {
+                result = object_sub(&a, &b);
+            }
+        }
+    }
+    break;
+
+    case SHIFT_EXPRESSION_RIGHT:  break;
+    case SHIFT_EXPRESSION_LEFT:  break;
+
+    case RELATIONAL_EXPRESSION_BIGGER_THAN:  break;
+    case RELATIONAL_EXPRESSION_LESS_THAN:  break;
+    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:  break;
+    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:  break;
+
+    case EQUALITY_EXPRESSION_EQUAL:
+        if (object_equal(&p_expression->left->object, &p_expression->right->object))
+        {
+            result = object_make_signed_int(1);
+        }
+        else
+        {
+            result = object_make_signed_int(0);
+        }
+        break;
+
+
+    case EQUALITY_EXPRESSION_NOT_EQUAL:
+        if (object_not_equal(&p_expression->left->object, &p_expression->right->object))
+        {
+            result = object_make_signed_int(1);
+        }
+        else
+        {
+            result = object_make_signed_int(0);
+        }
+        break;
+
+
+    case AND_EXPRESSION:  break;
+    case EXCLUSIVE_OR_EXPRESSION:  break;
+    case INCLUSIVE_OR_EXPRESSION:  break;
+
+    case LOGICAL_OR_EXPRESSION:
+    {
+        struct object a = expression_eval(p_expression->left);
+        if (object_has_constant_value(&a))
+        {
+            bool r1 = object_to_bool(&a);
+            if (r1)
+            {
+                result = object_make_signed_int(1);
+            }
+            else
+            {
+                struct object b = expression_eval(p_expression->right);
+                if (object_has_constant_value(&b))
+                {
+                    bool r2 = object_to_bool(&b);
+                    if (r2)
+                    {
+                        result = object_make_signed_int(r2);
+                    }
+                }
+            }
+        }
+    }
+    break;  //||
+
+    case LOGICAL_AND_EXPRESSION:  break; //&&
+
+    case ASSIGNMENT_EXPRESSION_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:  break;
+
+
+    case EXPRESSION_EXPRESSION:  break;
+
+    case CONDITIONAL_EXPRESSION:  break;
+
+    }
+    return result;
+}
 
 /*
  *  This file is part of cake compiler
@@ -26285,7 +27027,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.24"
+#define CAKE_VERSION "0.10.25"
 
 
 
@@ -26702,10 +27444,10 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
     {
-        assert(ctx->p_current_function_opt->init_declarator_list.head != NULL);
-        assert(ctx->p_current_function_opt->init_declarator_list.head->p_declarator != NULL);
-        assert(ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt != NULL);
-        func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme;
+        if (ctx->p_current_function_opt->name_opt)
+            func_name = ctx->p_current_function_opt->name_opt->lexeme;
+        else
+            func_name = "unnamed";
     }
 
     char buffer[200] = { 0 };
@@ -27941,7 +28683,7 @@ int final_specifier(struct parser_ctx* ctx, enum type_specifier_flags* flags)
             // if you didn't specify anything, it becomes integer
             (*flags) |= TYPE_SPECIFIER_INT;
         }
-    }       
+    }
 
     return 0;
 }
@@ -28265,6 +29007,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
 
         if (ctx->current->type == ';')
         {
+            p_declaration->last_token = ctx->current;
             parser_match(ctx);
             // empty declaration
             return p_declaration;
@@ -28404,7 +29147,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 throw; //unexpected
             }
 
-            ctx->p_current_function_opt = p_declaration;
+            ctx->p_current_function_opt = p_declaration->init_declarator_list.head->p_declarator;
 
             /*
                 scope of parameters is the inner declarator
@@ -28500,7 +29243,13 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 }
             }
 #endif
+            struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
+            ctx->p_current_function_opt = p_declarator;
+
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
+
+            ctx->p_current_function_opt = p_current_function_opt; //restore
+
             if (p_function_body == NULL)
                 throw;
 
@@ -28929,12 +29678,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
-                int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
-                if (er != 0)
-                {
-                    compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                    throw;
-                }
+             
+                    int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                    if (er != 0)
+                    {
+                        compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                        throw;
+                    }
+                
 
                 bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
@@ -29023,8 +29774,12 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                 check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_INIT);
 
+                const char* name = p_init_declarator->p_declarator->name_opt ?
+                    p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-                int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                int er = make_object_with_name(&p_init_declarator->p_declarator->type,
+                    &p_init_declarator->p_declarator->object, name);
+
                 if (er != 0)
                 {
                     throw;
@@ -29050,18 +29805,42 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            if (type_is_const(&p_init_declarator->p_declarator->type))
+            if (p_init_declarator->p_declarator->type.category != TYPE_CATEGORY_FUNCTION &&
+                !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
             {
-                if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                const char* name = p_init_declarator->p_declarator->name_opt ?
+                    p_init_declarator->p_declarator->name_opt->lexeme : "";
+
+                int er = make_object_with_name(&p_init_declarator->p_declarator->type,
+                    &p_init_declarator->p_declarator->object,
+                    name);
+
+                if (er != 0)
                 {
-                    //no warning on typedefs
+                    if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
+                    {
+                        //extern struct X x;
+                    }
+                    else
+                    {
+                        compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                        throw;
+                    }
                 }
-                else
+
+                if (type_is_const(&p_init_declarator->p_declarator->type))
                 {
-                    compiler_diagnostic(W_CONST_NOT_INITIALIZED,
-                        ctx,
-                        p_init_declarator->p_declarator->first_token_opt, NULL,
-                        "const object should be initialized");
+                    if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                    {
+                        //no warning on typedefs
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_CONST_NOT_INITIALIZED,
+                            ctx,
+                            p_init_declarator->p_declarator->first_token_opt, NULL,
+                            "const object should be initialized");
+                    }
                 }
             }
         }
@@ -31428,6 +32207,12 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
         p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list_opt, p_declaration_specifiers_opt, abstract_acceptable, pp_token_name_opt);
         if (p_declarator->direct_declarator == NULL) throw;
 
+        if (pp_token_name_opt && *pp_token_name_opt)
+        {
+            free(p_declarator->object.debug_name);
+            p_declarator->object.debug_name = strdup((*pp_token_name_opt)->lexeme);
+        }
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -32187,6 +32972,28 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 #pragma cake diagnostic ignored "-Wmissing-destructor"        
         p_parameter_declaration->declarator->type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
 #pragma cake diagnostic pop
+
+        if (p_parameter_declaration->declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+        {
+        }
+        else
+        {
+            int er = make_object(&p_parameter_declaration->declarator->type, &p_parameter_declaration->declarator->object);
+            if (er != 0)
+            {
+                //compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                throw;
+            }
+        }
+
+        if (p_parameter_declaration->declarator->name_opt)
+        {
+            free(p_parameter_declaration->declarator->object.debug_name);
+            p_parameter_declaration->declarator->object.debug_name = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
+        }
+
+        object_set_any(&p_parameter_declaration->declarator->object);
+
 
         if (p_parameter_declaration->attribute_specifier_sequence_opt)
         {
@@ -33230,6 +34037,9 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
             show_error_if_not_constant = true;
         }
 
+        if (ctx->options.flow_analysis)
+            show_error_if_not_constant = false;
+
         struct expression* _Owner _Opt p_constant_expression = constant_expression(ctx, show_error_if_not_constant);
         if (p_constant_expression == NULL)
             throw;
@@ -33265,7 +34075,8 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
 
         if (position->type == TK_KEYWORD__STATIC_ASSERT)
         {
-            if (!object_to_bool(&p_static_assert_declaration->constant_expression->object))
+            if (object_has_constant_value(&p_static_assert_declaration->constant_expression->object) &&
+                !object_to_bool(&p_static_assert_declaration->constant_expression->object))
             {
                 if (p_static_assert_declaration->string_literal_opt)
                 {
@@ -35644,7 +36455,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                      * Check is return type is compatible with function return
                      */
             struct type return_type =
-                get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->p_declarator->type);
+                get_function_return_type(&ctx->p_current_function_opt->type);
 
             if (ctx->current->type != ';')
             {
@@ -35654,11 +36465,16 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
                 {
                     if (type_is_void(&return_type))
                     {
+                        const char* func_name =
+                            ctx->p_current_function_opt->name_opt ?
+                            ctx->p_current_function_opt->name_opt->lexeme :
+                            "unnamed";
+
                         compiler_diagnostic(C_ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
                             ctx,
                             p_return_token, NULL,
                             "void function '%s' should not return a value",
-                            ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                            func_name);
                     }
                     else
                     {
@@ -35673,11 +36489,16 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
             {
                 if (!type_is_void(&return_type))
                 {
+                    const char* func_name =
+                        ctx->p_current_function_opt->name_opt ?
+                        ctx->p_current_function_opt->name_opt->lexeme :
+                        "unnamed";
+
                     compiler_diagnostic(C_ERROR_NON_VOID_FUNCTION_SHOULD_RETURN_VALUE,
                         ctx,
                         p_return_token, NULL,
                         "non void function '%s' should return a value",
-                        ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme);
+                        func_name);
                 }
             }
             type_destroy(&return_type);
@@ -36032,7 +36853,7 @@ struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx)
     return function_definition_or_declaration(ctx);
 }
 
-struct label_list_item* label_list_find(struct label_list* list, const char* label_name)
+struct label_list_item* _Opt label_list_find(struct label_list* list, const char* label_name)
 {
     struct label_list_item* _Opt item = list->head;
     while (item)
@@ -36051,6 +36872,12 @@ struct label_list_item* label_list_find(struct label_list* list, const char* lab
     return NULL;
 }
 
+void label_list_swap(struct label_list* a, struct label_list* b)
+{
+    struct label_list temp = *a;
+    *a = *b;
+    *b = temp;
+}
 void label_list_clear(struct label_list* list)
 {
     struct label_list_item* _Owner _Opt item = list->head;
@@ -36088,7 +36915,7 @@ void check_labels(struct parser_ctx* ctx)
     {
         if (item->p_defined == NULL && item->p_last_usage != NULL)
         {
-            compiler_diagnostic(C_ERROR_LABEL_NOT_DEFINED, ctx, item->p_last_usage, NULL, "label 'a' used but not defined", item->p_last_usage->lexeme);
+            compiler_diagnostic(C_ERROR_LABEL_NOT_DEFINED, ctx, item->p_last_usage, NULL, "label '%s' used but not defined", item->p_last_usage->lexeme);
         }
         else if (item->p_defined != NULL && item->p_last_usage == NULL)
         {
@@ -36106,15 +36933,36 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
      * for try-catch blocks
      */
 
+    struct try_statement* _Opt p_current_try_statement_opt = ctx->p_current_try_statement_opt;
     ctx->p_current_try_statement_opt = NULL;
+
+    int label_id = ctx->label_id;
     ctx->label_id = 0; /*reset*/
-    label_list_clear(&ctx->label_list);
+
+    struct defer_statement* _Opt p_current_defer_statement_opt = ctx->p_current_defer_statement_opt;
+    ctx->p_current_defer_statement_opt = NULL;
+
+    struct selection_statement* _Opt p_current_selection_statement = ctx->p_current_selection_statement;
+    ctx->p_current_selection_statement = NULL;
+
+    struct label_list label_list = { 0 };
+    label_list_swap(&label_list, &ctx->label_list);
+
     struct compound_statement* _Owner _Opt p_compound_statement = compound_statement(ctx);
     if (p_compound_statement)
     {
         check_labels(ctx);
     }
-    label_list_clear(&ctx->label_list);
+
+    label_list_swap(&label_list, &ctx->label_list);
+
+    ctx->label_id = label_id;
+    ctx->p_current_try_statement_opt = p_current_try_statement_opt;
+    ctx->p_current_defer_statement_opt = p_current_defer_statement_opt;
+    ctx->p_current_selection_statement = p_current_selection_statement;
+
+    label_list_clear(&label_list);
+
     return p_compound_statement;
 }
 
@@ -37431,7 +38279,7 @@ static struct object* _Opt find_next_subobject(struct type* p_top_object_not_use
 }
 struct find_object_result
 {
-    struct object* object;
+    struct object* _Opt object;
     struct type type;
 };
 
@@ -37459,7 +38307,7 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
         if (type_is_array(p_type))
         {
             struct type item_type = get_array_item_type(p_type);
-            struct object* it = obj->members;
+            struct object* _Opt it = obj->members;
             for (; it; it = it->next)
             {
                 if (find_next_subobject_core(&item_type, it, subobj, result))
@@ -37493,7 +38341,7 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
             struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
-            struct object* member_object = obj->members;
+            struct object* _Opt member_object = obj->members;
 
             while (p_member_declaration)
             {
@@ -37860,6 +38708,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                             is_constant,
                             requires_constant_initialization) != 0)
                         {
+                            type_destroy(&array_item_type);
                             throw;
                         }
                         //current_object->type2.num_of_elements = num_of_elements;
@@ -37951,6 +38800,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                     is_constant,
                     requires_constant_initialization) != 0)
                 {
+                    type_destroy(&array_item_type);
+                    type_destroy(&subobject_type);
                     throw;
                 }
 
@@ -38007,6 +38858,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                     is_constant,
                     requires_constant_initialization) != 0)
                 {
+                    type_destroy(&array_item_type);
+                    type_destroy(&subobject_type);
                     throw;
                 }
 
@@ -39030,10 +39883,6 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 
-/*
- *  This file is part of cake compiler
- *  https://github.com/thradams/cake
-*/
 
 #pragma safety enable
 
@@ -39048,6 +39897,7 @@ void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
     hashmap_destroy(&ctx->tag_names);
     hashmap_destroy(&ctx->structs_map);
     hashmap_destroy(&ctx->function_map);
+    hashmap_destroy(&ctx->static_declarators);
 
     ss_close(&ctx->local_declarators);
     ss_close(&ctx->add_this_before);
@@ -39489,17 +40339,26 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case PRIMARY_EXPRESSION__FUNC__:
     {
         assert(ctx->p_current_function_opt);
-        assert(ctx->p_current_function_opt->name_opt);
 
-        const char* func_name =
-            ctx->p_current_function_opt->name_opt->lexeme;
-
+        char func_name[200] = {0};
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+        if (ctx->p_current_function_opt->name_opt)
+        {
+            snprintf(func_name , sizeof func_name , "%s", ctx->p_current_function_opt->name_opt->lexeme);            
+            snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+        }
+        else
+        {
+            snprintf(func_name , sizeof func_name , "unnamed");            
+            snprintf(name, sizeof(name), "__cake_func_%p", ctx->p_current_function_opt);
+        }
+
+        
+
         if (!ctx->is__func__predefined_identifier_added)
         {
             assert(ctx->p_current_function_opt);
-            assert(ctx->p_current_function_opt->name_opt);
+            
             ctx->is__func__predefined_identifier_added = true;
             ss_fprintf(&ctx->add_this_before_external_decl, "static const char %s[] = \"%s\";\n", name, func_name);
         }
@@ -39591,10 +40450,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                local static declarators are generated on-demand.
             */
 
-            char newname[200];
+            char newname[200] = { 0 };
             snprintf(newname, sizeof newname, "%p", p_expression->declarator);
 
-            void* p = hashmap_find(&ctx->static_declarators, newname);
+            void* _Opt p = hashmap_find(&ctx->static_declarators, newname);
             if (p == NULL)
             {
                 /*
@@ -39607,6 +40466,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 struct hash_item_set i = { 0 };
                 i.number = 1;
                 hashmap_set(&ctx->static_declarators, newname, &i);
+
+                assert(p_expression->declarator);
+                assert(p_expression->declarator->name_opt);
 
                 /*
                    we may have the same name used in other local scope so we need
@@ -39631,6 +40493,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     ss_fprintf(&ctx->function_types, "%s;\n", ss.c_str);
 
                 ss_close(&ss);
+                hash_item_set_destroy(&i);
             }
 
             ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
@@ -39782,8 +40645,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         int current_indentation = ctx->indentation;
         ctx->indentation = 0;
         assert(p_expression->compound_statement != NULL);
+
+        struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
+        ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
+
         d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
         ctx->indentation = current_indentation;
+        ctx->p_current_function_opt = p_current_function_opt;
+
         ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", lambda.c_str);
         ss_fprintf(oss, "%s", name);
         ss_close(&lambda);
@@ -40213,8 +41082,9 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
             print_identation(ctx, oss);
 
             ss_fprintf(oss, "return %s;\n", name);
-            type_destroy(&return_type);
         }
+
+        type_destroy(&return_type);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
         p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
@@ -40414,8 +41284,8 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         assert(p_selection_statement->condition != NULL);
 
         struct osstream ss = { 0 };
-        
-        
+
+
         ss_fprintf(&ss, "/*switch*/\n");
         print_identation(ctx, &ss);
         ss_fprintf(&ss, "{\n");
@@ -40430,6 +41300,8 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         d_print_type(ctx, &ss, &p_selection_statement->condition->expression->type, name);
 
         ss_fprintf(&ss, " = ");
+
+        assert(p_selection_statement->condition != NULL);
         d_visit_condition(ctx, &ss, p_selection_statement->condition);
         ss_fprintf(&ss, ";\n");
 
@@ -40437,7 +41309,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         struct label* _Opt p_label_default = NULL;
         while (p_label)
         {
-            
+
             if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
             {
                 p_label_default = p_label;
@@ -40447,16 +41319,16 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 print_identation(ctx, &ss);
                 if (p_label->constant_expression_end == NULL)
                 {
-                    char str[50];
+                    char str[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str);
                     ss_fprintf(&ss, "if (%s == %s) goto _CKL%d; /*case %s*/\n", name, str, p_label->label_id, str);
 
                 }
                 else
                 {
-                    char str_begin[50];
+                    char str_begin[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str_begin);
-                    char str_end[50];
+                    char str_end[50] = { 0 };
                     object_to_str(&p_label->constant_expression_end->object, 50, str_end);
                     ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto _CKL%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
                 }
@@ -40660,8 +41532,8 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
 {
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
-        print_identation(ctx, oss);        
-        char str[50];
+        print_identation(ctx, oss);
+        char str[50] = { 0 };
         object_to_str(&p_label->constant_expression->object, 50, str);
         if (p_label->constant_expression_end == NULL)
         {
@@ -40669,11 +41541,11 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
         }
         else
         {
-            char str2[50];
+            char str2[50] = { 0 };
             object_to_str(&p_label->constant_expression_end->object, 50, str2);
             ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
         }
-        ss_fprintf(oss, "_CKL%d:\n", p_label->label_id);                
+        ss_fprintf(oss, "_CKL%d:\n", p_label->label_id);
     }
     else if (p_label->p_first_token->type == TK_IDENTIFIER)
     {
@@ -40683,7 +41555,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "/*default*/ _CKL%d:\n", p_label->label_id);        
+        ss_fprintf(oss, "/*default*/ _CKL%d:\n", p_label->label_id);
     }
 
 }
@@ -41503,6 +42375,8 @@ static void print_initializer(struct d_visit_ctx* ctx,
     struct init_declarator* p_init_declarator,
     bool bstatic)
 {
+    assert(p_init_declarator->initializer != NULL);
+
     const bool is_local = ctx->is_local;
 
     if (p_init_declarator->initializer->assignment_expression)
@@ -41617,7 +42491,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
 
 static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss0, struct init_declarator* p_init_declarator, bool binline, bool bstatic)
 {
-    struct osstream* oss = NULL;
+    struct osstream* _Opt oss = NULL;
     try
     {
         const bool is_local = ctx->is_local;
@@ -41690,12 +42564,13 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
         if (p_init_declarator->initializer)
         {
-            char newname[200];
+            char newname[200] = { 0 };
             snprintf(newname, sizeof newname, "%p", p_init_declarator->p_declarator);
             struct hash_item_set i = { 0 };
             i.number = 1;
             hashmap_set(&ctx->static_declarators, newname, &i);
             print_initializer(ctx, oss, p_init_declarator, bstatic);
+            hash_item_set_destroy(&i);
         }
         else
         {
@@ -41705,6 +42580,8 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
         if (p_init_declarator->p_declarator->function_body)
         {
+            assert(p_init_declarator->p_declarator->name_opt != NULL);
+
             ctx->is__func__predefined_identifier_added = false;
             ctx->p_current_function_opt = p_init_declarator->p_declarator;
 
@@ -52038,11 +52915,14 @@ size_t type_get_sizeof(const struct type* p_type)
         return (int)sizeof(short);
     }
 
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+    if (p_type->enum_specifier)
     {
-        const struct enum_specifier* p =
+        assert(p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM);
+
+        const struct enum_specifier* _Opt p =
             get_complete_enum_specifier(p_type->enum_specifier);
-        if (p == 0)
+        
+        if (p == NULL)
             return (size_t)-2;
 
         size_t r = type_get_sizeof(&p->type);

@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -2231,11 +2231,14 @@ size_t type_get_sizeof(const struct type* p_type)
         return (int)sizeof(short);
     }
 
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+    if (p_type->enum_specifier)
     {
-        const struct enum_specifier* p =
+        assert(p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM);
+
+        const struct enum_specifier* _Opt p =
             get_complete_enum_specifier(p_type->enum_specifier);
-        if (p == 0)
+        
+        if (p == NULL)
             return (size_t)-2;
 
         size_t r = type_get_sizeof(&p->type);

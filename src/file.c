@@ -1,1 +1,4 @@
-﻿static_assert(_Generic(L' ', unsigned short : 1), "");
+﻿
+void f3(){
+    (void(void)){ const char * s = __func__; }();
+}

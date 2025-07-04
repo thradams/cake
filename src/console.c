@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -8,6 +8,7 @@
 
 #ifdef _WIN32
 #include <Windows.h>
+#include <conio.h>
 #else
 #include <stdlib.h>
 #include <termios.h>
@@ -29,8 +30,8 @@ bool enable_vt_mode(void)
 
 int c_kbhit(void)
 {
-    struct termios oldt = {0};
-    struct termios newt = {0};
+    struct termios oldt = { 0 };
+    struct termios newt = { 0 };
     int ch;
     int oldf;
 
@@ -58,8 +59,8 @@ int c_kbhit(void)
 /* Read 1 character without echo */
 int c_getch(void)
 {
-    struct termios old = {0};
-    struct termios new = {0};
+    struct termios old = { 0 };
+    struct termios new = { 0 };
     int ch;
 
     tcgetattr(0, &old);
@@ -80,7 +81,7 @@ int c_getch(void)
 
 bool enable_vt_mode(void)
 {
-//missing in mingw (installed with codeblocs)
+    //missing in mingw (installed with codeblocs)
 #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING  
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
 #endif
@@ -111,5 +112,12 @@ int c_getch(void)
 void c_clrscr()
 {
     puts("\x1b[2J\x1b[1;1H");
+    puts("\x1b[3J");
+    fflush(stdout);
+}
+
+void c_gotoxy(int x, int y)
+{
+    printf("\x1b[%d;%dH", y, x);
     fflush(stdout);
 }

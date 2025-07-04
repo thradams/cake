@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -204,10 +204,28 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
+void object_swap(struct object* a, struct object* b)
+{
+    struct object temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
 void object_destroy(_Opt _Dtor struct object* p)
 {
+    assert(p->next == NULL);
+
     type_destroy(&p->type);
     free((void* _Owner)p->debug_name);
+
+    struct object* _Owner _Opt item = p->members;
+    while (item)
+    {
+        struct object* _Owner _Opt next = item->next;
+        item->next = NULL;
+        object_delete(item);
+        item = next;
+    }
 }
 
 void object_delete(struct object* _Opt _Owner p)
@@ -222,35 +240,9 @@ void object_delete(struct object* _Opt _Owner p)
 bool object_has_constant_value(const struct object* a)
 {
     a = object_get_referenced(a);
-    return a->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    return a->state == CONSTANT_VALUE_STATE_CONSTANT;
 }
 
-struct object object_clone(const struct object* p)
-{
-    struct object r = { 0 };
-    try
-    {
-        r = *p;
-        r.debug_name = NULL;
-        r.members = NULL;
-
-        struct object* p_member = p->members;
-        while (p_member)
-        {
-            struct object* p_new_member = calloc(1, sizeof * p_new_member);
-            if (p_new_member == NULL)
-                throw;                
-            *p_new_member = object_clone(p_member);
-            p_member = p_member->next;
-        }
-    }
-    catch
-    {
-        //exit();
-    }
-
-    return r;
-}
 void object_to_string(const struct object* a, char buffer[], int sz)
 {
     a = object_get_referenced(a);
@@ -311,13 +303,20 @@ void object_to_string(const struct object* a, char buffer[], int sz)
     case TYPE_LONG_DOUBLE:
         snprintf(buffer, sz, "%Lf", a->value.long_double_value);
         break;
+
+    case TYPE_VOID_PTR:
+        if (a->value.void_pointer == NULL)
+            snprintf(buffer, sz, "null");
+        else
+            snprintf(buffer, sz, "%p", a->value.void_pointer);
+        break;
     }
 }
 
 struct object object_make_size_t(size_t value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
 #if defined(_WIN64) || defined(__x86_64__) 
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
@@ -333,7 +332,7 @@ struct object object_make_size_t(size_t value)
 struct object object_make_nullptr()
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
     r.value_type = TYPE_SIGNED_INT;
     r.value.signed_short_value = 0;
@@ -343,7 +342,7 @@ struct object object_make_nullptr()
 struct object object_make_wchar_t(wchar_t value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
 #ifdef _WIN32
     static_assert(_Generic(L' ', unsigned short : 1), "");
@@ -361,7 +360,7 @@ struct object object_make_wchar_t(wchar_t value)
 struct object object_make_bool(bool value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
     r.value_type = TYPE_BOOL;
     r.value.bool_value = value;
@@ -416,6 +415,63 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     return 0;
 }
 
+void object_set_signed_int(struct object* a, long long value)
+{
+    a = object_get_non_const_referenced(a);
+    a->state = CONSTANT_VALUE_EQUAL;
+
+    switch (a->value_type)
+    {
+
+    case TYPE_BOOL: a->value.bool_value = value; break;
+    case TYPE_SIGNED_CHAR:  a->value.signed_char_value = value; break;
+    case TYPE_UNSIGNED_CHAR:  a->value.unsigned_char_value = value; break;
+    case TYPE_SIGNED_SHORT:  a->value.signed_short_value = value; break;
+    case TYPE_UNSIGNED_SHORT:  a->value.unsigned_short_value = value; break;
+    case TYPE_SIGNED_INT:  a->value.signed_int_value = value; break;
+    case TYPE_UNSIGNED_INT:  a->value.unsigned_int_value = value; break;
+    case TYPE_SIGNED_LONG:  a->value.signed_long_value = value; break;
+    case TYPE_UNSIGNED_LONG:  a->value.unsigned_long_value = value; break;
+    case TYPE_SIGNED_LONG_LONG:  a->value.signed_long_long_value = value; break;
+    case TYPE_UNSIGNED_LONG_LONG:  a->value.unsigned_long_long_value = value; break;
+    case TYPE_FLOAT:  a->value.float_value = value; break;
+    case TYPE_DOUBLE:  a->value.double_value = value; break;
+    case TYPE_LONG_DOUBLE:  a->value.long_double_value = value; break;
+
+    case TYPE_VOID_PTR:  assert(0);  break;
+
+    }
+
+}
+
+void object_set_unsigned_int(struct object* a, unsigned long long value)
+{
+    a = object_get_non_const_referenced(a);
+    a->state = CONSTANT_VALUE_EQUAL;
+
+    switch (a->value_type)
+    {
+
+    case TYPE_BOOL: a->value.bool_value = value; break;
+    case TYPE_SIGNED_CHAR:  a->value.signed_char_value = value; break;
+    case TYPE_UNSIGNED_CHAR:  a->value.unsigned_char_value = value; break;
+    case TYPE_SIGNED_SHORT:  a->value.signed_short_value = value; break;
+    case TYPE_UNSIGNED_SHORT:  a->value.unsigned_short_value = value; break;
+    case TYPE_SIGNED_INT:  a->value.signed_int_value = value; break;
+    case TYPE_UNSIGNED_INT:  a->value.unsigned_int_value = value; break;
+    case TYPE_SIGNED_LONG:  a->value.signed_long_value = value; break;
+    case TYPE_UNSIGNED_LONG:  a->value.unsigned_long_value = value; break;
+    case TYPE_SIGNED_LONG_LONG:  a->value.signed_long_long_value = value; break;
+    case TYPE_UNSIGNED_LONG_LONG:  a->value.unsigned_long_long_value = value; break;
+    case TYPE_FLOAT:  a->value.float_value = value; break;
+    case TYPE_DOUBLE:  a->value.double_value = value; break;
+    case TYPE_LONG_DOUBLE:  a->value.long_double_value = value; break;
+    case TYPE_VOID_PTR:  assert(0);  break;
+
+    }
+
+}
+
 bool object_to_bool(const struct object* a)
 {
     a = object_get_referenced(a);
@@ -437,6 +493,7 @@ bool object_to_bool(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: return a->value.void_pointer != 0;
     }
     assert(0);
     return 0;
@@ -444,7 +501,7 @@ bool object_to_bool(const struct object* a)
 struct object object_make_signed_char(signed char value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_CHAR;
     r.value.signed_char_value = value;
     return r;
@@ -499,6 +556,9 @@ errno_t object_increment_value(struct object* a)
     case TYPE_LONG_DOUBLE:
         a->value.long_double_value++;
         break;
+
+    case TYPE_VOID_PTR:  assert(0);  break;
+
     default:
         return 1;
     }
@@ -527,6 +587,7 @@ signed char object_to_signed_char(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR:  return 0;// a->value.void_pointer;  break;
     }
     assert(0);
     return 0;
@@ -535,7 +596,7 @@ signed char object_to_signed_char(const struct object* a)
 struct object object_make_unsigned_char(unsigned char value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_CHAR;
     r.value.unsigned_char_value = value;
     return r;
@@ -562,6 +623,7 @@ unsigned char object_to_unsigned_char(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+
     }
     assert(0);
     return 0;
@@ -569,7 +631,7 @@ unsigned char object_to_unsigned_char(const struct object* a)
 struct object object_make_signed_short(signed short value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_SHORT;
     r.value.signed_short_value = value;
     return r;
@@ -596,6 +658,8 @@ signed short object_to_signed_short(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
+
     }
     assert(0);
     return 0;
@@ -603,7 +667,7 @@ signed short object_to_signed_short(const struct object* a)
 struct object object_make_unsigned_short(unsigned short value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_SHORT;
     r.value.unsigned_short_value = value;
     return r;
@@ -630,6 +694,7 @@ unsigned short object_to_unsigned_short(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -637,7 +702,7 @@ unsigned short object_to_unsigned_short(const struct object* a)
 struct object object_make_signed_int(signed int value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT;
     r.value.signed_int_value = value;
     return r;
@@ -664,6 +729,7 @@ signed int object_to_signed_int(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: return (int) a->value.void_pointer; break;
     }
     assert(0);
     return 0;
@@ -671,7 +737,7 @@ signed int object_to_signed_int(const struct object* a)
 struct object object_make_unsigned_int(unsigned int value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_INT;
     r.value.unsigned_int_value = value;
     return r;
@@ -698,6 +764,7 @@ unsigned int object_to_unsigned_int(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: return (int) a->value.void_pointer; break;
     }
     assert(0);
     return 0;
@@ -705,7 +772,7 @@ unsigned int object_to_unsigned_int(const struct object* a)
 struct object object_make_signed_long(signed long value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG;
     r.value.signed_long_value = value;
     return r;
@@ -732,6 +799,7 @@ signed long object_to_signed_long(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -739,7 +807,7 @@ signed long object_to_signed_long(const struct object* a)
 struct object object_make_unsigned_long(unsigned long value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG;
     r.value.unsigned_long_value = value;
     return r;
@@ -766,6 +834,7 @@ unsigned long object_to_unsigned_long(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -773,7 +842,7 @@ unsigned long object_to_unsigned_long(const struct object* a)
 struct object object_make_signed_long_long(signed long long value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG_LONG;
     r.value.signed_long_long_value = value;
     return r;
@@ -800,6 +869,7 @@ signed long long object_to_signed_long_long(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -807,7 +877,7 @@ signed long long object_to_signed_long_long(const struct object* a)
 struct object object_make_unsigned_long_long(unsigned long long value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
     r.value.unsigned_long_long_value = value;
     return r;
@@ -834,6 +904,7 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -841,7 +912,7 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
 struct object object_make_float(float value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_FLOAT;
     r.value.float_value = value;
     return r;
@@ -868,6 +939,7 @@ float object_to_float(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -875,7 +947,7 @@ float object_to_float(const struct object* a)
 struct object object_make_double(double value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_DOUBLE;
     r.value.double_value = value;
     return r;
@@ -902,24 +974,44 @@ double object_to_double(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
 }
 
 
+struct object  object_make_null_pointer()
+{
+    struct object null_object = {
+       .value_type = TYPE_VOID_PTR,
+            .value.void_pointer = NULL,
+            .state = CONSTANT_VALUE_EQUAL,
+    };
+
+    return null_object;
+}
+
+struct object object_make_pointer(struct object* object)
+{
+    object = object_get_non_const_referenced(object);
+
+    struct object r = { 0 };
+    r.state = CONSTANT_VALUE_EQUAL;
+    r.value_type = TYPE_VOID_PTR;
+    r.value.void_pointer = object;
+
+    return r;
+}
 
 struct object object_make_reference(struct object* object)
 {
+    object = object_get_non_const_referenced(object);
+
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_REFERENCE;
-    r.value_type = TYPE_SIGNED_INT;
-    r.value.signed_int_value = 0;
-
-    //referenced object is stored at members
-
-    //If state is CONSTANT_VALUE_STATE_REFERENCE then  members is not owner
-    r.members = object_get_non_const_referenced(object);
+    r.state = CONSTANT_VALUE_EQUAL;
+    r.value_type = TYPE_VOID_PTR_REF;
+    r.value.void_pointer = object;
 
     return r;
 }
@@ -927,7 +1019,7 @@ struct object object_make_reference(struct object* object)
 struct object object_make_long_double(long double value)
 {
     struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_LONG_DOUBLE;
     r.value.long_double_value = value;
     return r;
@@ -954,6 +1046,7 @@ long double object_to_long_double(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_VOID_PTR: assert(0); break;
     }
     assert(0);
     return 0;
@@ -1442,9 +1535,9 @@ void object_default_initialization(struct object* p_object, bool is_constant)
     if (p_object->members == NULL)
     {
         if (is_constant)
-            p_object->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+            p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
         else
-            p_object->state = CONSTANT_VALUE_STATE_EXACT;
+            p_object->state = CONSTANT_VALUE_EQUAL;
         p_object->value.unsigned_long_long_value = 0;
     }
 
@@ -1469,13 +1562,12 @@ void object_default_initialization(struct object* p_object, bool is_constant)
 
 struct object* object_get_non_const_referenced(struct object* p_object)
 {
-    if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
+    if (p_object->value_type == TYPE_VOID_PTR_REF)
     {
-        assert(p_object->members != NULL);
-        p_object = p_object->members;
+        p_object = p_object->value.void_pointer;
     }
 
-    assert(p_object->state != CONSTANT_VALUE_STATE_REFERENCE);
+    assert(p_object->value_type != TYPE_VOID_PTR_REF);
 
     return p_object;
 }
@@ -1483,13 +1575,12 @@ struct object* object_get_non_const_referenced(struct object* p_object)
 
 const struct object* object_get_referenced(const struct object* p_object)
 {
-    if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
+    if (p_object->value_type == TYPE_VOID_PTR_REF)
     {
-        assert(p_object->members != NULL);
-        p_object = p_object->members;
+        p_object = p_object->value.void_pointer;
     }
 
-    assert(p_object->state != CONSTANT_VALUE_STATE_REFERENCE);
+    assert(p_object->value_type != TYPE_VOID_PTR_REF);
 
     return p_object;
 }
@@ -1554,6 +1645,11 @@ int get_size(enum object_value_type t)
     {
         return sizeof(char);
     }
+    else if (t == TYPE_VOID_PTR)
+    {
+        return sizeof(void*);
+    }
+
     return 1;
 }
 
@@ -1570,6 +1666,7 @@ bool is_signed(enum object_value_type t)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return true;
+    case TYPE_VOID_PTR: break;
     default:
         break;
     }
@@ -1608,6 +1705,18 @@ bool is_unsigned(enum object_value_type t)
     return false;
 }
 
+void object_set_any(struct object* p_object)
+{
+    p_object = object_get_non_const_referenced(p_object);
+    p_object->state = CONSTANT_VALUE_STATE_ANY;
+    struct object* p = p_object->members;
+    while (p)
+    {
+        object_set_any(p);
+        p = p->next;
+    }
+}
+
 bool object_is_signed(const struct object* p_object)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
@@ -1616,7 +1725,7 @@ bool object_is_signed(const struct object* p_object)
 
 bool object_is_derived(const struct object* p_object)
 {
-    if (p_object->state == CONSTANT_VALUE_STATE_REFERENCE)
+    if (p_object->value_type == TYPE_VOID_PTR_REF)
         return false;
 
     return p_object->members != NULL;
@@ -1624,7 +1733,7 @@ bool object_is_derived(const struct object* p_object)
 
 bool object_is_reference(const struct object* p_object)
 {
-    return p_object->state == CONSTANT_VALUE_STATE_REFERENCE;
+    return p_object->value_type == TYPE_VOID_PTR_REF;
 }
 
 static void object_fix_parent(struct object* p_object, struct object* parent)
@@ -1703,7 +1812,7 @@ int object_set(
                 if (!type_is_pointer_or_array(&p_init_expression->type) &&
                     !type_is_function(&p_init_expression->type))
                 {
-                    struct token* tk = p_init_expression ?
+                    struct token* _Opt tk = p_init_expression ?
                         p_init_expression->first_token : ctx->current;
 
                     compiler_diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
@@ -1718,21 +1827,21 @@ int object_set(
 
             if (is_constant)
             {
-                if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT ||
-                    to->state == CONSTANT_VALUE_STATE_EXACT)
+                if (to->state == CONSTANT_VALUE_STATE_CONSTANT ||
+                    to->state == CONSTANT_VALUE_EQUAL)
                 {
                     /*
                     struct X {int x;};
                     int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
-                    to->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                    to->state = CONSTANT_VALUE_STATE_CONSTANT;
                 }
             }
             else
             {
-                if (to->state == CONSTANT_VALUE_STATE_CONSTANT_EXACT)
+                if (to->state == CONSTANT_VALUE_STATE_CONSTANT)
                 {
                     //Sample int i = 1; 1 is constant but i will not be
-                    to->state = CONSTANT_VALUE_STATE_EXACT;
+                    to->state = CONSTANT_VALUE_EQUAL;
                 }
             }
         }
@@ -1771,6 +1880,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
             assert(p_object->debug_name == NULL);
             p_object->debug_name = strdup(name);
+
+            type_destroy(&p_object->type);
             p_object->type = type_dup(p_type);
 
             return p_object;
@@ -1800,6 +1911,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                         throw;
                     }
                     p_member_obj->parent = p_object;
+
+                    free(p_member_obj->debug_name);
                     p_member_obj->debug_name = strdup(buffer);
                     if (p_tail_object == NULL)
                     {
@@ -1879,6 +1992,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                             throw;
 
                         p_member_obj->parent = p_object;
+
+                        free(p_member_obj->debug_name);
                         p_member_obj->debug_name = strdup(buffer);
 
                         if (p_object->members == NULL)
@@ -1912,7 +2027,9 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_obj == NULL)
                         throw;
 
+                    free(p_member_obj->debug_name);
                     p_member_obj->debug_name = strdup(buffer);
+
                     p_member_obj->parent = p_object;
                     if (p_last_member_obj == NULL)
                     {
@@ -1947,9 +2064,9 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
     return make_object_ptr_core(p_type, "");
 }
 
-int make_object(const struct type* p_type, struct object* obj)
+int make_object_with_name(const struct type* p_type, struct object* obj, const char* name)
 {
-    struct object* _Owner _Opt p = make_object_ptr_core(p_type, "");
+    struct object* _Owner _Opt p = make_object_ptr_core(p_type, name);
     if (p)
     {
         *obj = *p;
@@ -1958,6 +2075,27 @@ int make_object(const struct type* p_type, struct object* obj)
         return 0;
     }
     return 1;
+}
+
+struct object object_dup(const struct object* src)
+{
+    assert(src->members == NULL);
+    //assert(src->next == NULL); ??
+
+    struct object result = *src;
+    result.type = type_dup(&src->type);
+
+    if (src->debug_name)
+        result.debug_name = strdup(src->debug_name);
+
+    result.next = NULL;
+
+    return result;
+}
+
+int make_object(const struct type* p_type, struct object* obj)
+{
+    return make_object_with_name(p_type, obj, "");
 }
 
 
@@ -2080,6 +2218,9 @@ void object_print_value_debug(const struct object* a)
     case TYPE_LONG_DOUBLE:
         printf("%Lf (long double)", a->value.long_double_value);
         break;
+    case TYPE_VOID_PTR:
+        printf("%p (void*)", a->value.void_pointer);
+        break;
     }
 
 }
@@ -2129,10 +2270,10 @@ void object_print_to_debug_core(const struct object* object, int n)
         switch (object->state)
         {
         case CONSTANT_VALUE_STATE_UNINITIALIZED: printf(" uninitialized "); break;
-        case CONSTANT_VALUE_STATE_UNKNOWN:printf(" unknown "); break;
-        case CONSTANT_VALUE_STATE_EXACT:printf(" exact "); break;
-        case CONSTANT_VALUE_STATE_CONSTANT_EXACT:printf(" constant_exact "); break;
-        case CONSTANT_VALUE_STATE_REFERENCE: assert(false); break;
+        case CONSTANT_VALUE_STATE_ANY:printf(" unknown "); break;
+        case CONSTANT_VALUE_EQUAL:printf(" exact "); break;
+        case CONSTANT_VALUE_STATE_CONSTANT:printf(" constant_exact "); break;
+
         }
 
         printf("\n");
@@ -2487,6 +2628,126 @@ int object_smaller_than_or_equal(const struct object* a, const struct object* b)
     return object_to_unsigned_long_long(a) <= object_to_unsigned_long_long(b);
 }
 
+struct object object_add(const struct object* a, const struct object* b)
+{
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_make_signed_int(object_to_signed_int(a) + object_to_signed_int(b));
+
+    case TYPE_UNSIGNED_INT:
+        return object_make_unsigned_int(object_to_unsigned_int(a) + object_to_unsigned_int(b));
+
+    case TYPE_BOOL:
+        return object_make_bool(object_to_bool(a) + object_to_bool(b));
+
+    //case TYPE_SIGNED_CHAR:
+      //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
+
+      //  break;
+    //case TYPE_UNSIGNED_CHAR:
+//        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+
+    //case TYPE_SIGNED_SHORT:
+      //  return object_to_signed_short(a) == object_to_signed_short(b);
+
+    //case TYPE_UNSIGNED_SHORT:
+      //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_make_signed_long(object_to_signed_long(a) + object_to_signed_long(b));
+
+    case TYPE_UNSIGNED_LONG:
+        return object_make_unsigned_long(object_to_unsigned_long(a) + object_to_unsigned_long(b));
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_make_signed_long_long(object_to_signed_long_long(a) + object_to_signed_long_long(b));
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_make_unsigned_long_long(object_to_unsigned_long_long(a) + object_to_unsigned_long_long(b));
+
+    case TYPE_FLOAT:
+        return object_make_float(object_to_float(a) + object_to_float(b));
+
+    case TYPE_DOUBLE:
+        return object_make_double(object_to_double(a) + object_to_double(b));
+
+    case TYPE_LONG_DOUBLE:
+        return object_make_long_double(object_to_long_double(a) + object_to_long_double(b));
+
+    }
+
+    assert(false);
+    struct object o = {0};
+    return o;
+}
+
+
+struct object object_sub(const struct object* a, const struct object* b)
+{
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_make_signed_int(object_to_signed_int(a) - object_to_signed_int(b));
+
+    case TYPE_UNSIGNED_INT:
+        return object_make_unsigned_int(object_to_unsigned_int(a) - object_to_unsigned_int(b));
+
+    case TYPE_BOOL:
+        return object_make_bool(object_to_bool(a) - object_to_bool(b));
+
+    //case TYPE_SIGNED_CHAR:
+      //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
+
+      //  break;
+    //case TYPE_UNSIGNED_CHAR:
+//        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+
+    //case TYPE_SIGNED_SHORT:
+      //  return object_to_signed_short(a) == object_to_signed_short(b);
+
+    //case TYPE_UNSIGNED_SHORT:
+      //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_make_signed_long(object_to_signed_long(a) - object_to_signed_long(b));
+
+    case TYPE_UNSIGNED_LONG:
+        return object_make_unsigned_long(object_to_unsigned_long(a) - object_to_unsigned_long(b));
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_make_signed_long_long(object_to_signed_long_long(a) - object_to_signed_long_long(b));
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_make_unsigned_long_long(object_to_unsigned_long_long(a) - object_to_unsigned_long_long(b));
+
+    case TYPE_FLOAT:
+        return object_make_float(object_to_float(a) - object_to_float(b));
+
+    case TYPE_DOUBLE:
+        return object_make_double(object_to_double(a) - object_to_double(b));
+
+    case TYPE_LONG_DOUBLE:
+        return object_make_long_double(object_to_long_double(a) - object_to_long_double(b));
+
+    }
+
+    assert(false);
+    struct object o = {0};
+    return o;
+}
+
+
 int object_equal(const struct object* a, const struct object* b)
 {
     a = object_get_referenced(a);
@@ -2544,4 +2805,98 @@ int object_equal(const struct object* a, const struct object* b)
     assert(false);
     return object_to_unsigned_long_long(a) == object_to_unsigned_long_long(b);
 }
+
+
+int object_not_equal(const struct object* a, const struct object* b)
+{
+    a = object_get_referenced(a);
+    b = object_get_referenced(b);
+
+    enum object_value_type common_type = object_common(a, b);
+
+    switch (common_type)
+    {
+    case TYPE_SIGNED_INT:
+        return object_to_signed_int(a) != object_to_signed_int(b);
+
+    case TYPE_UNSIGNED_INT:
+        return object_to_unsigned_int(a) != object_to_unsigned_int(b);
+
+    case TYPE_BOOL:
+        return object_to_bool(a) != object_to_bool(b);
+
+    case TYPE_SIGNED_CHAR:
+        return object_to_signed_char(a) != object_to_signed_char(b);
+
+        break;
+    case TYPE_UNSIGNED_CHAR:
+        return object_to_unsigned_char(a) != object_to_unsigned_char(b);
+
+    case TYPE_SIGNED_SHORT:
+        return object_to_signed_short(a) != object_to_signed_short(b);
+
+    case TYPE_UNSIGNED_SHORT:
+        return object_to_unsigned_short(a) != object_to_unsigned_short(b);
+
+    case TYPE_SIGNED_LONG:
+        return object_to_signed_long(a) != object_to_signed_long(b);
+
+    case TYPE_UNSIGNED_LONG:
+        return object_to_unsigned_long(a) != object_to_unsigned_long(b);
+
+    case TYPE_SIGNED_LONG_LONG:
+        return object_to_signed_long_long(a) != object_to_signed_long_long(b);
+
+    case TYPE_UNSIGNED_LONG_LONG:
+        return object_to_unsigned_long_long(a) != object_to_unsigned_long_long(b);
+
+    case TYPE_FLOAT:
+        return object_to_float(a) != object_to_float(b);
+
+    case TYPE_DOUBLE:
+        return object_to_double(a) != object_to_double(b);
+
+    case TYPE_LONG_DOUBLE:
+        return object_to_long_double(a) != object_to_long_double(b);
+
+    }
+
+    assert(false);
+    return object_to_unsigned_long_long(a) != object_to_unsigned_long_long(b);
+}
+
+
+#define OBJECTS_INITIAL_CAPACITY 8
+
+void objects_destroy(struct objects* arr)
+{
+    free(arr->items);
+}
+
+int objects_push(struct objects* arr, struct object* obj)
+{
+    if (arr->items == NULL)
+    {
+        arr->items = malloc(OBJECTS_INITIAL_CAPACITY * sizeof(struct object*));
+        if (!arr->items)
+        {
+            arr->size = 0;
+            arr->capacity = 0;
+            return ENOMEM;
+        }
+        arr->size = 0;
+        arr->capacity = OBJECTS_INITIAL_CAPACITY;
+    }
+    if (arr->size == arr->capacity)
+    {
+        size_t new_capacity = arr->capacity ? arr->capacity * 2 : OBJECTS_INITIAL_CAPACITY;
+        struct object** new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
+        if (!new_items) return ENOMEM;
+        arr->items = new_items;
+        arr->capacity = new_capacity;
+    }
+    arr->items[arr->size++] = obj;
+    return 0;
+}
+
 

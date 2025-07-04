@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html>
+<head>
+  
+    <link rel="stylesheet" href="default.min.css">
+    <script src="highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+    <link rel="stylesheet" href="style.css" />
+    <title>Cake Playground</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <script>
+    function Try(elm)
+    {
+        //collect the text previous sample
+        var source = elm.parentElement.previousElementSibling.innerText;
+
+        var link = "./playground.html?code=" + encodeURIComponent(btoa(source)) +
+            "&to=" + encodeURI("-2") +
+            "&options=" + encodeURI("");
+
+        window.open(link, 'popup','width=800,height=600');
+    }
+// find-replace for this
+// <button onclick="Try(this)">try</button> 
+</script></head>
+<body>
+    <article style="max-width: 40em; margin:auto">
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
+<article>
+<h1>Cake - C23 and Beyond</h1>
+<ul>
+<li>
+<a href="#toc_0">Code</a>
+<ul>
+<li>
+<a href="#toc_1">dynamic array</a>
+<ul>
+<li>
+<a href="#toc_2">dynamic array of int</a>
+</li>
+<li>
+<a href="#toc_3">dynamic array of struct book</a>
+</li>
+<li>
+<a href="#toc_4">dynamic array of pointer to struct book</a>
+</li>
+<li>
+<a href="#toc_5">dynamic array of owner pointer to struct book</a>
+</li>
+<li>
+<a href="#toc_6">dynamic array of struct book (move)</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_7">Linked list</a>
+<ul>
+<li>
+<a href="#toc_8">Single linked list</a>
+</li>
+<li>
+<a href="#toc_9">double linked list</a>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="toc_0">Code</h1>
+
+<h2 id="toc_1">dynamic array</h2>
+
+<h3 id="toc_2">dynamic array of int</h3>
+
+<pre><code class="language-c">
+#include &lt;stdlib.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;limits.h&gt;
+#include &lt;string.h&gt;
+
+struct int_array {
+    int* data;
+    int size;
+    int capacity;
+};
+
+int int_array_reserve(struct int_array* p, int n)
+{
+    if (n &gt; p-&gt;capacity) {
+        if ((size_t)n &gt; (SIZE_MAX / (sizeof(p-&gt;data[0])))) {        
+            return EOVERFLOW;
+        }
+
+        void* pnew = realloc(p-&gt;data, n * sizeof(p-&gt;data[0]));
+        if (pnew == NULL) return ENOMEM;
+
+        p-&gt;data = pnew;
+        p-&gt;capacity = n;
+    }
+    return 0;
+}
+
+int int_array_push_back(struct int_array* p, int value)
+{
+     if (p-&gt;size == INT_MAX) {
+         return EOVERFLOW;
+     }
+
+     if (p-&gt;size + 1 &gt; p-&gt;capacity) {                
+         int new_capacity = 0;
+         if (p-&gt;capacity &gt; (INT_MAX - p-&gt;capacity / 2))
+         {
+             /*overflow*/
+             new_capacity = INT_MAX; 
+         }
+         else {
+             new_capacity =  p-&gt;capacity + p-&gt;capacity / 2;
+             if (new_capacity &lt; p-&gt;size + 1) {
+                new_capacity = p-&gt;size + 1;
+             }
+         }
+
+        int error = int_array_reserve(p, new_capacity);
+        if (error != 0) {
+            return error;
+        }
+     }
+
+     p-&gt;data[p-&gt;size] = value;
+
+
+    p-&gt;size++;
+
+    return 0;
+}
+
+void int_array_destroy(struct int_array* p)
+{
+
+    free(p-&gt;data);
+}
+
+int main()
+{
+   struct int_array a = { 0 };
+   int_array_push_back(&amp;a, 1);
+   int_array_push_back(&amp;a, 2);
+   int_array_destroy(&amp;a);
+}
+</code></pre>
+
+<h3 id="toc_3">dynamic array of struct book</h3>
+
+<pre><code class="language-c">
+
+#include &lt;stdlib.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;limits.h&gt;
+#include &lt;string.h&gt;
+
+struct book {
+    char title[10];
+};
+
+
+struct books {
+    struct book* data;
+    int size;
+    int capacity;
+};
+
+int books_reserve(struct books* p, int n)
+{
+    if (n &gt; p-&gt;capacity) {
+        if ((size_t)n &gt; (SIZE_MAX / (sizeof(p-&gt;data[0])))) {        
+            return EOVERFLOW;
+        }
+
+        void* pnew = realloc(p-&gt;data, n * sizeof(p-&gt;data[0]));
+        if (pnew == NULL) return ENOMEM;
+
+        p-&gt;data = pnew;
+        p-&gt;capacity = n;
+    }
+    return 0;
+}
+
+int books_push_back(struct books* p, const struct book* book)
+{
+     if (p-&gt;size == INT_MAX) {
+         return EOVERFLOW;
+     }
+
+     if (p-&gt;size + 1 &gt; p-&gt;capacity) {                
+         int new_capacity = 0;
+         if (p-&gt;capacity &gt; (INT_MAX - p-&gt;capacity / 2))
+         {
+             /*overflow*/
+             new_capacity = INT_MAX; 
+         }
+         else {
+             new_capacity =  p-&gt;capacity + p-&gt;capacity / 2;
+             if (new_capacity &lt; p-&gt;size + 1) {
+                new_capacity = p-&gt;size + 1;
+             }
+         }
+
+        int error = books_reserve(p, new_capacity);
+        if (error != 0) {
+            return error;
+        }
+     }
+
+     p-&gt;data[p-&gt;size] = *book; /*COPIED*/
+
+
+    p-&gt;size++;
+
+    return 0;
+}
+
+void books_destroy(struct books* books)
+{
+
+    free(books-&gt;data);
+}
+
+int main()
+{
+   struct books books = { 0 };
+
+   struct book book = { .title =&quot;book1&quot; };
+   books_push_back(&amp;books, &amp;book/*COPIED*/);
+   books_destroy(&amp;books);
+}
+
+</code></pre>
+
+<h3 id="toc_4">dynamic array of pointer to struct book</h3>
+
+<pre><code class="language-c">
+
+
+#include &lt;stdlib.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;limits.h&gt;
+#include &lt;string.h&gt;
+
+struct book {
+    char title[10];
+};
+
+
+
+struct books {
+    struct book** data;
+    int size;
+    int capacity;
+};
+
+int books_reserve(struct books* p, int n)
+{
+    if (n &gt; p-&gt;capacity) {
+        if ((size_t)n &gt; (SIZE_MAX / (sizeof(p-&gt;data[0])))) {        
+            return EOVERFLOW;
+        }
+
+        void* pnew = realloc(p-&gt;data, n * sizeof(p-&gt;data[0]));
+        if (pnew == NULL) return ENOMEM;
+
+        p-&gt;data = pnew;
+        p-&gt;capacity = n;
+    }
+    return 0;
+}
+
+int books_push_back(struct books* p, struct book* book)
+{
+     if (p-&gt;size == INT_MAX) {
+         return EOVERFLOW;
+     }
+
+     if (p-&gt;size + 1 &gt; p-&gt;capacity) {                
+         int new_capacity = 0;
+         if (p-&gt;capacity &gt; (INT_MAX - p-&gt;capacity / 2))
+         {
+             /*overflow*/
+             new_capacity = INT_MAX; 
+         }
+         else {
+             new_capacity =  p-&gt;capacity + p-&gt;capacity / 2;
+             if (new_capacity &lt; p-&gt;size + 1) {
+                new_capacity = p-&gt;size + 1;
+             }
+         }
+
+        int error = books_reserve(p, new_capacity);
+        if (error != 0) {
+            return error;
+        }
+     }
+
+
+
+    p-&gt;data[p-&gt;size] = book; /*VIEW*/
+    p-&gt;size++;
+
+    return 0;
+}
+
+void books_destroy(struct books* books)
+{
+
+    free(books-&gt;data);
+}
+
+int main()
+{
+   struct books books = { 0 };
+
+   struct book book = { .title = &quot;book1&quot; };
+   books_push_back(&amp;books, &amp;book/*VIEW*/);
+   books_destroy(&amp;books);
+}
+
+</code></pre>
+
+<h3 id="toc_5">dynamic array of owner pointer to struct book</h3>
+
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;limits.h&gt;
+#include &lt;string.h&gt;
+
+#ifdef _MSC_VER
+#define strdup _strdup
+#endif
+
+struct book {
+    char* title;
+};
+
+
+void item_delete(struct book* book)
+{
+    if (book) {
+       free(book-&gt;title);
+    }
+}
+
+struct books {
+    struct book** data;
+    int size;
+    int capacity;
+};
+int books_reserve(struct books* p, int n)
+{
+    if (n &gt; p-&gt;capacity) {
+        if ((size_t)n &gt; (SIZE_MAX / (sizeof(p-&gt;data[0])))) {        
+            return EOVERFLOW;
+        }
+
+        void* pnew = realloc(p-&gt;data, n * sizeof(p-&gt;data[0]));
+        if (pnew == NULL) return ENOMEM;
+
+        p-&gt;data = pnew;
+        p-&gt;capacity = n;
+    }
+    return 0;
+}
+
+int books_push_back(struct books* p, struct book* book)
+{
+     if (p-&gt;size == INT_MAX) {
+         return EOVERFLOW;
+     }
+
+     if (p-&gt;size + 1 &gt; p-&gt;capacity) {                
+         int new_capacity = 0;
+         if (p-&gt;capacity &gt; (INT_MAX - p-&gt;capacity / 2))
+         {
+             /*overflow*/
+             new_capacity = INT_MAX; 
+         }
+         else {
+             new_capacity =  p-&gt;capacity + p-&gt;capacity / 2;
+             if (new_capacity &lt; p-&gt;size + 1) {
+                new_capacity = p-&gt;size + 1;
+             }
+         }
+
+        int error = books_reserve(p, new_capacity);
+        if (error != 0) {
+            return error;
+        }
+     }
+
+
+
+    p-&gt;data[p-&gt;size] = book; /*MOVED*/
+    p-&gt;size++;
+
+    return 0;
+}
+
+void books_destroy(struct books* books)
+{
+
+    for (int i = 0; i &lt; books-&gt;size; i++) {
+        item_delete(books-&gt;data[i]);
+    }
+    free(books-&gt;data);
+}
+
+int main()
+{
+   struct books books = { 0 };
+
+   struct book* book = calloc(1, sizeof (struct book));
+   if (book == NULL) goto continuation;
+
+   book-&gt;title = strdup(&quot;book1&quot;);
+   if (book-&gt;title == NULL) goto continuation;
+   
+   if (books_push_back(&amp;books, book) == 0) {
+     book = NULL; /*MOVED*/
+   }
+
+  continuation:
+
+  item_delete(book);
+  books_destroy(&amp;books);
+}
+</code></pre>
+
+<h3 id="toc_6">dynamic array of struct book (move)</h3>
+
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;limits.h&gt;
+#include &lt;string.h&gt;
+
+#ifdef _MSC_VER
+#define strdup _strdup
+#endif
+
+struct book {
+    char* title;
+};
+
+void item_destroy(struct book* book)
+{
+    free(book-&gt;title);
+}
+
+
+struct books {
+    struct book* data;
+    int size;
+    int capacity;
+};
+int books_reserve(struct books* p, int n)
+{
+    if (n &gt; p-&gt;capacity) {
+        if ((size_t)n &gt; (SIZE_MAX / (sizeof(p-&gt;data[0])))) {        
+            return EOVERFLOW;
+        }
+
+        void* pnew = realloc(p-&gt;data, n * sizeof(p-&gt;data[0]));
+        if (pnew == NULL) return ENOMEM;
+
+        p-&gt;data = pnew;
+        p-&gt;capacity = n;
+    }
+    return 0;
+}
+
+int books_push_back(struct books* p, struct book* book)
+{
+     if (p-&gt;size == INT_MAX) {
+         return EOVERFLOW;
+     }
+
+     if (p-&gt;size + 1 &gt; p-&gt;capacity) {                
+         int new_capacity = 0;
+         if (p-&gt;capacity &gt; (INT_MAX - p-&gt;capacity / 2))
+         {
+             /*overflow*/
+             new_capacity = INT_MAX; 
+         }
+         else {
+             new_capacity =  p-&gt;capacity + p-&gt;capacity / 2;
+             if (new_capacity &lt; p-&gt;size + 1) {
+                new_capacity = p-&gt;size + 1;
+             }
+         }
+
+        int error = books_reserve(p, new_capacity);
+        if (error != 0) {
+            return error;
+        }
+     }
+
+     p-&gt;data[p-&gt;size] = *book; /*MOVED*/
+
+    memset(book, 0, sizeof(*book));
+
+    p-&gt;size++;
+
+    return 0;
+}
+
+void books_destroy(struct books* books)
+{
+    for (int i = 0; i &lt; books-&gt;size; i++) {
+        item_destroy(&amp;books-&gt;data[i]);
+    }
+
+    free(books-&gt;data);
+}
+
+int main()
+{
+   struct books books = { 0 };
+
+   struct book book = { 0 };
+   book.title = strdup(&quot;title 1&quot;);
+   if (book.title == NULL) goto continuation;
+    
+   if (books_push_back(&amp;books, &amp;book) == 0) {
+      /*MOVED ON SUCCESS*/
+   }
+    
+   continuation:
+
+   item_destroy(&amp;book);
+   books_destroy(&amp;books);
+}
+</code></pre>
+
+<h2 id="toc_7">Linked list</h2>
+
+<h3 id="toc_8">Single linked list</h3>
+
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+
+struct item {
+     char* title;
+     struct item* next;
+};
+
+void item_destroy(struct item* item) {
+     free(item-&gt;title);
+}
+ 
+
+struct list {
+    struct item* head, *tail;
+};
+
+void list_insert_after(struct list* list, struct item* item, struct item* new_book)
+{
+    assert(list != NULL);
+    assert(item != NULL);
+    assert(new_book != NULL);
+    assert(new_book-&gt;next == NULL);
+
+
+    if (item-&gt;next == NULL) {
+        list-&gt;tail = new_book;
+    }
+    else {
+        new_book-&gt;next = item-&gt;next;
+    }
+
+    item-&gt;next = new_book;
+}
+
+
+void list_push_back(struct list* list, struct item* new_book)
+{
+   assert(list != NULL);
+   assert(new_book != NULL);
+   assert(new_book-&gt;next == NULL);
+
+   if (list-&gt;tail == NULL) {
+      list-&gt;head = new_book;
+   }
+   else {
+      list-&gt;tail-&gt;next = new_book;
+   }
+   list-&gt;tail = new_book;
+}
+
+void list_push_front(struct list* list, struct item* new_book)
+{
+    assert(list != NULL);
+    assert(new_book != NULL);
+    assert(new_book-&gt;next == NULL);
+
+    if (list-&gt;head == NULL) {
+        list-&gt;tail = new_book;
+    }
+    else {
+        new_book-&gt;next = list-&gt;head;        
+    }
+    list-&gt;head = new_book;
+}
+
+void list_destroy(struct list* list)
+{
+    //pre condition
+    assert(list != NULL);
+
+    struct item* it = list-&gt;head;
+    while (it != NULL) {
+        struct item* next = it-&gt;next;
+        item_destroy(it);
+        free(it);
+        it = next;
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    struct list list = { 0 };
+    struct item* b1 = calloc(1, sizeof(struct item));
+    if (b1)
+    {
+        list_push_front(&amp;list, b1);
+    }
+    list_destroy(&amp;list);
+}
+</code></pre>
+
+<h3 id="toc_9">double linked list</h3>
+
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+
+struct item {
+     char* title;
+     struct item* next;
+     struct item* prev;
+};
+
+void item_destroy(struct item* item) {
+     free(item-&gt;title);
+}
+ 
+struct list {
+    struct item* head, *tail;
+};
+
+void list_insert_after(struct list* list, struct item* item, struct item* new_book)
+{
+    assert(list != NULL);
+    assert(item != NULL);
+    assert(new_book != NULL);
+    assert(new_book-&gt;prev == NULL);
+    assert(new_book-&gt;next == NULL);
+
+    new_book-&gt;prev = item;
+
+    if (item-&gt;next == NULL) {
+        list-&gt;tail = new_book;
+    }
+    else {
+        new_book-&gt;next = item-&gt;next;
+        item-&gt;next-&gt;prev = new_book;
+    }
+
+    item-&gt;next = new_book;
+}
+
+void list_insert_before(struct list* list, struct item* item, struct item* new_book)
+{
+    assert(list != NULL);
+    assert(item != NULL);
+    assert(new_book != NULL);
+    assert(new_book-&gt;prev == NULL);
+    assert(new_book-&gt;next == NULL);
+
+    new_book-&gt;next = item;
+    if (item-&gt;prev == NULL) {
+        list-&gt;head = new_book;
+    }
+    else {
+        new_book-&gt;prev = item-&gt;prev;
+        item-&gt;prev-&gt;next = new_book;
+    }
+    item-&gt;prev = new_book;
+
+}
+void list_remove(struct list* list, struct item* item)
+{
+    assert(list != NULL);
+    assert(item != NULL);
+
+    if (item-&gt;prev == NULL)
+        list-&gt;head = item-&gt;next;
+    else
+        item-&gt;prev-&gt;next = item-&gt;next;
+
+    if (item-&gt;next == NULL)
+        list-&gt;tail = item-&gt;prev;
+    else
+        item-&gt;next-&gt;prev = item-&gt;prev;
+    
+    item_destroy(item);
+    free(item);
+}
+
+
+void list_push_back(struct list* list, struct item* new_book)
+{
+   assert(list != NULL);
+   assert(new_book != NULL);
+   assert(new_book-&gt;prev == NULL);
+   assert(new_book-&gt;next == NULL);
+
+   if (list-&gt;tail == NULL) {
+      list-&gt;head = new_book;
+   }
+   else {
+      new_book-&gt;prev = list-&gt;tail;        
+      list-&gt;tail-&gt;next = new_book;
+   }
+   list-&gt;tail = new_book;
+}
+
+void list_push_front(struct list* list, struct item* new_book)
+{
+    assert(list != NULL);
+    assert(new_book != NULL);
+     assert(new_book-&gt;prev == NULL);
+    assert(new_book-&gt;next == NULL);
+
+    if (list-&gt;head == NULL) {
+        list-&gt;tail = new_book;
+    }
+    else {
+        new_book-&gt;next = list-&gt;head;        
+        list-&gt;head-&gt;prev = new_book;
+    }
+    list-&gt;head = new_book;
+}
+
+void list_destroy(struct list* list)
+{
+    //pre condition
+    assert(list != NULL);
+
+    struct item* it = list-&gt;head;
+    while (it != NULL) {
+        struct item* next = it-&gt;next;
+        item_destroy(it);
+        free(it);
+        it = next;
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    struct list list = { 0 };
+    struct item* b1 = calloc(1, sizeof(struct item));
+    if (b1)
+    {
+        list_push_front(&amp;list, b1);
+    }
+    list_destroy(&amp;list);
+}
+</code></pre>
+</article></body></html>

@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -15,6 +15,9 @@ typedef int errno_t;
 
 
 #ifndef __CAKE__
+
+//emulate _Countof
+#define _Countof(A) (sizeof(A)/sizeof((A)[0]))
 
 #define try  
 #define catch if (0) catch_label:

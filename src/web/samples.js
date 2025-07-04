@@ -1,4 +1,4 @@
-﻿var sample = {};
+var sample = {};
 
 sample["C89"] = [];
 sample["C89"]["Backend"] =
@@ -1378,7 +1378,33 @@ int main()
 `;
 
 
+sample["Extensions"]["Literal function scopes"] =
+    `
 
+void f1(){
+    /*we cannot use local variables*/
+    int i = 0;
+    //(void(void)){ i = 1; }();
+}
+
+void f2(){
+    /*we can use then at discarded expressions*/
+    int i = 0;
+    (void(void)){ int k = sizeof(i); }();
+}
+
+int g;
+void f3(){
+    /*we can use variables from file scope*/
+    (void(void)){ int k = g; }();
+}
+
+
+void f3(){
+    (void(void)){ char * s = __func__; }();
+}
+
+`;
 sample["Extensions"]["Literal function (lambda) I"] =
     `
 /*simple lambda*/

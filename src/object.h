@@ -1,3 +1,4 @@
+﻿
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -38,28 +39,20 @@ enum object_value_type
 
     TYPE_FLOAT,
     TYPE_DOUBLE,
-    TYPE_LONG_DOUBLE
+    TYPE_LONG_DOUBLE,
+    
+    TYPE_VOID_PTR,
+    TYPE_VOID_PTR_REF,
 };
 
 enum object_value_state
-{
-    /*object has a uninitialized value*/
-    CONSTANT_VALUE_STATE_UNINITIALIZED,
-    
-    /*object has a unknown value*/
-    CONSTANT_VALUE_STATE_UNKNOWN,
-
-    /*
-       Object has a exactly but not constant value
-       I believe this can be used to execute code at compile time.(like c++ consteval)    
-    */
-    CONSTANT_VALUE_STATE_EXACT,
-
-    /*object has a exactly and immutable value*/
-    CONSTANT_VALUE_STATE_CONSTANT_EXACT,
-
-    /*indirect*/
-    CONSTANT_VALUE_STATE_REFERENCE,
+{    
+    CONSTANT_VALUE_STATE_UNINITIALIZED,        
+    CONSTANT_VALUE_STATE_ANY,
+    CONSTANT_VALUE_STATE_CONSTANT,
+    //flow analysis
+    CONSTANT_VALUE_NOT_EQUAL,
+    CONSTANT_VALUE_EQUAL,
 };
 
 struct object
@@ -90,19 +83,24 @@ struct object
 
         float float_value;
         double double_value;
-        long double long_double_value;              
+        long double long_double_value;            
+
+        void * void_pointer;
     } value;
     struct object* _Opt parent; //to be removed
     struct expression * _Opt p_init_expression;
+    
     struct object* _Opt _Owner members;
     struct object* _Opt _Owner next;
 };
+
+void object_swap(struct object* a, struct object* b);
 void object_print_value_debug(const struct object* a);
 void object_destroy(_Opt _Dtor struct object* p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
 void object_to_string(const struct object* a, char buffer[], int sz);
-struct object object_clone(const struct object* p);
+
 
 //Make constant value
 struct object            object_make_wchar_t(wchar_t value);
@@ -124,9 +122,14 @@ struct object              object_make_float(float value);
 struct object             object_make_double(double value);
 struct object        object_make_long_double(long double value);
 struct object        object_make_reference(struct object* object);
+struct object        object_make_pointer(struct object* object);
+struct object        object_make_null_pointer();
 
 
 //dynamic cast
+void object_set_signed_int(struct object* a, long long value);
+void object_set_unsigned_int(struct object* a, unsigned long long value);
+
 struct object object_cast(enum object_value_type e, const struct object* a);
 enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags);
 
@@ -153,6 +156,9 @@ int object_to_str(const struct object* a, int n, char str[/*n*/]);
 int object_greater_than_or_equal(const struct object* a, const struct object* b);
 int object_smaller_than_or_equal(const struct object* a, const struct object* b);
 int object_equal(const struct object* a, const struct object* b);
+int object_not_equal(const struct object* a, const struct object* b);
+struct object object_add(const struct object* a, const struct object* b);
+struct object object_sub(const struct object* a, const struct object* b);
 
 
 //Overflow checks
@@ -167,11 +173,14 @@ void object_default_initialization(struct object* p_object, bool is_constant);
 
 struct object* _Opt object_get_member(struct object* p_object, int index);
 
+int make_object_with_name(const struct type* p_type, struct object* obj, const char* name);
 int make_object(const struct type* p_type, struct object* obj);
+struct object object_dup(const struct object* src);
 
 bool object_is_reference(const struct object* p_object);
 bool object_is_derived(const struct object* p_object);
 bool object_is_signed(const struct object* p_object);
+void object_set_any(struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 
@@ -192,3 +201,16 @@ void object_print_to_debug(const struct object* object);
 
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int n, bool is_constant);
 struct object* object_get_non_const_referenced(struct object* p_object);
+
+
+
+struct objects 
+{
+    struct object** items;
+    int size;
+    int capacity;
+};
+
+void objects_destroy(struct objects* arr);
+int objects_push(struct objects* arr, struct object* obj); // returns 0 on success, ENOMEM on alloc fail
+

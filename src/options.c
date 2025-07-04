@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -54,7 +54,7 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
 {
     if (diagnostic_stack->top_index > 0)
     {
-      diagnostic_stack->top_index--;
+        diagnostic_stack->top_index--;
     }
     else
     {
@@ -68,7 +68,8 @@ struct diagnostic default_diagnostic = {
         NULLABLE_DISABLE_REMOVED_WARNINGS |
         (1ULL << W_NOTE) |
         (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER))
+        (1ULL << W_UNUSED_PARAMETER) |
+        (1ULL << W_UNUSED_VARIABLE))
 };
 
 static struct w {
@@ -77,7 +78,7 @@ static struct w {
 }
 s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
-    {W_UNUSED_FUNCTION, "unused-function"},    
+    {W_UNUSED_FUNCTION, "unused-function"},
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
 
@@ -171,7 +172,7 @@ int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
             return 1;
     }
 
-    
+
     if (is_diagnostic_note(w))
         return 1;
 
@@ -311,7 +312,7 @@ int fill_options(struct options* options,
             options->const_literal = true;
             continue;
         }
-       
+
         if (strcmp(argv[i], "-o") == 0)
         {
             if (i + 1 < argc)
@@ -345,7 +346,7 @@ int fill_options(struct options* options,
             options->show_includes = true;
             continue;
         }
-        
+
         if (strcmp(argv[i], "-E") == 0)
         {
             options->preprocess_only = true;
@@ -373,6 +374,21 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-nullchecks") == 0)
         {
             options->null_checks_enabled = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-debug") == 0)
+        {
+            options->do_static_debug = true;
+            if (i + 1 < argc)
+            {
+                i++;
+                options->static_debug_lines = atoi(argv[i]);
+            }
+            else
+            {
+                //ops
+            }
             continue;
         }
 
@@ -442,7 +458,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-  
+
         if (strcmp(argv[i], "-std=c2x") == 0 ||
             strcmp(argv[i], "-std=c23") == 0)
         {
@@ -585,9 +601,9 @@ void print_help()
         LIGHTCYAN "  -disable-assert       " RESET "disables built-in assert\n"
         "\n"
         LIGHTCYAN "  -const-literal        " RESET "literal string becomes const\n"
-        "\n"       
+        "\n"
         LIGHTCYAN "  -preprocess-def-macro " RESET "preprocess def macros after expansion\n"
-        
+
         "More details at http://thradams.com/cake/manual.html\n"
         ;
 

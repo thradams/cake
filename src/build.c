@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
+﻿#define _CRT_SECURE_NO_WARNINGS
 
 /*
  WINDOWS
@@ -133,6 +133,7 @@ int main()
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../warnings.md", "./web/warnings.html");
     generate_doc("../ownership.md", "./web/ownership.html");
+    generate_doc("../code.md", "./web/code.html");
 
     remove("hoedown.exe");
 
@@ -208,6 +209,7 @@ int main()
                " /W4 "
                " /Zi "
                " /Gm- "
+               " /std:clatest "
                " /Zc:inline "
                //" /WX " //Treats all compiler warnings as errors.
                " /Gd "

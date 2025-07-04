@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -81,8 +81,8 @@ enum expression_type
     EXCLUSIVE_OR_EXPRESSION,
     INCLUSIVE_OR_EXPRESSION,
 
-    LOGICAL_OR_EXPRESSION,
-    LOGICAL_AND_EXPRESSION,
+    LOGICAL_OR_EXPRESSION,  //||
+    LOGICAL_AND_EXPRESSION, //&&
     
     ASSIGNMENT_EXPRESSION_ASSIGN,
     ASSIGNMENT_EXPRESSION_PLUS_ASSIGN,
@@ -222,6 +222,8 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
+bool expression_get_variables(const struct expression* expr, int n, struct object* variables[/*n*/]);
+
 bool expression_is_lvalue(const struct expression* expr);
 
 bool expression_is_one(const struct expression* expression);
@@ -248,3 +250,5 @@ void check_comparison(struct parser_ctx* ctx,
     struct expression* p_a_expression,
     struct expression* p_b_expression,
     const struct token* op_token);
+
+struct object expression_eval(struct expression* p_expression);

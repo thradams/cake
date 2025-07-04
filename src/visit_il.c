@@ -1,8 +1,4 @@
-/*
- *  This file is part of cake compiler
- *  https://github.com/thradams/cake
-*/
-
+﻿
 #pragma safety enable
 
 #include "ownership.h"
@@ -25,6 +21,7 @@ void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
     hashmap_destroy(&ctx->tag_names);
     hashmap_destroy(&ctx->structs_map);
     hashmap_destroy(&ctx->function_map);
+    hashmap_destroy(&ctx->static_declarators);
 
     ss_close(&ctx->local_declarators);
     ss_close(&ctx->add_this_before);
@@ -466,17 +463,26 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case PRIMARY_EXPRESSION__FUNC__:
     {
         assert(ctx->p_current_function_opt);
-        assert(ctx->p_current_function_opt->name_opt);
 
-        const char* func_name =
-            ctx->p_current_function_opt->name_opt->lexeme;
-
+        char func_name[200] = {0};
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+        if (ctx->p_current_function_opt->name_opt)
+        {
+            snprintf(func_name , sizeof func_name , "%s", ctx->p_current_function_opt->name_opt->lexeme);            
+            snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+        }
+        else
+        {
+            snprintf(func_name , sizeof func_name , "unnamed");            
+            snprintf(name, sizeof(name), "__cake_func_%p", ctx->p_current_function_opt);
+        }
+
+        
+
         if (!ctx->is__func__predefined_identifier_added)
         {
             assert(ctx->p_current_function_opt);
-            assert(ctx->p_current_function_opt->name_opt);
+            
             ctx->is__func__predefined_identifier_added = true;
             ss_fprintf(&ctx->add_this_before_external_decl, "static const char %s[] = \"%s\";\n", name, func_name);
         }
@@ -568,10 +574,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                local static declarators are generated on-demand.
             */
 
-            char newname[200];
+            char newname[200] = { 0 };
             snprintf(newname, sizeof newname, "%p", p_expression->declarator);
 
-            void* p = hashmap_find(&ctx->static_declarators, newname);
+            void* _Opt p = hashmap_find(&ctx->static_declarators, newname);
             if (p == NULL)
             {
                 /*
@@ -584,6 +590,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 struct hash_item_set i = { 0 };
                 i.number = 1;
                 hashmap_set(&ctx->static_declarators, newname, &i);
+
+                assert(p_expression->declarator);
+                assert(p_expression->declarator->name_opt);
 
                 /*
                    we may have the same name used in other local scope so we need
@@ -608,6 +617,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     ss_fprintf(&ctx->function_types, "%s;\n", ss.c_str);
 
                 ss_close(&ss);
+                hash_item_set_destroy(&i);
             }
 
             ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
@@ -759,8 +769,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         int current_indentation = ctx->indentation;
         ctx->indentation = 0;
         assert(p_expression->compound_statement != NULL);
+
+        struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
+        ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
+
         d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
         ctx->indentation = current_indentation;
+        ctx->p_current_function_opt = p_current_function_opt;
+
         ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", lambda.c_str);
         ss_fprintf(oss, "%s", name);
         ss_close(&lambda);
@@ -1190,8 +1206,9 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
             print_identation(ctx, oss);
 
             ss_fprintf(oss, "return %s;\n", name);
-            type_destroy(&return_type);
         }
+
+        type_destroy(&return_type);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
         p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
@@ -1391,8 +1408,8 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         assert(p_selection_statement->condition != NULL);
 
         struct osstream ss = { 0 };
-        
-        
+
+
         ss_fprintf(&ss, "/*switch*/\n");
         print_identation(ctx, &ss);
         ss_fprintf(&ss, "{\n");
@@ -1407,6 +1424,8 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         d_print_type(ctx, &ss, &p_selection_statement->condition->expression->type, name);
 
         ss_fprintf(&ss, " = ");
+
+        assert(p_selection_statement->condition != NULL);
         d_visit_condition(ctx, &ss, p_selection_statement->condition);
         ss_fprintf(&ss, ";\n");
 
@@ -1414,7 +1433,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         struct label* _Opt p_label_default = NULL;
         while (p_label)
         {
-            
+
             if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
             {
                 p_label_default = p_label;
@@ -1424,16 +1443,16 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 print_identation(ctx, &ss);
                 if (p_label->constant_expression_end == NULL)
                 {
-                    char str[50];
+                    char str[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str);
                     ss_fprintf(&ss, "if (%s == %s) goto _CKL%d; /*case %s*/\n", name, str, p_label->label_id, str);
 
                 }
                 else
                 {
-                    char str_begin[50];
+                    char str_begin[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str_begin);
-                    char str_end[50];
+                    char str_end[50] = { 0 };
                     object_to_str(&p_label->constant_expression_end->object, 50, str_end);
                     ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto _CKL%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
                 }
@@ -1637,8 +1656,8 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
 {
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
-        print_identation(ctx, oss);        
-        char str[50];
+        print_identation(ctx, oss);
+        char str[50] = { 0 };
         object_to_str(&p_label->constant_expression->object, 50, str);
         if (p_label->constant_expression_end == NULL)
         {
@@ -1646,11 +1665,11 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
         }
         else
         {
-            char str2[50];
+            char str2[50] = { 0 };
             object_to_str(&p_label->constant_expression_end->object, 50, str2);
             ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
         }
-        ss_fprintf(oss, "_CKL%d:\n", p_label->label_id);                
+        ss_fprintf(oss, "_CKL%d:\n", p_label->label_id);
     }
     else if (p_label->p_first_token->type == TK_IDENTIFIER)
     {
@@ -1660,7 +1679,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "/*default*/ _CKL%d:\n", p_label->label_id);        
+        ss_fprintf(oss, "/*default*/ _CKL%d:\n", p_label->label_id);
     }
 
 }
@@ -2480,6 +2499,8 @@ static void print_initializer(struct d_visit_ctx* ctx,
     struct init_declarator* p_init_declarator,
     bool bstatic)
 {
+    assert(p_init_declarator->initializer != NULL);
+
     const bool is_local = ctx->is_local;
 
     if (p_init_declarator->initializer->assignment_expression)
@@ -2594,7 +2615,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
 
 static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss0, struct init_declarator* p_init_declarator, bool binline, bool bstatic)
 {
-    struct osstream* oss = NULL;
+    struct osstream* _Opt oss = NULL;
     try
     {
         const bool is_local = ctx->is_local;
@@ -2667,12 +2688,13 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
         if (p_init_declarator->initializer)
         {
-            char newname[200];
+            char newname[200] = { 0 };
             snprintf(newname, sizeof newname, "%p", p_init_declarator->p_declarator);
             struct hash_item_set i = { 0 };
             i.number = 1;
             hashmap_set(&ctx->static_declarators, newname, &i);
             print_initializer(ctx, oss, p_init_declarator, bstatic);
+            hash_item_set_destroy(&i);
         }
         else
         {
@@ -2682,6 +2704,8 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* os
 
         if (p_init_declarator->p_declarator->function_body)
         {
+            assert(p_init_declarator->p_declarator->name_opt != NULL);
+
             ctx->is__func__predefined_identifier_added = false;
             ctx->p_current_function_opt = p_init_declarator->p_declarator;
 

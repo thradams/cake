@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -1002,7 +1002,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            struct map_entry* _Opt p_entry = find_variables(ctx, ctx->current->lexeme, NULL);
+            struct scope* _Opt p_scope = NULL;
+            struct map_entry* _Opt p_entry = find_variables(ctx, ctx->current->lexeme, &p_scope);
 
             if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
@@ -1036,6 +1037,36 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
+
+                if (p_scope->scope_level == 0)
+                {
+                    //file scope
+                }
+                else if (ctx->p_scope)
+                {
+                    if (!ctx->evaluation_is_disabled)
+                    {
+                        bool inside_current_function_scope = false;
+                        while (p_scope)
+                        {
+                            if (ctx->p_scope == p_scope)
+                            {
+                                inside_current_function_scope = true;
+                                break;
+                            }
+                            p_scope = p_scope->previous;
+                        }
+                        if (!inside_current_function_scope)
+                        {
+                            compiler_diagnostic(C_ERROR_OUTER_SCOPE, 
+                                ctx, 
+                                ctx->current, 
+                                NULL, 
+                                "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                        }
+                    }
+                }
+
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
@@ -1050,22 +1081,17 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                      strcmp(ctx->current->lexeme, "__func__") == 0)
             {
 
-                const char* func_str = "?";
-
-
-                if (ctx->p_current_function_opt->init_declarator_list.head != NULL &&
-                    ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt)
-                {
-                    func_str =
-                        ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme;
-                }
+                const char* func_name = ctx->p_current_function_opt->name_opt ?
+                        ctx->p_current_function_opt->name_opt->lexeme :
+                        "unnamed";
+                
 
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = type_make_literal_string(strlen(func_str) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST);
+                p_expression_node->type = type_make_literal_string(strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST);
             }
             else
             {
@@ -1128,7 +1154,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     struct object* p_new = calloc(1, sizeof * p_new);
                     if (p_new == NULL) throw;
 
-                    p_new->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                    p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
                     p_new->value_type = TYPE_SIGNED_CHAR;
                     p_new->value.signed_char_value = value;
 
@@ -1138,7 +1164,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     }
                     else
                     {
-                        last->next = p_new;
+                        if (last)
+                            last->next = p_new;
                     }
                     last = p_new;
                 }
@@ -1146,7 +1173,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 struct object* p_new = calloc(1, sizeof * p_new);
                 if (p_new == NULL) throw;
 
-                p_new->state = CONSTANT_VALUE_STATE_CONSTANT_EXACT;
+                p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
                 p_new->value_type = TYPE_SIGNED_CHAR;
                 p_new->value.signed_char_value = 0;
 
@@ -2000,12 +2027,23 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
+            
+
             struct scope* parameters_scope =
                 &p_expression_node->type_name->abstract_declarator->direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
+
+            struct scope* p_scope = ctx->p_scope;
+            ctx->p_scope = ctx->scopes.tail;
+            
+            struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
+            ctx->p_current_function_opt = p_expression_node->type_name->abstract_declarator;
+
             p_expression_node->compound_statement = function_body(ctx);
             scope_list_pop(&ctx->scopes);
+            ctx->p_scope = p_scope;
+            ctx->p_current_function_opt = p_current_function_opt; //restore
         }
         else
         {
@@ -2014,11 +2052,17 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
             //TODO
 
-            int er = make_object(&p_expression_node->type, &p_expression_node->object);
-            if (er != 0)
+            if (p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
             {
-                compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
-                throw;
+            }
+            else
+            {
+                int er = make_object(&p_expression_node->type, &p_expression_node->object);
+                if (er != 0)
+                {
+                    compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
+                    throw;
+                }
             }
 
             bool is_constant = type_is_const(&p_expression_node->type) ||
@@ -5068,6 +5112,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 else if (op == '<<')
                     r = a << b;
 
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_signed_int(r);
             }
             break;
@@ -5087,6 +5132,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
+
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_unsigned_int(r);
             }
             break;
@@ -5109,6 +5156,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 else if (op == '<<')
                     r = a << b;
 
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_signed_long(r);
             }
             break;
@@ -5129,6 +5177,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
+
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_unsigned_long(r);
             }
             break;
@@ -5150,6 +5200,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
+
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_signed_long_long(r);
 
             }
@@ -5171,6 +5223,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                     r = a >> b;
                 else if (op == '<<')
                     r = a << b;
+
+                object_destroy(&new_expression->object);
                 new_expression->object = object_make_unsigned_long_long(r);
             }
             break;
@@ -5751,6 +5805,10 @@ void expression_delete(struct expression* _Owner _Opt p)
         generic_selection_delete(p->generic_selection);
         type_destroy(&p->type);
         argument_expression_list_destroy(&p->argument_expression_list);
+
+        //explodindo
+        //object_destroy(&p->object);
+
         free(p);
     }
 }
@@ -5901,7 +5959,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
 
         if (ctx->current && ctx->current->type == '?')
         {
-            struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof * p_conditional_expression);
+            struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof(struct expression));
             if (p_conditional_expression == NULL) throw;
 
 
@@ -5934,7 +5992,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             ctx->evaluation_is_disabled = has_constant_expression && !constant_expression_is_true;
 
             struct expression* _Owner _Opt p_left = expression(ctx);
-            
+
             //restore original state (before throw)
             ctx->evaluation_is_disabled = old_evaluation_is_disabled;
 
@@ -5946,7 +6004,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             }
             p_conditional_expression->left = p_left;
 
-     
+
             if (parser_match_tk(ctx, TK_COLON) != 0)
             {
                 unexpected_end_of_file(ctx);
@@ -5973,7 +6031,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_conditional_expression->right = p_right;
-            
+
             if (object_has_constant_value(&p_conditional_expression->condition_expr->object))
             {
                 if (object_to_bool(&p_conditional_expression->condition_expr->object))
@@ -6136,6 +6194,128 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
     }
 
     return p_expression;
+}
+
+bool expression_get_variables(const struct expression* expr, int n, struct object* variables[/*n*/])
+{
+    int count = 0;
+    switch (expr->expression_type)
+    {
+
+    case EXPRESSION_TYPE_INVALID:  break;
+
+    case PRIMARY_EXPRESSION_ENUMERATOR:  break;
+    case PRIMARY_EXPRESSION_DECLARATOR:
+        if (!object_has_constant_value(&expr->object))
+        {
+            if (count < n)
+            {
+                variables[count] = object_get_non_const_referenced(&expr->object);
+                count++;
+            }
+
+        }
+        break;
+
+    case PRIMARY_EXPRESSION_STRING_LITERAL:  break;
+    case PRIMARY_EXPRESSION__FUNC__:  break; /*predefined identifier __func__ */
+    case PRIMARY_EXPRESSION_CHAR_LITERAL:  break;
+    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:  break; /*true false*/
+    case PRIMARY_EXPRESSION_GENERIC:  break;
+    case PRIMARY_EXPRESSION_NUMBER:  break;
+
+    case PRIMARY_EXPRESSION_PARENTESIS:
+        count += expression_get_variables(expr->right, n, variables);
+        break;
+
+    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:  break;
+    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:  break;
+
+    case POSTFIX_FUNCTION_CALL:  break; // ( ) 
+    case POSTFIX_ARRAY:  break; // [ ]
+    case POSTFIX_DOT:  break; // .
+    case POSTFIX_ARROW:  break; // .
+    case POSTFIX_INCREMENT:  break;
+    case POSTFIX_DECREMENT:  break;
+
+
+    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
+    case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
+    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:  break;
+
+    case UNARY_EXPRESSION_TRAITS:  break;
+    case UNARY_EXPRESSION_IS_SAME:  break;
+    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
+    case UNARY_EXPRESSION_ALIGNOF:  break;
+    case UNARY_EXPRESSION_ASSERT:  break;
+
+    case UNARY_EXPRESSION_INCREMENT:  break;
+    case UNARY_EXPRESSION_DECREMENT:  break;
+
+    case UNARY_EXPRESSION_NOT:  break;
+    case UNARY_EXPRESSION_BITNOT:  break;
+    case UNARY_EXPRESSION_NEG:  break;
+    case UNARY_EXPRESSION_PLUS:  break;
+    case UNARY_EXPRESSION_CONTENT:  break;
+    case UNARY_EXPRESSION_ADDRESSOF:  break;
+
+    case CAST_EXPRESSION:  break;
+
+    case MULTIPLICATIVE_EXPRESSION_MULT:
+    case MULTIPLICATIVE_EXPRESSION_DIV:
+    case MULTIPLICATIVE_EXPRESSION_MOD:
+        count += expression_get_variables(expr->left, n, variables);
+        count += expression_get_variables(expr->right, n, variables);
+        break;
+
+    case ADDITIVE_EXPRESSION_PLUS:
+    case ADDITIVE_EXPRESSION_MINUS:
+        count += expression_get_variables(expr->left, n, variables);
+        count += expression_get_variables(expr->right, n, variables);
+        break;
+
+
+    case SHIFT_EXPRESSION_RIGHT:
+    case SHIFT_EXPRESSION_LEFT:
+
+    case RELATIONAL_EXPRESSION_BIGGER_THAN:
+    case RELATIONAL_EXPRESSION_LESS_THAN:
+    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
+    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
+    case EQUALITY_EXPRESSION_EQUAL:
+    case EQUALITY_EXPRESSION_NOT_EQUAL:
+        count += expression_get_variables(expr->left, n, variables);
+        count += expression_get_variables(expr->right, n, variables);
+        break;
+
+    case AND_EXPRESSION:  break;
+    case EXCLUSIVE_OR_EXPRESSION:  break;
+    case INCLUSIVE_OR_EXPRESSION:  break;
+
+    case LOGICAL_OR_EXPRESSION:
+    case LOGICAL_AND_EXPRESSION:
+        count += expression_get_variables(expr->left, n, variables);
+        count += expression_get_variables(expr->right, n, variables);
+        break; //&&
+
+    case ASSIGNMENT_EXPRESSION_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:  break;
+
+
+    case EXPRESSION_EXPRESSION:  break;
+
+    case CONDITIONAL_EXPRESSION:  break;
+    }
+    return count;
 }
 
 bool expression_is_lvalue(const struct expression* expr)
@@ -6561,4 +6741,184 @@ void check_assigment(struct parser_ctx* ctx,
     type_destroy(&b_type_lvalue);
 
 
+}
+
+struct object expression_eval(struct expression* p_expression)
+{
+    struct object result = { 0 };
+
+    switch (p_expression->expression_type)
+    {
+    case EXPRESSION_TYPE_INVALID: break;
+
+    case PRIMARY_EXPRESSION_ENUMERATOR:
+    case PRIMARY_EXPRESSION_DECLARATOR:
+        result = object_dup(&p_expression->object);
+        break;
+
+    case PRIMARY_EXPRESSION_STRING_LITERAL:  break;
+    case PRIMARY_EXPRESSION__FUNC__:  break; /*predefined identifier __func__ */
+
+    case PRIMARY_EXPRESSION_CHAR_LITERAL:
+    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
+        result = object_dup(&p_expression->object);
+        break;
+
+    case PRIMARY_EXPRESSION_GENERIC:  break;
+    case PRIMARY_EXPRESSION_NUMBER:
+        result = object_dup(&p_expression->object);
+        break;
+
+
+    case PRIMARY_EXPRESSION_PARENTESIS:
+        result = expression_eval(p_expression->right);
+        break;
+
+    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:  break;
+    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:  break;
+
+    case POSTFIX_FUNCTION_CALL:  break; // ( ) 
+    case POSTFIX_ARRAY:  break; // [ ]
+    case POSTFIX_DOT:  break; // .
+    case POSTFIX_ARROW:  break; // .
+    case POSTFIX_INCREMENT:  break;
+    case POSTFIX_DECREMENT:  break;
+
+
+    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
+    case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
+    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:  break;
+
+    case UNARY_EXPRESSION_TRAITS:  break;
+    case UNARY_EXPRESSION_IS_SAME:  break;
+    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
+    case UNARY_EXPRESSION_ALIGNOF:  break;
+    case UNARY_EXPRESSION_ASSERT:  break;
+
+    case UNARY_EXPRESSION_INCREMENT:  break;
+    case UNARY_EXPRESSION_DECREMENT:  break;
+
+    case UNARY_EXPRESSION_NOT:  break;
+    case UNARY_EXPRESSION_BITNOT:  break;
+    case UNARY_EXPRESSION_NEG:  break;
+    case UNARY_EXPRESSION_PLUS:  break;
+    case UNARY_EXPRESSION_CONTENT:  break;
+    case UNARY_EXPRESSION_ADDRESSOF:  break;
+
+    case CAST_EXPRESSION:  break;
+
+    case MULTIPLICATIVE_EXPRESSION_MULT:  break;
+    case MULTIPLICATIVE_EXPRESSION_DIV:  break;
+    case MULTIPLICATIVE_EXPRESSION_MOD:  break;
+
+    case ADDITIVE_EXPRESSION_PLUS:
+    {
+        struct object a = expression_eval(p_expression->left);
+        if (object_has_constant_value(&a))
+        {
+            struct object b = expression_eval(p_expression->right);
+            if (object_has_constant_value(&b))
+            {
+                result = object_add(&a, &b);
+            }
+        }
+    }
+    break;
+    case ADDITIVE_EXPRESSION_MINUS:
+    {
+        struct object a = expression_eval(p_expression->left);
+        if (object_has_constant_value(&a))
+        {
+            struct object b = expression_eval(p_expression->right);
+            if (object_has_constant_value(&b))
+            {
+                result = object_sub(&a, &b);
+            }
+        }
+    }
+    break;
+
+    case SHIFT_EXPRESSION_RIGHT:  break;
+    case SHIFT_EXPRESSION_LEFT:  break;
+
+    case RELATIONAL_EXPRESSION_BIGGER_THAN:  break;
+    case RELATIONAL_EXPRESSION_LESS_THAN:  break;
+    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:  break;
+    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:  break;
+
+    case EQUALITY_EXPRESSION_EQUAL:
+        if (object_equal(&p_expression->left->object, &p_expression->right->object))
+        {
+            result = object_make_signed_int(1);
+        }
+        else
+        {
+            result = object_make_signed_int(0);
+        }
+        break;
+
+
+    case EQUALITY_EXPRESSION_NOT_EQUAL:
+        if (object_not_equal(&p_expression->left->object, &p_expression->right->object))
+        {
+            result = object_make_signed_int(1);
+        }
+        else
+        {
+            result = object_make_signed_int(0);
+        }
+        break;
+
+
+    case AND_EXPRESSION:  break;
+    case EXCLUSIVE_OR_EXPRESSION:  break;
+    case INCLUSIVE_OR_EXPRESSION:  break;
+
+    case LOGICAL_OR_EXPRESSION:
+    {
+        struct object a = expression_eval(p_expression->left);
+        if (object_has_constant_value(&a))
+        {
+            bool r1 = object_to_bool(&a);
+            if (r1)
+            {
+                result = object_make_signed_int(1);
+            }
+            else
+            {
+                struct object b = expression_eval(p_expression->right);
+                if (object_has_constant_value(&b))
+                {
+                    bool r2 = object_to_bool(&b);
+                    if (r2)
+                    {
+                        result = object_make_signed_int(r2);
+                    }
+                }
+            }
+        }
+    }
+    break;  //||
+
+    case LOGICAL_AND_EXPRESSION:  break; //&&
+
+    case ASSIGNMENT_EXPRESSION_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:  break;
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:  break;
+
+
+    case EXPRESSION_EXPRESSION:  break;
+
+    case CONDITIONAL_EXPRESSION:  break;
+
+    }
+    return result;
 }

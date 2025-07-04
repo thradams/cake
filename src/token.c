@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
@@ -672,7 +672,7 @@ void print_list(struct token_list* list)
             //printf("`");
         }
         print_literal2(current->lexeme);
-        COLOR_ESC_PRINT(printf(RESET));
+        printf(RESET);
         if (current == list->tail)
         {
             //printf("`");
@@ -707,16 +707,16 @@ void print_token(const struct token* p_token)
         printf("  ");
     }
     if (p_token->flags & TK_FLAG_FINAL)
-        COLOR_ESC_PRINT(printf(LIGHTGREEN));
+        printf(LIGHTGREEN);
     else
-        COLOR_ESC_PRINT(printf(LIGHTGRAY));
+        printf(LIGHTGRAY);
     char buffer0[50] = { 0 };
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
-        COLOR_ESC_PRINT(printf(LIGHTCYAN));
+        printf(LIGHTCYAN);
     }
     char buffer[50] = { 0 };
     strcat(buffer, "[");
@@ -744,7 +744,7 @@ void print_token(const struct token* p_token)
     printf("%-20s ", buffer);
     print_literal2(p_token->lexeme);
     printf("\n");
-    COLOR_ESC_PRINT(printf(RESET));
+    printf(RESET);
 }
 
 void print_tokens(const struct token* _Opt p_token)
@@ -758,7 +758,7 @@ void print_tokens(const struct token* _Opt p_token)
     }
     printf("\n");
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    COLOR_ESC_PRINT(printf(RESET));
+    printf(RESET);
 }
 
 
@@ -877,7 +877,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         const int line = p_marker->line;
 
         if (!visual_studio_ouput_format)
-            COLOR_ESC_PRINT(printf(RESET));
+            printf(RESET);
 
         char nbuffer[20] = { 0 };
         int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
@@ -903,7 +903,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
         if (!visual_studio_ouput_format)
-            COLOR_ESC_PRINT(printf(LIGHTBLUE));
+            printf(LIGHTBLUE);
 
         const struct token* _Opt p_item = p_line_begin;
         while (p_item)
@@ -912,17 +912,17 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             {
                 if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
                 {
-                    COLOR_ESC_PRINT(printf(DARKGRAY));
+                    printf(DARKGRAY);
                 }
                 else if (p_item->type >= TK_KEYWORD_AUTO &&
                          p_item->type <= TK_KEYWORD_IS_INTEGRAL)
                 {
-                    COLOR_ESC_PRINT(printf(BLUE));
+                    printf(BLUE);
                 }
                 else if (p_item->type == TK_COMMENT ||
                          p_item->type == TK_LINE_COMMENT)
                 {
-                    COLOR_ESC_PRINT(printf(YELLOW));
+                    printf(YELLOW);
                 }
             }
 
@@ -938,7 +938,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
 
             if (!visual_studio_ouput_format)
             {
-                COLOR_ESC_PRINT(printf(RESET));
+                printf(RESET);
             }
 
             if (p_item->type == TK_NEWLINE)
@@ -947,7 +947,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         }
 
         if (!visual_studio_ouput_format)
-            COLOR_ESC_PRINT(printf(RESET));
+            printf(RESET);
 
         if (p_item == NULL) printf("\n");
 
@@ -962,7 +962,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             if (p_item == p_token_begin)
             {
                 if (!visual_studio_ouput_format)
-                    COLOR_ESC_PRINT(printf(LIGHTGREEN));
+                    printf(LIGHTGREEN);
                 onoff = true;
                 end_col = start_col;
             }
@@ -995,14 +995,14 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
                 complete = true;
                 onoff = false;
                 if (!visual_studio_ouput_format)
-                    COLOR_ESC_PRINT(printf(RESET));
+                    printf(RESET);
             }
 
             p_item = p_item->next;
         }
 
         if (!visual_studio_ouput_format)
-            COLOR_ESC_PRINT(printf(RESET));
+            printf(RESET);
 
         printf("\n");
         p_marker->start_col = start_col;
