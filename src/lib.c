@@ -19742,9 +19742,15 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 {
                     //file scope
                 }
+                else if ((p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
+                        (p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL))
+                {
+                    //file scope or thread
+                }
                 else if (ctx->p_scope)
                 {
-                    if (!ctx->evaluation_is_disabled)
+                    bool b_type_is_function = type_is_function(&p_declarator->type);
+                    if (!ctx->evaluation_is_disabled && !b_type_is_function)
                     {
                         bool inside_current_function_scope = false;
                         while (p_scope)
@@ -27027,7 +27033,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.25"
+#define CAKE_VERSION "0.10.26"
 
 
 

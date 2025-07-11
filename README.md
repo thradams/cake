@@ -19,7 +19,7 @@ specification and beyond.
 
 It serves as a platform for experimenting with new features, 
 including C2Y language proposals, safety enhancements, and extensions such as 
-lambda expressions and defer statements.
+literal functions and defer statements.
 
 The current backend generates C89-compatible code, which can be pipelined with existing 
 compilers to produce executables. 

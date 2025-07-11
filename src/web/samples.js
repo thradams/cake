@@ -1377,6 +1377,49 @@ int main()
 
 `;
 
+sample["Extensions"]["Literal function async I"] =
+`
+
+#include <stdlib.h>
+
+void async(void (* callback)(int result, void * data), void * data);
+
+int main()
+{
+	struct capture {int value; }* capture = calloc(1, sizeof * capture);
+    async((void (int result, void * capture))
+    {
+		struct capture * p = capture;
+        free(p);
+    }, capture);
+}
+`;
+
+
+sample["Extensions"]["Literal function async II"] =
+ `
+#include <stdlib.h>
+
+void async1(void (* callback)(int result, void * data), void * data);
+void async2(void (* callback)(int result, void * data), void * data);
+
+int main()
+{
+	struct capture1 {int value; }* capture1 = calloc(1, sizeof * capture1);
+    async1((void (int result, void * capture1))
+    {
+		struct capture1 * p1 = capture1;
+        struct capture2 {int value; }* capture2 = calloc(1, sizeof * capture2);
+        async2((void (int result, void * capture2))
+        {
+		    struct capture2 * p2 = capture2;
+            free(p2);
+        }, capture1);
+        free(p1);
+    }, capture1);
+}
+`;
+
 
 sample["Extensions"]["Literal function scopes"] =
     `
@@ -1405,7 +1448,7 @@ void f3(){
 }
 
 `;
-sample["Extensions"]["Literal function (lambda) I"] =
+sample["Extensions"]["Literal function 1"] =
     `
 /*simple lambda*/
 #include <stdio.h>
@@ -1417,64 +1460,8 @@ int main()
 }
 `;
 
-sample["Extensions"]["Literal function (lambdas)"] =
-    `
-#include <stdio.h>
-#include <stdlib.h>
-extern char* strdup(const char* s);
-
-void async(void* capture, int sz, void (*F)(void* data))
-{
-  /*
-    The real function would copy capture and the function pointer
-    to a queue and then execute at some thread pool
-  */
-  F(capture);
-}
-
-void dispatch(void* capture, int sz, void (*F)(void* data))
-{
-  /*
-    The real function would copy capture and the function pointer
-    to a queue and then execute sequentially.
-  */
-  F(capture);
-}
-
-
-void create_app(const char* appname)
-{
-  printf("main thread\\n");
- 
-  struct capture {
-     char * name;
-  } capture = { .name = strdup(appname) };
-
-  async(&capture, sizeof capture, (void (void* p))
-  {
-    struct capture* capture = p;
-    printf("this is running at any thread (name=%s)\\n", capture->name);
-
-    dispatch(capture, sizeof *capture, (void (void* p) )
-    {
-      struct capture* capture = p;
-      printf("back to main thread\\n");
-      free(capture->name);
-    });
-  });
-}
-
-int main()
-{
-  create_app("string");
-  return 0;
-}
-
-`;
-
-sample["Extensions"]["typeof + lambdas"] =
-    `
-/* Use -fo option to format output*/
+sample["Extensions"]["generic functions"] =
+`
 
 #define SWAP(a, b)\\
   (void (typeof(a)* arg1, typeof(b)* arg2)) { \\

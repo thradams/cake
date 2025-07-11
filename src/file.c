@@ -1,4 +1,5 @@
 ﻿
 void f3(){
-    (void(void)){ const char * s = __func__; }();
+    static int i = 1;
+    (void(void)){ i = 2; }();
 }
