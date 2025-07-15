@@ -1,5 +1,1 @@
-﻿
-void f3(){
-    static int i = 1;
-    (void(void)){ i = 2; }();
-}
+﻿double bar[4294967294];

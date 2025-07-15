@@ -1899,8 +1899,11 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             {
                 struct type array_item_type = get_array_item_type(p_type);
 
+                //too big..
+                const unsigned long long max_elements = p_type->num_of_elements > 1000 ?  1000 : p_type->num_of_elements;
+
                 struct object* _Opt p_tail_object = NULL;
-                for (int i = 0; i < p_type->num_of_elements; i++)
+                for (unsigned long long i = 0; i < max_elements; i++)
                 {
                     char buffer[200] = { 0 };
                     snprintf(buffer, sizeof buffer, "%s[%d]", name, i);

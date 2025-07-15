@@ -2652,7 +2652,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             {
                 if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
+                    const unsigned long long array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
                     if (array_size_elements == 0)
                     {
                         p_init_declarator->p_declarator->type.num_of_elements =
@@ -2843,7 +2843,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             }
             else
             {
-                int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+                unsigned long long sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
 
                 if (sz == -3)
                 {

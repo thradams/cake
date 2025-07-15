@@ -217,7 +217,7 @@ struct type
     //Expression used as array size. Can be constant or not constant (VLA)
     const struct expression* _Opt array_num_elements_expression;
 
-    int num_of_elements;
+    unsigned long long num_of_elements;
     bool has_static_array_size;
 
     /*

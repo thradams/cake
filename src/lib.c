@@ -13558,7 +13558,7 @@ struct type
     //Expression used as array size. Can be constant or not constant (VLA)
     const struct expression* _Opt array_num_elements_expression;
 
-    int num_of_elements;
+    unsigned long long num_of_elements;
     bool has_static_array_size;
 
     /*
@@ -17705,8 +17705,11 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             {
                 struct type array_item_type = get_array_item_type(p_type);
 
+                //too big..
+                const unsigned long long max_elements = p_type->num_of_elements > 1000 ?  1000 : p_type->num_of_elements;
+
                 struct object* _Opt p_tail_object = NULL;
-                for (int i = 0; i < p_type->num_of_elements; i++)
+                for (unsigned long long i = 0; i < max_elements; i++)
                 {
                     char buffer[200] = { 0 };
                     snprintf(buffer, sizeof buffer, "%s[%d]", name, i);
@@ -27033,7 +27036,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.26"
+#define CAKE_VERSION "0.10.27"
 
 
 
@@ -29715,7 +29718,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             {
                 if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
+                    const unsigned long long array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
                     if (array_size_elements == 0)
                     {
                         p_init_declarator->p_declarator->type.num_of_elements =
@@ -29906,7 +29909,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             }
             else
             {
-                int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+                unsigned long long sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
 
                 if (sz == -3)
                 {
@@ -52006,10 +52009,10 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
         if (type_is_array(paramer_type))
         {
-            int parameter_array_size = paramer_type->num_of_elements;
+            unsigned long long parameter_array_size = paramer_type->num_of_elements;
             if (type_is_array(argument_type))
             {
-                int argument_array_size = argument_type->num_of_elements;
+                unsigned long long argument_array_size = argument_type->num_of_elements;
                 if (parameter_array_size != 0 &&
                     argument_array_size < parameter_array_size)
                 {
@@ -52894,10 +52897,22 @@ size_t type_get_sizeof(const struct type* p_type)
             if (type_is_vla(p_type))
                 return (size_t)-3;
 
-            int arraysize = p_type->num_of_elements;
+            unsigned long long arraysize = p_type->num_of_elements;
             struct type type = get_array_item_type(p_type);
-            int sz = type_get_sizeof(&type);
-            int size = sz * arraysize;
+            unsigned long long sz = type_get_sizeof(&type);
+            
+            unsigned long long size = 0;
+            if (unsigned_long_long_mul(&size, sz, arraysize))
+            {
+                //ok
+            }
+            else
+            {
+                return (size_t)-3;
+            }
+
+            
+
             type_destroy(&type);
             return size;
         }
@@ -53739,7 +53754,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             p->category = TYPE_CATEGORY_ARRAY;
 
             p->num_of_elements =
-                (int)array_declarator_get_size(pdirectdeclarator->array_declarator);
+                array_declarator_get_size(pdirectdeclarator->array_declarator);
 
             p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
 

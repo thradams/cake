@@ -1316,10 +1316,10 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
         if (type_is_array(paramer_type))
         {
-            int parameter_array_size = paramer_type->num_of_elements;
+            unsigned long long parameter_array_size = paramer_type->num_of_elements;
             if (type_is_array(argument_type))
             {
-                int argument_array_size = argument_type->num_of_elements;
+                unsigned long long argument_array_size = argument_type->num_of_elements;
                 if (parameter_array_size != 0 &&
                     argument_array_size < parameter_array_size)
                 {
@@ -2204,10 +2204,22 @@ size_t type_get_sizeof(const struct type* p_type)
             if (type_is_vla(p_type))
                 return (size_t)-3;
 
-            int arraysize = p_type->num_of_elements;
+            unsigned long long arraysize = p_type->num_of_elements;
             struct type type = get_array_item_type(p_type);
-            int sz = type_get_sizeof(&type);
-            int size = sz * arraysize;
+            unsigned long long sz = type_get_sizeof(&type);
+            
+            unsigned long long size = 0;
+            if (unsigned_long_long_mul(&size, sz, arraysize))
+            {
+                //ok
+            }
+            else
+            {
+                return (size_t)-3;
+            }
+
+            
+
             type_destroy(&type);
             return size;
         }
@@ -3049,7 +3061,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             p->category = TYPE_CATEGORY_ARRAY;
 
             p->num_of_elements =
-                (int)array_declarator_get_size(pdirectdeclarator->array_declarator);
+                array_declarator_get_size(pdirectdeclarator->array_declarator);
 
             p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
 
