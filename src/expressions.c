@@ -2767,7 +2767,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     else
                     {
-                        new_expression->object = object_make_size_t(type_get_sizeof(&new_expression->type_name->abstract_declarator->type));
+                        size_t type_sizeof = 0;
+                        if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof) != 0)
+                        {
+                            throw;
+                        }
+
+                        new_expression->object = object_make_size_t(type_sizeof);
                     }
                 }
             }
@@ -2796,7 +2802,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
                 else
                 {
-                    new_expression->object = object_make_size_t(type_get_sizeof(&new_expression->right->type));
+                    size_t sz = 0;
+                    if (type_get_sizeof(&new_expression->right->type, &sz) != 0)
+                        throw;
+                    new_expression->object = object_make_size_t(sz);
                 }
             }
 
@@ -2871,7 +2880,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
 
 
-                int nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
+                size_t nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
                 if (nelements > 0)
                     new_expression->object = object_make_size_t(nelements);
 
@@ -2925,7 +2934,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 }
 
 
-                int nelements = new_expression->right->type.num_of_elements;
+                size_t nelements = new_expression->right->type.num_of_elements;
                 if (nelements > 0)
                 {
                     new_expression->object = object_make_size_t(nelements);
@@ -6656,10 +6665,10 @@ void check_assigment(struct parser_ctx* ctx,
         {
             if (assignment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                int parameter_array_size = p_a_type->num_of_elements;
+                size_t parameter_array_size = p_a_type->num_of_elements;
                 if (type_is_array(p_b_type))
                 {
-                    int argument_array_size = p_b_type->num_of_elements;
+                    size_t argument_array_size = p_b_type->num_of_elements;
                     if (parameter_array_size != 0 &&
                         argument_array_size < parameter_array_size)
                     {

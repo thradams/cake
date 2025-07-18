@@ -30,7 +30,7 @@ struct map_entry {
     struct map_entry * next;
     unsigned int hash;
     char * key;
-    int   type;
+    int type;
     union _struct_tag_5  data;
 };
 
@@ -72,7 +72,7 @@ void map_entry_delete(struct map_entry * p)
     }
     /*switch*/
     {
-        register int   _R0 = p->type;
+        register int _R0 = p->type;
         if (_R0 == 0) goto _CKL2; /*case 0*/
         if (_R0 == 1) goto _CKL3; /*case 1*/
         if (_R0 == 2) goto _CKL4; /*case 2*/
@@ -181,7 +181,7 @@ struct map_entry *hashmap_find(struct hash_map * map, char * key)
     return 0U;
 }
 
-void *hashmap_remove(struct hash_map * map, char * key, int  * p_type_opt)
+void *hashmap_remove(struct hash_map * map, char * key, int * p_type_opt)
 {
     if (map->table != 0U)
     {
@@ -231,7 +231,7 @@ int hashmap_set(struct hash_map * map, char * key, struct hash_item_set * item)
 {
     int result;
     void * p;
-    int   type;
+    int type;
 
     result = 0;
     p = 0U;
@@ -360,7 +360,7 @@ int hashmap_set(struct hash_map * map, char * key, struct hash_item_set * item)
             {
                 /*switch*/
                 {
-                    register int   _R1 = pentry->type;
+                    register int _R1 = pentry->type;
                     if (_R1 == 0) goto _CKL17; /*case 0*/
                     if (_R1 == 1) goto _CKL18; /*case 1*/
                     if (_R1 == 2) goto _CKL19; /*case 2*/

@@ -1778,7 +1778,19 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2)
       integer type is converted to the type of the operand with signed integer type
     */
 
-    if (type_get_sizeof(p_signed_promoted) > type_get_sizeof(p_unsigned_promoted))
+    size_t signed_promoted_sizeof = 0;
+    if (type_get_sizeof(p_signed_promoted, &signed_promoted_sizeof) != 0)
+    {
+        assert(false);
+    }
+
+    size_t unsigned_promoted_sizeof = 0;
+    if (type_get_sizeof(p_unsigned_promoted, &unsigned_promoted_sizeof) != 0)
+    {
+        assert(false);
+    }
+
+    if (signed_promoted_sizeof > unsigned_promoted_sizeof)
     {
         struct type r = { 0 };
         type_swap(&r, p_signed_promoted);
@@ -1886,26 +1898,73 @@ struct type type_dup(const struct type* p_type)
 }
 
 
-int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
+enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz)
 {
+    enum sizeof_error sizeof_error = ESIZEOF_NONE;
+
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
 
-    int maxalign = 0;
-    int size = 0;
-    struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
-    while (d)
+    size_t size = 0;
+    try
     {
-        if (d->member_declarator_list_opt)
-        {
-            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
-            while (md)
-            {
-                int align = 1;
+        int maxalign = 0;
 
-                if (md->declarator)
+        struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
+        while (d)
+        {
+            if (d->member_declarator_list_opt)
+            {
+                struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+                while (md)
                 {
-                    align = type_get_alignof(&md->declarator->type);
+                    int align = 1;
+
+                    if (md->declarator)
+                    {
+                        align = type_get_alignof(&md->declarator->type);
+
+                        if (align > maxalign)
+                        {
+                            maxalign = align;
+                        }
+                        if (size % align != 0)
+                        {
+                            size += align - (size % align);
+                        }
+                        size_t item_size = 0;
+                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size);
+                        if (sizeof_error != 0)
+                            throw;
+
+                        if (is_union)
+                        {
+                            if (item_size > size)
+                                size = item_size;
+                        }
+                        else
+                        {
+                            size += item_size;
+                        }
+                    }
+                    else
+                    {
+                        sizeof_error = ESIZEOF_INCOMPLETE;
+                        throw;
+                    }
+                    md = md->next;
+                }
+            }
+            else if (d->specifier_qualifier_list)
+            {
+                if (d->specifier_qualifier_list->struct_or_union_specifier)
+                {
+                    struct type t = { 0 };
+                    t.category = TYPE_CATEGORY_ITSELF;
+                    t.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
+                    t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                    int align = type_get_alignof(&t);
 
                     if (align > maxalign)
                     {
@@ -1915,7 +1974,12 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
                     {
                         size += align - (size % align);
                     }
-                    const int item_size = type_get_sizeof(&md->declarator->type);
+                    size_t item_size = 0;
+
+                    sizeof_error = type_get_sizeof(&t, &item_size);
+                    if (sizeof_error != 0)
+                        throw;
+
                     if (is_union)
                     {
                         if (item_size > size)
@@ -1923,67 +1987,39 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
                     }
                     else
                     {
+                        //TODO overflow
                         size += item_size;
                     }
+                    type_destroy(&t);
                 }
                 else
                 {
-                    assert(false);//?
+                    sizeof_error = ESIZEOF_INCOMPLETE;
+                    throw;
                 }
-                md = md->next;
             }
+            d = d->next;
         }
-        else if (d->specifier_qualifier_list)
+        if (maxalign != 0)
         {
-            if (d->specifier_qualifier_list->struct_or_union_specifier)
+            if (size % maxalign != 0)
             {
-                struct type t = { 0 };
-                t.category = TYPE_CATEGORY_ITSELF;
-                t.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
-                t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-
-                int align = type_get_alignof(&t);
-
-                if (align > maxalign)
-                {
-                    maxalign = align;
-                }
-                if (size % align != 0)
-                {
-                    size += align - (size % align);
-                }
-                const int item_size = type_get_sizeof(&t);
-                if (is_union)
-                {
-                    if (item_size > size)
-                        size = item_size;
-                }
-                else
-                {
-                    size += item_size;
-                }
-                type_destroy(&t);
-            }
-            else
-            {
-                assert(false);
+                size += maxalign - (size % maxalign);
             }
         }
-        d = d->next;
-    }
-    if (maxalign != 0)
-    {
-        if (size % maxalign != 0)
+        else
         {
-            size += maxalign - (size % maxalign);
+            sizeof_error = ESIZEOF_INCOMPLETE;
+            throw;
         }
     }
-    else
+    catch
     {
-        assert(false);
+        return sizeof_error;
     }
 
-    return size;
+    *sz = size;
+    return sizeof_error;
 }
 
 size_t type_get_alignof(const struct type* p_type);
@@ -2178,18 +2214,21 @@ size_t type_get_alignof(const struct type* p_type)
     return align;
 }
 
-size_t type_get_sizeof(const struct type* p_type)
+enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
 {
+    *size = 0; //out
+
     const enum type_category category = type_get_category(p_type);
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        return (int)sizeof(void*);
+        *size = sizeof(void*);
+        return ESIZEOF_NONE;
     }
 
     if (category == TYPE_CATEGORY_FUNCTION)
     {
-        return (size_t)-1;
+        return ESIZEOF_FUNCTION;
     }
 
     if (category == TYPE_CATEGORY_ARRAY)
@@ -2197,31 +2236,42 @@ size_t type_get_sizeof(const struct type* p_type)
         if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
             //void f(int a[2])
-            return sizeof(void*);
+            *size = sizeof(void*);
+            return ESIZEOF_NONE;
         }
         else
         {
             if (type_is_vla(p_type))
-                return (size_t)-3;
+                return ESIZEOF_VLA;
 
             unsigned long long arraysize = p_type->num_of_elements;
-            struct type type = get_array_item_type(p_type);
-            unsigned long long sz = type_get_sizeof(&type);
+            struct type type = get_array_item_type(p_type);            
             
-            unsigned long long size = 0;
-            if (unsigned_long_long_mul(&size, sz, arraysize))
+
+            size_t sz = 0;
+            
+            const enum sizeof_error er = type_get_sizeof(&type, &sz);
+            if ( er != ESIZEOF_NONE)
             {
-                //ok
+                return er;
+            }
+            type_destroy(&type);
+
+
+            unsigned long long result = 0;
+            if (unsigned_long_long_mul(&result, sz, arraysize))
+            {
+                if (result > SIZE_MAX)
+                {
+                    return ESIZEOF_OVERLOW;
+                }
+                *size = (size_t) result;
             }
             else
             {
-                return (size_t)-3;
-            }
-
-            
-
-            type_destroy(&type);
-            return size;
+                return ESIZEOF_OVERLOW;
+            }            
+            return ESIZEOF_NONE;
         }
     }
 
@@ -2230,129 +2280,150 @@ size_t type_get_sizeof(const struct type* p_type)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
-        return (int)sizeof(char);
+        *size = sizeof(char);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
     {
-        return (int)sizeof(_Bool);
+        *size = sizeof(_Bool);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
-        return (int)sizeof(short);
+        *size = sizeof(short);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->enum_specifier)
     {
         assert(p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM);
 
-        const struct enum_specifier* _Opt p =
-            get_complete_enum_specifier(p_type->enum_specifier);
-        
-        if (p == NULL)
-            return (size_t)-2;
+        enum type_specifier_flags enum_type_specifier_flags =         
+            get_enum_type_specifier_flags(p_type->enum_specifier);
 
-        size_t r = type_get_sizeof(&p->type);
-        return r;
+        struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
+        enum sizeof_error e = type_get_sizeof(&t, size);
+        type_destroy(&t);
+        return e;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
     {
-        return (int)sizeof(long);
+        *size = sizeof(long);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
-        return (int)sizeof(long long);
+        *size = sizeof(long long);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
     {
         //typedef long unsigned int uint64_t;
-        return (int)sizeof(int);
+        *size = sizeof(int);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
     {
-        return (int)sizeof(long long);
+        *size = sizeof(long long);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
     {
-        return 4;
+        *size = 4;
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
     {
-        return 2;
+        *size = 2;
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
     {
-        return 1;
+        *size = 1;
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
-        return (int)sizeof(float);
+        *size = sizeof(float);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
-        return (int)sizeof(double);
+        *size = sizeof(double);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
         if (p_type->struct_or_union_specifier == NULL)
-            return (size_t)-2;
+        {
+            return ESIZEOF_INCOMPLETE;
+        }
 
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        if (p_complete == NULL) return (size_t)-2;
+        if (p_complete == NULL) 
+            return ESIZEOF_INCOMPLETE;
 
-        return get_sizeof_struct(p_complete);
+        return get_sizeof_struct(p_complete, size);
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        return (int)sizeof(int);
+        *size = sizeof(int);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
     {
-        return (size_t)-3;
+        *size = 0;
+        return ESIZEOF_INCOMPLETE;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
     {
-        return 1;
+        *size = 1;
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
     {
-        return sizeof(void*);
+        *size = sizeof(void*);
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL32)
     {
-        return 4;
+        *size = 4;
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL64)
     {
-        return 8;
+        *size = 8;
+        return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL128)
     {
-        return 16;
+        *size = 16;
+        return ESIZEOF_NONE;
     }
 
-    assert(false);
-    return (size_t)-1;
+
+    return ESIZEOF_INCOMPLETE;
 }
 
 void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
@@ -2569,7 +2640,11 @@ struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flag
         char_type.category = TYPE_CATEGORY_ITSELF;
         char_type.type_specifier_flags = chartype;
 
-        int char_size = type_get_sizeof(&char_type);
+        size_t char_size = 0;
+
+        if (type_get_sizeof(&char_type, &char_size) != 0)
+            throw;
+
         if (char_size == 0)
         {
             char_size = 1;

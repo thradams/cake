@@ -32,7 +32,7 @@ enum attribute_flags
     STD_ATTRIBUTE_NORETURN = 1 << 4,
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
-    
+
     //TODO decide attribute or not
     CAKE_ATTRIBUTE_CTOR = 1 << 7,
     CAKE_ATTRIBUTE_DTOR = 1 << 8,
@@ -51,7 +51,7 @@ enum attribute_flags
        Storing calling convention on attributes to consuming less memory
     */
     CAKE_ATTRIBUTE_FASTCALL = 1 << 27,
-    CAKE_ATTRIBUTE_STDCALL= 1 << 28,
+    CAKE_ATTRIBUTE_STDCALL = 1 << 28,
     CAKE_ATTRIBUTE_CDECL = 1 << 29
 
 };
@@ -94,24 +94,24 @@ enum type_specifier_flags
 
 #ifdef _WIN32
 
-    #define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
+#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
 
-    #ifdef _WIN64
-    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64)    
-    #else
-    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
-    #endif
+#ifdef _WIN64
+#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64)    
+#else
+#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
+#endif
 
 #else 
 
-    #define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
+#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
 
-    #ifdef __x86_64__
-    /* 64-bit */
-    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG)    
-    #else
-    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
-    #endif
+#ifdef __x86_64__
+/* 64-bit */
+#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG)    
+#else
+#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
+#endif
 
 
 #endif
@@ -126,10 +126,10 @@ enum type_qualifier_flags
     TYPE_QUALIFIER__ATOMIC = 1 << 3,
 
     /*ownership extensions*/
-    TYPE_QUALIFIER_OWNER = 1 << 4,    
+    TYPE_QUALIFIER_OWNER = 1 << 4,
     TYPE_QUALIFIER_VIEW = 1 << 5,
     TYPE_QUALIFIER_OPT = 1 << 6,
-    
+
     /*function contract*/
     TYPE_QUALIFIER_DTOR = 1 << 7,
     TYPE_QUALIFIER_CTOR = 1 << 8,
@@ -160,8 +160,8 @@ enum storage_class_specifier_flags
 enum function_specifier_flags
 {
     FUNCTION_SPECIFIER_NONE = 0,
-    FUNCTION_SPECIFIER_INLINE = 1 << 0,    
-    FUNCTION_SPECIFIER_NORETURN = 1 << 1,    
+    FUNCTION_SPECIFIER_INLINE = 1 << 0,
+    FUNCTION_SPECIFIER_NORETURN = 1 << 1,
 };
 
 struct declarator;
@@ -198,7 +198,7 @@ struct param_list
 };
 
 void param_list_destroy(_Dtor struct param_list* p);
-void param_list_add(struct param_list*  p, struct param* _Owner p_item);
+void param_list_add(struct param_list* p, struct param* _Owner p_item);
 
 struct type
 {
@@ -208,7 +208,7 @@ struct type
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-   
+
     const char* _Owner _Opt name_opt;
 
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -217,7 +217,7 @@ struct type
     //Expression used as array size. Can be constant or not constant (VLA)
     const struct expression* _Opt array_num_elements_expression;
 
-    unsigned long long num_of_elements;
+    size_t num_of_elements;
     bool has_static_array_size;
 
     /*
@@ -350,7 +350,17 @@ struct type make_with_type_specifier_flags(enum type_specifier_flags f);
 struct type get_function_return_type(const struct type* p_type);
 bool function_returns_void(const struct type* p_type);
 
-size_t type_get_sizeof(const struct type* p_type);
+
+enum sizeof_error
+{
+    ESIZEOF_NONE = 0,
+    ESIZEOF_OVERLOW,
+    ESIZEOF_VLA,
+    ESIZEOF_INCOMPLETE,
+    ESIZEOF_FUNCTION
+};
+
+enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size);
 
 size_t type_get_alignof(const struct type* p_type);
 

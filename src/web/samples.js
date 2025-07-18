@@ -997,7 +997,7 @@ sample["C2Y"]["_Generic(type-name)"] =
 
 int main(void)
 {
-    const int * const p;
+    const int * const p = nullptr;
     static_assert(_Generic(p, const int * : 1 ));
     static_assert(_Generic(typeof(p), const int * const: 1));
   
@@ -1379,20 +1379,20 @@ int main()
 
 sample["Extensions"]["Literal function async I"] =
 `
-
 #include <stdlib.h>
 
 void async(void (* callback)(int result, void * data), void * data);
 
 int main()
 {
-	struct capture {int value; }* capture = calloc(1, sizeof * capture);
-    async((void (int result, void * capture))
+	struct {int value; }* capture = calloc(1, sizeof * capture);
+    async((void (int result, void * data))
     {
-		struct capture * p = capture;
+		typeof(capture) p = data;
         free(p);
     }, capture);
 }
+
 `;
 
 

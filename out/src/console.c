@@ -1,10 +1,10 @@
+struct _iobuf {
+    void * _Placeholder;
+};
+
 struct __crt_locale_pointers {
     struct __crt_locale_data * locinfo;
     struct __crt_multibyte_data * mbcinfo;
-};
-
-struct _iobuf {
-    void * _Placeholder;
 };
 
 

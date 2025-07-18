@@ -21,20 +21,9 @@ struct diagnostic {
     unsigned long long notes;
 };
 
-struct include_dir_list {
-    struct include_dir * head;
-    struct include_dir * tail;
-};
-
-struct macro {
-    struct token * p_name_token;
-    char * name;
-    struct token_list  replacement_list;
-    struct macro_parameter * parameters;
-    unsigned char   is_function;
-    int usage;
-    unsigned char   expand;
-    unsigned char   def_macro;
+struct diagnostic_stack {
+    int top_index;
+    struct diagnostic stack[10];
 };
 
 union _struct_tag_5 {
@@ -52,13 +41,43 @@ struct map_entry {
     struct map_entry * next;
     unsigned int hash;
     char * key;
-    int   type;
+    int type;
     union _struct_tag_5  data;
 };
 
 struct include_dir {
     char * path;
     struct include_dir * next;
+};
+
+struct include_dir_list {
+    struct include_dir * head;
+    struct include_dir * tail;
+};
+
+struct token {
+    int type;
+    char * lexeme;
+    char * original;
+    int line;
+    int col;
+    int level;
+    int flags;
+    struct token * token_origin;
+    struct token * next;
+    struct token * prev;
+};
+
+struct hash_map {
+    struct map_entry ** table;
+    int capacity;
+    int size;
+};
+
+struct osstream {
+    char * c_str;
+    int size;
+    int capacity;
 };
 
 struct __crt_locale_pointers {
@@ -70,9 +89,20 @@ struct _iobuf {
     void * _Placeholder;
 };
 
-struct macro_parameter {
+struct hash_item_set {
+    unsigned int number;
+    struct enum_specifier * p_enum_specifier;
+    struct enumerator * p_enumerator;
+    struct struct_or_union_specifier * p_struct_or_union_specifier;
+    struct declarator * p_declarator;
+    struct init_declarator * p_init_declarator;
+    struct macro * p_macro;
+    struct struct_entry * p_struct_entry;
+};
+
+struct macro_expanded {
     char * name;
-    struct macro_parameter * next;
+    struct macro_expanded * p_previous;
 };
 
 struct tm {
@@ -87,28 +117,16 @@ struct tm {
     int tm_isdst;
 };
 
-struct osstream {
-    char * c_str;
-    int size;
-    int capacity;
-};
-
-struct hash_map {
-    struct map_entry ** table;
-    int capacity;
-    int size;
-};
-
-struct diagnostic_stack {
-    int top_index;
-    struct diagnostic stack[10];
+struct macro_parameter {
+    char * name;
+    struct macro_parameter * next;
 };
 
 struct options {
-    int   input;
-    int   target;
+    int input;
+    int target;
     struct diagnostic_stack  diagnostic_stack;
-    int   style;
+    int style;
     unsigned char   show_includes;
     unsigned char   disable_assert;
     unsigned char   flow_analysis;
@@ -131,15 +149,10 @@ struct options {
     char sarifpath[200];
 };
 
-struct hash_item_set {
-    unsigned int number;
-    struct enum_specifier * p_enum_specifier;
-    struct enumerator * p_enumerator;
-    struct struct_or_union_specifier * p_struct_or_union_specifier;
-    struct declarator * p_declarator;
-    struct init_declarator * p_init_declarator;
-    struct macro * p_macro;
-    struct struct_entry * p_struct_entry;
+struct tokenizer_ctx {
+    struct options  options;
+    int n_warnings;
+    int n_errors;
 };
 
 struct stream {
@@ -151,33 +164,30 @@ struct stream {
     char * path;
 };
 
-struct macro_expanded {
-    char * name;
-    struct macro_expanded * p_previous;
-};
-
-struct token {
-    int   type;
-    char * lexeme;
-    char * original;
+struct marker {
+    char * file;
     int line;
-    int col;
-    int level;
-    int   flags;
-    struct token * token_origin;
-    struct token * next;
-    struct token * prev;
+    int start_col;
+    int end_col;
+    struct token * p_token_caret;
+    struct token * p_token_begin;
+    struct token * p_token_end;
 };
 
-struct tokenizer_ctx {
-    struct options  options;
-    int n_warnings;
-    int n_errors;
+struct macro {
+    struct token * p_name_token;
+    char * name;
+    struct token_list  replacement_list;
+    struct macro_parameter * parameters;
+    unsigned char   is_function;
+    int usage;
+    unsigned char   expand;
+    unsigned char   def_macro;
 };
 
 struct preprocessor_ctx {
     struct options  options;
-    int   flags;
+    int flags;
     struct hash_map  macros;
     struct include_dir_list  include_dir;
     struct hash_map  pragma_once_map;
@@ -187,16 +197,6 @@ struct preprocessor_ctx {
     unsigned char   conditional_inclusion;
     int n_warnings;
     int n_errors;
-};
-
-struct marker {
-    char * file;
-    int line;
-    int start_col;
-    int end_col;
-    struct token * p_token_caret;
-    struct token * p_token_begin;
-    struct token * p_token_end;
 };
 
 
@@ -321,7 +321,7 @@ static void tokenizer_set_warning(struct tokenizer_ctx * ctx, struct stream * st
     }
 }
 
-unsigned char  preprocessor_diagnostic(int   w, struct preprocessor_ctx * ctx, struct token * p_token, char * fmt, ...);
+unsigned char  preprocessor_diagnostic(int w, struct preprocessor_ctx * ctx, struct token * p_token, char * fmt, ...);
 
 void pre_unexpected_end_of_file(struct token * p_token, struct preprocessor_ctx * ctx)
 {
@@ -330,7 +330,7 @@ void pre_unexpected_end_of_file(struct token * p_token, struct preprocessor_ctx 
 
 void print_line_and_token(struct marker * p_marker, unsigned char   visual_studio_ouput_format);
 
-unsigned char  preprocessor_diagnostic(int   w, struct preprocessor_ctx * ctx, struct token * p_token_opt, char * fmt, ...)
+unsigned char  preprocessor_diagnostic(int w, struct preprocessor_ctx * ctx, struct token * p_token_opt, char * fmt, ...)
 {
     struct marker  marker;
     unsigned char   included_file_location;
@@ -1036,9 +1036,9 @@ int is_nondigit(struct stream * p)
     return (p->current[0] >= 97 && p->current[0] <= 122) || (p->current[0] >= 65 && p->current[0] <= 90) || (p->current[0] == 95);
 }
 
-int  is_punctuator(struct stream * stream)
+int is_punctuator(struct stream * stream)
 {
-    int   type;
+    int type;
 
     type = 0;
     /*switch*/
@@ -1347,7 +1347,7 @@ int  is_punctuator(struct stream * stream)
 
 char *__cdecl strncpy(char * _Destination, char * _Source, unsigned int _Count);
 
-struct token *new_token(char * lexeme_head, char * lexeme_tail, int   type)
+struct token *new_token(char * lexeme_head, char * lexeme_tail, int type)
 {
     struct token * p_new_token;
 
@@ -1667,7 +1667,7 @@ struct _iobuf *fopen(char * _FileName, char * _Mode);
 unsigned int fread(void * _Buffer, unsigned int _ElementSize, unsigned int _ElementCount, struct _iobuf * _Stream);
 int fclose(struct _iobuf * _Stream);
 
-struct token_list embed_tokenizer(struct preprocessor_ctx * ctx, struct token * position, char * filename_opt, int level, int   addflags)
+struct token_list embed_tokenizer(struct preprocessor_ctx * ctx, struct token * position, char * filename_opt, int level, int addflags)
 {
     struct token_list  list;
     struct _iobuf * file;
@@ -1806,7 +1806,7 @@ static unsigned char  set_sliced_flag(struct stream * stream, struct token * p_n
 
 int __cdecl isdigit(int _C);
 
-struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * filename_opt, int level, int   addflags)
+struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * filename_opt, int level, int addflags)
 {
     struct token_list  list;
     struct stream  stream;
@@ -1849,7 +1849,7 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
             int line;
             int col;
             char * start;
-            int   t;
+            int t;
 
             line = stream.line;
             col = stream.col;
@@ -2256,7 +2256,7 @@ unsigned char  is_parser_token(struct token * p)
     return !!(p->type != 133 && p->type != 143 && p->type != 132 && p->type != 10);
 }
 
-unsigned char  is_never_final(int   type)
+unsigned char  is_never_final(int type)
 {
     return !!(type == 8998 || type == 143 || type == 132 || type == 133 || type == 142 || type == 10);
 }
@@ -2273,7 +2273,7 @@ struct token *preprocessor_look_ahead_core(struct token * p)
     return current;
 }
 
-unsigned char  preprocessor_token_ahead_is(struct token * p, int   t)
+unsigned char  preprocessor_token_ahead_is(struct token * p, int t)
 {
     struct token * p_token;
 
@@ -2764,9 +2764,9 @@ void match_level(struct token_list * dest, struct token_list * input_list, int l
     }
 }
 
-char *get_token_name(int   tk);
+char *get_token_name(int tk);
 
-int match_token_level(struct token_list * dest, struct token_list * input_list, int   type, int level, struct preprocessor_ctx * ctx)
+int match_token_level(struct token_list * dest, struct token_list * input_list, int type, int level, struct preprocessor_ctx * ctx)
 {
     /*try*/ if (1)
     {
@@ -3607,7 +3607,7 @@ static unsigned char  is_empty_assert(struct token_list * replacement_list)
 }
 
 char *dirname(char * path);
-void *hashmap_remove(struct hash_map * map, char * key, int  * p_type_opt);
+void *hashmap_remove(struct hash_map * map, char * key, int * p_type_opt);
 unsigned long long get_warning_bit_mask(char * wname);
 
 struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char   is_active, int level)
@@ -3750,7 +3750,7 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                 char path[100];
                 char fullpath[300];
                 int nlevel;
-                int   f;
+                int f;
                 struct token_list  list;
 
                 _cake_zmem(&discard0, 8);
@@ -4697,7 +4697,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
             {
                 if (r.tail != 0U && r.tail->type == 35)
                 {
-                    int   flags;
+                    int flags;
                     struct token_list  argumentlist;
                     char * s;
                     struct token * p_new_token;
@@ -5261,7 +5261,7 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
             }
             if (macro)
             {
-                int   flags;
+                int flags;
                 struct macro_argument_list  arguments;
                 struct token_list  start_macro;
 
@@ -5574,7 +5574,7 @@ int include_config_header(struct preprocessor_ctx * ctx, char * file_name)
 {
     char local_cakeconfig_path[260];
     char * str;
-    int   w;
+    int w;
     struct tokenizer_ctx  tctx;
     struct token_list  l;
     struct token_list  l10;
@@ -5697,11 +5697,11 @@ void add_standard_macros(struct preprocessor_ctx * ctx)
     ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = w;
 }
 
-char *get_token_name(int   tk)
+char *get_token_name(int tk)
 {
     /*switch*/
     {
-        register int   _R2 = tk;
+        register int _R2 = tk;
         if (_R2 == 0) goto _CKL1; /*case 0*/
         if (_R2 == 10) goto _CKL2; /*case 10*/
         if (_R2 == 32) goto _CKL3; /*case 32*/

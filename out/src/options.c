@@ -1,8 +1,3 @@
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
-};
-
 struct diagnostic {
     unsigned long long errors;
     unsigned long long warnings;
@@ -14,20 +9,11 @@ struct diagnostic_stack {
     struct diagnostic stack[10];
 };
 
-struct w {
-    int   w;
-    char * name;
-};
-
-struct _iobuf {
-    void * _Placeholder;
-};
-
 struct options {
-    int   input;
-    int   target;
+    int input;
+    int target;
     struct diagnostic_stack  diagnostic_stack;
-    int   style;
+    int style;
     unsigned char   show_includes;
     unsigned char   disable_assert;
     unsigned char   flow_analysis;
@@ -50,8 +36,22 @@ struct options {
     char sarifpath[200];
 };
 
+struct _iobuf {
+    void * _Placeholder;
+};
 
-unsigned char  is_diagnostic_note(int   id)
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
+};
+
+struct w {
+    int w;
+    char * name;
+};
+
+
+unsigned char  is_diagnostic_note(int id)
 {
     if (id == 63 || id == 62)
     {
@@ -60,17 +60,17 @@ unsigned char  is_diagnostic_note(int   id)
     return 0;
 }
 
-unsigned char  is_diagnostic_warning(int   id)
+unsigned char  is_diagnostic_warning(int id)
 {
     return !!(id > 63 && id <= 640);
 }
 
-unsigned char  is_diagnostic_error(int   id)
+unsigned char  is_diagnostic_error(int id)
 {
     return !!(id >= 640);
 }
 
-unsigned char  is_diagnostic_configurable(int   id)
+unsigned char  is_diagnostic_configurable(int id)
 {
     return !!(id >= 0 && id < 62);
 }
@@ -101,7 +101,7 @@ void diagnostic_stack_pop(struct diagnostic_stack * diagnostic_stack)
 
 struct diagnostic  default_diagnostic = {0, 9223372015379938269ULL, 0};
 static struct w s_warnings[55] = {1, "unused-variable", 56, "unused-function", 2, "deprecated", 3, "enum-conversion", 4, "address", 5, "unused-parameter", 6, "hide-declarator", 7, "typeof-parameter", 8, "attributes", 9, "unused-value", 10, "style", 11, "comment", 12, "line-slicing", 44, "switch", 45, "unusual-null", 14, "discarded-qualifiers", 16, "uninitialized", 17, "return-local-addr", 36, "div-by-zero", 37, "constant-value", 46, "sizeof-array-argument", 13, "string-slicing", 15, "declarator-state", 20, "missing-owner-qualifier", 21, "not-owner", 22, "temp-owner", 23, "non-owner-move", 24, "non-owner-to-owner-move", 25, "discard-owner", 26, "non-owner-move", 35, "flow-div-by-zero", 27, "flow-not-null", 28, "missing-destructor", 31, "using-moved-object", 29, "analyzer-maybe-uninitialized", 32, "analyzer-null-dereference", 33, "analyzer-non-opt-arg", 30, "lifetime-ended", 34, "nullable-to-non-nullable", 18, "must-use-address-of", 38, "null-as-array", 39, "incompatible-enum", 40, "multi-char", 19, "array-indirection", 41, "out-of-bounds", 42, "array-parameter-assignment", 43, "conditional-constant", 47, "const-init", 48, "null-conversion", 49, "implicitly-unsigned-literal", 50, "overflow", 51, "array-size", 52, "empty-statement", 53, "incompatible-types", 54, "unused-label"};
-void diagnostic_remove(struct diagnostic * d, int   w)
+void diagnostic_remove(struct diagnostic * d, int w)
 {
     if (!is_diagnostic_configurable(w))
     {
@@ -121,7 +121,7 @@ void diagnostic_remove(struct diagnostic * d, int   w)
     }
 }
 
-int get_diagnostic_type(struct diagnostic * d, int   w)
+int get_diagnostic_type(struct diagnostic * d, int w)
 {
     if (is_diagnostic_configurable(w))
     {
@@ -153,11 +153,11 @@ int get_diagnostic_type(struct diagnostic * d, int   w)
     return 3;
 }
 
-int get_diagnostic_phase(int   w)
+int get_diagnostic_phase(int w)
 {
     /*switch*/
     {
-        register int   _R0 = w;
+        register int _R0 = w;
         if (_R0 == 28) goto _CKL1; /*case 28*/
         if (_R0 == 29) goto _CKL2; /*case 29*/
         if (_R0 == 31) goto _CKL3; /*case 31*/
@@ -191,7 +191,7 @@ int __cdecl strncmp(char * _Str1, char * _Str2, unsigned int _MaxCount);
 unsigned int __cdecl strlen(char * _Str);
 int __cdecl atoi(char * _String);
 
-int  get_warning(char * wname)
+int get_warning(char * wname)
 {
     if (!(wname[0] == 45 || wname[0] == 69))
     {
@@ -273,7 +273,7 @@ inline int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _F
     return _Result;
 }
 
-int get_warning_name(int   w, int n, char buffer[])
+int get_warning_name(int w, int n, char buffer[])
 {
     if (is_diagnostic_configurable(w))
     {

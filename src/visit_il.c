@@ -464,25 +464,25 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         assert(ctx->p_current_function_opt);
 
-        char func_name[200] = {0};
+        char func_name[200] = { 0 };
         char name[100] = { 0 };
         if (ctx->p_current_function_opt->name_opt)
         {
-            snprintf(func_name , sizeof func_name , "%s", ctx->p_current_function_opt->name_opt->lexeme);            
+            snprintf(func_name, sizeof func_name, "%s", ctx->p_current_function_opt->name_opt->lexeme);
             snprintf(name, sizeof(name), "__cake_func_%s", func_name);
         }
         else
         {
-            snprintf(func_name , sizeof func_name , "unnamed");            
+            snprintf(func_name, sizeof func_name, "unnamed");
             snprintf(name, sizeof(name), "__cake_func_%p", ctx->p_current_function_opt);
         }
 
-        
+
 
         if (!ctx->is__func__predefined_identifier_added)
         {
             assert(ctx->p_current_function_opt);
-            
+
             ctx->is__func__predefined_identifier_added = true;
             ss_fprintf(&ctx->add_this_before_external_decl, "static const char %s[] = \"%s\";\n", name, func_name);
         }
@@ -2038,21 +2038,10 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else if (p_type->enum_specifier)
             {
+                enum type_specifier_flags enum_type_specifier_flags =
+                    get_enum_type_specifier_flags(p_type->enum_specifier);
 
-                const struct enum_specifier* _Opt p_enum_specifier =
-                    get_complete_enum_specifier(p_type->enum_specifier);
-
-                if (p_enum_specifier &&
-                    p_enum_specifier->specifier_qualifier_list)
-                {
-                    print_type_specifier_flags(&local,
-                        &first,
-                        p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
-                }
-                else
-                {
-                    ss_fprintf(&local, "int ");
-                }
+                print_type_specifier_flags(&local, &first, enum_type_specifier_flags);
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
@@ -2113,7 +2102,11 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 if (!b)
                     ss_fprintf(ss, " ");
 
-                ss_fprintf(ss, "%d", p_type->num_of_elements);
+                ss_fprintf(ss, "%zu", p_type->num_of_elements);
+            }
+            else
+            {
+                //vlz
             }
             ss_fprintf(ss, "]");
 
@@ -2501,63 +2494,112 @@ static void print_initializer(struct d_visit_ctx* ctx,
 {
     assert(p_init_declarator->initializer != NULL);
 
-    const bool is_local = ctx->is_local;
-
-    if (p_init_declarator->initializer->assignment_expression)
+    try
     {
-        if (is_local && !bstatic)
+        const bool is_local = ctx->is_local;
+
+        if (p_init_declarator->initializer->assignment_expression)
         {
-            if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL &&
-                type_is_array(&p_init_declarator->p_declarator->type))
+            if (is_local && !bstatic)
             {
-                print_identation_core(oss, ctx->indentation);
-                ss_fprintf(oss, "_cake_memcpy(%s, ", p_init_declarator->p_declarator->name_opt->lexeme);
-                struct osstream local = { 0 };
-                d_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
-                ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.num_of_elements);
-
-                ss_fprintf(oss, ");\n");
-                ss_close(&local);
-                ctx->memcpy_used = true;
-            }
-            else
-            {
-                //ss_fprintf(oss, ";\n");
-                print_identation_core(oss, ctx->indentation);
-                ss_fprintf(oss, "%s%s = ", p_init_declarator->p_declarator->name_opt->lexeme, "");
-
-                if (type_is_bool(&p_init_declarator->p_declarator->type))
+                if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL &&
+                    type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    expression_to_bool_value(ctx, oss, p_init_declarator->initializer->assignment_expression);
+                    print_identation_core(oss, ctx->indentation);
+                    ss_fprintf(oss, "_cake_memcpy(%s, ", p_init_declarator->p_declarator->name_opt->lexeme);
+                    struct osstream local = { 0 };
+                    d_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
+                    ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.num_of_elements);
+
+                    ss_fprintf(oss, ");\n");
+                    ss_close(&local);
+                    ctx->memcpy_used = true;
                 }
                 else
                 {
-                    d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
+                    //ss_fprintf(oss, ";\n");
+                    print_identation_core(oss, ctx->indentation);
+                    ss_fprintf(oss, "%s%s = ", p_init_declarator->p_declarator->name_opt->lexeme, "");
+
+                    if (type_is_bool(&p_init_declarator->p_declarator->type))
+                    {
+                        expression_to_bool_value(ctx, oss, p_init_declarator->initializer->assignment_expression);
+                    }
+                    else
+                    {
+                        d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
+                    }
+                    ss_fprintf(oss, ";\n");
                 }
+            }
+            else
+            {
+                print_identation_core(oss, ctx->indentation);
+                ss_fprintf(oss, " = ");//, p_init_declarator->p_declarator->name_opt->lexeme, "");
+                d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
                 ss_fprintf(oss, ";\n");
             }
         }
         else
         {
-            print_identation_core(oss, ctx->indentation);
-            ss_fprintf(oss, " = ");//, p_init_declarator->p_declarator->name_opt->lexeme, "");
-            d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
-            ss_fprintf(oss, ";\n");
-        }
-    }
-    else
-    {
-        if (p_init_declarator->initializer->braced_initializer)
-        {
-            if (p_init_declarator->initializer->braced_initializer->initializer_list &&
-                p_init_declarator->initializer->braced_initializer->initializer_list->head)
+            if (p_init_declarator->initializer->braced_initializer)
             {
-                if (is_all_zero(&p_init_declarator->p_declarator->object))
+                if (p_init_declarator->initializer->braced_initializer->initializer_list &&
+                    p_init_declarator->initializer->braced_initializer->initializer_list->head)
+                {
+                    if (is_all_zero(&p_init_declarator->p_declarator->object))
+                    {
+                        if (is_local && !bstatic)
+                        {
+                            size_t sz = 0;
+                            if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz) != 0)
+                            {
+                                throw;
+                            }
+
+                            // ss_fprintf(oss, ";\n");
+                            print_identation_core(oss, ctx->indentation);
+                            ss_fprintf(oss, "_cake_zmem(&%s, %zu);\n",
+                            p_init_declarator->p_declarator->name_opt->lexeme,
+                            sz);
+                            ctx->zero_mem_used = true;
+                        }
+                        else
+                        {
+                            ss_fprintf(oss, " = ");
+                            ss_fprintf(oss, "{0};\n");
+                        }
+                    }
+                    else
+                    {
+
+                        bool first = true;
+                        if (!is_local || bstatic)
+                        {
+                            ss_fprintf(oss, " = ");
+                            ss_fprintf(oss, "{");
+                            object_print_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, &first);
+                            ss_fprintf(oss, "}");
+                            ss_fprintf(oss, ";\n");
+                        }
+                        else
+                        {
+                            //ss_fprintf(oss, ";\n");
+                            object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true);
+                        }
+                    }
+                }
+                else
                 {
                     if (is_local && !bstatic)
                     {
-                        size_t sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
-                        // ss_fprintf(oss, ";\n");
+                        size_t sz = 0;
+                        if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz) != 0)
+                        {
+                            throw;
+                        }
+
+                        //ss_fprintf(oss, ";\n");
                         print_identation_core(oss, ctx->indentation);
                         ss_fprintf(oss, "_cake_zmem(&%s, %zu);\n",
                         p_init_declarator->p_declarator->name_opt->lexeme,
@@ -2569,46 +2611,13 @@ static void print_initializer(struct d_visit_ctx* ctx,
                         ss_fprintf(oss, " = ");
                         ss_fprintf(oss, "{0};\n");
                     }
+                    //ss_fprintf(oss, "{0};\n");
                 }
-                else
-                {
-
-                    bool first = true;
-                    if (!is_local || bstatic)
-                    {
-                        ss_fprintf(oss, " = ");
-                        ss_fprintf(oss, "{");
-                        object_print_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, &first);
-                        ss_fprintf(oss, "}");
-                        ss_fprintf(oss, ";\n");
-                    }
-                    else
-                    {
-                        //ss_fprintf(oss, ";\n");
-                        object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true);
-                    }
-                }
-            }
-            else
-            {
-                if (is_local && !bstatic)
-                {
-                    size_t sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
-                    //ss_fprintf(oss, ";\n");
-                    print_identation_core(oss, ctx->indentation);
-                    ss_fprintf(oss, "_cake_zmem(&%s, %zu);\n",
-                    p_init_declarator->p_declarator->name_opt->lexeme,
-                    sz);
-                    ctx->zero_mem_used = true;
-                }
-                else
-                {
-                    ss_fprintf(oss, " = ");
-                    ss_fprintf(oss, "{0};\n");
-                }
-                //ss_fprintf(oss, "{0};\n");
             }
         }
+    }
+    catch
+    {
     }
 }
 

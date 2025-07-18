@@ -1,3 +1,22 @@
+struct osstream {
+    char * c_str;
+    int size;
+    int capacity;
+};
+
+struct token {
+    int type;
+    char * lexeme;
+    char * original;
+    int line;
+    int col;
+    int level;
+    int flags;
+    struct token * token_origin;
+    struct token * next;
+    struct token * prev;
+};
+
 struct diagnostic {
     unsigned long long errors;
     unsigned long long warnings;
@@ -9,47 +28,11 @@ struct diagnostic_stack {
     struct diagnostic stack[10];
 };
 
-struct stream {
-    char * source;
-    char * current;
-    int line;
-    int col;
-    int line_continuation_count;
-    char * path;
-};
-
-struct token {
-    int   type;
-    char * lexeme;
-    char * original;
-    int line;
-    int col;
-    int level;
-    int   flags;
-    struct token * token_origin;
-    struct token * next;
-    struct token * prev;
-};
-
-struct _iobuf {
-    void * _Placeholder;
-};
-
-struct token_list {
-    struct token * head;
-    struct token * tail;
-};
-
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
-};
-
 struct options {
-    int   input;
-    int   target;
+    int input;
+    int target;
     struct diagnostic_stack  diagnostic_stack;
-    int   style;
+    int style;
     unsigned char   show_includes;
     unsigned char   disable_assert;
     unsigned char   flow_analysis;
@@ -72,10 +55,13 @@ struct options {
     char sarifpath[200];
 };
 
-struct tokenizer_ctx {
-    struct options  options;
-    int n_warnings;
-    int n_errors;
+struct stream {
+    char * source;
+    char * current;
+    int line;
+    int col;
+    int line_continuation_count;
+    char * path;
 };
 
 struct marker {
@@ -88,10 +74,24 @@ struct marker {
     struct token * p_token_end;
 };
 
-struct osstream {
-    char * c_str;
-    int size;
-    int capacity;
+struct tokenizer_ctx {
+    struct options  options;
+    int n_warnings;
+    int n_errors;
+};
+
+struct _iobuf {
+    void * _Placeholder;
+};
+
+struct token_list {
+    struct token * head;
+    struct token * tail;
+};
+
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
 };
 
 
@@ -149,7 +149,7 @@ void token_range_add_show(struct token * first, struct token * last)
     }
 }
 
-void token_range_remove_flag(struct token * first, struct token * last, int   flag)
+void token_range_remove_flag(struct token * first, struct token * last, int flag)
 {
     {
         struct token * current;
@@ -161,7 +161,7 @@ void token_range_remove_flag(struct token * first, struct token * last, int   fl
     }
 }
 
-void token_range_add_flag(struct token * first, struct token * last, int   flag)
+void token_range_add_flag(struct token * first, struct token * last, int flag)
 {
     {
         struct token * current;
@@ -356,7 +356,7 @@ char *token_list_join_tokens(struct token_list * list, unsigned char   bliteral)
     return cstr;
 }
 
-struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * filename_opt, int level, int   addflags);
+struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * filename_opt, int level, int addflags);
 void token_list_insert_after(struct token_list * list, struct token * after, struct token_list * append);
 
 void token_list_paste_string_after(struct token_list * list, struct token * after, char * s)
@@ -492,11 +492,11 @@ int is_digit(struct stream * p)
     return (p->current[0] >= 48 && p->current[0] <= 57);
 }
 
-unsigned char  token_is_identifier_or_keyword(int   t)
+unsigned char  token_is_identifier_or_keyword(int t)
 {
     /*switch*/
     {
-        register int   _R0 = t;
+        register int _R0 = t;
         if (_R0 == 8996) goto _CKL1; /*case 8996*/
         if (_R0 == 8999) goto _CKL2; /*case 8999*/
         if (_R0 == 9000) goto _CKL3; /*case 9000*/
@@ -887,7 +887,7 @@ void print_literal2(char * s)
 }
 
 int snprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, ...);
-char *get_token_name(int   tk);
+char *get_token_name(int tk);
 char *__cdecl strcat(char * _Destination, char * _Source);
 
 void print_token(struct token * p_token)
@@ -1361,9 +1361,9 @@ static unsigned char  is_nonzero_digit(struct stream * stream)
     return !!(stream->current[0] >= 49 && stream->current[0] <= 57);
 }
 
-int  parse_number_core(struct stream * stream, char suffix[4], char errmsg[100])
+int parse_number_core(struct stream * stream, char suffix[4], char errmsg[100])
 {
-    int   type;
+    int type;
 
     errmsg[0] = 0;
     type = 0;
@@ -1498,7 +1498,7 @@ int  parse_number_core(struct stream * stream, char suffix[4], char errmsg[100])
     return type;
 }
 
-int  parse_number(char * lexeme, char suffix[4], char errmsg[100])
+int parse_number(char * lexeme, char suffix[4], char errmsg[100])
 {
     struct stream  stream;
 

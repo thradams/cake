@@ -1906,7 +1906,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 for (unsigned long long i = 0; i < max_elements; i++)
                 {
                     char buffer[200] = { 0 };
-                    snprintf(buffer, sizeof buffer, "%s[%d]", name, i);
+                    snprintf(buffer, sizeof buffer, "%s[%llu]", name, i);
                     struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&array_item_type, buffer);
                     if (p_member_obj == NULL)
                     {

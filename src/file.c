@@ -1,1 +1,7 @@
-﻿double bar[4294967294];
+﻿enum foo: unsigned long long;
+
+void foo(enum foo);
+
+void bar(enum foo x) {
+    foo(x);
+}

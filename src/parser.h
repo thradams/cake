@@ -593,8 +593,7 @@ struct enum_specifier
     struct token* _Opt tag_token;
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
-    struct enum_specifier* _Opt complete_enum_specifier2;
-    struct type type;
+    struct enum_specifier* _Opt p_complete_enum_specifier;
 };
 
 bool enum_specifier_has_fixed_underlying_type(const struct enum_specifier*);
@@ -603,6 +602,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx*);
 struct enum_specifier* _Owner enum_specifier_add_ref(struct enum_specifier* p);
 void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
+enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier);
 
 const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, const struct object* object);
 
@@ -798,7 +798,7 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p);
 /*
   Return a value > 0 if it has constant size
 */
-unsigned long long  array_declarator_get_size(const struct array_declarator* p_array_declarator);
+size_t  array_declarator_get_size(const struct array_declarator* p_array_declarator);
 
 struct function_declarator
 {

@@ -2621,14 +2621,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
-             
-                    int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
-                    if (er != 0)
-                    {
-                        compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                        throw;
-                    }
-                
+
+                int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                if (er != 0)
+                {
+                    compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                    throw;
+                }
+
 
                 bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
                     p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
@@ -2717,11 +2717,11 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                 check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_INIT);
 
-                const char* name = p_init_declarator->p_declarator->name_opt ?
+                const char* name2 = p_init_declarator->p_declarator->name_opt ?
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
                 int er = make_object_with_name(&p_init_declarator->p_declarator->type,
-                    &p_init_declarator->p_declarator->object, name);
+                    &p_init_declarator->p_declarator->object, name2);
 
                 if (er != 0)
                 {
@@ -2751,12 +2751,12 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             if (p_init_declarator->p_declarator->type.category != TYPE_CATEGORY_FUNCTION &&
                 !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
             {
-                const char* name = p_init_declarator->p_declarator->name_opt ?
+                const char* name2 = p_init_declarator->p_declarator->name_opt ?
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
                 int er = make_object_with_name(&p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
-                    name);
+                    name2);
 
                 if (er != 0)
                 {
@@ -2841,15 +2841,23 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             if (type_is_vla(&p_init_declarator->p_declarator->type))
             {
             }
+            else if (type_is_function(&p_init_declarator->p_declarator->type))
+            {
+                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                  ctx,
+                  p_init_declarator->p_declarator->name_opt, NULL,
+                  "invalid application of 'sizeof' to a function type");
+            }
             else
             {
-                unsigned long long sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+                size_t sz = 0;
+                enum sizeof_error size_result = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz);
 
-                if (sz == -3)
+                if (size_result == ESIZEOF_NONE)
                 {
-                    /*type_get_sizeof returns -3 for VLAs*/
+                    //ok
                 }
-                else if (sz < 0)
+                else if (size_result == ESIZEOF_INCOMPLETE)
                 {
                     if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
                     {
@@ -2866,9 +2874,21 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                             p_init_declarator->p_declarator->name_opt->lexeme);
                     }
                 }
+                else if (size_result == ESIZEOF_OVERLOW)
+                {
+                    compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                            ctx,
+                            p_init_declarator->p_declarator->name_opt, NULL,
+                            "sizeof '%s' is too large",
+                            p_init_declarator->p_declarator->name_opt->lexeme);
+                }                
                 else
                 {
-                    // ok
+                    compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                        ctx,
+                        p_init_declarator->p_declarator->name_opt, NULL,
+                        "storage size of '%s' isn't known",
+                        p_init_declarator->p_declarator->name_opt->lexeme);
                 }
             }
         }
@@ -3423,6 +3443,28 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
     return p_type_specifier;
 }
 
+enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier)
+{
+    if (p_enum_specifier->specifier_qualifier_list)
+    {
+        return p_enum_specifier->specifier_qualifier_list->type_specifier_flags;
+    }
+
+    if (p_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
+    {
+        return p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;                
+    }
+    else if (p_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
+    {
+        return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
+    }
+
+    return TYPE_SPECIFIER_INT;
+}
+
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier)
 {
     /*
@@ -3435,18 +3477,18 @@ const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_
         /*p_struct_or_union_specifier is complete*/
         return p_enum_specifier;
     }
-    else if (p_enum_specifier->complete_enum_specifier2 &&
-        p_enum_specifier->complete_enum_specifier2->enumerator_list.head)
+    else if (p_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->enumerator_list.head)
     {
         /*p_struct_or_union_specifier is the first seem tag tag points directly to complete*/
-        return p_enum_specifier->complete_enum_specifier2;
+        return p_enum_specifier->p_complete_enum_specifier;
     }
-    else if (p_enum_specifier->complete_enum_specifier2 &&
-        p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2 &&
-        p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2->enumerator_list.head)
+    else if (p_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier &&
+        p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->enumerator_list.head)
     {
         /* all others points to the first seem that points to the complete*/
-        return p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2;
+        return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier;
     }
 
     return NULL;
@@ -4565,11 +4607,12 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 if (p_enum_specifier->specifier_qualifier_list == NULL)
                     throw;
 
-                p_enum_specifier->type =
+                struct type enum_underline_type = 
                     make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
 
-                if (!type_is_integer(&p_enum_specifier->type))
+                if (!type_is_integer(&enum_underline_type))
                 {
+                    type_destroy(&enum_underline_type);
                     compiler_diagnostic(C_ERROR_NON_INTEGRAL_ENUM_TYPE,
                         ctx,
                         p_enum_specifier->specifier_qualifier_list->first_token,
@@ -4578,16 +4621,13 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
 
                     throw;
                 }
+                type_destroy(&enum_underline_type);
             }
             else
             {
             }
         }
-        else
-        {
-            /*can change with enumerators*/
-            p_enum_specifier->type = type_make_int();
-        }
+        
 
         if (ctx->current == NULL)
         {
@@ -4601,7 +4641,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
 
             /*points to itself*/
-            p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+            p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
 
             if (parser_match_tk(ctx, '{') != 0)
                 throw;
@@ -4628,7 +4668,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             struct hash_item_set item = { 0 };
             item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
             hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
-            p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+            p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
             hash_item_set_destroy(&item);
         }
         else
@@ -4636,10 +4676,10 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             struct enum_specifier* _Opt p_existing_enum_specifier = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
             if (p_existing_enum_specifier)
             {
-                //p_existing_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+                //p_existing_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 //ja existe
                 //verificar o caso de ser outro tag no memso escopo
-                p_enum_specifier->complete_enum_specifier2 = p_existing_enum_specifier;
+                p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
             }
             else
             {
@@ -4647,7 +4687,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 struct hash_item_set item = { 0 };
                 item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
                 hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
-                p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+                p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 hash_item_set_destroy(&item);
             }
 
@@ -5152,7 +5192,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
         if (pp_token_name_opt && *pp_token_name_opt)
         {
-            free(p_declarator->object.debug_name);
+            free((void*)p_declarator->object.debug_name);
             p_declarator->object.debug_name = strdup((*pp_token_name_opt)->lexeme);
         }
 
@@ -5363,13 +5403,13 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p)
     }
 }
 
-unsigned long long array_declarator_get_size(const struct array_declarator* p_array_declarator)
+size_t array_declarator_get_size(const struct array_declarator* p_array_declarator)
 {
     if (p_array_declarator->assignment_expression)
     {
         if (object_has_constant_value(&p_array_declarator->assignment_expression->object))
         {
-            return object_to_unsigned_long_long(&p_array_declarator->assignment_expression->object);
+            return (size_t)object_to_unsigned_long_long(&p_array_declarator->assignment_expression->object);
         }
     }
     return 0;
@@ -5931,7 +5971,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 
         if (p_parameter_declaration->declarator->name_opt)
         {
-            free(p_parameter_declaration->declarator->object.debug_name);
+            free((void*)p_parameter_declaration->declarator->object.debug_name);
             p_parameter_declaration->declarator->object.debug_name = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
         }
 
@@ -9876,7 +9916,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
      * for try-catch blocks
      */
 
-    struct try_statement* _Opt p_current_try_statement_opt = ctx->p_current_try_statement_opt;
+    const struct try_statement* _Opt p_current_try_statement_opt = ctx->p_current_try_statement_opt;
     ctx->p_current_try_statement_opt = NULL;
 
     int label_id = ctx->label_id;
@@ -11446,7 +11486,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
         {
             const bool compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
             long long index = -1;
-            int max_index = -1;
+            long long max_index = -1;
             struct type array_item_type = get_array_item_type(p_current_object_type);
 
             struct object* _Opt member_obj = current_object->members;
@@ -11616,7 +11656,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         struct object* const _Opt parent_copy = current_object->parent;
         current_object->parent = NULL; //to be only here
         struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
-        long long array_to_expand_index = -1;
+        int array_to_expand_index = -1;
         int array_to_expand_max_index = -1;
         bool compute_array_size = false;
         struct type array_item_type = { 0 };
@@ -11636,7 +11676,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 {
                     if (p_initializer_list_item2->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
                     {
-                        unsigned long long num_of_elements =
+                        size_t num_of_elements =
                             p_initializer_list_item2->initializer->assignment_expression->type.num_of_elements;
 
                         if (compute_array_size)

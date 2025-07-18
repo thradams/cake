@@ -1,32 +1,9 @@
-struct _stat64i32 {
-    unsigned int st_dev;
-    unsigned short st_ino;
-    unsigned short st_mode;
-    short st_nlink;
-    short st_uid;
-    short st_gid;
-    unsigned int st_rdev;
-    long st_size;
-    __int64 st_atime;
-    __int64 st_mtime;
-    __int64 st_ctime;
-};
-
-struct _iobuf {
-    void * _Placeholder;
-};
-
 struct dirent {
     unsigned short d_ino;
     long d_off;
     unsigned short d_reclen;
     unsigned char d_type;
     char d_name[256];
-};
-
-struct _FILETIME {
-    unsigned long dwLowDateTime;
-    unsigned long dwHighDateTime;
 };
 
 struct stat {
@@ -43,6 +20,16 @@ struct stat {
     __int64 st_ctime;
 };
 
+struct TAGDIR {
+    void * handle;
+    struct dirent  dirent;
+};
+
+struct _FILETIME {
+    unsigned long dwLowDateTime;
+    unsigned long dwHighDateTime;
+};
+
 struct _WIN32_FIND_DATAA {
     unsigned long dwFileAttributes;
     struct _FILETIME  ftCreationTime;
@@ -56,13 +43,26 @@ struct _WIN32_FIND_DATAA {
     char cAlternateFileName[14];
 };
 
-struct TAGDIR {
-    void * handle;
-    struct dirent  dirent;
+struct _iobuf {
+    void * _Placeholder;
 };
 
 struct HINSTANCE__ {
     int unused;
+};
+
+struct _stat64i32 {
+    unsigned int st_dev;
+    unsigned short st_ino;
+    unsigned short st_mode;
+    short st_nlink;
+    short st_uid;
+    short st_gid;
+    unsigned int st_rdev;
+    long st_size;
+    __int64 st_atime;
+    __int64 st_mtime;
+    __int64 st_ctime;
 };
 
 

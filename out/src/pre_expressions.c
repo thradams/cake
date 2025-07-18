@@ -1,37 +1,3 @@
-struct param_list {
-    unsigned char   is_var_args;
-    unsigned char   is_void;
-    struct param * head;
-    struct param * tail;
-};
-
-struct type {
-    int   category;
-    int   attributes_flags;
-    int   type_specifier_flags;
-    int   type_qualifier_flags;
-    int   storage_class_specifier_flags;
-    char * name_opt;
-    struct struct_or_union_specifier * struct_or_union_specifier;
-    struct enum_specifier * enum_specifier;
-    struct expression * array_num_elements_expression;
-    int num_of_elements;
-    unsigned char   has_static_array_size;
-    unsigned char   address_of;
-    struct param_list  params;
-    struct type * next;
-};
-
-struct param {
-    struct type  type;
-    struct param * next;
-};
-
-struct include_dir {
-    char * path;
-    struct include_dir * next;
-};
-
 struct diagnostic {
     unsigned long long errors;
     unsigned long long warnings;
@@ -44,10 +10,10 @@ struct diagnostic_stack {
 };
 
 struct options {
-    int   input;
-    int   target;
+    int input;
+    int target;
     struct diagnostic_stack  diagnostic_stack;
-    int   style;
+    int style;
     unsigned char   show_includes;
     unsigned char   disable_assert;
     unsigned char   flow_analysis;
@@ -88,7 +54,7 @@ struct token_list {
 
 struct preprocessor_ctx {
     struct options  options;
-    int   flags;
+    int flags;
     struct hash_map  macros;
     struct include_dir_list  include_dir;
     struct hash_map  pragma_once_map;
@@ -100,23 +66,8 @@ struct preprocessor_ctx {
     int n_errors;
 };
 
-union _struct_tag_5 {
-    unsigned int number;
-    struct enum_specifier * p_enum_specifier;
-    struct enumerator * p_enumerator;
-    struct struct_or_union_specifier * p_struct_or_union_specifier;
-    struct declarator * p_declarator;
-    struct init_declarator * p_init_declarator;
-    struct macro * p_macro;
-    struct struct_entry * p_struct_entry;
-};
-
-struct map_entry {
-    struct map_entry * next;
-    unsigned int hash;
-    char * key;
-    int   type;
-    union _struct_tag_5  data;
+struct pre_expression_ctx {
+    long long value;
 };
 
 union _struct_tag_16 {
@@ -137,9 +88,70 @@ union _struct_tag_16 {
     void * void_pointer;
 };
 
+union _struct_tag_5 {
+    unsigned int number;
+    struct enum_specifier * p_enum_specifier;
+    struct enumerator * p_enumerator;
+    struct struct_or_union_specifier * p_struct_or_union_specifier;
+    struct declarator * p_declarator;
+    struct init_declarator * p_init_declarator;
+    struct macro * p_macro;
+    struct struct_entry * p_struct_entry;
+};
+
+struct map_entry {
+    struct map_entry * next;
+    unsigned int hash;
+    char * key;
+    int type;
+    union _struct_tag_5  data;
+};
+
+struct token {
+    int type;
+    char * lexeme;
+    char * original;
+    int line;
+    int col;
+    int level;
+    int flags;
+    struct token * token_origin;
+    struct token * next;
+    struct token * prev;
+};
+
+struct param_list {
+    unsigned char   is_var_args;
+    unsigned char   is_void;
+    struct param * head;
+    struct param * tail;
+};
+
+struct type {
+    int category;
+    int attributes_flags;
+    int type_specifier_flags;
+    int type_qualifier_flags;
+    int storage_class_specifier_flags;
+    char * name_opt;
+    struct struct_or_union_specifier * struct_or_union_specifier;
+    struct enum_specifier * enum_specifier;
+    struct expression * array_num_elements_expression;
+    unsigned int num_of_elements;
+    unsigned char   has_static_array_size;
+    unsigned char   address_of;
+    struct param_list  params;
+    struct type * next;
+};
+
+struct param {
+    struct type  type;
+    struct param * next;
+};
+
 struct object {
-    int   state;
-    int   value_type;
+    int state;
+    int value_type;
     struct type  type;
     char * debug_name;
     union _struct_tag_16  value;
@@ -149,21 +161,9 @@ struct object {
     struct object * next;
 };
 
-struct token {
-    int   type;
-    char * lexeme;
-    char * original;
-    int line;
-    int col;
-    int level;
-    int   flags;
-    struct token * token_origin;
-    struct token * next;
-    struct token * prev;
-};
-
-struct pre_expression_ctx {
-    long long value;
+struct include_dir {
+    char * path;
+    struct include_dir * next;
 };
 
 
@@ -174,8 +174,8 @@ static void _cake_zmem(void *dest, register unsigned int len)
 }
 
 int _Avx2WmemEnabledWeakValue = 0;
-int  parse_number(char * lexeme, char suffix[4], char erromsg[100]);
-unsigned char  preprocessor_diagnostic(int   w, struct preprocessor_ctx * ctx, struct token * p_token, char * fmt, ...);
+int parse_number(char * lexeme, char suffix[4], char erromsg[100]);
+unsigned char  preprocessor_diagnostic(int w, struct preprocessor_ctx * ctx, struct token * p_token, char * fmt, ...);
 unsigned long long strtoull(char * _String, char ** _EndPtr, int _Radix);
 int *__cdecl _errno(void);
 struct object object_make_unsigned_int(unsigned int value);
@@ -193,7 +193,7 @@ static int ppnumber_to_longlong(struct preprocessor_ctx * ctx, struct token * to
     char * s;
     char errormsg[100];
     char suffix[4];
-    int   type;
+    int type;
     struct object  cv;
 
     c = 0;
@@ -218,7 +218,7 @@ static int ppnumber_to_longlong(struct preprocessor_ctx * ctx, struct token * to
     _cake_zmem(&cv, 96);
     /*switch*/
     {
-        register int   _R0 = type;
+        register int _R0 = type;
         if (_R0 == 136) goto _CKL3; /*case 136*/
         if (_R0 == 137) goto _CKL4; /*case 137*/
         if (_R0 == 138) goto _CKL5; /*case 138*/
@@ -238,7 +238,7 @@ static int ppnumber_to_longlong(struct preprocessor_ctx * ctx, struct token * to
                 value = 0;
                 /*switch*/
                 {
-                    register int   _R1 = type;
+                    register int _R1 = type;
                     if (_R1 == 136) goto _CKL8; /*case 136*/
                     if (_R1 == 137) goto _CKL9; /*case 137*/
                     if (_R1 == 138) goto _CKL10; /*case 138*/
@@ -640,7 +640,7 @@ static void pre_unary_expression(struct preprocessor_ctx * ctx, struct pre_expre
             if (ctx->current != 0U && (ctx->current->type == 38 || ctx->current->type == 42 || ctx->current->type == 43 || ctx->current->type == 45 || ctx->current->type == 126 || ctx->current->type == 33))
             {
                 struct token * p_old;
-                int   op;
+                int op;
 
                 p_old = ctx->current;
                 op = ctx->current->type;
@@ -722,7 +722,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx * ctx, struct 
         while (ctx->current != 0U && (ctx->current->type == 42 || ctx->current->type == 47 || ctx->current->type == 37))
         {
             struct token * op_token;
-            int   op;
+            int op;
             long long left_value;
 
             op_token = ctx->current;
@@ -827,7 +827,7 @@ static void pre_shift_expression(struct preprocessor_ctx * ctx, struct pre_expre
         }
         while (ctx->current != 0U && (ctx->current->type == 15934 || ctx->current->type == 15420))
         {
-            int   op;
+            int op;
             long long left_value;
 
             op = ctx->current->type;
@@ -867,7 +867,7 @@ static void pre_relational_expression(struct preprocessor_ctx * ctx, struct pre_
         }
         while (ctx->current != 0U && (ctx->current->type == 62 || ctx->current->type == 60 || ctx->current->type == 15933 || ctx->current->type == 15421))
         {
-            int   op;
+            int op;
             long long left_value;
 
             op = ctx->current->type;
@@ -921,7 +921,7 @@ static void pre_equality_expression(struct preprocessor_ctx * ctx, struct pre_ex
         }
         while (ctx->current != 0U && (ctx->current->type == 15677 || ctx->current->type == 8509))
         {
-            int   op;
+            int op;
             long long left_value;
 
             op = ctx->current->type;

@@ -1,3 +1,34 @@
+struct generic_assoc_list {
+    struct generic_association * head;
+    struct generic_association * tail;
+};
+
+struct generic_selection {
+    struct expression * expression;
+    struct type_name * type_name;
+    struct expression * p_view_selected_expression;
+    struct generic_assoc_list  generic_assoc_list;
+    struct token * first_token;
+    struct token * last_token;
+};
+
+struct label_state {
+    char * label_name;
+    int state_number;
+};
+
+struct member_declaration_list {
+    struct token * first_token;
+    struct token * last_token;
+    struct member_declaration * head;
+    struct member_declaration * tail;
+};
+
+struct storage_class_specifier {
+    int flags;
+    struct token * token;
+};
+
 struct param_list {
     unsigned char   is_var_args;
     unsigned char   is_void;
@@ -6,16 +37,16 @@ struct param_list {
 };
 
 struct type {
-    int   category;
-    int   attributes_flags;
-    int   type_specifier_flags;
-    int   type_qualifier_flags;
-    int   storage_class_specifier_flags;
+    int category;
+    int attributes_flags;
+    int type_specifier_flags;
+    int type_qualifier_flags;
+    int storage_class_specifier_flags;
     char * name_opt;
     struct struct_or_union_specifier * struct_or_union_specifier;
     struct enum_specifier * enum_specifier;
     struct expression * array_num_elements_expression;
-    int num_of_elements;
+    unsigned int num_of_elements;
     unsigned char   has_static_array_size;
     unsigned char   address_of;
     struct param_list  params;
@@ -41,8 +72,8 @@ union _struct_tag_16 {
 };
 
 struct object {
-    int   state;
-    int   value_type;
+    int state;
+    int value_type;
     struct type  type;
     char * debug_name;
     union _struct_tag_16  value;
@@ -52,158 +83,38 @@ struct object {
     struct object * next;
 };
 
-struct argument_expression_list {
-    struct argument_expression * head;
-    struct argument_expression * tail;
-};
-
-struct expression {
-    int   expression_type;
-    struct type  type;
-    struct object  object;
-    struct type_name * type_name;
-    struct braced_initializer * braced_initializer;
-    struct compound_statement * compound_statement;
-    struct generic_selection * generic_selection;
-    struct token * first_token;
-    struct token * last_token;
-    struct declarator * declarator;
-    struct init_declarator * p_init_declarator;
-    int member_index;
-    struct argument_expression_list  argument_expression_list;
-    struct expression * condition_expr;
-    struct expression * left;
-    struct expression * right;
-    unsigned char   is_assignment_expression;
-};
-
-struct type_qualifier {
-    int   flags;
-    struct token * token;
-    struct type_qualifier * next;
-};
-
-struct unlabeled_statement {
-    struct expression_statement * expression_statement;
-    struct primary_block * primary_block;
-    struct jump_statement * jump_statement;
-};
-
-struct generic_assoc_list {
-    struct generic_association * head;
-    struct generic_association * tail;
-};
-
-struct generic_selection {
-    struct expression * expression;
-    struct type_name * type_name;
-    struct expression * p_view_selected_expression;
-    struct generic_assoc_list  generic_assoc_list;
-    struct token * first_token;
-    struct token * last_token;
-};
-
-struct case_label_list {
-    struct label * head;
-    struct label * tail;
-};
-
-struct defer_list {
-    struct defer_list_item * head;
-    struct defer_list_item * tail;
-};
-
-struct selection_statement {
-    struct init_statement * p_init_statement;
-    struct condition * condition;
-    struct secondary_block * secondary_block;
-    struct secondary_block * else_secondary_block_opt;
-    struct token * open_parentesis_token;
-    struct token * close_parentesis_token;
-    struct case_label_list  label_list;
-    struct token * first_token;
-    struct token * last_token;
-    struct token * else_token_opt;
-    struct defer_list  defer_list;
-    int label_id;
-};
-
-struct designator_list {
-    struct designator * head;
-    struct designator * tail;
-};
-
-struct block_item {
-    struct token * first_token;
-    struct declaration * declaration;
-    struct unlabeled_statement * unlabeled_statement;
-    struct label * label;
-    struct block_item * next;
-};
-
-struct param {
-    struct type  type;
-    struct param * next;
-};
-
-struct type_name {
-    struct token * first_token;
-    struct token * last_token;
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct declarator * abstract_declarator;
-    struct type  type;
-};
-
-struct enumerator_list {
-    struct enumerator * head;
-    struct enumerator * tail;
-};
-
-struct dirent {
-    unsigned short d_ino;
-    long d_off;
-    unsigned short d_reclen;
-    unsigned char d_type;
-    char d_name[256];
-};
-
-struct hash_map {
-    struct map_entry ** table;
-    int capacity;
-    int size;
-};
-
-struct scope {
-    int scope_level;
-    struct hash_map  tags;
-    struct hash_map  variables;
-    struct scope * next;
-    struct scope * previous;
-};
-
-struct function_declarator {
+struct declarator {
+    unsigned char   has_shared_ownership;
+    struct token * first_token_opt;
+    struct token * last_token_opt;
+    struct pointer * pointer;
     struct direct_declarator * direct_declarator;
-    struct scope  parameters_scope;
-    struct parameter_type_list * parameter_type_list_opt;
-};
-
-struct generic_association {
+    struct declaration_specifiers * declaration_specifiers;
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct token * name_opt;
+    struct compound_statement * function_body;
+    int num_uses;
+    struct object  object;
+    struct flow_object * p_flow_object;
+    struct expression * p_expression_true;
+    struct expression * p_expression_false;
+    struct expression * p_alias_of_expression;
     struct type  type;
-    struct type_name * p_type_name;
-    struct expression * expression;
-    struct token * first_token;
-    struct token * last_token;
-    struct generic_association * next;
 };
 
-struct init_declarator_list {
-    struct init_declarator * head;
-    struct init_declarator * tail;
+struct statement {
+    struct labeled_statement * labeled_statement;
+    struct unlabeled_statement * unlabeled_statement;
 };
 
-struct block_item_list {
-    struct block_item * head;
-    struct block_item * tail;
+struct include_dir {
+    char * path;
+    struct include_dir * next;
+};
+
+struct scope_list {
+    struct scope * head;
+    struct scope * tail;
 };
 
 struct diagnostic {
@@ -212,68 +123,16 @@ struct diagnostic {
     unsigned long long notes;
 };
 
-struct compound_statement {
-    struct token * first_token;
-    struct token * last_token;
-    struct block_item_list  block_item_list;
-    struct diagnostic  diagnostic_flags;
-    struct defer_list  defer_list;
-};
-
-struct marker {
-    char * file;
-    int line;
-    int start_col;
-    int end_col;
-    struct token * p_token_caret;
-    struct token * p_token_begin;
-    struct token * p_token_end;
-};
-
-struct declaration_specifiers {
-    int   attributes_flags;
-    int   type_specifier_flags;
-    int   type_qualifier_flags;
-    int   storage_class_specifier_flags;
-    int   function_specifier_flags;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
-    struct struct_or_union_specifier * struct_or_union_specifier;
-    struct enum_specifier * enum_specifier;
-    struct declarator * typedef_declarator;
-    struct typeof_specifier * typeof_specifier;
-    struct token * first_token;
-    struct token * last_token;
-    struct declaration_specifier * head;
-    struct declaration_specifier * tail;
-};
-
-union _struct_tag_5 {
-    unsigned int number;
-    struct enum_specifier * p_enum_specifier;
-    struct enumerator * p_enumerator;
-    struct struct_or_union_specifier * p_struct_or_union_specifier;
-    struct declarator * p_declarator;
-    struct init_declarator * p_init_declarator;
-    struct macro * p_macro;
-    struct struct_entry * p_struct_entry;
-};
-
-struct parameter_type_list {
-    unsigned char   is_var_args;
-    unsigned char   is_void;
-    struct parameter_list * parameter_list;
-};
-
 struct diagnostic_stack {
     int top_index;
     struct diagnostic stack[10];
 };
 
 struct options {
-    int   input;
-    int   target;
+    int input;
+    int target;
     struct diagnostic_stack  diagnostic_stack;
-    int   style;
+    int style;
     unsigned char   show_includes;
     unsigned char   disable_assert;
     unsigned char   flow_analysis;
@@ -296,6 +155,107 @@ struct options {
     char sarifpath[200];
 };
 
+struct tokenizer_ctx {
+    struct options  options;
+    int n_warnings;
+    int n_errors;
+};
+
+struct initializer_list {
+    struct token * first_token;
+    struct initializer_list_item * head;
+    struct initializer_list_item * tail;
+    int size;
+};
+
+struct label {
+    struct expression * constant_expression;
+    struct expression * constant_expression_end;
+    struct token * p_identifier_opt;
+    struct token * p_first_token;
+    struct label * next;
+    int label_id;
+};
+
+struct alignment_specifier {
+    struct type_name * type_name;
+    struct expression * constant_expression;
+    struct token * token;
+};
+
+struct type_specifier {
+    int flags;
+    struct token * token;
+    struct struct_or_union_specifier * struct_or_union_specifier;
+    struct typeof_specifier * typeof_specifier;
+    struct enum_specifier * enum_specifier;
+    struct declarator * typedef_declarator;
+    struct atomic_type_specifier * atomic_type_specifier;
+};
+
+struct label_list {
+    struct label_list_item * head;
+    struct label_list_item * tail;
+};
+
+struct block_item_list {
+    struct block_item * head;
+    struct block_item * tail;
+};
+
+struct defer_list {
+    struct defer_list_item * head;
+    struct defer_list_item * tail;
+};
+
+struct compound_statement {
+    struct token * first_token;
+    struct token * last_token;
+    struct block_item_list  block_item_list;
+    struct diagnostic  diagnostic_flags;
+    struct defer_list  defer_list;
+};
+
+struct _iobuf {
+    void * _Placeholder;
+};
+
+struct condition {
+    struct expression * expression;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
+    struct declaration_specifiers * p_declaration_specifiers;
+    struct init_declarator * p_init_declarator;
+    struct token * first_token;
+    struct token * last_token;
+};
+
+struct init_declarator {
+    unsigned char   has_shared_ownership;
+    struct declarator * p_declarator;
+    struct initializer * initializer;
+    struct init_declarator * next;
+};
+
+struct block_item {
+    struct token * first_token;
+    struct declaration * declaration;
+    struct unlabeled_statement * unlabeled_statement;
+    struct label * label;
+    struct block_item * next;
+};
+
+struct defer_statement {
+    struct token * first_token;
+    struct token * last_token;
+    struct secondary_block * secondary_block;
+};
+
+struct hash_map {
+    struct map_entry ** table;
+    int capacity;
+    int size;
+};
+
 struct include_dir_list {
     struct include_dir * head;
     struct include_dir * tail;
@@ -308,7 +268,7 @@ struct token_list {
 
 struct preprocessor_ctx {
     struct options  options;
-    int   flags;
+    int flags;
     struct hash_map  macros;
     struct include_dir_list  include_dir;
     struct hash_map  pragma_once_map;
@@ -320,9 +280,59 @@ struct preprocessor_ctx {
     int n_errors;
 };
 
-struct labeled_statement {
-    struct label * label;
-    struct statement * statement;
+struct member_declaration {
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct member_declarator_list * member_declarator_list_opt;
+    struct static_assert_declaration * static_assert_declaration;
+    struct pragma_declaration * pragma_declaration;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
+    struct member_declaration * next;
+};
+
+struct enumerator_list {
+    struct enumerator * head;
+    struct enumerator * tail;
+};
+
+struct find_object_result {
+    struct object * object;
+    struct type  type;
+};
+
+struct braced_initializer {
+    struct token * first_token;
+    struct token * last_token;
+    struct initializer_list * initializer_list;
+};
+
+struct case_label_list {
+    struct label * head;
+    struct label * tail;
+};
+
+struct selection_statement {
+    struct init_statement * p_init_statement;
+    struct condition * condition;
+    struct secondary_block * secondary_block;
+    struct secondary_block * else_secondary_block_opt;
+    struct token * open_parentesis_token;
+    struct token * close_parentesis_token;
+    struct case_label_list  label_list;
+    struct token * first_token;
+    struct token * last_token;
+    struct token * else_token_opt;
+    struct defer_list  defer_list;
+    int label_id;
+};
+
+struct marker {
+    char * file;
+    int line;
+    int start_col;
+    int end_col;
+    struct token * p_token_caret;
+    struct token * p_token_begin;
+    struct token * p_token_end;
 };
 
 struct enum_specifier {
@@ -333,90 +343,7 @@ struct enum_specifier {
     struct enumerator_list  enumerator_list;
     struct token * tag_token;
     struct token * first_token;
-    struct enum_specifier * complete_enum_specifier2;
-    struct type  type;
-};
-
-struct expression_statement {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
-    struct expression * expression_opt;
-};
-
-struct pointer {
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct type_qualifier_list * type_qualifier_list_opt;
-    struct token * calling_convention;
-    struct pointer * pointer;
-};
-
-struct attribute_list {
-    int   attributes_flags;
-    struct attribute * head;
-    struct attribute * tail;
-};
-
-struct type_specifier_qualifier {
-    struct type_specifier * type_specifier;
-    struct type_qualifier * type_qualifier;
-    struct alignment_specifier * alignment_specifier;
-    struct type_specifier_qualifier * next;
-};
-
-struct label_list_item {
-    struct token * p_last_usage;
-    struct token * p_defined;
-    struct label_list_item * next;
-};
-
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
-};
-
-struct type_specifier {
-    int   flags;
-    struct token * token;
-    struct struct_or_union_specifier * struct_or_union_specifier;
-    struct typeof_specifier * typeof_specifier;
-    struct enum_specifier * enum_specifier;
-    struct declarator * typedef_declarator;
-    struct atomic_type_specifier * atomic_type_specifier;
-};
-
-struct osstream {
-    char * c_str;
-    int size;
-    int capacity;
-};
-
-struct function_specifier {
-    int   flags;
-    struct token * token;
-};
-
-struct label_list {
-    struct label_list_item * head;
-    struct label_list_item * tail;
-};
-
-struct hash_item_set {
-    unsigned int number;
-    struct enum_specifier * p_enum_specifier;
-    struct enumerator * p_enumerator;
-    struct struct_or_union_specifier * p_struct_or_union_specifier;
-    struct declarator * p_declarator;
-    struct init_declarator * p_init_declarator;
-    struct macro * p_macro;
-    struct struct_entry * p_struct_entry;
-};
-
-struct label {
-    struct expression * constant_expression;
-    struct expression * constant_expression_end;
-    struct token * p_identifier_opt;
-    struct token * p_first_token;
-    struct label * next;
-    int label_id;
+    struct enum_specifier * p_complete_enum_specifier;
 };
 
 struct flow_objects_view {
@@ -429,120 +356,9 @@ struct flow_object_state {
     char * dbg_name;
     int state_number;
     struct flow_object * pointed;
-    int   state;
+    int state;
     struct flow_objects_view  alternatives;
     struct flow_object_state * next;
-};
-
-struct storage_class_specifier {
-    int   flags;
-    struct token * token;
-};
-
-struct type_qualifier_list {
-    int   flags;
-    struct type_qualifier * head;
-    struct type_qualifier * tail;
-};
-
-struct find_object_result {
-    struct object * object;
-    struct type  type;
-};
-
-struct member_declaration_list {
-    struct token * first_token;
-    struct token * last_token;
-    struct member_declaration * head;
-    struct member_declaration * tail;
-};
-
-struct attribute {
-    int   attributes_flags;
-    struct attribute_token * attribute_token;
-    struct attribute_argument_clause * attribute_argument_clause;
-    struct attribute * next;
-};
-
-struct struct_or_union_specifier {
-    unsigned char   has_shared_ownership;
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct member_declaration_list  member_declaration_list;
-    struct token * first_token;
-    struct token * last_token;
-    unsigned char   is_owner;
-    struct token * tagtoken;
-    char tag_name[200];
-    unsigned char   has_anonymous_tag;
-    unsigned char   show_anonymous_tag;
-    int scope_level;
-    int visit_moved;
-    struct struct_or_union_specifier * complete_struct_or_union_specifier_indirection;
-};
-
-struct defer_statement {
-    struct token * first_token;
-    struct token * last_token;
-    struct secondary_block * secondary_block;
-};
-
-struct attribute_argument_clause {
-    struct balanced_token_sequence * p_balanced_token_sequence;
-    struct token * token;
-};
-
-struct jump_statement {
-    struct token * label;
-    struct token * first_token;
-    struct token * last_token;
-    struct expression * expression_opt;
-    int label_id;
-    struct defer_list  defer_list;
-};
-
-struct pragma_declaration {
-    struct token * first_token;
-    struct token * last_token;
-};
-
-struct member_declarator {
-    struct declarator * declarator;
-    struct expression * constant_expression;
-    struct member_declarator * next;
-};
-
-struct _iobuf {
-    void * _Placeholder;
-};
-
-struct tokenizer_ctx {
-    struct options  options;
-    int n_warnings;
-    int n_errors;
-};
-
-struct declarator {
-    unsigned char   has_shared_ownership;
-    struct token * first_token_opt;
-    struct token * last_token_opt;
-    struct pointer * pointer;
-    struct direct_declarator * direct_declarator;
-    struct declaration_specifiers * declaration_specifiers;
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct token * name_opt;
-    struct compound_statement * function_body;
-    int num_uses;
-    struct object  object;
-    struct flow_object * p_flow_object;
-    struct expression * p_expression_true;
-    struct expression * p_expression_false;
-    struct expression * p_alias_of_expression;
-    struct type  type;
-};
-
-struct declaration_list {
-    struct declaration * head;
-    struct declaration * tail;
 };
 
 struct flow_object {
@@ -556,111 +372,22 @@ struct flow_object {
     unsigned char   is_temporary;
 };
 
-struct statement {
-    struct labeled_statement * labeled_statement;
-    struct unlabeled_statement * unlabeled_statement;
+struct dirent {
+    unsigned short d_ino;
+    long d_off;
+    unsigned short d_reclen;
+    unsigned char d_type;
+    char d_name[256];
 };
 
-struct initializer_list {
-    struct token * first_token;
-    struct initializer_list_item * head;
-    struct initializer_list_item * tail;
-    int size;
+struct declaration_list {
+    struct declaration * head;
+    struct declaration * tail;
 };
 
-struct secondary_block {
-    struct token * first_token;
-    struct token * last_token;
-    struct statement * statement;
-};
-
-struct scope_list {
-    struct scope * head;
-    struct scope * tail;
-};
-
-struct primary_block {
-    struct compound_statement * compound_statement;
-    struct selection_statement * selection_statement;
-    struct iteration_statement * iteration_statement;
-    struct defer_statement * defer_statement;
-    struct try_statement * try_statement;
-};
-
-struct defer_list_item {
-    struct declarator * declarator;
-    struct defer_statement * defer_statement;
-    struct defer_list_item * next;
-};
-
-struct direct_declarator {
-    struct token * name_opt;
-    struct token * p_calling_convention;
-    struct declarator * declarator;
-    struct array_declarator * array_declarator;
-    struct function_declarator * function_declarator;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
-};
-
-struct token {
-    int   type;
-    char * lexeme;
-    char * original;
-    int line;
-    int col;
-    int level;
-    int   flags;
-    struct token * token_origin;
-    struct token * next;
-    struct token * prev;
-};
-
-struct declaration {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
-    struct static_assert_declaration * static_assert_declaration;
-    struct pragma_declaration * pragma_declaration;
-    struct declaration_specifiers * declaration_specifiers;
-    struct init_declarator_list  init_declarator_list;
-    struct compound_statement * function_body;
-    struct defer_list  defer_list;
-    struct declarator * contract_declarator;
-    struct token * first_token;
-    struct token * last_token;
-    struct declaration * next;
-};
-
-struct balanced_token {
-    struct token * token;
-    struct balanced_token * next;
-};
-
-struct enumerator {
-    unsigned char   has_shared_ownership;
-    struct token * token;
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct expression * constant_expression_opt;
-    struct enum_specifier * enum_specifier;
-    struct enumerator * next;
-    struct object  value;
-};
-
-struct member_declarator_list {
-    struct member_declarator * head;
-    struct member_declarator * tail;
-};
-
-struct member_declaration {
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct member_declarator_list * member_declarator_list_opt;
-    struct static_assert_declaration * static_assert_declaration;
-    struct pragma_declaration * pragma_declaration;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
-    struct member_declaration * next;
-};
-
-struct init_statement {
-    struct expression_statement * p_expression_statement;
-    struct simple_declaration * p_simple_declaration;
+struct ast {
+    struct token_list  token_list;
+    struct declaration_list  declaration_list;
 };
 
 struct initializer_list_item {
@@ -669,50 +396,41 @@ struct initializer_list_item {
     struct initializer_list_item * next;
 };
 
-struct break_reference {
-    struct selection_statement * p_selection_statement;
-    struct iteration_statement * p_iteration_statement;
+union _struct_tag_5 {
+    unsigned int number;
+    struct enum_specifier * p_enum_specifier;
+    struct enumerator * p_enumerator;
+    struct struct_or_union_specifier * p_struct_or_union_specifier;
+    struct declarator * p_declarator;
+    struct init_declarator * p_init_declarator;
+    struct macro * p_macro;
+    struct struct_entry * p_struct_entry;
 };
 
-struct parameter_declaration {
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct declaration_specifiers * declaration_specifiers;
+struct member_declarator {
     struct declarator * declarator;
-    struct parameter_declaration * next;
+    struct expression * constant_expression;
+    struct member_declarator * next;
 };
 
-struct parser_ctx {
-    struct options  options;
-    struct scope_list  scopes;
-    struct scope * p_scope;
-    struct declarator * p_current_function_opt;
-    struct label_list  label_list;
-    struct try_statement * p_current_try_statement_opt;
-    struct defer_statement * p_current_defer_statement_opt;
-    struct selection_statement * p_current_selection_statement;
-    struct _iobuf * sarif_file;
-    unsigned int sarif_entries;
-    struct token_list  input_list;
-    struct token * current;
-    struct token * previous;
-    unsigned char   evaluation_is_disabled;
-    unsigned char   inside_generic_association;
-    int label_id;
-    struct report * p_report;
+struct scope {
+    int scope_level;
+    struct hash_map  tags;
+    struct hash_map  variables;
+    struct scope * next;
+    struct scope * previous;
 };
 
-struct balanced_token_sequence {
-    struct balanced_token * head;
-    struct balanced_token * tail;
-};
-
-struct array_declarator {
+struct function_declarator {
     struct direct_declarator * direct_declarator;
-    struct expression * assignment_expression;
-    struct expression * expression;
-    struct type_qualifier_list * type_qualifier_list_opt;
+    struct scope  parameters_scope;
+    struct parameter_type_list * parameter_type_list_opt;
+};
+
+struct type_qualifier {
+    int flags;
     struct token * token;
-    struct token * static_token_opt;
+    struct type_qualifier * next;
 };
 
 struct argument_expression {
@@ -721,60 +439,56 @@ struct argument_expression {
     unsigned char   set_unkown;
 };
 
-struct atomic_type_specifier {
-    struct token * token;
+struct init_statement {
+    struct expression_statement * p_expression_statement;
+    struct simple_declaration * p_simple_declaration;
+};
+
+struct hash_item_set {
+    unsigned int number;
+    struct enum_specifier * p_enum_specifier;
+    struct enumerator * p_enumerator;
+    struct struct_or_union_specifier * p_struct_or_union_specifier;
+    struct declarator * p_declarator;
+    struct init_declarator * p_init_declarator;
+    struct macro * p_macro;
+    struct struct_entry * p_struct_entry;
+};
+
+struct designator_list {
+    struct designator * head;
+    struct designator * tail;
+};
+
+struct defer_visit_ctx {
+    struct secondary_block * catch_secondary_block_opt;
+    struct parser_ctx * ctx;
+    struct ast  ast;
+    struct defer_defer_scope * tail_block;
+    int parameter_list;
+};
+
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
+};
+
+struct typeof_specifier_argument {
+    struct expression * expression;
     struct type_name * type_name;
 };
 
-struct declaration_specifier {
-    struct storage_class_specifier * storage_class_specifier;
-    struct type_specifier_qualifier * type_specifier_qualifier;
-    struct function_specifier * function_specifier;
-    struct declaration_specifier * next;
-};
-
-struct alignment_specifier {
-    struct type_name * type_name;
-    struct expression * constant_expression;
-    struct token * token;
-};
-
-struct label_state {
-    char * label_name;
-    int state_number;
-};
-
-struct map_entry {
-    struct map_entry * next;
-    unsigned int hash;
-    char * key;
-    int   type;
-    union _struct_tag_5  data;
-};
-
-struct designator {
-    struct expression * constant_expression_opt;
-    struct token * token;
-    struct designator * next;
-};
-
-struct report {
-    int no_files;
-    double cpu_time_used_sec;
-    int error_count;
-    int warnings_count;
-    int info_count;
-    unsigned char   test_mode;
-    int test_failed;
-    int test_succeeded;
-    int  last_diagnostics_ids[2];
-    int   fatal_error_expected;
-    unsigned char   ignore_this_report;
-};
-
-struct ast {
-    struct token_list  token_list;
-    struct declaration_list  declaration_list;
+struct token {
+    int type;
+    char * lexeme;
+    char * original;
+    int line;
+    int col;
+    int level;
+    int flags;
+    struct token * token_origin;
+    struct token * next;
+    struct token * prev;
 };
 
 struct flow_objects {
@@ -802,101 +516,142 @@ struct flow_visit_ctx {
     int labels_size;
 };
 
-struct initializer {
-    struct token * first_token;
-    struct braced_initializer * braced_initializer;
-    struct expression * assignment_expression;
-};
-
-struct static_assert_declaration {
+struct pragma_declaration {
     struct token * first_token;
     struct token * last_token;
-    struct expression * constant_expression;
-    struct token * string_literal_opt;
+};
+
+struct argument_expression_list {
+    struct argument_expression * head;
+    struct argument_expression * tail;
+};
+
+struct expression {
+    int expression_type;
+    struct type  type;
+    struct object  object;
+    struct type_name * type_name;
+    struct braced_initializer * braced_initializer;
+    struct compound_statement * compound_statement;
+    struct generic_selection * generic_selection;
+    struct token * first_token;
+    struct token * last_token;
+    struct declarator * declarator;
+    struct init_declarator * p_init_declarator;
+    int member_index;
+    struct argument_expression_list  argument_expression_list;
+    struct expression * condition_expr;
+    struct expression * left;
+    struct expression * right;
+    unsigned char   is_assignment_expression;
+};
+
+struct balanced_token_sequence {
+    struct balanced_token * head;
+    struct balanced_token * tail;
+};
+
+struct parser_ctx {
+    struct options  options;
+    struct scope_list  scopes;
+    struct scope * p_scope;
+    struct declarator * p_current_function_opt;
+    struct label_list  label_list;
+    struct try_statement * p_current_try_statement_opt;
+    struct defer_statement * p_current_defer_statement_opt;
+    struct selection_statement * p_current_selection_statement;
+    struct _iobuf * sarif_file;
+    unsigned int sarif_entries;
+    struct token_list  input_list;
+    struct token * current;
+    struct token * previous;
+    unsigned char   evaluation_is_disabled;
+    unsigned char   inside_generic_association;
+    int label_id;
+    struct report * p_report;
+};
+
+struct array_declarator {
+    struct direct_declarator * direct_declarator;
+    struct expression * assignment_expression;
+    struct expression * expression;
+    struct type_qualifier_list * type_qualifier_list_opt;
+    struct token * token;
+    struct token * static_token_opt;
+};
+
+struct defer_list_item {
+    struct declarator * declarator;
+    struct defer_statement * defer_statement;
+    struct defer_list_item * next;
+};
+
+struct jump_statement {
+    struct token * label;
+    struct token * first_token;
+    struct token * last_token;
+    struct expression * expression_opt;
+    int label_id;
+    struct defer_list  defer_list;
+};
+
+struct expression_statement {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
+    struct expression * expression_opt;
 };
 
 struct attribute_specifier_sequence {
     struct token * first_token;
     struct token * last_token;
-    int   attributes_flags;
+    int attributes_flags;
     struct attribute_specifier * head;
     struct attribute_specifier * tail;
 };
 
-struct designation {
-    struct designator_list * designator_list;
+struct function_specifier {
+    int flags;
     struct token * token;
 };
 
-struct include_dir {
-    char * path;
-    struct include_dir * next;
-};
-
-struct simple_declaration {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
-    struct declaration_specifiers * p_declaration_specifiers;
-    struct init_declarator_list  init_declarator_list;
+struct type_name {
     struct token * first_token;
     struct token * last_token;
-};
-
-struct defer_visit_ctx {
-    struct secondary_block * catch_secondary_block_opt;
-    struct parser_ctx * ctx;
-    struct ast  ast;
-    struct defer_defer_scope * tail_block;
-    int parameter_list;
-};
-
-struct specifier_qualifier_list {
-    int   type_specifier_flags;
-    int   type_qualifier_flags;
-    struct struct_or_union_specifier * struct_or_union_specifier;
-    struct enum_specifier * enum_specifier;
-    struct typeof_specifier * typeof_specifier;
-    struct declarator * typedef_declarator;
-    struct type_specifier_qualifier * head;
-    struct type_specifier_qualifier * tail;
-    struct token * first_token;
-    struct token * last_token;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-};
-
-struct try_statement {
-    struct secondary_block * secondary_block;
-    struct secondary_block * catch_secondary_block_opt;
-    struct token * first_token;
-    struct token * last_token;
-    struct token * catch_token_opt;
-    int catch_label_id;
-};
-
-struct typeof_specifier {
-    struct token * first_token;
-    struct token * last_token;
-    struct typeof_specifier_argument * typeof_specifier_argument;
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct declarator * abstract_declarator;
     struct type  type;
 };
 
-struct braced_initializer {
-    struct token * first_token;
-    struct token * last_token;
-    struct initializer_list * initializer_list;
+struct type_qualifier_list {
+    int flags;
+    struct type_qualifier * head;
+    struct type_qualifier * tail;
 };
 
-struct typeof_specifier_argument {
+struct generic_association {
+    struct type  type;
+    struct type_name * p_type_name;
     struct expression * expression;
-    struct type_name * type_name;
-};
-
-struct condition {
-    struct expression * expression;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
-    struct declaration_specifiers * p_declaration_specifiers;
-    struct init_declarator * p_init_declarator;
     struct token * first_token;
     struct token * last_token;
+    struct generic_association * next;
+};
+
+struct parameter_declaration {
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct declaration_specifiers * declaration_specifiers;
+    struct declarator * declarator;
+    struct parameter_declaration * next;
+};
+
+struct osstream {
+    char * c_str;
+    int size;
+    int capacity;
+};
+
+struct break_reference {
+    struct selection_statement * p_selection_statement;
+    struct iteration_statement * p_iteration_statement;
 };
 
 struct d_visit_ctx {
@@ -922,6 +677,267 @@ struct d_visit_ctx {
     struct ast  ast;
 };
 
+struct init_declarator_list {
+    struct init_declarator * head;
+    struct init_declarator * tail;
+};
+
+struct declaration {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
+    struct static_assert_declaration * static_assert_declaration;
+    struct pragma_declaration * pragma_declaration;
+    struct declaration_specifiers * declaration_specifiers;
+    struct init_declarator_list  init_declarator_list;
+    struct compound_statement * function_body;
+    struct defer_list  defer_list;
+    struct declarator * contract_declarator;
+    struct token * first_token;
+    struct token * last_token;
+    struct declaration * next;
+};
+
+struct parameter_list {
+    struct parameter_declaration * head;
+    struct parameter_declaration * tail;
+};
+
+struct primary_block {
+    struct compound_statement * compound_statement;
+    struct selection_statement * selection_statement;
+    struct iteration_statement * iteration_statement;
+    struct defer_statement * defer_statement;
+    struct try_statement * try_statement;
+};
+
+struct secondary_block {
+    struct token * first_token;
+    struct token * last_token;
+    struct statement * statement;
+};
+
+struct param {
+    struct type  type;
+    struct param * next;
+};
+
+struct typeof_specifier {
+    struct token * first_token;
+    struct token * last_token;
+    struct typeof_specifier_argument * typeof_specifier_argument;
+    struct type  type;
+};
+
+struct labeled_statement {
+    struct label * label;
+    struct statement * statement;
+};
+
+struct try_statement {
+    struct secondary_block * secondary_block;
+    struct secondary_block * catch_secondary_block_opt;
+    struct token * first_token;
+    struct token * last_token;
+    struct token * catch_token_opt;
+    int catch_label_id;
+};
+
+struct map_entry {
+    struct map_entry * next;
+    unsigned int hash;
+    char * key;
+    int type;
+    union _struct_tag_5  data;
+};
+
+struct attribute_specifier {
+    struct token * first_token;
+    struct token * last_token;
+    struct attribute_list * attribute_list;
+    struct attribute_specifier * next;
+};
+
+struct attribute_token {
+    int attributes_flags;
+    struct token * token;
+};
+
+struct designator {
+    struct expression * constant_expression_opt;
+    struct token * token;
+    struct designator * next;
+};
+
+struct member_declarator_list {
+    struct member_declarator * head;
+    struct member_declarator * tail;
+};
+
+struct type_specifier_qualifier {
+    struct type_specifier * type_specifier;
+    struct type_qualifier * type_qualifier;
+    struct alignment_specifier * alignment_specifier;
+    struct type_specifier_qualifier * next;
+};
+
+struct atomic_type_specifier {
+    struct token * token;
+    struct type_name * type_name;
+};
+
+struct struct_or_union_specifier {
+    unsigned char   has_shared_ownership;
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct member_declaration_list  member_declaration_list;
+    struct token * first_token;
+    struct token * last_token;
+    unsigned char   is_owner;
+    struct token * tagtoken;
+    char tag_name[200];
+    unsigned char   has_anonymous_tag;
+    unsigned char   show_anonymous_tag;
+    int scope_level;
+    int visit_moved;
+    struct struct_or_union_specifier * complete_struct_or_union_specifier_indirection;
+};
+
+struct declaration_specifier {
+    struct storage_class_specifier * storage_class_specifier;
+    struct type_specifier_qualifier * type_specifier_qualifier;
+    struct function_specifier * function_specifier;
+    struct declaration_specifier * next;
+};
+
+struct parameter_type_list {
+    unsigned char   is_var_args;
+    unsigned char   is_void;
+    struct parameter_list * parameter_list;
+};
+
+struct report {
+    int no_files;
+    double cpu_time_used_sec;
+    int error_count;
+    int warnings_count;
+    int info_count;
+    unsigned char   test_mode;
+    int test_failed;
+    int test_succeeded;
+    int last_diagnostics_ids[2];
+    int fatal_error_expected;
+    unsigned char   ignore_this_report;
+};
+
+struct declaration_specifiers {
+    int attributes_flags;
+    int type_specifier_flags;
+    int type_qualifier_flags;
+    int storage_class_specifier_flags;
+    int function_specifier_flags;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
+    struct struct_or_union_specifier * struct_or_union_specifier;
+    struct enum_specifier * enum_specifier;
+    struct declarator * typedef_declarator;
+    struct typeof_specifier * typeof_specifier;
+    struct token * first_token;
+    struct token * last_token;
+    struct declaration_specifier * head;
+    struct declaration_specifier * tail;
+};
+
+struct attribute_list {
+    int attributes_flags;
+    struct attribute * head;
+    struct attribute * tail;
+};
+
+struct simple_declaration {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
+    struct declaration_specifiers * p_declaration_specifiers;
+    struct init_declarator_list  init_declarator_list;
+    struct token * first_token;
+    struct token * last_token;
+};
+
+struct specifier_qualifier_list {
+    int type_specifier_flags;
+    int type_qualifier_flags;
+    struct struct_or_union_specifier * struct_or_union_specifier;
+    struct enum_specifier * enum_specifier;
+    struct typeof_specifier * typeof_specifier;
+    struct declarator * typedef_declarator;
+    struct type_specifier_qualifier * head;
+    struct type_specifier_qualifier * tail;
+    struct token * first_token;
+    struct token * last_token;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+};
+
+struct static_assert_declaration {
+    struct token * first_token;
+    struct token * last_token;
+    struct expression * constant_expression;
+    struct token * string_literal_opt;
+};
+
+struct label_list_item {
+    struct token * p_last_usage;
+    struct token * p_defined;
+    struct label_list_item * next;
+};
+
+struct direct_declarator {
+    struct token * name_opt;
+    struct token * p_calling_convention;
+    struct declarator * declarator;
+    struct array_declarator * array_declarator;
+    struct function_declarator * function_declarator;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt;
+};
+
+struct designation {
+    struct designator_list * designator_list;
+    struct token * token;
+};
+
+struct unlabeled_statement {
+    struct expression_statement * expression_statement;
+    struct primary_block * primary_block;
+    struct jump_statement * jump_statement;
+};
+
+struct initializer {
+    struct token * first_token;
+    struct braced_initializer * braced_initializer;
+    struct expression * assignment_expression;
+};
+
+struct attribute_argument_clause {
+    struct balanced_token_sequence * p_balanced_token_sequence;
+    struct token * token;
+};
+
+struct attribute {
+    int attributes_flags;
+    struct attribute_token * attribute_token;
+    struct attribute_argument_clause * attribute_argument_clause;
+    struct attribute * next;
+};
+
+struct enumerator {
+    unsigned char   has_shared_ownership;
+    struct token * token;
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct expression * constant_expression_opt;
+    struct enum_specifier * enum_specifier;
+    struct enumerator * next;
+    struct object  value;
+};
+
+struct balanced_token {
+    struct token * token;
+    struct balanced_token * next;
+};
+
 struct iteration_statement {
     struct token * first_token;
     struct token * second_token;
@@ -933,28 +949,11 @@ struct iteration_statement {
     struct defer_list  defer_list;
 };
 
-struct attribute_specifier {
-    struct token * first_token;
-    struct token * last_token;
-    struct attribute_list * attribute_list;
-    struct attribute_specifier * next;
-};
-
-struct attribute_token {
-    int   attributes_flags;
-    struct token * token;
-};
-
-struct init_declarator {
-    unsigned char   has_shared_ownership;
-    struct declarator * p_declarator;
-    struct initializer * initializer;
-    struct init_declarator * next;
-};
-
-struct parameter_list {
-    struct parameter_declaration * head;
-    struct parameter_declaration * tail;
+struct pointer {
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct type_qualifier_list * type_qualifier_list_opt;
+    struct token * calling_convention;
+    struct pointer * pointer;
 };
 
 
@@ -978,7 +977,7 @@ void defer_statement_delete(struct defer_statement * p)
 }
 
 static int s_anonymous_struct_count = 0;
-static unsigned char  parser_is_diagnostic_enabled(struct parser_ctx * ctx, int   w)
+static unsigned char  parser_is_diagnostic_enabled(struct parser_ctx * ctx, int w)
 {
     if (w > 63)
     {
@@ -987,7 +986,7 @@ static unsigned char  parser_is_diagnostic_enabled(struct parser_ctx * ctx, int 
     return !!(((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & w) != 0) || ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & w) != 0) || ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & w) != 0));
 }
 
-unsigned char  compiler_diagnostic(int   w, struct parser_ctx * ctx, struct token * p_token, struct marker * p_marker, char * fmt, ...);
+unsigned char  compiler_diagnostic(int w, struct parser_ctx * ctx, struct token * p_token, struct marker * p_marker, char * fmt, ...);
 
 static void check_open_brace_style(struct parser_ctx * ctx, struct token * token)
 {
@@ -1170,11 +1169,11 @@ static void stringfy(char * input, char * json_str_message, int output_size)
     }
 }
 
-unsigned char  is_diagnostic_configurable(int   id);
-unsigned char  is_diagnostic_note(int   id);
-unsigned char  is_diagnostic_error(int   id);
-unsigned char  is_diagnostic_warning(int   id);
-int get_warning_name(int   w, int n, char buffer[]);
+unsigned char  is_diagnostic_configurable(int id);
+unsigned char  is_diagnostic_note(int id);
+unsigned char  is_diagnostic_error(int id);
+unsigned char  is_diagnostic_warning(int id);
+int get_warning_name(int w, int n, char buffer[]);
 void print_position(char * path, int line, int col, unsigned char   msvc_format);
 
 int __cdecl __stdio_common_vsprintf(unsigned __int64 _Options, char * _Buffer, unsigned int _BufferCount, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
@@ -1222,7 +1221,7 @@ inline int __cdecl fprintf(struct _iobuf * _Stream, char * _Format, ...)
     return !!(_Result);
 }
 
-unsigned char  compiler_diagnostic(int   w, struct parser_ctx * ctx, struct token * p_token_opt, struct marker * p_marker_temp, char * fmt, ...)
+unsigned char  compiler_diagnostic(int w, struct parser_ctx * ctx, struct token * p_token_opt, struct marker * p_marker_temp, char * fmt, ...)
 {
     unsigned char   included_file_location;
     struct marker  marker;
@@ -1954,7 +1953,7 @@ struct token *previous_parser_token(struct token * token)
 
 int __cdecl strcmp(char * _Str1, char * _Str2);
 
-int  is_keyword(char * text)
+int is_keyword(char * text)
 {
     /*switch*/
     {
@@ -2431,7 +2430,7 @@ int  is_keyword(char * text)
     return 0;
 }
 
-int  parse_number(char * lexeme, char suffix[4], char erromsg[100]);
+int parse_number(char * lexeme, char suffix[4], char erromsg[100]);
 
 static void token_promote(struct parser_ctx * ctx, struct token * token)
 {
@@ -2441,7 +2440,7 @@ static void token_promote(struct parser_ctx * ctx, struct token * token)
     }
     if (token->type == 8996)
     {
-        int   t;
+        int t;
 
         t = is_keyword(token->lexeme);
         if (t != 0)
@@ -2509,8 +2508,8 @@ static void pragma_skip_blanks(struct parser_ctx * ctx)
 
 void unexpected_end_of_file(struct parser_ctx * ctx);
 unsigned long long get_warning_bit_mask(char * wname);
-int  get_warning(char * wname);
-int get_diagnostic_type(struct diagnostic * d, int   w);
+int get_warning(char * wname);
+int get_diagnostic_type(struct diagnostic * d, int w);
 
 static void parse_pragma(struct parser_ctx * ctx, struct token * token)
 {
@@ -2628,7 +2627,7 @@ static void parse_pragma(struct parser_ctx * ctx, struct token * token)
                                 pragma_skip_blanks(ctx);
                                 if (ctx->current && ctx->current->type == 130)
                                 {
-                                    int   id;
+                                    int id;
                                     unsigned char   found;
 
                                     id = get_warning(ctx->current->lexeme + 1 + 2);
@@ -2726,9 +2725,9 @@ void unexpected_end_of_file(struct parser_ctx * ctx)
     compiler_diagnostic(970, ctx, ctx->input_list.tail, 0U, "unexpected end of file");
 }
 
-char *get_token_name(int   tk);
+char *get_token_name(int tk);
 
-int parser_match_tk(struct parser_ctx * ctx, int   type)
+int parser_match_tk(struct parser_ctx * ctx, int type)
 {
     int error;
 
@@ -2752,10 +2751,10 @@ int parser_match_tk(struct parser_ctx * ctx, int   type)
     return error;
 }
 
-void print_type_qualifier_flags(struct osstream * ss, unsigned char  * first, int   e_type_qualifier_flags);
+void print_type_qualifier_flags(struct osstream * ss, unsigned char  * first, int e_type_qualifier_flags);
 int ss_fprintf(struct osstream * stream, char * fmt, ...);
 void print_item(struct osstream * ss, unsigned char  * first, char * item);
-unsigned char  print_type_specifier_flags(struct osstream * ss, unsigned char  * first, int   e_type_specifier_flags);
+unsigned char  print_type_specifier_flags(struct osstream * ss, unsigned char  * first, int e_type_specifier_flags);
 
 void print_declaration_specifiers(struct osstream * ss, struct declaration_specifiers * p_declaration_specifiers)
 {
@@ -2797,7 +2796,7 @@ void print_declaration_specifiers(struct osstream * ss, struct declaration_speci
     }
 }
 
-unsigned char  type_specifier_is_integer(int   flags)
+unsigned char  type_specifier_is_integer(int flags)
 {
     if ((flags & 2) || (flags & 4) || (flags & 8) || (flags & 16) || (flags & 8) || (flags & 262144) || (flags & 524288) || (flags & 1048576) || (flags & 2097152) || (flags & 4194304))
     {
@@ -2806,7 +2805,7 @@ unsigned char  type_specifier_is_integer(int   flags)
     return 0;
 }
 
-int final_specifier(struct parser_ctx * ctx, int  * flags)
+int final_specifier(struct parser_ctx * ctx, int * flags)
 {
     if (((*flags) & 256) || ((*flags) & 128))
     {
@@ -2818,7 +2817,7 @@ int final_specifier(struct parser_ctx * ctx, int  * flags)
     return 0;
 }
 
-int add_specifier(struct parser_ctx * ctx, int  * flags, int   new_flag)
+int add_specifier(struct parser_ctx * ctx, int * flags, int new_flag)
 {
     if (new_flag & 16)
     {
@@ -3011,7 +3010,7 @@ void *calloc(unsigned int nmemb, unsigned int size);
 struct declaration_specifier *declaration_specifier(struct parser_ctx * ctx);
 struct attribute_specifier_sequence *attribute_specifier_sequence_opt(struct parser_ctx * ctx);
 
-struct declaration_specifiers *declaration_specifiers(struct parser_ctx * ctx, int   default_storage_flag)
+struct declaration_specifiers *declaration_specifiers(struct parser_ctx * ctx, int default_storage_flag)
 {
     struct declaration_specifiers * p_declaration_specifiers;
 
@@ -3144,7 +3143,7 @@ struct pragma_declaration *pragma_declaration(struct parser_ctx * ctx);
 struct init_declarator_list init_declarator_list(struct parser_ctx * ctx, struct declaration_specifiers * p_declaration_specifiers);
 void declaration_delete(struct declaration * p);
 
-struct declaration *declaration_core(struct parser_ctx * ctx, struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt, unsigned char   can_be_function_definition, unsigned char  * is_function_definition, int   default_storage_class_specifier_flags, unsigned char   without_semicolon)
+struct declaration *declaration_core(struct parser_ctx * ctx, struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt, unsigned char   can_be_function_definition, unsigned char  * is_function_definition, int default_storage_class_specifier_flags, unsigned char   without_semicolon)
 {
     struct declaration * p_declaration;
 
@@ -3338,7 +3337,7 @@ struct declaration *function_definition_or_declaration(struct parser_ctx * ctx)
             {
                 for (; ; )
                 {
-                    int   type;
+                    int type;
 
                     if (ctx->current == 0U)
                     {
@@ -3454,7 +3453,7 @@ void simple_declaration_delete(struct simple_declaration * p);
 
 struct simple_declaration *simple_declaration(struct parser_ctx * ctx, struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt, unsigned char   ignore_semicolon)
 {
-    int   storage_specifier_flags;
+    int storage_specifier_flags;
     struct simple_declaration * p_simple_declaration;
 
     if (ctx->current == 0U)
@@ -3513,7 +3512,7 @@ struct simple_declaration *simple_declaration(struct parser_ctx * ctx, struct at
     return p_simple_declaration;
 }
 
-struct declaration *declaration(struct parser_ctx * ctx, struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt, int   storage_specifier_flags)
+struct declaration *declaration(struct parser_ctx * ctx, struct attribute_specifier_sequence * p_attribute_specifier_sequence_opt, int storage_specifier_flags)
 {
     unsigned char   is_function_definition;
 
@@ -3626,7 +3625,7 @@ void init_declarator_delete(struct init_declarator * p)
 
 struct declarator *declarator(struct parser_ctx * ctx, struct specifier_qualifier_list * specifier_qualifier_list, struct declaration_specifiers * declaration_specifiers, unsigned char   abstract_acceptable, struct token ** pptokenname);
 struct type make_type_using_declarator(struct parser_ctx * ctx, struct declarator * pdeclarator);
-void naming_convention_global_var(struct parser_ctx * ctx, struct token * token, struct type * type, int   storage);
+void naming_convention_global_var(struct parser_ctx * ctx, struct token * token, struct type * type, int storage);
 unsigned char  type_is_same(struct type * a, struct type * b, unsigned char   compare_qualifiers);
 void print_type_no_names(struct osstream * ss, struct type * p_type);
 void ss_clear(struct osstream * stream);
@@ -3646,12 +3645,12 @@ void type_remove_names(struct type * p_type);
 char *strdup(char * src);
 void type_set_qualifiers_using_declarator(struct type * p_type, struct declarator * pdeclarator);
 void type_visit_to_mark_anonymous(struct type * p_type);
-void check_assigment(struct parser_ctx * ctx, struct type * left_type, struct expression * right, int   assigment_type);
+void check_assigment(struct parser_ctx * ctx, struct type * left_type, struct expression * right, int assigment_type);
 int make_object_with_name(struct type * p_type, struct object * obj, char * name);
 unsigned char  type_is_pointer(struct type * p_type);
 unsigned char  type_is_function(struct type * p_type);
 unsigned char  type_is_vla(struct type * p_type);
-unsigned int type_get_sizeof(struct type * p_type);
+int type_get_sizeof(struct type * p_type, unsigned int * size);
 
 struct init_declarator *init_declarator(struct parser_ctx * ctx, struct declaration_specifiers * p_declaration_specifiers)
 {
@@ -3805,13 +3804,13 @@ struct init_declarator *init_declarator(struct parser_ctx * ctx, struct declarat
             {
                 if (p_init_declarator->initializer->assignment_expression)
                 {
-                    char * name;
+                    char * name2;
                     int er;
                     unsigned char   is_constant;
 
                     if (type_is_array(&p_init_declarator->p_declarator->type))
                     {
-                        int array_size_elements;
+                        unsigned long long array_size_elements;
 
                         array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
                         if (array_size_elements == 0)
@@ -3865,8 +3864,8 @@ struct init_declarator *init_declarator(struct parser_ctx * ctx, struct declarat
                         type_destroy(&t);
                     }
                     check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, 3);
-                    name = p_init_declarator->p_declarator->name_opt ? p_init_declarator->p_declarator->name_opt->lexeme : "";
-                    er = make_object_with_name(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, name);
+                    name2 = p_init_declarator->p_declarator->name_opt ? p_init_declarator->p_declarator->name_opt->lexeme : "";
+                    er = make_object_with_name(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, name2);
                     if (er != 0)
                     {
                         /*throw*/ goto _CKL0;
@@ -3883,11 +3882,11 @@ struct init_declarator *init_declarator(struct parser_ctx * ctx, struct declarat
         {
             if (p_init_declarator->p_declarator->type.category != 1 && !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & 1))
             {
-                char * name;
+                char * name2;
                 int er;
 
-                name = p_init_declarator->p_declarator->name_opt ? p_init_declarator->p_declarator->name_opt->lexeme : "";
-                er = make_object_with_name(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, name);
+                name2 = p_init_declarator->p_declarator->name_opt ? p_init_declarator->p_declarator->name_opt->lexeme : "";
+                er = make_object_with_name(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, name2);
                 if (er != 0)
                 {
                     if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & 2)
@@ -3952,26 +3951,43 @@ struct init_declarator *init_declarator(struct parser_ctx * ctx, struct declarat
             }
             else
             {
-                int sz;
-
-                sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
-                if (sz == -3)
+                if (type_is_function(&p_init_declarator->p_declarator->type))
                 {
+                    compiler_diagnostic(1270, ctx, p_init_declarator->p_declarator->name_opt, 0U, "invalid application of 'sizeof' to a function type");
                 }
                 else
                 {
-                    if (sz < 0)
+                    unsigned int sz;
+                    int size_result;
+
+                    sz = 0;
+                    size_result = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz);
+                    if (size_result == 0)
                     {
-                        if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & 2)
-                        {
-                        }
-                        else
-                        {
-                            compiler_diagnostic(1270, ctx, p_init_declarator->p_declarator->name_opt, 0U, "storage size of '%s' isn't known", p_init_declarator->p_declarator->name_opt->lexeme);
-                        }
                     }
                     else
                     {
+                        if (size_result == 3)
+                        {
+                            if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & 2)
+                            {
+                            }
+                            else
+                            {
+                                compiler_diagnostic(1270, ctx, p_init_declarator->p_declarator->name_opt, 0U, "storage size of '%s' isn't known", p_init_declarator->p_declarator->name_opt->lexeme);
+                            }
+                        }
+                        else
+                        {
+                            if (size_result == 1)
+                            {
+                                compiler_diagnostic(1270, ctx, p_init_declarator->p_declarator->name_opt, 0U, "sizeof '%s' is too large", p_init_declarator->p_declarator->name_opt->lexeme);
+                            }
+                            else
+                            {
+                                compiler_diagnostic(1270, ctx, p_init_declarator->p_declarator->name_opt, 0U, "storage size of '%s' isn't known", p_init_declarator->p_declarator->name_opt->lexeme);
+                            }
+                        }
                     }
                 }
             }
@@ -4078,7 +4094,7 @@ struct storage_class_specifier *storage_class_specifier(struct parser_ctx * ctx)
         p_storage_class_specifier->token = ctx->current;
         /*switch*/
         {
-            register int   _R2 = ctx->current->type;
+            register int _R2 = ctx->current->type;
             if (_R2 == 9035) goto _CKL4; /*case 9035*/
             if (_R2 == 9013) goto _CKL5; /*case 9013*/
             if (_R2 == 9002) goto _CKL6; /*case 9002*/
@@ -4334,7 +4350,7 @@ struct type_specifier *type_specifier(struct parser_ctx * ctx)
         }
         /*switch*/
         {
-            register int   _R3 = ctx->current->type;
+            register int _R3 = ctx->current->type;
             if (_R3 == 9040) goto _CKL4; /*case 9040*/
             if (_R3 == 9003) goto _CKL5; /*case 9003*/
             if (_R3 == 9028) goto _CKL6; /*case 9028*/
@@ -4546,6 +4562,26 @@ struct type_specifier *type_specifier(struct parser_ctx * ctx)
     return p_type_specifier;
 }
 
+int get_enum_type_specifier_flags(struct enum_specifier * p_enum_specifier)
+{
+    if (p_enum_specifier->specifier_qualifier_list)
+    {
+        return p_enum_specifier->specifier_qualifier_list->type_specifier_flags;
+    }
+    if (p_enum_specifier->p_complete_enum_specifier && p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
+    {
+        return p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
+    }
+    else
+    {
+        if (p_enum_specifier->p_complete_enum_specifier && p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier && p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
+        {
+            return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
+        }
+    }
+    return 8;
+}
+
 struct enum_specifier *get_complete_enum_specifier(struct enum_specifier * p_enum_specifier)
 {
     if (p_enum_specifier->enumerator_list.head)
@@ -4554,15 +4590,15 @@ struct enum_specifier *get_complete_enum_specifier(struct enum_specifier * p_enu
     }
     else
     {
-        if (p_enum_specifier->complete_enum_specifier2 && p_enum_specifier->complete_enum_specifier2->enumerator_list.head)
+        if (p_enum_specifier->p_complete_enum_specifier && p_enum_specifier->p_complete_enum_specifier->enumerator_list.head)
         {
-            return p_enum_specifier->complete_enum_specifier2;
+            return p_enum_specifier->p_complete_enum_specifier;
         }
         else
         {
-            if (p_enum_specifier->complete_enum_specifier2 && p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2 && p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2->enumerator_list.head)
+            if (p_enum_specifier->p_complete_enum_specifier && p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier && p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier->enumerator_list.head)
             {
-                return p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2;
+                return p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier;
             }
         }
     }
@@ -5627,9 +5663,8 @@ unsigned char  enum_specifier_has_fixed_underlying_type(struct enum_specifier * 
     return !!(p_enum_specifier->specifier_qualifier_list != 0U);
 }
 
-struct type make_with_type_specifier_flags(int   f);
+struct type make_with_type_specifier_flags(int f);
 unsigned char  type_is_integer(struct type * p_type);
-struct type type_make_int();
 void naming_convention_enum_tag(struct parser_ctx * ctx, struct token * token);
 struct enumerator_list enumerator_list(struct parser_ctx * ctx, struct enum_specifier * p_enum_specifier);
 
@@ -5645,7 +5680,7 @@ struct enum_specifier *enum_specifier(struct parser_ctx * ctx)
             unexpected_end_of_file(ctx);
             /*throw*/ goto _CKL0;
         }
-        p_enum_specifier = calloc(1, 292U);
+        p_enum_specifier = calloc(1, 232U);
         if (p_enum_specifier == 0U)
         {
             /*throw*/ goto _CKL0;
@@ -5681,26 +5716,26 @@ struct enum_specifier *enum_specifier(struct parser_ctx * ctx)
         {
             if (!ctx->inside_generic_association)
             {
+                struct type  enum_underline_type;
+
                 parser_match(ctx);
                 p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
                 if (p_enum_specifier->specifier_qualifier_list == 0U)
                 {
                     /*throw*/ goto _CKL0;
                 }
-                p_enum_specifier->type = make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
-                if (!type_is_integer(&p_enum_specifier->type))
+                enum_underline_type = make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+                if (!type_is_integer(&enum_underline_type))
                 {
+                    type_destroy(&enum_underline_type);
                     compiler_diagnostic(1850, ctx, p_enum_specifier->specifier_qualifier_list->first_token, 0U, "expected an integer type");
                     /*throw*/ goto _CKL0;
                 }
+                type_destroy(&enum_underline_type);
             }
             else
             {
             }
-        }
-        else
-        {
-            p_enum_specifier->type = type_make_int();
         }
         if (ctx->current == 0U)
         {
@@ -5715,7 +5750,7 @@ struct enum_specifier *enum_specifier(struct parser_ctx * ctx)
             {
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
             }
-            p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+            p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
             if (parser_match_tk(ctx, 123) != 0)
             {
                 /*throw*/ goto _CKL0;
@@ -5741,7 +5776,7 @@ struct enum_specifier *enum_specifier(struct parser_ctx * ctx)
             _cake_zmem(&item, 32);
             item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
             hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
-            p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+            p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
             hash_item_set_destroy(&item);
         }
         else
@@ -5751,7 +5786,7 @@ struct enum_specifier *enum_specifier(struct parser_ctx * ctx)
             p_existing_enum_specifier = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
             if (p_existing_enum_specifier)
             {
-                p_enum_specifier->complete_enum_specifier2 = p_existing_enum_specifier;
+                p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
             }
             else
             {
@@ -5760,7 +5795,7 @@ struct enum_specifier *enum_specifier(struct parser_ctx * ctx)
                 _cake_zmem(&item, 32);
                 item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
                 hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
-                p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+                p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 hash_item_set_destroy(&item);
             }
         }
@@ -5807,8 +5842,8 @@ void enumerator_list_destroy(struct enumerator_list * p)
 }
 
 struct object object_make_signed_int(signed int value);
-int  type_specifier_to_object_type(int   type_specifier_flags);
-struct object object_cast(int   e, struct object * a);
+int type_specifier_to_object_type(int type_specifier_flags);
+struct object object_cast(int e, struct object * a);
 struct enumerator *enumerator(struct parser_ctx * ctx, struct enum_specifier * p_enum_specifier, struct object * p_enumerator_value);
 
 struct enumerator_list enumerator_list(struct parser_ctx * ctx, struct enum_specifier * p_enum_specifier)
@@ -5820,7 +5855,7 @@ struct enumerator_list enumerator_list(struct parser_ctx * ctx, struct enum_spec
     next_enumerator_value = object_make_signed_int(0);
     if (p_enum_specifier->specifier_qualifier_list)
     {
-        int   vt;
+        int vt;
 
         vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
         next_enumerator_value = object_cast(vt, &next_enumerator_value);
@@ -6098,7 +6133,7 @@ struct type_qualifier *type_qualifier(struct parser_ctx * ctx)
     }
     /*switch*/
     {
-        register int   _R5 = ctx->current->type;
+        register int _R5 = ctx->current->type;
         if (_R5 == 9004) goto _CKL3; /*case 9004*/
         if (_R5 == 9026) goto _CKL4; /*case 9026*/
         if (_R5 == 9041) goto _CKL5; /*case 9041*/
@@ -6132,7 +6167,7 @@ struct type_qualifier *type_qualifier(struct parser_ctx * ctx)
     {
         /*switch*/
         {
-            register int   _R6 = ctx->current->type;
+            register int _R6 = ctx->current->type;
             if (_R6 == 9068) goto _CKL10; /*case 9068*/
             if (_R6 == 9069) goto _CKL11; /*case 9069*/
             if (_R6 == 9067) goto _CKL12; /*case 9067*/
@@ -6167,7 +6202,7 @@ struct type_qualifier *type_qualifier(struct parser_ctx * ctx)
     {
         /*switch*/
         {
-            register int   _R7 = ctx->current->type;
+            register int _R7 = ctx->current->type;
             if (_R7 == 9071) goto _CKL17; /*case 9071*/
             goto /*default*/ _CKL18;
 
@@ -6300,7 +6335,7 @@ struct declarator *declarator(struct parser_ctx * ctx, struct specifier_qualifie
         }
         if (pp_token_name_opt && *pp_token_name_opt)
         {
-            free(p_declarator->object.debug_name);
+            free((void *)p_declarator->object.debug_name);
             p_declarator->object.debug_name = strdup((*pp_token_name_opt)->lexeme);
         }
         if (ctx->current == 0U)
@@ -6495,13 +6530,13 @@ void array_declarator_delete(struct array_declarator * p)
 unsigned char  object_has_constant_value(struct object * a);
 unsigned long long object_to_unsigned_long_long(struct object * a);
 
-unsigned long long array_declarator_get_size(struct array_declarator * p_array_declarator)
+unsigned int array_declarator_get_size(struct array_declarator * p_array_declarator)
 {
     if (p_array_declarator->assignment_expression)
     {
         if (object_has_constant_value(&p_array_declarator->assignment_expression->object))
         {
-            return object_to_unsigned_long_long(&p_array_declarator->assignment_expression->object);
+            return (unsigned int)object_to_unsigned_long_long(&p_array_declarator->assignment_expression->object);
         }
     }
     return 0;
@@ -7053,7 +7088,7 @@ struct parameter_declaration *parameter_declaration(struct parser_ctx * ctx)
         }
         if (p_parameter_declaration->declarator->name_opt)
         {
-            free(p_parameter_declaration->declarator->object.debug_name);
+            free((void *)p_parameter_declaration->declarator->object.debug_name);
             p_parameter_declaration->declarator->object.debug_name = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
         }
         object_set_any(&p_parameter_declaration->declarator->object);
@@ -7201,7 +7236,7 @@ void print_direct_declarator(struct osstream * ss, struct direct_declarator * p_
     }
 }
 
-int  declarator_get_type_specifier_flags(struct declarator * p)
+int declarator_get_type_specifier_flags(struct declarator * p)
 {
     if (p->declaration_specifiers)
     {
@@ -7802,7 +7837,7 @@ void pragma_declaration_delete(struct pragma_declaration * p)
     }
 }
 
-int get_diagnostic_phase(int   w);
+int get_diagnostic_phase(int w);
 int __cdecl atoi(char * _String);
 
 void execute_pragma(struct parser_ctx * ctx, struct pragma_declaration * p_pragma, unsigned char   on_flow_analysis)
@@ -7889,7 +7924,7 @@ void execute_pragma(struct parser_ctx * ctx, struct pragma_declaration * p_pragm
                         p_pragma_token = pragma_match(p_pragma_token);
                         if (p_pragma_token && p_pragma_token->type == 130)
                         {
-                            int   id;
+                            int id;
 
                             id = get_warning(p_pragma_token->lexeme + 1);
                             if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) || (on_flow_analysis && get_diagnostic_phase(id) == 2))
@@ -8557,7 +8592,7 @@ void attribute_token_delete(struct attribute_token * p)
     }
 }
 
-unsigned char  token_is_identifier_or_keyword(int   t);
+unsigned char  token_is_identifier_or_keyword(int t);
 
 struct attribute_token *attribute_token(struct parser_ctx * ctx)
 {
@@ -11071,7 +11106,7 @@ struct declaration_list parse(struct parser_ctx * ctx, struct token_list * list,
 }
 
 struct include_dir *include_dir_add(struct include_dir_list * list, char * path);
-struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * filename_opt, int level, int   addflags);
+struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * filename_opt, int level, int addflags);
 struct token_list preprocessor(struct preprocessor_ctx * ctx, struct token_list * input_list, int level);
 void token_list_destroy(struct token_list * list);
 
@@ -11420,7 +11455,7 @@ int compile_one_file(char * file_name, struct options * options, char * out_file
         }
         if (ctx.sarif_file)
         {
-            fprintf(ctx.sarif_file, "%s", "      ],\n""      \"tool\": {\n""        \"driver\": {\n""          \"name\": \"cake\",\n""          \"fullName\": \"cake code analysis\",\n""          \"version\": \"""0.10.25""\",\n""          \"informationUri\": \"https://https://github.com/thradams/cake\"\n""        }\n""      }\n""    }\n""  ]\n""}\n""\n");
+            fprintf(ctx.sarif_file, "%s", "      ],\n""      \"tool\": {\n""        \"driver\": {\n""          \"name\": \"cake\",\n""          \"fullName\": \"cake code analysis\",\n""          \"version\": \"""0.10.28""\",\n""          \"informationUri\": \"https://https://github.com/thradams/cake\"\n""        }\n""      }\n""    }\n""  ]\n""}\n""\n");
             fclose(ctx.sarif_file);
             ctx.sarif_file = 0U;
         }
@@ -12377,7 +12412,7 @@ char *CompileText(char * pszoptions, char * content)
 {
     struct report  report;
 
-    printf("\x1b[97m""Cake ""0.10.25""\x1b[0m""\n");
+    printf("\x1b[97m""Cake ""0.10.28""\x1b[0m""\n");
     printf("\x1b[97m""cake %s main.c\n", pszoptions);
     _cake_zmem(&report, 56);
     return (char *)compile_source(pszoptions, content, &report);
@@ -12544,7 +12579,7 @@ void naming_convention_function(struct parser_ctx * ctx, struct token * token)
 
 unsigned char  type_is_function_or_function_pointer(struct type * p_type);
 
-void naming_convention_global_var(struct parser_ctx * ctx, struct token * token, struct type * type, int   storage)
+void naming_convention_global_var(struct parser_ctx * ctx, struct token * token, struct type * type, int storage)
 {
     if (!parser_is_diagnostic_enabled(ctx, 10) || token->level != 0)
     {
@@ -12963,7 +12998,7 @@ static struct object *find_designated_subobject(struct parser_ctx * ctx, struct 
             {
                 unsigned char   compute_array_size;
                 long long index;
-                int max_index;
+                long long max_index;
                 struct type  array_item_type;
                 struct object * member_obj;
 
@@ -13062,7 +13097,7 @@ static int braced_initializer_new(struct parser_ctx * ctx, struct type * p_curre
     {
         struct object * parent_copy;
         struct initializer_list_item * p_initializer_list_item;
-        long long array_to_expand_index;
+        int array_to_expand_index;
         int array_to_expand_max_index;
         unsigned char   compute_array_size;
         struct type  array_item_type;
@@ -13125,7 +13160,7 @@ static int braced_initializer_new(struct parser_ctx * ctx, struct type * p_curre
                 {
                     if (p_initializer_list_item2->initializer->assignment_expression->expression_type == 3)
                     {
-                        unsigned long long num_of_elements;
+                        unsigned int num_of_elements;
 
                         num_of_elements = p_initializer_list_item2->initializer->assignment_expression->type.num_of_elements;
                         if (compute_array_size)

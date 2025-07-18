@@ -1,3 +1,8 @@
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
+};
+
 struct report {
     int no_files;
     double cpu_time_used_sec;
@@ -7,18 +12,13 @@ struct report {
     unsigned char   test_mode;
     int test_failed;
     int test_succeeded;
-    int  last_diagnostics_ids[2];
-    int   fatal_error_expected;
+    int last_diagnostics_ids[2];
+    int fatal_error_expected;
     unsigned char   ignore_this_report;
 };
 
 struct _iobuf {
     void * _Placeholder;
-};
-
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
 };
 
 
@@ -87,7 +87,7 @@ int main(int argc, char ** argv)
     struct report  report;
 
     enable_vt_mode();
-    printf("Cake ""0.10.25""\n");
+    printf("Cake ""0.10.28""\n");
     if (argc < 2)
     {
         print_help();
