@@ -1,7 +1,18 @@
-﻿enum foo: unsigned long long;
+﻿#pragma safety enable
 
-void foo(enum foo);
+void f_const(const int a);
+void f(int a);
 
-void bar(enum foo x) {
-    foo(x);
+
+int main(void)
+{
+    int a;
+
+    f_const(a);
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
+
+    f(a);
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
 }

@@ -2046,8 +2046,14 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
     return p_declaration;
 }
 
+struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
+    enum storage_class_specifier_flags storage_specifier_flags,
+    bool extern_declaration);
+
 struct declaration* _Owner _Opt function_definition_or_declaration(struct parser_ctx* ctx)
 {
+    return declaration(ctx, NULL, STORAGE_SPECIFIER_NONE, true);
     /*
      function-definition:
         attribute-specifier-sequence _Opt declaration-specifiers declarator function-body
@@ -2061,7 +2067,81 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
         attribute-declaration
     */
 
+}
 
+struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
+    bool ignore_semicolon)
+{
+
+    if (ctx->current == NULL)
+    {
+        unexpected_end_of_file(ctx);
+        attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+        return NULL;
+    }
+
+    enum storage_class_specifier_flags storage_specifier_flags = STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
+    /*
+      simple-declaration:
+      declaration-specifiers init-declarator-list _Opt ;
+      attribute-specifier-sequence declaration-specifiers init-declarator-list ;
+    */
+
+    struct simple_declaration* _Owner _Opt p_simple_declaration = calloc(1, sizeof(struct simple_declaration));
+
+    try
+    {
+        if (p_simple_declaration == NULL)
+            throw;
+
+        p_simple_declaration->first_token = ctx->current;
+
+        p_simple_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
+        p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
+
+        struct declaration_specifiers* _Owner _Opt ptemp = declaration_specifiers(ctx, storage_specifier_flags);
+        if (ptemp == NULL) throw;
+
+        p_simple_declaration->p_declaration_specifiers = ptemp;
+
+        if (p_simple_declaration->p_attribute_specifier_sequence_opt)
+        {
+            p_simple_declaration->p_declaration_specifiers->attributes_flags =
+                p_simple_declaration->p_attribute_specifier_sequence_opt->attributes_flags;
+        }
+
+        p_simple_declaration->init_declarator_list = init_declarator_list(ctx, p_simple_declaration->p_declaration_specifiers);
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+        struct token* _Opt prev = previous_parser_token(ctx->current);
+        if (prev == NULL) throw;
+
+        p_simple_declaration->last_token = prev;
+
+        if (!ignore_semicolon && parser_match_tk(ctx, ';') != 0) throw;
+    }
+    catch
+    {
+        simple_declaration_delete(p_simple_declaration);
+        p_simple_declaration = NULL;
+    }
+
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+
+    return p_simple_declaration;
+}
+
+struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt00,
+    enum storage_class_specifier_flags storage_specifier_flags,
+    bool extern_declaration)
+{
     struct declaration* _Owner _Opt p_declaration = NULL;
     try
     {
@@ -2076,7 +2156,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
         bool is_function_definition = false;
 
-        p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, STORAGE_SPECIFIER_NONE, false);
+        p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, storage_specifier_flags, false);
         if (p_declaration == NULL)
             throw;
 
@@ -2090,7 +2170,11 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
                 throw; //unexpected
             }
 
-            ctx->p_current_function_opt = p_declaration->init_declarator_list.head->p_declarator;
+            struct declarator* p_declarator =
+                p_declaration->init_declarator_list.head->p_declarator;
+
+
+            //ctx->p_current_function_opt = p_declaration->init_declarator_list.head->p_declarator;
 
             /*
                 scope of parameters is the inner declarator
@@ -2136,8 +2220,7 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             }
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 #if EXPERIMENTAL_CONTRACTS
-            struct declarator* p_declarator =
-                p_declaration->init_declarator_list.head->p_declarator;
+
 
             if (ctx->current->type == TK_KEYWORD_TRUE ||
                 ctx->current->type == TK_KEYWORD_FALSE ||
@@ -2189,9 +2272,13 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
 
+            struct scope* p_scope = ctx->p_scope;
+            ctx->p_scope = ctx->scopes.tail;
+
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
 
             ctx->p_current_function_opt = p_current_function_opt; //restore
+            ctx->p_scope = p_scope;
 
             if (p_function_body == NULL)
                 throw;
@@ -2267,14 +2354,32 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
         {
             if (ctx->options.flow_analysis)
             {
-                /*
-                 *  The objective of this visit is to initialize global flow_objects.
-                 *  It also executes static_debug
-                 */
-                _Opt struct flow_visit_ctx ctx2 = { 0 };
-                ctx2.ctx = ctx;
-                flow_start_visit_declaration(&ctx2, p_declaration);
-                flow_visit_ctx_destroy(&ctx2);
+
+                if (p_declaration && p_declaration->declaration_specifiers)
+                {
+                    if (!(p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
+                    {
+                        //USE AFTER FREE, IF USED IN LOCAL VARIABLES!
+                        /*
+                         *  The objective of this visit is to initialize global flow_objects.
+                         *  It also executes static_debug
+                         */
+                        _Opt struct flow_visit_ctx ctx2 = { 0 };
+                        ctx2.ctx = ctx;
+                        flow_start_visit_declaration(&ctx2, p_declaration);
+                        flow_visit_ctx_destroy(&ctx2);
+                    }
+                  
+                }
+                else if (extern_declaration)
+                {
+                    //pragma static assert etc..
+                    _Opt struct flow_visit_ctx ctx2 = { 0 };
+                    ctx2.ctx = ctx;
+                    flow_start_visit_declaration(&ctx2, p_declaration);
+                    flow_visit_ctx_destroy(&ctx2);
+
+                }
             }
         }
     }
@@ -2285,82 +2390,9 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
     }
 
     return p_declaration;
-}
 
-struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
-    bool ignore_semicolon)
-{
-
-    if (ctx->current == NULL)
-    {
-        unexpected_end_of_file(ctx);
-        attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
-        return NULL;
-    }
-
-    enum storage_class_specifier_flags storage_specifier_flags = STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
-    /*
-      simple-declaration:
-      declaration-specifiers init-declarator-list _Opt ;
-      attribute-specifier-sequence declaration-specifiers init-declarator-list ;
-    */
-
-    struct simple_declaration* _Owner _Opt p_simple_declaration = calloc(1, sizeof(struct simple_declaration));
-
-    try
-    {
-        if (p_simple_declaration == NULL)
-            throw;
-
-        p_simple_declaration->first_token = ctx->current;
-
-        p_simple_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
-        p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
-
-        struct declaration_specifiers* _Owner _Opt ptemp = declaration_specifiers(ctx, storage_specifier_flags);
-        if (ptemp == NULL) throw;
-
-        p_simple_declaration->p_declaration_specifiers = ptemp;
-
-        if (p_simple_declaration->p_attribute_specifier_sequence_opt)
-        {
-            p_simple_declaration->p_declaration_specifiers->attributes_flags =
-                p_simple_declaration->p_attribute_specifier_sequence_opt->attributes_flags;
-        }
-
-        p_simple_declaration->init_declarator_list = init_declarator_list(ctx, p_simple_declaration->p_declaration_specifiers);
-
-        if (ctx->current == NULL)
-        {
-            unexpected_end_of_file(ctx);
-            throw;
-        }
-
-        struct token* _Opt prev = previous_parser_token(ctx->current);
-        if (prev == NULL) throw;
-
-        p_simple_declaration->last_token = prev;
-
-        if (!ignore_semicolon && parser_match_tk(ctx, ';') != 0) throw;
-    }
-    catch
-    {
-        simple_declaration_delete(p_simple_declaration);
-        p_simple_declaration = NULL;
-    }
-
-    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
-
-    return p_simple_declaration;
-}
-
-struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
-    enum storage_class_specifier_flags storage_specifier_flags)
-{
-    bool is_function_definition = false;
-    return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, storage_specifier_flags, false);
+    //bool is_function_definition = false;
+    //return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, storage_specifier_flags, false);
 }
 
 //(6.7) declaration-specifiers:
@@ -2881,7 +2913,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                             p_init_declarator->p_declarator->name_opt, NULL,
                             "sizeof '%s' is too large",
                             p_init_declarator->p_declarator->name_opt->lexeme);
-                }                
+                }
                 else
                 {
                     compiler_diagnostic(C_ERROR_STORAGE_SIZE,
@@ -3453,7 +3485,7 @@ enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specif
     if (p_enum_specifier->p_complete_enum_specifier &&
         p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list)
     {
-        return p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;                
+        return p_enum_specifier->p_complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
     }
     else if (p_enum_specifier->p_complete_enum_specifier &&
         p_enum_specifier->p_complete_enum_specifier->p_complete_enum_specifier &&
@@ -4607,7 +4639,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 if (p_enum_specifier->specifier_qualifier_list == NULL)
                     throw;
 
-                struct type enum_underline_type = 
+                struct type enum_underline_type =
                     make_with_type_specifier_flags(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
 
                 if (!type_is_integer(&enum_underline_type))
@@ -4627,7 +4659,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             {
             }
         }
-        
+
 
         if (ctx->current == NULL)
         {
@@ -8622,7 +8654,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
             first_of_static_assert_declaration(ctx) ||
             first_of_pragma_declaration(ctx))
         {
-            p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+            p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_AUTOMATIC_STORAGE, false);
             if (p_block_item->declaration == NULL)
                 throw;
             p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
@@ -9192,7 +9224,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 struct scope for_scope = { 0 };
                 scope_list_push(&ctx->scopes, &for_scope);
 
-                p_iteration_statement->declaration = declaration(ctx, NULL, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+                p_iteration_statement->declaration = declaration(ctx, NULL, STORAGE_SPECIFIER_AUTOMATIC_STORAGE, false);
 
                 if (ctx->current == NULL)
                 {
@@ -9799,6 +9831,15 @@ static void check_unused_static_declarators(struct parser_ctx* ctx, struct decla
     }
 }
 
+struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx)
+{
+    /*
+     function_definition
+     declaration
+     */
+    return function_definition_or_declaration(ctx);
+}
+
 struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
 {
     *berror = false;
@@ -9827,14 +9868,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
     return declaration_list;
 }
 
-struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx)
-{
-    /*
-     function_definition
-     declaration
-     */
-    return function_definition_or_declaration(ctx);
-}
+
 
 struct label_list_item* _Opt label_list_find(struct label_list* list, const char* label_name)
 {

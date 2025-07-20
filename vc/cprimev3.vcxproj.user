@@ -17,7 +17,7 @@
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>file.c -test-mode</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>token.c</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\src\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
