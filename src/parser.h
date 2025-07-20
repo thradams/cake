@@ -95,13 +95,17 @@ struct parser_ctx
       file scope -> function params -> function -> inner scope
     */
     struct scope_list scopes;
-    struct scope * p_scope;
-
+    
     /*
     * Points to the function we're in. Or null in file scope.
     */
     struct declarator* _Opt p_current_function_opt;
 
+    /*
+    * Points to the scope where the current function is. (used in local functions)
+    */
+    struct scope * _Opt p_current_function_scope_opt;
+    
 
     /*
     *  Used to track non-used labels or used and not defined labels

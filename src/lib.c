@@ -14268,13 +14268,17 @@ struct parser_ctx
       file scope -> function params -> function -> inner scope
     */
     struct scope_list scopes;
-    struct scope * p_scope;
-
+    
     /*
     * Points to the function we're in. Or null in file scope.
     */
     struct declarator* _Opt p_current_function_opt;
 
+    /*
+    * Points to the scope where the current function is. (used in local functions)
+    */
+    struct scope * _Opt p_current_function_scope_opt;
+    
 
     /*
     *  Used to track non-used labels or used and not defined labels
@@ -19760,7 +19764,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 {
                     //file scope or thread
                 }
-                else if (ctx->p_scope)
+                else if (ctx->p_current_function_scope_opt)
                 {
                     bool b_type_is_function = type_is_function(&p_declarator->type);
                     if (!ctx->evaluation_is_disabled && !b_type_is_function)
@@ -19768,7 +19772,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                         bool inside_current_function_scope = false;
                         while (p_scope)
                         {
-                            if (ctx->p_scope == p_scope)
+                            if (ctx->p_current_function_scope_opt == p_scope)
                             {
                                 inside_current_function_scope = true;
                                 break;
@@ -20752,16 +20756,11 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                 &p_expression_node->type_name->abstract_declarator->direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
-
-            struct scope* p_scope = ctx->p_scope;
-            ctx->p_scope = ctx->scopes.tail;
             
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_expression_node->type_name->abstract_declarator;
-
             p_expression_node->compound_statement = function_body(ctx);
             scope_list_pop(&ctx->scopes);
-            ctx->p_scope = p_scope;
             ctx->p_current_function_opt = p_current_function_opt; //restore
         }
         else
@@ -27055,7 +27054,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.31"
+#define CAKE_VERSION "0.10.32"
 
 
 
@@ -29222,6 +29221,32 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
     return p_simple_declaration;
 }
 
+static void check_unused_parameters(struct parser_ctx* ctx, struct parameter_list* parameter_list)
+{
+    struct parameter_declaration* _Opt parameter = NULL;
+    parameter = parameter_list->head;
+
+    while (parameter)
+    {
+        if (!type_is_maybe_unused(&parameter->declarator->type) &&
+            parameter->declarator &&
+            parameter->declarator->num_uses == 0)
+        {
+            if (parameter->declarator->name_opt &&
+                parameter->declarator->name_opt->level == 0 /*direct source*/
+                )
+            {
+                compiler_diagnostic(W_UNUSED_PARAMETER,
+                    ctx,
+                    parameter->declarator->name_opt, NULL,
+                    "'%s': unreferenced formal parameter",
+                    parameter->declarator->name_opt->lexeme);
+            }
+        }
+        parameter = parameter->next;
+    }
+}
+
 struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt00,
     enum storage_class_specifier_flags storage_specifier_flags,
@@ -29286,8 +29311,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                     break;
             }
 
-            struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
-            scope_list_push(&ctx->scopes, parameters_scope);
 
             if (ctx->current == NULL)
             {
@@ -29357,32 +29380,39 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
 
-            struct scope* p_scope = ctx->p_scope;
-            ctx->p_scope = ctx->scopes.tail;
+            struct scope * p_current_function_scope_opt = ctx->p_current_function_scope_opt;
+            ctx->p_current_function_scope_opt =  ctx->scopes.tail;
+
+            struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
+            scope_list_push(&ctx->scopes, parameters_scope);
 
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
 
+            ctx->p_current_function_scope_opt =  p_current_function_scope_opt; //restore
             ctx->p_current_function_opt = p_current_function_opt; //restore
-            ctx->p_scope = p_scope;
+            scope_list_pop(&ctx->scopes);
 
             if (p_function_body == NULL)
                 throw;
 
             assert(p_declaration->function_body == NULL);
             p_declaration->function_body = p_function_body;
-
             p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
+            if (p_declaration->init_declarator_list.head &&
+                p_declaration->init_declarator_list.head->p_declarator->direct_declarator &&
+                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
+                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
+                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
             {
-                //This visit will fill the defer list of blocks and jumps
-                //
-                struct defer_visit_ctx ctx2 = {
-                  .ctx = ctx
-                };
-
-                defer_start_visit_declaration(&ctx2, p_declaration);
-                defer_visit_ctx_destroy(&ctx2);
+                check_unused_parameters(ctx, p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
             }
+
+        
+            struct defer_visit_ctx ctx2 = { .ctx = ctx };
+            defer_start_visit_declaration(&ctx2, p_declaration);
+            defer_visit_ctx_destroy(&ctx2);
+
 
             if (ctx->options.flow_analysis)
             {
@@ -29400,40 +29430,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 flow_visit_ctx_destroy(&ctx2);
             }
 
-            struct parameter_declaration* _Opt parameter = NULL;
-
-            if (p_declaration->init_declarator_list.head &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
-            {
-                parameter = p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
-            }
-
-            /*unused parameters*/
-            while (parameter)
-            {
-                if (!type_is_maybe_unused(&parameter->declarator->type) &&
-                    parameter->declarator &&
-                    parameter->declarator->num_uses == 0)
-                {
-                    if (parameter->declarator->name_opt &&
-                        parameter->declarator->name_opt->level == 0 /*direct source*/
-                        )
-                    {
-                        compiler_diagnostic(W_UNUSED_PARAMETER,
-                            ctx,
-                            parameter->declarator->name_opt, NULL,
-                            "'%s': unreferenced formal parameter",
-                            parameter->declarator->name_opt->lexeme);
-                    }
-                }
-                parameter = parameter->next;
-            }
-
-            scope_list_pop(&ctx->scopes);
-            ctx->p_current_function_opt = NULL;
         }
         else
         {
@@ -29454,7 +29450,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                         flow_start_visit_declaration(&ctx2, p_declaration);
                         flow_visit_ctx_destroy(&ctx2);
                     }
-                  
+
                 }
                 else if (extern_declaration)
                 {

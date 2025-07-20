@@ -1047,7 +1047,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 {
                     //file scope or thread
                 }
-                else if (ctx->p_scope)
+                else if (ctx->p_current_function_scope_opt)
                 {
                     bool b_type_is_function = type_is_function(&p_declarator->type);
                     if (!ctx->evaluation_is_disabled && !b_type_is_function)
@@ -1055,7 +1055,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                         bool inside_current_function_scope = false;
                         while (p_scope)
                         {
-                            if (ctx->p_scope == p_scope)
+                            if (ctx->p_current_function_scope_opt == p_scope)
                             {
                                 inside_current_function_scope = true;
                                 break;
@@ -2039,16 +2039,11 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                 &p_expression_node->type_name->abstract_declarator->direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
-
-            struct scope* p_scope = ctx->p_scope;
-            ctx->p_scope = ctx->scopes.tail;
             
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_expression_node->type_name->abstract_declarator;
-
             p_expression_node->compound_statement = function_body(ctx);
             scope_list_pop(&ctx->scopes);
-            ctx->p_scope = p_scope;
             ctx->p_current_function_opt = p_current_function_opt; //restore
         }
         else
