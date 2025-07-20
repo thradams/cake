@@ -27055,7 +27055,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.30"
+#define CAKE_VERSION "0.10.31"
 
 
 
@@ -41241,9 +41241,15 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     }
 }
 
+static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct label* p_label);
+
 static void d_visit_labeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct labeled_statement* p_labeled_statement)
 {
     assert(p_labeled_statement->label != NULL);
+
+    d_visit_label(ctx, oss, p_labeled_statement->label);
+
+    
     d_visit_statement(ctx, oss, p_labeled_statement->statement);
 }
 
