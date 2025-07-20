@@ -2245,13 +2245,13 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
                 return ESIZEOF_VLA;
 
             unsigned long long arraysize = p_type->num_of_elements;
-            struct type type = get_array_item_type(p_type);            
-            
+            struct type type = get_array_item_type(p_type);
+
 
             size_t sz = 0;
-            
+
             const enum sizeof_error er = type_get_sizeof(&type, &sz);
-            if ( er != ESIZEOF_NONE)
+            if (er != ESIZEOF_NONE)
             {
                 return er;
             }
@@ -2261,16 +2261,35 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
             unsigned long long result = 0;
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
-                if (result > SIZE_MAX)
+                //https://github.com/thradams/cake/issues/248
+                unsigned long long SIZE_MAX_WORKAROUND = 0;                
+
+                #ifdef __linux__
+                    #if __x86_64__
+                        SIZE_MAX_WORKAROUND = 0xffffffffffffffffULL;
+                    #else
+                        SIZE_MAX_WORKAROUND = 0xffffffffULL;    
+                    #endif                    
+                #else                
+                        SIZE_MAX_WORKAROUND = SIZE_MAX;
+                #endif
+
+                if (result > SIZE_MAX_WORKAROUND)
                 {
                     return ESIZEOF_OVERLOW;
                 }
-                *size = (size_t) result;
+
+                //
+                if (result > /*SIZEMAX*/ 4294967295)
+                {
+                    return ESIZEOF_OVERLOW;
+                }
+                *size = (size_t)result;
             }
             else
             {
                 return ESIZEOF_OVERLOW;
-            }            
+            }
             return ESIZEOF_NONE;
         }
     }
@@ -2300,7 +2319,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
     {
         assert(p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM);
 
-        enum type_specifier_flags enum_type_specifier_flags =         
+        enum type_specifier_flags enum_type_specifier_flags =
             get_enum_type_specifier_flags(p_type->enum_specifier);
 
         struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
@@ -2374,7 +2393,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        if (p_complete == NULL) 
+        if (p_complete == NULL)
             return ESIZEOF_INCOMPLETE;
 
         return get_sizeof_struct(p_complete, size);
