@@ -2253,6 +2253,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
             const enum sizeof_error er = type_get_sizeof(&type, &sz);
             if (er != ESIZEOF_NONE)
             {
+                type_destroy(&type);
                 return er;
             }
             type_destroy(&type);
@@ -2662,7 +2663,10 @@ struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flag
         size_t char_size = 0;
 
         if (type_get_sizeof(&char_type, &char_size) != 0)
+        {
+            type_delete(p2);
             throw;
+        }
 
         if (char_size == 0)
         {

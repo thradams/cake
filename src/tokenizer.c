@@ -5849,7 +5849,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __builtin_va_list void* \n"
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
-        "#define __builtin_va_arg(a, b) ((b)a)\n"
+        "#define __builtin_va_arg(a, b) ((b)0)\n"
         "#define __builtin_va_copy(a, b)\n"
         "#define __builtin_offsetof(type, member) 0\n"
         //see
