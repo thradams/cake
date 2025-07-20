@@ -1,4 +1,4 @@
-
+﻿
 #pragma safety enable
 
 #include "ownership.h"
@@ -2677,7 +2677,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             }
         }
         bool b_add_this_before_external_decl = false;
-        
+        struct osstream add_this_before_external_decl = { 0 };
         if (is_static && !is_function)
         {
             b_add_this_before_external_decl = true;
