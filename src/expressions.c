@@ -2042,9 +2042,16 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_expression_node->type_name->abstract_declarator;
+
+            struct scope* p_current_function_scope_opt = ctx->p_current_function_scope_opt;
+            ctx->p_current_function_scope_opt = ctx->scopes.tail;
+
             p_expression_node->compound_statement = function_body(ctx);
+            
             scope_list_pop(&ctx->scopes);
             ctx->p_current_function_opt = p_current_function_opt; //restore
+            ctx->p_current_function_scope_opt = p_current_function_scope_opt; //restore
+
         }
         else
         {

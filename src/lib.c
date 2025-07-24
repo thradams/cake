@@ -9170,7 +9170,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __builtin_va_list void* \n"
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
-        "#define __builtin_va_arg(a, b) ((b)a)\n"
+        "#define __builtin_va_arg(a, b) ((b)0)\n"
         "#define __builtin_va_copy(a, b)\n"
         "#define __builtin_offsetof(type, member) 0\n"
         //see
@@ -20759,9 +20759,16 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_expression_node->type_name->abstract_declarator;
+
+            struct scope* p_current_function_scope_opt = ctx->p_current_function_scope_opt;
+            ctx->p_current_function_scope_opt = ctx->scopes.tail;
+
             p_expression_node->compound_statement = function_body(ctx);
+            
             scope_list_pop(&ctx->scopes);
             ctx->p_current_function_opt = p_current_function_opt; //restore
+            ctx->p_current_function_scope_opt = p_current_function_scope_opt; //restore
+
         }
         else
         {
@@ -27054,7 +27061,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.32"
+#define CAKE_VERSION "0.10.33"
 
 
 
@@ -29379,16 +29386,17 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 #endif
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
-
-            struct scope * p_current_function_scope_opt = ctx->p_current_function_scope_opt;
-            ctx->p_current_function_scope_opt =  ctx->scopes.tail;
+            
 
             struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
 
+            struct scope* p_current_function_scope_opt = ctx->p_current_function_scope_opt;
+            ctx->p_current_function_scope_opt = ctx->scopes.tail;
+
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
 
-            ctx->p_current_function_scope_opt =  p_current_function_scope_opt; //restore
+            ctx->p_current_function_scope_opt = p_current_function_scope_opt; //restore
             ctx->p_current_function_opt = p_current_function_opt; //restore
             scope_list_pop(&ctx->scopes);
 
@@ -29408,59 +29416,39 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 check_unused_parameters(ctx, p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
             }
 
-        
-            struct defer_visit_ctx ctx2 = { .ctx = ctx };
-            defer_start_visit_declaration(&ctx2, p_declaration);
-            defer_visit_ctx_destroy(&ctx2);
 
-
-            if (ctx->options.flow_analysis)
+            if (extern_declaration)
             {
-                /*
-                 Now we have the full function AST let´s visit to Analise
-                 jumps
-                */
+                struct defer_visit_ctx ctx2 = { .ctx = ctx };
+                defer_start_visit_declaration(&ctx2, p_declaration);
+                defer_visit_ctx_destroy(&ctx2);
 
-                /*we are going to visit the function again.. lets put the same diagnostic state*/
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
+                if (ctx->options.flow_analysis)
+                {
+                    /*
+                     Now we have the full function AST let´s visit to Analise
+                     jumps
+                    */
 
-                struct flow_visit_ctx ctx2 = { 0 };
-                ctx2.ctx = ctx;
-                flow_start_visit_declaration(&ctx2, p_declaration);
-                flow_visit_ctx_destroy(&ctx2);
+                    /*we are going to visit the function again.. lets put the same diagnostic state*/
+                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
+
+                    struct flow_visit_ctx ctx2 = { 0 };
+                    ctx2.ctx = ctx;
+                    flow_start_visit_declaration(&ctx2, p_declaration);
+                    flow_visit_ctx_destroy(&ctx2);
+                }
             }
 
         }
         else
         {
-            if (ctx->options.flow_analysis)
+            if (ctx->options.flow_analysis && extern_declaration)
             {
-
-                if (p_declaration && p_declaration->declaration_specifiers)
-                {
-                    if (!(p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
-                    {
-                        //USE AFTER FREE, IF USED IN LOCAL VARIABLES!
-                        /*
-                         *  The objective of this visit is to initialize global flow_objects.
-                         *  It also executes static_debug
-                         */
-                        _Opt struct flow_visit_ctx ctx2 = { 0 };
-                        ctx2.ctx = ctx;
-                        flow_start_visit_declaration(&ctx2, p_declaration);
-                        flow_visit_ctx_destroy(&ctx2);
-                    }
-
-                }
-                else if (extern_declaration)
-                {
-                    //pragma static assert etc..
-                    _Opt struct flow_visit_ctx ctx2 = { 0 };
-                    ctx2.ctx = ctx;
-                    flow_start_visit_declaration(&ctx2, p_declaration);
-                    flow_visit_ctx_destroy(&ctx2);
-
-                }
+                _Opt struct flow_visit_ctx ctx2 = { 0 };
+                ctx2.ctx = ctx;
+                flow_start_visit_declaration(&ctx2, p_declaration);
+                flow_visit_ctx_destroy(&ctx2);
             }
         }
     }
@@ -53119,14 +53107,15 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
                 return ESIZEOF_VLA;
 
             unsigned long long arraysize = p_type->num_of_elements;
-            struct type type = get_array_item_type(p_type);            
-            
+            struct type type = get_array_item_type(p_type);
+
 
             size_t sz = 0;
-            
+
             const enum sizeof_error er = type_get_sizeof(&type, &sz);
-            if ( er != ESIZEOF_NONE)
+            if (er != ESIZEOF_NONE)
             {
+                type_destroy(&type);
                 return er;
             }
             type_destroy(&type);
@@ -53135,16 +53124,35 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
             unsigned long long result = 0;
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
-                if (result > SIZE_MAX)
+                //https://github.com/thradams/cake/issues/248
+                unsigned long long SIZE_MAX_WORKAROUND = 0;                
+
+                #ifdef __linux__
+                    #if __x86_64__
+                        SIZE_MAX_WORKAROUND = 0xffffffffffffffffULL;
+                    #else
+                        SIZE_MAX_WORKAROUND = 0xffffffffULL;    
+                    #endif                    
+                #else                
+                        SIZE_MAX_WORKAROUND = SIZE_MAX;
+                #endif
+
+                if (result > SIZE_MAX_WORKAROUND)
                 {
                     return ESIZEOF_OVERLOW;
                 }
-                *size = (size_t) result;
+
+                //
+                if (result > /*SIZEMAX*/ 4294967295)
+                {
+                    return ESIZEOF_OVERLOW;
+                }
+                *size = (size_t)result;
             }
             else
             {
                 return ESIZEOF_OVERLOW;
-            }            
+            }
             return ESIZEOF_NONE;
         }
     }
@@ -53174,7 +53182,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
     {
         assert(p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM);
 
-        enum type_specifier_flags enum_type_specifier_flags =         
+        enum type_specifier_flags enum_type_specifier_flags =
             get_enum_type_specifier_flags(p_type->enum_specifier);
 
         struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
@@ -53248,7 +53256,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        if (p_complete == NULL) 
+        if (p_complete == NULL)
             return ESIZEOF_INCOMPLETE;
 
         return get_sizeof_struct(p_complete, size);
@@ -53517,7 +53525,10 @@ struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flag
         size_t char_size = 0;
 
         if (type_get_sizeof(&char_type, &char_size) != 0)
+        {
+            type_delete(p2);
             throw;
+        }
 
         if (char_size == 0)
         {

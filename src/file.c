@@ -1,12 +1,16 @@
-﻿
-int f();
-
-int main() {
-    int func(){
-      return 1;
+﻿int main()
+{
+    int i;
+    void local()
+    {
+        i;
     }
-    
-    int e = f();
+#pragma cake diagnostic check "-E1870"       
 
-    return 0;
+    (void())
+    {
+        i;
+    };
+
+#pragma cake diagnostic check "-E1870"       
 }

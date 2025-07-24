@@ -2295,16 +2295,17 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 #endif
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
-
-            struct scope * p_current_function_scope_opt = ctx->p_current_function_scope_opt;
-            ctx->p_current_function_scope_opt =  ctx->scopes.tail;
+            
 
             struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
 
+            struct scope* p_current_function_scope_opt = ctx->p_current_function_scope_opt;
+            ctx->p_current_function_scope_opt = ctx->scopes.tail;
+
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
 
-            ctx->p_current_function_scope_opt =  p_current_function_scope_opt; //restore
+            ctx->p_current_function_scope_opt = p_current_function_scope_opt; //restore
             ctx->p_current_function_opt = p_current_function_opt; //restore
             scope_list_pop(&ctx->scopes);
 
@@ -2324,59 +2325,39 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 check_unused_parameters(ctx, p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
             }
 
-        
-            struct defer_visit_ctx ctx2 = { .ctx = ctx };
-            defer_start_visit_declaration(&ctx2, p_declaration);
-            defer_visit_ctx_destroy(&ctx2);
 
-
-            if (ctx->options.flow_analysis)
+            if (extern_declaration)
             {
-                /*
-                 Now we have the full function AST let´s visit to Analise
-                 jumps
-                */
+                struct defer_visit_ctx ctx2 = { .ctx = ctx };
+                defer_start_visit_declaration(&ctx2, p_declaration);
+                defer_visit_ctx_destroy(&ctx2);
 
-                /*we are going to visit the function again.. lets put the same diagnostic state*/
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
+                if (ctx->options.flow_analysis)
+                {
+                    /*
+                     Now we have the full function AST let´s visit to Analise
+                     jumps
+                    */
 
-                struct flow_visit_ctx ctx2 = { 0 };
-                ctx2.ctx = ctx;
-                flow_start_visit_declaration(&ctx2, p_declaration);
-                flow_visit_ctx_destroy(&ctx2);
+                    /*we are going to visit the function again.. lets put the same diagnostic state*/
+                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
+
+                    struct flow_visit_ctx ctx2 = { 0 };
+                    ctx2.ctx = ctx;
+                    flow_start_visit_declaration(&ctx2, p_declaration);
+                    flow_visit_ctx_destroy(&ctx2);
+                }
             }
 
         }
         else
         {
-            if (ctx->options.flow_analysis)
+            if (ctx->options.flow_analysis && extern_declaration)
             {
-
-                if (p_declaration && p_declaration->declaration_specifiers)
-                {
-                    if (!(p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
-                    {
-                        //USE AFTER FREE, IF USED IN LOCAL VARIABLES!
-                        /*
-                         *  The objective of this visit is to initialize global flow_objects.
-                         *  It also executes static_debug
-                         */
-                        _Opt struct flow_visit_ctx ctx2 = { 0 };
-                        ctx2.ctx = ctx;
-                        flow_start_visit_declaration(&ctx2, p_declaration);
-                        flow_visit_ctx_destroy(&ctx2);
-                    }
-
-                }
-                else if (extern_declaration)
-                {
-                    //pragma static assert etc..
-                    _Opt struct flow_visit_ctx ctx2 = { 0 };
-                    ctx2.ctx = ctx;
-                    flow_start_visit_declaration(&ctx2, p_declaration);
-                    flow_visit_ctx_destroy(&ctx2);
-
-                }
+                _Opt struct flow_visit_ctx ctx2 = { 0 };
+                ctx2.ctx = ctx;
+                flow_start_visit_declaration(&ctx2, p_declaration);
+                flow_visit_ctx_destroy(&ctx2);
             }
         }
     }
