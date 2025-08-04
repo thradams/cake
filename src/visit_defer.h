@@ -9,6 +9,7 @@
 */
 
 #pragma once
+#include "expressions.h"
 #include "parser.h"
 
 struct defer_visit_ctx

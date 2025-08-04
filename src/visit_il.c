@@ -792,7 +792,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
         ctx->indentation = current_indentation;
         ctx->p_current_function_opt = p_current_function_opt;
-
+        
         assert(lambda.c_str);
         ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", lambda.c_str);
         ss_fprintf(oss, "%s", name);

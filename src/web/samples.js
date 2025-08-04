@@ -1022,10 +1022,11 @@ int main()
 }
 `;
 
-sample["C2Y"]["if with initialization (Like C++17)"] =
+sample["C2Y"]["if declarations"] =
     `
 /*
-  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3356.htm
+  https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3580.htm
 */
 
 #include <stdio.h>
@@ -1615,6 +1616,28 @@ int main()
 }
 
 `;
+
+sample["Extensions"]["_Countof enum"] =
+`
+enum E { A, B, C, D, E, F };
+
+void f(enum E e)
+{
+    switch (e)
+    {
+
+        case A:
+            break;
+        case B:
+            break;
+        default:
+            static_assert(_Countof(e) == 6);
+    }
+}
+
+int main() { }
+`;
+
 
 sample["Enable Safety"] = [];
 

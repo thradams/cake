@@ -1064,10 +1064,10 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                         }
                         if (!inside_current_function_scope)
                         {
-                            compiler_diagnostic(C_ERROR_OUTER_SCOPE, 
-                                ctx, 
-                                ctx->current, 
-                                NULL, 
+                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                                ctx,
+                                ctx->current,
+                                NULL,
                                 "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
                         }
                     }
@@ -1088,9 +1088,9 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             {
 
                 const char* func_name = ctx->p_current_function_opt->name_opt ?
-                        ctx->p_current_function_opt->name_opt->lexeme :
-                        "unnamed";
-                
+                    ctx->p_current_function_opt->name_opt->lexeme :
+                    "unnamed";
+
 
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
@@ -2033,13 +2033,13 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
-            
+
 
             struct scope* parameters_scope =
                 &p_expression_node->type_name->abstract_declarator->direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
-            
+
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_expression_node->type_name->abstract_declarator;
 
@@ -2047,7 +2047,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             ctx->p_current_function_scope_opt = ctx->scopes.tail;
 
             p_expression_node->compound_statement = function_body(ctx);
-            
+
             scope_list_pop(&ctx->scopes);
             ctx->p_current_function_opt = p_current_function_opt; //restore
             ctx->p_current_function_scope_opt = p_current_function_scope_opt; //restore
@@ -2159,9 +2159,8 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
                 throw;
             // printf("\n");
             // print_type(&p_expression_node->type);
-            bool is_function_type = type_is_function(&p_expression_node->type);
 
-            if (is_function_type)
+            if (type_is_function(&p_expression_node->type))
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
                 p_expression_node->compound_statement = compound_statement(ctx);
@@ -2869,23 +2868,40 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                if (!type_is_array(&new_expression->type_name->abstract_declarator->type))
+                if (type_is_enum(&new_expression->type_name->abstract_declarator->type))
+                {
+                    const struct enum_specifier* _Opt p_enum_specifier =
+                        get_complete_enum_specifier(new_expression->type_name->type.enum_specifier);
+                    size_t nelements = 0;
+                    if (p_enum_specifier)
+                    {
+                        struct enumerator* _Owner _Opt p =
+                            p_enum_specifier->enumerator_list.head;
+                        while (p)
+                        {
+                            nelements++;
+                            p = p->next;
+                        }
+                    }
+                    new_expression->object = object_make_size_t(nelements);
+                }
+                else if (type_is_array(&new_expression->type_name->abstract_declarator->type))
+                {
+                    size_t nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
+                    if (nelements > 0)
+                        new_expression->object = object_make_size_t(nelements);
+                }
+                else
                 {
                     compiler_diagnostic(C_INVALID_ARGUMENT_NELEMENTSOF,
-                        ctx,
-                        new_expression->type_name->first_token,
-                        NULL,
-                        "argument of _Countof must be an array");
+                                        ctx,
+                                        new_expression->type_name->first_token,
+                                        NULL,
+                                        "argument of _Countof must be an array");
 
                     expression_delete(new_expression);
                     throw;
                 }
-
-
-                size_t nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
-                if (nelements > 0)
-                    new_expression->object = object_make_size_t(nelements);
-
             }
             else
             {
@@ -2923,7 +2939,37 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                if (!type_is_array(&new_expression->right->type))
+                if (type_is_enum(&new_expression->right->type))
+                {
+                    const struct enum_specifier* _Opt p_enum_specifier =
+                        get_complete_enum_specifier(new_expression->right->type.enum_specifier);
+                    size_t nelements = 0;
+                    if (p_enum_specifier)
+                    {
+                        struct enumerator* _Owner _Opt p =
+                            p_enum_specifier->enumerator_list.head;
+                        while (p)
+                        {
+                            nelements++;
+                            p = p->next;
+                        }
+                    }
+                    new_expression->object = object_make_size_t(nelements);
+
+                }
+                else if (type_is_array(&new_expression->right->type))
+                {
+                    size_t nelements = new_expression->right->type.num_of_elements;
+                    if (nelements > 0)
+                    {
+                        new_expression->object = object_make_size_t(nelements);
+                    }
+                    else
+                    {
+                        //vla [n][2] but not vla[2][n]
+                    }
+                }
+                else
                 {
                     compiler_diagnostic(C_INVALID_ARGUMENT_NELEMENTSOF,
                         ctx,
@@ -2934,18 +2980,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     expression_delete(new_expression);
                     throw;
                 }
-
-
-                size_t nelements = new_expression->right->type.num_of_elements;
-                if (nelements > 0)
-                {
-                    new_expression->object = object_make_size_t(nelements);
-                }
-                else
-                {
-                    //vla [n][2] but not vla[2][n]
-                }
-
             }
 
             type_destroy(&new_expression->type);

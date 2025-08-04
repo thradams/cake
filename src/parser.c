@@ -2342,10 +2342,10 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                     /*we are going to visit the function again.. lets put the same diagnostic state*/
                     ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
 
-                    struct flow_visit_ctx ctx2 = { 0 };
-                    ctx2.ctx = ctx;
-                    flow_start_visit_declaration(&ctx2, p_declaration);
-                    flow_visit_ctx_destroy(&ctx2);
+                    struct flow_visit_ctx ctx3 = { 0 };
+                    ctx3.ctx = ctx;
+                    flow_start_visit_declaration(&ctx3, p_declaration);
+                    flow_visit_ctx_destroy(&ctx3);
                 }
             }
 

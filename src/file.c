@@ -1,16 +1,17 @@
-﻿int main()
+﻿enum E { A, B, C, D, E, F };
+
+void f(enum E e)
 {
-    int i;
-    void local()
+    switch (e)
     {
-        i;
+
+    case A:
+        break;
+    case B:
+        break;
+    default:
+        static_assert(_Countof(e) == 6);
     }
-#pragma cake diagnostic check "-E1870"       
-
-    (void())
-    {
-        i;
-    };
-
-#pragma cake diagnostic check "-E1870"       
 }
+
+int main() {}

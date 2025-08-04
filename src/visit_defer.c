@@ -732,6 +732,65 @@ static void defer_visit_primary_block(struct defer_visit_ctx* ctx, struct primar
     }
 }
 
+static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expression* p_expression)
+{
+    /*
+        Literal functions need to build defer_list
+    */
+
+    if (p_expression->condition_expr)
+    {
+        defer_visit_expression(ctx, p_expression->condition_expr);
+    }
+
+    if (p_expression->left)
+    {
+        defer_visit_expression(ctx, p_expression->left);
+    }
+
+    if (p_expression->right)
+    {
+        defer_visit_expression(ctx, p_expression->right);
+    }
+
+    switch (p_expression->expression_type)
+    {
+    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
+    {
+        //TODO missing parameters of literal functions
+        //without it static analysis will not work
+        defer_visit_compound_statement(ctx, p_expression->compound_statement);
+        //assert(ctx->tail_block == NULL);
+        //struct defer_defer_scope* _Opt p_defer = defer_visit_ctx_push_tail_block(ctx);
+        //if (p_defer == NULL)
+        //{
+          //  return;
+        //}
+        //p_defer->p_function_body = p_declaration->function_body;
+
+        //defer_visit_typen(ctx, p_declaration);
+        //assert(p_declaration->function_body != NULL); //defer_visit_declaration does not change this
+
+        //parameters
+        //if (ctx->tail_block)
+        //{
+          //  defer_exit_block_visit(ctx,
+          //      ctx->tail_block,
+          //      p_expression->compound_statement->last_token,
+          //      &p_expression->defer_list);
+        //}
+
+        //defer_visit_ctx_pop_tail_block(ctx);
+    }
+    break;
+    }
+}
+static void defer_visit_expression_statement(struct defer_visit_ctx* ctx, struct expression_statement* p_expression_statement)
+{
+    if (p_expression_statement->expression_opt)
+        defer_visit_expression(ctx, p_expression_statement->expression_opt);
+}
+
 static void defer_visit_unlabeled_statement(struct defer_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
     if (p_unlabeled_statement->primary_block)
@@ -740,6 +799,7 @@ static void defer_visit_unlabeled_statement(struct defer_visit_ctx* ctx, struct 
     }
     else if (p_unlabeled_statement->expression_statement)
     {
+        defer_visit_expression_statement(ctx, p_unlabeled_statement->expression_statement);
     }
     else if (p_unlabeled_statement->jump_statement)
     {
@@ -881,20 +941,13 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
         defer_visit_declaration(ctx, p_declaration);
         assert(p_declaration->function_body != NULL); //defer_visit_declaration does not change this
 
-        //i//f (!defer_is_last_item_return(p_declaration->function_body))
-        //{
-          //  defer_exit_block_visit(ctx, p_defer, p_declaration->function_body->last_token);
-
-        //}
-
         //parameters
-
         if (ctx->tail_block)
         {
             defer_exit_block_visit(ctx,
                 ctx->tail_block,
                 p_declaration->function_body->last_token,
-                &p_declaration->defer_list);
+                &p_declaration->defer_list); //maybe use the same defer_list from body??
         }
 
         defer_visit_ctx_pop_tail_block(ctx);
