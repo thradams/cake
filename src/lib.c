@@ -19476,7 +19476,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     break;
                 }
             }
-            p_expression_node->object = object_make_wchar_t((wchar_t)value);
+            p_expression_node->object = object_make_signed_int((int)value);
         }
 
         parser_match(ctx);
@@ -27095,7 +27095,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.35"
+#define CAKE_VERSION "0.10.36"
 
 
 

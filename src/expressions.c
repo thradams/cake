@@ -759,7 +759,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     break;
                 }
             }
-            p_expression_node->object = object_make_wchar_t((wchar_t)value);
+            p_expression_node->object = object_make_signed_int((int)value);
         }
 
         parser_match(ctx);

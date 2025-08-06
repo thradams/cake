@@ -120,7 +120,7 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-This warning relies on flow analysis, which ensures that the potential nullability of pointers is
+This verification relies on flow analysis, which ensures that the potential nullability of pointers is
 checked before being passed to functions or assigned to non-nullable variables.
 
 In some cases, the compiler may need a help. Consider this sample.
@@ -157,8 +157,7 @@ removes the warning.
 The problem with this approach is the distance between the location that imposes the postcondition and the assert. 
 If `is_empty` changes, it could potentially invalidate the assert on the caller's side. 
 Although a runtime check is in place, it is not as safe as a compile-time check because it may occur 
-within a rarely used branch, allowing the bug to remain inactive for an extended period and 
-potentially appearing on the client's machine.
+within a rarely used branch, allowing the bug to remain inactive.
 
 For this reason, a 'contract' approach is also being developed in Cake, *__although it 
 is still in the early stages of design__*.
