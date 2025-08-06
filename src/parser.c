@@ -2295,7 +2295,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 #endif
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
-            
+
 
             struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
@@ -4683,7 +4683,11 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         }
         else
         {
-            struct enum_specifier* _Opt p_existing_enum_specifier = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
+            struct enum_specifier* _Opt p_existing_enum_specifier = NULL;
+            if (p_enum_specifier->tag_token)
+            {
+                p_existing_enum_specifier = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
+            }
             if (p_existing_enum_specifier)
             {
                 //p_existing_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
