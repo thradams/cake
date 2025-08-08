@@ -137,7 +137,8 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
         return;
 
     struct token* _Owner _Opt p = list->head;
-    //assert(p->prev == NULL);
+    assert(p->prev == NULL);
+
     if (list->head == list->tail)
     {
         list->head = NULL;
@@ -146,6 +147,8 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     else
     {
         list->head = p->next;
+        if (list->head)
+            list->head->prev = NULL;
     }
     p->next = NULL;
     p->prev = NULL;
@@ -611,7 +614,11 @@ struct token* _Owner _Opt clone_token(struct token* p)
 
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last)
 {
-    //first and last are tokens inserted at list.
+    /*
+       token_list_remove_get removes a range of tokens from a doubly - linked token list and 
+       returns them as a new list.  It does not delete the tokens; it just detaches them from 
+       the original list.
+    */
 
     struct token_list r = { 0 };
 

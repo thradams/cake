@@ -88,6 +88,14 @@ struct macro_parameter
 {
     const char* _Owner name;
     struct macro_parameter* _Owner _Opt next;
+
+    /*
+      https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm#number-of-expansions
+      For each such parameter this expansion is performed exactly once
+      (this list and flag are clean and reused when performing argument expansion)
+    */
+    struct token_list expanded_list;
+    bool already_expanded;
 };
 
 
@@ -254,7 +262,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     {
         return false;
     }
-        
+
     if (!is_error && included_file_location)
     {
         //notes are warning are not printed in included files
@@ -494,11 +502,11 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
             if (include_next)
             {
                 free(content);
-                 content = NULL;
+                content = NULL;
                 include_next = false;
             }
-            else 
-            return content;
+            else
+                return content;
         }
         current = current->next;
     }
@@ -543,10 +551,12 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
 
 struct macro_argument
 {
-    const char* _Owner name;
+    /*the parameter this argument is associated with*/
+    struct macro_parameter* _Opt macro_parameter;
     struct token_list tokens;
     struct macro_argument* _Owner _Opt next; /*linked list*/
 };
+
 void macro_argument_delete(struct macro_argument* _Owner _Opt p);
 
 
@@ -609,7 +619,6 @@ void macro_argument_delete(struct macro_argument* _Owner _Opt p)
     {
         assert(p->next == NULL);
         token_list_destroy(&p->tokens);
-        free((void* _Owner) p->name);
         free(p);
     }
 }
@@ -672,7 +681,9 @@ void print_macro_arguments(struct macro_argument_list* arguments)
     struct macro_argument* _Opt p_argument = arguments->head;
     while (p_argument)
     {
-        printf("%s:", p_argument->name);
+        if (p_argument->macro_parameter)
+            printf("%s:", p_argument->macro_parameter->name);
+
         print_list(&p_argument->tokens);
         p_argument = p_argument->next;
     }
@@ -684,14 +695,14 @@ struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_li
      * The arguments are collected in the macro expansion and each one (except ...)
      * is associated with one of the macro parameters.
      */
-    struct macro_argument* _Opt p = parameters->head;
-    while (p)
+    struct macro_argument* _Opt p_macro_argument = parameters->head;
+    while (p_macro_argument)
     {
-        if (strcmp(p->name, name) == 0)
+        if (strcmp(p_macro_argument->macro_parameter->name, name) == 0)
         {
-            return p;
+            return p_macro_argument;
         }
-        p = p->next;
+        p_macro_argument = p_macro_argument->next;
     }
     return NULL;
 }
@@ -779,6 +790,7 @@ void macro_delete(struct macro* _Owner _Opt macro)
         {
             struct macro_parameter* _Owner _Opt p_next = p_macro_parameter->next;
             free((void* _Owner)p_macro_parameter->name);
+            token_list_destroy(&p_macro_parameter->expanded_list);
             free(p_macro_parameter);
             p_macro_parameter = p_next;
         }
@@ -3580,7 +3592,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             throw;
         }
 
-        if (strcmp(input_list->head->lexeme, "include") == 0||
+        if (strcmp(input_list->head->lexeme, "include") == 0 ||
             strcmp(input_list->head->lexeme, "include_next") == 0)
         {
             bool include_next = strcmp(input_list->head->lexeme, "include_next") == 0;
@@ -3658,7 +3670,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (ctx->options.show_includes)
                 {
                     for (int i = 0; i < (level + 1); i++)
-                      printf(".");
+                        printf(".");
                     printf("%s\n", full_path_result);
                 }
 
@@ -4370,14 +4382,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     throw;
                 }
                 struct macro_parameter* p_current_parameter = macro->parameters;
-                char* _Owner _Opt name_temp = strdup(p_current_parameter->name);
-                if (name_temp == NULL)
-                {
-                    macro_argument_delete(p_argument);
-                    throw;
-                }
-
-                p_argument->name = name_temp;
+                p_argument->macro_parameter = p_current_parameter;
                 argument_list_add(&macro_argument_list, p_argument);
             }
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
@@ -4398,15 +4403,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             throw;
         }
 
-        char* _Opt _Owner temp2 = strdup(p_current_parameter->name);
-        if (temp2 == NULL)
-        {
-            macro_argument_delete(p_argument);
-            throw;
-        }
-
-        p_argument->name = temp2;
-
+        p_argument->macro_parameter = p_current_parameter;
         //collect next arguments...
         while (input_list->head != NULL)
         {
@@ -4437,15 +4434,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                                 throw;
                             }
 
-                            char* _Owner _Opt argument_name = strdup(p_current_parameter->name);
-                            if (argument_name == NULL)
-                            {
-                                macro_argument_delete(p_argument);
-                                throw;
-                            }
-
-                            p_argument->name = argument_name;
-
+                            p_argument->macro_parameter = p_current_parameter;
                             argument_list_add(&macro_argument_list, p_argument);
                             p_argument = NULL; //MOVED
                         }
@@ -4493,13 +4482,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 
                     p_current_parameter = p_current_parameter->next;
 
-                    char* _Opt _Owner temp3 = strdup(p_current_parameter->name);
-                    if (temp3 == NULL)
-                    {
-                        macro_argument_delete(p_argument);
-                        throw;
-                    }
-                    p_argument->name = temp3;
+                    p_argument->macro_parameter = p_current_parameter;
                 }
             }
             else
@@ -4686,6 +4669,19 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
 
     try
     {
+        /*clear previous usage*/
+        struct macro_argument* _Owner _Opt p = arguments->head;
+        while (p)
+        {
+            struct macro_argument* _Owner _Opt next = p->next;
+            if (p->macro_parameter)
+            {
+                p->macro_parameter->already_expanded = false;
+                token_list_clear(&p->macro_parameter->expanded_list);
+            }
+            p = next;
+        }
+
         while (input_list->head)
         {
             assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
@@ -4808,26 +4804,44 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                 }
                 else
                 {
-                    int flags = input_list->head->flags;
+                    const int flags = input_list->head->flags;
+
                     //remove nome parametro do input
                     token_list_pop_front(input_list);
-                    //coloca a expansao no resultado
-                    struct token_list argumentlist = copy_argument_list(p_argument);
-                    if (argumentlist.head)
+
+                    if (p_argument->macro_parameter == NULL)
                     {
-                        //copia os flags do identificador
-                        argumentlist.head->flags = flags;
-                    }
-                    /*depois reescan vai corrigir level*/
-                    struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0, origin);
-                    token_list_append_list(&r, &r4);
-                    token_list_destroy(&r4);
-                    if (ctx->n_errors > 0)
-                    {
-                        token_list_destroy(&argumentlist);
                         throw;
                     }
-                    token_list_destroy(&argumentlist);
+
+                    if (!p_argument->macro_parameter->already_expanded)
+                    {
+                        /*
+                          https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm#number-of-expansions
+                          For each such parameter this expansion is performed exactly once,
+                          and then preprocessing tokens naming the parameter are each replaced
+                          with the resulting token list.
+                        */
+                        struct token_list copy_list = copy_argument_list(p_argument);
+                        struct token_list r4 = replacement_list_reexamination(ctx, p_list, &copy_list, 0, origin);
+                        token_list_swap(&p_argument->macro_parameter->expanded_list, &r4);
+                        token_list_destroy(&r4);
+                        p_argument->macro_parameter->already_expanded = true;
+                    }
+
+                    //Use the previous expansion
+                    struct token_list copy_list = copy_argument_list_tokens(&p_argument->macro_parameter->expanded_list);
+                    if (copy_list.head)
+                    {
+                        //fix flags
+                        copy_list.head->flags = flags;
+                    }
+                    token_list_append_list(&r, &copy_list);
+                    token_list_destroy(&copy_list);
+                    if (ctx->n_errors > 0)
+                    {
+                        throw;
+                    }
                 }
             }
             else
@@ -5187,7 +5201,6 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     }
     else if (strcmp(macro->name, "__COUNTER__") == 0)
     {
-        //TODO unit test
         char line[50] = { 0 };
         snprintf(line, sizeof line, "%d", ctx->count_macro_value);
         ctx->count_macro_value++;
@@ -7705,6 +7718,37 @@ int test_utf8()
     return 0;
 }
 
+int test_counter()
+{
+    //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm#number-of-expansions
+
+    const char* input =
+        "#define X(Z) Z Z\n"
+        "X(__COUNTER__)\n";
+
+    const char* output =
+        "0 0"
+        ;
+
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    struct preprocessor_ctx prectx = { 0 };
+    prectx.macros.capacity = 5000;
+    add_standard_macros(&prectx);
+    struct token_list list2 = preprocessor(&prectx, &list, 0);
+
+    const char* result = print_preprocessed_to_string(list2.head);
+    if (result == NULL)
+    {
+        result = strdup("");
+    }
+
+    assert(test_preprocessor_in_out(result, output) == 0);
+
+    return 0;
+}
+
 int bug_test()
 {
     const char* input =
@@ -7719,7 +7763,7 @@ int bug_test()
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
-    
+
 
     assert(test_preprocessor_in_out(input, output) == 0);
 

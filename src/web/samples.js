@@ -398,6 +398,47 @@ int main(void)
 
 `;
 
+sample["C11"]["_Alignas"] =
+`
+//NOT IMPLEMENTED YET
+//https://en.cppreference.com/w/c/language/_Alignas.html
+
+#include <stdio.h>
+
+// every object of type struct sse_t will be aligned to 16-byte boundary
+// (note: needs support for DR 444)
+struct sse_t
+{
+    alignas(16) float sse_data[4];
+};
+
+// every object of type struct data will be aligned to 128-byte boundary
+struct data
+{
+    char x;
+    alignas(128) char cacheline[128]; // over-aligned array of char,
+                                      // not array of over-aligned chars
+};
+
+int main(void)
+{
+    printf("sizeof(data) = %zu (1 byte + 127 bytes padding + 128-byte array)\n",
+           sizeof(struct data));
+
+    printf("alignment of sse_t is %zu\n", alignof(struct sse_t));
+
+    alignas(2048) struct data d; // this instance of data is aligned even stricter
+    (void)d; // suppresses "maybe unused" warning
+}
+
+/*
+   OUTPUT
+   sizeof(data) = 256 (1 byte + 127 bytes padding + 128-byte array)
+   alignment of sse_t is 16
+*/
+
+`;
+
 sample["C23"] = []
 sample["C23"]["Digit Separator"] =
     `
@@ -1322,6 +1363,15 @@ void f0(){
 
 `;
 
+sample["C2Y"]["__COUNTER__"] =
+`
+//https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm#number-of-expansions
+
+#define X(Z) Z Z
+X(__COUNTER__) // 0 0
+X(__COUNTER__) // 1 1
+
+`;
 
 sample["Extensions"] = [];
 sample["Extensions"]["try catch throw"] =

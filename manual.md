@@ -592,6 +592,20 @@ Important: Cake assume source is utf8 encoded.
 ### C11 _Alignas or C23 alignas
 
 Not implemented. 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf
+
+```c
+#if defined(_MSC_VER)
+  #define ALIGN(n) __declspec(align(n))
+#elif defined(__GNUC__)
+  #define ALIGN(n) __attribute__((aligned(n)))
+#else
+  #define ALIGN(n)  /* fallback: nothing */
+#endif
+
+ALIGN(16) int x;
+```
+
 
 ## C23 Transformations
 
@@ -1079,6 +1093,8 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf
 
+Obs: Cake extends countof to enums, returning the number
+of enumerators.
 
 ###   defer
 
@@ -1110,6 +1126,11 @@ int main() {
   while(0);
 }
 ```
+
+###  Function literals and local functions
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf
+
 
 ###  if declarations, v4
 
@@ -1187,32 +1208,6 @@ catch
 {
 }
 ```
-
-###  Extension Literal function - lambdas
-
-Lambdas without capture where implemented using a compound literal syntax.
-Since, we cannot have compound literal of function types (only pointer to function) the
-syntax can be reused.
-
-
-For instance:
-
-```c
-extern char* strdup(const char* s);
-void create_app(const char* appname)
-{
-  struct capture {
-     char * name;
-  } capture = { .name = strdup(appname) };
-
-  (void (void* p)) {
-    struct capture* capture = p;    
-  }(&capture); 
-}
-```
-
-Code generation is already working, but static analysis
-is not implemented. 
 
 ### Extension #pragma dir  
 

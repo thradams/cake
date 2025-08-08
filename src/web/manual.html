@@ -274,21 +274,21 @@
 <a href="#toc_77">defer</a>
 </li>
 <li>
-<a href="#toc_78">if declarations, v4</a>
+<a href="#toc_78">Function literals and local functions</a>
 </li>
 <li>
-<a href="#toc_79">Extension typename on _Generic</a>
+<a href="#toc_79">if declarations, v4</a>
+</li>
+<li>
+<a href="#toc_80">Extension typename on _Generic</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_80">Cake Extensions (Not in C23, C2Y)</a>
+<a href="#toc_81">Cake Extensions (Not in C23, C2Y)</a>
 <ul>
 <li>
-<a href="#toc_81">Extension - try catch throw</a>
-</li>
-<li>
-<a href="#toc_82">Extension Literal function - lambdas</a>
+<a href="#toc_82">Extension - try catch throw</a>
 </li>
 <li>
 <a href="#toc_83">Extension #pragma dir</a>
@@ -869,7 +869,19 @@ char * s2 = u8&quot;maca&quot;;
 
 <h3 id="toc_39">C11 _Alignas or C23 alignas</h3>
 
-<p>Not implemented. </p>
+<p>Not implemented. 
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf</a></p>
+
+<pre><code class="language-c">#if defined(_MSC_VER)
+  #define ALIGN(n) __declspec(align(n))
+#elif defined(__GNUC__)
+  #define ALIGN(n) __attribute__((aligned(n)))
+#else
+  #define ALIGN(n)  /* fallback: nothing */
+#endif
+
+ALIGN(16) int x;
+</code></pre>
 
 <h2 id="toc_40">C23 Transformations</h2>
 
@@ -1319,6 +1331,9 @@ int main()
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf</a></p>
 
+<p>Obs: Cake extends countof to enums, returning the number
+of enumerators.</p>
+
 <h3 id="toc_77">defer</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm</a></p>
@@ -1348,7 +1363,11 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_78">if declarations, v4</h3>
+<h3 id="toc_78">Function literals and local functions</h3>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf</a></p>
+
+<h3 id="toc_79">if declarations, v4</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm</a></p>
 
@@ -1367,7 +1386,7 @@ int main()
 <p>C++ proposal
 <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html</a></p>
 
-<h3 id="toc_79">Extension typename on _Generic</h3>
+<h3 id="toc_80">Extension typename on _Generic</h3>
 
 <p>This feature was created in Cake and now it is part of C2Y!</p>
 
@@ -1384,9 +1403,9 @@ int main()
 }
 </code></pre>
 
-<h2 id="toc_80">Cake Extensions (Not in C23, C2Y)</h2>
+<h2 id="toc_81">Cake Extensions (Not in C23, C2Y)</h2>
 
-<h3 id="toc_81">Extension - try catch throw</h3>
+<h3 id="toc_82">Extension - try catch throw</h3>
 
 <pre><code>   try-statement:
       try secondary-block
@@ -1417,30 +1436,6 @@ catch
 {
 }
 </code></pre>
-
-<h3 id="toc_82">Extension Literal function - lambdas</h3>
-
-<p>Lambdas without capture where implemented using a compound literal syntax.
-Since, we cannot have compound literal of function types (only pointer to function) the
-syntax can be reused.</p>
-
-<p>For instance:</p>
-
-<pre><code class="language-c">extern char* strdup(const char* s);
-void create_app(const char* appname)
-{
-  struct capture {
-     char * name;
-  } capture = { .name = strdup(appname) };
-
-  (void (void* p)) {
-    struct capture* capture = p;    
-  }(&amp;capture); 
-}
-</code></pre>
-
-<p>Code generation is already working, but static analysis
-is not implemented. </p>
 
 <h3 id="toc_83">Extension #pragma dir</h3>
 
