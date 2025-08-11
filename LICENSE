@@ -1,3 +1,25 @@
+
+Addendum: Restriction on AI Model Training Use
+
+This Addendum supplements and modifies the terms of the underlying license governing the Software.
+
+By using, copying, modifying, distributing, or otherwise exploiting the Software, you agree to the following additional term:
+
+AI Training Restriction:
+The Software MAY NOT be used, directly or indirectly, in the training, fine-tuning, development, or improvement of any machine learning, artificial intelligence, or similar models, algorithms, or systems (collectively “AI Models”). This includes but is not limited to:
+
+    Using the Software’s source code or any derivative works as training data, input, or reference;
+
+    Incorporating the Software in datasets intended for AI model training;
+
+    Analyzing, transforming, or processing the Software in any manner that results in contributions to AI model learning or optimization.
+
+All other terms of the original license remain in full effect unless explicitly superseded by this Addendum.
+
+
+
+
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
