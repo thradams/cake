@@ -1,6 +1,6 @@
-﻿/*
+/*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
  *
  *  The objective of this visit is to build the "defer list" on AST
  *  The defer list is the list of items that will go out of scope.

@@ -1,6 +1,6 @@
-﻿/*
+/*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -540,10 +540,7 @@ void print_help()
         "\n"
         WHITE "    " CAKE " source.c\n" RESET
         "    Compiles source.c and outputs /out/source.c\n"
-        "\n"
-        WHITE "    " CAKE " -target=c11 source.c\n" RESET
-        "    Compiles source.c and outputs C11 code at /out/source.c\n"
-        "\n"
+        "\n"        
         WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
@@ -564,21 +561,10 @@ void print_help()
         "\n"
         LIGHTCYAN "  -E                    " RESET "Copies preprocessor output to standard output \n"
         "\n"
-        LIGHTCYAN "  -o name.c             " RESET "Defines the output name. used when we compile one file\n"
-        "\n"
-        LIGHTCYAN "  -remove-comments      " RESET "Remove all comments from the output file \n"
-        "\n"
-        LIGHTCYAN "  -direct-compilation   " RESET "output without macros/preprocessor parts\n"
-        "\n"
-        LIGHTCYAN "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c23, c2y, cxx) \n"
-        "                        C99 is the default and C89 (ANSI C) is the minimum target \n"
+        LIGHTCYAN "  -o name.c             " RESET "Defines the output name when compiling one file\n"
         "\n"
         LIGHTCYAN "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
         "                        (not implemented yet, input is considered C23)                    \n"
-        "\n"
-        LIGHTCYAN "  -fi                   " RESET "Format input (format before language conversion)\n"
-        "\n"
-        LIGHTCYAN "  -fo                   " RESET "Format output (format after language conversion, result parsed again)\n"
         "\n"
         LIGHTCYAN "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"

@@ -1,6 +1,6 @@
-﻿/*
+/*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -128,7 +128,7 @@ void token_list_pop_back(struct token_list* list)
             list->tail->prev = NULL;
         }
     }
-
+    assert(list->head == NULL || list->head->prev == NULL);
 }
 
 void token_list_pop_front(struct token_list* list) /*unchecked*/
@@ -153,6 +153,8 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     p->next = NULL;
     p->prev = NULL;
     token_delete(p);
+
+    assert(list->head == NULL || list->head->prev == NULL);
 }
 
 struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)
@@ -160,24 +162,24 @@ struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)
     if (list->head == NULL)
         return NULL;
 
-    struct token* _Owner _Opt head = list->head;
+    struct token* _Owner _Opt old_head = list->head;
 
-    if (list->head == list->tail)
+    list->head = old_head->next; // move head forward
+
+    if (list->head != NULL)
     {
-        list->head = NULL;
+        list->head->prev = NULL;
+    }
+    else
+    {
         list->tail = NULL;
-
-        head->next = NULL;
-        head->prev = NULL;
-
-        return head;
     }
 
-    list->head = head->next;
-    head->next = NULL;
-    head->prev = NULL;
+    assert(list->head == NULL || list->head->prev == NULL);
 
-    return head;
+    old_head->prev = NULL;
+    old_head->next = NULL;
+    return old_head;
 }
 
 void token_list_swap(struct token_list* a, struct token_list* b)
@@ -342,6 +344,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
 
     append_list->head = NULL;
     append_list->tail = NULL;
+    assert(token_list->head == NULL || token_list->head->prev == NULL);
 }
 
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list)
@@ -371,7 +374,6 @@ bool token_list_is_equal(const struct token_list* list_a, const struct token_lis
 
 struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
 {
-    /*avoid accidentally being in 2 different lists*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
 
@@ -393,6 +395,9 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
     }
     assert(list->tail != NULL);
     assert(list->tail->next == NULL);
+
+    assert(list->head == NULL || list->head->prev == NULL);
+
     return list->tail;
 
 }
@@ -564,6 +569,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
 
     source->head = NULL;
     source->tail = NULL;
+    assert(dest->head == NULL || dest->head->prev == NULL);
 }
 
 void token_list_append_list(struct token_list* dest, struct token_list* source)
@@ -587,6 +593,7 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
     }
     source->head = NULL;
     source->tail = NULL;
+    assert(dest->head == NULL || dest->head->prev == NULL);
 }
 
 

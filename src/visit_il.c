@@ -1,6 +1,6 @@
-﻿
-#pragma safety enable
 
+#pragma safety enable
+ 
 #include "ownership.h"
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +10,12 @@
 #include <stdint.h>
 #include "visit_il.h"
 #include "expressions.h"
+
+#if SIZE_MAX > UINT_MAX
+#define SIZE_T_TYPE_STR "unsigned int"
+#else
+#define SIZE_T_TYPE_STR "unsigned long long"
+#endif
 
 static void print_initializer(struct d_visit_ctx* ctx,
     struct osstream* oss,
@@ -1157,7 +1163,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
-        ss_fprintf(oss, "/*throw*/ goto _CKL%d;\n", p_jump_statement->label_id);
+        ss_fprintf(oss, "goto _CKL%d;/*throw*/\n", p_jump_statement->label_id);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
@@ -1239,7 +1245,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
         {
             if (ctx->break_reference.p_selection_statement)
             {
-                ss_fprintf(oss, "/*break*/ goto _CKL%d;\n\n", ctx->break_reference.p_selection_statement->label_id);
+                ss_fprintf(oss, "goto _CKL%d; /*break*/\n\n", ctx->break_reference.p_selection_statement->label_id);
             }
             else
             {
@@ -1490,7 +1496,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         if (p_label_default)
         {
-            ss_fprintf(&ss, "goto /*default*/ _CKL%d;\n", p_label_default->label_id);
+            ss_fprintf(&ss, "goto _CKL%d;/*default*/\n", p_label_default->label_id);
         }
         else
         {
@@ -1619,12 +1625,12 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
     print_identation(ctx, oss);
-    ss_fprintf(oss, "/*try*/ if (1)\n");
+    ss_fprintf(oss, "if (1) /*try*/\n");
 
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "/*catch*/ else _CKL%d:\n", p_try_statement->catch_label_id);
+    ss_fprintf(oss, "else _CKL%d: /*catch*/ \n", p_try_statement->catch_label_id);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -1682,6 +1688,8 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
         print_identation(ctx, oss);
+        ss_fprintf(oss, "_CKL%d:", p_label->label_id);
+
         char str[50] = { 0 };
         object_to_str(&p_label->constant_expression->object, 50, str);
         if (p_label->constant_expression_end == NULL)
@@ -1694,7 +1702,8 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
             object_to_str(&p_label->constant_expression_end->object, 50, str2);
             ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
         }
-        ss_fprintf(oss, "_CKL%d:\n", p_label->label_id);
+        
+        ss_fprintf(oss, "\n");
     }
     else if (p_label->p_first_token->type == TK_IDENTIFIER)
     {
@@ -1704,7 +1713,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "/*default*/ _CKL%d:\n", p_label->label_id);
+        ss_fprintf(oss, "_CKL%d: /*default*/ \n", p_label->label_id);
     }
 
 }
@@ -2677,7 +2686,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             }
         }
         bool b_add_this_before_external_decl = false;
-        struct osstream add_this_before_external_decl = { 0 };
+        
         if (is_static && !is_function)
         {
             b_add_this_before_external_decl = true;
@@ -3060,7 +3069,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     if (ctx->zero_mem_used)
     {
         const char* str =
-            "static void _cake_zmem(void *dest, register unsigned int len)\n"
+            "static void _cake_zmem(void *dest, register " SIZE_T_TYPE_STR " len)\n"
             "{\n"
             "  register unsigned char *ptr = (unsigned char*)dest;\n"
             "  while (len-- > 0) *ptr++ = 0;\n"
@@ -3071,11 +3080,12 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     if (ctx->memcpy_used)
     {
         const char* str =
-            "static void _cake_memcpy(void * dest, const void * src, unsigned long n)\n"
-            "{\n"
+            "static void _cake_memcpy(void * dest, const void * src, " SIZE_T_TYPE_STR " n)\n"
+            "{\n"            
             "  char *csrc = (char *)src;\n"
             "  char *cdest = (char *)dest;\n"
-            "  for (int i=0; i<n; i++) cdest[i] = csrc[i]; \n"
+            SIZE_T_TYPE_STR " i; \n"
+            "  for ( i = 0; i<n; i++) cdest[i] = csrc[i]; \n"
             "}\n\n";
         ss_fprintf(oss, "%s", str);
     }

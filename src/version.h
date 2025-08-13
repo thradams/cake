@@ -1,11 +1,11 @@
-﻿/*
+/*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma once
 
-#define CAKE_VERSION "0.10.38"
+#define CAKE_VERSION "0.10.40"
 
 
 

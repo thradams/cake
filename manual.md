@@ -21,7 +21,7 @@ same path as the Cake executable.
 
 The **-autoconfig** option generates the `cakeconfig.h` automatically on both Windows and Linux.
 
-To manually discover which directories are included, you can run the command:
+On Windows, to manually discover which directories are included, you can run the command:
 
 
 ```
@@ -122,7 +122,7 @@ Defines a preprocessing symbol for a source file
 Copies preprocessor output to standard output
 
 #### -o name.c (same as GCC and MSVC)
-  Defines the output name. used when we compile one file
+  Defines the output name, when we compile a single file
 
 #### -dump-tokens            
 Output tokens before preprocessor
@@ -156,7 +156,8 @@ Inside "Visual Studio -> External Tools" this command can be used for static ana
 
 
 #### -msvc-output          
-Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. 
+Output is compatible with Visual Studio IDE. 
+(We can click on the error message and IDE selects the line.) 
 
 ### -fanalyzer
 This option enables an static analysis of program flow. This is required for some
@@ -190,7 +191,6 @@ It does not include the following features:
  - no switch 
  - 
 The goal is for this simplified version to function as an intermediate language (IL).
- 
 
 One directory called **out** is created keeping the same directory structure of the input files.
 
@@ -385,7 +385,6 @@ Not implemented
 double d = 0x1p+1;
 ```
   
-Backend:
 Cake converts hexadecimal floating-point values to decimal 
 floating-point representation using strtod followed by snprintf.
 This conversion may introduce precision loss.

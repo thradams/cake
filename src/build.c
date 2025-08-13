@@ -1,4 +1,4 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
+
 
 /*
  WINDOWS
@@ -112,19 +112,18 @@ static void generate_doc(const char* mdfilename, const char* outfile)
     }
 }
 
+
 int main()
 {
-    printf(CC_DESCRIPTION " " CPU_ARCHITECTURE_TEXT "\n");
-
     echo_chdir("./tools");
 
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe");
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe");
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c  ../fs.c ../error.c " OUT_OPT "../embed.exe");
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " CC_OUTPUT("../maketest.exe") );
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " CC_OUTPUT("../amalgamator.exe"));
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c  ../fs.c ../error.c " CC_OUTPUT("../embed.exe"));
 
     echo_chdir("./hoedown");
 
-    execute_cmd(CC HOEDOWN_SOURCE_FILES OUT_OPT "../../hoedown.exe");
+    execute_cmd(CC HOEDOWN_SOURCE_FILES CC_OUTPUT("../../hoedown.exe"));
 
     echo_chdir("..");
     echo_chdir("..");
@@ -146,48 +145,10 @@ int main()
     execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_SOURCE_FILES);
     remove("amalgamator.exe");
 
-#ifdef BUILD_WINDOWS_HLC
-    execute_cmd(CC CAKE_SOURCE_FILES " main.c "
 
-#ifdef DISABLE_COLORS
-              " /DDISABLE_COLORS "
-#endif
-
-#if defined DEBUG
-              " /Od /MDd /RTC1 "
-              " /Dstrdup=_strdup" /*nao linka em release*/
-#else                              // RELEASE
-              " /MT "
-              " /DNDEBUG "
-
-#endif
-              " /D_CRT_NONSTDC_NO_WARNINGS "
-              " /wd4996 "
-              " /wd4100 " //unreferenced formal paramet
-              " /wd4068 " //unknown pragma                              
-              " /W4 "
-#ifdef TEST
-              "-DTEST"
-#endif
-              " /D_CRT_SECURE_NO_WARNINGS "
-              " /link "
-              " ucrt.lib "
-              " Kernel32.lib User32.lib Advapi32.lib"
-              " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
-              " /out:cake.exe");
-
-    //Runs cake on its own source
-    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
-
-#endif
-
-#ifdef BUILD_WINDOWS_MSC
+#if defined COMPILER_MSVC
 
     execute_cmd(CC CAKE_SOURCE_FILES " main.c "
-
-#ifdef DISABLE_COLORS
-               " /DDISABLE_COLORS "
-#endif
 
 #if defined DEBUG
                " /Od /MDd /RTC1 "
@@ -226,7 +187,7 @@ int main()
                " ucrt.lib vcruntime.lib msvcrt.lib "
                " Kernel32.lib User32.lib Advapi32.lib"
                " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
-               " /out:cake.exe");
+               " /out:cake.exe ");
 
     //Runs cake on its own source
     execute_cmd("cake.exe -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " " main.c " CAKE_SOURCE_FILES);
@@ -239,7 +200,7 @@ int main()
 
 #endif
 
-#ifdef BUILD_WINDOWS_CLANG
+#if defined PLATFORM_WINDOWS && defined COMPILER_CLANG
 
     execute_cmd("clang " CAKE_SOURCE_FILES " main.c "
 #if defined DEBUG
@@ -268,8 +229,55 @@ int main()
 
 #endif
 
-#if defined BUILD_LINUX_CLANG || defined BUILD_MACOS_CLANG
+#if defined COMPILER_HLC
+    execute_cmd(CC CAKE_SOURCE_FILES " main.c "
+
+#if defined DEBUG
+              " /Od /MDd /RTC1 "
+              " /Dstrdup=_strdup" /*nao linka em release*/
+#else                              // RELEASE
+              " /MT "
+              " /DNDEBUG "
+
+#endif
+              " /D_CRT_NONSTDC_NO_WARNINGS "
+              " /wd4996 "
+              " /wd4100 " //unreferenced formal paramet
+              " /wd4068 " //unknown pragma                              
+              " /W4 "
+#ifdef TEST
+              "-DTEST"
+#endif
+              " /D_CRT_SECURE_NO_WARNINGS "
+              " /link "
+              " ucrt.lib "
+              " Kernel32.lib User32.lib Advapi32.lib"
+              " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
+              " /out:cake.exe");
+
+    //Runs cake on its own source
+    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
+
+#endif
+
+
+#if defined COMPILER_TCC
+    execute_cmd(CC CAKE_SOURCE_FILES " main.c "
+             
+#ifdef TEST
+              "-DTEST"
+#endif              
+              " -o cake.exe");
+
+    //Runs cake on its own source
+    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
+
+#endif
+
+
+#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS)) && defined COMPILER_CLANG
     execute_cmd("clang "
+
 #ifdef TEST
            "-DTEST"
 #endif
@@ -283,7 +291,7 @@ int main()
            CAKE_SOURCE_FILES " main.c ");
 #endif
 
-#if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC  || defined BUILD_MACOS_GCC
+#if defined COMPILER_GCC
 
     // #define GCC_ANALIZER  " -fanalyzer "
     execute_cmd("gcc "

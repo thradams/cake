@@ -1,9 +1,9 @@
-﻿/*
+/*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
  *  This visit generates a new and preprocessed C89 code from the AST
  */
-
+ 
 #pragma once
 #include "parser.h"
 #include "ownership.h"

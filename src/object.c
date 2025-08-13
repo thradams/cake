@@ -1,6 +1,6 @@
-﻿/*
+/*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -402,9 +402,9 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     }
     break;
 
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
     {
         long double v = object_to_long_double(a);
         snprintf(str, n, "%Lf", v);
@@ -2294,7 +2294,7 @@ void object_print_to_debug(const struct object* object)
 /*
    extends the array to the max_index returning the added item.
 */
-struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int max_index, bool is_constant)
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant)
 {
     struct object* _Opt it = a->members;
 

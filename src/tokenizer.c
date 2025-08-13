@@ -1,6 +1,6 @@
-﻿/*
+/*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma safety enable

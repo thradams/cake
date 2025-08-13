@@ -1,7 +1,7 @@
-﻿
+
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
  *
  *  struct object is used to compute the compile time expressions (including constexpr)
  *
@@ -199,7 +199,7 @@ enum object_value_type type_to_object_type(const struct type* type);
 
 void object_print_to_debug(const struct object* object);
 
-struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int n, bool is_constant);
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant);
 struct object* object_get_non_const_referenced(struct object* p_object);
 
 

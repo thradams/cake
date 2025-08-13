@@ -1,7 +1,7 @@
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -189,7 +189,7 @@ void c_gotoxy(int x, int y);
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
@@ -218,7 +218,7 @@ void ss_swap(struct osstream* a, struct osstream* b);
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
@@ -226,7 +226,7 @@ void ss_swap(struct osstream* a, struct osstream* b);
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
@@ -325,7 +325,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
@@ -680,7 +680,7 @@ void throw_break_point();
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
@@ -1290,7 +1290,7 @@ void token_list_pop_back(struct token_list* list)
             list->tail->prev = NULL;
         }
     }
-
+    assert(list->head == NULL || list->head->prev == NULL);
 }
 
 void token_list_pop_front(struct token_list* list) /*unchecked*/
@@ -1315,6 +1315,8 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     p->next = NULL;
     p->prev = NULL;
     token_delete(p);
+
+    assert(list->head == NULL || list->head->prev == NULL);
 }
 
 struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)
@@ -1322,24 +1324,24 @@ struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)
     if (list->head == NULL)
         return NULL;
 
-    struct token* _Owner _Opt head = list->head;
+    struct token* _Owner _Opt old_head = list->head;
 
-    if (list->head == list->tail)
+    list->head = old_head->next; // move head forward
+
+    if (list->head != NULL)
     {
-        list->head = NULL;
+        list->head->prev = NULL;
+    }
+    else
+    {
         list->tail = NULL;
-
-        head->next = NULL;
-        head->prev = NULL;
-
-        return head;
     }
 
-    list->head = head->next;
-    head->next = NULL;
-    head->prev = NULL;
+    assert(list->head == NULL || list->head->prev == NULL);
 
-    return head;
+    old_head->prev = NULL;
+    old_head->next = NULL;
+    return old_head;
 }
 
 void token_list_swap(struct token_list* a, struct token_list* b)
@@ -1504,6 +1506,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* _Opt a
 
     append_list->head = NULL;
     append_list->tail = NULL;
+    assert(token_list->head == NULL || token_list->head->prev == NULL);
 }
 
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list)
@@ -1533,7 +1536,6 @@ bool token_list_is_equal(const struct token_list* list_a, const struct token_lis
 
 struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
 {
-    /*avoid accidentally being in 2 different lists*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
 
@@ -1555,6 +1557,9 @@ struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
     }
     assert(list->tail != NULL);
     assert(list->tail->next == NULL);
+
+    assert(list->head == NULL || list->head->prev == NULL);
+
     return list->tail;
 
 }
@@ -1726,6 +1731,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
 
     source->head = NULL;
     source->tail = NULL;
+    assert(dest->head == NULL || dest->head->prev == NULL);
 }
 
 void token_list_append_list(struct token_list* dest, struct token_list* source)
@@ -1749,6 +1755,7 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
     }
     source->head = NULL;
     source->tail = NULL;
+    assert(dest->head == NULL || dest->head->prev == NULL);
 }
 
 
@@ -2755,7 +2762,7 @@ void token_list_remove_get_test2()
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -3211,7 +3218,7 @@ void c_gotoxy(int x, int y)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma safety enable
@@ -3267,11 +3274,11 @@ void c_gotoxy(int x, int y)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
-
+ 
 
 #ifdef _WIN32 
 
@@ -3381,7 +3388,7 @@ bool path_is_normalized(const char* path);
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
@@ -11107,7 +11114,6 @@ int test_counter()
     add_standard_macros(&prectx);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
-
     const char* result = print_preprocessed_to_string(list2.head);
     if (result == NULL)
     {
@@ -11191,7 +11197,7 @@ int stringify_test()
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -11313,7 +11319,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -11820,11 +11826,11 @@ static const char file_assert_h[] = {
 47,42,13,10,32,42,32,32,84,104,105,115,32,102,105,108,101,32,105,115,32,112,97,114,116
 ,32,111,102,32,99,97,107,101,32,99,111,109,112,105,108,101,114,13,10,32,42,32,32,104,116
 ,116,112,115,58,47,47,103,105,116,104,117,98,46,99,111,109,47,116,104,114,97,100,97,109,115
-,47,99,97,107,101,13,10,42,47,13,10,13,10,35,105,102,100,101,102,32,78,68,69,66,85
-,71,13,10,35,100,101,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46,41,32,40,40
-,118,111,105,100,41,48,41,13,10,35,101,108,115,101,13,10,35,100,101,102,105,110,101,32,97
-,115,115,101,114,116,40,46,46,46,41,32,97,115,115,101,114,116,40,95,95,86,65,95,65,82
-,71,83,95,95,41,13,10,35,101,110,100,105,102,13,10
+,47,99,97,107,101,13,10,42,47,32,13,10,13,10,35,105,102,100,101,102,32,78,68,69,66
+,85,71,13,10,35,100,101,102,105,110,101,32,97,115,115,101,114,116,40,46,46,46,41,32,40
+,40,118,111,105,100,41,48,41,13,10,35,101,108,115,101,13,10,35,100,101,102,105,110,101,32
+,97,115,115,101,114,116,40,46,46,46,41,32,97,115,115,101,114,116,40,95,95,86,65,95,65
+,82,71,83,95,95,41,13,10,35,101,110,100,105,102,13,10
 };
 
 static const char file_stdio_h[] = {
@@ -11964,98 +11970,98 @@ static const char file_errno_h[] = {
 ,47,99,97,107,101,13,10,42,47,13,10,13,10,35,112,114,97,103,109,97,32,111,110,99,101
 ,13,10,13,10,105,110,116,42,32,95,101,114,114,110,111,40,118,111,105,100,41,59,13,10,35
 ,100,101,102,105,110,101,32,101,114,114,110,111,32,40,42,95,101,114,114,110,111,40,41,41,13
-,10,13,10,13,10,35,100,101,102,105,110,101,32,69,80,69,82,77,32,32,32,32,32,32,32
-,32,32,32,32,49,13,10,35,100,101,102,105,110,101,32,69,78,79,69,78,84,32,32,32,32
-,32,32,32,32,32,32,50,13,10,35,100,101,102,105,110,101,32,69,83,82,67,72,32,32,32
-,32,32,32,32,32,32,32,32,51,13,10,35,100,101,102,105,110,101,32,69,73,78,84,82,32
-,32,32,32,32,32,32,32,32,32,32,52,13,10,35,100,101,102,105,110,101,32,69,73,79,32
-,32,32,32,32,32,32,32,32,32,32,32,32,53,13,10,35,100,101,102,105,110,101,32,69,78
-,88,73,79,32,32,32,32,32,32,32,32,32,32,32,54,13,10,35,100,101,102,105,110,101,32
-,69,50,66,73,71,32,32,32,32,32,32,32,32,32,32,32,55,13,10,35,100,101,102,105,110
-,101,32,69,78,79,69,88,69,67,32,32,32,32,32,32,32,32,32,56,13,10,35,100,101,102
-,105,110,101,32,69,66,65,68,70,32,32,32,32,32,32,32,32,32,32,32,57,13,10,35,100
-,101,102,105,110,101,32,69,67,72,73,76,68,32,32,32,32,32,32,32,32,32,32,49,48,13
-,10,35,100,101,102,105,110,101,32,69,65,71,65,73,78,32,32,32,32,32,32,32,32,32,32
-,49,49,13,10,35,100,101,102,105,110,101,32,69,78,79,77,69,77,32,32,32,32,32,32,32
-,32,32,32,49,50,13,10,35,100,101,102,105,110,101,32,69,65,67,67,69,83,32,32,32,32
-,32,32,32,32,32,32,49,51,13,10,35,100,101,102,105,110,101,32,69,70,65,85,76,84,32
-,32,32,32,32,32,32,32,32,32,49,52,13,10,35,100,101,102,105,110,101,32,69,66,85,83
-,89,32,32,32,32,32,32,32,32,32,32,32,49,54,13,10,35,100,101,102,105,110,101,32,69
-,69,88,73,83,84,32,32,32,32,32,32,32,32,32,32,49,55,13,10,35,100,101,102,105,110
-,101,32,69,88,68,69,86,32,32,32,32,32,32,32,32,32,32,32,49,56,13,10,35,100,101
-,102,105,110,101,32,69,78,79,68,69,86,32,32,32,32,32,32,32,32,32,32,49,57,13,10
-,35,100,101,102,105,110,101,32,69,78,79,84,68,73,82,32,32,32,32,32,32,32,32,32,50
-,48,13,10,35,100,101,102,105,110,101,32,69,73,83,68,73,82,32,32,32,32,32,32,32,32
-,32,32,50,49,13,10,35,100,101,102,105,110,101,32,69,78,70,73,76,69,32,32,32,32,32
-,32,32,32,32,32,50,51,13,10,35,100,101,102,105,110,101,32,69,77,70,73,76,69,32,32
-,32,32,32,32,32,32,32,32,50,52,13,10,35,100,101,102,105,110,101,32,69,78,79,84,84
-,89,32,32,32,32,32,32,32,32,32,32,50,53,13,10,35,100,101,102,105,110,101,32,69,70
-,66,73,71,32,32,32,32,32,32,32,32,32,32,32,50,55,13,10,35,100,101,102,105,110,101
-,32,69,78,79,83,80,67,32,32,32,32,32,32,32,32,32,32,50,56,13,10,35,100,101,102
-,105,110,101,32,69,83,80,73,80,69,32,32,32,32,32,32,32,32,32,32,50,57,13,10,35
-,100,101,102,105,110,101,32,69,82,79,70,83,32,32,32,32,32,32,32,32,32,32,32,51,48
-,13,10,35,100,101,102,105,110,101,32,69,77,76,73,78,75,32,32,32,32,32,32,32,32,32
-,32,51,49,13,10,35,100,101,102,105,110,101,32,69,80,73,80,69,32,32,32,32,32,32,32
-,32,32,32,32,51,50,13,10,35,100,101,102,105,110,101,32,69,68,79,77,32,32,32,32,32
-,32,32,32,32,32,32,32,51,51,13,10,35,100,101,102,105,110,101,32,69,68,69,65,68,76
-,75,32,32,32,32,32,32,32,32,32,51,54,13,10,35,100,101,102,105,110,101,32,69,78,65
-,77,69,84,79,79,76,79,78,71,32,32,32,32,51,56,13,10,35,100,101,102,105,110,101,32
-,69,78,79,76,67,75,32,32,32,32,32,32,32,32,32,32,51,57,13,10,35,100,101,102,105
-,110,101,32,69,78,79,83,89,83,32,32,32,32,32,32,32,32,32,32,52,48,13,10,35,100
-,101,102,105,110,101,32,69,78,79,84,69,77,80,84,89,32,32,32,32,32,32,32,52,49,13
-,10,13,10,13,10,47,47,32,83,117,112,112,111,114,116,32,69,68,69,65,68,76,79,67,75
-,32,102,111,114,32,99,111,109,112,97,116,105,98,105,108,105,116,121,32,119,105,116,104,32,111
-,108,100,101,114,32,77,105,99,114,111,115,111,102,116,32,67,32,118,101,114,115,105,111,110,115
-,13,10,35,100,101,102,105,110,101,32,69,68,69,65,68,76,79,67,75,32,32,32,32,32,32
-,32,69,68,69,65,68,76,75,13,10,13,10,35,100,101,102,105,110,101,32,69,65,68,68,82
-,73,78,85,83,69,32,32,32,32,32,32,49,48,48,13,10,35,100,101,102,105,110,101,32,69
-,65,68,68,82,78,79,84,65,86,65,73,76,32,32,32,49,48,49,13,10,35,100,101,102,105
-,110,101,32,69,65,70,78,79,83,85,80,80,79,82,84,32,32,32,32,49,48,50,13,10,35
-,100,101,102,105,110,101,32,69,65,76,82,69,65,68,89,32,32,32,32,32,32,32,32,49,48
-,51,13,10,35,100,101,102,105,110,101,32,69,66,65,68,77,83,71,32,32,32,32,32,32,32
-,32,32,49,48,52,13,10,35,100,101,102,105,110,101,32,69,67,65,78,67,69,76,69,68,32
-,32,32,32,32,32,32,49,48,53,13,10,35,100,101,102,105,110,101,32,69,67,79,78,78,65
-,66,79,82,84,69,68,32,32,32,32,49,48,54,13,10,35,100,101,102,105,110,101,32,69,67
-,79,78,78,82,69,70,85,83,69,68,32,32,32,32,49,48,55,13,10,35,100,101,102,105,110
-,101,32,69,67,79,78,78,82,69,83,69,84,32,32,32,32,32,32,49,48,56,13,10,35,100
-,101,102,105,110,101,32,69,68,69,83,84,65,68,68,82,82,69,81,32,32,32,32,49,48,57
-,13,10,35,100,101,102,105,110,101,32,69,72,79,83,84,85,78,82,69,65,67,72,32,32,32
-,32,49,49,48,13,10,35,100,101,102,105,110,101,32,69,73,68,82,77,32,32,32,32,32,32
-,32,32,32,32,32,49,49,49,13,10,35,100,101,102,105,110,101,32,69,73,78,80,82,79,71
-,82,69,83,83,32,32,32,32,32,49,49,50,13,10,35,100,101,102,105,110,101,32,69,73,83
-,67,79,78,78,32,32,32,32,32,32,32,32,32,49,49,51,13,10,35,100,101,102,105,110,101
-,32,69,76,79,79,80,32,32,32,32,32,32,32,32,32,32,32,49,49,52,13,10,35,100,101
-,102,105,110,101,32,69,77,83,71,83,73,90,69,32,32,32,32,32,32,32,32,49,49,53,13
-,10,35,100,101,102,105,110,101,32,69,78,69,84,68,79,87,78,32,32,32,32,32,32,32,32
-,49,49,54,13,10,35,100,101,102,105,110,101,32,69,78,69,84,82,69,83,69,84,32,32,32
-,32,32,32,32,49,49,55,13,10,35,100,101,102,105,110,101,32,69,78,69,84,85,78,82,69
-,65,67,72,32,32,32,32,32,49,49,56,13,10,35,100,101,102,105,110,101,32,69,78,79,66
-,85,70,83,32,32,32,32,32,32,32,32,32,49,49,57,13,10,35,100,101,102,105,110,101,32
-,69,78,79,68,65,84,65,32,32,32,32,32,32,32,32,32,49,50,48,13,10,35,100,101,102
-,105,110,101,32,69,78,79,76,73,78,75,32,32,32,32,32,32,32,32,32,49,50,49,13,10
-,35,100,101,102,105,110,101,32,69,78,79,77,83,71,32,32,32,32,32,32,32,32,32,32,49
-,50,50,13,10,35,100,101,102,105,110,101,32,69,78,79,80,82,79,84,79,79,80,84,32,32
-,32,32,32,49,50,51,13,10,35,100,101,102,105,110,101,32,69,78,79,83,82,32,32,32,32
-,32,32,32,32,32,32,32,49,50,52,13,10,35,100,101,102,105,110,101,32,69,78,79,83,84
-,82,32,32,32,32,32,32,32,32,32,32,49,50,53,13,10,35,100,101,102,105,110,101,32,69
-,78,79,84,67,79,78,78,32,32,32,32,32,32,32,32,49,50,54,13,10,35,100,101,102,105
-,110,101,32,69,78,79,84,82,69,67,79,86,69,82,65,66,76,69,32,49,50,55,13,10,35
-,100,101,102,105,110,101,32,69,78,79,84,83,79,67,75,32,32,32,32,32,32,32,32,49,50
-,56,13,10,35,100,101,102,105,110,101,32,69,78,79,84,83,85,80,32,32,32,32,32,32,32
-,32,32,49,50,57,13,10,35,100,101,102,105,110,101,32,69,79,80,78,79,84,83,85,80,80
-,32,32,32,32,32,32,49,51,48,13,10,35,100,101,102,105,110,101,32,69,79,84,72,69,82
-,32,32,32,32,32,32,32,32,32,32,49,51,49,13,10,35,100,101,102,105,110,101,32,69,79
-,86,69,82,70,76,79,87,32,32,32,32,32,32,32,49,51,50,13,10,35,100,101,102,105,110
-,101,32,69,79,87,78,69,82,68,69,65,68,32,32,32,32,32,32,49,51,51,13,10,35,100
-,101,102,105,110,101,32,69,80,82,79,84,79,32,32,32,32,32,32,32,32,32,32,49,51,52
-,13,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,78,79,83,85,80,80,79,82,84
-,32,49,51,53,13,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,84,89,80,69,32
-,32,32,32,32,32,49,51,54,13,10,35,100,101,102,105,110,101,32,69,84,73,77,69,32,32
-,32,32,32,32,32,32,32,32,32,49,51,55,13,10,35,100,101,102,105,110,101,32,69,84,73
-,77,69,68,79,85,84,32,32,32,32,32,32,32,49,51,56,13,10,35,100,101,102,105,110,101
-,32,69,84,88,84,66,83,89,32,32,32,32,32,32,32,32,32,49,51,57,13,10,35,100,101
-,102,105,110,101,32,69,87,79,85,76,68,66,76,79,67,75,32,32,32,32,32,49,52,48,13
-,10,13,10
+,10,32,13,10,13,10,35,100,101,102,105,110,101,32,69,80,69,82,77,32,32,32,32,32,32
+,32,32,32,32,32,49,13,10,35,100,101,102,105,110,101,32,69,78,79,69,78,84,32,32,32
+,32,32,32,32,32,32,32,50,13,10,35,100,101,102,105,110,101,32,69,83,82,67,72,32,32
+,32,32,32,32,32,32,32,32,32,51,13,10,35,100,101,102,105,110,101,32,69,73,78,84,82
+,32,32,32,32,32,32,32,32,32,32,32,52,13,10,35,100,101,102,105,110,101,32,69,73,79
+,32,32,32,32,32,32,32,32,32,32,32,32,32,53,13,10,35,100,101,102,105,110,101,32,69
+,78,88,73,79,32,32,32,32,32,32,32,32,32,32,32,54,13,10,35,100,101,102,105,110,101
+,32,69,50,66,73,71,32,32,32,32,32,32,32,32,32,32,32,55,13,10,35,100,101,102,105
+,110,101,32,69,78,79,69,88,69,67,32,32,32,32,32,32,32,32,32,56,13,10,35,100,101
+,102,105,110,101,32,69,66,65,68,70,32,32,32,32,32,32,32,32,32,32,32,57,13,10,35
+,100,101,102,105,110,101,32,69,67,72,73,76,68,32,32,32,32,32,32,32,32,32,32,49,48
+,13,10,35,100,101,102,105,110,101,32,69,65,71,65,73,78,32,32,32,32,32,32,32,32,32
+,32,49,49,13,10,35,100,101,102,105,110,101,32,69,78,79,77,69,77,32,32,32,32,32,32
+,32,32,32,32,49,50,13,10,35,100,101,102,105,110,101,32,69,65,67,67,69,83,32,32,32
+,32,32,32,32,32,32,32,49,51,13,10,35,100,101,102,105,110,101,32,69,70,65,85,76,84
+,32,32,32,32,32,32,32,32,32,32,49,52,13,10,35,100,101,102,105,110,101,32,69,66,85
+,83,89,32,32,32,32,32,32,32,32,32,32,32,49,54,13,10,35,100,101,102,105,110,101,32
+,69,69,88,73,83,84,32,32,32,32,32,32,32,32,32,32,49,55,13,10,35,100,101,102,105
+,110,101,32,69,88,68,69,86,32,32,32,32,32,32,32,32,32,32,32,49,56,13,10,35,100
+,101,102,105,110,101,32,69,78,79,68,69,86,32,32,32,32,32,32,32,32,32,32,49,57,13
+,10,35,100,101,102,105,110,101,32,69,78,79,84,68,73,82,32,32,32,32,32,32,32,32,32
+,50,48,13,10,35,100,101,102,105,110,101,32,69,73,83,68,73,82,32,32,32,32,32,32,32
+,32,32,32,50,49,13,10,35,100,101,102,105,110,101,32,69,78,70,73,76,69,32,32,32,32
+,32,32,32,32,32,32,50,51,13,10,35,100,101,102,105,110,101,32,69,77,70,73,76,69,32
+,32,32,32,32,32,32,32,32,32,50,52,13,10,35,100,101,102,105,110,101,32,69,78,79,84
+,84,89,32,32,32,32,32,32,32,32,32,32,50,53,13,10,35,100,101,102,105,110,101,32,69
+,70,66,73,71,32,32,32,32,32,32,32,32,32,32,32,50,55,13,10,35,100,101,102,105,110
+,101,32,69,78,79,83,80,67,32,32,32,32,32,32,32,32,32,32,50,56,13,10,35,100,101
+,102,105,110,101,32,69,83,80,73,80,69,32,32,32,32,32,32,32,32,32,32,50,57,13,10
+,35,100,101,102,105,110,101,32,69,82,79,70,83,32,32,32,32,32,32,32,32,32,32,32,51
+,48,13,10,35,100,101,102,105,110,101,32,69,77,76,73,78,75,32,32,32,32,32,32,32,32
+,32,32,51,49,13,10,35,100,101,102,105,110,101,32,69,80,73,80,69,32,32,32,32,32,32
+,32,32,32,32,32,51,50,13,10,35,100,101,102,105,110,101,32,69,68,79,77,32,32,32,32
+,32,32,32,32,32,32,32,32,51,51,13,10,35,100,101,102,105,110,101,32,69,68,69,65,68
+,76,75,32,32,32,32,32,32,32,32,32,51,54,13,10,35,100,101,102,105,110,101,32,69,78
+,65,77,69,84,79,79,76,79,78,71,32,32,32,32,51,56,13,10,35,100,101,102,105,110,101
+,32,69,78,79,76,67,75,32,32,32,32,32,32,32,32,32,32,51,57,13,10,35,100,101,102
+,105,110,101,32,69,78,79,83,89,83,32,32,32,32,32,32,32,32,32,32,52,48,13,10,35
+,100,101,102,105,110,101,32,69,78,79,84,69,77,80,84,89,32,32,32,32,32,32,32,52,49
+,13,10,13,10,13,10,47,47,32,83,117,112,112,111,114,116,32,69,68,69,65,68,76,79,67
+,75,32,102,111,114,32,99,111,109,112,97,116,105,98,105,108,105,116,121,32,119,105,116,104,32
+,111,108,100,101,114,32,77,105,99,114,111,115,111,102,116,32,67,32,118,101,114,115,105,111,110
+,115,13,10,35,100,101,102,105,110,101,32,69,68,69,65,68,76,79,67,75,32,32,32,32,32
+,32,32,69,68,69,65,68,76,75,13,10,13,10,35,100,101,102,105,110,101,32,69,65,68,68
+,82,73,78,85,83,69,32,32,32,32,32,32,49,48,48,13,10,35,100,101,102,105,110,101,32
+,69,65,68,68,82,78,79,84,65,86,65,73,76,32,32,32,49,48,49,13,10,35,100,101,102
+,105,110,101,32,69,65,70,78,79,83,85,80,80,79,82,84,32,32,32,32,49,48,50,13,10
+,35,100,101,102,105,110,101,32,69,65,76,82,69,65,68,89,32,32,32,32,32,32,32,32,49
+,48,51,13,10,35,100,101,102,105,110,101,32,69,66,65,68,77,83,71,32,32,32,32,32,32
+,32,32,32,49,48,52,13,10,35,100,101,102,105,110,101,32,69,67,65,78,67,69,76,69,68
+,32,32,32,32,32,32,32,49,48,53,13,10,35,100,101,102,105,110,101,32,69,67,79,78,78
+,65,66,79,82,84,69,68,32,32,32,32,49,48,54,13,10,35,100,101,102,105,110,101,32,69
+,67,79,78,78,82,69,70,85,83,69,68,32,32,32,32,49,48,55,13,10,35,100,101,102,105
+,110,101,32,69,67,79,78,78,82,69,83,69,84,32,32,32,32,32,32,49,48,56,13,10,35
+,100,101,102,105,110,101,32,69,68,69,83,84,65,68,68,82,82,69,81,32,32,32,32,49,48
+,57,13,10,35,100,101,102,105,110,101,32,69,72,79,83,84,85,78,82,69,65,67,72,32,32
+,32,32,49,49,48,13,10,35,100,101,102,105,110,101,32,69,73,68,82,77,32,32,32,32,32
+,32,32,32,32,32,32,49,49,49,13,10,35,100,101,102,105,110,101,32,69,73,78,80,82,79
+,71,82,69,83,83,32,32,32,32,32,49,49,50,13,10,35,100,101,102,105,110,101,32,69,73
+,83,67,79,78,78,32,32,32,32,32,32,32,32,32,49,49,51,13,10,35,100,101,102,105,110
+,101,32,69,76,79,79,80,32,32,32,32,32,32,32,32,32,32,32,49,49,52,13,10,35,100
+,101,102,105,110,101,32,69,77,83,71,83,73,90,69,32,32,32,32,32,32,32,32,49,49,53
+,13,10,35,100,101,102,105,110,101,32,69,78,69,84,68,79,87,78,32,32,32,32,32,32,32
+,32,49,49,54,13,10,35,100,101,102,105,110,101,32,69,78,69,84,82,69,83,69,84,32,32
+,32,32,32,32,32,49,49,55,13,10,35,100,101,102,105,110,101,32,69,78,69,84,85,78,82
+,69,65,67,72,32,32,32,32,32,49,49,56,13,10,35,100,101,102,105,110,101,32,69,78,79
+,66,85,70,83,32,32,32,32,32,32,32,32,32,49,49,57,13,10,35,100,101,102,105,110,101
+,32,69,78,79,68,65,84,65,32,32,32,32,32,32,32,32,32,49,50,48,13,10,35,100,101
+,102,105,110,101,32,69,78,79,76,73,78,75,32,32,32,32,32,32,32,32,32,49,50,49,13
+,10,35,100,101,102,105,110,101,32,69,78,79,77,83,71,32,32,32,32,32,32,32,32,32,32
+,49,50,50,13,10,35,100,101,102,105,110,101,32,69,78,79,80,82,79,84,79,79,80,84,32
+,32,32,32,32,49,50,51,13,10,35,100,101,102,105,110,101,32,69,78,79,83,82,32,32,32
+,32,32,32,32,32,32,32,32,49,50,52,13,10,35,100,101,102,105,110,101,32,69,78,79,83
+,84,82,32,32,32,32,32,32,32,32,32,32,49,50,53,13,10,35,100,101,102,105,110,101,32
+,69,78,79,84,67,79,78,78,32,32,32,32,32,32,32,32,49,50,54,13,10,35,100,101,102
+,105,110,101,32,69,78,79,84,82,69,67,79,86,69,82,65,66,76,69,32,49,50,55,13,10
+,35,100,101,102,105,110,101,32,69,78,79,84,83,79,67,75,32,32,32,32,32,32,32,32,49
+,50,56,13,10,35,100,101,102,105,110,101,32,69,78,79,84,83,85,80,32,32,32,32,32,32
+,32,32,32,49,50,57,13,10,35,100,101,102,105,110,101,32,69,79,80,78,79,84,83,85,80
+,80,32,32,32,32,32,32,49,51,48,13,10,35,100,101,102,105,110,101,32,69,79,84,72,69
+,82,32,32,32,32,32,32,32,32,32,32,49,51,49,13,10,35,100,101,102,105,110,101,32,69
+,79,86,69,82,70,76,79,87,32,32,32,32,32,32,32,49,51,50,13,10,35,100,101,102,105
+,110,101,32,69,79,87,78,69,82,68,69,65,68,32,32,32,32,32,32,49,51,51,13,10,35
+,100,101,102,105,110,101,32,69,80,82,79,84,79,32,32,32,32,32,32,32,32,32,32,49,51
+,52,13,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,78,79,83,85,80,80,79,82
+,84,32,49,51,53,13,10,35,100,101,102,105,110,101,32,69,80,82,79,84,79,84,89,80,69
+,32,32,32,32,32,32,49,51,54,13,10,35,100,101,102,105,110,101,32,69,84,73,77,69,32
+,32,32,32,32,32,32,32,32,32,32,49,51,55,13,10,35,100,101,102,105,110,101,32,69,84
+,73,77,69,68,79,85,84,32,32,32,32,32,32,32,49,51,56,13,10,35,100,101,102,105,110
+,101,32,69,84,88,84,66,83,89,32,32,32,32,32,32,32,32,32,49,51,57,13,10,35,100
+,101,102,105,110,101,32,69,87,79,85,76,68,66,76,79,67,75,32,32,32,32,32,49,52,48
+,13,10,13,10
 };
 
 static const char file_string_h[] = {
@@ -12748,7 +12754,7 @@ char* _Owner read_file(const char* path, bool append_newline)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -13282,10 +13288,7 @@ void print_help()
         "\n"
         WHITE "    " CAKE " source.c\n" RESET
         "    Compiles source.c and outputs /out/source.c\n"
-        "\n"
-        WHITE "    " CAKE " -target=c11 source.c\n" RESET
-        "    Compiles source.c and outputs C11 code at /out/source.c\n"
-        "\n"
+        "\n"        
         WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
@@ -13306,21 +13309,10 @@ void print_help()
         "\n"
         LIGHTCYAN "  -E                    " RESET "Copies preprocessor output to standard output \n"
         "\n"
-        LIGHTCYAN "  -o name.c             " RESET "Defines the output name. used when we compile one file\n"
-        "\n"
-        LIGHTCYAN "  -remove-comments      " RESET "Remove all comments from the output file \n"
-        "\n"
-        LIGHTCYAN "  -direct-compilation   " RESET "output without macros/preprocessor parts\n"
-        "\n"
-        LIGHTCYAN "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c23, c2y, cxx) \n"
-        "                        C99 is the default and C89 (ANSI C) is the minimum target \n"
+        LIGHTCYAN "  -o name.c             " RESET "Defines the output name when compiling one file\n"
         "\n"
         LIGHTCYAN "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
         "                        (not implemented yet, input is considered C23)                    \n"
-        "\n"
-        LIGHTCYAN "  -fi                   " RESET "Format input (format before language conversion)\n"
-        "\n"
-        LIGHTCYAN "  -fo                   " RESET "Format output (format after language conversion, result parsed again)\n"
         "\n"
         LIGHTCYAN "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
@@ -13376,7 +13368,7 @@ void test_get_warning_name()
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -13386,7 +13378,7 @@ void test_get_warning_name()
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
  *
  *  struct object is used to compute the compile time expressions (including constexpr)
  *
@@ -13398,7 +13390,7 @@ void test_get_warning_name()
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
@@ -13959,7 +13951,7 @@ enum object_value_type type_to_object_type(const struct type* type);
 
 void object_print_to_debug(const struct object* object);
 
-struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int n, bool is_constant);
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant);
 struct object* object_get_non_const_referenced(struct object* p_object);
 
 
@@ -13982,7 +13974,7 @@ int objects_push(struct objects* arr, struct object* obj); // returns 0 on succe
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
@@ -16274,9 +16266,9 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     }
     break;
 
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
     {
         long double v = object_to_long_double(a);
         snprintf(str, n, "%Lf", v);
@@ -18166,7 +18158,7 @@ void object_print_to_debug(const struct object* object)
 /*
    extends the array to the max_index returning the added item.
 */
-struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, int max_index, bool is_constant)
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant)
 {
     struct object* _Opt it = a->members;
 
@@ -18781,6 +18773,7 @@ int objects_push(struct objects* arr, struct object* obj)
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
+
 
 #pragma safety enable
 
@@ -25745,7 +25738,7 @@ struct object expression_eval(struct expression* p_expression)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -26847,7 +26840,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -26859,7 +26852,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
-
+ 
 //#pragma once
 
 struct flow_visit_ctx;
@@ -27113,7 +27106,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
  *
  *  The objective of this visit is to build the "defer list" on AST
  *  The defer list is the list of items that will go out of scope.
@@ -27142,12 +27135,12 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.38"
+#define CAKE_VERSION "0.10.40"
 
 
 
@@ -27163,7 +27156,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
  *  https://github.com/thradams/cake
  *  This visit generates a new and preprocessed C89 code from the AST
  */
-
+ 
 //#pragma once
 
 struct d_visit_ctx
@@ -37115,10 +37108,10 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     int label_id = ctx->label_id;
     ctx->label_id = 0; /*reset*/
 
-    struct defer_statement* _Opt p_current_defer_statement_opt = ctx->p_current_defer_statement_opt;
+    const struct defer_statement* _Opt p_current_defer_statement_opt = ctx->p_current_defer_statement_opt;
     ctx->p_current_defer_statement_opt = NULL;
 
-    struct selection_statement* _Opt p_current_selection_statement = ctx->p_current_selection_statement;
+    const struct selection_statement* _Opt p_current_selection_statement = ctx->p_current_selection_statement;
     ctx->p_current_selection_statement = NULL;
 
     struct label_list label_list = { 0 };
@@ -39149,7 +39142,7 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -40114,7 +40107,13 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 #pragma safety enable
+ 
 
+#if SIZE_MAX > UINT_MAX
+#define SIZE_T_TYPE_STR "unsigned int"
+#else
+#define SIZE_T_TYPE_STR "unsigned long long"
+#endif
 
 static void print_initializer(struct d_visit_ctx* ctx,
     struct osstream* oss,
@@ -41262,7 +41261,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
-        ss_fprintf(oss, "/*throw*/ goto _CKL%d;\n", p_jump_statement->label_id);
+        ss_fprintf(oss, "goto _CKL%d;/*throw*/\n", p_jump_statement->label_id);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
@@ -41344,7 +41343,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
         {
             if (ctx->break_reference.p_selection_statement)
             {
-                ss_fprintf(oss, "/*break*/ goto _CKL%d;\n\n", ctx->break_reference.p_selection_statement->label_id);
+                ss_fprintf(oss, "goto _CKL%d; /*break*/\n\n", ctx->break_reference.p_selection_statement->label_id);
             }
             else
             {
@@ -41595,7 +41594,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         if (p_label_default)
         {
-            ss_fprintf(&ss, "goto /*default*/ _CKL%d;\n", p_label_default->label_id);
+            ss_fprintf(&ss, "goto _CKL%d;/*default*/\n", p_label_default->label_id);
         }
         else
         {
@@ -41724,12 +41723,12 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
     print_identation(ctx, oss);
-    ss_fprintf(oss, "/*try*/ if (1)\n");
+    ss_fprintf(oss, "if (1) /*try*/\n");
 
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "/*catch*/ else _CKL%d:\n", p_try_statement->catch_label_id);
+    ss_fprintf(oss, "else _CKL%d: /*catch*/ \n", p_try_statement->catch_label_id);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -41787,6 +41786,8 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
         print_identation(ctx, oss);
+        ss_fprintf(oss, "_CKL%d:", p_label->label_id);
+
         char str[50] = { 0 };
         object_to_str(&p_label->constant_expression->object, 50, str);
         if (p_label->constant_expression_end == NULL)
@@ -41799,7 +41800,8 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
             object_to_str(&p_label->constant_expression_end->object, 50, str2);
             ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
         }
-        ss_fprintf(oss, "_CKL%d:\n", p_label->label_id);
+        
+        ss_fprintf(oss, "\n");
     }
     else if (p_label->p_first_token->type == TK_IDENTIFIER)
     {
@@ -41809,7 +41811,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "/*default*/ _CKL%d:\n", p_label->label_id);
+        ss_fprintf(oss, "_CKL%d: /*default*/ \n", p_label->label_id);
     }
 
 }
@@ -42782,7 +42784,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             }
         }
         bool b_add_this_before_external_decl = false;
-        struct osstream add_this_before_external_decl = { 0 };
+        
         if (is_static && !is_function)
         {
             b_add_this_before_external_decl = true;
@@ -43165,7 +43167,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     if (ctx->zero_mem_used)
     {
         const char* str =
-            "static void _cake_zmem(void *dest, register unsigned int len)\n"
+            "static void _cake_zmem(void *dest, register " SIZE_T_TYPE_STR " len)\n"
             "{\n"
             "  register unsigned char *ptr = (unsigned char*)dest;\n"
             "  while (len-- > 0) *ptr++ = 0;\n"
@@ -43176,11 +43178,12 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     if (ctx->memcpy_used)
     {
         const char* str =
-            "static void _cake_memcpy(void * dest, const void * src, unsigned long n)\n"
-            "{\n"
+            "static void _cake_memcpy(void * dest, const void * src, " SIZE_T_TYPE_STR " n)\n"
+            "{\n"            
             "  char *csrc = (char *)src;\n"
             "  char *cdest = (char *)dest;\n"
-            "  for (int i=0; i<n; i++) cdest[i] = csrc[i]; \n"
+            SIZE_T_TYPE_STR " i; \n"
+            "  for ( i = 0; i<n; i++) cdest[i] = csrc[i]; \n"
             "}\n\n";
         ss_fprintf(oss, "%s", str);
     }
@@ -50549,7 +50552,6 @@ void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p)
  *  https://github.com/thradams/cake
 */
 
-
 #pragma safety enable
 
 
@@ -51014,7 +51016,7 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 

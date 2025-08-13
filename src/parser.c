@@ -1,6 +1,6 @@
-﻿/*
+/*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma safety enable
@@ -9938,10 +9938,10 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     int label_id = ctx->label_id;
     ctx->label_id = 0; /*reset*/
 
-    struct defer_statement* _Opt p_current_defer_statement_opt = ctx->p_current_defer_statement_opt;
+    const struct defer_statement* _Opt p_current_defer_statement_opt = ctx->p_current_defer_statement_opt;
     ctx->p_current_defer_statement_opt = NULL;
 
-    struct selection_statement* _Opt p_current_selection_statement = ctx->p_current_selection_statement;
+    const struct selection_statement* _Opt p_current_selection_statement = ctx->p_current_selection_statement;
     ctx->p_current_selection_statement = NULL;
 
     struct label_list label_list = { 0 };

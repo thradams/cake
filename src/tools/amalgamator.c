@@ -1,10 +1,10 @@
-﻿#include <stdio.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <assert.h>
-
+ 
 #if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__)
 #define strdup _strdup
 #define realpath(a,b) _fullpath(b, a, 250)

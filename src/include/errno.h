@@ -7,7 +7,7 @@
 
 int* _errno(void);
 #define errno (*_errno())
-
+ 
 
 #define EPERM           1
 #define ENOENT          2

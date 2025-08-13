@@ -1,4 +1,7 @@
-﻿
-#define X2(...) __VA_OPT__()
-X2(__COUNTER__)
-__COUNTER__ // 4
+#include <stdio.h>
+
+//int __cdecl printf(char* _Format, ...);
+int main()
+{
+    printf("hello");
+}

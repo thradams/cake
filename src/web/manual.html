@@ -329,7 +329,7 @@ same path as the Cake executable.</p>
 
 <p>The <strong>-autoconfig</strong> option generates the <code>cakeconfig.h</code> automatically on both Windows and Linux.</p>
 
-<p>To manually discover which directories are included, you can run the command:</p>
+<p>On Windows, to manually discover which directories are included, you can run the command:</p>
 
 <pre><code>echo %INCLUDE%
 </code></pre>
@@ -428,7 +428,7 @@ cake file.c -direct-compilation -o file.cc &amp;&amp; cl file.cc
 
 <h4>-o name.c (same as GCC and MSVC)</h4>
 
-<p>Defines the output name. used when we compile one file</p>
+<p>Defines the output name, when we compile a single file</p>
 
 <h4>-dump-tokens</h4>
 
@@ -470,7 +470,8 @@ Sarif Visual Studio plugin <a href="https://marketplace.visualstudio.com/items?i
 
 <h4>-msvc-output</h4>
 
-<p>Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. </p>
+<p>Output is compatible with Visual Studio IDE. 
+(We can click on the error message and IDE selects the line.) </p>
 
 <h3 id="toc_5">-fanalyzer</h3>
 
@@ -688,8 +689,7 @@ int main()
 <pre><code class="language-c">double d = 0x1p+1;
 </code></pre>
 
-<p>Backend:
-Cake converts hexadecimal floating-point values to decimal 
+<p>Cake converts hexadecimal floating-point values to decimal 
 floating-point representation using strtod followed by snprintf.
 This conversion may introduce precision loss.</p>
 

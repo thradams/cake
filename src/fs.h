@@ -1,12 +1,12 @@
-﻿/*
+/*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake
+ *  https://github.com/thradams/cake 
 */
 
 #pragma once
 #include "ownership.h"
 #include <stdbool.h>
-
+ 
 
 #ifdef _WIN32 
 #include <direct.h>
