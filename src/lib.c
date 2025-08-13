@@ -43182,8 +43182,8 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
             "{\n"            
             "  char *csrc = (char *)src;\n"
             "  char *cdest = (char *)dest;\n"
-            " " SIZE_T_TYPE_STR " i; \n"
-            "  for ( i = 0; i<n; i++) cdest[i] = csrc[i]; \n"
+            "  " SIZE_T_TYPE_STR " i; \n"
+            "  for (i = 0; i < n; i++) cdest[i] = csrc[i]; \n"
             "}\n\n";
         ss_fprintf(oss, "%s", str);
     }
