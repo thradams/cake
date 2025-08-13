@@ -27140,7 +27140,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.40"
+#define CAKE_VERSION "0.10.41"
 
 
 
@@ -40110,9 +40110,9 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
  
 
 #if SIZE_MAX > UINT_MAX
-#define SIZE_T_TYPE_STR "unsigned int"
-#else
 #define SIZE_T_TYPE_STR "unsigned long long"
+#else
+#define SIZE_T_TYPE_STR "unsigned int"
 #endif
 
 static void print_initializer(struct d_visit_ctx* ctx,
@@ -43182,7 +43182,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
             "{\n"            
             "  char *csrc = (char *)src;\n"
             "  char *cdest = (char *)dest;\n"
-            SIZE_T_TYPE_STR " i; \n"
+            " " SIZE_T_TYPE_STR " i; \n"
             "  for ( i = 0; i<n; i++) cdest[i] = csrc[i]; \n"
             "}\n\n";
         ss_fprintf(oss, "%s", str);
