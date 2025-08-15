@@ -5790,6 +5790,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#pragma dir \"c:/\"\n"
 #endif
 
+#ifdef __TINYC__
+        //TODO
+#endif
+
 #ifdef _WIN32
 
         //see
