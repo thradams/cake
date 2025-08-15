@@ -6489,7 +6489,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
     try
     {
-        if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
+        if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
         {
             arena_merge_current_state_with_state_number(ctx, ctx->throw_join_state);
 
@@ -6820,10 +6820,10 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     ctx->expression_is_not_evaluated = t2; //restore
 
 
-    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG ||
-        p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX)
+    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG ||
+        p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX)
     {
-        bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX;
+        bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
 
         compiler_diagnostic(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_debug");
 

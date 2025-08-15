@@ -377,7 +377,7 @@ int main()
 }
 `;
 
-sample["C11"]["_Alignof / C23 alignof"] =
+sample["C11"]["_Alignof / alignof (in C23)"] =
     `
 struct X
 {
@@ -398,11 +398,8 @@ int main(void)
 
 `;
 
-sample["C11"]["_Alignas"] =
+sample["C11"]["_Alignas / alignas (in C23)"] =
 `
-//NOT IMPLEMENTED YET
-//https://en.cppreference.com/w/c/language/_Alignas.html
-
 #include <stdio.h>
 
 // every object of type struct sse_t will be aligned to 16-byte boundary
@@ -422,10 +419,10 @@ struct data
 
 int main(void)
 {
-    printf("sizeof(data) = %zu (1 byte + 127 bytes padding + 128-byte array)\n",
+    printf("sizeof(data) = %zu (1 byte + 127 bytes padding + 128-byte array)\\n",
            sizeof(struct data));
 
-    printf("alignment of sse_t is %zu\n", alignof(struct sse_t));
+    printf("alignment of sse_t is %zu\\n", alignof(struct sse_t));
 
     alignas(2048) struct data d; // this instance of data is aligned even stricter
     (void)d; // suppresses "maybe unused" warning
@@ -438,6 +435,17 @@ int main(void)
 */
 
 `;
+
+sample["C11"]["_Thread_local / thread_local (in C23)"] =
+`
+thread_local int a;
+
+int main(void)
+{    
+}
+
+`;
+//
 
 sample["C23"] = []
 sample["C23"]["Digit Separator"] =

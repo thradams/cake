@@ -1,7 +1,9 @@
-#include <stdio.h>
 
-//int __cdecl printf(char* _Format, ...);
-int main()
-{
-    printf("hello");
+struct X {
+        int x;
+};
+
+int main() {
+    constexpr struct X x = (struct X){ .x = 50 };
+    static_assert(x.x == 50);
 }

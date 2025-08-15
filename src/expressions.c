@@ -2074,14 +2074,10 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                 }
             }
 
-            bool is_constant = type_is_const(&p_expression_node->type) ||
-                p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
+            const bool is_constant = type_is_const_or_constexpr(&p_expression_node->type);
 
             object_default_initialization(&p_expression_node->object, is_constant);
-
-            //printf("\n");
-            //object_print_to_debug(&p_init_declarator->p_declarator->object);
-
+            
             struct initializer initializer = { 0 };
             initializer.braced_initializer = p_expression_node->braced_initializer;
             initializer.first_token = p_expression_node->first_token;

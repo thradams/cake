@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -640,12 +640,16 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD_VOLATILE ||
         p_token->type == TK_KEYWORD__ATOMIC ||
 
+        //MSVC
+        p_token->type == TK_KEYWORD_MSVC__PTR32 ||
+        p_token->type == TK_KEYWORD_MSVC__PTR64 ||
+
         /*extensions*/
         p_token->type == TK_KEYWORD__CTOR ||
-        p_token->type == TK_KEYWORD__OWNER ||
+        p_token->type == TK_KEYWORD_CAKE_OWNER ||
         p_token->type == TK_KEYWORD__DTOR ||
-        p_token->type == TK_KEYWORD__VIEW ||
-        p_token->type == TK_KEYWORD__OPT;
+        p_token->type == TK_KEYWORD_CAKE_VIEW ||
+        p_token->type == TK_KEYWORD_CAKE_OPT;
 
     //__fastcall
     //__stdcall
@@ -839,10 +843,11 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_LONG ||
 
         // microsoft extension
-        p_token->type == TK_KEYWORD__INT8 ||
-        p_token->type == TK_KEYWORD__INT16 ||
-        p_token->type == TK_KEYWORD__INT32 ||
-        p_token->type == TK_KEYWORD__INT64 ||
+        p_token->type == TK_KEYWORD_MSVC__INT8 ||
+        p_token->type == TK_KEYWORD_MSVC__INT16 ||
+        p_token->type == TK_KEYWORD_MSVC__INT32 ||
+        p_token->type == TK_KEYWORD_MSVC__INT64 ||
+        p_token->type == TK_KEYWORD_MSVC__DECLSPEC ||
 
         // end microsoft
 
@@ -892,7 +897,7 @@ bool first_of_jump_statement(const struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_CONTINUE ||
         ctx->current->type == TK_KEYWORD_BREAK ||
         ctx->current->type == TK_KEYWORD_RETURN ||
-        ctx->current->type == TK_KEYWORD_THROW /*extension*/;
+        ctx->current->type == TK_KEYWORD_CAKE_THROW /*extension*/;
 }
 
 bool first_of_selection_statement(const struct parser_ctx* ctx)
@@ -963,8 +968,8 @@ bool first_of_static_assert_declaration(const struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
-        ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
-        ctx->current->type == TK_KEYWORD_STATIC_DEBUG_EX ||
+        ctx->current->type == TK_KEYWORD_CAKE_STATIC_DEBUG ||
+        ctx->current->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX ||
         ctx->current->type == TK_KEYWORD_STATIC_STATE ||
         ctx->current->type == TK_KEYWORD_STATIC_SET;
 }
@@ -1047,7 +1052,7 @@ enum token_type is_keyword(const char* text)
         if (strcmp("continue", text) == 0)
             return TK_KEYWORD_CONTINUE;
         if (strcmp("catch", text) == 0)
-            return TK_KEYWORD_CATCH;
+            return TK_KEYWORD_CAKE_CATCH;
         break;
 
     case 'd':
@@ -1128,9 +1133,9 @@ enum token_type is_keyword(const char* text)
         if (strcmp("static_assert", text) == 0)
             return TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
         if (strcmp("static_debug", text) == 0)
-            return TK_KEYWORD_STATIC_DEBUG;
+            return TK_KEYWORD_CAKE_STATIC_DEBUG;
         if (strcmp("static_debug_ex", text) == 0)
-            return TK_KEYWORD_STATIC_DEBUG_EX;
+            return TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
         if (strcmp("static_state", text) == 0)
             return TK_KEYWORD_STATIC_STATE;
         if (strcmp("static_set", text) == 0)
@@ -1149,9 +1154,9 @@ enum token_type is_keyword(const char* text)
         if (strcmp("thread_local", text) == 0)
             return TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
         if (strcmp("try", text) == 0)
-            return TK_KEYWORD_TRY;
+            return TK_KEYWORD_CAKE_TRY;
         if (strcmp("throw", text) == 0)
-            return TK_KEYWORD_THROW;
+            return TK_KEYWORD_CAKE_THROW;
         break;
 
     case 'u':
@@ -1178,14 +1183,14 @@ enum token_type is_keyword(const char* text)
         if (strcmp("_Ctor", text) == 0)
             return TK_KEYWORD__CTOR; /*extension*/
         if (strcmp("_Owner", text) == 0)
-            return TK_KEYWORD__OWNER; /*extension*/
+            return TK_KEYWORD_CAKE_OWNER; /*extension*/
         if (strcmp("_Dtor", text) == 0)
             return TK_KEYWORD__DTOR; /*extension*/
         if (strcmp("_Opt", text) == 0)
-            return TK_KEYWORD__OPT; /*extension*/
+            return TK_KEYWORD_CAKE_OPT; /*extension*/
 
         if (strcmp("_View", text) == 0)
-            return TK_KEYWORD__VIEW; /*extension*/
+            return TK_KEYWORD_CAKE_VIEW; /*extension*/
 
         if (strcmp("_Countof", text) == 0)
             return TK_KEYWORD__COUNTOF; /*C2Y*/
@@ -1219,6 +1224,13 @@ enum token_type is_keyword(const char* text)
             return TK_KEYWORD__ALIGNAS;
         if (strcmp("_Atomic", text) == 0)
             return TK_KEYWORD__ATOMIC;
+
+        if (strcmp("__ptr32", text) == 0)
+            return TK_KEYWORD_MSVC__PTR32;
+        if (strcmp("__ptr64", text) == 0)
+            return TK_KEYWORD_MSVC__PTR64;
+
+
         if (strcmp("_Bool", text) == 0)
             return TK_KEYWORD__BOOL;
         if (strcmp("_Complex", text) == 0)
@@ -1246,13 +1258,13 @@ enum token_type is_keyword(const char* text)
 #ifdef  _MSC_VER
         // begin microsoft
         if (strcmp("__int8", text) == 0)
-            return TK_KEYWORD__INT8;
+            return TK_KEYWORD_MSVC__INT8;
         if (strcmp("__int16", text) == 0)
-            return TK_KEYWORD__INT16;
+            return TK_KEYWORD_MSVC__INT16;
         if (strcmp("__int32", text) == 0)
-            return TK_KEYWORD__INT32;
+            return TK_KEYWORD_MSVC__INT32;
         if (strcmp("__int64", text) == 0)
-            return TK_KEYWORD__INT64;
+            return TK_KEYWORD_MSVC__INT64;
         if (strcmp("__forceinline", text) == 0)
             return TK_KEYWORD_INLINE;
         if (strcmp("__inline", text) == 0)
@@ -1260,15 +1272,17 @@ enum token_type is_keyword(const char* text)
         if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
             return TK_KEYWORD__ASM;
         if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
-            return TK_KEYWORD__STDCALL;
+            return TK_KEYWORD_MSVC__STDCALL;
         if (strcmp("__cdecl", text) == 0)
-            return TK_KEYWORD__CDECL;
+            return TK_KEYWORD_MSVC__CDECL;
         if (strcmp("__fastcall", text) == 0)
-            return TK_KEYWORD__FASTCALL;
+            return TK_KEYWORD_MSVC__FASTCALL;
         if (strcmp("__alignof", text) == 0)
             return TK_KEYWORD__ALIGNOF;
         if (strcmp("__restrict", text) == 0)
             return TK_KEYWORD_RESTRICT;
+        if (strcmp("__declspec", text) == 0)
+            return TK_KEYWORD_MSVC__DECLSPEC;
 #endif
         break;
     default:
@@ -1666,6 +1680,7 @@ int add_specifier(struct parser_ctx* ctx,
     //Following 6.7.2 we check possible combinations
     switch ((unsigned int)*flags)
     {
+    case TYPE_SPECIFIER_NONE:  //void
     case TYPE_SPECIFIER_VOID:  //void
     case TYPE_SPECIFIER_CHAR:  //char
     case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR:  //signed char
@@ -1839,6 +1854,13 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                     {
                         p_declaration_specifiers->typeof_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier;
                     }
+
+                    else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->msvc_declspec)
+                    {
+                        p_declaration_specifiers->msvc_declspec_flags =
+                            p_declaration_specifier->type_specifier_qualifier->type_specifier->msvc_declspec->flags;
+
+                    }
                     else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->token->type == TK_IDENTIFIER)
                     {
                         p_declaration_specifiers->typedef_declarator =
@@ -1848,6 +1870,12 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 
                         // p_declaration_specifiers->typedef_declarator = p_declaration_specifier->type_specifier_qualifier->pType_specifier->token->lexeme;
                     }
+                }
+                else if (p_declaration_specifier->type_specifier_qualifier->alignment_specifier)
+                {
+                    p_declaration_specifiers->alignment_specifier_flags =
+                        p_declaration_specifier->type_specifier_qualifier->alignment_specifier->flags;
+
                 }
                 else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
                 {
@@ -1861,6 +1889,10 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             else if (p_declaration_specifier->function_specifier)
             {
                 p_declaration_specifiers->function_specifier_flags |= p_declaration_specifier->function_specifier->flags;
+            }
+            else if (p_declaration_specifier->alignment_specifier)
+            {
+                p_declaration_specifiers->alignment_specifier_flags |= p_declaration_specifier->alignment_specifier->flags;
             }
 
             declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
@@ -2193,6 +2225,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator == NULL ||
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator == NULL)
             {
+                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
                 throw; //unexpected
             }
 
@@ -2640,9 +2673,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
 
-                bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
-                    p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
-
+                
+                const bool is_constant = 
+                    type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
                 if (initializer_init_new(ctx,
                     &p_init_declarator->p_declarator->type,
@@ -2738,12 +2771,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
-                bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
-                    p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
+                const bool is_constant = 
+                    type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
-
-                //intf("\n");                
-
+                
                 if (initializer_init_new(ctx,
                     &p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
@@ -3209,6 +3240,261 @@ void type_specifier_delete(struct type_specifier* _Owner _Opt p)
         free(p);
     }
 }
+
+
+struct msvc_declspec* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* ctx)
+{
+    //https://learn.microsoft.com/en-us/cpp/cpp/declspec?view=msvc-170
+    /*
+     extended-decl-modifier:
+         align( number )
+         allocate(" segname ")
+         allocator
+         appdomain
+         code_seg(" segname ")
+         deprecated
+         dllimport
+         dllexport
+         empty_bases
+         hybrid_patchable
+         jitintrinsic
+         naked
+         noalias
+         noinline
+         noreturn
+         nothrow
+         novtable
+         no_sanitize_address
+         process
+         property( { get=get-func-name | ,put=put-func-name } )
+         restrict
+         safebuffers
+         selectany
+         spectre(nomitigation)
+         thread
+         uuid(" ComObjectGUID ")
+    */
+
+    struct msvc_declspec* _Owner _Opt p_type_specifier = NULL;
+    try
+    {
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+
+        //if (!token_is_identifier_or_keyword(ctx->current->type))
+          //  throw;
+
+        p_type_specifier = calloc(1, sizeof * p_type_specifier);
+        if (p_type_specifier == NULL)
+            throw;
+
+        p_type_specifier->token = ctx->current;
+
+        parser_match(ctx);
+
+        if (strcmp(p_type_specifier->token->lexeme, "align") == 0)
+        {
+            parser_match(ctx); //(
+            int a = atoi(ctx->current->lexeme);
+            if (a == 8)
+                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_8_FLAG;
+            else if (a == 16)
+                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_16_FLAG;
+            else if (a == 32)
+                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_32_FLAG;
+            else if (a == 64)
+                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_64_FLAG;
+
+            parser_match(ctx); //number     
+            parser_match(ctx); //)            
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "allocate") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALLOCATE_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "allocator") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALLOCATOR_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "appdomain") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_APPDOMAIN_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "code_seg") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_CODE_SEG_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "deprecated") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DEPRECATED_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "dllimport") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DLLIMPORT_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "dllexport") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DLLEXPORT_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "hybrid_patchable") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "no_init_all") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "jitintrinsic") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "intrin_type") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "naked") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "noalias") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "noinline") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "noreturn") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "nothrow") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "novtable") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "no_sanitize_address") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "process") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "property") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "restrict") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "safebuffers") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "selectany") == 0)
+        {
+            //https://learn.microsoft.com/en-us/cpp/cpp/selectany?view=msvc-170
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_SELECTANY_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "thread") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_SELECTANY_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "uuid") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_UUID_FLAG;
+        }
+        else
+        {
+            compiler_diagnostic(W_ATTRIBUTES,
+                ctx,
+                p_type_specifier->token,
+                NULL,
+            "unknown '%s'\n", p_type_specifier->token->lexeme);
+        }
+
+        int count = 1;
+        while (ctx->current)
+        {
+            if (ctx->current->type == TK_LEFT_PARENTHESIS)
+            {
+                parser_match(ctx);
+                count++;
+            }
+            else if (ctx->current->type == TK_RIGHT_PARENTHESIS)
+            {
+                if (count == 1)
+                    break;
+                count--;
+                parser_match(ctx);
+            }
+            else
+            {
+                parser_match(ctx);
+            }
+        }
+    }
+    catch
+    {
+        msvc_declspec_delete(p_type_specifier);
+        p_type_specifier = NULL;
+    }
+    return p_type_specifier;
+}
+
+struct msvc_declspec* _Owner _Opt msvc_declspec(struct parser_ctx* ctx)
+{
+    //https://learn.microsoft.com/en-us/cpp/cpp/declspec?view=msvc-170
+    /*
+      __declspec ( extended-decl-modifier-seq )
+    */
+    struct msvc_declspec* _Owner _Opt p_decl_specifier = NULL;
+    try
+    {
+        if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
+            throw;
+        parser_match_tk(ctx, TK_KEYWORD_MSVC__DECLSPEC);
+        parser_match_tk(ctx, TK_LEFT_PARENTHESIS);
+        p_decl_specifier = extended_decl_modifier_seq(ctx);
+        parser_match_tk(ctx, TK_RIGHT_PARENTHESIS);
+    }
+    catch
+    {
+        msvc_declspec_delete(p_decl_specifier);
+        p_decl_specifier = NULL;
+    }
+    return p_decl_specifier;
+}
+
+void msvc_declspec_delete(struct msvc_declspec* _Owner _Opt  p)
+{
+    if (p == NULL)
+        return;
+    free(p);
+}
+
+void msvc_declspec_sequence_opt(struct parser_ctx* ctx)
+{
+
+    try
+    {
+        for (;;)
+        {
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
+                return;
+
+            struct msvc_declspec* _Owner _Opt p = msvc_declspec(ctx);
+            msvc_declspec_delete(p);
+
+
+        }
+    }
+    catch
+    {
+
+    }
+}
+
 struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 {
     /*
@@ -3278,30 +3564,37 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             return p_type_specifier;
 
             // microsoft
-        case TK_KEYWORD__INT8:
+        case TK_KEYWORD_MSVC__INT8:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT8;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
-        case TK_KEYWORD__INT16:
+        case TK_KEYWORD_MSVC__INT16:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT16;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
-        case TK_KEYWORD__INT32:
+        case TK_KEYWORD_MSVC__INT32:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT32;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
-        case TK_KEYWORD__INT64:
+        case TK_KEYWORD_MSVC__INT64:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT64;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
+            return p_type_specifier;
+
+        case TK_KEYWORD_MSVC__DECLSPEC:
+            p_type_specifier->flags = 0;
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->msvc_declspec = msvc_declspec(ctx);
+
             return p_type_specifier;
             // end microsoft
 
@@ -3598,6 +3891,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             throw;
         }
 
+        msvc_declspec_sequence_opt(ctx);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
@@ -4395,6 +4689,10 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
                             NULL);
                 }
             }
+            else if (p_type_specifier_qualifier->alignment_specifier)
+            {
+                p_specifier_qualifier_list->alignment_specifier_flags |= p_type_specifier_qualifier->alignment_specifier->flags;
+            }
             else if (p_type_specifier_qualifier->type_qualifier)
             {
                 p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->type_qualifier->flags;
@@ -4951,6 +5249,21 @@ struct alignment_specifier* _Owner _Opt alignment_specifier(struct parser_ctx* c
             alignment_specifier->constant_expression = constant_expression(ctx, true);
             if (alignment_specifier->constant_expression == NULL)
                 throw;
+            if (object_has_constant_value(&alignment_specifier->constant_expression->object))
+            {
+                long a = object_to_signed_long(&alignment_specifier->constant_expression->object);
+                if (a == 8)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_8_FLAGS;
+                else if (a == 16)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_16_FLAGS;
+                else if (a == 32)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_32_FLAGS;
+                else if (a == 64)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_64_FLAGS;
+                else if (a == 128)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_128_FLAGS;
+
+            }
         }
         if (parser_match_tk(ctx, ')') != 0)
             throw;
@@ -5038,6 +5351,12 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     case TK_KEYWORD__ATOMIC:
         p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
         break;
+    case TK_KEYWORD_MSVC__PTR32:
+        p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_PTR32;
+        break;
+    case TK_KEYWORD_MSVC__PTR64:
+        p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_PTR64;
+        break;
 
     default:
         // do nothing
@@ -5056,11 +5375,11 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
             p_type_qualifier->flags = TYPE_QUALIFIER_DTOR;
             break;
 
-        case TK_KEYWORD__OWNER:
+        case TK_KEYWORD_CAKE_OWNER:
             p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
             break;
 
-        case TK_KEYWORD__VIEW:
+        case TK_KEYWORD_CAKE_VIEW:
             p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
             break;
 
@@ -5074,7 +5393,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     {
         switch (ctx->current->type)
         {
-        case TK_KEYWORD__OPT:
+        case TK_KEYWORD_CAKE_OPT:
             p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
             break;
 
@@ -5313,15 +5632,21 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
         if (p_token_ahead == NULL)
             throw;
 
-        if (ctx->current->type == TK_KEYWORD__STDCALL ||
-            ctx->current->type == TK_KEYWORD__CDECL ||
-            ctx->current->type == TK_KEYWORD__FASTCALL)
+        if (ctx->current->type == TK_KEYWORD_MSVC__STDCALL ||
+            ctx->current->type == TK_KEYWORD_MSVC__CDECL ||
+            ctx->current->type == TK_KEYWORD_MSVC__FASTCALL)
         {
             /*
               int __fastcall add(int a, int b);
             */
             p_direct_declarator->p_calling_convention = ctx->current;
             parser_match(ctx);
+        }
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
         }
 
         if (ctx->current->type == TK_IDENTIFIER)
@@ -5632,9 +5957,9 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             /*
               typedef void (__fastcall *pf)();
             */
-            if (ctx->current->type == TK_KEYWORD__STDCALL ||
-                ctx->current->type == TK_KEYWORD__CDECL ||
-                ctx->current->type == TK_KEYWORD__FASTCALL)
+            if (ctx->current->type == TK_KEYWORD_MSVC__STDCALL ||
+                ctx->current->type == TK_KEYWORD_MSVC__CDECL ||
+                ctx->current->type == TK_KEYWORD_MSVC__FASTCALL)
             {
                 calling_convention = ctx->current;
                 parser_match(ctx);
@@ -5660,7 +5985,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             {
                 assert(ctx->current != NULL);
 
-                if (ctx->current->type == TK_KEYWORD__VIEW)
+                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW)
                 {
                     compiler_diagnostic(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
                                 ctx,
@@ -7709,7 +8034,7 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
             if (p_primary_block->defer_statement == NULL)
                 throw;
         }
-        else if (ctx->current->type == TK_KEYWORD_TRY)
+        else if (ctx->current->type == TK_KEYWORD_CAKE_TRY)
         {
             p_primary_block->try_statement = try_statement(ctx);
             if (p_primary_block->try_statement == NULL)
@@ -7854,7 +8179,7 @@ static bool first_of_primary_block(const struct parser_ctx* ctx)
         first_of_selection_statement(ctx) ||
         first_of_iteration_statement(ctx) ||
         ctx->current->type == TK_KEYWORD_DEFER /*extension*/ ||
-        ctx->current->type == TK_KEYWORD_TRY /*extension*/
+        ctx->current->type == TK_KEYWORD_CAKE_TRY /*extension*/
         )
     {
         return true;
@@ -8727,14 +9052,14 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
         p_try_statement->first_token = ctx->current;
 
-        assert(ctx->current->type == TK_KEYWORD_TRY);
+        assert(ctx->current->type == TK_KEYWORD_CAKE_TRY);
         const struct try_statement* _Opt try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
 
         p_try_statement->catch_label_id = ctx->label_id++;
 
 
-        if (parser_match_tk(ctx, TK_KEYWORD_TRY) != 0)
+        if (parser_match_tk(ctx, TK_KEYWORD_CAKE_TRY) != 0)
             throw;
 
 #pragma cake diagnostic push
@@ -8755,7 +9080,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             throw;
         }
 
-        if (ctx->current->type == TK_KEYWORD_CATCH)
+        if (ctx->current->type == TK_KEYWORD_CAKE_CATCH)
         {
             p_try_statement->catch_token_opt = ctx->current;
             parser_match(ctx);
@@ -8904,7 +9229,8 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                 throw;
 
             //steal expression
-            if (p_selection_statement->p_init_statement->p_expression_statement)
+            if (p_selection_statement->p_init_statement->p_expression_statement &&
+                p_selection_statement->p_init_statement->p_expression_statement->expression_opt)
             {
                 p_selection_statement->condition->first_token = p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token;
                 p_selection_statement->condition->last_token = p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token;
@@ -9413,7 +9739,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         {
             parser_match(ctx);
         }
-        else if (ctx->current->type == TK_KEYWORD_THROW)
+        else if (ctx->current->type == TK_KEYWORD_CAKE_THROW)
         {
             if (ctx->p_current_try_statement_opt == NULL)
             {

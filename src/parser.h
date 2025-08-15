@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma once
@@ -22,7 +22,7 @@
 
 
 struct scope
-{    
+{
     int scope_level;
     struct hash_map tags;
     struct hash_map variables;
@@ -73,7 +73,7 @@ struct label_list_item
 {
     struct token* p_last_usage;
     struct token* p_defined;
-    struct label_list_item * next;
+    struct label_list_item* next;
 };
 
 struct label_list
@@ -95,7 +95,7 @@ struct parser_ctx
       file scope -> function params -> function -> inner scope
     */
     struct scope_list scopes;
-    
+
     /*
     * Points to the function we're in. Or null in file scope.
     */
@@ -104,13 +104,13 @@ struct parser_ctx
     /*
     * Points to the scope where the current function is. (used in local functions)
     */
-    struct scope * _Opt p_current_function_scope_opt;
-    
+    struct scope* _Opt p_current_function_scope_opt;
+
 
     /*
     *  Used to track non-used labels or used and not defined labels
     */
-    struct label_list label_list; 
+    struct label_list label_list;
 
     /*
     * Points to the try-block we're in. Or null.
@@ -123,14 +123,14 @@ struct parser_ctx
     * Points to the selection_statement we're in. Or null.
     */
     const struct selection_statement* _Opt p_current_selection_statement;
-    
+
 
     FILE* _Owner _Opt sarif_file;
     unsigned int sarif_entries;
 
     _View struct token_list input_list;
     struct token* _Opt current;
-    struct token* _Opt previous;    
+    struct token* _Opt previous;
     /*
        Expression inside sizeof etc.. are not evaluated
     */
@@ -178,7 +178,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
 int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
-
+bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -197,6 +197,7 @@ struct declaration_specifier
     struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier;
 
     struct function_specifier* _Owner _Opt function_specifier;
+    struct alignment_specifier* _Owner _Opt alignment_specifier;
 
     struct declaration_specifier* _Owner _Opt next;
 };
@@ -218,7 +219,8 @@ struct declaration_specifiers
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
     enum function_specifier_flags function_specifier_flags;
-
+    enum msvc_declspec_flags msvc_declspec_flags;
+    enum alignment_specifier_flags alignment_specifier_flags;
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
 
     /*shortcuts*/
@@ -376,6 +378,52 @@ struct typeof_specifier
 
 void typeof_specifier_delete(struct typeof_specifier* _Owner _Opt p);
 
+
+struct msvc_declspec
+{
+    /*
+        decl-specifier:
+         __declspec ( extended-decl-modifier-seq )
+
+        extended-decl-modifier-seq:
+         extended-decl-modifieropt
+         extended-decl-modifier extended-decl-modifier-seq
+
+        extended-decl-modifier:
+         align( number )
+         allocate(" segname ")
+         allocator
+         appdomain
+         code_seg(" segname ")
+         deprecated
+         dllimport
+         dllexport
+         empty_bases
+         hybrid_patchable
+         jitintrinsic
+         naked
+         noalias
+         noinline
+         noreturn
+         nothrow
+         novtable
+         no_sanitize_address
+         process
+         property( { get=get-func-name | ,put=put-func-name } )
+         restrict
+         safebuffers
+         selectany
+         spectre(nomitigation)
+         thread
+         uuid(" ComObjectGUID ")
+    */
+    enum msvc_declspec_flags flags;
+    struct token* token;
+};
+
+void msvc_declspec_delete(struct msvc_declspec* _Owner _Opt  p);
+void msvc_declspec_sequence_opt(struct parser_ctx* ctx);
+
 struct type_specifier
 {
     /*
@@ -406,6 +454,7 @@ struct type_specifier
     struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier;
     struct typeof_specifier* _Owner _Opt  typeof_specifier;
     struct enum_specifier* _Owner _Opt enum_specifier;
+    struct msvc_declspec* _Owner _Opt msvc_declspec; //msvc
     struct declarator* _Opt typedef_declarator;
     struct atomic_type_specifier* _Owner _Opt  atomic_type_specifier;
 };
@@ -868,11 +917,11 @@ struct pointer
     */
     struct attribute_specifier_sequence* _Owner _Opt  attribute_specifier_sequence_opt;
     struct type_qualifier_list* _Owner _Opt type_qualifier_list_opt;
-    
+
     /*
       typedef int (__fastcall *pf)();
     */
-    struct token * _Opt calling_convention;
+    struct token* _Opt calling_convention;
 
     struct pointer* _Owner _Opt pointer;
 };
@@ -985,6 +1034,7 @@ struct specifier_qualifier_list
     /*cumulative flags*/
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
+    enum alignment_specifier_flags alignment_specifier_flags;
 
 
     /*shortcuts*/
@@ -1015,6 +1065,7 @@ struct alignment_specifier
        "alignas" ( type-name )
        "alignas" ( constant-expression )
     */
+    enum alignment_specifier_flags flags;
     struct type_name* _Owner _Opt type_name;
     struct expression* _Owner _Opt constant_expression;
     struct token* token;
@@ -1174,7 +1225,7 @@ struct try_statement
     struct token* first_token; /*try*/
     struct token* last_token;
     struct token* _Opt catch_token_opt; /*catch*/
-    
+
     int catch_label_id;
 };
 
@@ -1183,11 +1234,11 @@ void try_statement_delete(struct try_statement* _Owner _Opt p);
 
 struct case_label_list
 {
-   /*
-      it is not the owner. The owner is the label statement
-   */
-   struct label* _Opt head;
-   struct label* _Opt tail;
+    /*
+       it is not the owner. The owner is the label statement
+    */
+    struct label* _Opt head;
+    struct label* _Opt tail;
 };
 
 void case_label_list_push(struct case_label_list* list, struct label* pnew);
@@ -1237,7 +1288,7 @@ struct selection_statement
     struct token* last_token;
     struct token* _Opt else_token_opt;
     struct defer_list defer_list;
-    
+
     int label_id;
 };
 

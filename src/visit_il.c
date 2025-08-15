@@ -1,6 +1,6 @@
 
 #pragma safety enable
- 
+
 #include "ownership.h"
 #include <stdlib.h>
 #include <string.h>
@@ -798,7 +798,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
         ctx->indentation = current_indentation;
         ctx->p_current_function_opt = p_current_function_opt;
-        
+
         assert(lambda.c_str);
         ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", lambda.c_str);
         ss_fprintf(oss, "%s", name);
@@ -1159,7 +1159,7 @@ static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstrea
 
 static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
 {
-    if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
+    if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
@@ -1277,7 +1277,7 @@ static void d_visit_labeled_statement(struct d_visit_ctx* ctx, struct osstream* 
 
     d_visit_label(ctx, oss, p_labeled_statement->label);
 
-    
+
     d_visit_statement(ctx, oss, p_labeled_statement->statement);
 }
 
@@ -1702,7 +1702,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
             object_to_str(&p_label->constant_expression_end->object, 50, str2);
             ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
         }
-        
+
         ss_fprintf(oss, "\n");
     }
     else if (p_label->p_first_token->type == TK_IDENTIFIER)
@@ -2083,6 +2083,8 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else
             {
+                print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags);
+                print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
                 print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
             }
 
@@ -2285,6 +2287,16 @@ static void d_print_type(struct d_visit_ctx* ctx,
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
     {
         ss_fprintf(ss, "static ");
+    }
+
+    if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
+    {
+#ifdef _MSC_VER
+        ss_fprintf(ss, "__declspec(thread) "); 
+#elif __GNUC__
+        ss_fprintf(ss, "__thread "); 
+#endif
+
     }
 
 
@@ -2686,7 +2698,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             }
         }
         bool b_add_this_before_external_decl = false;
-        
+
         if (is_static && !is_function)
         {
             b_add_this_before_external_decl = true;
@@ -3081,7 +3093,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     {
         const char* str =
             "static void _cake_memcpy(void * dest, const void * src, " SIZE_T_TYPE_STR " n)\n"
-            "{\n"            
+            "{\n"
             "  char *csrc = (char *)src;\n"
             "  char *cdest = (char *)dest;\n"
             "  " SIZE_T_TYPE_STR " i; \n"

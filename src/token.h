@@ -102,7 +102,7 @@ enum token_type
     TK_KEYWORD_CHAR,
     TK_KEYWORD_CONST,
     TK_KEYWORD_CONTINUE,
-    TK_KEYWORD_CATCH, /*extension*/
+    TK_KEYWORD_CAKE_CATCH, /*extension*/
     TK_KEYWORD_DEFAULT,
     TK_KEYWORD_DO,
     TK_KEYWORD_DEFER, /*extension*/
@@ -117,10 +117,10 @@ enum token_type
     TK_KEYWORD_INLINE,
     TK_KEYWORD_INT,
     TK_KEYWORD_LONG,
-    TK_KEYWORD__INT8,
-    TK_KEYWORD__INT16,
-    TK_KEYWORD__INT32,
-    TK_KEYWORD__INT64,
+    TK_KEYWORD_MSVC__INT8,
+    TK_KEYWORD_MSVC__INT16,
+    TK_KEYWORD_MSVC__INT32,
+    TK_KEYWORD_MSVC__INT64,
 
     TK_KEYWORD_REGISTER,
     TK_KEYWORD_RESTRICT,
@@ -136,8 +136,8 @@ enum token_type
     TK_KEYWORD_STRUCT,
     TK_KEYWORD_SWITCH,
     TK_KEYWORD_TYPEDEF,
-    TK_KEYWORD_TRY, /*extension*/
-    TK_KEYWORD_THROW, /*extension*/
+    TK_KEYWORD_CAKE_TRY, /*extension*/
+    TK_KEYWORD_CAKE_THROW, /*extension*/
     TK_KEYWORD_UNION,
     TK_KEYWORD_UNSIGNED,
     TK_KEYWORD_VOID,
@@ -149,9 +149,15 @@ enum token_type
     TK_KEYWORD__ATOMIC,
      
 //#ifdef _WIN32 
-    TK_KEYWORD__FASTCALL,
-    TK_KEYWORD__STDCALL,
-    TK_KEYWORD__CDECL,    
+    
+    //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
+    TK_KEYWORD_MSVC__PTR32,
+    TK_KEYWORD_MSVC__PTR64,
+
+    TK_KEYWORD_MSVC__FASTCALL,
+    TK_KEYWORD_MSVC__STDCALL,
+    TK_KEYWORD_MSVC__CDECL,    
+    TK_KEYWORD_MSVC__DECLSPEC,
 //#endif
 
     TK_KEYWORD__ASM, 
@@ -178,16 +184,16 @@ enum token_type
     
 
     /*cake extension*/
-    TK_KEYWORD__OWNER,
+    TK_KEYWORD_CAKE_OWNER,
     TK_KEYWORD__CTOR,
     TK_KEYWORD__DTOR, 
-    TK_KEYWORD__VIEW,    
-    TK_KEYWORD__OPT, 
+    TK_KEYWORD_CAKE_VIEW,    
+    TK_KEYWORD_CAKE_OPT, 
     
 
     /*extension compile time functions*/
-    TK_KEYWORD_STATIC_DEBUG, /*extension*/
-    TK_KEYWORD_STATIC_DEBUG_EX, /*extension*/
+    TK_KEYWORD_CAKE_STATIC_DEBUG, /*extension*/
+    TK_KEYWORD_CAKE_STATIC_DEBUG_EX, /*extension*/
     TK_KEYWORD_STATIC_STATE, /*extension*/
     TK_KEYWORD_STATIC_SET, /*extension*/
     

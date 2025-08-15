@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 
@@ -25,6 +25,34 @@ void print_item(struct osstream* ss, bool* first, const char* item)
     ss_fprintf(ss, "%s", item);
     *first = false;
 
+}
+
+bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags)
+{
+#ifdef _MSC_VER
+    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+        print_item(ss, first, "__declspec(align(80))");
+    if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+        print_item(ss, first, "__declspec(align(16))");
+    if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+        print_item(ss, first, "__declspec(align(32))");
+    if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+        print_item(ss, first, "__declspec(align(64))");
+    if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+        print_item(ss, first, "__declspec(align(128))");
+#elif defined __GNUC__
+    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(8)))");
+    if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(16)))");
+    if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(32)))");
+    if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(64)))");
+    if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(128)))");
+#endif // _MSVC
+    return *first;
 }
 
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags)
@@ -115,6 +143,130 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
 
 }
 
+void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags)
+{
+    /*
+       The objective is to print only what changes code generation / link
+    */
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALIGN_8_FLAG)
+    {
+        print_item(ss, first, "__declspec(align(8))");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALIGN_16_FLAG)
+    {
+        print_item(ss, first, "__declspec(align(16))");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALIGN_32_FLAG)
+    {
+        print_item(ss, first, "__declspec(align(32))");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALIGN_64_FLAG)
+    {
+        print_item(ss, first, "__declspec(align(64))");
+    }
+
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALLOCATE_FLAG)
+    {
+        print_item(ss, first, "__declspec(allocate)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALLOCATOR_FLAG)
+    {
+        print_item(ss, first, "__declspec(allocator)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_APPDOMAIN_FLAG)
+    {
+
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_CODE_SEG_FLAG)
+    {
+
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_DEPRECATED_FLAG)
+    {
+
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_DLLIMPORT_FLAG)
+    {
+        print_item(ss, first, "__declspec(dllimport)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_DLLEXPORT_FLAG)
+    {
+        print_item(ss, first, "__declspec(dllexport)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_EMPTY_BASES_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_HYBRID_PATCHABLE_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_JITINTRINSIC_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NAKED_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NOALIAS_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NOINLINE_FLAG)
+    {
+        print_item(ss, first, "__declspec(noinline)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NORETURN_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NOTHROW_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NOVTABLE_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NO_SANITIZE_ADDRESS_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_PROCESS_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_PROPERTY_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_RESTRICT_FLAG)
+    {
+        print_item(ss, first, "__declspec(restrict)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_SAFEBUFFERS_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_SELECTANY_FLAG)
+    {
+        print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_SPECTRE_FLAG)
+    {
+        print_item(ss, first, "__declspec(spectre(nomitigation))");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_THREAD_FLAG)
+    {
+        print_item(ss, first, "__declspec(thread)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_UUID_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+}
+
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type)
 {
     bool first = true;
@@ -140,6 +292,8 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
     }
     else
     {
+        print_type_alignment_flags(ss, &first, type->alignment_specifier_flags);
+        print_msvc_declspec(ss, &first, type->msvc_declspec_flags);
         print_type_specifier_flags(ss, &first, type->type_specifier_flags);
     }
 }
@@ -283,6 +437,8 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             }
             else
             {
+                print_type_alignment_flags(&local, &first, p->alignment_specifier_flags);
+                print_msvc_declspec(&local, &first, p->msvc_declspec_flags);
                 print_type_specifier_flags(&local, &first, p->type_specifier_flags);
             }
 
@@ -669,6 +825,17 @@ bool type_is_ctor(const struct type* p_type)
 bool type_is_const(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+}
+
+bool type_is_constexpr(const struct type* p_type)
+{
+    return (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
+}
+
+bool type_is_const_or_constexpr(const struct type* p_type)
+{
+    return (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST) ||
+           (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
 }
 
 bool type_is_pointer_to_const(const struct type* p_type)
@@ -2109,7 +2276,27 @@ size_t type_get_alignof(const struct type* p_type)
     }
     else if (category == TYPE_CATEGORY_ITSELF)
     {
-        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+        {
+            align = 8;
+        }
+        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+        {
+            align = 16;
+        }
+        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+        {
+            align = 32;
+        }
+        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+        {
+            align = 64;
+        }
+        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+        {
+            align = 128;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
             align = _Alignof(char);
         }
@@ -2263,17 +2450,17 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
                 //https://github.com/thradams/cake/issues/248
-                unsigned long long SIZE_MAX_WORKAROUND = 0;                
+                unsigned long long SIZE_MAX_WORKAROUND = 0;
 
-                #ifdef __linux__
-                    #if __x86_64__
-                        SIZE_MAX_WORKAROUND = 0xffffffffffffffffULL;
-                    #else
-                        SIZE_MAX_WORKAROUND = 0xffffffffULL;    
-                    #endif                    
-                #else                
-                        SIZE_MAX_WORKAROUND = SIZE_MAX;
-                #endif
+#ifdef __linux__
+#if __x86_64__
+                SIZE_MAX_WORKAROUND = 0xffffffffffffffffULL;
+#else
+                SIZE_MAX_WORKAROUND = 0xffffffffULL;
+#endif                    
+#else                
+                SIZE_MAX_WORKAROUND = SIZE_MAX;
+#endif
 
                 if (result > SIZE_MAX_WORKAROUND)
                 {
@@ -2951,7 +3138,28 @@ void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator
     p_type->type_qualifier_flags = type_qualifier_flags;
 
 
+}
+void type_set_alignment_specifier_flags_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+{
+    if (pdeclarator->declaration_specifiers)
+    {
+        p_type->alignment_specifier_flags |=
+            pdeclarator->declaration_specifiers->alignment_specifier_flags;
+    }
+    else if (pdeclarator->specifier_qualifier_list)
+    {
+        p_type->alignment_specifier_flags =
+            pdeclarator->specifier_qualifier_list->alignment_specifier_flags;
+    }
+}
 
+void type_set_msvc_declspec_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+{
+    if (pdeclarator->declaration_specifiers)
+    {
+        p_type->msvc_declspec_flags |=
+            pdeclarator->declaration_specifiers->msvc_declspec_flags;
+    }
 }
 
 void type_set_storage_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
@@ -3466,7 +3674,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             type_set_specifiers_using_declarator(p, pdeclarator);
             type_set_attributes_using_declarator(p, pdeclarator);
-
+            type_set_alignment_specifier_flags_using_declarator(p, pdeclarator);
 
             type_set_qualifiers_using_declarator(p, pdeclarator);
 
@@ -3506,7 +3714,8 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         free(list.head);
 
         type_set_storage_specifiers_using_declarator(&r, pdeclarator);
-
+        type_set_msvc_declspec_using_declarator(&r, pdeclarator);
+        type_set_alignment_specifier_flags_using_declarator(&r, pdeclarator);
         if (!is_valid_type(ctx, pdeclarator->first_token_opt, &r))
         {
             type_destroy(&r);

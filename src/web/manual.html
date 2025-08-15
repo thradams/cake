@@ -505,9 +505,9 @@ It does not include the following features:</p>
 <li>static variables are non-local.</li>
 <li>arrays size [] = {...} are pre-calculated</li>
 <li>no switch </li>
-<li>
-The goal is for this simplified version to function as an intermediate language (IL).</li>
 </ul>
+
+<p>The goal is for this simplified version to function as an intermediate language (IL).</p>
 
 <p>One directory called <strong>out</strong> is created keeping the same directory structure of the input files.</p>
 
@@ -818,7 +818,9 @@ int main(){
 
 <h3 id="toc_34">C11 Thread_local/Atomic</h3>
 
-<p>Not implemented yet</p>
+<p>Thread_local uses __declspec(thread) in MSVC output and __thread with GCC output.</p>
+
+<p>Atomic - not implemented</p>
 
 <h3 id="toc_35">C11 type-generic expressions (_Generic)</h3>
 
@@ -869,19 +871,9 @@ char * s2 = u8&quot;maca&quot;;
 
 <h3 id="toc_39">C11 _Alignas or C23 alignas</h3>
 
-<p>Not implemented. 
-<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf</a></p>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf</a></p>
 
-<pre><code class="language-c">#if defined(_MSC_VER)
-  #define ALIGN(n) __declspec(align(n))
-#elif defined(__GNUC__)
-  #define ALIGN(n) __attribute__((aligned(n)))
-#else
-  #define ALIGN(n)  /* fallback: nothing */
-#endif
-
-ALIGN(16) int x;
-</code></pre>
+<p>Uses __declspec(align(n)) in MSVC output and <strong>attribute</strong>((aligned(n))) in GCC output.</p>
 
 <h2 id="toc_40">C23 Transformations</h2>
 

@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -668,7 +668,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
     try
     {
-        if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
+        if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
         {
             defer_check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token, &p_jump_statement->defer_list);
         }
@@ -783,6 +783,8 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
         //defer_visit_ctx_pop_tail_block(ctx);
     }
     break;
+    default:
+        break;
     }
 }
 static void defer_visit_expression_statement(struct defer_visit_ctx* ctx, struct expression_statement* p_expression_statement)

@@ -424,7 +424,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_CHAR:
     case TK_KEYWORD_CONST:
     case TK_KEYWORD_CONTINUE:
-    case TK_KEYWORD_CATCH: /*extension*/
+    case TK_KEYWORD_CAKE_CATCH: /*extension*/
     case TK_KEYWORD_DEFAULT:
     case TK_KEYWORD_DO:
     case TK_KEYWORD_DEFER: /*extension*/
@@ -439,10 +439,10 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_INLINE:
     case TK_KEYWORD_INT:
     case TK_KEYWORD_LONG:
-    case TK_KEYWORD__INT8:
-    case TK_KEYWORD__INT16:
-    case TK_KEYWORD__INT32:
-    case TK_KEYWORD__INT64:
+    case TK_KEYWORD_MSVC__INT8:
+    case TK_KEYWORD_MSVC__INT16:
+    case TK_KEYWORD_MSVC__INT32:
+    case TK_KEYWORD_MSVC__INT64:
 
     case TK_KEYWORD_REGISTER:
     case TK_KEYWORD_RESTRICT:
@@ -455,8 +455,8 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_STRUCT:
     case TK_KEYWORD_SWITCH:
     case TK_KEYWORD_TYPEDEF:
-    case TK_KEYWORD_TRY: /*extension*/
-    case TK_KEYWORD_THROW: /*extension*/
+    case TK_KEYWORD_CAKE_TRY: /*extension*/
+    case TK_KEYWORD_CAKE_THROW: /*extension*/
     case TK_KEYWORD_UNION:
     case TK_KEYWORD_UNSIGNED:
     case TK_KEYWORD_VOID:
@@ -495,16 +495,16 @@ bool token_is_identifier_or_keyword(enum token_type t)
 
 
         /*cake extension*/
-    case TK_KEYWORD__OWNER:
+    case TK_KEYWORD_CAKE_OWNER:
     case TK_KEYWORD__CTOR:
     case TK_KEYWORD__DTOR:
-    case TK_KEYWORD__VIEW:
-    case TK_KEYWORD__OPT:
+    case TK_KEYWORD_CAKE_VIEW:
+    case TK_KEYWORD_CAKE_OPT:
 
 
         /*extension compile time functions*/
-    case TK_KEYWORD_STATIC_DEBUG: /*extension*/
-    case TK_KEYWORD_STATIC_DEBUG_EX: /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG: /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: /*extension*/
     case TK_KEYWORD_STATIC_STATE: /*extension*/
     case TK_KEYWORD_STATIC_SET: /*extension*/
 

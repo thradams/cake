@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -729,7 +729,7 @@ signed int object_to_signed_int(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: return (int) a->value.void_pointer; break;
+    case TYPE_VOID_PTR: return (int)a->value.void_pointer; break;
     }
     assert(0);
     return 0;
@@ -764,7 +764,7 @@ unsigned int object_to_unsigned_int(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: return (int) a->value.void_pointer; break;
+    case TYPE_VOID_PTR: return (int)a->value.void_pointer; break;
     }
     assert(0);
     return 0;
@@ -1825,16 +1825,20 @@ int object_set(
                 }
             }
 
-            if (is_constant)
+            if (is_constant && from->state == CONSTANT_VALUE_STATE_CONSTANT)
             {
-                if (to->state == CONSTANT_VALUE_STATE_CONSTANT ||
-                    to->state == CONSTANT_VALUE_EQUAL)
-                {
-                    /*
-                    struct X {int x;};
-                    int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
-                    to->state = CONSTANT_VALUE_STATE_CONSTANT;
-                }
+                /*
+                  struct point { int x; } p = { .x = 1 };
+                  const int i = p.x; //not a exactly constant
+                  int j = i;}
+                */
+
+                //TODO
+                /*
+                      struct X {int x;};
+                      int main() { constexpr struct X x = (struct X){ .x = 50 };}
+                */
+                to->state = CONSTANT_VALUE_STATE_CONSTANT;
             }
             else
             {
@@ -1900,7 +1904,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 struct type array_item_type = get_array_item_type(p_type);
 
                 //too big..
-                const unsigned long long max_elements = p_type->num_of_elements > 1000 ?  1000 : p_type->num_of_elements;
+                const unsigned long long max_elements = p_type->num_of_elements > 1000 ? 1000 : p_type->num_of_elements;
 
                 struct object* _Opt p_tail_object = NULL;
                 for (unsigned long long i = 0; i < max_elements; i++)
@@ -2649,18 +2653,18 @@ struct object object_add(const struct object* a, const struct object* b)
     case TYPE_BOOL:
         return object_make_bool(object_to_bool(a) + object_to_bool(b));
 
-    //case TYPE_SIGNED_CHAR:
-      //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
+        //case TYPE_SIGNED_CHAR:
+          //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
 
-      //  break;
-    //case TYPE_UNSIGNED_CHAR:
-//        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+          //  break;
+        //case TYPE_UNSIGNED_CHAR:
+    //        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
 
-    //case TYPE_SIGNED_SHORT:
-      //  return object_to_signed_short(a) == object_to_signed_short(b);
+        //case TYPE_SIGNED_SHORT:
+          //  return object_to_signed_short(a) == object_to_signed_short(b);
 
-    //case TYPE_UNSIGNED_SHORT:
-      //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+        //case TYPE_UNSIGNED_SHORT:
+          //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
 
     case TYPE_SIGNED_LONG:
         return object_make_signed_long(object_to_signed_long(a) + object_to_signed_long(b));
@@ -2686,7 +2690,7 @@ struct object object_add(const struct object* a, const struct object* b)
     }
 
     assert(false);
-    struct object o = {0};
+    struct object o = { 0 };
     return o;
 }
 
@@ -2709,18 +2713,18 @@ struct object object_sub(const struct object* a, const struct object* b)
     case TYPE_BOOL:
         return object_make_bool(object_to_bool(a) - object_to_bool(b));
 
-    //case TYPE_SIGNED_CHAR:
-      //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
+        //case TYPE_SIGNED_CHAR:
+          //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
 
-      //  break;
-    //case TYPE_UNSIGNED_CHAR:
-//        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+          //  break;
+        //case TYPE_UNSIGNED_CHAR:
+    //        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
 
-    //case TYPE_SIGNED_SHORT:
-      //  return object_to_signed_short(a) == object_to_signed_short(b);
+        //case TYPE_SIGNED_SHORT:
+          //  return object_to_signed_short(a) == object_to_signed_short(b);
 
-    //case TYPE_UNSIGNED_SHORT:
-      //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+        //case TYPE_UNSIGNED_SHORT:
+          //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
 
     case TYPE_SIGNED_LONG:
         return object_make_signed_long(object_to_signed_long(a) - object_to_signed_long(b));
@@ -2746,7 +2750,7 @@ struct object object_sub(const struct object* a, const struct object* b)
     }
 
     assert(false);
-    struct object o = {0};
+    struct object o = { 0 };
     return o;
 }
 

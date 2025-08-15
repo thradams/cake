@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 //#pragma safety enable
@@ -109,7 +109,7 @@ struct macro
     bool is_function;
     int usage;
 
-    bool expand;
+    
     bool def_macro;
 };
 
@@ -4163,28 +4163,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         r.tail->flags |= TK_FLAG_FINAL;
                     }
                 }
-                else if (strcmp(input_list->head->lexeme, "expand") == 0)
-                {
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                    if (r.tail)
-                        r.tail->flags |= TK_FLAG_FINAL;
-
-                    skip_blanks_level(ctx, &r, input_list, level);
-
-                    if (input_list->head == NULL)
-                    {
-                        pre_unexpected_end_of_file(r.tail, ctx);
-                        throw;
-                    }
-
-                    struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
-                    if (macro)
-                    {
-                        macro->expand = true;
-                    }
-
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                }
                 else if (strcmp(input_list->head->lexeme, "nullchecks") == 0)
                 {
                     assert(false);
@@ -5378,25 +5356,6 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     start_macro.head->flags |= flags;
                 }
 
-                if (macro->expand)
-                {
-                    //Esconde a macro e os argumentos
-                    for (struct token* _Opt current = arguments.tokens.head;
-                        current && current != arguments.tokens.tail->next;
-                        current = current->next)
-                    {
-                        current->flags |= TK_C_BACKEND_FLAG_HIDE;
-                    }
-
-                    //mostra a expansao da macro
-                    /*teste de expandir so algumas macros*/
-                    for (struct token* _Opt current = start_macro.head;
-                        current && current != start_macro.tail->next;
-                        current = current->next)
-                    {
-                        current->flags &= ~(TK_FLAG_MACRO_EXPANDED | TK_FLAG_SLICED | TK_FLAG_LINE_CONTINUATION);
-                    }
-                }
 
                 //seta nos tokens expandidos da onde eles vieram
                 token_list_set_file(&start_macro, start_token->token_origin, start_token->line, start_token->col);
@@ -5847,10 +5806,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
         "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
         "#define __pragma(a)\n"
-        "#define __declspec(a)\n"
-        "#define __builtin_offsetof(type, member) 0\n"
-        "#define __ptr64\n"
-        "#define __ptr32\n";
+        ;
 
 #endif
 
@@ -6091,6 +6047,9 @@ const char* get_token_name(enum token_type tk)
     case TK_COMMENT: return "TK_COMMENT";
     case TK_PPNUMBER: return "TK_PPNUMBER";
 
+    case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
+    case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";
+
     case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
 
         /*PPNUMBER sao convertidos para constantes antes do parse*/
@@ -6128,7 +6087,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_CHAR: return "TK_KEYWORD_CHAR";
     case TK_KEYWORD_CONST: return "TK_KEYWORD_CONST";
     case TK_KEYWORD_CONTINUE: return "TK_KEYWORD_CONTINUE";
-    case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH"; /*extension*/
+    case TK_KEYWORD_CAKE_CATCH: return "TK_KEYWORD_CAKE_CATCH"; /*extension*/
     case TK_KEYWORD_DEFAULT: return "TK_KEYWORD_DEFAULT";
     case TK_KEYWORD_DO: return "TK_KEYWORD_DO";
     case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER"; /*extension*/
@@ -6143,10 +6102,10 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_INLINE: return "TK_KEYWORD_INLINE";
     case TK_KEYWORD_INT: return "TK_KEYWORD_INT";
     case TK_KEYWORD_LONG: return "TK_KEYWORD_LONG";
-    case TK_KEYWORD__INT8: return "TK_KEYWORD__INT8";
-    case TK_KEYWORD__INT16: return "TK_KEYWORD__INT16";
-    case TK_KEYWORD__INT32: return "TK_KEYWORD__INT32";
-    case TK_KEYWORD__INT64: return "TK_KEYWORD__INT64";
+    case TK_KEYWORD_MSVC__INT8: return "TK_KEYWORD_MSVC__INT8";
+    case TK_KEYWORD_MSVC__INT16: return "TK_KEYWORD_MSVC__INT16";
+    case TK_KEYWORD_MSVC__INT32: return "TK_KEYWORD_MSVC__INT32";
+    case TK_KEYWORD_MSVC__INT64: return "TK_KEYWORD_MSVC__INT64";
 
 
     case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
@@ -6160,8 +6119,8 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_STRUCT: return "TK_KEYWORD_STRUCT";
     case TK_KEYWORD_SWITCH: return "TK_KEYWORD_SWITCH";
     case TK_KEYWORD_TYPEDEF: return "TK_KEYWORD_TYPEDEF";
-    case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY"; /*extension*/
-    case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW"; /*extension*/
+    case TK_KEYWORD_CAKE_TRY: return "TK_KEYWORD_CAKE_TRY"; /*extension*/
+    case TK_KEYWORD_CAKE_THROW: return "TK_KEYWORD_CAKE_THROW"; /*extension*/
     case TK_KEYWORD_UNION: return "TK_KEYWORD_UNION";
     case TK_KEYWORD_UNSIGNED: return "TK_KEYWORD_UNSIGNED";
     case TK_KEYWORD_VOID: return "TK_KEYWORD_VOID";
@@ -6173,9 +6132,10 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
 
         //#ifdef _WIN32
-    case TK_KEYWORD__FASTCALL: return "TK_KEYWORD__FASTCALL";
-    case TK_KEYWORD__STDCALL:return "TK_KEYWORD__STDCALL";
-    case TK_KEYWORD__CDECL:return "TK_KEYWORD__CDECL";
+    case TK_KEYWORD_MSVC__FASTCALL: return "TK_KEYWORD_MSVC__FASTCALL";
+    case TK_KEYWORD_MSVC__STDCALL:return "TK_KEYWORD_MSVC__STDCALL";
+    case TK_KEYWORD_MSVC__CDECL:return "TK_KEYWORD_MSVC__CDECL";
+    case TK_KEYWORD_MSVC__DECLSPEC:return "TK_KEYWORD_MSVC__DECLSPEC";
         //#endif
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
         //end microsoft
@@ -6202,16 +6162,16 @@ const char* get_token_name(enum token_type tk)
 
 
         /*cake extension*/
-    case TK_KEYWORD__OWNER: return "TK_KEYWORD__OWNER";
+    case TK_KEYWORD_CAKE_OWNER: return "TK_KEYWORD_CAKE_OWNER";
     case TK_KEYWORD__CTOR: return "TK_KEYWORD__OUT";
     case TK_KEYWORD__DTOR: return "TK_KEYWORD__OBJ_OWNER";
-    case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
-    case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
+    case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
+    case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
 
 
         /*extension compile time functions*/
-    case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
-    case TK_KEYWORD_STATIC_DEBUG_EX: return "TK_KEYWORD_STATIC_DEBUG_EX"; /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG: return "TK_KEYWORD_CAKE_STATIC_DEBUG"; /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "TK_KEYWORD_CAKE_STATIC_DEBUG_EX"; /*extension*/
     case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
     case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
 

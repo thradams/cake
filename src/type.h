@@ -125,6 +125,8 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
     TYPE_QUALIFIER__ATOMIC = 1 << 3,
 
+    
+
     /*ownership extensions*/
     TYPE_QUALIFIER_OWNER = 1 << 4,
     TYPE_QUALIFIER_VIEW = 1 << 5,
@@ -133,6 +135,10 @@ enum type_qualifier_flags
     /*function contract*/
     TYPE_QUALIFIER_DTOR = 1 << 7,
     TYPE_QUALIFIER_CTOR = 1 << 8,
+
+    TYPE_QUALIFIER_MSVC_PTR32 = 1 << 9,
+    TYPE_QUALIFIER_MSVC_PTR64 = 1 << 10,
+
 };
 
 enum storage_class_specifier_flags
@@ -162,6 +168,52 @@ enum function_specifier_flags
     FUNCTION_SPECIFIER_NONE = 0,
     FUNCTION_SPECIFIER_INLINE = 1 << 0,
     FUNCTION_SPECIFIER_NORETURN = 1 << 1,
+};
+
+enum alignment_specifier_flags
+{
+    ALIGNMENT_SPECIFIER_NONE =  0,
+    ALIGNMENT_SPECIFIER_8_FLAGS = 1 << 0,
+    ALIGNMENT_SPECIFIER_16_FLAGS = 1 << 1,
+    ALIGNMENT_SPECIFIER_32_FLAGS = 1 << 2,
+    ALIGNMENT_SPECIFIER_64_FLAGS = 1 << 3,
+    ALIGNMENT_SPECIFIER_128_FLAGS = 1 << 4,
+};
+
+enum msvc_declspec_flags
+{
+    //https://learn.microsoft.com/en-us/cpp/cpp/declspec?view=msvc-170
+    MSVC_DECLSPEC_NONE = 0,
+    MSVC_DECLSPEC_ALIGN_8_FLAG = 1 << 1, //( NUMBER )
+    MSVC_DECLSPEC_ALIGN_16_FLAG = 1 << 2, //( NUMBER )
+    MSVC_DECLSPEC_ALIGN_32_FLAG = 1 << 3, //( NUMBER )
+    MSVC_DECLSPEC_ALIGN_64_FLAG = 1 << 4, //( NUMBER )
+
+    MSVC_DECLSPEC_ALLOCATE_FLAG = 1 << 5, //(" SEGNAME ")
+    MSVC_DECLSPEC_ALLOCATOR_FLAG = 1 << 6, //
+    MSVC_DECLSPEC_APPDOMAIN_FLAG = 1 << 7, //
+    MSVC_DECLSPEC_CODE_SEG_FLAG = 1 << 8, //(" SEGNAME ")
+    MSVC_DECLSPEC_DEPRECATED_FLAG = 1 << 9, //
+    MSVC_DECLSPEC_DLLIMPORT_FLAG = 1 << 10, //
+    MSVC_DECLSPEC_DLLEXPORT_FLAG = 1 << 11, //
+    MSVC_DECLSPEC_EMPTY_BASES_FLAG = 1 << 12, //
+    MSVC_DECLSPEC_HYBRID_PATCHABLE_FLAG = 1 << 13, //
+    MSVC_DECLSPEC_JITINTRINSIC_FLAG = 1 << 14, //
+    MSVC_DECLSPEC_NAKED_FLAG = 1 << 15, //
+    MSVC_DECLSPEC_NOALIAS_FLAG = 1 << 16, //
+    MSVC_DECLSPEC_NOINLINE_FLAG = 1 << 17, //
+    MSVC_DECLSPEC_NORETURN_FLAG = 1 << 18, //
+    MSVC_DECLSPEC_NOTHROW_FLAG = 1 << 19, //
+    MSVC_DECLSPEC_NOVTABLE_FLAG = 1 << 20, //
+    MSVC_DECLSPEC_NO_SANITIZE_ADDRESS_FLAG = 1 << 21, //
+    MSVC_DECLSPEC_PROCESS_FLAG = 1 << 22, //
+    MSVC_DECLSPEC_PROPERTY_FLAG = 1 << 23, //( { GET=GET-FUNC-NAME | ,PUT=PUT-FUNC-NAME } )
+    MSVC_DECLSPEC_RESTRICT_FLAG = 1 << 24, //
+    MSVC_DECLSPEC_SAFEBUFFERS_FLAG = 1 << 25, //
+    MSVC_DECLSPEC_SELECTANY_FLAG = 1 << 26, //
+    MSVC_DECLSPEC_SPECTRE_FLAG = 1 << 27, //(NOMITIGATION)
+    MSVC_DECLSPEC_THREAD_FLAG = 1 << 28, //
+    MSVC_DECLSPEC_UUID_FLAG = 1 << 29, //(" COMOBJECTGUID ")
 };
 
 struct declarator;
@@ -205,10 +257,12 @@ struct type
     enum type_category category;
 
     enum attribute_flags  attributes_flags;
+    enum msvc_declspec_flags msvc_declspec_flags;
+    enum alignment_specifier_flags alignment_specifier_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-
+    
     const char* _Owner _Opt name_opt;
 
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -258,6 +312,8 @@ bool type_is_array(const struct type* p_type);
 
 bool type_is_ctor(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
+bool type_is_constexpr(const struct type* p_type);
+bool type_is_const_or_constexpr(const struct type* p_type);
 bool type_is_opt(const struct type* p_type, bool nullable_enabled);
 bool type_is_view(const struct type* p_type);
 
@@ -379,4 +435,4 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarat
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);
-
+void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags);

@@ -425,7 +425,7 @@ enum token_type
     TK_KEYWORD_CHAR,
     TK_KEYWORD_CONST,
     TK_KEYWORD_CONTINUE,
-    TK_KEYWORD_CATCH, /*extension*/
+    TK_KEYWORD_CAKE_CATCH, /*extension*/
     TK_KEYWORD_DEFAULT,
     TK_KEYWORD_DO,
     TK_KEYWORD_DEFER, /*extension*/
@@ -440,10 +440,10 @@ enum token_type
     TK_KEYWORD_INLINE,
     TK_KEYWORD_INT,
     TK_KEYWORD_LONG,
-    TK_KEYWORD__INT8,
-    TK_KEYWORD__INT16,
-    TK_KEYWORD__INT32,
-    TK_KEYWORD__INT64,
+    TK_KEYWORD_MSVC__INT8,
+    TK_KEYWORD_MSVC__INT16,
+    TK_KEYWORD_MSVC__INT32,
+    TK_KEYWORD_MSVC__INT64,
 
     TK_KEYWORD_REGISTER,
     TK_KEYWORD_RESTRICT,
@@ -459,8 +459,8 @@ enum token_type
     TK_KEYWORD_STRUCT,
     TK_KEYWORD_SWITCH,
     TK_KEYWORD_TYPEDEF,
-    TK_KEYWORD_TRY, /*extension*/
-    TK_KEYWORD_THROW, /*extension*/
+    TK_KEYWORD_CAKE_TRY, /*extension*/
+    TK_KEYWORD_CAKE_THROW, /*extension*/
     TK_KEYWORD_UNION,
     TK_KEYWORD_UNSIGNED,
     TK_KEYWORD_VOID,
@@ -472,9 +472,15 @@ enum token_type
     TK_KEYWORD__ATOMIC,
      
 //#ifdef _WIN32 
-    TK_KEYWORD__FASTCALL,
-    TK_KEYWORD__STDCALL,
-    TK_KEYWORD__CDECL,    
+    
+    //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
+    TK_KEYWORD_MSVC__PTR32,
+    TK_KEYWORD_MSVC__PTR64,
+
+    TK_KEYWORD_MSVC__FASTCALL,
+    TK_KEYWORD_MSVC__STDCALL,
+    TK_KEYWORD_MSVC__CDECL,    
+    TK_KEYWORD_MSVC__DECLSPEC,
 //#endif
 
     TK_KEYWORD__ASM, 
@@ -501,16 +507,16 @@ enum token_type
     
 
     /*cake extension*/
-    TK_KEYWORD__OWNER,
+    TK_KEYWORD_CAKE_OWNER,
     TK_KEYWORD__CTOR,
     TK_KEYWORD__DTOR, 
-    TK_KEYWORD__VIEW,    
-    TK_KEYWORD__OPT, 
+    TK_KEYWORD_CAKE_VIEW,    
+    TK_KEYWORD_CAKE_OPT, 
     
 
     /*extension compile time functions*/
-    TK_KEYWORD_STATIC_DEBUG, /*extension*/
-    TK_KEYWORD_STATIC_DEBUG_EX, /*extension*/
+    TK_KEYWORD_CAKE_STATIC_DEBUG, /*extension*/
+    TK_KEYWORD_CAKE_STATIC_DEBUG_EX, /*extension*/
     TK_KEYWORD_STATIC_STATE, /*extension*/
     TK_KEYWORD_STATIC_SET, /*extension*/
     
@@ -1586,7 +1592,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_CHAR:
     case TK_KEYWORD_CONST:
     case TK_KEYWORD_CONTINUE:
-    case TK_KEYWORD_CATCH: /*extension*/
+    case TK_KEYWORD_CAKE_CATCH: /*extension*/
     case TK_KEYWORD_DEFAULT:
     case TK_KEYWORD_DO:
     case TK_KEYWORD_DEFER: /*extension*/
@@ -1601,10 +1607,10 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_INLINE:
     case TK_KEYWORD_INT:
     case TK_KEYWORD_LONG:
-    case TK_KEYWORD__INT8:
-    case TK_KEYWORD__INT16:
-    case TK_KEYWORD__INT32:
-    case TK_KEYWORD__INT64:
+    case TK_KEYWORD_MSVC__INT8:
+    case TK_KEYWORD_MSVC__INT16:
+    case TK_KEYWORD_MSVC__INT32:
+    case TK_KEYWORD_MSVC__INT64:
 
     case TK_KEYWORD_REGISTER:
     case TK_KEYWORD_RESTRICT:
@@ -1617,8 +1623,8 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_STRUCT:
     case TK_KEYWORD_SWITCH:
     case TK_KEYWORD_TYPEDEF:
-    case TK_KEYWORD_TRY: /*extension*/
-    case TK_KEYWORD_THROW: /*extension*/
+    case TK_KEYWORD_CAKE_TRY: /*extension*/
+    case TK_KEYWORD_CAKE_THROW: /*extension*/
     case TK_KEYWORD_UNION:
     case TK_KEYWORD_UNSIGNED:
     case TK_KEYWORD_VOID:
@@ -1657,16 +1663,16 @@ bool token_is_identifier_or_keyword(enum token_type t)
 
 
         /*cake extension*/
-    case TK_KEYWORD__OWNER:
+    case TK_KEYWORD_CAKE_OWNER:
     case TK_KEYWORD__CTOR:
     case TK_KEYWORD__DTOR:
-    case TK_KEYWORD__VIEW:
-    case TK_KEYWORD__OPT:
+    case TK_KEYWORD_CAKE_VIEW:
+    case TK_KEYWORD_CAKE_OPT:
 
 
         /*extension compile time functions*/
-    case TK_KEYWORD_STATIC_DEBUG: /*extension*/
-    case TK_KEYWORD_STATIC_DEBUG_EX: /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG: /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: /*extension*/
     case TK_KEYWORD_STATIC_STATE: /*extension*/
     case TK_KEYWORD_STATIC_SET: /*extension*/
 
@@ -3218,7 +3224,7 @@ void c_gotoxy(int x, int y)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 //#pragma safety enable
@@ -3444,7 +3450,7 @@ struct macro
     bool is_function;
     int usage;
 
-    bool expand;
+    
     bool def_macro;
 };
 
@@ -7498,28 +7504,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         r.tail->flags |= TK_FLAG_FINAL;
                     }
                 }
-                else if (strcmp(input_list->head->lexeme, "expand") == 0)
-                {
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                    if (r.tail)
-                        r.tail->flags |= TK_FLAG_FINAL;
-
-                    skip_blanks_level(ctx, &r, input_list, level);
-
-                    if (input_list->head == NULL)
-                    {
-                        pre_unexpected_end_of_file(r.tail, ctx);
-                        throw;
-                    }
-
-                    struct macro* _Opt macro = find_macro(ctx, input_list->head->lexeme);
-                    if (macro)
-                    {
-                        macro->expand = true;
-                    }
-
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                }
                 else if (strcmp(input_list->head->lexeme, "nullchecks") == 0)
                 {
                     assert(false);
@@ -8713,25 +8697,6 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     start_macro.head->flags |= flags;
                 }
 
-                if (macro->expand)
-                {
-                    //Esconde a macro e os argumentos
-                    for (struct token* _Opt current = arguments.tokens.head;
-                        current && current != arguments.tokens.tail->next;
-                        current = current->next)
-                    {
-                        current->flags |= TK_C_BACKEND_FLAG_HIDE;
-                    }
-
-                    //mostra a expansao da macro
-                    /*teste de expandir so algumas macros*/
-                    for (struct token* _Opt current = start_macro.head;
-                        current && current != start_macro.tail->next;
-                        current = current->next)
-                    {
-                        current->flags &= ~(TK_FLAG_MACRO_EXPANDED | TK_FLAG_SLICED | TK_FLAG_LINE_CONTINUATION);
-                    }
-                }
 
                 //seta nos tokens expandidos da onde eles vieram
                 token_list_set_file(&start_macro, start_token->token_origin, start_token->line, start_token->col);
@@ -9182,10 +9147,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
         "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
         "#define __pragma(a)\n"
-        "#define __declspec(a)\n"
-        "#define __builtin_offsetof(type, member) 0\n"
-        "#define __ptr64\n"
-        "#define __ptr32\n";
+        ;
 
 #endif
 
@@ -9426,6 +9388,9 @@ const char* get_token_name(enum token_type tk)
     case TK_COMMENT: return "TK_COMMENT";
     case TK_PPNUMBER: return "TK_PPNUMBER";
 
+    case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
+    case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";
+
     case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
 
         /*PPNUMBER sao convertidos para constantes antes do parse*/
@@ -9463,7 +9428,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_CHAR: return "TK_KEYWORD_CHAR";
     case TK_KEYWORD_CONST: return "TK_KEYWORD_CONST";
     case TK_KEYWORD_CONTINUE: return "TK_KEYWORD_CONTINUE";
-    case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH"; /*extension*/
+    case TK_KEYWORD_CAKE_CATCH: return "TK_KEYWORD_CAKE_CATCH"; /*extension*/
     case TK_KEYWORD_DEFAULT: return "TK_KEYWORD_DEFAULT";
     case TK_KEYWORD_DO: return "TK_KEYWORD_DO";
     case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER"; /*extension*/
@@ -9478,10 +9443,10 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_INLINE: return "TK_KEYWORD_INLINE";
     case TK_KEYWORD_INT: return "TK_KEYWORD_INT";
     case TK_KEYWORD_LONG: return "TK_KEYWORD_LONG";
-    case TK_KEYWORD__INT8: return "TK_KEYWORD__INT8";
-    case TK_KEYWORD__INT16: return "TK_KEYWORD__INT16";
-    case TK_KEYWORD__INT32: return "TK_KEYWORD__INT32";
-    case TK_KEYWORD__INT64: return "TK_KEYWORD__INT64";
+    case TK_KEYWORD_MSVC__INT8: return "TK_KEYWORD_MSVC__INT8";
+    case TK_KEYWORD_MSVC__INT16: return "TK_KEYWORD_MSVC__INT16";
+    case TK_KEYWORD_MSVC__INT32: return "TK_KEYWORD_MSVC__INT32";
+    case TK_KEYWORD_MSVC__INT64: return "TK_KEYWORD_MSVC__INT64";
 
 
     case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
@@ -9495,8 +9460,8 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_STRUCT: return "TK_KEYWORD_STRUCT";
     case TK_KEYWORD_SWITCH: return "TK_KEYWORD_SWITCH";
     case TK_KEYWORD_TYPEDEF: return "TK_KEYWORD_TYPEDEF";
-    case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY"; /*extension*/
-    case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW"; /*extension*/
+    case TK_KEYWORD_CAKE_TRY: return "TK_KEYWORD_CAKE_TRY"; /*extension*/
+    case TK_KEYWORD_CAKE_THROW: return "TK_KEYWORD_CAKE_THROW"; /*extension*/
     case TK_KEYWORD_UNION: return "TK_KEYWORD_UNION";
     case TK_KEYWORD_UNSIGNED: return "TK_KEYWORD_UNSIGNED";
     case TK_KEYWORD_VOID: return "TK_KEYWORD_VOID";
@@ -9508,9 +9473,10 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
 
         //#ifdef _WIN32
-    case TK_KEYWORD__FASTCALL: return "TK_KEYWORD__FASTCALL";
-    case TK_KEYWORD__STDCALL:return "TK_KEYWORD__STDCALL";
-    case TK_KEYWORD__CDECL:return "TK_KEYWORD__CDECL";
+    case TK_KEYWORD_MSVC__FASTCALL: return "TK_KEYWORD_MSVC__FASTCALL";
+    case TK_KEYWORD_MSVC__STDCALL:return "TK_KEYWORD_MSVC__STDCALL";
+    case TK_KEYWORD_MSVC__CDECL:return "TK_KEYWORD_MSVC__CDECL";
+    case TK_KEYWORD_MSVC__DECLSPEC:return "TK_KEYWORD_MSVC__DECLSPEC";
         //#endif
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
         //end microsoft
@@ -9537,16 +9503,16 @@ const char* get_token_name(enum token_type tk)
 
 
         /*cake extension*/
-    case TK_KEYWORD__OWNER: return "TK_KEYWORD__OWNER";
+    case TK_KEYWORD_CAKE_OWNER: return "TK_KEYWORD_CAKE_OWNER";
     case TK_KEYWORD__CTOR: return "TK_KEYWORD__OUT";
     case TK_KEYWORD__DTOR: return "TK_KEYWORD__OBJ_OWNER";
-    case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
-    case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
+    case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
+    case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
 
 
         /*extension compile time functions*/
-    case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
-    case TK_KEYWORD_STATIC_DEBUG_EX: return "TK_KEYWORD_STATIC_DEBUG_EX"; /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG: return "TK_KEYWORD_CAKE_STATIC_DEBUG"; /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "TK_KEYWORD_CAKE_STATIC_DEBUG_EX"; /*extension*/
     case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
     case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
 
@@ -13368,7 +13334,7 @@ void test_get_warning_name()
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -13510,6 +13476,8 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
     TYPE_QUALIFIER__ATOMIC = 1 << 3,
 
+    
+
     /*ownership extensions*/
     TYPE_QUALIFIER_OWNER = 1 << 4,
     TYPE_QUALIFIER_VIEW = 1 << 5,
@@ -13518,6 +13486,10 @@ enum type_qualifier_flags
     /*function contract*/
     TYPE_QUALIFIER_DTOR = 1 << 7,
     TYPE_QUALIFIER_CTOR = 1 << 8,
+
+    TYPE_QUALIFIER_MSVC_PTR32 = 1 << 9,
+    TYPE_QUALIFIER_MSVC_PTR64 = 1 << 10,
+
 };
 
 enum storage_class_specifier_flags
@@ -13547,6 +13519,52 @@ enum function_specifier_flags
     FUNCTION_SPECIFIER_NONE = 0,
     FUNCTION_SPECIFIER_INLINE = 1 << 0,
     FUNCTION_SPECIFIER_NORETURN = 1 << 1,
+};
+
+enum alignment_specifier_flags
+{
+    ALIGNMENT_SPECIFIER_NONE =  0,
+    ALIGNMENT_SPECIFIER_8_FLAGS = 1 << 0,
+    ALIGNMENT_SPECIFIER_16_FLAGS = 1 << 1,
+    ALIGNMENT_SPECIFIER_32_FLAGS = 1 << 2,
+    ALIGNMENT_SPECIFIER_64_FLAGS = 1 << 3,
+    ALIGNMENT_SPECIFIER_128_FLAGS = 1 << 4,
+};
+
+enum msvc_declspec_flags
+{
+    //https://learn.microsoft.com/en-us/cpp/cpp/declspec?view=msvc-170
+    MSVC_DECLSPEC_NONE = 0,
+    MSVC_DECLSPEC_ALIGN_8_FLAG = 1 << 1, //( NUMBER )
+    MSVC_DECLSPEC_ALIGN_16_FLAG = 1 << 2, //( NUMBER )
+    MSVC_DECLSPEC_ALIGN_32_FLAG = 1 << 3, //( NUMBER )
+    MSVC_DECLSPEC_ALIGN_64_FLAG = 1 << 4, //( NUMBER )
+
+    MSVC_DECLSPEC_ALLOCATE_FLAG = 1 << 5, //(" SEGNAME ")
+    MSVC_DECLSPEC_ALLOCATOR_FLAG = 1 << 6, //
+    MSVC_DECLSPEC_APPDOMAIN_FLAG = 1 << 7, //
+    MSVC_DECLSPEC_CODE_SEG_FLAG = 1 << 8, //(" SEGNAME ")
+    MSVC_DECLSPEC_DEPRECATED_FLAG = 1 << 9, //
+    MSVC_DECLSPEC_DLLIMPORT_FLAG = 1 << 10, //
+    MSVC_DECLSPEC_DLLEXPORT_FLAG = 1 << 11, //
+    MSVC_DECLSPEC_EMPTY_BASES_FLAG = 1 << 12, //
+    MSVC_DECLSPEC_HYBRID_PATCHABLE_FLAG = 1 << 13, //
+    MSVC_DECLSPEC_JITINTRINSIC_FLAG = 1 << 14, //
+    MSVC_DECLSPEC_NAKED_FLAG = 1 << 15, //
+    MSVC_DECLSPEC_NOALIAS_FLAG = 1 << 16, //
+    MSVC_DECLSPEC_NOINLINE_FLAG = 1 << 17, //
+    MSVC_DECLSPEC_NORETURN_FLAG = 1 << 18, //
+    MSVC_DECLSPEC_NOTHROW_FLAG = 1 << 19, //
+    MSVC_DECLSPEC_NOVTABLE_FLAG = 1 << 20, //
+    MSVC_DECLSPEC_NO_SANITIZE_ADDRESS_FLAG = 1 << 21, //
+    MSVC_DECLSPEC_PROCESS_FLAG = 1 << 22, //
+    MSVC_DECLSPEC_PROPERTY_FLAG = 1 << 23, //( { GET=GET-FUNC-NAME | ,PUT=PUT-FUNC-NAME } )
+    MSVC_DECLSPEC_RESTRICT_FLAG = 1 << 24, //
+    MSVC_DECLSPEC_SAFEBUFFERS_FLAG = 1 << 25, //
+    MSVC_DECLSPEC_SELECTANY_FLAG = 1 << 26, //
+    MSVC_DECLSPEC_SPECTRE_FLAG = 1 << 27, //(NOMITIGATION)
+    MSVC_DECLSPEC_THREAD_FLAG = 1 << 28, //
+    MSVC_DECLSPEC_UUID_FLAG = 1 << 29, //(" COMOBJECTGUID ")
 };
 
 struct declarator;
@@ -13590,10 +13608,12 @@ struct type
     enum type_category category;
 
     enum attribute_flags  attributes_flags;
+    enum msvc_declspec_flags msvc_declspec_flags;
+    enum alignment_specifier_flags alignment_specifier_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-
+    
     const char* _Owner _Opt name_opt;
 
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -13643,6 +13663,8 @@ bool type_is_array(const struct type* p_type);
 
 bool type_is_ctor(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
+bool type_is_constexpr(const struct type* p_type);
+bool type_is_const_or_constexpr(const struct type* p_type);
 bool type_is_opt(const struct type* p_type, bool nullable_enabled);
 bool type_is_view(const struct type* p_type);
 
@@ -13764,8 +13786,7 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarat
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);
-
-
+void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags);
 
 struct parser_ctx;
 
@@ -13974,7 +13995,7 @@ int objects_push(struct objects* arr, struct object* obj); // returns 0 on succe
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 //#pragma once
@@ -14239,7 +14260,7 @@ struct object expression_eval(struct expression* p_expression);
 
 
 struct scope
-{    
+{
     int scope_level;
     struct hash_map tags;
     struct hash_map variables;
@@ -14290,7 +14311,7 @@ struct label_list_item
 {
     struct token* p_last_usage;
     struct token* p_defined;
-    struct label_list_item * next;
+    struct label_list_item* next;
 };
 
 struct label_list
@@ -14312,7 +14333,7 @@ struct parser_ctx
       file scope -> function params -> function -> inner scope
     */
     struct scope_list scopes;
-    
+
     /*
     * Points to the function we're in. Or null in file scope.
     */
@@ -14321,13 +14342,13 @@ struct parser_ctx
     /*
     * Points to the scope where the current function is. (used in local functions)
     */
-    struct scope * _Opt p_current_function_scope_opt;
-    
+    struct scope* _Opt p_current_function_scope_opt;
+
 
     /*
     *  Used to track non-used labels or used and not defined labels
     */
-    struct label_list label_list; 
+    struct label_list label_list;
 
     /*
     * Points to the try-block we're in. Or null.
@@ -14340,14 +14361,14 @@ struct parser_ctx
     * Points to the selection_statement we're in. Or null.
     */
     const struct selection_statement* _Opt p_current_selection_statement;
-    
+
 
     FILE* _Owner _Opt sarif_file;
     unsigned int sarif_entries;
 
     _View struct token_list input_list;
     struct token* _Opt current;
-    struct token* _Opt previous;    
+    struct token* _Opt previous;
     /*
        Expression inside sizeof etc.. are not evaluated
     */
@@ -14395,7 +14416,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
 int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
-
+bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -14414,6 +14435,7 @@ struct declaration_specifier
     struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier;
 
     struct function_specifier* _Owner _Opt function_specifier;
+    struct alignment_specifier* _Owner _Opt alignment_specifier;
 
     struct declaration_specifier* _Owner _Opt next;
 };
@@ -14435,7 +14457,8 @@ struct declaration_specifiers
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
     enum function_specifier_flags function_specifier_flags;
-
+    enum msvc_declspec_flags msvc_declspec_flags;
+    enum alignment_specifier_flags alignment_specifier_flags;
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
 
     /*shortcuts*/
@@ -14593,6 +14616,52 @@ struct typeof_specifier
 
 void typeof_specifier_delete(struct typeof_specifier* _Owner _Opt p);
 
+
+struct msvc_declspec
+{
+    /*
+        decl-specifier:
+         __declspec ( extended-decl-modifier-seq )
+
+        extended-decl-modifier-seq:
+         extended-decl-modifieropt
+         extended-decl-modifier extended-decl-modifier-seq
+
+        extended-decl-modifier:
+         align( number )
+         allocate(" segname ")
+         allocator
+         appdomain
+         code_seg(" segname ")
+         deprecated
+         dllimport
+         dllexport
+         empty_bases
+         hybrid_patchable
+         jitintrinsic
+         naked
+         noalias
+         noinline
+         noreturn
+         nothrow
+         novtable
+         no_sanitize_address
+         process
+         property( { get=get-func-name | ,put=put-func-name } )
+         restrict
+         safebuffers
+         selectany
+         spectre(nomitigation)
+         thread
+         uuid(" ComObjectGUID ")
+    */
+    enum msvc_declspec_flags flags;
+    struct token* token;
+};
+
+void msvc_declspec_delete(struct msvc_declspec* _Owner _Opt  p);
+void msvc_declspec_sequence_opt(struct parser_ctx* ctx);
+
 struct type_specifier
 {
     /*
@@ -14623,6 +14692,7 @@ struct type_specifier
     struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier;
     struct typeof_specifier* _Owner _Opt  typeof_specifier;
     struct enum_specifier* _Owner _Opt enum_specifier;
+    struct msvc_declspec* _Owner _Opt msvc_declspec; //msvc
     struct declarator* _Opt typedef_declarator;
     struct atomic_type_specifier* _Owner _Opt  atomic_type_specifier;
 };
@@ -15085,11 +15155,11 @@ struct pointer
     */
     struct attribute_specifier_sequence* _Owner _Opt  attribute_specifier_sequence_opt;
     struct type_qualifier_list* _Owner _Opt type_qualifier_list_opt;
-    
+
     /*
       typedef int (__fastcall *pf)();
     */
-    struct token * _Opt calling_convention;
+    struct token* _Opt calling_convention;
 
     struct pointer* _Owner _Opt pointer;
 };
@@ -15202,6 +15272,7 @@ struct specifier_qualifier_list
     /*cumulative flags*/
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
+    enum alignment_specifier_flags alignment_specifier_flags;
 
 
     /*shortcuts*/
@@ -15232,6 +15303,7 @@ struct alignment_specifier
        "alignas" ( type-name )
        "alignas" ( constant-expression )
     */
+    enum alignment_specifier_flags flags;
     struct type_name* _Owner _Opt type_name;
     struct expression* _Owner _Opt constant_expression;
     struct token* token;
@@ -15391,7 +15463,7 @@ struct try_statement
     struct token* first_token; /*try*/
     struct token* last_token;
     struct token* _Opt catch_token_opt; /*catch*/
-    
+
     int catch_label_id;
 };
 
@@ -15400,11 +15472,11 @@ void try_statement_delete(struct try_statement* _Owner _Opt p);
 
 struct case_label_list
 {
-   /*
-      it is not the owner. The owner is the label statement
-   */
-   struct label* _Opt head;
-   struct label* _Opt tail;
+    /*
+       it is not the owner. The owner is the label statement
+    */
+    struct label* _Opt head;
+    struct label* _Opt tail;
 };
 
 void case_label_list_push(struct case_label_list* list, struct label* pnew);
@@ -15454,7 +15526,7 @@ struct selection_statement
     struct token* last_token;
     struct token* _Opt else_token_opt;
     struct defer_list defer_list;
-    
+
     int label_id;
 };
 
@@ -16593,7 +16665,7 @@ signed int object_to_signed_int(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: return (int) a->value.void_pointer; break;
+    case TYPE_VOID_PTR: return (int)a->value.void_pointer; break;
     }
     assert(0);
     return 0;
@@ -16628,7 +16700,7 @@ unsigned int object_to_unsigned_int(const struct object* a)
     case TYPE_FLOAT: return a->value.float_value;
     case TYPE_DOUBLE: return a->value.double_value;
     case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: return (int) a->value.void_pointer; break;
+    case TYPE_VOID_PTR: return (int)a->value.void_pointer; break;
     }
     assert(0);
     return 0;
@@ -17689,16 +17761,20 @@ int object_set(
                 }
             }
 
-            if (is_constant)
+            if (is_constant && from->state == CONSTANT_VALUE_STATE_CONSTANT)
             {
-                if (to->state == CONSTANT_VALUE_STATE_CONSTANT ||
-                    to->state == CONSTANT_VALUE_EQUAL)
-                {
-                    /*
-                    struct X {int x;};
-                    int main() { constexpr struct X x = (struct X){ .x = 50 };}*/
-                    to->state = CONSTANT_VALUE_STATE_CONSTANT;
-                }
+                /*
+                  struct point { int x; } p = { .x = 1 };
+                  const int i = p.x; //not a exactly constant
+                  int j = i;}
+                */
+
+                //TODO
+                /*
+                      struct X {int x;};
+                      int main() { constexpr struct X x = (struct X){ .x = 50 };}
+                */
+                to->state = CONSTANT_VALUE_STATE_CONSTANT;
             }
             else
             {
@@ -17764,7 +17840,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 struct type array_item_type = get_array_item_type(p_type);
 
                 //too big..
-                const unsigned long long max_elements = p_type->num_of_elements > 1000 ?  1000 : p_type->num_of_elements;
+                const unsigned long long max_elements = p_type->num_of_elements > 1000 ? 1000 : p_type->num_of_elements;
 
                 struct object* _Opt p_tail_object = NULL;
                 for (unsigned long long i = 0; i < max_elements; i++)
@@ -18513,18 +18589,18 @@ struct object object_add(const struct object* a, const struct object* b)
     case TYPE_BOOL:
         return object_make_bool(object_to_bool(a) + object_to_bool(b));
 
-    //case TYPE_SIGNED_CHAR:
-      //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
+        //case TYPE_SIGNED_CHAR:
+          //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
 
-      //  break;
-    //case TYPE_UNSIGNED_CHAR:
-//        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+          //  break;
+        //case TYPE_UNSIGNED_CHAR:
+    //        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
 
-    //case TYPE_SIGNED_SHORT:
-      //  return object_to_signed_short(a) == object_to_signed_short(b);
+        //case TYPE_SIGNED_SHORT:
+          //  return object_to_signed_short(a) == object_to_signed_short(b);
 
-    //case TYPE_UNSIGNED_SHORT:
-      //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+        //case TYPE_UNSIGNED_SHORT:
+          //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
 
     case TYPE_SIGNED_LONG:
         return object_make_signed_long(object_to_signed_long(a) + object_to_signed_long(b));
@@ -18550,7 +18626,7 @@ struct object object_add(const struct object* a, const struct object* b)
     }
 
     assert(false);
-    struct object o = {0};
+    struct object o = { 0 };
     return o;
 }
 
@@ -18573,18 +18649,18 @@ struct object object_sub(const struct object* a, const struct object* b)
     case TYPE_BOOL:
         return object_make_bool(object_to_bool(a) - object_to_bool(b));
 
-    //case TYPE_SIGNED_CHAR:
-      //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
+        //case TYPE_SIGNED_CHAR:
+          //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
 
-      //  break;
-    //case TYPE_UNSIGNED_CHAR:
-//        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
+          //  break;
+        //case TYPE_UNSIGNED_CHAR:
+    //        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
 
-    //case TYPE_SIGNED_SHORT:
-      //  return object_to_signed_short(a) == object_to_signed_short(b);
+        //case TYPE_SIGNED_SHORT:
+          //  return object_to_signed_short(a) == object_to_signed_short(b);
 
-    //case TYPE_UNSIGNED_SHORT:
-      //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
+        //case TYPE_UNSIGNED_SHORT:
+          //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
 
     case TYPE_SIGNED_LONG:
         return object_make_signed_long(object_to_signed_long(a) - object_to_signed_long(b));
@@ -18610,7 +18686,7 @@ struct object object_sub(const struct object* a, const struct object* b)
     }
 
     assert(false);
-    struct object o = {0};
+    struct object o = { 0 };
     return o;
 }
 
@@ -20835,14 +20911,10 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                 }
             }
 
-            bool is_constant = type_is_const(&p_expression_node->type) ||
-                p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
+            const bool is_constant = type_is_const_or_constexpr(&p_expression_node->type);
 
             object_default_initialization(&p_expression_node->object, is_constant);
-
-            //printf("\n");
-            //object_print_to_debug(&p_init_declarator->p_declarator->object);
-
+            
             struct initializer initializer = { 0 };
             initializer.braced_initializer = p_expression_node->braced_initializer;
             initializer.first_token = p_expression_node->first_token;
@@ -26840,7 +26912,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -27140,7 +27212,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.41"
+#define CAKE_VERSION "0.10.42"
 
 
 
@@ -27810,12 +27882,16 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD_VOLATILE ||
         p_token->type == TK_KEYWORD__ATOMIC ||
 
+        //MSVC
+        p_token->type == TK_KEYWORD_MSVC__PTR32 ||
+        p_token->type == TK_KEYWORD_MSVC__PTR64 ||
+
         /*extensions*/
         p_token->type == TK_KEYWORD__CTOR ||
-        p_token->type == TK_KEYWORD__OWNER ||
+        p_token->type == TK_KEYWORD_CAKE_OWNER ||
         p_token->type == TK_KEYWORD__DTOR ||
-        p_token->type == TK_KEYWORD__VIEW ||
-        p_token->type == TK_KEYWORD__OPT;
+        p_token->type == TK_KEYWORD_CAKE_VIEW ||
+        p_token->type == TK_KEYWORD_CAKE_OPT;
 
     //__fastcall
     //__stdcall
@@ -28009,10 +28085,11 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_LONG ||
 
         // microsoft extension
-        p_token->type == TK_KEYWORD__INT8 ||
-        p_token->type == TK_KEYWORD__INT16 ||
-        p_token->type == TK_KEYWORD__INT32 ||
-        p_token->type == TK_KEYWORD__INT64 ||
+        p_token->type == TK_KEYWORD_MSVC__INT8 ||
+        p_token->type == TK_KEYWORD_MSVC__INT16 ||
+        p_token->type == TK_KEYWORD_MSVC__INT32 ||
+        p_token->type == TK_KEYWORD_MSVC__INT64 ||
+        p_token->type == TK_KEYWORD_MSVC__DECLSPEC ||
 
         // end microsoft
 
@@ -28062,7 +28139,7 @@ bool first_of_jump_statement(const struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_CONTINUE ||
         ctx->current->type == TK_KEYWORD_BREAK ||
         ctx->current->type == TK_KEYWORD_RETURN ||
-        ctx->current->type == TK_KEYWORD_THROW /*extension*/;
+        ctx->current->type == TK_KEYWORD_CAKE_THROW /*extension*/;
 }
 
 bool first_of_selection_statement(const struct parser_ctx* ctx)
@@ -28133,8 +28210,8 @@ bool first_of_static_assert_declaration(const struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
-        ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
-        ctx->current->type == TK_KEYWORD_STATIC_DEBUG_EX ||
+        ctx->current->type == TK_KEYWORD_CAKE_STATIC_DEBUG ||
+        ctx->current->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX ||
         ctx->current->type == TK_KEYWORD_STATIC_STATE ||
         ctx->current->type == TK_KEYWORD_STATIC_SET;
 }
@@ -28217,7 +28294,7 @@ enum token_type is_keyword(const char* text)
         if (strcmp("continue", text) == 0)
             return TK_KEYWORD_CONTINUE;
         if (strcmp("catch", text) == 0)
-            return TK_KEYWORD_CATCH;
+            return TK_KEYWORD_CAKE_CATCH;
         break;
 
     case 'd':
@@ -28298,9 +28375,9 @@ enum token_type is_keyword(const char* text)
         if (strcmp("static_assert", text) == 0)
             return TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
         if (strcmp("static_debug", text) == 0)
-            return TK_KEYWORD_STATIC_DEBUG;
+            return TK_KEYWORD_CAKE_STATIC_DEBUG;
         if (strcmp("static_debug_ex", text) == 0)
-            return TK_KEYWORD_STATIC_DEBUG_EX;
+            return TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
         if (strcmp("static_state", text) == 0)
             return TK_KEYWORD_STATIC_STATE;
         if (strcmp("static_set", text) == 0)
@@ -28319,9 +28396,9 @@ enum token_type is_keyword(const char* text)
         if (strcmp("thread_local", text) == 0)
             return TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
         if (strcmp("try", text) == 0)
-            return TK_KEYWORD_TRY;
+            return TK_KEYWORD_CAKE_TRY;
         if (strcmp("throw", text) == 0)
-            return TK_KEYWORD_THROW;
+            return TK_KEYWORD_CAKE_THROW;
         break;
 
     case 'u':
@@ -28348,14 +28425,14 @@ enum token_type is_keyword(const char* text)
         if (strcmp("_Ctor", text) == 0)
             return TK_KEYWORD__CTOR; /*extension*/
         if (strcmp("_Owner", text) == 0)
-            return TK_KEYWORD__OWNER; /*extension*/
+            return TK_KEYWORD_CAKE_OWNER; /*extension*/
         if (strcmp("_Dtor", text) == 0)
             return TK_KEYWORD__DTOR; /*extension*/
         if (strcmp("_Opt", text) == 0)
-            return TK_KEYWORD__OPT; /*extension*/
+            return TK_KEYWORD_CAKE_OPT; /*extension*/
 
         if (strcmp("_View", text) == 0)
-            return TK_KEYWORD__VIEW; /*extension*/
+            return TK_KEYWORD_CAKE_VIEW; /*extension*/
 
         if (strcmp("_Countof", text) == 0)
             return TK_KEYWORD__COUNTOF; /*C2Y*/
@@ -28389,6 +28466,13 @@ enum token_type is_keyword(const char* text)
             return TK_KEYWORD__ALIGNAS;
         if (strcmp("_Atomic", text) == 0)
             return TK_KEYWORD__ATOMIC;
+
+        if (strcmp("__ptr32", text) == 0)
+            return TK_KEYWORD_MSVC__PTR32;
+        if (strcmp("__ptr64", text) == 0)
+            return TK_KEYWORD_MSVC__PTR64;
+
+
         if (strcmp("_Bool", text) == 0)
             return TK_KEYWORD__BOOL;
         if (strcmp("_Complex", text) == 0)
@@ -28416,13 +28500,13 @@ enum token_type is_keyword(const char* text)
 #ifdef  _MSC_VER
         // begin microsoft
         if (strcmp("__int8", text) == 0)
-            return TK_KEYWORD__INT8;
+            return TK_KEYWORD_MSVC__INT8;
         if (strcmp("__int16", text) == 0)
-            return TK_KEYWORD__INT16;
+            return TK_KEYWORD_MSVC__INT16;
         if (strcmp("__int32", text) == 0)
-            return TK_KEYWORD__INT32;
+            return TK_KEYWORD_MSVC__INT32;
         if (strcmp("__int64", text) == 0)
-            return TK_KEYWORD__INT64;
+            return TK_KEYWORD_MSVC__INT64;
         if (strcmp("__forceinline", text) == 0)
             return TK_KEYWORD_INLINE;
         if (strcmp("__inline", text) == 0)
@@ -28430,15 +28514,17 @@ enum token_type is_keyword(const char* text)
         if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
             return TK_KEYWORD__ASM;
         if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
-            return TK_KEYWORD__STDCALL;
+            return TK_KEYWORD_MSVC__STDCALL;
         if (strcmp("__cdecl", text) == 0)
-            return TK_KEYWORD__CDECL;
+            return TK_KEYWORD_MSVC__CDECL;
         if (strcmp("__fastcall", text) == 0)
-            return TK_KEYWORD__FASTCALL;
+            return TK_KEYWORD_MSVC__FASTCALL;
         if (strcmp("__alignof", text) == 0)
             return TK_KEYWORD__ALIGNOF;
         if (strcmp("__restrict", text) == 0)
             return TK_KEYWORD_RESTRICT;
+        if (strcmp("__declspec", text) == 0)
+            return TK_KEYWORD_MSVC__DECLSPEC;
 #endif
         break;
     default:
@@ -28836,6 +28922,7 @@ int add_specifier(struct parser_ctx* ctx,
     //Following 6.7.2 we check possible combinations
     switch ((unsigned int)*flags)
     {
+    case TYPE_SPECIFIER_NONE:  //void
     case TYPE_SPECIFIER_VOID:  //void
     case TYPE_SPECIFIER_CHAR:  //char
     case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR:  //signed char
@@ -29009,6 +29096,13 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                     {
                         p_declaration_specifiers->typeof_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier;
                     }
+
+                    else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->msvc_declspec)
+                    {
+                        p_declaration_specifiers->msvc_declspec_flags =
+                            p_declaration_specifier->type_specifier_qualifier->type_specifier->msvc_declspec->flags;
+
+                    }
                     else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->token->type == TK_IDENTIFIER)
                     {
                         p_declaration_specifiers->typedef_declarator =
@@ -29018,6 +29112,12 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 
                         // p_declaration_specifiers->typedef_declarator = p_declaration_specifier->type_specifier_qualifier->pType_specifier->token->lexeme;
                     }
+                }
+                else if (p_declaration_specifier->type_specifier_qualifier->alignment_specifier)
+                {
+                    p_declaration_specifiers->alignment_specifier_flags =
+                        p_declaration_specifier->type_specifier_qualifier->alignment_specifier->flags;
+
                 }
                 else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
                 {
@@ -29031,6 +29131,10 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             else if (p_declaration_specifier->function_specifier)
             {
                 p_declaration_specifiers->function_specifier_flags |= p_declaration_specifier->function_specifier->flags;
+            }
+            else if (p_declaration_specifier->alignment_specifier)
+            {
+                p_declaration_specifiers->alignment_specifier_flags |= p_declaration_specifier->alignment_specifier->flags;
             }
 
             declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
@@ -29363,6 +29467,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator == NULL ||
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator == NULL)
             {
+                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
                 throw; //unexpected
             }
 
@@ -29810,9 +29915,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
 
-                bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
-                    p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
-
+                
+                const bool is_constant = 
+                    type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
                 if (initializer_init_new(ctx,
                     &p_init_declarator->p_declarator->type,
@@ -29908,12 +30013,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
-                bool is_constant = type_is_const(&p_init_declarator->p_declarator->type) ||
-                    p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR;
+                const bool is_constant = 
+                    type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
-
-                //intf("\n");                
-
+                
                 if (initializer_init_new(ctx,
                     &p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
@@ -30379,6 +30482,261 @@ void type_specifier_delete(struct type_specifier* _Owner _Opt p)
         free(p);
     }
 }
+
+
+struct msvc_declspec* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* ctx)
+{
+    //https://learn.microsoft.com/en-us/cpp/cpp/declspec?view=msvc-170
+    /*
+     extended-decl-modifier:
+         align( number )
+         allocate(" segname ")
+         allocator
+         appdomain
+         code_seg(" segname ")
+         deprecated
+         dllimport
+         dllexport
+         empty_bases
+         hybrid_patchable
+         jitintrinsic
+         naked
+         noalias
+         noinline
+         noreturn
+         nothrow
+         novtable
+         no_sanitize_address
+         process
+         property( { get=get-func-name | ,put=put-func-name } )
+         restrict
+         safebuffers
+         selectany
+         spectre(nomitigation)
+         thread
+         uuid(" ComObjectGUID ")
+    */
+
+    struct msvc_declspec* _Owner _Opt p_type_specifier = NULL;
+    try
+    {
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+
+        //if (!token_is_identifier_or_keyword(ctx->current->type))
+          //  throw;
+
+        p_type_specifier = calloc(1, sizeof * p_type_specifier);
+        if (p_type_specifier == NULL)
+            throw;
+
+        p_type_specifier->token = ctx->current;
+
+        parser_match(ctx);
+
+        if (strcmp(p_type_specifier->token->lexeme, "align") == 0)
+        {
+            parser_match(ctx); //(
+            int a = atoi(ctx->current->lexeme);
+            if (a == 8)
+                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_8_FLAG;
+            else if (a == 16)
+                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_16_FLAG;
+            else if (a == 32)
+                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_32_FLAG;
+            else if (a == 64)
+                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_64_FLAG;
+
+            parser_match(ctx); //number     
+            parser_match(ctx); //)            
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "allocate") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALLOCATE_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "allocator") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALLOCATOR_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "appdomain") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_APPDOMAIN_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "code_seg") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_CODE_SEG_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "deprecated") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DEPRECATED_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "dllimport") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DLLIMPORT_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "dllexport") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DLLEXPORT_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "hybrid_patchable") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "no_init_all") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "jitintrinsic") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "intrin_type") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "naked") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "noalias") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "noinline") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "noreturn") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "nothrow") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "novtable") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "no_sanitize_address") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "process") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "property") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "restrict") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "safebuffers") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "selectany") == 0)
+        {
+            //https://learn.microsoft.com/en-us/cpp/cpp/selectany?view=msvc-170
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_SELECTANY_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "thread") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_SELECTANY_FLAG;
+        }
+        else if (strcmp(p_type_specifier->token->lexeme, "uuid") == 0)
+        {
+            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_UUID_FLAG;
+        }
+        else
+        {
+            compiler_diagnostic(W_ATTRIBUTES,
+                ctx,
+                p_type_specifier->token,
+                NULL,
+            "unknown '%s'\n", p_type_specifier->token->lexeme);
+        }
+
+        int count = 1;
+        while (ctx->current)
+        {
+            if (ctx->current->type == TK_LEFT_PARENTHESIS)
+            {
+                parser_match(ctx);
+                count++;
+            }
+            else if (ctx->current->type == TK_RIGHT_PARENTHESIS)
+            {
+                if (count == 1)
+                    break;
+                count--;
+                parser_match(ctx);
+            }
+            else
+            {
+                parser_match(ctx);
+            }
+        }
+    }
+    catch
+    {
+        msvc_declspec_delete(p_type_specifier);
+        p_type_specifier = NULL;
+    }
+    return p_type_specifier;
+}
+
+struct msvc_declspec* _Owner _Opt msvc_declspec(struct parser_ctx* ctx)
+{
+    //https://learn.microsoft.com/en-us/cpp/cpp/declspec?view=msvc-170
+    /*
+      __declspec ( extended-decl-modifier-seq )
+    */
+    struct msvc_declspec* _Owner _Opt p_decl_specifier = NULL;
+    try
+    {
+        if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
+            throw;
+        parser_match_tk(ctx, TK_KEYWORD_MSVC__DECLSPEC);
+        parser_match_tk(ctx, TK_LEFT_PARENTHESIS);
+        p_decl_specifier = extended_decl_modifier_seq(ctx);
+        parser_match_tk(ctx, TK_RIGHT_PARENTHESIS);
+    }
+    catch
+    {
+        msvc_declspec_delete(p_decl_specifier);
+        p_decl_specifier = NULL;
+    }
+    return p_decl_specifier;
+}
+
+void msvc_declspec_delete(struct msvc_declspec* _Owner _Opt  p)
+{
+    if (p == NULL)
+        return;
+    free(p);
+}
+
+void msvc_declspec_sequence_opt(struct parser_ctx* ctx)
+{
+
+    try
+    {
+        for (;;)
+        {
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
+                return;
+
+            struct msvc_declspec* _Owner _Opt p = msvc_declspec(ctx);
+            msvc_declspec_delete(p);
+
+
+        }
+    }
+    catch
+    {
+
+    }
+}
+
 struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 {
     /*
@@ -30448,30 +30806,37 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             return p_type_specifier;
 
             // microsoft
-        case TK_KEYWORD__INT8:
+        case TK_KEYWORD_MSVC__INT8:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT8;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
-        case TK_KEYWORD__INT16:
+        case TK_KEYWORD_MSVC__INT16:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT16;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
-        case TK_KEYWORD__INT32:
+        case TK_KEYWORD_MSVC__INT32:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT32;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
-        case TK_KEYWORD__INT64:
+        case TK_KEYWORD_MSVC__INT64:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT64;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
+            return p_type_specifier;
+
+        case TK_KEYWORD_MSVC__DECLSPEC:
+            p_type_specifier->flags = 0;
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->msvc_declspec = msvc_declspec(ctx);
+
             return p_type_specifier;
             // end microsoft
 
@@ -30768,6 +31133,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             throw;
         }
 
+        msvc_declspec_sequence_opt(ctx);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
@@ -31565,6 +31931,10 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
                             NULL);
                 }
             }
+            else if (p_type_specifier_qualifier->alignment_specifier)
+            {
+                p_specifier_qualifier_list->alignment_specifier_flags |= p_type_specifier_qualifier->alignment_specifier->flags;
+            }
             else if (p_type_specifier_qualifier->type_qualifier)
             {
                 p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->type_qualifier->flags;
@@ -32121,6 +32491,21 @@ struct alignment_specifier* _Owner _Opt alignment_specifier(struct parser_ctx* c
             alignment_specifier->constant_expression = constant_expression(ctx, true);
             if (alignment_specifier->constant_expression == NULL)
                 throw;
+            if (object_has_constant_value(&alignment_specifier->constant_expression->object))
+            {
+                long a = object_to_signed_long(&alignment_specifier->constant_expression->object);
+                if (a == 8)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_8_FLAGS;
+                else if (a == 16)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_16_FLAGS;
+                else if (a == 32)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_32_FLAGS;
+                else if (a == 64)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_64_FLAGS;
+                else if (a == 128)
+                    alignment_specifier->flags |= ALIGNMENT_SPECIFIER_128_FLAGS;
+
+            }
         }
         if (parser_match_tk(ctx, ')') != 0)
             throw;
@@ -32208,6 +32593,12 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     case TK_KEYWORD__ATOMIC:
         p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
         break;
+    case TK_KEYWORD_MSVC__PTR32:
+        p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_PTR32;
+        break;
+    case TK_KEYWORD_MSVC__PTR64:
+        p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_PTR64;
+        break;
 
     default:
         // do nothing
@@ -32226,11 +32617,11 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
             p_type_qualifier->flags = TYPE_QUALIFIER_DTOR;
             break;
 
-        case TK_KEYWORD__OWNER:
+        case TK_KEYWORD_CAKE_OWNER:
             p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
             break;
 
-        case TK_KEYWORD__VIEW:
+        case TK_KEYWORD_CAKE_VIEW:
             p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
             break;
 
@@ -32244,7 +32635,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     {
         switch (ctx->current->type)
         {
-        case TK_KEYWORD__OPT:
+        case TK_KEYWORD_CAKE_OPT:
             p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
             break;
 
@@ -32483,15 +32874,21 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
         if (p_token_ahead == NULL)
             throw;
 
-        if (ctx->current->type == TK_KEYWORD__STDCALL ||
-            ctx->current->type == TK_KEYWORD__CDECL ||
-            ctx->current->type == TK_KEYWORD__FASTCALL)
+        if (ctx->current->type == TK_KEYWORD_MSVC__STDCALL ||
+            ctx->current->type == TK_KEYWORD_MSVC__CDECL ||
+            ctx->current->type == TK_KEYWORD_MSVC__FASTCALL)
         {
             /*
               int __fastcall add(int a, int b);
             */
             p_direct_declarator->p_calling_convention = ctx->current;
             parser_match(ctx);
+        }
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
         }
 
         if (ctx->current->type == TK_IDENTIFIER)
@@ -32802,9 +33199,9 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             /*
               typedef void (__fastcall *pf)();
             */
-            if (ctx->current->type == TK_KEYWORD__STDCALL ||
-                ctx->current->type == TK_KEYWORD__CDECL ||
-                ctx->current->type == TK_KEYWORD__FASTCALL)
+            if (ctx->current->type == TK_KEYWORD_MSVC__STDCALL ||
+                ctx->current->type == TK_KEYWORD_MSVC__CDECL ||
+                ctx->current->type == TK_KEYWORD_MSVC__FASTCALL)
             {
                 calling_convention = ctx->current;
                 parser_match(ctx);
@@ -32830,7 +33227,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             {
                 assert(ctx->current != NULL);
 
-                if (ctx->current->type == TK_KEYWORD__VIEW)
+                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW)
                 {
                     compiler_diagnostic(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
                                 ctx,
@@ -34879,7 +35276,7 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
             if (p_primary_block->defer_statement == NULL)
                 throw;
         }
-        else if (ctx->current->type == TK_KEYWORD_TRY)
+        else if (ctx->current->type == TK_KEYWORD_CAKE_TRY)
         {
             p_primary_block->try_statement = try_statement(ctx);
             if (p_primary_block->try_statement == NULL)
@@ -35024,7 +35421,7 @@ static bool first_of_primary_block(const struct parser_ctx* ctx)
         first_of_selection_statement(ctx) ||
         first_of_iteration_statement(ctx) ||
         ctx->current->type == TK_KEYWORD_DEFER /*extension*/ ||
-        ctx->current->type == TK_KEYWORD_TRY /*extension*/
+        ctx->current->type == TK_KEYWORD_CAKE_TRY /*extension*/
         )
     {
         return true;
@@ -35897,14 +36294,14 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
         p_try_statement->first_token = ctx->current;
 
-        assert(ctx->current->type == TK_KEYWORD_TRY);
+        assert(ctx->current->type == TK_KEYWORD_CAKE_TRY);
         const struct try_statement* _Opt try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
 
         p_try_statement->catch_label_id = ctx->label_id++;
 
 
-        if (parser_match_tk(ctx, TK_KEYWORD_TRY) != 0)
+        if (parser_match_tk(ctx, TK_KEYWORD_CAKE_TRY) != 0)
             throw;
 
 #pragma cake diagnostic push
@@ -35925,7 +36322,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             throw;
         }
 
-        if (ctx->current->type == TK_KEYWORD_CATCH)
+        if (ctx->current->type == TK_KEYWORD_CAKE_CATCH)
         {
             p_try_statement->catch_token_opt = ctx->current;
             parser_match(ctx);
@@ -36074,7 +36471,8 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                 throw;
 
             //steal expression
-            if (p_selection_statement->p_init_statement->p_expression_statement)
+            if (p_selection_statement->p_init_statement->p_expression_statement &&
+                p_selection_statement->p_init_statement->p_expression_statement->expression_opt)
             {
                 p_selection_statement->condition->first_token = p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token;
                 p_selection_statement->condition->last_token = p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token;
@@ -36583,7 +36981,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         {
             parser_match(ctx);
         }
-        else if (ctx->current->type == TK_KEYWORD_THROW)
+        else if (ctx->current->type == TK_KEYWORD_CAKE_THROW)
         {
             if (ctx->p_current_try_statement_opt == NULL)
             {
@@ -39142,7 +39540,7 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -39802,7 +40200,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
     try
     {
-        if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
+        if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
         {
             defer_check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token, &p_jump_statement->defer_list);
         }
@@ -39917,6 +40315,8 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
         //defer_visit_ctx_pop_tail_block(ctx);
     }
     break;
+    default:
+        break;
     }
 }
 static void defer_visit_expression_statement(struct defer_visit_ctx* ctx, struct expression_statement* p_expression_statement)
@@ -40107,7 +40507,7 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 #pragma safety enable
- 
+
 
 #if SIZE_MAX > UINT_MAX
 #define SIZE_T_TYPE_STR "unsigned long long"
@@ -40896,7 +41296,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
         ctx->indentation = current_indentation;
         ctx->p_current_function_opt = p_current_function_opt;
-        
+
         assert(lambda.c_str);
         ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", lambda.c_str);
         ss_fprintf(oss, "%s", name);
@@ -41257,7 +41657,7 @@ static void d_visit_expression_statement(struct d_visit_ctx* ctx, struct osstrea
 
 static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct jump_statement* p_jump_statement)
 {
-    if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
+    if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
@@ -41375,7 +41775,7 @@ static void d_visit_labeled_statement(struct d_visit_ctx* ctx, struct osstream* 
 
     d_visit_label(ctx, oss, p_labeled_statement->label);
 
-    
+
     d_visit_statement(ctx, oss, p_labeled_statement->statement);
 }
 
@@ -41800,7 +42200,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
             object_to_str(&p_label->constant_expression_end->object, 50, str2);
             ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
         }
-        
+
         ss_fprintf(oss, "\n");
     }
     else if (p_label->p_first_token->type == TK_IDENTIFIER)
@@ -42181,6 +42581,8 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else
             {
+                print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags);
+                print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
                 print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
             }
 
@@ -42383,6 +42785,16 @@ static void d_print_type(struct d_visit_ctx* ctx,
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
     {
         ss_fprintf(ss, "static ");
+    }
+
+    if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
+    {
+#ifdef _MSC_VER
+        ss_fprintf(ss, "__declspec(thread) "); 
+#elif __GNUC__
+        ss_fprintf(ss, "__thread "); 
+#endif
+
     }
 
 
@@ -42784,7 +43196,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             }
         }
         bool b_add_this_before_external_decl = false;
-        
+
         if (is_static && !is_function)
         {
             b_add_this_before_external_decl = true;
@@ -43179,7 +43591,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     {
         const char* str =
             "static void _cake_memcpy(void * dest, const void * src, " SIZE_T_TYPE_STR " n)\n"
-            "{\n"            
+            "{\n"
             "  char *csrc = (char *)src;\n"
             "  char *cdest = (char *)dest;\n"
             "  " SIZE_T_TYPE_STR " i; \n"
@@ -49677,7 +50089,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
     try
     {
-        if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
+        if (p_jump_statement->first_token->type == TK_KEYWORD_CAKE_THROW)
         {
             arena_merge_current_state_with_state_number(ctx, ctx->throw_join_state);
 
@@ -50008,10 +50420,10 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     ctx->expression_is_not_evaluated = t2; //restore
 
 
-    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG ||
-        p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX)
+    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG ||
+        p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX)
     {
-        bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX;
+        bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
 
         compiler_diagnostic(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_debug");
 
@@ -51016,7 +51428,7 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 
@@ -51032,6 +51444,34 @@ void print_item(struct osstream* ss, bool* first, const char* item)
     ss_fprintf(ss, "%s", item);
     *first = false;
 
+}
+
+bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags)
+{
+#ifdef _MSC_VER
+    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+        print_item(ss, first, "__declspec(align(80))");
+    if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+        print_item(ss, first, "__declspec(align(16))");
+    if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+        print_item(ss, first, "__declspec(align(32))");
+    if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+        print_item(ss, first, "__declspec(align(64))");
+    if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+        print_item(ss, first, "__declspec(align(128))");
+#elif defined __GNUC__
+    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(8)))");
+    if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(16)))");
+    if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(32)))");
+    if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(64)))");
+    if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+        print_item(ss, first, "__attribute__((aligned(128)))");
+#endif // _MSVC
+    return *first;
 }
 
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags)
@@ -51122,6 +51562,130 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
 
 }
 
+void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags)
+{
+    /*
+       The objective is to print only what changes code generation / link
+    */
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALIGN_8_FLAG)
+    {
+        print_item(ss, first, "__declspec(align(8))");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALIGN_16_FLAG)
+    {
+        print_item(ss, first, "__declspec(align(16))");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALIGN_32_FLAG)
+    {
+        print_item(ss, first, "__declspec(align(32))");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALIGN_64_FLAG)
+    {
+        print_item(ss, first, "__declspec(align(64))");
+    }
+
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALLOCATE_FLAG)
+    {
+        print_item(ss, first, "__declspec(allocate)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_ALLOCATOR_FLAG)
+    {
+        print_item(ss, first, "__declspec(allocator)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_APPDOMAIN_FLAG)
+    {
+
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_CODE_SEG_FLAG)
+    {
+
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_DEPRECATED_FLAG)
+    {
+
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_DLLIMPORT_FLAG)
+    {
+        print_item(ss, first, "__declspec(dllimport)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_DLLEXPORT_FLAG)
+    {
+        print_item(ss, first, "__declspec(dllexport)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_EMPTY_BASES_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_HYBRID_PATCHABLE_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_JITINTRINSIC_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NAKED_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NOALIAS_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NOINLINE_FLAG)
+    {
+        print_item(ss, first, "__declspec(noinline)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NORETURN_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NOTHROW_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NOVTABLE_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_NO_SANITIZE_ADDRESS_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_PROCESS_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_PROPERTY_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_RESTRICT_FLAG)
+    {
+        print_item(ss, first, "__declspec(restrict)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_SAFEBUFFERS_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_SELECTANY_FLAG)
+    {
+        print_item(ss, first, "__declspec(selectany)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_SPECTRE_FLAG)
+    {
+        print_item(ss, first, "__declspec(spectre(nomitigation))");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_THREAD_FLAG)
+    {
+        print_item(ss, first, "__declspec(thread)");
+    }
+    if (msvc_declspec_flags & MSVC_DECLSPEC_UUID_FLAG)
+    {
+        //print_item(ss, first, "__declspec(selectany)");
+    }
+}
+
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type)
 {
     bool first = true;
@@ -51147,6 +51711,8 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
     }
     else
     {
+        print_type_alignment_flags(ss, &first, type->alignment_specifier_flags);
+        print_msvc_declspec(ss, &first, type->msvc_declspec_flags);
         print_type_specifier_flags(ss, &first, type->type_specifier_flags);
     }
 }
@@ -51290,6 +51856,8 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             }
             else
             {
+                print_type_alignment_flags(&local, &first, p->alignment_specifier_flags);
+                print_msvc_declspec(&local, &first, p->msvc_declspec_flags);
                 print_type_specifier_flags(&local, &first, p->type_specifier_flags);
             }
 
@@ -51676,6 +52244,17 @@ bool type_is_ctor(const struct type* p_type)
 bool type_is_const(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+}
+
+bool type_is_constexpr(const struct type* p_type)
+{
+    return (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
+}
+
+bool type_is_const_or_constexpr(const struct type* p_type)
+{
+    return (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST) ||
+           (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
 }
 
 bool type_is_pointer_to_const(const struct type* p_type)
@@ -53116,7 +53695,27 @@ size_t type_get_alignof(const struct type* p_type)
     }
     else if (category == TYPE_CATEGORY_ITSELF)
     {
-        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+        {
+            align = 8;
+        }
+        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+        {
+            align = 16;
+        }
+        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+        {
+            align = 32;
+        }
+        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+        {
+            align = 64;
+        }
+        else if (p_type->alignment_specifier_flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+        {
+            align = 128;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
             align = _Alignof(char);
         }
@@ -53270,17 +53869,17 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
                 //https://github.com/thradams/cake/issues/248
-                unsigned long long SIZE_MAX_WORKAROUND = 0;                
+                unsigned long long SIZE_MAX_WORKAROUND = 0;
 
-                #ifdef __linux__
-                    #if __x86_64__
-                        SIZE_MAX_WORKAROUND = 0xffffffffffffffffULL;
-                    #else
-                        SIZE_MAX_WORKAROUND = 0xffffffffULL;    
-                    #endif                    
-                #else                
-                        SIZE_MAX_WORKAROUND = SIZE_MAX;
-                #endif
+#ifdef __linux__
+#if __x86_64__
+                SIZE_MAX_WORKAROUND = 0xffffffffffffffffULL;
+#else
+                SIZE_MAX_WORKAROUND = 0xffffffffULL;
+#endif                    
+#else                
+                SIZE_MAX_WORKAROUND = SIZE_MAX;
+#endif
 
                 if (result > SIZE_MAX_WORKAROUND)
                 {
@@ -53958,7 +54557,28 @@ void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator
     p_type->type_qualifier_flags = type_qualifier_flags;
 
 
+}
+void type_set_alignment_specifier_flags_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+{
+    if (pdeclarator->declaration_specifiers)
+    {
+        p_type->alignment_specifier_flags |=
+            pdeclarator->declaration_specifiers->alignment_specifier_flags;
+    }
+    else if (pdeclarator->specifier_qualifier_list)
+    {
+        p_type->alignment_specifier_flags =
+            pdeclarator->specifier_qualifier_list->alignment_specifier_flags;
+    }
+}
 
+void type_set_msvc_declspec_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+{
+    if (pdeclarator->declaration_specifiers)
+    {
+        p_type->msvc_declspec_flags |=
+            pdeclarator->declaration_specifiers->msvc_declspec_flags;
+    }
 }
 
 void type_set_storage_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
@@ -54473,7 +55093,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             type_set_specifiers_using_declarator(p, pdeclarator);
             type_set_attributes_using_declarator(p, pdeclarator);
-
+            type_set_alignment_specifier_flags_using_declarator(p, pdeclarator);
 
             type_set_qualifiers_using_declarator(p, pdeclarator);
 
@@ -54513,7 +55133,8 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         free(list.head);
 
         type_set_storage_specifiers_using_declarator(&r, pdeclarator);
-
+        type_set_msvc_declspec_using_declarator(&r, pdeclarator);
+        type_set_alignment_specifier_flags_using_declarator(&r, pdeclarator);
         if (!is_valid_type(ctx, pdeclarator->first_token_opt, &r))
         {
             type_destroy(&r);

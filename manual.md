@@ -189,7 +189,8 @@ It does not include the following features:
  - static variables are non-local.
  - arrays size [] = {...} are pre-calculated
  - no switch 
- - 
+ 
+ 
 The goal is for this simplified version to function as an intermediate language (IL).
 
 One directory called **out** is created keeping the same directory structure of the input files.
@@ -531,7 +532,11 @@ _Noreturn void f () {
 ```
 
 ###  C11 Thread_local/Atomic
-Not implemented yet
+
+
+Thread_local uses __declspec(thread) in MSVC output and __thread with GCC output.
+
+Atomic - not implemented
 
 ###  C11 type-generic expressions (\_Generic)
 
@@ -590,20 +595,9 @@ Important: Cake assume source is utf8 encoded.
 
 ### C11 _Alignas or C23 alignas
 
-Not implemented. 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf
 
-```c
-#if defined(_MSC_VER)
-  #define ALIGN(n) __declspec(align(n))
-#elif defined(__GNUC__)
-  #define ALIGN(n) __attribute__((aligned(n)))
-#else
-  #define ALIGN(n)  /* fallback: nothing */
-#endif
-
-ALIGN(16) int x;
-```
+Uses __declspec(align(n)) in MSVC output and __attribute__((aligned(n))) in GCC output.
 
 
 ## C23 Transformations
