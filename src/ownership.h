@@ -1,4 +1,4 @@
-﻿
+
 #ifndef __OWNERSHIP_H__
 #define __OWNERSHIP_H__
 

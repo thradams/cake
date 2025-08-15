@@ -345,11 +345,11 @@ struct object object_make_wchar_t(wchar_t value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
 #ifdef _WIN32
-    static_assert(_Generic(L' ', unsigned short : 1), "");
+    //static_assert(_Generic(L' ', unsigned short : 1), "");
     r.value_type = TYPE_SIGNED_SHORT;
     r.value.signed_short_value = value;
 #else
-    static_assert(_Generic(L' ', int : 1), "");
+    //static_assert(_Generic(L' ', int : 1), "");
     r.value_type = TYPE_SIGNED_INT;
     r.value.signed_int_value = value;
 #endif

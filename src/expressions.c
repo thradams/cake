@@ -927,7 +927,12 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     {
         if (suffix[0] == 'F')
         {
-            float value = strtof(buffer, NULL);
+#ifdef __TINYC__
+            long double value = strtod(buffer, NULL);
+#else
+
+            float value = strtod(buffer, NULL);
+#endif
             if (value == HUGE_VALF && errno == ERANGE)
             {
             }
@@ -936,7 +941,11 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         else if (suffix[0] == 'L')
         {
+#ifdef __TINYC__
+            long double value = strtod(buffer, NULL);
+#else
             long double value = strtold(buffer, NULL);
+#endif
             if (value == HUGE_VALL && errno == ERANGE)
             {
             }
@@ -2077,7 +2086,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             const bool is_constant = type_is_const_or_constexpr(&p_expression_node->type);
 
             object_default_initialization(&p_expression_node->object, is_constant);
-            
+
             struct initializer initializer = { 0 };
             initializer.braced_initializer = p_expression_node->braced_initializer;
             initializer.first_token = p_expression_node->first_token;

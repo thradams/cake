@@ -16,7 +16,6 @@
 #ifdef _WIN32
 #include <crtdbg.h>
 #include <Windows.h>
-#include <debugapi.h>
 #undef assert
 #define assert _ASSERTE
 #endif

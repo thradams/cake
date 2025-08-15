@@ -682,7 +682,7 @@ void print_list(struct token_list* list)
     {
         if (current != list->head)
         {
-            printf(u8"˰");
+            printf("\xcb\xb0");
             //printf("`");
         }
         print_literal2(current->lexeme);
@@ -693,7 +693,7 @@ void print_list(struct token_list* list)
         }
         current = current->next;
     }
-    printf(u8"\n");
+    printf("\n");
 }
 
 void print_literal2(const char* s)

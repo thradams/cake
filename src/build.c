@@ -261,7 +261,7 @@ int main()
 #endif
 
 
-#if defined COMPILER_TCC
+#if defined COMPILER_TINYC
     execute_cmd(CC CAKE_SOURCE_FILES " main.c "
              
 #ifdef TEST
