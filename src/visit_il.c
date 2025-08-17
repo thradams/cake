@@ -703,15 +703,25 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
-        ss_fprintf(oss, "__builtin_c23_va_start(");
-        d_visit_expression(ctx, oss, p_expression->left);
-        if (p_expression->right)
+
+        if (p_expression->right != NULL)
         {
-            //optional in C23
-            ss_fprintf(oss, ",");
+            ss_fprintf(oss, "__builtin_va_start(");
+            d_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, ", ");
             d_visit_expression(ctx, oss, p_expression->right);
+            ss_fprintf(oss, ")");
         }
-        ss_fprintf(oss, ")");
+        else
+        {
+            //first argument is optional in C23
+            ss_fprintf(oss, "__builtin_c23_va_start(");
+            d_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, ")");
+            //TODO to convert to C89 we need to insert the first parameter
+            //at the caller and at the implementation
+            //ss_fprintf(oss, ", __first_va_arg");            
+        }        
         break;
 
     case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:

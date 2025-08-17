@@ -1,22 +1,24 @@
 
-typedef __builtin_va_list va_list;
-
-int add_nums_C23( ...)
+int add_nums_C23(int count, ...)
 {
-    int result = 0;
-    va_list args;
-    __builtin_c23_va_start(args);
- 
-    int count = __builtin_va_arg(args, int);
-    for (int i = 0; i < count; ++i) {
-        result += __builtin_va_arg(args, int);
+    int result;
+    __builtin_va_list args;
+
+    result = 0;
+    __builtin_va_start(args, count);
+    {
+        int i;
+        i = 0;
+        for (; i < count; ++i)
+        {
+            result += __builtin_va_arg(args, int);
+        }
     }
- 
     __builtin_va_end(args);
     return result;
 }
 
 int main(void)
-{    
-    add_nums_C23(4 /*count*/, 25, 25, 50, 50);
+{
+    add_nums_C23(4, 25, 25, 50, 50);
 }

@@ -1240,6 +1240,9 @@ enum token_type is_keyword(const char* text)
         if (strcmp("__builtin_c23_va_start", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
         
+        if (strcmp("__builtin_va_start", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
+        
         if (strcmp("__builtin_va_copy", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
 
