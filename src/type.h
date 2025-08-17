@@ -79,7 +79,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_ENUM = 1 << 16,
     TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-    //MICROSOFT
+    
     TYPE_SPECIFIER_INT8 = 1 << 18,
     TYPE_SPECIFIER_INT16 = 1 << 19,
     TYPE_SPECIFIER_INT32 = 1 << 20,
@@ -90,6 +90,8 @@ enum type_specifier_flags
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
     TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
+
+    TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST = 1 << 25
 };
 
 #ifdef _WIN32
@@ -417,6 +419,7 @@ enum sizeof_error
 };
 
 enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size);
+enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size);
 
 size_t type_get_alignof(const struct type* p_type);
 

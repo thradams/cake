@@ -1,13 +1,13 @@
 
 typedef __builtin_va_list va_list;
 
-int add_nums_C23( ...)
+int add_nums_C23(int count, ...)
 {
     int result = 0;
     va_list args;
     __builtin_c23_va_start(args);
  
-    int count = __builtin_va_arg(args, int);
+    
     for (int i = 0; i < count; ++i) {
         result += __builtin_va_arg(args, int);
     }

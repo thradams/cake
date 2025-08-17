@@ -841,16 +841,6 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_SHORT ||
         p_token->type == TK_KEYWORD_INT ||
         p_token->type == TK_KEYWORD_LONG ||
-
-        // microsoft extension
-        p_token->type == TK_KEYWORD_MSVC__INT8 ||
-        p_token->type == TK_KEYWORD_MSVC__INT16 ||
-        p_token->type == TK_KEYWORD_MSVC__INT32 ||
-        p_token->type == TK_KEYWORD_MSVC__INT64 ||
-        p_token->type == TK_KEYWORD_MSVC__DECLSPEC ||
-
-        // end microsoft
-
         p_token->type == TK_KEYWORD_FLOAT ||
         p_token->type == TK_KEYWORD_DOUBLE ||
         p_token->type == TK_KEYWORD_SIGNED ||
@@ -863,6 +853,15 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD__DECIMAL128 ||
         p_token->type == TK_KEYWORD_TYPEOF ||        // C23
         p_token->type == TK_KEYWORD_TYPEOF_UNQUAL || // C23
+
+        p_token->type == TK_KEYWORD_GCC__BUILTIN_VA_LIST ||
+
+        p_token->type == TK_KEYWORD_MSVC__INT8 ||
+        p_token->type == TK_KEYWORD_MSVC__INT16 ||
+        p_token->type == TK_KEYWORD_MSVC__INT32 ||
+        p_token->type == TK_KEYWORD_MSVC__INT64 ||
+        p_token->type == TK_KEYWORD_MSVC__DECLSPEC || //here?
+
         first_of_atomic_type_specifier(ctx) ||
         first_of_struct_or_union_token(p_token) ||
         first_of_enum_specifier_token(p_token) ||
@@ -1224,6 +1223,25 @@ enum token_type is_keyword(const char* text)
             return TK_KEYWORD__ALIGNAS;
         if (strcmp("_Atomic", text) == 0)
             return TK_KEYWORD__ATOMIC;
+
+        if (strcmp("__builtin_va_list", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_LIST;
+
+        
+        if (strcmp("__builtin_offsetof", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
+
+        if (strcmp("__builtin_va_end", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_END;
+
+        if (strcmp("__builtin_va_arg", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_ARG;
+
+        if (strcmp("__builtin_c23_va_start", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
+        
+        if (strcmp("__builtin_va_copy", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
 
         if (strcmp("__ptr32", text) == 0)
             return TK_KEYWORD_MSVC__PTR32;
@@ -1682,6 +1700,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
     case TYPE_SPECIFIER_NONE:  //void
     case TYPE_SPECIFIER_VOID:  //void
+    case TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST:
     case TYPE_SPECIFIER_CHAR:  //char
     case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR:  //signed char
     case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR:  //unsigned char
@@ -2673,8 +2692,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
 
-                
-                const bool is_constant = 
+
+                const bool is_constant =
                     type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
                 if (initializer_init_new(ctx,
@@ -2771,10 +2790,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
-                const bool is_constant = 
+                const bool is_constant =
                     type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
-                
+
                 if (initializer_init_new(ctx,
                     &p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
@@ -3552,41 +3571,43 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
         case TK_KEYWORD_SHORT:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_INT:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
-            // microsoft
+
+        case TK_KEYWORD_GCC__BUILTIN_VA_LIST:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST;
+            parser_match(ctx);
+            return p_type_specifier;
+
         case TK_KEYWORD_MSVC__INT8:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT8;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_MSVC__INT16:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT16;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
+
         case TK_KEYWORD_MSVC__INT32:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT32;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
+
         case TK_KEYWORD_MSVC__INT64:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT64;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
@@ -3594,35 +3615,29 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             p_type_specifier->flags = 0;
             p_type_specifier->token = ctx->current;
             p_type_specifier->msvc_declspec = msvc_declspec(ctx);
-
             return p_type_specifier;
-            // end microsoft
 
         case TK_KEYWORD_LONG:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_LONG;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_FLOAT:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_DOUBLE:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_SIGNED:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
@@ -3636,26 +3651,22 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
         case TK_KEYWORD__BOOL:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD__COMPLEX:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD__DECIMAL32:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD__DECIMAL64:
-
             p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
@@ -6108,8 +6119,18 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
         if (p_parameter_type_list == NULL)
             throw;
 
+        if (ctx->current->type == '...')
+        {
+            parser_match(ctx);
+            // parser_match_tk(ctx, '...');
+            p_parameter_type_list->is_var_args = true;
+            return p_parameter_type_list;            
+        }
+
         // parameter_list
         // parameter_list ',' '...'
+        // ...
+
         p_parameter_type_list->parameter_list = parameter_list(ctx);
         if (p_parameter_type_list->parameter_list == NULL) throw;
 
@@ -10554,7 +10575,7 @@ int compile_one_file(const char* file_name,
 {
     printf("%s\n", file_name);
     struct preprocessor_ctx prectx = { 0 };
-
+    prectx.options = *options;
     prectx.macros.capacity = 5000;
 
     add_standard_macros(&prectx);

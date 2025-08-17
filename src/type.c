@@ -78,6 +78,9 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
 
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT8)
+        print_item(ss, first, "__int8");
+
     if (e_type_specifier_flags & TYPE_SPECIFIER_INT16)
         print_item(ss, first, "__int16");
 
@@ -86,6 +89,7 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_INT64)
         print_item(ss, first, "__int64");
+
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
@@ -113,6 +117,11 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         print_item(ss, first, "nullptr_t");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
+        print_item(ss, first, "__builtin_va_list");
+
+
 
     return *first;
 }
@@ -835,7 +844,7 @@ bool type_is_constexpr(const struct type* p_type)
 bool type_is_const_or_constexpr(const struct type* p_type)
 {
     return (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST) ||
-           (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
+        (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
 }
 
 bool type_is_pointer_to_const(const struct type* p_type)
@@ -2064,6 +2073,138 @@ struct type type_dup(const struct type* p_type)
     return empty;
 }
 
+static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, const char* member, size_t* sz)
+{
+    enum sizeof_error sizeof_error = ESIZEOF_NONE;
+
+    const bool is_union =
+        (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
+
+    size_t size = 0;
+    try
+    {
+        int maxalign = 0;
+
+        struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
+        while (d)
+        {
+            if (d->member_declarator_list_opt)
+            {
+                struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+                while (md)
+                {
+                    int align = 1;
+
+                    if (md->declarator)
+                    {
+                        align = type_get_alignof(&md->declarator->type);
+
+                        if (align > maxalign)
+                        {
+                            maxalign = align;
+                        }
+                        if (size % align != 0)
+                        {
+                            size += align - (size % align);
+                        }
+
+                        if (strcmp(md->declarator->name_opt->lexeme, member) == 0)
+                        {
+                            *sz = size;
+                            return ESIZEOF_NONE;
+                        }
+
+                        size_t item_size = 0;
+                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size);
+                        if (sizeof_error != 0)
+                            throw;
+
+                        if (is_union)
+                        {
+                            if (item_size > size)
+                                size = item_size;
+                        }
+                        else
+                        {
+                            size += item_size;
+                        }
+                    }
+                    else
+                    {
+                        sizeof_error = ESIZEOF_INCOMPLETE;
+                        throw;
+                    }
+
+                    md = md->next;
+                }
+            }
+            else if (d->specifier_qualifier_list)
+            {
+                if (d->specifier_qualifier_list->struct_or_union_specifier)
+                {
+                    struct type t = { 0 };
+                    t.category = TYPE_CATEGORY_ITSELF;
+                    t.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
+                    t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                    int align = type_get_alignof(&t);
+
+                    if (align > maxalign)
+                    {
+                        maxalign = align;
+                    }
+                    if (size % align != 0)
+                    {
+                        size += align - (size % align);
+                    }
+                    size_t item_size = 0;
+
+                    sizeof_error = type_get_sizeof(&t, &item_size);
+                    if (sizeof_error != 0)
+                        throw;
+
+                    if (is_union)
+                    {
+                        if (item_size > size)
+                            size = item_size;
+                    }
+                    else
+                    {
+                        //TODO overflow
+                        size += item_size;
+                    }
+                    type_destroy(&t);
+                }
+                else
+                {
+                    sizeof_error = ESIZEOF_INCOMPLETE;
+                    throw;
+                }
+            }
+
+            d = d->next;
+        }
+        if (maxalign != 0)
+        {
+            if (size % maxalign != 0)
+            {
+                size += maxalign - (size % maxalign);
+            }
+        }
+        else
+        {
+            sizeof_error = ESIZEOF_INCOMPLETE;
+            throw;
+        }
+    }
+    catch
+    {
+        return sizeof_error;
+    }
+
+    *sz = size;
+    return sizeof_error;
+}
 
 enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz)
 {
@@ -2349,6 +2490,14 @@ size_t type_get_alignof(const struct type* p_type)
         {
             align = _Alignof(double);
         }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
+        {
+#if __GNUC__
+            align = _Alignof(__builtin_va_list);
+#else
+            align = _Alignof(void*); //?            
+#endif
+        }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
             if (p_type->struct_or_union_specifier)
@@ -2399,6 +2548,37 @@ size_t type_get_alignof(const struct type* p_type)
     }
     assert(align > 0);
     return align;
+}
+
+enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size)
+{
+    *size = 0; //out
+
+    const enum type_category category = type_get_category(p_type);
+
+    if (category != TYPE_CATEGORY_ITSELF)
+    {
+        *size = sizeof(void*);
+        return ESIZEOF_FUNCTION;
+    }
+
+    if (!(p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
+    {
+        return ESIZEOF_INCOMPLETE;
+    }
+
+    if (p_type->struct_or_union_specifier == NULL)
+    {
+        return ESIZEOF_INCOMPLETE;
+    }
+
+    struct struct_or_union_specifier* _Opt p_complete =
+        get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+    if (p_complete == NULL)
+        return ESIZEOF_INCOMPLETE;
+
+    return get_offsetof_struct(p_complete, member, size);
 }
 
 enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
@@ -2500,6 +2680,16 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
         *size = sizeof(short);
+        return ESIZEOF_NONE;
+    }
+
+    else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
+    {
+#if __GNUC__
+        * size = sizeof(__builtin_va_list);
+#else
+        * size = sizeof(void*); //?            
+#endif
         return ESIZEOF_NONE;
     }
 
@@ -3316,15 +3506,18 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 }
             }
 
+            if (pdirectdeclarator->function_declarator->parameter_type_list_opt)
+            {
+                p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;
+                p_func->params.is_void = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_void;
+            }
+
             if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
                 pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list)
             {
 
                 struct parameter_declaration* _Opt p =
                     pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list->head;
-
-                p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;
-                p_func->params.is_void = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_void;
 
                 while (p)
                 {

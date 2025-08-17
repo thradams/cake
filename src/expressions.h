@@ -40,6 +40,13 @@ enum expression_type
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
     UNARY_EXPRESSION_NELEMENTSOF_TYPE,
+    
+    UNARY_EXPRESSION_GCC__BUILTIN_VA_START,
+    UNARY_EXPRESSION_GCC__BUILTIN_VA_END,    
+    UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY,
+    UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG,
+    UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF,
+
 
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
@@ -193,7 +200,9 @@ struct expression
 
     struct token* first_token;
     struct token* last_token;
-
+    
+    //TODO https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
+    struct token* offsetof_member_designator;
 
     /*if expression is an identifier it points to its declaration*/
     struct declarator* _Opt declarator;

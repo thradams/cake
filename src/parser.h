@@ -286,6 +286,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
 
 struct attribute_specifier_sequence
 {
+    //TODO reuse for __declspec and __attributes__?
     /*
      attribute-specifier-sequence:
        attribute-specifier-sequence _Opt attribute-specifier

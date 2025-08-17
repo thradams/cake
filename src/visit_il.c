@@ -690,6 +690,56 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         break;
 
+    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+        ss_fprintf(oss, "__builtin_offsetof(");
+
+        if (p_expression->type_name)
+        {
+            d_print_type(ctx, oss, &p_expression->type_name->type, NULL);
+        }
+        ss_fprintf(oss, ", ");
+        ss_fprintf(oss, "%s", p_expression->offsetof_member_designator->lexeme);
+        ss_fprintf(oss, ")");
+        break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+        ss_fprintf(oss, "__builtin_c23_va_start(");
+        d_visit_expression(ctx, oss, p_expression->left);
+        if (p_expression->right)
+        {
+            //optional in C23
+            ss_fprintf(oss, ",");
+            d_visit_expression(ctx, oss, p_expression->right);
+        }
+        ss_fprintf(oss, ")");
+        break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+        ss_fprintf(oss, "__builtin_va_end(");
+        d_visit_expression(ctx, oss, p_expression->left);
+        ss_fprintf(oss, ")");
+        break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+        ss_fprintf(oss, "__builtin_va_copy(");
+        d_visit_expression(ctx, oss, p_expression->left);
+        ss_fprintf(oss, ", ");
+        d_visit_expression(ctx, oss, p_expression->right);
+        ss_fprintf(oss, ")");
+        break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+        ss_fprintf(oss, "__builtin_va_arg(");
+        d_visit_expression(ctx, oss, p_expression->left);
+
+        if (p_expression->type_name)
+        {
+            ss_fprintf(oss, ", ");
+            d_print_type(ctx, oss, &p_expression->type_name->type, NULL);
+        }
+        ss_fprintf(oss, ")");
+        break;
+
     case POSTFIX_DOT:
     {
         assert(p_expression->left != NULL);
@@ -2292,9 +2342,9 @@ static void d_print_type(struct d_visit_ctx* ctx,
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
     {
 #ifdef _MSC_VER
-        ss_fprintf(ss, "__declspec(thread) "); 
+        ss_fprintf(ss, "__declspec(thread) ");
 #elif __GNUC__
-        ss_fprintf(ss, "__thread "); 
+        ss_fprintf(ss, "__thread ");
 #endif
 
     }

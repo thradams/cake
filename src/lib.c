@@ -470,9 +470,16 @@ enum token_type
     TK_KEYWORD__ALIGNAS,
     TK_KEYWORD__ALIGNOF,
     TK_KEYWORD__ATOMIC,
-     
-//#ifdef _WIN32 
     
+    TK_KEYWORD_GCC__BUILTIN_VA_LIST,
+
+    TK_KEYWORD_GCC__BUILTIN_VA_END,
+    TK_KEYWORD_GCC__BUILTIN_VA_ARG,
+    TK_KEYWORD_GCC__BUILTIN_C23_VA_START,
+    TK_KEYWORD_GCC__BUILTIN_VA_COPY,
+    TK_KEYWORD_GCC__BUILTIN_OFFSETOF,
+//#ifdef _WIN32 
+
     //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
     TK_KEYWORD_MSVC__PTR32,
     TK_KEYWORD_MSVC__PTR64,
@@ -3450,7 +3457,7 @@ struct macro
     bool is_function;
     int usage;
 
-    
+
     bool def_macro;
 };
 
@@ -9007,6 +9014,12 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s" CAKE_CFG_FNAME, local_cakeconfig_path);
 
     char* _Owner _Opt str = read_file(local_cakeconfig_path, true);
+
+    if (str && ctx->options.show_includes)
+    {
+        printf(".%s\n", local_cakeconfig_path);
+    }
+
     while (str == NULL)
     {
         dirname(local_cakeconfig_path);
@@ -9014,8 +9027,11 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         if (local_cakeconfig_path[0] == '\0')
             break;
         str = read_file(local_cakeconfig_path, true);
+        if (str && ctx->options.show_includes)
+        {
+            printf(".%s\n", local_cakeconfig_path);
+        }
     }
-
 
     if (str == NULL)
     {
@@ -9027,10 +9043,15 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         char root_cakeconfig_path[MAX_PATH] = { 0 };
         snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
         str = read_file(root_cakeconfig_path, true);
+        if (str && ctx->options.show_includes)
+        {
+            printf(".%s\n", root_cakeconfig_path);
+        }
     }
 
-    if (str == NULL)
+    if (str == NULL && ctx->options.show_includes)
     {
+        printf(".(cakeconfig.h not found)\n");
         //"No such file or directory";
         return  ENOENT;
     }
@@ -9155,13 +9176,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 
     //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
         /*some gcc stuff need to parse linux headers*/
-    "#define __linux__\n"
-        "#define __builtin_va_list void* \n"
-        "#define __builtin_va_start(a, b)\n"
-        "#define __builtin_va_end(a)\n"
-        "#define __builtin_va_arg(a, b) ((b)0)\n"
-        "#define __builtin_va_copy(a, b)\n"
-        "#define __builtin_offsetof(type, member) 0\n"
+    "#define __linux__\n"                                
         //see
         //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
         //We parse and ignore GCC __attribute__
@@ -9388,6 +9403,7 @@ const char* get_token_name(enum token_type tk)
     case TK_COMMENT: return "TK_COMMENT";
     case TK_PPNUMBER: return "TK_PPNUMBER";
 
+    case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "TK_KEYWORD_GCC__BUILTIN_VA_LIST";
     case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
     case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";
 
@@ -13430,7 +13446,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_ENUM = 1 << 16,
     TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-    //MICROSOFT
+    
     TYPE_SPECIFIER_INT8 = 1 << 18,
     TYPE_SPECIFIER_INT16 = 1 << 19,
     TYPE_SPECIFIER_INT32 = 1 << 20,
@@ -13441,6 +13457,8 @@ enum type_specifier_flags
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
     TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
+
+    TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST = 1 << 25
 };
 
 #ifdef _WIN32
@@ -13768,6 +13786,7 @@ enum sizeof_error
 };
 
 enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size);
+enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size);
 
 size_t type_get_alignof(const struct type* p_type);
 
@@ -14040,6 +14059,13 @@ enum expression_type
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
     UNARY_EXPRESSION_NELEMENTSOF_TYPE,
+    
+    UNARY_EXPRESSION_GCC__BUILTIN_VA_START,
+    UNARY_EXPRESSION_GCC__BUILTIN_VA_END,    
+    UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY,
+    UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG,
+    UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF,
+
 
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
@@ -14193,7 +14219,9 @@ struct expression
 
     struct token* first_token;
     struct token* last_token;
-
+    
+    //TODO https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
+    struct token* offsetof_member_designator;
 
     /*if expression is an identifier it points to its declaration*/
     struct declarator* _Opt declarator;
@@ -14524,6 +14552,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
 
 struct attribute_specifier_sequence
 {
+    //TODO reuse for __declspec and __attributes__?
     /*
      attribute-specifier-sequence:
        attribute-specifier-sequence _Opt attribute-specifier
@@ -19768,7 +19797,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             long double value = strtod(buffer, NULL);
 #else
 
-            float value = strtod(buffer, NULL);
+            float value = strtof(buffer, NULL);
 #endif
             if (value == HUGE_VALF && errno == ERANGE)
             {
@@ -21084,6 +21113,13 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_SIZEOF ||
         ctx->current->type == TK_KEYWORD__COUNTOF ||
         ctx->current->type == TK_KEYWORD__ALIGNOF ||
+
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_ARG ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF ||
+
         is_first_of_compiler_function(ctx);
 }
 
@@ -21544,6 +21580,275 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START)
+        {
+            parser_match(ctx);
+
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_START;
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->left = unary_expression(ctx);
+            if (new_expression->left == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (ctx->current->type == ',')
+            {
+                parser_match(ctx);
+                new_expression->right = unary_expression(ctx);
+                if (new_expression->right == NULL)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->type = make_void_type();
+            return new_expression;
+
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END)
+        {
+            parser_match(ctx);
+
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_END;
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->left = unary_expression(ctx);
+            if (new_expression->left == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->type = make_void_type();
+            return new_expression;
+
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_ARG)
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG;
+
+            parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->left = unary_expression(ctx);
+            if (new_expression->left == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ',') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->type_name = type_name(ctx);
+            if (new_expression->type_name == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            
+            new_expression->type = type_dup(&new_expression->type_name->type);
+            return new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY)
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY;
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->left = unary_expression(ctx);
+            if (new_expression->left == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ',') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->right = unary_expression(ctx);
+            if (new_expression->right == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->type = make_void_type();
+            return new_expression;
+        }
+         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF)
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF;
+
+            parser_match(ctx);
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->type_name = type_name(ctx);
+            if (new_expression->type_name == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ',') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;                
+            }
+
+            if (ctx->current->type != TK_IDENTIFIER)
+            {             
+                //TODO
+                //https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;                
+            }
+            new_expression->offsetof_member_designator = ctx->current;
+
+            parser_match(ctx);
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->type = make_size_t_type();
+            
+            size_t offsetof = 0;
+            
+            enum sizeof_error e = 
+                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offsetof);
+            
+            if (e != 0)
+            {
+                throw;
+            }
+
+            new_expression->object = object_make_size_t(offsetof);
+            
+            return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
@@ -27221,7 +27526,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.42"
+#define CAKE_VERSION "0.10.44"
 
 
 
@@ -28092,16 +28397,6 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_SHORT ||
         p_token->type == TK_KEYWORD_INT ||
         p_token->type == TK_KEYWORD_LONG ||
-
-        // microsoft extension
-        p_token->type == TK_KEYWORD_MSVC__INT8 ||
-        p_token->type == TK_KEYWORD_MSVC__INT16 ||
-        p_token->type == TK_KEYWORD_MSVC__INT32 ||
-        p_token->type == TK_KEYWORD_MSVC__INT64 ||
-        p_token->type == TK_KEYWORD_MSVC__DECLSPEC ||
-
-        // end microsoft
-
         p_token->type == TK_KEYWORD_FLOAT ||
         p_token->type == TK_KEYWORD_DOUBLE ||
         p_token->type == TK_KEYWORD_SIGNED ||
@@ -28114,6 +28409,15 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD__DECIMAL128 ||
         p_token->type == TK_KEYWORD_TYPEOF ||        // C23
         p_token->type == TK_KEYWORD_TYPEOF_UNQUAL || // C23
+
+        p_token->type == TK_KEYWORD_GCC__BUILTIN_VA_LIST ||
+
+        p_token->type == TK_KEYWORD_MSVC__INT8 ||
+        p_token->type == TK_KEYWORD_MSVC__INT16 ||
+        p_token->type == TK_KEYWORD_MSVC__INT32 ||
+        p_token->type == TK_KEYWORD_MSVC__INT64 ||
+        p_token->type == TK_KEYWORD_MSVC__DECLSPEC || //here?
+
         first_of_atomic_type_specifier(ctx) ||
         first_of_struct_or_union_token(p_token) ||
         first_of_enum_specifier_token(p_token) ||
@@ -28475,6 +28779,25 @@ enum token_type is_keyword(const char* text)
             return TK_KEYWORD__ALIGNAS;
         if (strcmp("_Atomic", text) == 0)
             return TK_KEYWORD__ATOMIC;
+
+        if (strcmp("__builtin_va_list", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_LIST;
+
+        
+        if (strcmp("__builtin_offsetof", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
+
+        if (strcmp("__builtin_va_end", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_END;
+
+        if (strcmp("__builtin_va_arg", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_ARG;
+
+        if (strcmp("__builtin_c23_va_start", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
+        
+        if (strcmp("__builtin_va_copy", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
 
         if (strcmp("__ptr32", text) == 0)
             return TK_KEYWORD_MSVC__PTR32;
@@ -28933,6 +29256,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
     case TYPE_SPECIFIER_NONE:  //void
     case TYPE_SPECIFIER_VOID:  //void
+    case TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST:
     case TYPE_SPECIFIER_CHAR:  //char
     case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR:  //signed char
     case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR:  //unsigned char
@@ -29924,8 +30248,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
 
-                
-                const bool is_constant = 
+
+                const bool is_constant =
                     type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
                 if (initializer_init_new(ctx,
@@ -30022,10 +30346,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
-                const bool is_constant = 
+                const bool is_constant =
                     type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
 
-                
+
                 if (initializer_init_new(ctx,
                     &p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
@@ -30803,41 +31127,43 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
         case TK_KEYWORD_SHORT:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_INT:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
-            // microsoft
+
+        case TK_KEYWORD_GCC__BUILTIN_VA_LIST:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST;
+            parser_match(ctx);
+            return p_type_specifier;
+
         case TK_KEYWORD_MSVC__INT8:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT8;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_MSVC__INT16:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT16;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
+
         case TK_KEYWORD_MSVC__INT32:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT32;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
+
         case TK_KEYWORD_MSVC__INT64:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_INT64;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
@@ -30845,35 +31171,29 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             p_type_specifier->flags = 0;
             p_type_specifier->token = ctx->current;
             p_type_specifier->msvc_declspec = msvc_declspec(ctx);
-
             return p_type_specifier;
-            // end microsoft
 
         case TK_KEYWORD_LONG:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_LONG;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_FLOAT:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_DOUBLE:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_SIGNED:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
@@ -30887,26 +31207,22 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
         case TK_KEYWORD__BOOL:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD__COMPLEX:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD__DECIMAL32:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-            p_type_specifier->token = ctx->current;
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD__DECIMAL64:
-
             p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
             p_type_specifier->token = ctx->current;
             parser_match(ctx);
@@ -33359,8 +33675,18 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
         if (p_parameter_type_list == NULL)
             throw;
 
+        if (ctx->current->type == '...')
+        {
+            parser_match(ctx);
+            // parser_match_tk(ctx, '...');
+            p_parameter_type_list->is_var_args = true;
+            return p_parameter_type_list;            
+        }
+
         // parameter_list
         // parameter_list ',' '...'
+        // ...
+
         p_parameter_type_list->parameter_list = parameter_list(ctx);
         if (p_parameter_type_list->parameter_list == NULL) throw;
 
@@ -37805,7 +38131,7 @@ int compile_one_file(const char* file_name,
 {
     printf("%s\n", file_name);
     struct preprocessor_ctx prectx = { 0 };
-
+    prectx.options = *options;
     prectx.macros.capacity = 5000;
 
     add_standard_macros(&prectx);
@@ -41197,6 +41523,56 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         break;
 
+    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+        ss_fprintf(oss, "__builtin_offsetof(");
+
+        if (p_expression->type_name)
+        {
+            d_print_type(ctx, oss, &p_expression->type_name->type, NULL);
+        }
+        ss_fprintf(oss, ", ");
+        ss_fprintf(oss, "%s", p_expression->offsetof_member_designator->lexeme);
+        ss_fprintf(oss, ")");
+        break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+        ss_fprintf(oss, "__builtin_c23_va_start(");
+        d_visit_expression(ctx, oss, p_expression->left);
+        if (p_expression->right)
+        {
+            //optional in C23
+            ss_fprintf(oss, ",");
+            d_visit_expression(ctx, oss, p_expression->right);
+        }
+        ss_fprintf(oss, ")");
+        break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+        ss_fprintf(oss, "__builtin_va_end(");
+        d_visit_expression(ctx, oss, p_expression->left);
+        ss_fprintf(oss, ")");
+        break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+        ss_fprintf(oss, "__builtin_va_copy(");
+        d_visit_expression(ctx, oss, p_expression->left);
+        ss_fprintf(oss, ", ");
+        d_visit_expression(ctx, oss, p_expression->right);
+        ss_fprintf(oss, ")");
+        break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+        ss_fprintf(oss, "__builtin_va_arg(");
+        d_visit_expression(ctx, oss, p_expression->left);
+
+        if (p_expression->type_name)
+        {
+            ss_fprintf(oss, ", ");
+            d_print_type(ctx, oss, &p_expression->type_name->type, NULL);
+        }
+        ss_fprintf(oss, ")");
+        break;
+
     case POSTFIX_DOT:
     {
         assert(p_expression->left != NULL);
@@ -42799,9 +43175,9 @@ static void d_print_type(struct d_visit_ctx* ctx,
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
     {
 #ifdef _MSC_VER
-        ss_fprintf(ss, "__declspec(thread) "); 
+        ss_fprintf(ss, "__declspec(thread) ");
 #elif __GNUC__
-        ss_fprintf(ss, "__thread "); 
+        ss_fprintf(ss, "__thread ");
 #endif
 
     }
@@ -51506,6 +51882,9 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
 
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT8)
+        print_item(ss, first, "__int8");
+
     if (e_type_specifier_flags & TYPE_SPECIFIER_INT16)
         print_item(ss, first, "__int16");
 
@@ -51514,6 +51893,7 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_INT64)
         print_item(ss, first, "__int64");
+
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
@@ -51541,6 +51921,11 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         print_item(ss, first, "nullptr_t");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
+        print_item(ss, first, "__builtin_va_list");
+
+
 
     return *first;
 }
@@ -52263,7 +52648,7 @@ bool type_is_constexpr(const struct type* p_type)
 bool type_is_const_or_constexpr(const struct type* p_type)
 {
     return (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST) ||
-           (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
+        (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
 }
 
 bool type_is_pointer_to_const(const struct type* p_type)
@@ -53492,6 +53877,138 @@ struct type type_dup(const struct type* p_type)
     return empty;
 }
 
+static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, const char* member, size_t* sz)
+{
+    enum sizeof_error sizeof_error = ESIZEOF_NONE;
+
+    const bool is_union =
+        (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
+
+    size_t size = 0;
+    try
+    {
+        int maxalign = 0;
+
+        struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
+        while (d)
+        {
+            if (d->member_declarator_list_opt)
+            {
+                struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+                while (md)
+                {
+                    int align = 1;
+
+                    if (md->declarator)
+                    {
+                        align = type_get_alignof(&md->declarator->type);
+
+                        if (align > maxalign)
+                        {
+                            maxalign = align;
+                        }
+                        if (size % align != 0)
+                        {
+                            size += align - (size % align);
+                        }
+
+                        if (strcmp(md->declarator->name_opt->lexeme, member) == 0)
+                        {
+                            *sz = size;
+                            return ESIZEOF_NONE;
+                        }
+
+                        size_t item_size = 0;
+                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size);
+                        if (sizeof_error != 0)
+                            throw;
+
+                        if (is_union)
+                        {
+                            if (item_size > size)
+                                size = item_size;
+                        }
+                        else
+                        {
+                            size += item_size;
+                        }
+                    }
+                    else
+                    {
+                        sizeof_error = ESIZEOF_INCOMPLETE;
+                        throw;
+                    }
+
+                    md = md->next;
+                }
+            }
+            else if (d->specifier_qualifier_list)
+            {
+                if (d->specifier_qualifier_list->struct_or_union_specifier)
+                {
+                    struct type t = { 0 };
+                    t.category = TYPE_CATEGORY_ITSELF;
+                    t.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
+                    t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                    int align = type_get_alignof(&t);
+
+                    if (align > maxalign)
+                    {
+                        maxalign = align;
+                    }
+                    if (size % align != 0)
+                    {
+                        size += align - (size % align);
+                    }
+                    size_t item_size = 0;
+
+                    sizeof_error = type_get_sizeof(&t, &item_size);
+                    if (sizeof_error != 0)
+                        throw;
+
+                    if (is_union)
+                    {
+                        if (item_size > size)
+                            size = item_size;
+                    }
+                    else
+                    {
+                        //TODO overflow
+                        size += item_size;
+                    }
+                    type_destroy(&t);
+                }
+                else
+                {
+                    sizeof_error = ESIZEOF_INCOMPLETE;
+                    throw;
+                }
+            }
+
+            d = d->next;
+        }
+        if (maxalign != 0)
+        {
+            if (size % maxalign != 0)
+            {
+                size += maxalign - (size % maxalign);
+            }
+        }
+        else
+        {
+            sizeof_error = ESIZEOF_INCOMPLETE;
+            throw;
+        }
+    }
+    catch
+    {
+        return sizeof_error;
+    }
+
+    *sz = size;
+    return sizeof_error;
+}
 
 enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz)
 {
@@ -53777,6 +54294,14 @@ size_t type_get_alignof(const struct type* p_type)
         {
             align = _Alignof(double);
         }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
+        {
+#if __GNUC__
+            align = _Alignof(__builtin_va_list);
+#else
+            align = _Alignof(void*); //?            
+#endif
+        }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
             if (p_type->struct_or_union_specifier)
@@ -53827,6 +54352,37 @@ size_t type_get_alignof(const struct type* p_type)
     }
     assert(align > 0);
     return align;
+}
+
+enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size)
+{
+    *size = 0; //out
+
+    const enum type_category category = type_get_category(p_type);
+
+    if (category != TYPE_CATEGORY_ITSELF)
+    {
+        *size = sizeof(void*);
+        return ESIZEOF_FUNCTION;
+    }
+
+    if (!(p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
+    {
+        return ESIZEOF_INCOMPLETE;
+    }
+
+    if (p_type->struct_or_union_specifier == NULL)
+    {
+        return ESIZEOF_INCOMPLETE;
+    }
+
+    struct struct_or_union_specifier* _Opt p_complete =
+        get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+    if (p_complete == NULL)
+        return ESIZEOF_INCOMPLETE;
+
+    return get_offsetof_struct(p_complete, member, size);
 }
 
 enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
@@ -53928,6 +54484,16 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
         *size = sizeof(short);
+        return ESIZEOF_NONE;
+    }
+
+    else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
+    {
+#if __GNUC__
+        * size = sizeof(__builtin_va_list);
+#else
+        * size = sizeof(void*); //?            
+#endif
         return ESIZEOF_NONE;
     }
 
@@ -54744,15 +55310,18 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 }
             }
 
+            if (pdirectdeclarator->function_declarator->parameter_type_list_opt)
+            {
+                p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;
+                p_func->params.is_void = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_void;
+            }
+
             if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
                 pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list)
             {
 
                 struct parameter_declaration* _Opt p =
                     pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list->head;
-
-                p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;
-                p_func->params.is_void = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_void;
 
                 while (p)
                 {

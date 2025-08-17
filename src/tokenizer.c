@@ -109,7 +109,7 @@ struct macro
     bool is_function;
     int usage;
 
-    
+
     bool def_macro;
 };
 
@@ -5666,6 +5666,12 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s" CAKE_CFG_FNAME, local_cakeconfig_path);
 
     char* _Owner _Opt str = read_file(local_cakeconfig_path, true);
+
+    if (str && ctx->options.show_includes)
+    {
+        printf(".%s\n", local_cakeconfig_path);
+    }
+
     while (str == NULL)
     {
         dirname(local_cakeconfig_path);
@@ -5673,8 +5679,11 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         if (local_cakeconfig_path[0] == '\0')
             break;
         str = read_file(local_cakeconfig_path, true);
+        if (str && ctx->options.show_includes)
+        {
+            printf(".%s\n", local_cakeconfig_path);
+        }
     }
-
 
     if (str == NULL)
     {
@@ -5686,10 +5695,15 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         char root_cakeconfig_path[MAX_PATH] = { 0 };
         snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
         str = read_file(root_cakeconfig_path, true);
+        if (str && ctx->options.show_includes)
+        {
+            printf(".%s\n", root_cakeconfig_path);
+        }
     }
 
-    if (str == NULL)
+    if (str == NULL && ctx->options.show_includes)
     {
+        printf(".(cakeconfig.h not found)\n");
         //"No such file or directory";
         return  ENOENT;
     }
@@ -5814,13 +5828,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 
     //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
         /*some gcc stuff need to parse linux headers*/
-    "#define __linux__\n"
-        "#define __builtin_va_list void* \n"
-        "#define __builtin_va_start(a, b)\n"
-        "#define __builtin_va_end(a)\n"
-        "#define __builtin_va_arg(a, b) ((b)0)\n"
-        "#define __builtin_va_copy(a, b)\n"
-        "#define __builtin_offsetof(type, member) 0\n"
+    "#define __linux__\n"                                
         //see
         //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
         //We parse and ignore GCC __attribute__
@@ -6047,6 +6055,7 @@ const char* get_token_name(enum token_type tk)
     case TK_COMMENT: return "TK_COMMENT";
     case TK_PPNUMBER: return "TK_PPNUMBER";
 
+    case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "TK_KEYWORD_GCC__BUILTIN_VA_LIST";
     case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
     case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";
 

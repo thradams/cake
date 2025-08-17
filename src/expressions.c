@@ -931,7 +931,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             long double value = strtod(buffer, NULL);
 #else
 
-            float value = strtod(buffer, NULL);
+            float value = strtof(buffer, NULL);
 #endif
             if (value == HUGE_VALF && errno == ERANGE)
             {
@@ -2247,6 +2247,13 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_SIZEOF ||
         ctx->current->type == TK_KEYWORD__COUNTOF ||
         ctx->current->type == TK_KEYWORD__ALIGNOF ||
+
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_ARG ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF ||
+
         is_first_of_compiler_function(ctx);
 }
 
@@ -2707,6 +2714,275 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START)
+        {
+            parser_match(ctx);
+
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_START;
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->left = unary_expression(ctx);
+            if (new_expression->left == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (ctx->current->type == ',')
+            {
+                parser_match(ctx);
+                new_expression->right = unary_expression(ctx);
+                if (new_expression->right == NULL)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->type = make_void_type();
+            return new_expression;
+
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END)
+        {
+            parser_match(ctx);
+
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_END;
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->left = unary_expression(ctx);
+            if (new_expression->left == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            new_expression->type = make_void_type();
+            return new_expression;
+
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_ARG)
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG;
+
+            parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->left = unary_expression(ctx);
+            if (new_expression->left == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ',') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->type_name = type_name(ctx);
+            if (new_expression->type_name == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            
+            new_expression->type = type_dup(&new_expression->type_name->type);
+            return new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY)
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY;
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->left = unary_expression(ctx);
+            if (new_expression->left == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ',') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->right = unary_expression(ctx);
+            if (new_expression->right == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->type = make_void_type();
+            return new_expression;
+        }
+         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF)
+        {
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF;
+
+            parser_match(ctx);
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->type_name = type_name(ctx);
+            if (new_expression->type_name == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ',') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+            
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;                
+            }
+
+            if (ctx->current->type != TK_IDENTIFIER)
+            {             
+                //TODO
+                //https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;                
+            }
+            new_expression->offsetof_member_designator = ctx->current;
+
+            parser_match(ctx);
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
+            new_expression->type = make_size_t_type();
+            
+            size_t offsetof = 0;
+            
+            enum sizeof_error e = 
+                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offsetof);
+            
+            if (e != 0)
+            {
+                throw;
+            }
+
+            new_expression->object = object_make_size_t(offsetof);
+            
+            return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {

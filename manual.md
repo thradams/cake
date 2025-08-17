@@ -134,7 +134,7 @@ See [warnings](warnings.html)
 #### -disable-assert
 disable cake extension where assert is an statement. See extensions
 
-#### -H (same as gcc)
+#### -H (same as gcc, /showIncludes in MSVC)
 Causes the compiler to output a list of the include files. 
 
 #### -preprocess-def-macro 
