@@ -140,14 +140,13 @@ https://github.com/PascalBeyer/Headerless-C-Compiler
 #define chdir  _chdir
 
 #define BUILD_WINDOWS
-#define RUN ""
+#define RUN " "
 
 int system_like(const char* command)
 {
     return system(command);
 }
 
-#define RUN " "
 
 #endif
 
@@ -157,7 +156,7 @@ int system_like(const char* command)
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define RUN "./"
+#define RUN " ./"
 
 int system_like(const char* command)
 {

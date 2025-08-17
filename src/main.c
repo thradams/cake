@@ -74,7 +74,14 @@ int main(int argc, char** argv)
     /*
       /nologo ?
     */
-    printf("Cake " CAKE_VERSION "\n");
+    printf("Cake " CAKE_VERSION " ");
+#if defined _MSC_VER 
+    printf("(MSVC)");
+#elif defined __linux__ && defined __GNUC__ 
+    printf("(GCC)");
+#endif
+
+    printf("\n");
 
     if (argc < 2)
     {

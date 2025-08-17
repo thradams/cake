@@ -117,7 +117,7 @@ int main()
 {
     echo_chdir("./tools");
 
-    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " CC_OUTPUT("../maketest.exe") );
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " CC_OUTPUT("../maketest.exe"));
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " CC_OUTPUT("../amalgamator.exe"));
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS -I.. embed.c  ../fs.c ../error.c " CC_OUTPUT("../embed.exe"));
 
@@ -262,15 +262,25 @@ int main()
 
 
 #if defined COMPILER_TINYC
+
+#ifdef PLATFORM_WINDOWS
+#define OUTPUT_NAME "cake_tcc.exe "
+#else
+#define OUTPUT_NAME  "cake_tcc "
+#endif
+
     execute_cmd(CC CAKE_SOURCE_FILES " main.c "
-             
+
 #ifdef TEST
-              "-DTEST"
+        " -DTEST "
 #endif              
-              " -o cake.exe");
+        " -o " OUTPUT_NAME
+    );
+
 
     //Runs cake on its own source
-    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
+    execute_cmd(RUN OUTPUT_NAME " -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
+
 
 #endif
 
@@ -291,7 +301,7 @@ int main()
            CAKE_SOURCE_FILES " main.c ");
 #endif
 
-#if defined COMPILER_GCC
+#if defined COMPILER_GCC && !defined(COMPILER_TINYC)
 
     // #define GCC_ANALIZER  " -fanalyzer "
     execute_cmd("gcc "
