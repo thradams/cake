@@ -5828,13 +5828,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 
     //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
         /*some gcc stuff need to parse linux headers*/
-    "#define __linux__\n"                                
+    "#define __linux__\n"
         //see
-        //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
-        //We parse and ignore GCC __attribute__
-        //"#define __attribute__(x)\n"
+        //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html                
         "#define __x86_64__ " TOSTRING(__x86_64__) "\n"
-
         "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
         "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
         "#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
@@ -6055,6 +6052,7 @@ const char* get_token_name(enum token_type tk)
     case TK_COMMENT: return "TK_COMMENT";
     case TK_PPNUMBER: return "TK_PPNUMBER";
 
+    case TK_KEYWORD_GCC__ATTRIBUTE:return "TK_KEYWORD_GCC__ATTRIBUTE";
     case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "TK_KEYWORD_GCC__BUILTIN_VA_LIST";
     case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
     case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";

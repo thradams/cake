@@ -1,24 +1,27 @@
 
-int add_nums_C23(int count, ...)
+double sample_stddev(int count, ...)
 {
-    int result;
-    __builtin_va_list args;
-
-    result = 0;
-    __builtin_va_start(args, count);
+    /* Compute the mean with args1. */
+    double sum = 0;
+    __builtin_va_list args1;
+    __builtin_va_start(args1, count);
+    __builtin_va_list args2;
+    __builtin_va_copy(args2, args1);   /* copy va_list object */
+    for (int i = 0; i < count; ++i)
     {
-        int i;
-        i = 0;
-        for (; i < count; ++i)
-        {
-            result += __builtin_va_arg(args, int);
-        }
+        double num = __builtin_va_arg(args1, double);
+        sum += num;
     }
-    __builtin_va_end(args);
-    return result;
-}
+    __builtin_va_end(args1);
+    double mean = sum / count;
 
-int main(void)
-{
-    add_nums_C23(4, 25, 25, 50, 50);
+    /* Compute standard deviation with args2 and mean. */
+    double sum_sq_diff = 0;
+    for (int i = 0; i < count; ++i)
+    {
+        double num = __builtin_va_arg(args2, double);
+        sum_sq_diff += (num - mean) * (num - mean);
+    }
+    __builtin_va_end(args2);
+    return 0;
 }

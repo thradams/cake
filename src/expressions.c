@@ -2860,7 +2860,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY;
-
+            parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);

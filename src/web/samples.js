@@ -1711,6 +1711,22 @@ int main() { }
 `;
 
 
+sample["Extensions"]["MSVC __declspec"] =
+    `
+   //MSVC __declspec are parsed.
+   //__declspec( selectany ) had to to implemented,
+   //because the output depends on it.   
+`;
+
+
+
+sample["Extensions"]["__attribute__"] =
+`
+   //GCC __attributes__ are parsed.
+   //Cake implements C23 attributes and some GCC attributes could be
+   //mapped but they are not at this moment.
+`;
+
 sample["Extensions"]["__builtin_offsetof"] =
  `
 

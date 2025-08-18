@@ -215,11 +215,12 @@ struct declaration_specifiers
 
     /*cumulative flags*/
     enum attribute_flags  attributes_flags;
+    enum msvc_declspec_flags msvc_declspec_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
     enum function_specifier_flags function_specifier_flags;
-    enum msvc_declspec_flags msvc_declspec_flags;
+    
     enum alignment_specifier_flags alignment_specifier_flags;
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
 
@@ -286,7 +287,6 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
 
 struct attribute_specifier_sequence
 {
-    //TODO reuse for __declspec and __attributes__?
     /*
      attribute-specifier-sequence:
        attribute-specifier-sequence _Opt attribute-specifier
@@ -294,6 +294,7 @@ struct attribute_specifier_sequence
 
     struct token* first_token;
     struct token* last_token;
+    enum msvc_declspec_flags msvc_declspec_flags;
     enum attribute_flags  attributes_flags;
     struct attribute_specifier* _Owner _Opt head;
     struct attribute_specifier* _Opt tail;
@@ -380,51 +381,6 @@ struct typeof_specifier
 void typeof_specifier_delete(struct typeof_specifier* _Owner _Opt p);
 
 
-struct msvc_declspec
-{
-    /*
-        decl-specifier:
-         __declspec ( extended-decl-modifier-seq )
-
-        extended-decl-modifier-seq:
-         extended-decl-modifieropt
-         extended-decl-modifier extended-decl-modifier-seq
-
-        extended-decl-modifier:
-         align( number )
-         allocate(" segname ")
-         allocator
-         appdomain
-         code_seg(" segname ")
-         deprecated
-         dllimport
-         dllexport
-         empty_bases
-         hybrid_patchable
-         jitintrinsic
-         naked
-         noalias
-         noinline
-         noreturn
-         nothrow
-         novtable
-         no_sanitize_address
-         process
-         property( { get=get-func-name | ,put=put-func-name } )
-         restrict
-         safebuffers
-         selectany
-         spectre(nomitigation)
-         thread
-         uuid(" ComObjectGUID ")
-    */
-    enum msvc_declspec_flags flags;
-    struct token* token;
-};
-
-void msvc_declspec_delete(struct msvc_declspec* _Owner _Opt  p);
-void msvc_declspec_sequence_opt(struct parser_ctx* ctx);
-
 struct type_specifier
 {
     /*
@@ -454,8 +410,7 @@ struct type_specifier
     struct token* token;
     struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier;
     struct typeof_specifier* _Owner _Opt  typeof_specifier;
-    struct enum_specifier* _Owner _Opt enum_specifier;
-    struct msvc_declspec* _Owner _Opt msvc_declspec; //msvc
+    struct enum_specifier* _Owner _Opt enum_specifier;    
     struct declarator* _Opt typedef_declarator;
     struct atomic_type_specifier* _Owner _Opt  atomic_type_specifier;
 };
@@ -1558,19 +1513,14 @@ struct type_qualifier_list* _Owner _Opt type_qualifier_list(struct parser_ctx* c
 void type_qualifier_list_delete(struct type_qualifier_list* _Owner _Opt p);
 void type_qualifier_list_add(struct type_qualifier_list* list, struct type_qualifier* _Owner p_item);
 
-struct attribute_token
-{
-    enum attribute_flags attributes_flags;
-    struct token* token;
-};
 
-struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx);
-void attribute_token_delete(struct attribute_token* _Owner _Opt p);
+
 struct attribute
 {
+    enum msvc_declspec_flags msvc_declspec_flags;
     enum attribute_flags  attributes_flags;
-    struct attribute_token* _Owner attribute_token;
     struct attribute_argument_clause* _Owner attribute_argument_clause;
+    struct token* attribute_token;
     struct attribute* _Owner _Opt next;
 };
 

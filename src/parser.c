@@ -859,8 +859,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_MSVC__INT8 ||
         p_token->type == TK_KEYWORD_MSVC__INT16 ||
         p_token->type == TK_KEYWORD_MSVC__INT32 ||
-        p_token->type == TK_KEYWORD_MSVC__INT64 ||
-        p_token->type == TK_KEYWORD_MSVC__DECLSPEC || //here?
+        p_token->type == TK_KEYWORD_MSVC__INT64 ||        
 
         first_of_atomic_type_specifier(ctx) ||
         first_of_struct_or_union_token(p_token) ||
@@ -1227,7 +1226,9 @@ enum token_type is_keyword(const char* text)
         if (strcmp("__builtin_va_list", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_LIST;
 
-        
+        if (strcmp("__attribute__", text) == 0)
+            return TK_KEYWORD_GCC__ATTRIBUTE;
+
         if (strcmp("__builtin_offsetof", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
 
@@ -1239,10 +1240,10 @@ enum token_type is_keyword(const char* text)
 
         if (strcmp("__builtin_c23_va_start", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
-        
+
         if (strcmp("__builtin_va_start", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
-        
+
         if (strcmp("__builtin_va_copy", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
 
@@ -1876,13 +1877,6 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                     {
                         p_declaration_specifiers->typeof_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier;
                     }
-
-                    else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->msvc_declspec)
-                    {
-                        p_declaration_specifiers->msvc_declspec_flags =
-                            p_declaration_specifier->type_specifier_qualifier->type_specifier->msvc_declspec->flags;
-
-                    }
                     else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->token->type == TK_IDENTIFIER)
                     {
                         p_declaration_specifiers->typedef_declarator =
@@ -1896,7 +1890,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 else if (p_declaration_specifier->type_specifier_qualifier->alignment_specifier)
                 {
                     p_declaration_specifiers->alignment_specifier_flags =
-                        p_declaration_specifier->type_specifier_qualifier->alignment_specifier->flags;
+                        p_declaration_specifier->type_specifier_qualifier->alignment_specifier->flags;                    
 
                 }
                 else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
@@ -2030,6 +2024,9 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 {
                     p_declaration->declaration_specifiers->attributes_flags =
                         p_declaration->p_attribute_specifier_sequence_opt->attributes_flags;
+
+                    p_declaration->declaration_specifiers->msvc_declspec_flags =
+                        p_declaration->p_attribute_specifier_sequence_opt->msvc_declspec_flags;
                 }
 
                 if (ctx->current == NULL)
@@ -3264,7 +3261,7 @@ void type_specifier_delete(struct type_specifier* _Owner _Opt p)
 }
 
 
-struct msvc_declspec* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* ctx)
+struct attribute* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* ctx)
 {
     //https://learn.microsoft.com/en-us/cpp/cpp/declspec?view=msvc-170
     /*
@@ -3297,7 +3294,7 @@ struct msvc_declspec* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* 
          uuid(" ComObjectGUID ")
     */
 
-    struct msvc_declspec* _Owner _Opt p_type_specifier = NULL;
+    struct attribute* _Owner _Opt p_type_specifier = NULL;
     try
     {
         if (ctx->current == NULL)
@@ -3306,127 +3303,123 @@ struct msvc_declspec* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* 
             throw;
         }
 
-
-        //if (!token_is_identifier_or_keyword(ctx->current->type))
-          //  throw;
-
         p_type_specifier = calloc(1, sizeof * p_type_specifier);
         if (p_type_specifier == NULL)
             throw;
 
-        p_type_specifier->token = ctx->current;
+        p_type_specifier->attribute_token = ctx->current;
 
         parser_match(ctx);
 
-        if (strcmp(p_type_specifier->token->lexeme, "align") == 0)
+        if (strcmp(p_type_specifier->attribute_token->lexeme, "align") == 0)
         {
             parser_match(ctx); //(
             int a = atoi(ctx->current->lexeme);
             if (a == 8)
-                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_8_FLAG;
+                p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_ALIGN_8_FLAG;
             else if (a == 16)
-                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_16_FLAG;
+                p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_ALIGN_16_FLAG;
             else if (a == 32)
-                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_32_FLAG;
+                p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_ALIGN_32_FLAG;
             else if (a == 64)
-                p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALIGN_64_FLAG;
+                p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_ALIGN_64_FLAG;
 
             parser_match(ctx); //number     
             parser_match(ctx); //)            
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "allocate") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "allocate") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALLOCATE_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_ALLOCATE_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "allocator") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "allocator") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_ALLOCATOR_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_ALLOCATOR_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "appdomain") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "appdomain") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_APPDOMAIN_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_APPDOMAIN_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "code_seg") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "code_seg") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_CODE_SEG_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_CODE_SEG_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "deprecated") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "deprecated") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DEPRECATED_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_DEPRECATED_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "dllimport") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "dllimport") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DLLIMPORT_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_DLLIMPORT_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "dllexport") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "dllexport") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_DLLEXPORT_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_DLLEXPORT_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "hybrid_patchable") == 0)
-        {
-        }
-        else if (strcmp(p_type_specifier->token->lexeme, "no_init_all") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "hybrid_patchable") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "jitintrinsic") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "no_init_all") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "intrin_type") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "jitintrinsic") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "naked") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "intrin_type") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "noalias") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "naked") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "noinline") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "noalias") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "noreturn") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "noinline") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "nothrow") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "noreturn") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "novtable") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "nothrow") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "no_sanitize_address") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "novtable") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "process") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "no_sanitize_address") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "property") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "process") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "restrict") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "property") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "safebuffers") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "restrict") == 0)
         {
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "selectany") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "safebuffers") == 0)
+        {
+        }
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "selectany") == 0)
         {
             //https://learn.microsoft.com/en-us/cpp/cpp/selectany?view=msvc-170
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_SELECTANY_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_SELECTANY_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "thread") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "thread") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_SELECTANY_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_SELECTANY_FLAG;
         }
-        else if (strcmp(p_type_specifier->token->lexeme, "uuid") == 0)
+        else if (strcmp(p_type_specifier->attribute_token->lexeme, "uuid") == 0)
         {
-            p_type_specifier->flags = p_type_specifier->flags | MSVC_DECLSPEC_UUID_FLAG;
+            p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_UUID_FLAG;
         }
         else
         {
             compiler_diagnostic(W_ATTRIBUTES,
                 ctx,
-                p_type_specifier->token,
+                p_type_specifier->attribute_token,
                 NULL,
-            "unknown '%s'\n", p_type_specifier->token->lexeme);
+            "unknown '%s'\n", p_type_specifier->attribute_token->lexeme);
         }
 
         int count = 1;
@@ -3452,19 +3445,19 @@ struct msvc_declspec* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* 
     }
     catch
     {
-        msvc_declspec_delete(p_type_specifier);
+        attribute_delete(p_type_specifier);
         p_type_specifier = NULL;
     }
     return p_type_specifier;
 }
 
-struct msvc_declspec* _Owner _Opt msvc_declspec(struct parser_ctx* ctx)
+struct attribute* _Owner _Opt msvc_declspec(struct parser_ctx* ctx)
 {
     //https://learn.microsoft.com/en-us/cpp/cpp/declspec?view=msvc-170
     /*
       __declspec ( extended-decl-modifier-seq )
     */
-    struct msvc_declspec* _Owner _Opt p_decl_specifier = NULL;
+    struct attribute* _Owner _Opt p_decl_specifier = NULL;
     try
     {
         if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
@@ -3476,22 +3469,15 @@ struct msvc_declspec* _Owner _Opt msvc_declspec(struct parser_ctx* ctx)
     }
     catch
     {
-        msvc_declspec_delete(p_decl_specifier);
+        attribute_delete(p_decl_specifier);
         p_decl_specifier = NULL;
     }
     return p_decl_specifier;
 }
 
-void msvc_declspec_delete(struct msvc_declspec* _Owner _Opt  p)
+enum msvc_declspec_flags msvc_declspec_sequence_opt(struct parser_ctx* ctx)
 {
-    if (p == NULL)
-        return;
-    free(p);
-}
-
-void msvc_declspec_sequence_opt(struct parser_ctx* ctx)
-{
-
+    enum msvc_declspec_flags msvc_declspec_flags = 0;
     try
     {
         for (;;)
@@ -3503,10 +3489,14 @@ void msvc_declspec_sequence_opt(struct parser_ctx* ctx)
             }
 
             if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
-                return;
+                return msvc_declspec_flags;
 
-            struct msvc_declspec* _Owner _Opt p = msvc_declspec(ctx);
-            msvc_declspec_delete(p);
+            struct attribute* _Owner _Opt p = msvc_declspec(ctx);
+            if (p)
+            {
+                msvc_declspec_flags |= p->msvc_declspec_flags;
+            }
+            attribute_delete(p);
 
 
         }
@@ -3515,6 +3505,159 @@ void msvc_declspec_sequence_opt(struct parser_ctx* ctx)
     {
 
     }
+    return msvc_declspec_flags;
+}
+
+static void gcc_attribute_argument(struct parser_ctx* ctx)
+{
+    /*
+       attribute-argument:
+         identifier
+         constant-expression
+         string-literal
+    */
+    if (ctx->current == NULL)
+    {
+        unexpected_end_of_file(ctx);
+        return;
+    }
+
+    if (token_is_identifier_or_keyword(ctx->current->type))
+    {
+        parser_match(ctx);
+
+    }
+    else if (ctx->current->type == TK_STRING_LITERAL)
+    {
+        parser_match(ctx);
+    }
+    else //constant expressions
+    {
+        struct expression* expr = constant_expression(ctx, true);
+        expression_delete(expr);
+    }
+}
+
+static void gcc_attribute_argument_list(struct parser_ctx* ctx)
+{
+    /*
+      attribute-argument-list:
+          attribute-argument
+          attribute-argument-list , attribute-argument
+    */
+
+    if (ctx->current == NULL)
+    {
+        unexpected_end_of_file(ctx);
+        return;
+    }
+
+    for (;;)
+    {
+        gcc_attribute_argument(ctx);
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            return;
+        }
+
+        if (ctx->current->type != ',')
+            break;
+
+        parser_match(ctx);
+    }
+}
+
+static void gcc_attribute(struct parser_ctx* ctx)
+{
+    /*
+     attribute :
+         identifier
+         identifier()
+         identifier(attribute-argument-list)
+    */
+    if (ctx->current == NULL)
+    {
+        unexpected_end_of_file(ctx);
+        return;
+    }
+
+    if (!token_is_identifier_or_keyword(ctx->current->type))
+    {
+        compiler_diagnostic(C_ERROR_UNEXPECTED,
+                          ctx,
+                          ctx->current,
+                          NULL,
+                          "expected identifier");
+        return;
+    }
+
+    parser_match(ctx); //identifier
+
+    if (ctx->current->type == '(')
+    {
+        parser_match(ctx); //(
+        if (ctx->current->type != ')')
+        {
+            gcc_attribute_argument_list(ctx);
+        }
+        parser_match_tk(ctx, ')');
+    }
+
+}
+
+static void gcc_attribute_list(struct parser_ctx* ctx)
+{
+    /*
+        attribute-list:
+          empty
+          attribute
+          attribute-list, attribute
+    */
+
+    if (ctx->current == NULL)
+    {
+        unexpected_end_of_file(ctx);
+        return;
+    }
+
+    if (ctx->current == ')')
+        return;
+
+    for (;;)
+    {
+        gcc_attribute(ctx);
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            return;
+        }
+
+        if (ctx->current->type != ',')
+            break;
+
+        parser_match(ctx);
+    }
+}
+
+void gcc_attribute_specifier_opt(struct parser_ctx* ctx)
+{
+    /*
+    attribute-specifier:
+        __attribute__ (( attribute-list ))
+    */
+
+    if (ctx->current == NULL || ctx->current->type != TK_KEYWORD_GCC__ATTRIBUTE)
+        return;
+
+    parser_match(ctx);
+    parser_match_tk(ctx, '(');
+    parser_match_tk(ctx, '(');
+    gcc_attribute_list(ctx);
+    parser_match_tk(ctx, ')');
+    parser_match_tk(ctx, ')');
 }
 
 struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
@@ -3613,13 +3756,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             p_type_specifier->flags = TYPE_SPECIFIER_INT64;
             parser_match(ctx);
             return p_type_specifier;
-
-        case TK_KEYWORD_MSVC__DECLSPEC:
-            p_type_specifier->flags = 0;
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->msvc_declspec = msvc_declspec(ctx);
-            return p_type_specifier;
-
+      
         case TK_KEYWORD_LONG:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_LONG;
@@ -3905,7 +4042,6 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             throw;
         }
 
-        msvc_declspec_sequence_opt(ctx);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
@@ -5732,6 +5868,8 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
                 }
             }
             p_direct_declarator = p_direct_declarator2;
+            assert(p_direct_declarator->p_attribute_specifier_sequence_opt == NULL);
+            p_direct_declarator->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
         }
     }
     catch
@@ -6127,7 +6265,7 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
             parser_match(ctx);
             // parser_match_tk(ctx, '...');
             p_parameter_type_list->is_var_args = true;
-            return p_parameter_type_list;            
+            return p_parameter_type_list;
         }
 
         // parameter_list
@@ -7485,6 +7623,29 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
             throw;
         }
 
+        if (ctx->current->type == TK_KEYWORD_MSVC__DECLSPEC)
+        {
+            //parser_match(ctx);
+            p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
+            if (p_attribute_specifier_sequence == NULL)
+                throw;
+
+            p_attribute_specifier_sequence->first_token = ctx->current;
+            p_attribute_specifier_sequence->msvc_declspec_flags |= msvc_declspec_sequence_opt(ctx);            
+            return  p_attribute_specifier_sequence;
+        }
+
+        if (ctx->current->type == TK_KEYWORD_GCC__ATTRIBUTE)
+        {
+            p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
+            if (p_attribute_specifier_sequence == NULL)
+                throw;
+
+            p_attribute_specifier_sequence->first_token = ctx->current;
+            gcc_attribute_specifier_opt(ctx);
+            return  p_attribute_specifier_sequence;
+        }
+
         if (first_of_attribute_specifier(ctx))
         {
             p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
@@ -7612,7 +7773,6 @@ void attribute_delete(struct attribute* _Owner _Opt p)
 {
     if (p)
     {
-        attribute_token_delete(p->attribute_token);
         attribute_argument_clause_delete(p->attribute_argument_clause);
         assert(p->next == NULL);
         free(p);
@@ -7712,57 +7872,10 @@ bool first_of_attribute(const struct parser_ctx* ctx)
 
     return false;
 }
-
-struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
+enum attribute_flags attribute_token(struct parser_ctx* ctx)
 {
-    struct attribute* _Owner _Opt p_attribute = NULL;
-    try
-    {
-        p_attribute = calloc(1, sizeof(struct attribute));
-        if (p_attribute == NULL)
-            throw;
+    enum attribute_flags attribute_flags = 0;
 
-        struct attribute_token* _Owner _Opt p_attribute_token = attribute_token(ctx);
-
-        if (p_attribute_token == NULL)
-            throw;
-
-        // attribute_token attribute_argument_clause_opt
-        p_attribute->attribute_token = p_attribute_token;
-        if (ctx->current == NULL)
-        {
-            unexpected_end_of_file(ctx);
-            throw;
-        }
-
-        p_attribute->attributes_flags = p_attribute->attribute_token->attributes_flags;
-        if (ctx->current->type == '(') // first
-        {
-            struct attribute_argument_clause* _Owner _Opt  p_attribute_argument_clause =
-                attribute_argument_clause(ctx);
-            if (p_attribute_argument_clause == NULL)
-                throw;
-            p_attribute->attribute_argument_clause = p_attribute_argument_clause;
-        }
-    }
-    catch
-    {
-        attribute_delete(p_attribute);
-        p_attribute = NULL;
-    }
-    return p_attribute;
-}
-
-void attribute_token_delete(struct attribute_token* _Owner _Opt p)
-{
-    if (p)
-    {
-        free(p);
-    }
-}
-
-struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
-{
     struct attribute_token* _Owner _Opt p_attribute_token = NULL;
     try
     {
@@ -7772,9 +7885,7 @@ struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
             throw;
         }
 
-        p_attribute_token = calloc(1, sizeof(struct attribute_token));
-        if (p_attribute_token == NULL)
-            throw;
+
 
         struct token* attr_token = ctx->current;
 
@@ -7782,7 +7893,7 @@ struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
         if (strcmp(attr_token->lexeme, "deprecated") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = STD_ATTRIBUTE_DEPRECATED;
+            attribute_flags = STD_ATTRIBUTE_DEPRECATED;
         }
         else if (strcmp(attr_token->lexeme, "fallthrough") == 0)
         {
@@ -7791,37 +7902,37 @@ struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
         else if (strcmp(attr_token->lexeme, "maybe_unused") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = STD_ATTRIBUTE_MAYBE_UNUSED;
+            attribute_flags = STD_ATTRIBUTE_MAYBE_UNUSED;
         }
         else if (strcmp(attr_token->lexeme, "noreturn") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = STD_ATTRIBUTE_NORETURN;
+            attribute_flags = STD_ATTRIBUTE_NORETURN;
         }
         else if (strcmp(attr_token->lexeme, "reproducible") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = STD_ATTRIBUTE_REPRODUCIBLE;
+            attribute_flags = STD_ATTRIBUTE_REPRODUCIBLE;
         }
         else if (strcmp(attr_token->lexeme, "unsequenced") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = STD_ATTRIBUTE_UNSEQUENCED;
+            attribute_flags = STD_ATTRIBUTE_UNSEQUENCED;
         }
         else if (strcmp(attr_token->lexeme, "nodiscard") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
+            attribute_flags = STD_ATTRIBUTE_NODISCARD;
         }
         else if (strcmp(attr_token->lexeme, "dtor") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_DTOR;
+            attribute_flags = CAKE_ATTRIBUTE_DTOR;
         }
         else if (strcmp(attr_token->lexeme, "ctor") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_CTOR;
+            attribute_flags = CAKE_ATTRIBUTE_CTOR;
         }
 
         const bool is_cake_attr = strcmp(attr_token->lexeme, "cake") == 0;
@@ -7879,12 +7990,56 @@ struct attribute_token* _Owner _Opt attribute_token(struct parser_ctx* ctx)
     }
     catch
     {
-        attribute_token_delete(p_attribute_token);
-        p_attribute_token = NULL;
+
     }
 
-    return p_attribute_token;
+    return attribute_flags;
 }
+
+
+struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
+{
+    struct attribute* _Owner _Opt p_attribute = NULL;
+    try
+    {
+        p_attribute = calloc(1, sizeof(struct attribute));
+        if (p_attribute == NULL)
+            throw;
+
+        enum attribute_flags attribute_flags = attribute_token(ctx);
+
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+        p_attribute->attributes_flags |= attribute_flags;
+        if (ctx->current->type == '(') // first
+        {
+            struct attribute_argument_clause* _Owner _Opt  p_attribute_argument_clause =
+                attribute_argument_clause(ctx);
+            if (p_attribute_argument_clause == NULL)
+                throw;
+            p_attribute->attribute_argument_clause = p_attribute_argument_clause;
+        }
+    }
+    catch
+    {
+        attribute_delete(p_attribute);
+        p_attribute = NULL;
+    }
+    return p_attribute;
+}
+
+void attribute_token_delete(struct attribute_token* _Owner _Opt p)
+{
+    if (p)
+    {
+        free(p);
+    }
+}
+
 
 void attribute_argument_clause_delete(struct attribute_argument_clause* _Owner _Opt p)
 {
