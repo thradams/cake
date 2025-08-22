@@ -431,14 +431,45 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 ### C99 Line comments
 
+### Declarations in for loop initializers 
+
+
+```c
+int main()
+{
+   const int max = 10;
+   for (int n = max - 1; n >= 0; n--)
+   {
+     // body of loop
+   }
+}
+
+```
+
 ### C99 inline functions
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n709.htm  (30 May 1997)
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm
+
+
+```c
+inline int sum(int a, int b)
+{
+    return a + b;
+}
+int main(void)
+{
+    int r = sum(1, 2);
+}
+```
+
 
 ### C99 _Pragma preprocessing operator
 Not implemented. TODO!
 
 ### C99 \_\_func\_\_ predefined identifier
+
+N611 13 Sep 96 Mooney, __FUNC__
 
 ```c
 #include <stdio.h>
@@ -471,6 +502,8 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
 
 
 ###  C99 \_Bool
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n815.htm  (1998)
 
 ```c
 int main(void)
@@ -1146,7 +1179,7 @@ int main()
 C++ proposal
 https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html
 
-### Extension typename on _Generic
+### C2Y typename on _Generic
 
 This feature was created in Cake and now it is part of C2Y!
 
@@ -1249,6 +1282,44 @@ _
 ### Extension - Object lifetime checks
 
 See [ownership](ownership.html)
+
+```
+_Owner
+_Opt
+_View
+```
+
+### GCC extensions
+
+These GCC extensions allow parsing headers and generate correct code for GCC 
+
+```
+__builtin_va_list
+__builtin_c23_va_start
+__builtin_va_start
+__builtin_va_end
+__builtin_va_arg
+__builtin_va_copy
+```
+
+```c
+__builtin_offsetof
+__attribute__
+__typeof__ alias for typeof in cake
+```
+
+
+### MSVC extensions
+
+```
+__ptr32, __ptr64
+__int8 ... __int64
+__declspec
+__cdecl
+__fastcall, __stdcall
+__forceinline alias for inline in cake
+
+```
 
 ### Extension assert built-in
 

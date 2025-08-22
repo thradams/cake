@@ -200,14 +200,15 @@ int main()
 `;
 
 sample["C99"]["inline"] =
-    `
+`
+inline int sum(int a, int b)
+{
+    return a + b;
+}
+
 int main()
 {
-   const int max = 10;
-   for (int n = max - 1; n >= 0; n--)
-   {
-     // body of loop
-   }
+    int r = sum(1,3);
 }
 `;
 
@@ -399,7 +400,7 @@ int main(void)
 `;
 
 sample["C11"]["_Alignas / alignas (in C23)"] =
-`
+    `
 #include <stdio.h>
 
 // every object of type struct sse_t will be aligned to 16-byte boundary
@@ -437,7 +438,7 @@ int main(void)
 `;
 
 sample["C11"]["_Thread_local / thread_local (in C23)"] =
-`
+    `
 thread_local int a;
 
 int main(void)
@@ -736,38 +737,6 @@ int f5(){
 
 `;
 
-sample["C23"]["macro NEW"] =
-    `
-#include <stdlib.h>
-#include <string.h>
-
-static inline void* allocate_and_copy(void* s, size_t n) {
-    void* p = malloc(n);
-    if (p) {
-        memcpy(p, s, n);
-    }
-    return p;
-}
-
-#define NEW(...) (typeof(__VA_ARGS__)*) allocate_and_copy(&(__VA_ARGS__), sizeof(__VA_ARGS__))
-#pragma expand NEW
-
-#define new(...)\\
- (typeof((__VA_ARGS__))* (void)){\\
-   typeof(__VA_ARGS__)* _p = malloc(sizeof * _p);\\
-   if (_p) *_p = __VA_ARGS__;\\
-   return _p;\\
- }()
-
-struct X {
-    const int i;
-};
-
-int main() { 
-    auto p = NEW((struct X) {});
-    auto p2 = new((struct X) {});
-}
-`;
 
 sample["C23"]["auto"] =
     `
@@ -1372,7 +1341,7 @@ void f0(){
 `;
 
 sample["C2Y"]["__COUNTER__"] =
-`
+    `
 //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm#number-of-expansions
 
 #define X(Z) Z Z
@@ -1676,7 +1645,7 @@ int main()
 `;
 
 sample["Extensions"]["_Countof enum"] =
-`
+    `
 #include <string.h>
 enum E { A, B, C, D, E, F };
 
@@ -1721,14 +1690,14 @@ sample["Extensions"]["MSVC __declspec"] =
 
 
 sample["Extensions"]["__attribute__"] =
-`
+    `
    //GCC __attributes__ are parsed.
    //Cake implements C23 attributes and some GCC attributes could be
    //mapped but they are not at this moment.
 `;
 
 sample["Extensions"]["__builtin_offsetof"] =
- `
+    `
 
 struct S {
     char c;
@@ -1743,7 +1712,7 @@ int main(void)
 `;
 
 sample["Extensions"]["__builtin_c23_va_start"] =
-`
+    `
 typedef __builtin_va_list va_list;
 
 int add_nums_C23(int count, ...)

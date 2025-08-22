@@ -3022,7 +3022,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
                 assert(p_expression->declarator != NULL);
 
                 if (p_expression->declarator->declaration_specifiers &&
-                    !(p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE))
+                    !is_automatic_variable(p_expression->declarator->declaration_specifiers->storage_class_specifier_flags))
                 {
                     assert(p_expression->declarator->p_flow_object != NULL);
 
@@ -4377,7 +4377,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             {
                 if (p_init_declarator->p_declarator->declaration_specifiers &&
                     (
-                        (!(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)) ||
+                        (!(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE)) ||
                         (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
                         )
                     )

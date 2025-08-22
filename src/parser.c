@@ -859,7 +859,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_MSVC__INT8 ||
         p_token->type == TK_KEYWORD_MSVC__INT16 ||
         p_token->type == TK_KEYWORD_MSVC__INT32 ||
-        p_token->type == TK_KEYWORD_MSVC__INT64 ||        
+        p_token->type == TK_KEYWORD_MSVC__INT64 ||
 
         first_of_atomic_type_specifier(ctx) ||
         first_of_struct_or_union_token(p_token) ||
@@ -1890,7 +1890,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 else if (p_declaration_specifier->type_specifier_qualifier->alignment_specifier)
                 {
                     p_declaration_specifiers->alignment_specifier_flags =
-                        p_declaration_specifier->type_specifier_qualifier->alignment_specifier->flags;                    
+                        p_declaration_specifier->type_specifier_qualifier->alignment_specifier->flags;
 
                 }
                 else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
@@ -1913,7 +1913,12 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 
             declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
 
-            assert(p_declaration_specifiers->p_attribute_specifier_sequence_opt == NULL);
+            if (p_declaration_specifiers->p_attribute_specifier_sequence_opt == NULL)
+            {
+                attribute_specifier_sequence_delete(p_declaration_specifiers->p_attribute_specifier_sequence_opt);
+                p_declaration_specifiers->p_attribute_specifier_sequence_opt = NULL;//
+            }
+
             p_declaration_specifiers->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
             if (ctx->current == NULL)
@@ -1946,12 +1951,6 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
         final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
 
         p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
-
-        if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
-        {
-            //
-            p_declaration_specifiers->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
-        }
     }
     catch
     {
@@ -2132,7 +2131,7 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
         return NULL;
     }
 
-    enum storage_class_specifier_flags storage_specifier_flags = STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
+    enum storage_class_specifier_flags storage_specifier_flags = STORAGE_SPECIFIER_BLOCK_SCOPE;
     /*
       simple-declaration:
       declaration-specifiers init-declarator-list _Opt ;
@@ -2377,6 +2376,47 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 check_unused_parameters(ctx, p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
             }
 
+            if (p_declaration->function_body)
+            {
+                /*
+                   Now we have the function body, let's see if we had a previous
+                   function body.
+                */
+                const char* func_name =
+                    p_declaration->init_declarator_list.head->p_declarator->name_opt->lexeme;
+
+                struct scope* p_previous_scope = NULL;
+                struct declarator* _Opt p_previous_declarator = find_declarator(ctx, func_name, &p_previous_scope);
+                if (p_previous_declarator && p_previous_declarator != p_declaration->init_declarator_list.head->p_declarator)
+                {
+                    p_previous_declarator->p_complete_declarator = p_declaration->init_declarator_list.head->p_declarator;
+
+                    struct scope* p_current_scope = ctx->scopes.tail;
+                    if (p_current_scope == p_previous_scope) //same function
+                    {
+                        if (p_previous_declarator->function_body)
+                        {
+                            compiler_diagnostic(
+                                 C_ERROR_REDECLARATION,
+                                 ctx,
+                                 p_declaration->init_declarator_list.head->p_declarator->name_opt,
+                                 NULL,
+                                 "function redefinition");
+
+                            compiler_diagnostic(W_LOCATION,
+                                ctx,
+                                p_previous_declarator->name_opt,
+                                NULL,
+                                "previous definition");
+                        }
+                        else
+                        {
+                            //If we want to point the the declarator that has the function body
+                            //previous->p_declarator_with_function_body = p_declaration->init_declarator_list.head->p_declarator;
+                        }
+                    }
+                }
+            }
 
             if (extern_declaration)
             {
@@ -2576,11 +2616,12 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
 
         /////////////////////////////////////////////////////////////////////////////
-        const char* name = p_init_declarator->p_declarator->name_opt->lexeme;
+        const char* declarator_name = p_init_declarator->p_declarator->name_opt->lexeme;
         struct scope* _Opt out_scope = NULL;
-        struct declarator* _Opt previous = find_declarator(ctx, name, &out_scope);
-        if (previous)
+        struct declarator* _Opt p_previous_declarator = find_declarator(ctx, declarator_name, &out_scope);
+        if (p_previous_declarator)
         {
+            p_init_declarator->p_declarator->p_complete_declarator = p_previous_declarator;
             assert(out_scope != NULL);
             assert(ctx->scopes.tail != NULL);
 
@@ -2591,27 +2632,27 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     /*
                     __C_ASSERT__ is failing..maybe because __builtin_offsetof is not implemented
                     */
-                    if (strcmp(name, "__C_ASSERT__") != 0)
+                    if (strcmp(declarator_name, "__C_ASSERT__") != 0)
                     {
                         //TODO type_is_same needs changes see #164
-                        if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, false))
+                        if (!type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
                         {
                             struct osstream ss = { 0 };
-                            print_type_no_names(&ss, &previous->type);
+                            print_type_no_names(&ss, &p_previous_declarator->type);
 
                             compiler_diagnostic(
                                 C_ERROR_REDECLARATION,
                                 ctx,
                                 ctx->current,
                                 NULL,
-                                "conflicting types for '%s' (%s)", name, ss.c_str);
+                                "conflicting types for '%s' (%s)", declarator_name, ss.c_str);
 
                             ss_clear(&ss);
                             print_type_no_names(&ss, &p_init_declarator->p_declarator->type);
 
                             compiler_diagnostic(C_ERROR_REDECLARATION,
                                 ctx,
-                                previous->name_opt,
+                                p_previous_declarator->name_opt,
                                 NULL,
                                 "previous declaration (%s)", ss.c_str);
                             ss_close(&ss);
@@ -2621,23 +2662,23 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 else
                 {
                     compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration");
-                    compiler_diagnostic(W_NOTE, ctx, previous->name_opt, NULL, "previous declaration");
+                    compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
                 }
             }
             else
             {
                 struct hash_item_set item = { 0 };
                 item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-                hashmap_set(&ctx->scopes.tail->variables, name, &item);
+                hashmap_set(&ctx->scopes.tail->variables, declarator_name, &item);
                 hash_item_set_destroy(&item);
 
                 /*global scope no warning...*/
                 if (out_scope->scope_level != 0)
                 {
                     /*but redeclaration at function scope we show warning*/
-                    if (compiler_diagnostic(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", name))
+                    if (compiler_diagnostic(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", declarator_name))
                     {
-                        compiler_diagnostic(W_NOTE, ctx, previous->first_token_opt, NULL, "previous declaration is here");
+                        compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->first_token_opt, NULL, "previous declaration is here");
                     }
                 }
             }
@@ -2647,7 +2688,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             /*first time we see this declarator*/
             struct hash_item_set item = { 0 };
             item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
-            hashmap_set(&ctx->scopes.tail->variables, name, &item);
+            hashmap_set(&ctx->scopes.tail->variables, declarator_name, &item);
             hash_item_set_destroy(&item);
         }
         /////////////////////////////////////////////////////////////////////////////
@@ -3622,7 +3663,7 @@ static void gcc_attribute_list(struct parser_ctx* ctx)
         return;
     }
 
-    if (ctx->current == ')')
+    if (ctx->current->type == ')')
         return;
 
     for (;;)
@@ -3756,7 +3797,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             p_type_specifier->flags = TYPE_SPECIFIER_INT64;
             parser_match(ctx);
             return p_type_specifier;
-      
+
         case TK_KEYWORD_LONG:
             p_type_specifier->token = ctx->current;
             p_type_specifier->flags = TYPE_SPECIFIER_LONG;
@@ -6418,7 +6459,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         p_parameter_declaration->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct declaration_specifiers* _Owner _Opt p_declaration_specifiers =
-            declaration_specifiers(ctx, STORAGE_SPECIFIER_PARAMETER | STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+            declaration_specifiers(ctx, STORAGE_SPECIFIER_PARAMETER | STORAGE_SPECIFIER_BLOCK_SCOPE);
 
         if (p_declaration_specifiers == NULL)
         {
@@ -6638,6 +6679,33 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
         // TODO
         ss_fprintf(ss, "[]");
     }
+}
+
+const struct declarator* _Opt declarator_get_function_definition(const struct declarator* declarator)
+{
+    struct declarator* _Opt p_function_defined = NULL;
+    if (declarator->function_body)
+    {
+        p_function_defined = declarator;
+    }
+
+    if (!p_function_defined &&
+        declarator->p_complete_declarator &&
+        declarator->p_complete_declarator->function_body)
+    {
+        p_function_defined = declarator->p_complete_declarator;
+    }
+
+    if (!p_function_defined &&
+        declarator->p_complete_declarator &&
+        declarator->p_complete_declarator->p_complete_declarator &&
+        declarator->p_complete_declarator->p_complete_declarator->function_body)
+    {
+        p_function_defined = declarator->p_complete_declarator->p_complete_declarator;
+    }
+
+    assert(p_function_defined == NULL || (p_function_defined && p_function_defined->function_body));
+    return p_function_defined;
 }
 
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p)
@@ -7631,7 +7699,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 throw;
 
             p_attribute_specifier_sequence->first_token = ctx->current;
-            p_attribute_specifier_sequence->msvc_declspec_flags |= msvc_declspec_sequence_opt(ctx);            
+            p_attribute_specifier_sequence->msvc_declspec_flags |= msvc_declspec_sequence_opt(ctx);
             return  p_attribute_specifier_sequence;
         }
 
@@ -9140,7 +9208,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
             first_of_static_assert_declaration(ctx) ||
             first_of_pragma_declaration(ctx))
         {
-            p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_AUTOMATIC_STORAGE, false);
+            p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_BLOCK_SCOPE, false);
             if (p_block_item->declaration == NULL)
                 throw;
             p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
@@ -9711,7 +9779,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 struct scope for_scope = { 0 };
                 scope_list_push(&ctx->scopes, &for_scope);
 
-                p_iteration_statement->declaration = declaration(ctx, NULL, STORAGE_SPECIFIER_AUTOMATIC_STORAGE, false);
+                p_iteration_statement->declaration = declaration(ctx, NULL, STORAGE_SPECIFIER_BLOCK_SCOPE, false);
 
                 if (ctx->current == NULL)
                 {
@@ -10143,7 +10211,7 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
         {
             p_condition->p_attribute_specifier_sequence_opt = attribute_specifier_sequence(ctx);
 
-            p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+            p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_BLOCK_SCOPE);
             if (p_condition->p_declaration_specifiers == NULL)
                 throw;
 
@@ -10911,7 +10979,7 @@ int compile_one_file(const char* file_name,
     {
         //lets check if the generated file is the expected
         char buf[MYMAX_PATH] = { 0 };
-        snprintf(buf, sizeof buf, "%s_expected.c", file_name);
+        snprintf(buf, sizeof buf, "%s.out", file_name);
 
         char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/);
         if (content_expected)

@@ -41,7 +41,7 @@ void f3(int condition)
     static_state(p, "uninitialized");
 }
 
-void f3(int condition)
+void f4(int condition)
 {
     void * _Owner _Opt  p = malloc(1);
 
@@ -57,7 +57,7 @@ void f3(int condition)
 }
 
 
-void f4(int condition)
+void f5(int condition)
 {
     void * _Owner _Opt  p = malloc(1);
 
@@ -72,7 +72,7 @@ void f4(int condition)
     static_set(p, "null");
 }
 
-void f5(int condition)
+void f6(int condition)
 {
     void * _Owner _Opt  p = malloc(1);
 

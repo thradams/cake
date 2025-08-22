@@ -17,6 +17,22 @@
 #include "parser.h"
 #include "type.h"
 
+bool is_automatic_variable(enum storage_class_specifier_flags f)
+{
+    if (f & STORAGE_SPECIFIER_EXTERN)
+        return false;
+
+    if (f & STORAGE_SPECIFIER_STATIC)
+        return false;
+
+    if (f & STORAGE_SPECIFIER_PARAMETER)
+        return true;
+    
+    if (f & STORAGE_SPECIFIER_BLOCK_SCOPE)
+        return true;
+
+    return false;
+}
 
 void print_item(struct osstream* ss, bool* first, const char* item)
 {

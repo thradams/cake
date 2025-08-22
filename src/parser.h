@@ -749,6 +749,12 @@ struct declarator
     struct token* _Opt name_opt; //shortcut , null for abstract declarator
 
     struct compound_statement* _Opt function_body;
+    
+    /*
+        points to someone that has the function_body or 
+        to someone that points to someone that has the function_body        
+    */
+    struct declarator* _Opt p_complete_declarator;
 
     int num_uses; /*used to show not used warnings*/
 
@@ -770,6 +776,7 @@ struct declarator
     struct type type;
 };
 
+const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
 
 struct declarator;

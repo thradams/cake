@@ -159,12 +159,13 @@ enum storage_class_specifier_flags
 
     /*it is a function parameter*/
     STORAGE_SPECIFIER_PARAMETER = 1 << 11,
+    STORAGE_SPECIFIER_BLOCK_SCOPE = 1 << 12,
 
-    STORAGE_SPECIFIER_AUTOMATIC_STORAGE = 1 << 12,
     STORAGE_SPECIFIER_FUNCTION_RETURN = 1 << 13,
     STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD = 1 << 14,
 };
 
+bool is_automatic_variable(enum storage_class_specifier_flags f);
 enum function_specifier_flags
 {
     FUNCTION_SPECIFIER_NONE = 0,

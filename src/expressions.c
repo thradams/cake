@@ -6834,7 +6834,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(&p_b_expression->type))
         {
-            if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+            if (is_automatic_variable(p_b_expression->type.storage_class_specifier_flags))
             {
                 compiler_diagnostic(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
                     ctx,

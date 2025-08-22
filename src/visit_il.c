@@ -32,9 +32,6 @@ void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
     ss_close(&ctx->local_declarators);
     ss_close(&ctx->add_this_before);
     ss_close(&ctx->add_this_before_external_decl);
-
-    ss_close(&ctx->data_types);
-    ss_close(&ctx->function_types);
 }
 
 /*
@@ -140,10 +137,13 @@ int struct_entry_list_push_back(struct struct_entry_list* p, struct struct_entry
     return 0;
 }
 
+static void d_visit_function_body(struct d_visit_ctx* ctx,
+    struct osstream* oss, 
+    struct declarator* function_definition);
 static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
 static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
-static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, bool binline, enum storage_class_specifier_flags storage_class_specifier_flags);
-static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, bool binline, enum storage_class_specifier_flags storage_class_specifier_flags);
+static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
+static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
 static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
@@ -499,23 +499,37 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
+        const char* declarator_name = "";
+        if (p_expression->declarator->name_opt)
+            declarator_name = p_expression->declarator->name_opt->lexeme;
+
         const bool is_function = type_is_function(&p_expression->declarator->type);
-        bool is_local_function = false;
+        bool is_local_function_definition = false;
         if (is_function)
         {
-            is_local_function =
-                p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
+            is_local_function_definition =
+                p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE &&
+                p_expression->declarator->function_body != NULL;
         }
+
+        const bool is_static =
+            p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
+
+        const bool is_inline =
+            p_expression->declarator->declaration_specifiers->function_specifier_flags & FUNCTION_SPECIFIER_INLINE;
 
         const bool is_extern = p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN;
 
-        if ((is_function && !is_local_function) || is_extern)
+        const bool is_local =
+            (!is_static && !is_extern) &&
+            p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE;
+
+        if (is_function)
         {
             ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
 
-            const char* _Opt func_name = NULL;
+            const char* _Opt func_name = p_expression->declarator->name_opt->lexeme;
 
-            func_name = p_expression->first_token->lexeme;
             struct map_entry* _Opt p = hashmap_find(&ctx->function_map, func_name);
             if (p == NULL)
             {
@@ -528,7 +542,13 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 struct osstream ss = { 0 };
 
+                if ((is_inline || is_local_function_definition) && !is_static)
+                {
+                    ss_fprintf(&ss, "static ");
+                }
                 d_print_type(ctx, &ss, &p_expression->type, func_name);
+                ss_fprintf(&ctx->add_this_before_external_decl, "%s", ss.c_str);
+                ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
 
                 if (p_expression->p_init_declarator &&
                     p_expression->p_init_declarator->initializer)
@@ -546,45 +566,54 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     assert(p_expression->declarator != NULL);
 
-                    if (p_expression->declarator->function_body &&
-                        p_expression->declarator->declaration_specifiers &&
-                        p_expression->declarator->declaration_specifiers->function_specifier_flags & FUNCTION_SPECIFIER_INLINE)
+                    struct declarator* _Opt p_function_defined
+                        = declarator_get_function_definition(p_expression->declarator);
+
+                    if (p_function_defined && (is_static || is_inline || is_local_function_definition))
                     {
-                        ss_fprintf(&ctx->function_types, "\n");
-                        struct osstream copy = *oss;
-                        oss->c_str = 0;
-                        oss->capacity = 0;
-                        oss->size = 0;
-                        int i2 = ctx->indentation;
-                        ctx->indentation = 0;
-                        d_visit_compound_statement(ctx, oss, p_expression->declarator->function_body);
-                        ctx->indentation = i2;
+                        //We need to find the function..
 
+                        /*
+                            Internal linkage function (locals, inline, static) are instantiated on demand.
+                        */
+                        struct osstream local3 = { 0 };
+                        struct osstream local4 = { 0 };
+                        d_print_type(ctx, &local4, &p_function_defined->type, func_name);
+
+                        if (!is_static)
+                            ss_fprintf(&local3, "static ");
+
+                        ss_fprintf(&local3, "%s\n", local4.c_str);
+
+                        d_visit_function_body(ctx, &local3, p_function_defined);
+                        
                         assert(ss.c_str);
-                        ss_fprintf(&ctx->function_types, "inline %s\n", ss.c_str);
                         assert(oss->c_str);
-                        ss_fprintf(&ctx->function_types, "%s", oss->c_str);
 
-                        ss_swap(oss, &copy);
-                        ss_close(&copy);
+                        ss_fprintf(&ctx->add_this_after_external_decl, "\n");
+                        ss_fprintf(&ctx->add_this_after_external_decl, "%s", local3.c_str);
+
+                        ss_close(&local3);
                     }
                     else
                     {
-                        assert(ss.c_str);
-                        ss_fprintf(&ctx->function_types, "%s;\n", ss.c_str);
+                        //ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
                     }
                 }
                 else
                 {
                     assert(ss.c_str);
-                    ss_fprintf(&ctx->function_types, "%s;\n", ss.c_str);
+                    ss_fprintf(&ctx->add_this_before_external_decl, "%s;\n", ss.c_str);
                 }
 
                 ss_close(&ss);
             }
         }
-        else if (!type_is_function(&p_expression->declarator->type) &&
-                 p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+        else if (is_local)
+        {
+            ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
+        }
+        else //not funciton 
         {
 
             /*
@@ -615,26 +644,26 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                    we may have the same name used in other local scope so we need
                    a unique name
                 */
-                ctx->extern_count++;
-                snprintf(newname, sizeof newname, "__ck_%s%d", p_expression->declarator->name_opt->lexeme, ctx->extern_count);
-                free(p_expression->declarator->name_opt->lexeme);
-                p_expression->declarator->name_opt->lexeme = strdup(newname);
+                //ctx->extern_count++;
+                //snprintf(newname, sizeof newname, "__ck_%s%d", p_expression->declarator->name_opt->lexeme, ctx->extern_count);
+                //free(p_expression->declarator->name_opt->lexeme);
+                //p_expression->declarator->name_opt->lexeme = strdup(newname);
 
                 struct osstream ss = { 0 };
 
-                d_print_type(ctx, &ss, &p_expression->type, newname);
+                d_print_type(ctx, &ss, &p_expression->type, declarator_name);
 
                 if (p_expression->p_init_declarator &&
                     p_expression->p_init_declarator->initializer)
                 {
                     print_initializer(ctx, &ss, p_expression->p_init_declarator, true);
                     assert(ss.c_str);
-                    ss_fprintf(&ctx->function_types, "%s\n", ss.c_str);
+                    ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", ss.c_str);
                 }
                 else
                 {
                     assert(ss.c_str);
-                    ss_fprintf(&ctx->function_types, "%s;\n", ss.c_str);
+                    ss_fprintf(&ctx->add_this_before_external_decl, "%s;\n", ss.c_str);
                 }
 
                 ss_close(&ss);
@@ -644,10 +673,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
             ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
         }
-        else
-        {
-            ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
-        }
+
     }
     break;
 
@@ -721,7 +747,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             //TODO to convert to C89 we need to insert the first parameter
             //at the caller and at the implementation
             //ss_fprintf(oss, ", __first_va_arg");            
-        }        
+        }
         break;
 
     case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
@@ -1822,6 +1848,7 @@ static void d_visit_block_item_list(struct d_visit_ctx* ctx, struct osstream* os
     }
 }
 
+
 static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
 {
     bool is_local = ctx->is_local;
@@ -1870,6 +1897,23 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream*
     ss_close(&local);
 }
 
+static void d_visit_function_body(struct d_visit_ctx* ctx,
+    struct osstream* oss, 
+    struct declarator* function_definition)
+{
+    if (function_definition->function_body == NULL)
+    {
+        assert(false);
+        return;
+    }
+    int indentation = ctx->indentation;
+    ctx->indentation = 0;
+    struct declarator * previous_func = ctx->p_current_function_opt;
+    ctx->p_current_function_opt = function_definition;
+    d_visit_compound_statement(ctx, oss, function_definition->function_body);
+    ctx->p_current_function_opt = previous_func;//restore
+    ctx->indentation = indentation; //restore
+}
 
 static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const struct type* p_type0)
 {
@@ -2731,79 +2775,83 @@ static void print_initializer(struct d_visit_ctx* ctx,
 static void d_visit_init_declarator(struct d_visit_ctx* ctx,
     struct osstream* oss0,
     struct init_declarator* p_init_declarator,
-    bool binline,
+    enum function_specifier_flags function_specifier_flags,
     enum storage_class_specifier_flags storage_class_specifier_flags)
 {
     struct osstream sslocal = { 0 };
     try
     {
-        const bool is_local = ctx->is_local;
-        const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
-
+        const char* declarator_name = "";
+        if (p_init_declarator->p_declarator->name_opt)
+            declarator_name = p_init_declarator->p_declarator->name_opt->lexeme;
         const bool is_function = type_is_function(&p_init_declarator->p_declarator->type);
-        bool is_function_definition = false;
+        const bool binline = (function_specifier_flags & FUNCTION_SPECIFIER_INLINE);
+        const bool is_block_scope = (storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE);
+        const bool is_typedef = (storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF);
+        const bool is_extern = (storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN);
 
+        if (is_typedef)
+            return;
+        const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+        const bool is_function_definition = is_function && p_init_declarator->p_declarator->function_body != NULL;
 
-        if (is_function)
+        const bool is_local_function = is_function && is_block_scope && is_function_definition;
+
+        const bool is_extern_linkage_function =
+            is_function &&
+            !is_local_function &&
+            !is_static &&
+            !binline;
+
+        if (is_extern)
         {
-
-            is_function_definition = p_init_declarator->p_declarator->function_body != NULL;
-            if (is_function_definition && is_local)
-            {
-                char name[100] = { 0 };
-                snprintf(name, sizeof(name), "_ck_l_func_%d", ctx->extern_count++);
-
-                free(p_init_declarator->p_declarator->name_opt->lexeme);
-                p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
-            }
-        }
-        bool b_add_this_before_external_decl = false;
-
-        if (is_static && !is_function)
-        {
-            b_add_this_before_external_decl = true;
-        }
-        else if (is_local && is_function)
-        {
-            b_add_this_before_external_decl = true;
-        }
-        else
-        {
-            b_add_this_before_external_decl = false;
-        }
-
-        if (is_function && !is_function_definition)
-        {
-            //function declarations are created on-demand
+            //on demand declarations
             return;
         }
 
-        if (
-                 p_init_declarator->p_declarator->declaration_specifiers && (
-                     (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) ||
-                     (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
-            )
+        if (is_local_function)
         {
-            //function declarations are on-demand
+            char name[100] = { 0 };
+            snprintf(name, sizeof(name), "_ck_l_func_%d", ctx->extern_count++);
+
+            free(p_init_declarator->p_declarator->name_opt->lexeme);
+            p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
             return;
         }
 
-        if (is_local && (is_static && !is_function))
+
+        if (is_block_scope && is_static)
         {
-            //local static non functions declarations are created on-demand
+            char name[100] = { 0 };
+            snprintf(name, sizeof(name), "_ck_l_%d", ctx->extern_count++);
+            free(p_init_declarator->p_declarator->name_opt->lexeme);
+            p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
             return;
         }
+
+
+        if (is_extern_linkage_function && !is_function_definition)
+        {
+            //on demand declarations
+            return;
+        }
+
+        if (is_function && !is_extern_linkage_function)/// && !is_extern_linkage_function)
+        {
+            //see PRIMARY_EXPRESSION_DECLARATOR
+            //interanal linkage function are generated on demand
+            return;
+        }
+
+
 
         if (p_init_declarator->p_declarator->name_opt == NULL)
             throw;
 
-        if (binline)
-            ss_fprintf(&sslocal, "__inline ");
-
         struct osstream ss = { 0 };
 
 
-        if (is_local && !is_static && !is_function_definition)
+        if (is_block_scope && !is_static && !is_extern)
         {
             d_print_type(ctx, &ss,
                 &p_init_declarator->p_declarator->type,
@@ -2816,13 +2864,14 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         }
         else
         {
-            if (is_local && !is_function_definition)
+            if (!is_static)
                 print_identation(ctx, &ss);
 
-            if (is_function_definition && is_local)
-            {
-                ss_fprintf(&sslocal, "static ");
-            }
+            //if (is_function_definition && is_local &&
+                //!(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
+            //{
+                //ss_fprintf(&sslocal, "static ");
+            //}
 
             d_print_type(ctx, &ss,
                 &p_init_declarator->p_declarator->type,
@@ -2858,7 +2907,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
               //  ss_fprintf(oss, ";\n");
         }
 
-        if (is_function_definition)
+        if (is_extern_linkage_function && is_function_definition)
         {
 
             assert(p_init_declarator->p_declarator->name_opt != NULL);
@@ -2870,16 +2919,14 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             i.number = 1;
             hashmap_set(&ctx->function_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
 
+            ss_fprintf(&sslocal, "\n");                                                          
+            d_visit_function_body(ctx, &sslocal, p_init_declarator->p_declarator);
             ss_fprintf(&sslocal, "\n");
-            int indentation = ctx->indentation;
-            ctx->indentation = 0;
-            d_visit_compound_statement(ctx, &sslocal, p_init_declarator->p_declarator->function_body);
-            ss_fprintf(&sslocal, "\n");
-            ctx->indentation = indentation;
+            
             hash_item_set_destroy(&i);
         }
 
-        if (b_add_this_before_external_decl)
+        if (is_static)
         {
             if (sslocal.c_str)
                 ss_fprintf(&ctx->add_this_before_external_decl, "%s", sslocal.c_str);
@@ -2901,14 +2948,14 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
     struct osstream* oss,
     struct init_declarator_list* p_init_declarator_list,
-    bool binline,
+    enum function_specifier_flags function_specifier_flags,
     enum storage_class_specifier_flags storage_class_specifier_flags)
 {
     struct init_declarator* _Opt p_init_declarator = p_init_declarator_list->head;
 
     while (p_init_declarator)
     {
-        d_visit_init_declarator(ctx, oss, p_init_declarator, binline, storage_class_specifier_flags);
+        d_visit_init_declarator(ctx, oss, p_init_declarator, function_specifier_flags, storage_class_specifier_flags);
         p_init_declarator = p_init_declarator->next;
     }
 }
@@ -2916,23 +2963,6 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
 
 static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration)
 {
-    bool binline = false;
-
-    if (p_declaration->declaration_specifiers &&
-        p_declaration->declaration_specifiers->head)
-    {
-        struct declaration_specifier* _Opt  p = p_declaration->declaration_specifiers->head;
-        while (p)
-        {
-            if (p->function_specifier &&
-                p->function_specifier->token->type == TK_KEYWORD_INLINE)
-            {
-                binline = true;//ss_fprintf(oss, "__inline ");
-            }
-            p = p->next;
-        }
-    }
-
     if (p_declaration->init_declarator_list.head)
     {
         assert(p_declaration->declaration_specifiers != NULL);
@@ -2940,8 +2970,10 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
         enum storage_class_specifier_flags storage_class_specifier_flags =
             p_declaration->declaration_specifiers->storage_class_specifier_flags;
 
-        if (!binline)
-            d_visit_init_declarator_list(ctx, oss, &p_declaration->init_declarator_list, binline, storage_class_specifier_flags);
+        enum function_specifier_flags function_specifier_flags =
+            p_declaration->declaration_specifiers->function_specifier_flags;
+
+        d_visit_init_declarator_list(ctx, oss, &p_declaration->init_declarator_list, function_specifier_flags, storage_class_specifier_flags);
     }
 }
 
@@ -3079,17 +3111,13 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)
     {
+        ss_clear(&ctx->add_this_after_external_decl);
         ss_clear(&ctx->add_this_before_external_decl);
-        ss_clear(&ctx->function_types);
+
 
         struct osstream declaration = { 0 };
         d_visit_declaration(ctx, &declaration, p_declaration);
 
-        if (ctx->function_types.size > 0)
-        {
-            ss_fprintf(&declarations, "%s\n", ctx->function_types.c_str);
-            ss_clear(&ctx->function_types);
-        }
 
         if (ctx->add_this_before.size > 0)
         {
@@ -3099,11 +3127,14 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         }
         if (ctx->add_this_before_external_decl.size > 0)
         {
-            ss_fprintf(&declarations, "%s", ctx->add_this_before_external_decl.c_str);
+            ss_fprintf(&declarations, "%s\n", ctx->add_this_before_external_decl.c_str);
             ss_clear(&ctx->add_this_before_external_decl);
         }
         if (declaration.size > 0)
             ss_fprintf(&declarations, "%s", declaration.c_str);
+
+        if (ctx->add_this_after_external_decl.c_str)
+            ss_fprintf(&declarations, "%s", ctx->add_this_after_external_decl.c_str);
 
         ss_close(&declaration);
 
@@ -3120,11 +3151,6 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     ss_fprintf(oss, "%s", str);
 #endif
 
-    if (ctx->data_types.c_str)
-    {
-        ss_fprintf(oss, "%s", ctx->data_types.c_str);
-        ss_fprintf(oss, "\n");
-    }
 
     for (int i = 0; i < ctx->structs_map.capacity; i++)
     {
@@ -3167,6 +3193,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     {
         ss_fprintf(oss, "%s", declarations.c_str);
     }
+
+
     ss_close(&declarations);
 }
-

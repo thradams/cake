@@ -81,7 +81,7 @@ function validate(model)
 function Share()
 {
     var source = inputEditor.getValue();
-    var to = document.getElementById("outtype").value;
+    var to = -2;// document.getElementById("outtype").value;
     var options = document.getElementById("options").value;
 
     var link = "http://thradams.com/cake/playground.html?code=" + encodeURIComponent(btoa(source)) +
@@ -127,7 +127,7 @@ function OnCompileButton()
 {
     document.getElementById("output").value = "";
     outputEditor.setValue("");
-    var outputLanguage = document.getElementById("outtype").value;
+    var outputLanguage = -2;// document.getElementById("outtype").value;
 
     var options = document.getElementById("options").value;
 
@@ -237,7 +237,7 @@ function OnLoad()
         try
         {
             to = decodeURI(to);
-            document.getElementById("outtype").value = to;
+            //document.getElementById("outtype").value = to;
         }
         catch { }
     }

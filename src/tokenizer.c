@@ -3993,28 +3993,32 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             naming_convention_macro(ctx, macro_name_token);
 
             struct macro* existing_macro = find_macro(ctx, macro->name);
-            if (existing_macro &&
-                !macro_is_same(macro, existing_macro))
+            if (existing_macro)
             {
-                preprocessor_diagnostic(C_ERROR_MACRO_REDEFINITION,
-                ctx,
-                macro->p_name_token,
-                "macro redefinition");
+                if (!macro_is_same(macro, existing_macro))
+                {
+                    preprocessor_diagnostic(C_ERROR_MACRO_REDEFINITION,
+                    ctx,
+                    macro->p_name_token,
+                    "macro redefinition");
 
-                preprocessor_diagnostic(W_NOTE,
-                ctx,
-                existing_macro->p_name_token,
-                "previous definition");
-
-                macro_delete(macro);
-
-                throw;
+                    preprocessor_diagnostic(W_NOTE,
+                    ctx,
+                    existing_macro->p_name_token,
+                    "previous definition");                    
+                
+                    macro_delete(macro);
+                    throw;
+                }
+                macro_delete(macro);                
             }
-
-            struct hash_item_set item = { 0 };
-            item.p_macro = macro;
-            hashmap_set(&ctx->macros, macro->name, &item);
-            hash_item_set_destroy(&item);
+            else
+            {
+                struct hash_item_set item = { 0 };
+                item.p_macro = macro;
+                hashmap_set(&ctx->macros, macro->name, &item);
+                hash_item_set_destroy(&item);
+            }
         }
         else if (strcmp(input_list->head->lexeme, "undef") == 0)
         {
