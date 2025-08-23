@@ -27488,7 +27488,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.47"
+#define CAKE_VERSION "0.10.48"
 
 
 
@@ -27525,8 +27525,8 @@ struct d_visit_ctx
        static local are placed in the global scope on-demand.
        This map tell us if some declarator was already exported.
     */
-    struct hash_map static_declarators;
-
+    struct hash_map static_declarators; //TODO resue function_map
+    
     struct osstream local_declarators;
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;
@@ -41159,7 +41159,7 @@ int struct_entry_list_push_back(struct struct_entry_list* p, struct struct_entry
 }
 
 static void d_visit_function_body(struct d_visit_ctx* ctx,
-    struct osstream* oss, 
+    struct osstream* oss,
     struct declarator* function_definition);
 static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
 static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
@@ -41410,20 +41410,27 @@ static int find_member_name(const struct type* p_type, int index, char name[100]
     return 1;
 }
 
-static int il_visit_literal_string(struct token* current, struct osstream* oss)
+static int il_visit_literal_string2(struct token* current, struct osstream* oss)
 {
 
-    bool has_u8_prefix =
+    const bool has_u8_prefix =
         current->lexeme[0] == 'u' && current->lexeme[1] == '8';
 
     unsigned char* psz = (unsigned char*)(current->lexeme + 0);
     if (has_u8_prefix)
     {
-        psz = (unsigned char*)(current->lexeme + 2);
+        psz = (unsigned char*)(current->lexeme + 2 + 1);
+    }
+    else
+    {
+        psz = (unsigned char*)(current->lexeme + 1);
     }
 
     while (*psz)
     {
+        if (*(psz + 1) == '\0')
+            break;
+
         if (*psz >= 128)
         {
             ss_fprintf(oss, "\\x%x", *psz);
@@ -41437,6 +41444,31 @@ static int il_visit_literal_string(struct token* current, struct osstream* oss)
 
 
     return 0;
+}
+
+static void il_print_string(struct token* first_token, struct token* last_token, struct osstream* oss)
+{
+    ss_fprintf(oss, "\"");
+
+    struct token* _Opt ptk = first_token;
+    do
+    {
+        if (ptk == NULL)
+            break;
+
+        if ((ptk->flags & TK_FLAG_FINAL) &&
+            ptk->type == TK_STRING_LITERAL)
+        {
+            il_visit_literal_string2(ptk, oss);
+        }
+
+        if (ptk == last_token)
+            break;
+
+        ptk = ptk->next;
+    } while (ptk);
+    ss_fprintf(oss, "\"");
+
 }
 
 static const char* get_op_by_expression_type(enum expression_type type)
@@ -41520,18 +41552,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
-        //const bool is_function = type_is_function(&p_expression->p_init_declarator->p_declarator->type);
-        //const bool binline = (function_specifier_flags & FUNCTION_SPECIFIER_INLINE);
-        //const bool is_local = (storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE);
-        //const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
-        //const bool is_local_function = is_function && p_init_declarator->p_declarator->function_body != NULL;
-
-        //const bool is_extern_linkage_function =
-            //is_function &&
-            //!is_local_function &&
-            //!is_static &&
-            //!binline;
-
         const char* declarator_name = "";
         if (p_expression->declarator->name_opt)
             declarator_name = p_expression->declarator->name_opt->lexeme;
@@ -41619,7 +41639,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                         ss_fprintf(&local3, "%s\n", local4.c_str);
 
                         d_visit_function_body(ctx, &local3, p_function_defined);
-                        
+
                         assert(ss.c_str);
                         assert(oss->c_str);
 
@@ -41710,20 +41730,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     }
     break;
 
-    case PRIMARY_EXPRESSION_STRING_LITERAL:
-    {
-        struct token* _Opt ptk = p_expression->first_token;
-        do
-        {
-            if (ptk->type == TK_STRING_LITERAL)
-                il_visit_literal_string(ptk, oss);
-
-            if (ptk == p_expression->last_token)
-                break;
-
-            ptk = ptk->next;
-        } while (ptk);
-    }
+    case PRIMARY_EXPRESSION_STRING_LITERAL:    
+        il_print_string(p_expression->first_token, p_expression->last_token, oss);  
     break;
 
     case PRIMARY_EXPRESSION_ENUMERATOR:
@@ -42931,7 +42939,7 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream*
 }
 
 static void d_visit_function_body(struct d_visit_ctx* ctx,
-    struct osstream* oss, 
+    struct osstream* oss,
     struct declarator* function_definition)
 {
     if (function_definition->function_body == NULL)
@@ -42941,7 +42949,7 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     }
     int indentation = ctx->indentation;
     ctx->indentation = 0;
-    struct declarator * previous_func = ctx->p_current_function_opt;
+    struct declarator* previous_func = ctx->p_current_function_opt;
     ctx->p_current_function_opt = function_definition;
     d_visit_compound_statement(ctx, oss, function_definition->function_body);
     ctx->p_current_function_opt = previous_func;//restore
@@ -43494,7 +43502,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
 
         *first = false;
 
-        il_visit_literal_string(object->p_init_expression->first_token, ss);
+        il_print_string(object->p_init_expression->first_token, object->p_init_expression->last_token ,ss);
         return;
     }
 
@@ -43534,7 +43542,8 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
             else if (object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
             {
                 //literals also can be used in c89 initializers
-                il_visit_literal_string(object->p_init_expression->first_token, ss);
+                il_print_string(object->p_init_expression->first_token, object->p_init_expression->last_token, ss);
+
             }
             else
             {
@@ -43952,10 +43961,10 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             i.number = 1;
             hashmap_set(&ctx->function_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
 
-            ss_fprintf(&sslocal, "\n");                                                          
+            ss_fprintf(&sslocal, "\n");
             d_visit_function_body(ctx, &sslocal, p_init_declarator->p_declarator);
             ss_fprintf(&sslocal, "\n");
-            
+
             hash_item_set_destroy(&i);
         }
 
