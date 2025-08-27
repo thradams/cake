@@ -1,5 +1,9 @@
-int i;
+
+int y;
+int z = 123;
+
 int main()
 {
-    i = 1;
+    int i = 1;
+    int j;
 }

@@ -27500,7 +27500,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.50"
+#define CAKE_VERSION "0.10.51"
 
 
 
@@ -43700,7 +43700,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
             }
             else
             {
-                print_identation_core(oss, ctx->indentation);
+                //print_identation_core(oss, ctx->indentation);
                 ss_fprintf(oss, " = ");//, p_init_declarator->p_declarator->name_opt->lexeme, "");
                 d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
                 ss_fprintf(oss, ";\n");
@@ -43851,7 +43851,15 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             d_print_type(ctx, &ss,
                &p_init_declarator->p_declarator->type,
                p_init_declarator->p_declarator->name_opt->lexeme);
-            ss_fprintf(oss0, "%s;\n", ss.c_str);
+            ss_fprintf(oss0, "%s", ss.c_str);
+
+            if (p_init_declarator->initializer)
+            {
+                print_initializer(ctx, oss0, p_init_declarator, true);
+            }
+            else
+                ss_fprintf(oss0, ";\n");
+
             ss_close(&ss);
             return;
         }
@@ -43867,6 +43875,14 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
             ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
             ss_close(&ss);
+            
+            if (p_init_declarator->initializer)
+            {
+                //print_identation(ctx, &ctx->block_scope_declarators);
+
+                print_initializer(ctx, oss0, p_init_declarator, false);
+            }
+
             return;
         }
         else if (!is_block_scope && !is_inline && !is_static && is_function && is_function_body)
@@ -43919,11 +43935,11 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             if (rename_declarator)
             {
                 char name[100] = { 0 };
-                snprintf(name, sizeof(name), 
+                snprintf(name, sizeof(name),
                     CAKE_PREFIX_FOR_CODE_GENERATION "%d_%s",
                     ctx->cake_declarator_number++,
                     p_init_declarator->p_declarator->name_opt->lexeme
-                    );
+                );
 
                 free(p_init_declarator->p_declarator->name_opt->lexeme);
                 p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
