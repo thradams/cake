@@ -142,9 +142,8 @@ See [Manual](manual.md)
 
 # Road map
 
-* Remove all warnings of cake source code in safe mode to validate the design and implementation
-* Fixes
-* C89 backend
+* Making it usable as C89 backend and fixes
+* Flow v2 algorithm was delayed
 
 # References
 

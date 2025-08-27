@@ -2897,7 +2897,7 @@ int objects_push(struct objects* arr, struct object* obj)
     if (arr->size == arr->capacity)
     {
         size_t new_capacity = arr->capacity ? arr->capacity * 2 : OBJECTS_INITIAL_CAPACITY;
-        struct object** new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
+        struct object** _Opt new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
         if (!new_items) return ENOMEM;
         arr->items = new_items;
         arr->capacity = new_capacity;

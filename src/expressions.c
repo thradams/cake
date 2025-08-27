@@ -7076,7 +7076,7 @@ void check_assigment(struct parser_ctx* ctx,
 
 }
 
-struct object expression_eval(struct expression* p_expression)
+struct object expression_eval(struct expression* p_expression) //used by flow II
 {
     struct object result = { 0 };
 
@@ -7154,7 +7154,9 @@ struct object expression_eval(struct expression* p_expression)
             {
                 result = object_add(&a, &b);
             }
+            object_destroy(&b);
         }
+        object_destroy(&a);
     }
     break;
     case ADDITIVE_EXPRESSION_MINUS:
@@ -7167,7 +7169,9 @@ struct object expression_eval(struct expression* p_expression)
             {
                 result = object_sub(&a, &b);
             }
+            object_destroy(&b);
         }
+        object_destroy(&a);
     }
     break;
 
@@ -7228,8 +7232,10 @@ struct object expression_eval(struct expression* p_expression)
                         result = object_make_signed_int(r2);
                     }
                 }
+                object_destroy(&b);
             }
         }
+        object_destroy(&a);
     }
     break;  //||
 

@@ -2113,6 +2113,8 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
 
                     if (md->declarator)
                     {
+                        assert(md->declarator->name_opt != NULL);
+
                         align = type_get_alignof(&md->declarator->type);
 
                         if (align > maxalign)

@@ -265,6 +265,11 @@ https://port70.net/~nsz/c/c89/c89-draft.html
 
 const, enuns
 
+## C95
+
+C95 wide strings (L"...")
+
+
 ## C99
 https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
 

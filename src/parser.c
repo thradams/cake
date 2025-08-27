@@ -2351,7 +2351,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
 
-            struct scope* p_current_function_scope_opt = ctx->p_current_function_scope_opt;
+            struct scope* _Opt p_current_function_scope_opt = ctx->p_current_function_scope_opt;
             ctx->p_current_function_scope_opt = ctx->scopes.tail;
 
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
@@ -2385,7 +2385,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 const char* func_name =
                     p_declaration->init_declarator_list.head->p_declarator->name_opt->lexeme;
 
-                struct scope* p_previous_scope = NULL;
+                struct scope* _Opt p_previous_scope = NULL;
                 struct declarator* _Opt p_previous_declarator = find_declarator(ctx, func_name, &p_previous_scope);
                 if (p_previous_declarator && p_previous_declarator != p_declaration->init_declarator_list.head->p_declarator)
                 {
@@ -6683,7 +6683,7 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* declarator)
 {
-    struct declarator* _Opt p_function_defined = NULL;
+    const struct declarator* _Opt p_function_defined = NULL;
     if (declarator->function_body)
     {
         p_function_defined = declarator;
@@ -7944,7 +7944,6 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx)
 {
     enum attribute_flags attribute_flags = 0;
 
-    struct attribute_token* _Owner _Opt p_attribute_token = NULL;
     try
     {
         if (ctx->current == NULL)
@@ -7952,8 +7951,6 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx)
             unexpected_end_of_file(ctx);
             throw;
         }
-
-
 
         struct token* attr_token = ctx->current;
 
@@ -8099,15 +8096,6 @@ struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
     }
     return p_attribute;
 }
-
-void attribute_token_delete(struct attribute_token* _Owner _Opt p)
-{
-    if (p)
-    {
-        free(p);
-    }
-}
-
 
 void attribute_argument_clause_delete(struct attribute_argument_clause* _Owner _Opt p)
 {

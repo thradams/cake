@@ -4005,12 +4005,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     preprocessor_diagnostic(W_NOTE,
                     ctx,
                     existing_macro->p_name_token,
-                    "previous definition");                    
-                
+                    "previous definition");
+
                     macro_delete(macro);
                     throw;
                 }
-                macro_delete(macro);                
+                macro_delete(macro);
             }
             else
             {
@@ -6210,6 +6210,12 @@ const char* get_token_name(enum token_type tk)
     case TK_AND_ASSIGN: return "TK_AND_ASSIGN";
     case TK_OR_ASSIGN: return "TK_OR_ASSIGN";
     case TK_NOT_ASSIGN: return "TK_NOT_ASSIGN";
+
+    case TK_KEYWORD_GCC__BUILTIN_VA_END: return "TK_KEYWORD_GCC__BUILTIN_VA_END";
+    case TK_KEYWORD_GCC__BUILTIN_VA_ARG: return "TK_KEYWORD_GCC__BUILTIN_VA_ARG";
+    case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
+    case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
+    case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
 
     }
     return "TK_X_MISSING_NAME";

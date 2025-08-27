@@ -31,6 +31,22 @@ int main(void)
 
 `;
 
+
+sample["C95"] = [];
+sample["C95"]["wide strings"] =
+`
+/*
+   Currently, cake is not converting wide strings to C89.
+*/
+
+typedef int wchar_t;
+int main(void)
+{
+    const wchar_t * p = L"wide string";
+}
+
+`;
+
 sample["C99"] = [];
 sample["C99"]["_Bool"] =
     `

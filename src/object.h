@@ -85,7 +85,7 @@ struct object
         double double_value;
         long double long_double_value;            
 
-        void * void_pointer;
+        void * _Opt void_pointer;
     } value;
     struct object* _Opt parent; //to be removed
     struct expression * _Opt p_init_expression;
@@ -206,7 +206,7 @@ struct object* object_get_non_const_referenced(struct object* p_object);
 
 struct objects 
 {
-    struct object** items;
+    struct object** _Opt items;
     int size;
     int capacity;
 };

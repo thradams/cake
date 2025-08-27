@@ -757,6 +757,8 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
     {
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
     {
+        assert(p_expression->compound_statement != NULL);
+
         //TODO missing parameters of literal functions
         //without it static analysis will not work
         defer_visit_compound_statement(ctx, p_expression->compound_statement);

@@ -14,23 +14,14 @@ struct d_visit_ctx
 {
     int indentation;
 
-    /*used to create unique variable names inside functions*/
-    int locals_count;
+    unsigned int cake_declarator_number; //used to create unique declarator names
 
-    int extern_count;
-
-    int tag_name_count;
+    unsigned int cake_tag_count; //used to create unique tag names
     struct hash_map tag_names;
     struct hash_map structs_map;
-    struct hash_map function_map;
+    struct hash_map file_scope_declarator_map;
     
-    /*
-       static local are placed in the global scope on-demand.
-       This map tell us if some declarator was already exported.
-    */
-    struct hash_map static_declarators; //TODO resue function_map
-    
-    struct osstream local_declarators;
+    struct osstream block_scope_declarators;
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;
     struct osstream add_this_after_external_decl;
@@ -41,7 +32,7 @@ struct d_visit_ctx
     /*
     * Points to the function we're in. Or null in file scope.
     */
-    struct declarator* _Opt p_current_function_opt;
+    const struct declarator* _Opt p_current_function_opt;
 
     struct break_reference
     {
