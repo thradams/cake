@@ -1,6 +1,6 @@
 
 #pragma safety enable
-
+#include "version.h"
 #include "ownership.h"
 #include <stdlib.h>
 #include <string.h>
@@ -945,9 +945,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         object_print_value(oss, &p_expression->object);
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF:
-    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
+    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
+    case UNARY_EXPRESSION_ALIGNOF_TYPE:
+    case UNARY_EXPRESSION_COUNTOF:
         object_print_value(oss, &p_expression->object);
+        break;
+
+    case UNARY_EXPRESSION_CONSTEVAL:
+        d_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_INCREMENT:
@@ -1430,7 +1435,12 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
             struct osstream local = { 0 };
             d_visit_declaration(ctx, &local, p_iteration_statement->declaration);
 
-            ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+            if (ctx->block_scope_declarators.c_str)
+            {
+                ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+                ss_fprintf(oss, "\n");
+            }
+
             if (local.c_str)
                 ss_fprintf(oss, "%s", local.c_str);
 
@@ -1618,9 +1628,16 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
             ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
 
             struct osstream local2 = { 0 };
+
+            print_identation(ctx, &local2);
             d_visit_init_statement(ctx, &local2, p_selection_statement->p_init_statement);
-            ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
-            ss_fprintf(oss, "\n");
+
+            if (ctx->block_scope_declarators.c_str)
+            {
+                ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+                ss_fprintf(oss, "\n");
+            }
+
             ss_fprintf(oss, "%s", local2.c_str);
             ss_close(&local2);
             print_identation(ctx, oss);
@@ -1638,10 +1655,17 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 struct osstream block_scope_declarators = { 0 };
                 ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
 
+
                 struct osstream local2 = { 0 };
+                print_identation(ctx, &local2);
                 d_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, false, false);
-                ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
-                ss_fprintf(oss, "\n");
+
+                if (ctx->block_scope_declarators.c_str)
+                {
+                    ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+                    ss_fprintf(oss, "\n");
+                }
+
                 ss_fprintf(oss, "%s", local2.c_str);
                 ss_close(&local2);
                 ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
@@ -1781,13 +1805,13 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
         object_to_str(&p_label->constant_expression->object, 50, str);
         if (p_label->constant_expression_end == NULL)
         {
-            ss_fprintf(oss, "/*case %s*/ ", str);
+            ss_fprintf(oss, " /*case %s*/ ", str);
         }
         else
         {
             char str2[50] = { 0 };
             object_to_str(&p_label->constant_expression_end->object, 50, str2);
-            ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
+            ss_fprintf(oss, " /*case %s ... %s*/ ", str, str2);
         }
 
         ss_fprintf(oss, "\n");
@@ -2188,7 +2212,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else
             {
-                print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags);
+                print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags, ctx->options.target);
                 print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
                 print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
             }
@@ -2396,14 +2420,24 @@ static void d_print_type(struct d_visit_ctx* ctx,
 
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
     {
+        if (ctx->options.target == TARGET_DEFAULT)
+        {
 #ifdef _MSC_VER
-        ss_fprintf(ss, "__declspec(thread) ");
+            ss_fprintf(ss, "__declspec(thread) ");
 #elif __GNUC__
-        ss_fprintf(ss, "__thread ");
+            ss_fprintf(ss, "__thread ");
 #endif
-
+        }
+        else if (ctx->options.target == TARGET_X86_MSVC ||
+                 ctx->options.target == TARGET_X64_MSVC)
+        {
+            ss_fprintf(ss, "__declspec(thread) ");
+        }
+        else if (ctx->options.target == TARGET_X86_X64_GCC)
+        {
+            ss_fprintf(ss, "__thread ");
+        }
     }
-
 
     ss_fprintf(ss, "%s", local.c_str);
 
@@ -2703,7 +2737,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                         if (is_local && !bstatic)
                         {
                             size_t sz = 0;
-                            if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz) != 0)
+                            if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz, ctx->options.target) != 0)
                             {
                                 throw;
                             }
@@ -2745,7 +2779,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                     if (is_local && !bstatic)
                     {
                         size_t sz = 0;
-                        if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz) != 0)
+                        if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz, ctx->options.target) != 0)
                         {
                             throw;
                         }
@@ -2835,7 +2869,9 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             struct osstream ss = { 0 };
             d_print_type(ctx, &ss,
                &p_init_declarator->p_declarator->type,
-               p_init_declarator->p_declarator->name_opt->lexeme);
+               p_init_declarator->p_declarator->name_opt->lexeme
+            );
+
             ss_fprintf(oss0, "%s", ss.c_str);
 
             if (p_init_declarator->initializer)
@@ -2860,7 +2896,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
             ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
             ss_close(&ss);
-            
+
             if (p_init_declarator->initializer)
             {
                 //print_identation(ctx, &ctx->block_scope_declarators);
@@ -3098,6 +3134,8 @@ void print_complete_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct
 void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 {
     struct osstream declarations = { 0 };
+
+    ss_fprintf(oss, "// Cake %s target=%s\n", CAKE_VERSION, target_to_string(ctx->options.target));
 
     ctx->indentation = 0;
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;

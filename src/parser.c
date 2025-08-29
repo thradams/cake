@@ -660,6 +660,12 @@ bool first_of_type_qualifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
+    if (ctx->current->type == TK_KEYWORD_CONST)
+    {
+        struct token* ahead = parser_look_ahead(ctx);
+        if (ahead->type == '(')
+            return false; //expression const(expr)
+    }
     return first_of_type_qualifier_token(ctx->current);
 }
 
@@ -2638,7 +2644,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         if (!type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
                         {
                             struct osstream ss = { 0 };
-                            print_type_no_names(&ss, &p_previous_declarator->type);
+                            print_type_no_names(&ss, &p_previous_declarator->type, ctx->options.target);
 
                             compiler_diagnostic(
                                 C_ERROR_REDECLARATION,
@@ -2648,7 +2654,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                                 "conflicting types for '%s' (%s)", declarator_name, ss.c_str);
 
                             ss_clear(&ss);
-                            print_type_no_names(&ss, &p_init_declarator->p_declarator->type);
+                            print_type_no_names(&ss, &p_init_declarator->p_declarator->type, ctx->options.target);
 
                             compiler_diagnostic(C_ERROR_REDECLARATION,
                                 ctx,
@@ -2952,7 +2958,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             else
             {
                 size_t sz = 0;
-                enum sizeof_error size_result = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz);
+                enum sizeof_error size_result = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz, ctx->options.target);
 
                 if (size_result == ESIZEOF_NONE)
                 {
@@ -10909,15 +10915,14 @@ int compile_one_file(const char* file_name,
 
             if (!options->no_output)
             {
-                if (options->target == TARGET_C89_IL)
-                {
-                    struct osstream ss = { 0 };
-                    struct d_visit_ctx ctx2 = { 0 };
-                    ctx2.ast = ast;
-                    d_visit(&ctx2, &ss);
-                    s = ss.c_str; //MOVE
-                    d_visit_ctx_destroy(&ctx2);
-                }
+
+                struct osstream ss = { 0 };
+                struct d_visit_ctx ctx2 = { 0 };
+                ctx2.ast = ast;
+                ctx2.options = ctx.options;
+                d_visit(&ctx2, &ss);
+                s = ss.c_str; //MOVE
+                d_visit_ctx_destroy(&ctx2);
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
@@ -11194,7 +11199,8 @@ int compile(int argc, const char** argv, struct report* report)
     {
         return 1;
     }
-
+    
+    
     char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);
@@ -11415,17 +11421,17 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             if (report->error_count > 0)
                 throw;
 
-            if (options.target == TARGET_C89_IL)
-            {
-                struct osstream ss = { 0 };
-                struct d_visit_ctx ctx2 = { 0 };
-                ctx2.ast = ast;
-                d_visit(&ctx2, &ss);
-                s = ss.c_str; //MOVED                
-                //ss.c_str = NULL;
-                //ss_close(&ss);
-                d_visit_ctx_destroy(&ctx2);
-            }
+
+            struct osstream ss = { 0 };
+            struct d_visit_ctx ctx2 = { 0 };
+            ctx2.ast = ast;
+            ctx2.options = options;
+            d_visit(&ctx2, &ss);
+            s = ss.c_str; //MOVED                
+            //ss.c_str = NULL;
+            //ss_close(&ss);
+            d_visit_ctx_destroy(&ctx2);
+
 
         }
     }

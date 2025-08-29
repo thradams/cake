@@ -668,7 +668,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p++;
             p++;
 
-            p_expression_node->type.type_specifier_flags = CAKE_WCHAR_T_TYPE_SPECIFIER;
+            p_expression_node->type.type_specifier_flags = get_wchar_type_specifier(ctx->options.target);
 
             /*
              wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
@@ -1107,7 +1107,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = type_make_literal_string(strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST);
+                p_expression_node->type = type_make_literal_string(strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST, ctx->options.target);
             }
             else
             {
@@ -1140,7 +1140,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                    GCC or MSVC.
                    windows it is short linux is
                 */
-                char_type = CAKE_WCHAR_T_TYPE_SPECIFIER;
+                char_type = get_wchar_type_specifier(ctx->options.target);
             }
             /*
               string concatenation should have been done in a previous phase
@@ -1213,7 +1213,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             }
 
             enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
-            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, lit_flags);
+            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, lit_flags, ctx->options.target);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
@@ -2235,6 +2235,13 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
+    if (ctx->current->type == TK_KEYWORD_CONST)
+    {
+        struct token* ahead = parser_look_ahead(ctx);
+        if (ahead->type == '(')
+            return true; //const(expr)
+    }
+
     return first_of_postfix_expression(ctx) ||
         ctx->current->type == '++' ||
         ctx->current->type == '--' ||
@@ -2514,7 +2521,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     new_expression->expression_type = UNARY_EXPRESSION_PLUS;
 
                 //promote
-                new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type);
+                new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type, ctx->options.target);
 
                 if (!ctx->evaluation_is_disabled &&
                     object_has_constant_value(&new_expression->right->object))
@@ -2850,7 +2857,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 new_expression = NULL;
                 throw;
             }
-            
+
             new_expression->type = type_dup(&new_expression->type_name->type);
             return new_expression;
         }
@@ -2905,7 +2912,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->type = make_void_type();
             return new_expression;
         }
-         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF)
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF)
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
@@ -2940,22 +2947,22 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 new_expression = NULL;
                 throw;
             }
-            
+
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 new_expression = NULL;
-                throw;                
+                throw;
             }
 
             if (ctx->current->type != TK_IDENTIFIER)
-            {             
+            {
                 //TODO
                 //https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
                 expression_delete(new_expression);
                 new_expression = NULL;
-                throw;                
+                throw;
             }
             new_expression->offsetof_member_designator = ctx->current;
 
@@ -2968,27 +2975,26 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->type = make_size_t_type();
-            
+            new_expression->type = make_size_t_type(ctx->options.target);
+
             size_t offsetof = 0;
-            
-            enum sizeof_error e = 
-                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offsetof);
-            
+
+            enum sizeof_error e =
+                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offsetof, ctx->options.target);
+
             if (e != 0)
             {
                 throw;
             }
 
             new_expression->object = object_make_size_t(offsetof);
-            
+
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
             ctx->evaluation_is_disabled = true;
-            // defer would be nice here...
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -3019,7 +3025,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                new_expression->type = make_size_t_type();
+                new_expression->type = make_size_t_type(ctx->options.target);
 
                 if (ctx->current == NULL)
                 {
@@ -3051,7 +3057,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     else
                     {
                         size_t type_sizeof = 0;
-                        if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof) != 0)
+                        if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof, ctx->options.target) != 0)
                         {
                             throw;
                         }
@@ -3086,14 +3092,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 else
                 {
                     size_t sz = 0;
-                    if (type_get_sizeof(&new_expression->right->type, &sz) != 0)
+                    if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
                         throw;
                     new_expression->object = object_make_size_t(sz);
                 }
             }
 
             type_destroy(&new_expression->type);
-            new_expression->type = type_make_size_t();
+            new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
 
             /*restore*/
@@ -3117,7 +3123,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->expression_type = UNARY_EXPRESSION_NELEMENTSOF_TYPE;
+            new_expression->expression_type = UNARY_EXPRESSION_COUNTOF;
 
             if (first_of_type_name_ahead(ctx))
             {
@@ -3133,7 +3139,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                new_expression->type = make_size_t_type();
+                new_expression->type = make_size_t_type(ctx->options.target);
 
                 if (ctx->current == NULL)
                 {
@@ -3265,7 +3271,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
 
             type_destroy(&new_expression->type);
-            new_expression->type = type_make_size_t();
+            new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
 
         }
@@ -3296,13 +3302,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
             return new_expression;
         }
-        else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
+        else if (ctx->current->type == TK_KEYWORD_CONST) /*new keyword consteval?? */
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
-            new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
+            new_expression->expression_type = UNARY_EXPRESSION_CONSTEVAL;
             new_expression->first_token = ctx->current;
+
             parser_match(ctx);
 
             if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
@@ -3311,24 +3318,125 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 new_expression = NULL;
                 throw;
             }
-            new_expression->type_name = type_name(ctx);
+            new_expression->right = constant_expression(ctx, true);
+
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
                 new_expression = NULL;
                 throw;
             }
+            return new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
+        {
+            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = true;
 
-            if (!ctx->evaluation_is_disabled)
+            parser_match(ctx);
+            if (ctx->current == NULL)
             {
-                new_expression->object = object_make_size_t(type_get_alignof(&new_expression->type_name->type));
+                unexpected_end_of_file(ctx);
+                throw;
             }
-            new_expression->type = type_make_int();
 
-            assert(ctx->previous != NULL);
-            new_expression->last_token = ctx->previous;
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
+            new_expression->first_token = ctx->current;
+
+            if (first_of_type_name_ahead(ctx))
+            {
+                new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF_TYPE;
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+                new_expression->type_name = type_name(ctx);
+                if (new_expression->type_name == NULL)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+
+                new_expression->type = make_size_t_type(ctx->options.target);
+
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->last_token = ctx->current;
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (check_sizeof_argument(ctx, new_expression, &new_expression->type_name->type) != 0)
+                {
+                    //not fatal error
+                    //fatal will be if someone need the sizeof at compile time
+                    //but we don't have the object set here
+                }
+                else
+                {
+                    if (type_is_vla(&new_expression->type_name->abstract_declarator->type))
+                    {
+                        //not constant
+                    }
+                    else
+                    {
+                        size_t type_alignof = 0;
+                        type_alignof = type_get_alignof(&new_expression->type_name->abstract_declarator->type, ctx->options.target);
+
+                        new_expression->object = object_make_size_t(type_alignof);
+                    }
+                }
+            }
+            else
+            {
+                new_expression->right = unary_expression(ctx);
+                if (new_expression->right == NULL)
+                {
+                    /*restore*/
+                    ctx->evaluation_is_disabled = disable_evaluation_copy;
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF_EXPRESSION;
+
+                if (check_sizeof_argument(ctx, new_expression->right, &new_expression->right->type) != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (type_is_vla(&new_expression->right->type))
+                {
+                    //not constant
+                }
+                else
+                {
+                    size_t sz = 0;
+                    sz = type_get_alignof(&new_expression->right->type, ctx->options.target);
+                    new_expression->object = object_make_size_t(sz);
+                }
+            }
+
+            type_destroy(&new_expression->type);
+            new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
+
+            /*restore*/
+            ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
         else if (
             ctx->current->type == TK_KEYWORD_IS_LVALUE ||
@@ -3763,7 +3871,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 .p_token_end = new_expression->right->last_token
             };
 
-            common_type = type_common(&new_expression->left->type, &new_expression->right->type);
+            common_type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
             enum object_value_type vt = type_to_object_type(&common_type);
             switch (vt)
@@ -4694,7 +4802,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                         "right is not an arithmetic type");
                 }
             }
-            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
             if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
             {
@@ -4800,7 +4908,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 */
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
-                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
                     if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
@@ -4869,7 +4977,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 */
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
-                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
                     if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
@@ -5089,7 +5197,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             if (type_is_arithmetic(&new_expression->left->type) &&
                 type_is_arithmetic(&new_expression->right->type))
             {
-                new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
                 if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                 {
@@ -5418,7 +5526,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
         }
 
         type_destroy(&new_expression->type);
-        new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+        new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
         if (!ctx->evaluation_is_disabled &&
             object_has_constant_value(&new_expression->left->object) &&
@@ -6407,7 +6515,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
                  *  both operands have arithmetic type;
                 */
                 type_destroy(&p_conditional_expression->type);
-                p_conditional_expression->type = type_common(&left_type, &right_type);
+                p_conditional_expression->type = type_common(&left_type, &right_type, ctx->options.target);
             }
             else if (type_is_struct_or_union(&left_type) && type_is_struct_or_union(&right_type))
             {
@@ -6574,12 +6682,15 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
     case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
-    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:  break;
+    case UNARY_EXPRESSION_COUNTOF:  break;
 
     case UNARY_EXPRESSION_TRAITS:  break;
     case UNARY_EXPRESSION_IS_SAME:  break;
     case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
-    case UNARY_EXPRESSION_ALIGNOF:  break;
+
+    case UNARY_EXPRESSION_ALIGNOF_TYPE:  break;
+    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:  break;
+
     case UNARY_EXPRESSION_ASSERT:  break;
 
     case UNARY_EXPRESSION_INCREMENT:  break;
@@ -7013,8 +7124,8 @@ void check_assigment(struct parser_ctx* ctx,
 
         if (!type_is_same(&b_type_lvalue, &a_type_lvalue, false))
         {
-            type_print(&b_type_lvalue);
-            type_print(&a_type_lvalue);
+            type_print(&b_type_lvalue, ctx->options.target);
+            type_print(&a_type_lvalue, ctx->options.target);
 
             compiler_diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx,
                 p_b_expression->first_token, NULL,
@@ -7120,12 +7231,13 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
     case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
-    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:  break;
+    case UNARY_EXPRESSION_COUNTOF:  break;
 
     case UNARY_EXPRESSION_TRAITS:  break;
     case UNARY_EXPRESSION_IS_SAME:  break;
     case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
-    case UNARY_EXPRESSION_ALIGNOF:  break;
+    case UNARY_EXPRESSION_ALIGNOF_TYPE:  break;
+    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:  break;
     case UNARY_EXPRESSION_ASSERT:  break;
 
     case UNARY_EXPRESSION_INCREMENT:  break;

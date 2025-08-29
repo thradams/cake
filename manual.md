@@ -154,6 +154,8 @@ Inside "Visual Studio -> External Tools" this command can be used for static ana
 
 `-Wstyle  -msvc-output  -no-output -sarif -sarif-path "$(SolutionDir).sarif" $(ItemPath)´
 
+### -target=x86_x64_gcc, -target=x64_msvc, -target=x64_msvc
+This is used for cross compiling.
 
 #### -msvc-output          
 Output is compatible with Visual Studio IDE. 

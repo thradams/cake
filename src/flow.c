@@ -1965,7 +1965,7 @@ void object_get_name(const struct type* p_type,
         int bytes_written = 0;
         struct token* _Opt p = p_object->p_expression_origin->first_token;
         for (int i = 0; i < 10; i++)
-        {           
+        {
             const char* ps = p->lexeme;
             while (*ps)
             {
@@ -1981,7 +1981,7 @@ void object_get_name(const struct type* p_type,
                 break;
 
             p = p->next;
-            assert(p != NULL);                            
+            assert(p != NULL);
         }
 
         if (bytes_written < (out_size - 1))
@@ -2347,7 +2347,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
         {
             assert(false);
         }
-             
+
         if (name[0] == '\0')
         {
             /*function arguments without name*/
@@ -5546,14 +5546,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF:
+    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
 
         if (p_expression->right)
         {
             flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         }
 
+        break;
 
+    case UNARY_EXPRESSION_ALIGNOF_TYPE:
         break;
 
     case UNARY_EXPRESSION_ASSERT:
@@ -5598,7 +5600,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
+    case UNARY_EXPRESSION_COUNTOF:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
     case UNARY_EXPRESSION_BITNOT:

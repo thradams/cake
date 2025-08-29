@@ -12,6 +12,7 @@
 
 struct d_visit_ctx
 {
+    struct options options;
     int indentation;
 
     unsigned int cake_declarator_number; //used to create unique declarator names

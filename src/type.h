@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma once
@@ -13,6 +13,7 @@
 struct parser_ctx;
 
 #include "ownership.h"
+
 
 enum type_category
 {
@@ -79,7 +80,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_ENUM = 1 << 16,
     TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-    
+
     TYPE_SPECIFIER_INT8 = 1 << 18,
     TYPE_SPECIFIER_INT16 = 1 << 19,
     TYPE_SPECIFIER_INT32 = 1 << 20,
@@ -94,29 +95,10 @@ enum type_specifier_flags
     TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST = 1 << 25
 };
 
-#ifdef _WIN32
-
-#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
-
-#ifdef _WIN64
-#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64)    
-#else
-#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
-#endif
-
-#else 
-
-#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
-
-#ifdef __x86_64__
-/* 64-bit */
-#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG)    
-#else
-#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
-#endif
 
 
-#endif
+enum type_specifier_flags get_wchar_type_specifier(enum target target);
+enum type_specifier_flags get_size_t_specifier(enum target target);
 
 
 enum type_qualifier_flags
@@ -127,7 +109,7 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
     TYPE_QUALIFIER__ATOMIC = 1 << 3,
 
-    
+
 
     /*ownership extensions*/
     TYPE_QUALIFIER_OWNER = 1 << 4,
@@ -175,7 +157,7 @@ enum function_specifier_flags
 
 enum alignment_specifier_flags
 {
-    ALIGNMENT_SPECIFIER_NONE =  0,
+    ALIGNMENT_SPECIFIER_NONE = 0,
     ALIGNMENT_SPECIFIER_8_FLAGS = 1 << 0,
     ALIGNMENT_SPECIFIER_16_FLAGS = 1 << 1,
     ALIGNMENT_SPECIFIER_32_FLAGS = 1 << 2,
@@ -265,7 +247,7 @@ struct type
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-    
+
     const char* _Owner _Opt name_opt;
 
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -295,15 +277,15 @@ struct param
     struct param* _Owner _Opt next;
 };
 
-void print_type(struct osstream* ss, const  struct type* type);
-void print_type_no_names(struct osstream* ss, const struct type* p_type);
+void print_type(struct osstream* ss, const  struct type* type, enum target target);
+void print_type_no_names(struct osstream* ss, const struct type* p_type, enum target target);
 
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
 void type_destroy(_Opt _Dtor struct type* p_type);
 
-struct type type_common(const struct type* p_type1, const struct type* p_type2);
+struct type type_common(const struct type* p_type1, const struct type* p_type2, enum target target);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
 
@@ -390,10 +372,10 @@ struct type get_array_item_type(const struct type* p_type);
 
 struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled);
 
-struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers);
+struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers, enum target target);
 struct type type_make_int();
 struct type type_make_int_bool_like();
-struct type type_make_size_t();
+struct type type_make_size_t(enum target target);
 struct type type_make_long_double();
 struct type type_make_double();
 struct type type_make_float();
@@ -402,7 +384,7 @@ struct type type_make_float();
 struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
-struct type make_size_t_type();
+struct type make_size_t_type(enum target target);
 struct type make_with_type_specifier_flags(enum type_specifier_flags f);
 
 
@@ -419,24 +401,24 @@ enum sizeof_error
     ESIZEOF_FUNCTION
 };
 
-enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size);
-enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size);
+enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
+enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
 
-size_t type_get_alignof(const struct type* p_type);
+size_t type_get_alignof(const struct type* p_type, enum target target);
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled);
-void type_print(const struct type* a);
-void type_println(const struct type* a);
+void type_print(const struct type* a, enum target target);
+void type_println(const struct type* a, enum target target);
 
 enum type_category type_get_category(const struct type* p_type);
-void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
+void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type, enum target target);
 
 void type_visit_to_mark_anonymous(struct type* p_type);
 
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 
-void print_type_declarator(struct osstream* ss, const struct type* p_type);
+void print_type_declarator(struct osstream* ss, const struct type* p_type, enum target target);
 void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);
 void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags);

@@ -8,13 +8,10 @@
 #ifdef _WIN64
     typedef struct _iobuf FILE;
     typedef unsigned __int64 size_t;    
-#endif
-
-#ifdef  _WIN32
+#elif defined _WIN32
     typedef struct _iobuf FILE;
     typedef unsigned int     size_t;
 #endif
-
 
 #ifdef __linux__
 

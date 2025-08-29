@@ -73,6 +73,7 @@ int test_counter(void);
 int bug_test(void);
 int test_line_continuation(void);
 int stringify_test(void);
+void recursive_macro_expr(void);
 
 /* tests from options.c*/
 void test_get_warning_name(void);
@@ -142,6 +143,7 @@ g_unit_test_success_count = 0;
     bug_test();
     test_line_continuation();
     stringify_test();
+    recursive_macro_expr();
     test_get_warning_name();
 return g_unit_test_error_count;
 

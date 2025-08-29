@@ -197,7 +197,7 @@ struct type;
 
 enum object_value_type type_to_object_type(const struct type* type);
 
-void object_print_to_debug(const struct object* object);
+void object_print_to_debug(const struct object* object, enum target target);
 
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant);
 struct object* object_get_non_const_referenced(struct object* p_object);

@@ -460,7 +460,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         {
             ppnumber_to_longlong(ctx, ctx->current, &ectx->value);
             pre_match(ctx);
-        }
+        }        
         else if (ctx->current->type == '(')
         {
             pre_match(ctx);
@@ -1102,7 +1102,7 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 
 int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 {
-    struct pre_expression_ctx ectx = { 0 };
+    struct pre_expression_ctx ectx = { 0 };        
     pre_conditional_expression(ctx, &ectx);
     *pvalue = ectx.value;
     return ctx->n_errors > 0;

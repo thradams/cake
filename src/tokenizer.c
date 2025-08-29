@@ -2488,58 +2488,45 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, _Dtor struct
     {
         while (list->head != NULL)
         {
-            if (list->head->type == TK_IDENTIFIER)
+            if (list->head->type == TK_IDENTIFIER ||
+                list->head->type == TK_IDENTIFIER_RECURSIVE_MACRO)
             {
-                struct macro* _Opt macro = find_macro(ctx, list->head->lexeme);
+                /*
+                after  all  replacements  due  to  macro expansion and evaluations of
+                defined    macro    expressions,    has_include    expressions,   and
+                has_c_attribute   expressions  have  been  performed,  all  remaining
+                identifiers  other  than true (including those lexically identical to
+                keywords  such  as  false) are replaced with the pp-number 0, true is
+                replaced  with  pp-number  1,  and  then  each preprocessing token is
+                converted into a token.
+                */
+
                 struct token* _Owner _Opt p_new_token = token_list_pop_front_get(list);
                 assert(p_new_token != NULL); //because the list is not empty
-
                 p_new_token->type = TK_PPNUMBER;
 
-                if (macro)
+                if (strcmp(p_new_token->lexeme, "true") == 0)
                 {
-                    char* _Owner _Opt temp = strdup("1");
+                    p_new_token->lexeme[0] = '1';
+                    p_new_token->lexeme[1] = '\0';
+                }
+                else if (strcmp(p_new_token->lexeme, "false") == 0)
+                {
+                    p_new_token->lexeme[0] = '0';
+                    p_new_token->lexeme[1] = '\0';
+                }
+                else
+                {
+                    char* _Owner _Opt temp = strdup("0");
                     if (temp == NULL)
                     {
                         token_delete(p_new_token);
                         throw;
                     }
-
                     free(p_new_token->lexeme);
                     p_new_token->lexeme = temp;
                 }
-                else
-                {
-                    /*
-                    * after all replacements due to macro expansion and
-                      evaluations of defined macro expressions, has_include expressions, and has_c_attribute expressions
-                      have been performed, all remaining identifiers other than true (including those lexically identical
-                      to keywords such as false) are replaced with the pp-number 0, true is replaced with pp-number
-                      1, and then each preprocessing token is converted into a token.
-                    */
-                    if (strcmp(p_new_token->lexeme, "true") == 0)
-                    {
-                        p_new_token->lexeme[0] = '1';
-                        p_new_token->lexeme[1] = '\0';
-                    }
-                    else if (strcmp(p_new_token->lexeme, "false") == 0)
-                    {
-                        p_new_token->lexeme[0] = '0';
-                        p_new_token->lexeme[1] = '\0';
-                    }
-                    else
-                    {
-                        char* _Owner _Opt temp = strdup("0");
-                        if (temp == NULL)
-                        {
-                            token_delete(p_new_token);
-                            throw;
-                        }
 
-                        free(p_new_token->lexeme);
-                        p_new_token->lexeme = temp;
-                    }
-                }
                 token_list_add(&list2, p_new_token);
             }
             else
@@ -2628,7 +2615,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
         struct preprocessor_ctx pre_ctx = { 0 };
 
-
+        pre_ctx.options = ctx->options;
         pre_ctx.input_list = list4;
         pre_ctx.current = pre_ctx.input_list.head;
 
@@ -5705,9 +5692,12 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         }
     }
 
-    if (str == NULL && ctx->options.show_includes)
+    if (str == NULL)
     {
-        printf(".(cakeconfig.h not found)\n");
+        if (ctx->options.show_includes)
+        {
+            printf(".(cakeconfig.h not found)\n");
+        }
         //"No such file or directory";
         return  ENOENT;
     }
@@ -7790,6 +7780,26 @@ int stringify_test()
 
     assert(strcmp(buffer, r) == 0);
     return 0;
+
+}
+
+void recursive_macro_expr()
+{
+
+    const char* input =
+        "#define A A\n"
+        "#if A == 0\n"
+        "1\n"
+        "#endif";
+
+    const char* output =
+        "1"
+        ;
+
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    assert(test_preprocessor_in_out(input, output) == 0);
 
 }
 

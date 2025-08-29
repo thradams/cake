@@ -2232,7 +2232,7 @@ void object_print_value_debug(const struct object* a)
 
 }
 
-void object_print_to_debug_core(const struct object* object, int n)
+void object_print_to_debug_core(const struct object* object, int n, enum target target)
 {
 
     if (object_is_reference(object))
@@ -2248,14 +2248,14 @@ void object_print_to_debug_core(const struct object* object, int n)
     if (object->members != NULL)
     {
 
-        type_print(&object->type);
+        type_print(&object->type, target);
 
         printf(" {\n");
 
         struct object* _Opt member = object->members;
         while (member)
         {
-            object_print_to_debug_core(member, n + 1);
+            object_print_to_debug_core(member, n + 1, target);
             member = member->next;
         }
 
@@ -2267,7 +2267,7 @@ void object_print_to_debug_core(const struct object* object, int n)
 
 
 
-        type_print(&object->type);
+        type_print(&object->type, target);
 
 
         printf(" = ");
@@ -2288,10 +2288,10 @@ void object_print_to_debug_core(const struct object* object, int n)
 
 }
 
-void object_print_to_debug(const struct object* object)
+void object_print_to_debug(const struct object* object, enum target target)
 {
     int n = 0;
-    object_print_to_debug_core(object, n);
+    object_print_to_debug_core(object, n, target);
 }
 
 

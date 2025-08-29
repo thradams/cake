@@ -12,9 +12,13 @@
 
 enum target
 {
-    TARGET_NONE = -1,
-    TARGET_C89_IL = 0 /*default*/
+    TARGET_DEFAULT = 0,    
+    TARGET_X86_X64_GCC ,
+    TARGET_X86_MSVC ,
+    TARGET_X64_MSVC ,
 };
+
+const char* target_to_string(enum target target);
 
 enum language_version
 {

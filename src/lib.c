@@ -19,13 +19,10 @@
 #ifdef _WIN64
     typedef struct _iobuf FILE;
     typedef unsigned __int64 size_t;    
-#endif
-
-#ifdef  _WIN32
+#elif defined _WIN32
     typedef struct _iobuf FILE;
     typedef unsigned int     size_t;
 #endif
-
 
 #ifdef __linux__
 
@@ -706,9 +703,13 @@ void throw_break_point();
 
 enum target
 {
-    TARGET_NONE = -1,
-    TARGET_C89_IL = 0 /*default*/
+    TARGET_DEFAULT = 0,    
+    TARGET_X86_X64_GCC ,
+    TARGET_X86_MSVC ,
+    TARGET_X64_MSVC ,
 };
+
+const char* target_to_string(enum target target);
 
 enum language_version
 {
@@ -5838,58 +5839,45 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, _Dtor struct
     {
         while (list->head != NULL)
         {
-            if (list->head->type == TK_IDENTIFIER)
+            if (list->head->type == TK_IDENTIFIER ||
+                list->head->type == TK_IDENTIFIER_RECURSIVE_MACRO)
             {
-                struct macro* _Opt macro = find_macro(ctx, list->head->lexeme);
+                /*
+                after  all  replacements  due  to  macro expansion and evaluations of
+                defined    macro    expressions,    has_include    expressions,   and
+                has_c_attribute   expressions  have  been  performed,  all  remaining
+                identifiers  other  than true (including those lexically identical to
+                keywords  such  as  false) are replaced with the pp-number 0, true is
+                replaced  with  pp-number  1,  and  then  each preprocessing token is
+                converted into a token.
+                */
+
                 struct token* _Owner _Opt p_new_token = token_list_pop_front_get(list);
                 assert(p_new_token != NULL); //because the list is not empty
-
                 p_new_token->type = TK_PPNUMBER;
 
-                if (macro)
+                if (strcmp(p_new_token->lexeme, "true") == 0)
                 {
-                    char* _Owner _Opt temp = strdup("1");
+                    p_new_token->lexeme[0] = '1';
+                    p_new_token->lexeme[1] = '\0';
+                }
+                else if (strcmp(p_new_token->lexeme, "false") == 0)
+                {
+                    p_new_token->lexeme[0] = '0';
+                    p_new_token->lexeme[1] = '\0';
+                }
+                else
+                {
+                    char* _Owner _Opt temp = strdup("0");
                     if (temp == NULL)
                     {
                         token_delete(p_new_token);
                         throw;
                     }
-
                     free(p_new_token->lexeme);
                     p_new_token->lexeme = temp;
                 }
-                else
-                {
-                    /*
-                    * after all replacements due to macro expansion and
-                      evaluations of defined macro expressions, has_include expressions, and has_c_attribute expressions
-                      have been performed, all remaining identifiers other than true (including those lexically identical
-                      to keywords such as false) are replaced with the pp-number 0, true is replaced with pp-number
-                      1, and then each preprocessing token is converted into a token.
-                    */
-                    if (strcmp(p_new_token->lexeme, "true") == 0)
-                    {
-                        p_new_token->lexeme[0] = '1';
-                        p_new_token->lexeme[1] = '\0';
-                    }
-                    else if (strcmp(p_new_token->lexeme, "false") == 0)
-                    {
-                        p_new_token->lexeme[0] = '0';
-                        p_new_token->lexeme[1] = '\0';
-                    }
-                    else
-                    {
-                        char* _Owner _Opt temp = strdup("0");
-                        if (temp == NULL)
-                        {
-                            token_delete(p_new_token);
-                            throw;
-                        }
 
-                        free(p_new_token->lexeme);
-                        p_new_token->lexeme = temp;
-                    }
-                }
                 token_list_add(&list2, p_new_token);
             }
             else
@@ -5978,7 +5966,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
         struct preprocessor_ctx pre_ctx = { 0 };
 
-
+        pre_ctx.options = ctx->options;
         pre_ctx.input_list = list4;
         pre_ctx.current = pre_ctx.input_list.head;
 
@@ -9055,9 +9043,12 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         }
     }
 
-    if (str == NULL && ctx->options.show_includes)
+    if (str == NULL)
     {
-        printf(".(cakeconfig.h not found)\n");
+        if (ctx->options.show_includes)
+        {
+            printf(".(cakeconfig.h not found)\n");
+        }
         //"No such file or directory";
         return  ENOENT;
     }
@@ -11184,6 +11175,26 @@ int stringify_test()
 
 }
 
+void recursive_macro_expr()
+{
+
+    const char* input =
+        "#define A A\n"
+        "#if A == 0\n"
+        "1\n"
+        "#endif";
+
+    const char* output =
+        "1"
+        ;
+
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+
+}
+
 #endif
 
 
@@ -12746,11 +12757,80 @@ char* _Owner read_file(const char* path, bool append_newline)
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
 
+
+#if defined(_WIN32) || defined(_WIN64)
+#  define PLATFORM_NAME "windows"
+#elif defined(__APPLE__) && defined(__MACH__)
+#  define PLATFORM_NAME "apple"
+#elif defined(__linux__)
+#  define PLATFORM_NAME "linux"
+#elif defined(__EMSCRIPTEN__)
+#  define PLATFORM_NAME "emscripten"
+#else
+#error add new platform 
+#endif
+
+
+
+#if defined(__clang__)
+#define COMPILER_NAME "clang"
+
+#elif defined(__GNUC__) && !defined(__TINYC__) && !defined(__HLC__)
+#define COMPILER_NAME "gcc"
+#elif defined(_MSC_VER) && !defined(__TINYC__) && !defined(__HLC__)
+#define COMPILER_NAME "msvc"
+#elif defined(__INTEL_COMPILER)
+#define COMPILER_NAME "intel"
+#elif defined(__TINYC__)
+#define COMPILER_NAME "tcc"
+#elif defined(__HLC__)
+#define COMPILER_NAME "hlc"
+#else
+#error add new compiler 
+#endif
+
+
+#if defined(__x86_64__) || defined(_M_X64)
+#  define ARCH_NAME "X86_64"
+#elif defined(__i386__) || defined(_M_IX86)
+#  define ARCH_NAME "X86"
+
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#  define ARCH_NAME "ARM64"
+#elif defined(__arm__) || defined(_M_ARM)
+#  define ARCH_NAME "ARM"
+#elif defined(__wasm32__)
+#  define ARCH_NAME "wasm32"
+#elif defined(__wasm64__)
+#  define ARCH_NAME "wasm64"
+#elif defined(__wasm__)
+#  define ARCH_NAME "wasm"
+#else
+#error add new architeture
+#endif
+
+
+const char* target_to_string(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+        return PLATFORM_NAME " " COMPILER_NAME  " " ARCH_NAME " (default)";
+
+    case TARGET_X86_X64_GCC:
+        return "X86_X64_GCC";
+    case TARGET_X86_MSVC:
+        return "X86_MSVC";
+    case TARGET_X64_MSVC:
+        return "X64_MSVC";
+    }
+    return "";
+}
 
 bool is_diagnostic_note(enum diagnostic_id id)
 {
@@ -13198,6 +13278,29 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strstr(argv[i], "-target") != NULL)
+        {
+            if (strcmp(argv[i], "-target=x86_x64_gcc") == 0)
+            {
+                options->target = TARGET_X86_X64_GCC;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-target=x64_msvc") == 0)
+            {
+                options->target = TARGET_X64_MSVC;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-target=x86_msvc") == 0)
+            {
+                options->target = TARGET_X86_MSVC;
+                continue;
+            }
+
+            printf("invalid target. Options are: x86_x64_gcc / x64_msvc / x86_msvc");
+        }
+
 
         if (strcmp(argv[i], "-std=c2x") == 0 ||
             strcmp(argv[i], "-std=c23") == 0)
@@ -13280,7 +13383,7 @@ void print_help()
         "\n"
         WHITE "    " CAKE " source.c\n" RESET
         "    Compiles source.c and outputs /out/source.c\n"
-        "\n"        
+        "\n"
         WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
@@ -13382,13 +13485,14 @@ void test_get_warning_name()
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 //#pragma once
 
 
 struct parser_ctx;
+
 
 
 enum type_category
@@ -13456,7 +13560,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_ENUM = 1 << 16,
     TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-    
+
     TYPE_SPECIFIER_INT8 = 1 << 18,
     TYPE_SPECIFIER_INT16 = 1 << 19,
     TYPE_SPECIFIER_INT32 = 1 << 20,
@@ -13471,29 +13575,10 @@ enum type_specifier_flags
     TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST = 1 << 25
 };
 
-#ifdef _WIN32
-
-#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
-
-#ifdef _WIN64
-#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64)    
-#else
-#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
-#endif
-
-#else 
-
-#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
-
-#ifdef __x86_64__
-/* 64-bit */
-#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG)    
-#else
-#define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
-#endif
 
 
-#endif
+enum type_specifier_flags get_wchar_type_specifier(enum target target);
+enum type_specifier_flags get_size_t_specifier(enum target target);
 
 
 enum type_qualifier_flags
@@ -13504,7 +13589,7 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
     TYPE_QUALIFIER__ATOMIC = 1 << 3,
 
-    
+
 
     /*ownership extensions*/
     TYPE_QUALIFIER_OWNER = 1 << 4,
@@ -13552,7 +13637,7 @@ enum function_specifier_flags
 
 enum alignment_specifier_flags
 {
-    ALIGNMENT_SPECIFIER_NONE =  0,
+    ALIGNMENT_SPECIFIER_NONE = 0,
     ALIGNMENT_SPECIFIER_8_FLAGS = 1 << 0,
     ALIGNMENT_SPECIFIER_16_FLAGS = 1 << 1,
     ALIGNMENT_SPECIFIER_32_FLAGS = 1 << 2,
@@ -13642,7 +13727,7 @@ struct type
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-    
+
     const char* _Owner _Opt name_opt;
 
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -13672,15 +13757,15 @@ struct param
     struct param* _Owner _Opt next;
 };
 
-void print_type(struct osstream* ss, const  struct type* type);
-void print_type_no_names(struct osstream* ss, const struct type* p_type);
+void print_type(struct osstream* ss, const  struct type* type, enum target target);
+void print_type_no_names(struct osstream* ss, const struct type* p_type, enum target target);
 
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
 void type_destroy(_Opt _Dtor struct type* p_type);
 
-struct type type_common(const struct type* p_type1, const struct type* p_type2);
+struct type type_common(const struct type* p_type1, const struct type* p_type2, enum target target);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
 
@@ -13767,10 +13852,10 @@ struct type get_array_item_type(const struct type* p_type);
 
 struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled);
 
-struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers);
+struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers, enum target target);
 struct type type_make_int();
 struct type type_make_int_bool_like();
-struct type type_make_size_t();
+struct type type_make_size_t(enum target target);
 struct type type_make_long_double();
 struct type type_make_double();
 struct type type_make_float();
@@ -13779,7 +13864,7 @@ struct type type_make_float();
 struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
-struct type make_size_t_type();
+struct type make_size_t_type(enum target target);
 struct type make_with_type_specifier_flags(enum type_specifier_flags f);
 
 
@@ -13796,24 +13881,24 @@ enum sizeof_error
     ESIZEOF_FUNCTION
 };
 
-enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size);
-enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size);
+enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
+enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
 
-size_t type_get_alignof(const struct type* p_type);
+size_t type_get_alignof(const struct type* p_type, enum target target);
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled);
-void type_print(const struct type* a);
-void type_println(const struct type* a);
+void type_print(const struct type* a, enum target target);
+void type_println(const struct type* a, enum target target);
 
 enum type_category type_get_category(const struct type* p_type);
-void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
+void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type, enum target target);
 
 void type_visit_to_mark_anonymous(struct type* p_type);
 
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 
-void print_type_declarator(struct osstream* ss, const struct type* p_type);
+void print_type_declarator(struct osstream* ss, const struct type* p_type, enum target target);
 void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);
 void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags);
@@ -14000,7 +14085,7 @@ struct type;
 
 enum object_value_type type_to_object_type(const struct type* type);
 
-void object_print_to_debug(const struct object* object);
+void object_print_to_debug(const struct object* object, enum target target);
 
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant);
 struct object* object_get_non_const_referenced(struct object* p_object);
@@ -14069,7 +14154,7 @@ enum expression_type
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
-    UNARY_EXPRESSION_NELEMENTSOF_TYPE,
+    UNARY_EXPRESSION_COUNTOF,
     
     UNARY_EXPRESSION_GCC__BUILTIN_VA_START,
     UNARY_EXPRESSION_GCC__BUILTIN_VA_END,    
@@ -14081,8 +14166,10 @@ enum expression_type
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
-    UNARY_EXPRESSION_ALIGNOF,
+    UNARY_EXPRESSION_ALIGNOF_TYPE,
+    UNARY_EXPRESSION_ALIGNOF_EXPRESSION,
     UNARY_EXPRESSION_ASSERT,
+    UNARY_EXPRESSION_CONSTEVAL,
 
     UNARY_EXPRESSION_INCREMENT,
     UNARY_EXPRESSION_DECREMENT,
@@ -14455,7 +14542,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
 int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
-bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags);
+bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
 
@@ -18165,7 +18252,7 @@ void object_print_value_debug(const struct object* a)
 
 }
 
-void object_print_to_debug_core(const struct object* object, int n)
+void object_print_to_debug_core(const struct object* object, int n, enum target target)
 {
 
     if (object_is_reference(object))
@@ -18181,14 +18268,14 @@ void object_print_to_debug_core(const struct object* object, int n)
     if (object->members != NULL)
     {
 
-        type_print(&object->type);
+        type_print(&object->type, target);
 
         printf(" {\n");
 
         struct object* _Opt member = object->members;
         while (member)
         {
-            object_print_to_debug_core(member, n + 1);
+            object_print_to_debug_core(member, n + 1, target);
             member = member->next;
         }
 
@@ -18200,7 +18287,7 @@ void object_print_to_debug_core(const struct object* object, int n)
 
 
 
-        type_print(&object->type);
+        type_print(&object->type, target);
 
 
         printf(" = ");
@@ -18221,10 +18308,10 @@ void object_print_to_debug_core(const struct object* object, int n)
 
 }
 
-void object_print_to_debug(const struct object* object)
+void object_print_to_debug(const struct object* object, enum target target)
 {
     int n = 0;
-    object_print_to_debug_core(object, n);
+    object_print_to_debug_core(object, n, target);
 }
 
 
@@ -19502,7 +19589,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p++;
             p++;
 
-            p_expression_node->type.type_specifier_flags = CAKE_WCHAR_T_TYPE_SPECIFIER;
+            p_expression_node->type.type_specifier_flags = get_wchar_type_specifier(ctx->options.target);
 
             /*
              wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
@@ -19941,7 +20028,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = type_make_literal_string(strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST);
+                p_expression_node->type = type_make_literal_string(strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST, ctx->options.target);
             }
             else
             {
@@ -19974,7 +20061,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                    GCC or MSVC.
                    windows it is short linux is
                 */
-                char_type = CAKE_WCHAR_T_TYPE_SPECIFIER;
+                char_type = get_wchar_type_specifier(ctx->options.target);
             }
             /*
               string concatenation should have been done in a previous phase
@@ -20047,7 +20134,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             }
 
             enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
-            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, lit_flags);
+            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, lit_flags, ctx->options.target);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
@@ -21069,6 +21156,13 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
+    if (ctx->current->type == TK_KEYWORD_CONST)
+    {
+        struct token* ahead = parser_look_ahead(ctx);
+        if (ahead->type == '(')
+            return true; //const(expr)
+    }
+
     return first_of_postfix_expression(ctx) ||
         ctx->current->type == '++' ||
         ctx->current->type == '--' ||
@@ -21348,7 +21442,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     new_expression->expression_type = UNARY_EXPRESSION_PLUS;
 
                 //promote
-                new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type);
+                new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type, ctx->options.target);
 
                 if (!ctx->evaluation_is_disabled &&
                     object_has_constant_value(&new_expression->right->object))
@@ -21684,7 +21778,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 new_expression = NULL;
                 throw;
             }
-            
+
             new_expression->type = type_dup(&new_expression->type_name->type);
             return new_expression;
         }
@@ -21739,7 +21833,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->type = make_void_type();
             return new_expression;
         }
-         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF)
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF)
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
@@ -21774,22 +21868,22 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 new_expression = NULL;
                 throw;
             }
-            
+
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 new_expression = NULL;
-                throw;                
+                throw;
             }
 
             if (ctx->current->type != TK_IDENTIFIER)
-            {             
+            {
                 //TODO
                 //https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
                 expression_delete(new_expression);
                 new_expression = NULL;
-                throw;                
+                throw;
             }
             new_expression->offsetof_member_designator = ctx->current;
 
@@ -21802,27 +21896,26 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->type = make_size_t_type();
-            
+            new_expression->type = make_size_t_type(ctx->options.target);
+
             size_t offsetof = 0;
-            
-            enum sizeof_error e = 
-                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offsetof);
-            
+
+            enum sizeof_error e =
+                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offsetof, ctx->options.target);
+
             if (e != 0)
             {
                 throw;
             }
 
             new_expression->object = object_make_size_t(offsetof);
-            
+
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
             ctx->evaluation_is_disabled = true;
-            // defer would be nice here...
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -21853,7 +21946,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                new_expression->type = make_size_t_type();
+                new_expression->type = make_size_t_type(ctx->options.target);
 
                 if (ctx->current == NULL)
                 {
@@ -21885,7 +21978,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     else
                     {
                         size_t type_sizeof = 0;
-                        if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof) != 0)
+                        if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof, ctx->options.target) != 0)
                         {
                             throw;
                         }
@@ -21920,14 +22013,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 else
                 {
                     size_t sz = 0;
-                    if (type_get_sizeof(&new_expression->right->type, &sz) != 0)
+                    if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
                         throw;
                     new_expression->object = object_make_size_t(sz);
                 }
             }
 
             type_destroy(&new_expression->type);
-            new_expression->type = type_make_size_t();
+            new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
 
             /*restore*/
@@ -21951,7 +22044,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->expression_type = UNARY_EXPRESSION_NELEMENTSOF_TYPE;
+            new_expression->expression_type = UNARY_EXPRESSION_COUNTOF;
 
             if (first_of_type_name_ahead(ctx))
             {
@@ -21967,7 +22060,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                new_expression->type = make_size_t_type();
+                new_expression->type = make_size_t_type(ctx->options.target);
 
                 if (ctx->current == NULL)
                 {
@@ -22099,7 +22192,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
 
             type_destroy(&new_expression->type);
-            new_expression->type = type_make_size_t();
+            new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
 
         }
@@ -22130,13 +22223,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
             return new_expression;
         }
-        else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
+        else if (ctx->current->type == TK_KEYWORD_CONST) /*new keyword consteval?? */
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
-            new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
+            new_expression->expression_type = UNARY_EXPRESSION_CONSTEVAL;
             new_expression->first_token = ctx->current;
+
             parser_match(ctx);
 
             if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
@@ -22145,24 +22239,125 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 new_expression = NULL;
                 throw;
             }
-            new_expression->type_name = type_name(ctx);
+            new_expression->right = constant_expression(ctx, true);
+
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
                 new_expression = NULL;
                 throw;
             }
+            return new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
+        {
+            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = true;
 
-            if (!ctx->evaluation_is_disabled)
+            parser_match(ctx);
+            if (ctx->current == NULL)
             {
-                new_expression->object = object_make_size_t(type_get_alignof(&new_expression->type_name->type));
+                unexpected_end_of_file(ctx);
+                throw;
             }
-            new_expression->type = type_make_int();
 
-            assert(ctx->previous != NULL);
-            new_expression->last_token = ctx->previous;
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
+            new_expression->first_token = ctx->current;
+
+            if (first_of_type_name_ahead(ctx))
+            {
+                new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF_TYPE;
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+                new_expression->type_name = type_name(ctx);
+                if (new_expression->type_name == NULL)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
+
+                new_expression->type = make_size_t_type(ctx->options.target);
+
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->last_token = ctx->current;
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (check_sizeof_argument(ctx, new_expression, &new_expression->type_name->type) != 0)
+                {
+                    //not fatal error
+                    //fatal will be if someone need the sizeof at compile time
+                    //but we don't have the object set here
+                }
+                else
+                {
+                    if (type_is_vla(&new_expression->type_name->abstract_declarator->type))
+                    {
+                        //not constant
+                    }
+                    else
+                    {
+                        size_t type_alignof = 0;
+                        type_alignof = type_get_alignof(&new_expression->type_name->abstract_declarator->type, ctx->options.target);
+
+                        new_expression->object = object_make_size_t(type_alignof);
+                    }
+                }
+            }
+            else
+            {
+                new_expression->right = unary_expression(ctx);
+                if (new_expression->right == NULL)
+                {
+                    /*restore*/
+                    ctx->evaluation_is_disabled = disable_evaluation_copy;
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF_EXPRESSION;
+
+                if (check_sizeof_argument(ctx, new_expression->right, &new_expression->right->type) != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (type_is_vla(&new_expression->right->type))
+                {
+                    //not constant
+                }
+                else
+                {
+                    size_t sz = 0;
+                    sz = type_get_alignof(&new_expression->right->type, ctx->options.target);
+                    new_expression->object = object_make_size_t(sz);
+                }
+            }
+
+            type_destroy(&new_expression->type);
+            new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
+
+            /*restore*/
+            ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
         else if (
             ctx->current->type == TK_KEYWORD_IS_LVALUE ||
@@ -22597,7 +22792,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                 .p_token_end = new_expression->right->last_token
             };
 
-            common_type = type_common(&new_expression->left->type, &new_expression->right->type);
+            common_type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
             enum object_value_type vt = type_to_object_type(&common_type);
             switch (vt)
@@ -23528,7 +23723,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
                         "right is not an arithmetic type");
                 }
             }
-            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
             if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
             {
@@ -23634,7 +23829,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 */
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
-                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
                     if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
@@ -23703,7 +23898,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 */
                 if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
-                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                    new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
                     if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
@@ -23923,7 +24118,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             if (type_is_arithmetic(&new_expression->left->type) &&
                 type_is_arithmetic(&new_expression->right->type))
             {
-                new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+                new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
                 if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                 {
@@ -24252,7 +24447,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
         }
 
         type_destroy(&new_expression->type);
-        new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type);
+        new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
         if (!ctx->evaluation_is_disabled &&
             object_has_constant_value(&new_expression->left->object) &&
@@ -25241,7 +25436,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
                  *  both operands have arithmetic type;
                 */
                 type_destroy(&p_conditional_expression->type);
-                p_conditional_expression->type = type_common(&left_type, &right_type);
+                p_conditional_expression->type = type_common(&left_type, &right_type, ctx->options.target);
             }
             else if (type_is_struct_or_union(&left_type) && type_is_struct_or_union(&right_type))
             {
@@ -25408,12 +25603,15 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
     case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
-    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:  break;
+    case UNARY_EXPRESSION_COUNTOF:  break;
 
     case UNARY_EXPRESSION_TRAITS:  break;
     case UNARY_EXPRESSION_IS_SAME:  break;
     case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
-    case UNARY_EXPRESSION_ALIGNOF:  break;
+
+    case UNARY_EXPRESSION_ALIGNOF_TYPE:  break;
+    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:  break;
+
     case UNARY_EXPRESSION_ASSERT:  break;
 
     case UNARY_EXPRESSION_INCREMENT:  break;
@@ -25847,8 +26045,8 @@ void check_assigment(struct parser_ctx* ctx,
 
         if (!type_is_same(&b_type_lvalue, &a_type_lvalue, false))
         {
-            type_print(&b_type_lvalue);
-            type_print(&a_type_lvalue);
+            type_print(&b_type_lvalue, ctx->options.target);
+            type_print(&a_type_lvalue, ctx->options.target);
 
             compiler_diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx,
                 p_b_expression->first_token, NULL,
@@ -25954,12 +26152,13 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
     case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
-    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:  break;
+    case UNARY_EXPRESSION_COUNTOF:  break;
 
     case UNARY_EXPRESSION_TRAITS:  break;
     case UNARY_EXPRESSION_IS_SAME:  break;
     case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
-    case UNARY_EXPRESSION_ALIGNOF:  break;
+    case UNARY_EXPRESSION_ALIGNOF_TYPE:  break;
+    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:  break;
     case UNARY_EXPRESSION_ASSERT:  break;
 
     case UNARY_EXPRESSION_INCREMENT:  break;
@@ -26548,7 +26747,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         {
             ppnumber_to_longlong(ctx, ctx->current, &ectx->value);
             pre_match(ctx);
-        }
+        }        
         else if (ctx->current->type == '(')
         {
             pre_match(ctx);
@@ -27190,7 +27389,7 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 
 int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 {
-    struct pre_expression_ctx ectx = { 0 };
+    struct pre_expression_ctx ectx = { 0 };        
     pre_conditional_expression(ctx, &ectx);
     *pvalue = ectx.value;
     return ctx->n_errors > 0;
@@ -27500,7 +27699,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.51"
+#define CAKE_VERSION "0.10.53"
 
 
 
@@ -27521,6 +27720,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 struct d_visit_ctx
 {
+    struct options options;
     int indentation;
 
     unsigned int cake_declarator_number; //used to create unique declarator names
@@ -28181,6 +28381,12 @@ bool first_of_type_qualifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
+    if (ctx->current->type == TK_KEYWORD_CONST)
+    {
+        struct token* ahead = parser_look_ahead(ctx);
+        if (ahead->type == '(')
+            return false; //expression const(expr)
+    }
     return first_of_type_qualifier_token(ctx->current);
 }
 
@@ -30159,7 +30365,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         if (!type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
                         {
                             struct osstream ss = { 0 };
-                            print_type_no_names(&ss, &p_previous_declarator->type);
+                            print_type_no_names(&ss, &p_previous_declarator->type, ctx->options.target);
 
                             compiler_diagnostic(
                                 C_ERROR_REDECLARATION,
@@ -30169,7 +30375,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                                 "conflicting types for '%s' (%s)", declarator_name, ss.c_str);
 
                             ss_clear(&ss);
-                            print_type_no_names(&ss, &p_init_declarator->p_declarator->type);
+                            print_type_no_names(&ss, &p_init_declarator->p_declarator->type, ctx->options.target);
 
                             compiler_diagnostic(C_ERROR_REDECLARATION,
                                 ctx,
@@ -30473,7 +30679,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             else
             {
                 size_t sz = 0;
-                enum sizeof_error size_result = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz);
+                enum sizeof_error size_result = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz, ctx->options.target);
 
                 if (size_result == ESIZEOF_NONE)
                 {
@@ -38430,15 +38636,14 @@ int compile_one_file(const char* file_name,
 
             if (!options->no_output)
             {
-                if (options->target == TARGET_C89_IL)
-                {
-                    struct osstream ss = { 0 };
-                    struct d_visit_ctx ctx2 = { 0 };
-                    ctx2.ast = ast;
-                    d_visit(&ctx2, &ss);
-                    s = ss.c_str; //MOVE
-                    d_visit_ctx_destroy(&ctx2);
-                }
+
+                struct osstream ss = { 0 };
+                struct d_visit_ctx ctx2 = { 0 };
+                ctx2.ast = ast;
+                ctx2.options = ctx.options;
+                d_visit(&ctx2, &ss);
+                s = ss.c_str; //MOVE
+                d_visit_ctx_destroy(&ctx2);
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
@@ -38715,7 +38920,8 @@ int compile(int argc, const char** argv, struct report* report)
     {
         return 1;
     }
-
+    
+    
     char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);
@@ -38936,17 +39142,17 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             if (report->error_count > 0)
                 throw;
 
-            if (options.target == TARGET_C89_IL)
-            {
-                struct osstream ss = { 0 };
-                struct d_visit_ctx ctx2 = { 0 };
-                ctx2.ast = ast;
-                d_visit(&ctx2, &ss);
-                s = ss.c_str; //MOVED                
-                //ss.c_str = NULL;
-                //ss_close(&ss);
-                d_visit_ctx_destroy(&ctx2);
-            }
+
+            struct osstream ss = { 0 };
+            struct d_visit_ctx ctx2 = { 0 };
+            ctx2.ast = ast;
+            ctx2.options = options;
+            d_visit(&ctx2, &ss);
+            s = ss.c_str; //MOVED                
+            //ss.c_str = NULL;
+            //ss_close(&ss);
+            d_visit_ctx_destroy(&ctx2);
+
 
         }
     }
@@ -41024,7 +41230,6 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 #pragma safety enable
 
-
 #if SIZE_MAX > UINT_MAX
 #define SIZE_T_TYPE_STR "unsigned long long"
 #else
@@ -41959,9 +42164,14 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         object_print_value(oss, &p_expression->object);
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF:
-    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
+    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
+    case UNARY_EXPRESSION_ALIGNOF_TYPE:
+    case UNARY_EXPRESSION_COUNTOF:
         object_print_value(oss, &p_expression->object);
+        break;
+
+    case UNARY_EXPRESSION_CONSTEVAL:
+        d_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_INCREMENT:
@@ -42444,7 +42654,12 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
             struct osstream local = { 0 };
             d_visit_declaration(ctx, &local, p_iteration_statement->declaration);
 
-            ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+            if (ctx->block_scope_declarators.c_str)
+            {
+                ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+                ss_fprintf(oss, "\n");
+            }
+
             if (local.c_str)
                 ss_fprintf(oss, "%s", local.c_str);
 
@@ -42632,9 +42847,16 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
             ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
 
             struct osstream local2 = { 0 };
+
+            print_identation(ctx, &local2);
             d_visit_init_statement(ctx, &local2, p_selection_statement->p_init_statement);
-            ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
-            ss_fprintf(oss, "\n");
+
+            if (ctx->block_scope_declarators.c_str)
+            {
+                ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+                ss_fprintf(oss, "\n");
+            }
+
             ss_fprintf(oss, "%s", local2.c_str);
             ss_close(&local2);
             print_identation(ctx, oss);
@@ -42652,10 +42874,17 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 struct osstream block_scope_declarators = { 0 };
                 ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
 
+
                 struct osstream local2 = { 0 };
+                print_identation(ctx, &local2);
                 d_visit_init_declarator(ctx, &local2, p_selection_statement->condition->p_init_declarator, false, false);
-                ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
-                ss_fprintf(oss, "\n");
+
+                if (ctx->block_scope_declarators.c_str)
+                {
+                    ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+                    ss_fprintf(oss, "\n");
+                }
+
                 ss_fprintf(oss, "%s", local2.c_str);
                 ss_close(&local2);
                 ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
@@ -42795,13 +43024,13 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
         object_to_str(&p_label->constant_expression->object, 50, str);
         if (p_label->constant_expression_end == NULL)
         {
-            ss_fprintf(oss, "/*case %s*/ ", str);
+            ss_fprintf(oss, " /*case %s*/ ", str);
         }
         else
         {
             char str2[50] = { 0 };
             object_to_str(&p_label->constant_expression_end->object, 50, str2);
-            ss_fprintf(oss, "/*case %s ... %s*/ ", str, str2);
+            ss_fprintf(oss, " /*case %s ... %s*/ ", str, str2);
         }
 
         ss_fprintf(oss, "\n");
@@ -43202,7 +43431,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else
             {
-                print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags);
+                print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags, ctx->options.target);
                 print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
                 print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
             }
@@ -43410,14 +43639,24 @@ static void d_print_type(struct d_visit_ctx* ctx,
 
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
     {
+        if (ctx->options.target == TARGET_DEFAULT)
+        {
 #ifdef _MSC_VER
-        ss_fprintf(ss, "__declspec(thread) ");
+            ss_fprintf(ss, "__declspec(thread) ");
 #elif __GNUC__
-        ss_fprintf(ss, "__thread ");
+            ss_fprintf(ss, "__thread ");
 #endif
-
+        }
+        else if (ctx->options.target == TARGET_X86_MSVC ||
+                 ctx->options.target == TARGET_X64_MSVC)
+        {
+            ss_fprintf(ss, "__declspec(thread) ");
+        }
+        else if (ctx->options.target == TARGET_X86_X64_GCC)
+        {
+            ss_fprintf(ss, "__thread ");
+        }
     }
-
 
     ss_fprintf(ss, "%s", local.c_str);
 
@@ -43700,7 +43939,6 @@ static void print_initializer(struct d_visit_ctx* ctx,
             }
             else
             {
-                //print_identation_core(oss, ctx->indentation);
                 ss_fprintf(oss, " = ");//, p_init_declarator->p_declarator->name_opt->lexeme, "");
                 d_visit_expression(ctx, oss, p_init_declarator->initializer->assignment_expression);
                 ss_fprintf(oss, ";\n");
@@ -43718,7 +43956,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                         if (is_local && !bstatic)
                         {
                             size_t sz = 0;
-                            if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz) != 0)
+                            if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz, ctx->options.target) != 0)
                             {
                                 throw;
                             }
@@ -43760,7 +43998,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                     if (is_local && !bstatic)
                     {
                         size_t sz = 0;
-                        if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz) != 0)
+                        if (type_get_sizeof(&p_init_declarator->p_declarator->type, &sz, ctx->options.target) != 0)
                         {
                             throw;
                         }
@@ -43850,7 +44088,9 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             struct osstream ss = { 0 };
             d_print_type(ctx, &ss,
                &p_init_declarator->p_declarator->type,
-               p_init_declarator->p_declarator->name_opt->lexeme);
+               p_init_declarator->p_declarator->name_opt->lexeme
+            );
+
             ss_fprintf(oss0, "%s", ss.c_str);
 
             if (p_init_declarator->initializer)
@@ -43875,7 +44115,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
             ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
             ss_close(&ss);
-            
+
             if (p_init_declarator->initializer)
             {
                 //print_identation(ctx, &ctx->block_scope_declarators);
@@ -44113,6 +44353,8 @@ void print_complete_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct
 void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 {
     struct osstream declarations = { 0 };
+
+    ss_fprintf(oss, "// Cake %s target=%s\n", CAKE_VERSION, target_to_string(ctx->options.target));
 
     ctx->indentation = 0;
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
@@ -46161,7 +46403,7 @@ void object_get_name(const struct type* p_type,
         int bytes_written = 0;
         struct token* _Opt p = p_object->p_expression_origin->first_token;
         for (int i = 0; i < 10; i++)
-        {           
+        {
             const char* ps = p->lexeme;
             while (*ps)
             {
@@ -46177,7 +46419,7 @@ void object_get_name(const struct type* p_type,
                 break;
 
             p = p->next;
-            assert(p != NULL);                            
+            assert(p != NULL);
         }
 
         if (bytes_written < (out_size - 1))
@@ -46543,7 +46785,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
         {
             assert(false);
         }
-             
+
         if (name[0] == '\0')
         {
             /*function arguments without name*/
@@ -49742,14 +49984,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF:
+    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
 
         if (p_expression->right)
         {
             flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         }
 
+        break;
 
+    case UNARY_EXPRESSION_ALIGNOF_TYPE:
         break;
 
     case UNARY_EXPRESSION_ASSERT:
@@ -49794,7 +50038,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-    case UNARY_EXPRESSION_NELEMENTSOF_TYPE:
+    case UNARY_EXPRESSION_COUNTOF:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
     case UNARY_EXPRESSION_BITNOT:
@@ -52032,6 +52276,333 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 
 
+size_t get_align_void_ptr(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(void*);
+    case TARGET_X86_X64_GCC:  return 8;
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 8;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_void_ptr(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(void*);
+    case TARGET_X86_X64_GCC:  return 8;
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 8;
+    }
+    assert(false);
+    return 0;
+
+}
+
+size_t get_align_char(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(char);
+    case TARGET_X86_X64_GCC:  return 1;
+    case TARGET_X86_MSVC:     return 1;
+    case TARGET_X64_MSVC:     return 1;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_char(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(char);
+    case TARGET_X86_X64_GCC:  return 1;
+    case TARGET_X86_MSVC:     return 1;
+    case TARGET_X64_MSVC:     return 1;
+    }
+    assert(false);
+    return 0;
+
+}
+
+size_t get_align_bool(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(_Bool);
+    case TARGET_X86_X64_GCC:  return 1;
+    case TARGET_X86_MSVC:     return 1;
+    case TARGET_X64_MSVC:     return 1;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_bool(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(_Bool);
+    case TARGET_X86_X64_GCC:  return 1;
+    case TARGET_X86_MSVC:     return 1;
+    case TARGET_X64_MSVC:     return 1;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_align_short(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(short);
+    case TARGET_X86_X64_GCC:  return 2;
+    case TARGET_X86_MSVC:     return 2;
+    case TARGET_X64_MSVC:     return 2;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_short(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(short);
+    case TARGET_X86_X64_GCC:  return 2;
+    case TARGET_X86_MSVC:     return 2;
+    case TARGET_X64_MSVC:     return 2;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_align_int(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(int);
+    case TARGET_X86_X64_GCC:  return 4;
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 4;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_int(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(int);
+    case TARGET_X86_X64_GCC:  return 4;
+    case TARGET_X86_MSVC:     return 5;
+    case TARGET_X64_MSVC:     return 6;
+    }    
+    assert(false);
+    return 0;
+}
+
+size_t get_align_long(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(long);
+    case TARGET_X86_X64_GCC:  return 8;
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 4;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_long(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(long);
+    case TARGET_X86_X64_GCC:  return 8;
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 4;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_align_long_long(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(long long);
+    case TARGET_X86_X64_GCC:  return 8;
+    case TARGET_X86_MSVC:     return 8;
+    case TARGET_X64_MSVC:     return 8;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_long_long(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(long long);
+    case TARGET_X86_X64_GCC:  return 8;
+    case TARGET_X86_MSVC:     return 8;
+    case TARGET_X64_MSVC:     return 8;
+    }
+    
+    assert(false);
+    return 0;
+}
+
+
+size_t get_align_float(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(float);
+    case TARGET_X86_X64_GCC:  return 4;
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 4;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_float(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(float);
+    case TARGET_X86_X64_GCC:  return 4;
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 4;
+    }    
+    assert(false);
+    return 0;
+}
+
+size_t get_align_double(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(double);
+    case TARGET_X86_X64_GCC:  return 8;
+    case TARGET_X86_MSVC:     return 8;
+    case TARGET_X64_MSVC:     return 8;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_double(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(double);
+    case TARGET_X86_X64_GCC:  return 8;
+    case TARGET_X86_MSVC:     return 8;
+    case TARGET_X64_MSVC:     return 8;
+    }    
+    assert(false);
+    return 0;
+}
+
+size_t get_align_long_double(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return _Alignof(long double);
+    case TARGET_X86_X64_GCC:  return 16;
+    case TARGET_X86_MSVC:     return 8;
+    case TARGET_X64_MSVC:     return 8;
+    }
+    assert(false);
+    return 0;
+}
+
+size_t get_size_long_double(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:      return sizeof(long double);
+    case TARGET_X86_X64_GCC:  return 16;
+    case TARGET_X86_MSVC:     return 8;
+    case TARGET_X64_MSVC:     return 8;
+    }    
+    assert(false);
+    return 0;
+}
+
+
+enum type_specifier_flags get_wchar_type_specifier(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+#ifdef _WIN32
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT);
+#else
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
+#endif
+        break;
+
+    case TARGET_X86_X64_GCC:
+        return (TYPE_SPECIFIER_INT);
+        break;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT);
+        break;
+    }
+    assert(false);
+    return 0;
+}
+
+enum type_specifier_flags get_size_t_specifier(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+
+#ifdef _WIN32
+#ifdef _WIN64
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64);
+#else
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
+#endif
+#else 
+#ifdef __x86_64__
+        /* 64-bit */
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG);
+#else
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
+#endif
+#endif
+
+        break;
+    case TARGET_X86_X64_GCC:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64);
+        break;
+    case TARGET_X86_MSVC:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
+        break;
+    case TARGET_X64_MSVC:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64);
+        break;
+    }
+    assert(false);
+    return 0;
+}
+
+
 bool is_automatic_variable(enum storage_class_specifier_flags f)
 {
     if (f & STORAGE_SPECIFIER_EXTERN)
@@ -52042,7 +52613,7 @@ bool is_automatic_variable(enum storage_class_specifier_flags f)
 
     if (f & STORAGE_SPECIFIER_PARAMETER)
         return true;
-    
+
     if (f & STORAGE_SPECIFIER_BLOCK_SCOPE)
         return true;
 
@@ -52058,31 +52629,35 @@ void print_item(struct osstream* ss, bool* first, const char* item)
 
 }
 
-bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags)
+bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target)
 {
-#ifdef _MSC_VER
-    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-        print_item(ss, first, "__declspec(align(80))");
-    if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
-        print_item(ss, first, "__declspec(align(16))");
-    if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
-        print_item(ss, first, "__declspec(align(32))");
-    if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
-        print_item(ss, first, "__declspec(align(64))");
-    if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
-        print_item(ss, first, "__declspec(align(128))");
-#elif defined __GNUC__
-    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-        print_item(ss, first, "__attribute__((aligned(8)))");
-    if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
-        print_item(ss, first, "__attribute__((aligned(16)))");
-    if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
-        print_item(ss, first, "__attribute__((aligned(32)))");
-    if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
-        print_item(ss, first, "__attribute__((aligned(64)))");
-    if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
-        print_item(ss, first, "__attribute__((aligned(128)))");
-#endif // _MSVC
+    if (target == TARGET_X86_MSVC ||
+             target == TARGET_X86_MSVC)
+    {
+        if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+            print_item(ss, first, "__declspec(align(80))");
+        if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+            print_item(ss, first, "__declspec(align(16))");
+        if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+            print_item(ss, first, "__declspec(align(32))");
+        if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+            print_item(ss, first, "__declspec(align(64))");
+        if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+            print_item(ss, first, "__declspec(align(128))");
+    }
+    else if (target == TARGET_X86_X64_GCC)
+    {
+        if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(8)))");
+        if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(16)))");
+        if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(32)))");
+        if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(64)))");
+        if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(128)))");
+    }
     return *first;
 }
 
@@ -52307,7 +52882,7 @@ void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_fl
     }
 }
 
-void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type)
+void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type, enum target target)
 {
     bool first = true;
     print_type_qualifier_flags(ss, &first, type->type_qualifier_flags);
@@ -52332,7 +52907,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
     }
     else
     {
-        print_type_alignment_flags(ss, &first, type->alignment_specifier_flags);
+        print_type_alignment_flags(ss, &first, type->alignment_specifier_flags, target);
         print_msvc_declspec(ss, &first, type->msvc_declspec_flags);
         print_type_specifier_flags(ss, &first, type->type_specifier_flags);
     }
@@ -52442,7 +53017,7 @@ struct type type_convert_to(const struct type* p_type, enum language_version tar
     return type_dup(p_type);
 }
 
-void print_type_core(struct osstream* ss, const struct type* p_type, bool onlydeclarator, bool printname)
+void print_type_core(struct osstream* ss, const struct type* p_type, bool onlydeclarator, bool printname, enum target target)
 {
     const struct type* _Opt p = p_type;
 
@@ -52477,7 +53052,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             }
             else
             {
-                print_type_alignment_flags(&local, &first, p->alignment_specifier_flags);
+                print_type_alignment_flags(&local, &first, p->alignment_specifier_flags, target);
                 print_msvc_declspec(&local, &first, p->msvc_declspec_flags);
                 print_type_specifier_flags(&local, &first, p->type_specifier_flags);
             }
@@ -52557,7 +53132,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
             while (pa)
             {
                 struct osstream sslocal = { 0 };
-                print_type(&sslocal, &pa->type);
+                print_type(&sslocal, &pa->type, target);
                 ss_fprintf(ss, "%s", sslocal.c_str);
                 if (pa->next)
                     ss_fprintf(ss, ",");
@@ -52612,32 +53187,32 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
     }
 }
 
-void print_type(struct osstream* ss, const struct type* p_type)
+void print_type(struct osstream* ss, const struct type* p_type, enum target target)
 {
-    print_type_core(ss, p_type, false, true);
+    print_type_core(ss, p_type, false, true, target);
 }
 
-void print_type_no_names(struct osstream* ss, const struct type* p_type)
+void print_type_no_names(struct osstream* ss, const struct type* p_type, enum target target)
 {
-    print_type_core(ss, p_type, false, false);
+    print_type_core(ss, p_type, false, false, target);
 }
 
-void print_type_declarator(struct osstream* ss, const struct type* p_type)
+void print_type_declarator(struct osstream* ss, const struct type* p_type, enum target target)
 {
-    print_type_core(ss, p_type, true, true);
+    print_type_core(ss, p_type, true, true, target);
 }
 
-void type_print(const struct type* a)
+void type_print(const struct type* a, enum target target)
 {
     struct osstream ss = { 0 };
-    print_type(&ss, a);
+    print_type(&ss, a, target);
     printf("%s", ss.c_str);
     ss_close(&ss);
 }
 
-void type_println(const struct type* a)
+void type_println(const struct type* a, enum target target)
 {
-    type_print(a);
+    type_print(a, target);
     puts("\n");
 }
 
@@ -53549,8 +54124,8 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
         if (!type_is_same(&argument_type_converted, &parameter_type_converted, false))
         {
-            type_print(&argument_type_converted);
-            type_print(&parameter_type_converted);
+            type_print(&argument_type_converted, ctx->options.target);
+            type_print(&parameter_type_converted, ctx->options.target);
 
             compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx,
                 current_argument->expression->first_token, NULL,
@@ -53801,7 +54376,7 @@ struct type type_get_enum_underlying_type(const struct type* p)
     return r;
 }
 
-struct type type_common(const struct type* p_type1, const struct type* p_type2)
+struct type type_common(const struct type* p_type1, const struct type* p_type2, enum target target)
 {
     //See 6.3.1.8 Usual arithmetic conversions
 
@@ -53986,13 +54561,13 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2)
     */
 
     size_t signed_promoted_sizeof = 0;
-    if (type_get_sizeof(p_signed_promoted, &signed_promoted_sizeof) != 0)
+    if (type_get_sizeof(p_signed_promoted, &signed_promoted_sizeof, target) != 0)
     {
         assert(false);
     }
 
     size_t unsigned_promoted_sizeof = 0;
-    if (type_get_sizeof(p_unsigned_promoted, &unsigned_promoted_sizeof) != 0)
+    if (type_get_sizeof(p_unsigned_promoted, &unsigned_promoted_sizeof, target) != 0)
     {
         assert(false);
     }
@@ -54104,7 +54679,8 @@ struct type type_dup(const struct type* p_type)
     return empty;
 }
 
-static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, const char* member, size_t* sz)
+static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
+    const char* member, size_t* sz, enum target target)
 {
     enum sizeof_error sizeof_error = ESIZEOF_NONE;
 
@@ -54114,7 +54690,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
     size_t size = 0;
     try
     {
-        int maxalign = 0;
+        size_t maxalign = 0;
 
         struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
         while (d)
@@ -54124,13 +54700,13 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                 struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
                 while (md)
                 {
-                    int align = 1;
+                    size_t align = 1;
 
                     if (md->declarator)
                     {
                         assert(md->declarator->name_opt != NULL);
 
-                        align = type_get_alignof(&md->declarator->type);
+                        align = type_get_alignof(&md->declarator->type, target);
 
                         if (align > maxalign)
                         {
@@ -54148,7 +54724,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                         }
 
                         size_t item_size = 0;
-                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size);
+                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size, target);
                         if (sizeof_error != 0)
                             throw;
 
@@ -54180,7 +54756,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     t.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
                     t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
-                    int align = type_get_alignof(&t);
+                    size_t align = type_get_alignof(&t, target);
 
                     if (align > maxalign)
                     {
@@ -54192,7 +54768,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     }
                     size_t item_size = 0;
 
-                    sizeof_error = type_get_sizeof(&t, &item_size);
+                    sizeof_error = type_get_sizeof(&t, &item_size, target);
                     if (sizeof_error != 0)
                         throw;
 
@@ -54239,7 +54815,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
     return sizeof_error;
 }
 
-enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz)
+enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, enum target target)
 {
     enum sizeof_error sizeof_error = ESIZEOF_NONE;
 
@@ -54249,7 +54825,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
     size_t size = 0;
     try
     {
-        int maxalign = 0;
+        size_t maxalign = 0;
 
         struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
         while (d)
@@ -54259,11 +54835,11 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                 struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
                 while (md)
                 {
-                    int align = 1;
+                    size_t align = 1;
 
                     if (md->declarator)
                     {
-                        align = type_get_alignof(&md->declarator->type);
+                        align = type_get_alignof(&md->declarator->type, target);
 
                         if (align > maxalign)
                         {
@@ -54274,7 +54850,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                             size += align - (size % align);
                         }
                         size_t item_size = 0;
-                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size);
+                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size, target);
                         if (sizeof_error != 0)
                             throw;
 
@@ -54305,7 +54881,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     t.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
                     t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
-                    int align = type_get_alignof(&t);
+                    size_t align = type_get_alignof(&t, target);
 
                     if (align > maxalign)
                     {
@@ -54317,7 +54893,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     }
                     size_t item_size = 0;
 
-                    sizeof_error = type_get_sizeof(&t, &item_size);
+                    sizeof_error = type_get_sizeof(&t, &item_size, target);
                     if (sizeof_error != 0)
                         throw;
 
@@ -54363,10 +54939,10 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
     return sizeof_error;
 }
 
-size_t type_get_alignof(const struct type* p_type);
-size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
+size_t type_get_alignof(const struct type* p_type, enum target target);
+size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, enum target target)
 {
-    int align = 0;
+    size_t align = 0;
     struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
     while (d)
     {
@@ -54377,7 +54953,7 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
             {
                 if (md->declarator)
                 {
-                    int temp_align = type_get_alignof(&md->declarator->type);
+                    size_t temp_align = type_get_alignof(&md->declarator->type, target);
                     if (temp_align > align)
                     {
                         align = temp_align;
@@ -54415,7 +54991,7 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
             type.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
 
 
-            int temp_align = type_get_alignof(&type);
+            size_t temp_align = type_get_alignof(&type, target);
             if (temp_align > align)
             {
                 align = temp_align;
@@ -54433,15 +55009,15 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
     return align;
 }
 
-size_t type_get_alignof(const struct type* p_type)
+size_t type_get_alignof(const struct type* p_type, enum target target)
 {
-    int align = 0;
+    size_t align = 0;
 
     enum type_category category = type_get_category(p_type);
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        align = _Alignof(void*);
+        align = get_align_void_ptr(target);
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
@@ -54472,63 +55048,76 @@ size_t type_get_alignof(const struct type* p_type)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
-            align = _Alignof(char);
+            align = get_align_char(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
         {
-            align = _Alignof(_Bool);
+            align = get_align_bool(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
-            align = _Alignof(short);
+            align = get_align_short(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
-            //TODO enum type
-            align = _Alignof(int);
+            if (p_type->enum_specifier)
+            {
+                enum type_specifier_flags enum_type_specifier_flags =
+                    get_enum_type_specifier_flags(p_type->enum_specifier);
+
+                struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
+                align = type_get_alignof(&t, target);
+                type_destroy(&t);
+            }
+            else
+                align = get_align_int(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
         {
-            align = _Alignof(long);
+            align = get_align_long(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
-            align = _Alignof(long long);
+            align = get_align_long_long(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
-            align = _Alignof(int);
+            align = get_align_int(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
         {
-            align = _Alignof(long long);
+            align = 8;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
         {
-            align = _Alignof(long);
+            align = 4;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
         {
-            align = _Alignof(short);
+            align = 2;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
         {
-            align = _Alignof(char);
+            align = 1;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
-            align = _Alignof(float);
+            align = get_align_float(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
-            align = _Alignof(double);
+            align = get_align_double(target);
+        }
+        else if (p_type->type_specifier_flags & (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
+        {
+            align = get_align_long_double(target);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
         {
 #if __GNUC__
             align = _Alignof(__builtin_va_list);
 #else
-            align = _Alignof(void*); //?            
+            align = get_align_void_ptr(target); //?            
 #endif
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
@@ -54541,7 +55130,7 @@ size_t type_get_alignof(const struct type* p_type)
                 align = 1;
                 if (p_complete)
                 {
-                    align = get_alignof_struct(p_complete);
+                    align = get_alignof_struct(p_complete, target);
                 }
                 else
                 {
@@ -54553,10 +55142,6 @@ size_t type_get_alignof(const struct type* p_type)
                 align = -2;
                 assert(false);
             }
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
-        {
-            align = _Alignof(int);
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
@@ -54576,14 +55161,14 @@ size_t type_get_alignof(const struct type* p_type)
     {
 
         struct type type = get_array_item_type(p_type);
-        align = type_get_alignof(&type);
+        align = type_get_alignof(&type, target);
         type_destroy(&type);
     }
     assert(align > 0);
     return align;
 }
 
-enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size)
+enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target)
 {
     *size = 0; //out
 
@@ -54611,10 +55196,10 @@ enum sizeof_error type_get_offsetof(const struct type* p_type, const char* membe
     if (p_complete == NULL)
         return ESIZEOF_INCOMPLETE;
 
-    return get_offsetof_struct(p_complete, member, size);
+    return get_offsetof_struct(p_complete, member, size, target);
 }
 
-enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
+enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum target target)
 {
     *size = 0; //out
 
@@ -54622,7 +55207,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        *size = sizeof(void*);
+        *size = get_size_void_ptr(target);
         return ESIZEOF_NONE;
     }
 
@@ -54636,7 +55221,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
         if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
             //void f(int a[2])
-            *size = sizeof(void*);
+            *size = get_size_void_ptr(target);
             return ESIZEOF_NONE;
         }
         else
@@ -54650,7 +55235,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
 
             size_t sz = 0;
 
-            const enum sizeof_error er = type_get_sizeof(&type, &sz);
+            const enum sizeof_error er = type_get_sizeof(&type, &sz, target);
             if (er != ESIZEOF_NONE)
             {
                 type_destroy(&type);
@@ -54700,19 +55285,19 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
-        *size = sizeof(char);
+        *size = get_size_char(target);
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
     {
-        *size = sizeof(_Bool);
+        *size = get_size_bool(target);
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
-        *size = sizeof(short);
+        *size = get_size_short(target);
         return ESIZEOF_NONE;
     }
 
@@ -54721,46 +55306,33 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
 #if __GNUC__
         * size = sizeof(__builtin_va_list);
 #else
-        * size = sizeof(void*); //?            
+        * size = get_size_void_ptr(target); //?            
 #endif
         return ESIZEOF_NONE;
     }
 
-    if (p_type->enum_specifier)
-    {
-        assert(p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM);
-
-        enum type_specifier_flags enum_type_specifier_flags =
-            get_enum_type_specifier_flags(p_type->enum_specifier);
-
-        struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
-        enum sizeof_error e = type_get_sizeof(&t, size);
-        type_destroy(&t);
-        return e;
-    }
-
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
     {
-        *size = sizeof(long);
+        *size = get_size_long(target);
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
-        *size = sizeof(long long);
+        *size = get_size_long_long(target);
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
     {
         //typedef long unsigned int uint64_t;
-        *size = sizeof(int);
+        *size = get_size_int(target);
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
     {
-        *size = sizeof(long long);
+        *size = get_size_long_long(target);
         return ESIZEOF_NONE;
     }
 
@@ -54784,13 +55356,19 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
-        *size = sizeof(float);
+        *size = get_size_float(target);
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
-        *size = sizeof(double);
+        *size = get_size_double(target);
+        return ESIZEOF_NONE;
+    }
+
+    if (p_type->type_specifier_flags & (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
+    {
+        *size = get_size_long_double(target);
         return ESIZEOF_NONE;
     }
 
@@ -54807,12 +55385,25 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
         if (p_complete == NULL)
             return ESIZEOF_INCOMPLETE;
 
-        return get_sizeof_struct(p_complete, size);
+        return get_sizeof_struct(p_complete, size, target);
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        *size = sizeof(int);
+        if (p_type->enum_specifier)
+        {
+            enum type_specifier_flags enum_type_specifier_flags =
+                get_enum_type_specifier_flags(p_type->enum_specifier);
+
+            struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
+            enum sizeof_error e = type_get_sizeof(&t, size, target);
+            type_destroy(&t);
+            return e;
+        }
+        else
+        {
+            *size = get_size_int(target);
+        }
         return ESIZEOF_NONE;
     }
 
@@ -54830,7 +55421,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size)
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
     {
-        *size = sizeof(void*);
+        *size = get_size_void_ptr(target);
         return ESIZEOF_NONE;
     }
 
@@ -54982,15 +55573,29 @@ struct type type_make_float()
 }
 
 
-struct type type_make_size_t()
+struct type type_make_size_t(enum target target)
 {
     struct type t = { 0 };
 
+    switch (target)
+    {
+    case TARGET_DEFAULT:
 #ifdef _WIN64
-    t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
+        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
 #else
-    t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 #endif
+        break;
+    case TARGET_X86_X64_GCC:
+        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
+        break;
+    case TARGET_X86_MSVC:
+        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+        break;
+    case TARGET_X64_MSVC:
+        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
+        break;
+    }
 
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
@@ -55041,10 +55646,11 @@ struct type make_with_type_specifier_flags(enum type_specifier_flags f)
     return t;
 }
 
-struct type make_size_t_type()
+struct type make_size_t_type(enum target target)
 {
     struct type t = { 0 };
-    t.type_specifier_flags = CAKE_SIZE_T_TYPE_SPECIFIER;
+    t.type_specifier_flags = get_size_t_specifier(target);
+
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
@@ -55057,7 +55663,10 @@ struct type type_make_int()
     return t;
 }
 
-struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers)
+struct type type_make_literal_string(int size_in_bytes,
+    enum type_specifier_flags chartype,
+    enum type_qualifier_flags qualifiers,
+    enum target target)
 {
     struct type t = { 0 };
 
@@ -55072,7 +55681,7 @@ struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flag
 
         size_t char_size = 0;
 
-        if (type_get_sizeof(&char_type, &char_size) != 0)
+        if (type_get_sizeof(&char_type, &char_size, target) != 0)
         {
             type_delete(p2);
             throw;

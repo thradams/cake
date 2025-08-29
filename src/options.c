@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -11,6 +11,75 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+
+#if defined(_WIN32) || defined(_WIN64)
+#  define PLATFORM_NAME "windows"
+#elif defined(__APPLE__) && defined(__MACH__)
+#  define PLATFORM_NAME "apple"
+#elif defined(__linux__)
+#  define PLATFORM_NAME "linux"
+#elif defined(__EMSCRIPTEN__)
+#  define PLATFORM_NAME "emscripten"
+#else
+#error add new platform 
+#endif
+
+
+
+#if defined(__clang__)
+#define COMPILER_NAME "clang"
+
+#elif defined(__GNUC__) && !defined(__TINYC__) && !defined(__HLC__)
+#define COMPILER_NAME "gcc"
+#elif defined(_MSC_VER) && !defined(__TINYC__) && !defined(__HLC__)
+#define COMPILER_NAME "msvc"
+#elif defined(__INTEL_COMPILER)
+#define COMPILER_NAME "intel"
+#elif defined(__TINYC__)
+#define COMPILER_NAME "tcc"
+#elif defined(__HLC__)
+#define COMPILER_NAME "hlc"
+#else
+#error add new compiler 
+#endif
+
+
+#if defined(__x86_64__) || defined(_M_X64)
+#  define ARCH_NAME "X86_64"
+#elif defined(__i386__) || defined(_M_IX86)
+#  define ARCH_NAME "X86"
+
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#  define ARCH_NAME "ARM64"
+#elif defined(__arm__) || defined(_M_ARM)
+#  define ARCH_NAME "ARM"
+#elif defined(__wasm32__)
+#  define ARCH_NAME "wasm32"
+#elif defined(__wasm64__)
+#  define ARCH_NAME "wasm64"
+#elif defined(__wasm__)
+#  define ARCH_NAME "wasm"
+#else
+#error add new architeture
+#endif
+
+
+const char* target_to_string(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+        return PLATFORM_NAME " " COMPILER_NAME  " " ARCH_NAME " (default)";
+
+    case TARGET_X86_X64_GCC:
+        return "X86_X64_GCC";
+    case TARGET_X86_MSVC:
+        return "X86_MSVC";
+    case TARGET_X64_MSVC:
+        return "X64_MSVC";
+    }
+    return "";
+}
 
 bool is_diagnostic_note(enum diagnostic_id id)
 {
@@ -458,6 +527,29 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strstr(argv[i], "-target") != NULL)
+        {
+            if (strcmp(argv[i], "-target=x86_x64_gcc") == 0)
+            {
+                options->target = TARGET_X86_X64_GCC;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-target=x64_msvc") == 0)
+            {
+                options->target = TARGET_X64_MSVC;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-target=x86_msvc") == 0)
+            {
+                options->target = TARGET_X86_MSVC;
+                continue;
+            }
+
+            printf("invalid target. Options are: x86_x64_gcc / x64_msvc / x86_msvc");
+        }
+
 
         if (strcmp(argv[i], "-std=c2x") == 0 ||
             strcmp(argv[i], "-std=c23") == 0)
@@ -540,7 +632,7 @@ void print_help()
         "\n"
         WHITE "    " CAKE " source.c\n" RESET
         "    Compiles source.c and outputs /out/source.c\n"
-        "\n"        
+        "\n"
         WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
