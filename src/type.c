@@ -142,9 +142,9 @@ size_t get_size_int(enum target target)
     {
     case TARGET_DEFAULT:      return sizeof(int);
     case TARGET_X86_X64_GCC:  return 4;
-    case TARGET_X86_MSVC:     return 5;
-    case TARGET_X64_MSVC:     return 6;
-    }    
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 4;
+    }
     assert(false);
     return 0;
 }
@@ -197,7 +197,7 @@ size_t get_size_long_long(enum target target)
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
     }
-    
+
     assert(false);
     return 0;
 }
@@ -224,7 +224,7 @@ size_t get_size_float(enum target target)
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
-    }    
+    }
     assert(false);
     return 0;
 }
@@ -250,7 +250,7 @@ size_t get_size_double(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
-    }    
+    }
     assert(false);
     return 0;
 }
@@ -276,7 +276,7 @@ size_t get_size_long_double(enum target target)
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
-    }    
+    }
     assert(false);
     return 0;
 }
@@ -376,7 +376,7 @@ bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment
              target == TARGET_X86_MSVC)
     {
         if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-            print_item(ss, first, "__declspec(align(80))");
+            print_item(ss, first, "__declspec(align(8))");
         if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
             print_item(ss, first, "__declspec(align(16))");
         if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
