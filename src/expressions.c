@@ -5001,7 +5001,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                                 compiler_diagnostic(C_ERROR_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, NULL, "incompatible pointer types");
                             }
 
-                            new_expression->type = type_make_int();
+                            new_expression->type = type_make_ptrdiff_t(ctx->options.target);
                             type_destroy(&t1);
                             type_destroy(&t2);
                         }

@@ -13579,6 +13579,7 @@ enum type_specifier_flags
 
 enum type_specifier_flags get_wchar_type_specifier(enum target target);
 enum type_specifier_flags get_size_t_specifier(enum target target);
+enum type_specifier_flags get_ptrdiff_t_specifier(enum target target);
 
 
 enum type_qualifier_flags
@@ -13856,6 +13857,8 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t(enum target target);
+struct type type_make_ptrdiff_t(enum target target);
+
 struct type type_make_long_double();
 struct type type_make_double();
 struct type type_make_float();
@@ -23922,7 +23925,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                                 compiler_diagnostic(C_ERROR_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, NULL, "incompatible pointer types");
                             }
 
-                            new_expression->type = type_make_int();
+                            new_expression->type = type_make_ptrdiff_t(ctx->options.target);
                             type_destroy(&t1);
                             type_destroy(&t2);
                         }
@@ -27699,7 +27702,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.53"
+#define CAKE_VERSION "0.10.54"
 
 
 
@@ -52401,9 +52404,9 @@ size_t get_size_int(enum target target)
     {
     case TARGET_DEFAULT:      return sizeof(int);
     case TARGET_X86_X64_GCC:  return 4;
-    case TARGET_X86_MSVC:     return 5;
-    case TARGET_X64_MSVC:     return 6;
-    }    
+    case TARGET_X86_MSVC:     return 4;
+    case TARGET_X64_MSVC:     return 4;
+    }
     assert(false);
     return 0;
 }
@@ -52456,7 +52459,7 @@ size_t get_size_long_long(enum target target)
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
     }
-    
+
     assert(false);
     return 0;
 }
@@ -52483,7 +52486,7 @@ size_t get_size_float(enum target target)
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
-    }    
+    }
     assert(false);
     return 0;
 }
@@ -52509,7 +52512,7 @@ size_t get_size_double(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
-    }    
+    }
     assert(false);
     return 0;
 }
@@ -52535,7 +52538,7 @@ size_t get_size_long_double(enum target target)
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
-    }    
+    }
     assert(false);
     return 0;
 }
@@ -52566,6 +52569,43 @@ enum type_specifier_flags get_wchar_type_specifier(enum target target)
     return 0;
 }
 
+enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+
+#ifdef _WIN32
+#ifdef _WIN64
+        return (TYPE_SPECIFIER_INT64);
+#else
+        return (TYPE_SPECIFIER_INT);
+#endif
+#else 
+#ifdef __x86_64__
+        /* 64-bit */
+        return (TYPE_SPECIFIER_LONG);
+#else
+        return (TYPE_SPECIFIER_INT);
+#endif
+#endif
+
+        break;
+    case TARGET_X86_X64_GCC:
+        return (TYPE_SPECIFIER_LONG);
+        break;
+    case TARGET_X86_MSVC:
+        return (TYPE_SPECIFIER_INT);
+        break;
+    case TARGET_X64_MSVC:
+        return (TYPE_SPECIFIER_INT64);
+        break;
+    }
+    assert(false);
+    return 0;
+
+}
+
 enum type_specifier_flags get_size_t_specifier(enum target target)
 {
     switch (target)
@@ -52589,7 +52629,7 @@ enum type_specifier_flags get_size_t_specifier(enum target target)
 
         break;
     case TARGET_X86_X64_GCC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64);
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG);
         break;
     case TARGET_X86_MSVC:
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
@@ -52635,7 +52675,7 @@ bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment
              target == TARGET_X86_MSVC)
     {
         if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-            print_item(ss, first, "__declspec(align(80))");
+            print_item(ss, first, "__declspec(align(8))");
         if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
             print_item(ss, first, "__declspec(align(16))");
         if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
@@ -55572,31 +55612,18 @@ struct type type_make_float()
     return t;
 }
 
+struct type type_make_ptrdiff_t(enum target target)
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = get_ptrdiff_t_specifier(target);
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
 
 struct type type_make_size_t(enum target target)
 {
     struct type t = { 0 };
-
-    switch (target)
-    {
-    case TARGET_DEFAULT:
-#ifdef _WIN64
-        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
-#else
-        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
-#endif
-        break;
-    case TARGET_X86_X64_GCC:
-        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
-        break;
-    case TARGET_X86_MSVC:
-        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
-        break;
-    case TARGET_X64_MSVC:
-        t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
-        break;
-    }
-
+    t.type_specifier_flags = get_size_t_specifier(target);
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }

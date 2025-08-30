@@ -99,6 +99,7 @@ enum type_specifier_flags
 
 enum type_specifier_flags get_wchar_type_specifier(enum target target);
 enum type_specifier_flags get_size_t_specifier(enum target target);
+enum type_specifier_flags get_ptrdiff_t_specifier(enum target target);
 
 
 enum type_qualifier_flags
@@ -376,6 +377,8 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t(enum target target);
+struct type type_make_ptrdiff_t(enum target target);
+
 struct type type_make_long_double();
 struct type type_make_double();
 struct type type_make_float();

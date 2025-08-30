@@ -1,5 +1,7 @@
 int main(void)
 { 
-     typeof(L"wide string") s;    
+     int *p;
+     int i = p - p;
+
 }
 
