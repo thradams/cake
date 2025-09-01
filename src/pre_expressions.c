@@ -57,7 +57,7 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 /*
  * preprocessor uses long long
  */
-static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result)
+static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result, enum target target)
 {
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
@@ -133,9 +133,9 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
                 cv = object_make_unsigned_int((unsigned int)value);
 
             }
-            else if (value <= ULONG_MAX && suffix[2] != 'L')
+            else if (value <= target_get_unsigned_long_max(target) && suffix[2] != 'L')
             {
-                cv = object_make_unsigned_long((unsigned long)value);
+                cv = object_make_unsigned_long((unsigned long)value, target);
             }
             else //if (value <= ULLONG_MAX)
             {
@@ -149,11 +149,11 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
             {
                 cv = object_make_signed_int((int)value);
             }
-            else if (value <= LONG_MAX && suffix[1] != 'L' /*!= LL*/)
+            else if (value <= target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
-                cv = object_make_signed_long((long)value);
+                cv = object_make_signed_long((long)value, target);
             }
-            else if (value <= LLONG_MAX)
+            else if (value <= target_get_signed_long_long_max(target))
             {
                 cv = object_make_signed_long_long((long long)value);
             }
@@ -202,7 +202,7 @@ static struct token* _Opt pre_match(struct preprocessor_ctx* ctx)
 }
 
 //TODO share this with parser
-static struct object char_constant_to_value(const char* s, char error_message[/*sz*/], int error_message_sz_bytes)
+static struct object char_constant_to_value(const char* s, char error_message[/*sz*/], int error_message_sz_bytes, enum target target)
 {
     error_message[0] = '\0';
 
@@ -244,7 +244,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
             }
 
-            return object_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
+            return object_make_wchar_t(target, c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -274,12 +274,12 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
             }
 
-            if (c > USHRT_MAX)
+            if ((int)c > target_get_wchar_max(target))
             {
                 snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
             }
 
-            return object_make_wchar_t((wchar_t)c);
+            return object_make_wchar_t(target, c);
         }
         else if (p[0] == 'U')
         {
@@ -315,7 +315,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
             }
 
-            return object_make_wchar_t((wchar_t)c);
+            return object_make_wchar_t(target, c);
         }
         else if (p[0] == 'L')
         {
@@ -351,22 +351,15 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
        
                 // TODO \u
                 value = value * 256 + c;
-#ifdef _WIN32
-                if (value > USHRT_MAX)
+
+                if (value > target_get_wchar_max(target))
                 {
                     snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
                     break;
                 }
-#else
-                if (value > UINT_MAX)
-                {
-                    snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
-                    break;
-                }
-#endif
             }
 
-            return object_make_wchar_t((wchar_t)value);
+            return object_make_wchar_t(target, (int) value);
         }
         else
         {
@@ -414,7 +407,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                     break;
                 }
             }
-            return object_make_wchar_t((wchar_t)value);
+            return object_make_wchar_t(target, (int) value);
         }
     }
     catch
@@ -447,7 +440,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         {
             const char* p = ctx->current->lexeme + 1;
             char errmsg[200] = { 0 };
-            struct object v = char_constant_to_value(p, errmsg, sizeof errmsg);
+            struct object v = char_constant_to_value(p, errmsg, sizeof errmsg, ctx->options.target);
             if (errmsg[0] != '\0')
             {
                 preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, "%s", errmsg);
@@ -458,7 +451,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         }
         else if (ctx->current->type == TK_PPNUMBER)
         {
-            ppnumber_to_longlong(ctx, ctx->current, &ectx->value);
+            ppnumber_to_longlong(ctx, ctx->current, &ectx->value, ctx->options.target);
             pre_match(ctx);
         }        
         else if (ctx->current->type == '(')

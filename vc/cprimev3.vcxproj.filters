@@ -58,6 +58,9 @@
     <ClCompile Include="..\src\flow.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\target.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h">
@@ -109,6 +112,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\flow.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\target.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -697,19 +697,35 @@ void throw_break_point();
 
 //#pragma once
 
+
+//#pragma once
+
+
 /*
 * Compiler options shared with compiler and preprocessor
 */
 
 enum target
 {
-    TARGET_DEFAULT = 0,    
-    TARGET_X86_X64_GCC ,
-    TARGET_X86_MSVC ,
-    TARGET_X64_MSVC ,
+    TARGET_DEFAULT = 0,
+    TARGET_X86_X64_GCC,
+    TARGET_X86_MSVC,
+    TARGET_X64_MSVC,
 };
 
 const char* target_to_string(enum target target);
+//unsigned long long target_get_unsigned_short_max(enum target target);
+int target_get_wchar_max(enum target target);
+
+long long target_get_signed_long_max(enum target target);
+unsigned long long target_get_unsigned_long_max(enum target target);
+long long target_get_signed_long_long_max(enum target target);
+
+extern const char* TARGET_DEFAULT_PREDEFINED_MACROS;
+extern const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS;
+extern const char* TARGET_X86_MSVC_PREDEFINED_MACROS;
+extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
+
 
 enum language_version
 {
@@ -1142,7 +1158,7 @@ struct tokenizer_ctx
 };
 
 struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
-void add_standard_macros(struct preprocessor_ctx* ctx);
+void add_standard_macros(struct preprocessor_ctx* ctx, enum target target);
 struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const char* path);
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
@@ -9081,7 +9097,7 @@ static bool is_builtin_macro(const char* name)
     return false;
 }
 
-void add_standard_macros(struct preprocessor_ctx* ctx)
+void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 {
     /*
       This command prints all macros used by gcc
@@ -9127,213 +9143,23 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
       macro_copy_replacement_list but they need to be registered here.
     */
 
-    const char* pre_defined_macros_text =
-        "#define __CAKE__ 202311L\n"
-        "#define __STDC_VERSION__ 202311L\n"
-        "#define __FILE__ \"__FILE__\"\n"
-        "#define __LINE__ 0\n"
-        "#define __COUNTER__ 0\n"
-        "#define _CONSOLE\n"
-        "#define __STDC_OWNERSHIP__ 1\n" /*cake extension*/
-        //"#define __STDC_HOSTED__ " TOSTRING(__STDC_HOSTED__) "\n" /*breaks linux*/
-        "#define __STDC_NO_ATOMICS__ " TOSTRING(__STDC_NO_ATOMICS__) "\n"
-        "#define __STDC_NO_COMPLEX__  " TOSTRING(__STDC_NO_COMPLEX__) "\n"
-        "#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__) "\n"
-        "#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__) "\n"
-        //"#define __STDC__    " TOSTRING(__STDC__) "\n"
+    const char* pre_defined_macros_text = NULL;
 
-
-
-#ifdef __EMSCRIPTEN__
-        //include dir on emscripten
-        "#pragma dir \"c:/\"\n"
-#endif
-
-#ifdef _WIN32
-
-        //see
-        //https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?_View=msvc-170
-        "#define _WIN32 " TOSTRING(_WIN32) "\n"
-
-
-#ifdef _WIN64
-        "#define _WIN64 " TOSTRING(_WIN64) "\n"
-#endif
-
-        "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
-
-        "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
-        "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
-        "#define __pragma(a)\n"
-        ;
-
-#endif
-
-#ifdef __linux__
-
-    //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
-        /*some gcc stuff need to parse linux headers*/
-    "#define __linux__\n"
-        //see
-        //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html                
-        "#define __x86_64__ " TOSTRING(__x86_64__) "\n"
-        "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
-        "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
-        "#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
-        "#define __WCHAR_TYPE__ " TOSTRING(__WCHAR_TYPE__) "\n"
-        "#define __WINT_TYPE__ " TOSTRING(__WINT_TYPE__) "\n"
-        "#define __INTMAX_TYPE__ " TOSTRING(__INTMAX_TYPE__) "\n"
-        "#define __UINTMAX_TYPE__ " TOSTRING(__UINTMAX_TYPE__) "\n"
-        "#define __SIG_ATOMIC_TYPE__ " TOSTRING(__SIG_ATOMIC_TYPE__) "\n"
-        "#define __INT8_TYPE__ " TOSTRING(__INT8_TYPE__) "\n"
-        "#define __INT16_TYPE__ " TOSTRING(__INT16_TYPE__) "\n"
-        "#define __INT32_TYPE__ " TOSTRING(__INT32_TYPE__) "\n"
-        "#define __INT64_TYPE__ " TOSTRING(__INT64_TYPE__) "\n"
-        "#define __UINT8_TYPE__ " TOSTRING(__UINT8_TYPE__) "\n"
-        "#define __UINT16_TYPE__ " TOSTRING(__UINT16_TYPE__) "\n"
-        "#define __UINT32_TYPE__ " TOSTRING(__UINT32_TYPE__) "\n"
-        "#define __UINT64_TYPE__ " TOSTRING(__UINT64_TYPE__) "\n"
-        "#define __INT_LEAST8_TYPE__ " TOSTRING(__INT_LEAST8_TYPE__) "\n"
-        "#define __INT_LEAST16_TYPE__ " TOSTRING(__INT_LEAST16_TYPE__) "\n"
-        "#define __INT_LEAST32_TYPE__ " TOSTRING(__INT_LEAST32_TYPE__) "\n"
-        "#define __INT_LEAST64_TYPE__ " TOSTRING(__INT_LEAST64_TYPE__) "\n"
-        "#define __UINT_LEAST8_TYPE__ " TOSTRING(__UINT_LEAST8_TYPE__) "\n"
-        "#define __UINT_LEAST16_TYPE__ " TOSTRING(__UINT_LEAST16_TYPE__) "\n"
-        "#define __UINT_LEAST32_TYPE__ " TOSTRING(__UINT_LEAST32_TYPE__) "\n"
-        "#define __UINT_LEAST64_TYPE__ " TOSTRING(__UINT_LEAST64_TYPE__) "\n"
-        "#define __INT_FAST8_TYPE__ " TOSTRING(__INT_FAST8_TYPE__) "\n"
-        "#define __INT_FAST16_TYPE__ " TOSTRING(__INT_FAST16_TYPE__) "\n"
-        "#define __INT_FAST32_TYPE__ " TOSTRING(__INT_FAST32_TYPE__) "\n"
-        "#define __INT_FAST64_TYPE__ " TOSTRING(__INT_FAST64_TYPE__) "\n"
-        "#define __UINT_FAST8_TYPE__ " TOSTRING(__UINT_FAST8_TYPE__) "\n"
-        "#define __UINT_FAST16_TYPE__ " TOSTRING(__UINT_FAST16_TYPE__) "\n"
-        "#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
-        "#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
-        "#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
-        "#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
-
-        "#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
-        "#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
-        "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-        "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
-        "#define __DBL_EPSILON__ " TOSTRING(__DBL_EPSILON__) "\n"
-        "#define __LDBL_EPSILON__ " TOSTRING(__LDBL_EPSILON__) "\n"
-        "#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
-        "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
-        "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-
-        // gcc -dM -E
-
-        "#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
-        "#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
-        "#define __FLT_DECIMAL_DIG__ " TOSTRING(__FLT_DECIMAL_DIG__) "\n"
-
-
-        "#define __FLT_MIN_10_EXP__ " TOSTRING(__FLT_MIN_10_EXP__) "\n"
-        "#define __FLT_MIN__ " TOSTRING(__FLT_MIN__) "\n"
-        "#define __FLT_MAX__ " TOSTRING(__FLT_MAX__) "\n"
-        "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
-        "#define __FLT_DIG__ " TOSTRING(__FLT_DIG__) "\n"
-        "#define __FLT_MANT_DIG__ " TOSTRING(__FLT_MANT_DIG__) "\n"
-        "#define __FLT_MIN_EXP__ " TOSTRING(__FLT_MIN_EXP__) "\n"
-        "#define __FLT_MAX_10_EXP__ " TOSTRING(__FLT_MAX_10_EXP__) "\n"
-        "#define __FLT_ROUNDS__ " TOSTRING(__FLT_ROUNDS__) "\n"
-        "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
-        "#define __FLT_HAS_SUBNORM__ " TOSTRING(__FLT_HAS_SUBNORM__) "\n"
-
-        "#define __FLT_MAX_EXP__ " TOSTRING(__FLT_MAX_EXP__) "\n"
-        "#define __FLT_HAS_DENORM__ " TOSTRING(__FLT_HAS_DENORM__) "\n"
-
-
-        "#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
-        "#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
-        "#define __SHRT_MAX__ " TOSTRING(__SHRT_MAX__) "\n"
-        "#define __INT_MAX__ " TOSTRING(__INT_MAX__) "\n"
-        "#define __LONG_MAX__ " TOSTRING(__LONG_MAX__) "\n"
-        "#define __LONG_LONG_MAX__ " TOSTRING(__LONG_LONG_MAX__) "\n"
-        "#define __WINT_MAX__ " TOSTRING(__WINT_MAX__) "\n"
-        "#define __SIZE_MAX__ " TOSTRING(__SIZE_MAX__) "\n"
-        "#define __PTRDIFF_MAX__ " TOSTRING(__PTRDIFF_MAX__) "\n"
-        "#define __INTMAX_MAX__ " TOSTRING(__INTMAX_MAX__) "\n"
-        "#define __UINTMAX_MAX__ " TOSTRING(__UINTMAX_MAX__) "\n"
-        "#define __SIG_ATOMIC_MAX__ " TOSTRING(__SIG_ATOMIC_MAX__) "\n"
-        "#define __INT8_MAX__ " TOSTRING(__INT8_MAX__) "\n"
-        "#define __INT16_MAX__ " TOSTRING(__INT16_MAX__) "\n"
-        "#define __INT32_MAX__ " TOSTRING(__INT32_MAX__) "\n"
-        "#define __INT64_MAX__ " TOSTRING(__INT64_MAX__) "\n"
-        "#define __UINT8_MAX__ " TOSTRING(__UINT8_MAX__) "\n"
-        "#define __UINT16_MAX__ " TOSTRING(__UINT16_MAX__) "\n"
-        "#define __UINT32_MAX__ " TOSTRING(__UINT32_MAX__) "\n"
-        "#define __UINT64_MAX__ " TOSTRING(__UINT64_MAX__) "\n"
-        "#define __INT_LEAST8_MAX__ " TOSTRING(__INT_LEAST8_MAX__) "\n"
-        "#define __INT_LEAST16_MAX__ " TOSTRING(__INT_LEAST16_MAX__) "\n"
-        "#define __INT_LEAST32_MAX__ " TOSTRING(__INT_LEAST32_MAX__) "\n"
-        "#define __INT_LEAST64_MAX__ " TOSTRING(__INT_LEAST64_MAX__) "\n"
-        "#define __UINT_LEAST8_MAX__ " TOSTRING(__UINT_LEAST8_MAX__) "\n"
-        "#define __UINT_LEAST16_MAX__ " TOSTRING(__UINT_LEAST16_MAX__) "\n"
-        "#define __UINT_LEAST32_MAX__ " TOSTRING(__UINT_LEAST32_MAX__) "\n"
-        "#define __UINT_LEAST64_MAX__ " TOSTRING(__UINT_LEAST64_MAX__) "\n"
-        "#define __INT_FAST8_MAX__ " TOSTRING(__INT_FAST8_MAX__) "\n"
-        "#define __INT_FAST16_MAX__ " TOSTRING(__INT_FAST16_MAX__) "\n"
-        "#define __INT_FAST32_MAX__ " TOSTRING(__INT_FAST32_MAX__) "\n"
-        "#define __INT_FAST64_MAX__ " TOSTRING(__INT_FAST64_MAX__) "\n"
-        "#define __UINT_FAST8_MAX__ " TOSTRING(__UINT_FAST8_MAX__) "\n"
-        "#define __UINT_FAST16_MAX__ " TOSTRING(__UINT_FAST16_MAX__) "\n"
-        "#define __UINT_FAST32_MAX__ " TOSTRING(__UINT_FAST32_MAX__) "\n"
-        "#define __UINT_FAST64_MAX__ " TOSTRING(__UINT_FAST64_MAX__) "\n"
-        "#define __INTPTR_MAX__ " TOSTRING(__INTPTR_MAX__) "\n"
-        "#define __UINTPTR_MAX__ " TOSTRING(__UINTPTR_MAX__) "\n"
-        "#define __WCHAR_MIN__ " TOSTRING(__WCHAR_MIN__) "\n"
-        "#define __WINT_MIN__ " TOSTRING(__WINT_MIN__) "\n"
-        "#define __SIG_ATOMIC_MIN__ " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
-
-        "#define __INT8_C " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
-        "#define __INT16_C " TOSTRING(__INT16_C) "\n"
-        "#define __INT32_C " TOSTRING(__INT32_C) "\n"
-        "#define __INT64_C " TOSTRING(__INT64_C) "\n"
-        "#define __UINT8_C " TOSTRING(__UINT8_C) "\n"
-        "#define __UINT16_C " TOSTRING(__UINT16_C) "\n"
-        "#define __UINT32_C " TOSTRING(__UINT32_C) "\n"
-        "#define __UINT64_C " TOSTRING(__UINT64_C) "\n"
-        "#define __INTMAX_C " TOSTRING(__INTMAX_C) "\n"
-        "#define __UINTMAX_C " TOSTRING(__UINTMAX_C) "\n"
-
-        "#define __SCHAR_WIDTH__ " TOSTRING(__SCHAR_WIDTH__) "\n"
-        "#define __SHRT_WIDTH__ " TOSTRING(__SHRT_WIDTH__) "\n"
-        "#define __INT_WIDTH__ " TOSTRING(__INT_WIDTH__) "\n"
-        "#define __LONG_WIDTH__ " TOSTRING(__LONG_WIDTH__) "\n"
-        "#define __LONG_LONG_WIDTH__ " TOSTRING(__LONG_LONG_WIDTH__) "\n"
-        "#define __PTRDIFF_WIDTH__ " TOSTRING(__PTRDIFF_WIDTH__) "\n"
-        "#define __SIG_ATOMIC_WIDTH__ " TOSTRING(__SIG_ATOMIC_WIDTH__) "\n"
-        "#define __SIZE_WIDTH__ " TOSTRING(__SIZE_WIDTH__) "\n"
-        "#define __WCHAR_WIDTH__ " TOSTRING(__WCHAR_WIDTH__) "\n"
-        "#define __WINT_WIDTH__ " TOSTRING(__WINT_WIDTH__) "\n"
-        "#define __INT_LEAST8_WIDTH__ " TOSTRING(__INT_LEAST8_WIDTH__) "\n"
-        "#define __INT_LEAST16_WIDTH__ " TOSTRING(__INT_LEAST16_WIDTH__) "\n"
-        "#define __INT_LEAST32_WIDTH__ " TOSTRING(__INT_LEAST32_WIDTH__) "\n"
-        "#define __INT_LEAST64_WIDTH__ " TOSTRING(__INT_LEAST64_WIDTH__) "\n"
-        "#define __INT_FAST8_WIDTH__ " TOSTRING(__INT_FAST8_WIDTH__) "\n"
-        "#define __INT_FAST16_WIDTH__ " TOSTRING(__INT_FAST16_WIDTH__) "\n"
-        "#define __INT_FAST32_WIDTH__ " TOSTRING(__INT_FAST32_WIDTH__) "\n"
-        "#define __INT_FAST64_WIDTH__ " TOSTRING(__INT_FAST64_WIDTH__) "\n"
-        "#define __INTPTR_WIDTH__ " TOSTRING(__INTPTR_WIDTH__) "\n"
-        "#define __INTMAX_WIDTH__ " TOSTRING(__INTMAX_WIDTH__) "\n"
-
-
-        "#define __SIZEOF_INT__ " TOSTRING(__SIZEOF_INT__) "\n"
-        "#define __SIZEOF_LONG__ " TOSTRING(__SIZEOF_LONG__) "\n"
-        "#define __SIZEOF_LONG_LONG__ " TOSTRING(__SIZEOF_LONG_LONG__) "\n"
-        "#define __SIZEOF_SHORT__ " TOSTRING(__SIZEOF_SHORT__) "\n"
-        "#define __SIZEOF_POINTER__ " TOSTRING(__SIZEOF_POINTER__) "\n"
-        "#define __SIZEOF_FLOAT__ " TOSTRING(__SIZEOF_FLOAT__) "\n"
-        "#define __SIZEOF_DOUBLE__ " TOSTRING(__SIZEOF_DOUBLE__) "\n"
-        "#define __SIZEOF_LONG_DOUBLE__ " TOSTRING(__SIZEOF_LONG_DOUBLE__) "\n"
-        "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
-        "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
-        "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
-        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
-#endif
-        "\n";
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+        pre_defined_macros_text = TARGET_DEFAULT_PREDEFINED_MACROS;
+        break;
+    case TARGET_X86_X64_GCC:
+        pre_defined_macros_text = TARGET_X86_X64_GCC_PREDEFINED_MACROS;
+        break;
+    case TARGET_X86_MSVC:
+        pre_defined_macros_text = TARGET_X86_MSVC_PREDEFINED_MACROS;
+        break;
+    case TARGET_X64_MSVC:
+        pre_defined_macros_text = TARGET_X64_MSVC_PREDEFINED_MACROS;
+        break;
+    }
 
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
@@ -11045,7 +10871,7 @@ int test_predefined_macros()
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx);
+    add_standard_macros(&prectx, TARGET_DEFAULT);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
 
@@ -11094,7 +10920,7 @@ int test_counter()
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx);
+    add_standard_macros(&prectx, TARGET_DEFAULT);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
     const char* result = print_preprocessed_to_string(list2.head);
@@ -12763,74 +12589,6 @@ char* _Owner read_file(const char* path, bool append_newline)
 #pragma safety enable
 
 
-#if defined(_WIN32) || defined(_WIN64)
-#  define PLATFORM_NAME "windows"
-#elif defined(__APPLE__) && defined(__MACH__)
-#  define PLATFORM_NAME "apple"
-#elif defined(__linux__)
-#  define PLATFORM_NAME "linux"
-#elif defined(__EMSCRIPTEN__)
-#  define PLATFORM_NAME "emscripten"
-#else
-#error add new platform 
-#endif
-
-
-
-#if defined(__clang__)
-#define COMPILER_NAME "clang"
-
-#elif defined(__GNUC__) && !defined(__TINYC__) && !defined(__HLC__)
-#define COMPILER_NAME "gcc"
-#elif defined(_MSC_VER) && !defined(__TINYC__) && !defined(__HLC__)
-#define COMPILER_NAME "msvc"
-#elif defined(__INTEL_COMPILER)
-#define COMPILER_NAME "intel"
-#elif defined(__TINYC__)
-#define COMPILER_NAME "tcc"
-#elif defined(__HLC__)
-#define COMPILER_NAME "hlc"
-#else
-#error add new compiler 
-#endif
-
-
-#if defined(__x86_64__) || defined(_M_X64)
-#  define ARCH_NAME "X86_64"
-#elif defined(__i386__) || defined(_M_IX86)
-#  define ARCH_NAME "X86"
-
-#elif defined(__aarch64__) || defined(_M_ARM64)
-#  define ARCH_NAME "ARM64"
-#elif defined(__arm__) || defined(_M_ARM)
-#  define ARCH_NAME "ARM"
-#elif defined(__wasm32__)
-#  define ARCH_NAME "wasm32"
-#elif defined(__wasm64__)
-#  define ARCH_NAME "wasm64"
-#elif defined(__wasm__)
-#  define ARCH_NAME "wasm"
-#else
-#error add new architeture
-#endif
-
-
-const char* target_to_string(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_DEFAULT:
-        return PLATFORM_NAME " " COMPILER_NAME  " " ARCH_NAME " (default)";
-
-    case TARGET_X86_X64_GCC:
-        return "X86_X64_GCC";
-    case TARGET_X86_MSVC:
-        return "X86_MSVC";
-    case TARGET_X64_MSVC:
-        return "X64_MSVC";
-    }
-    return "";
-}
 
 bool is_diagnostic_note(enum diagnostic_id id)
 {
@@ -13906,34 +13664,34 @@ void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);
 void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags);
 
+
+#include <inttypes.h>
 struct parser_ctx;
+
+#ifdef __GNUC__
+#define CAKE_FLOAT128_DEFINED 1
+#endif
+
 
 enum object_value_type 
 {
+    TYPE_SIGNED_INT8,
+    TYPE_UNSIGNED_INT8,
 
-    TYPE_SIGNED_INT,
-    TYPE_UNSIGNED_INT,
+    TYPE_SIGNED_INT16,
+    TYPE_UNSIGNED_INT16,
 
-    TYPE_BOOL,
+    TYPE_SIGNED_INT32,
+    TYPE_UNSIGNED_INT32,
 
-    TYPE_SIGNED_CHAR,
-    TYPE_UNSIGNED_CHAR,
+    TYPE_SIGNED_INT64,
+    TYPE_UNSIGNED_INT64,
 
-    TYPE_SIGNED_SHORT,
-    TYPE_UNSIGNED_SHORT,
-
-    TYPE_SIGNED_LONG,
-    TYPE_UNSIGNED_LONG,
-
-    TYPE_SIGNED_LONG_LONG,
-    TYPE_UNSIGNED_LONG_LONG,
-
-    TYPE_FLOAT,
-    TYPE_DOUBLE,
-    TYPE_LONG_DOUBLE,
-    
-    TYPE_VOID_PTR,
-    TYPE_VOID_PTR_REF,
+    TYPE_FLOAT32,
+    TYPE_FLOAT64,
+#ifdef CAKE_FLOAT128_DEFINED
+    TYPE_FLOAT128    
+#endif
 };
 
 enum object_value_state
@@ -13955,30 +13713,28 @@ struct object
     const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
 
     union {
-        _Bool bool_value;
+  
+        int8_t signed_int8;
+        uint8_t unsigned_int8;
 
-        signed char signed_char_value;
-        unsigned char unsigned_char_value;
+        int16_t signed_int16;
+        uint16_t unsigned_int16;                
+        
+        int32_t signed_int32;
+        uint32_t unsigned_int32;
 
-        signed short signed_short_value;
-        unsigned short unsigned_short_value;
+        int64_t  signed_int64;
+        int64_t  unsigned_int64;
 
-        signed int signed_int_value;
-        unsigned int unsigned_int_value;
-
-        signed long signed_long_value;
-        unsigned long unsigned_long_value;
-
-        signed long long signed_long_long_value;
-        unsigned long long unsigned_long_long_value;
-
-        float float_value;
-        double double_value;
-        long double long_double_value;            
-
-        void * _Opt void_pointer;
+        float float32;
+        double float64;
+#ifdef CAKE_FLOAT128_DEFINED
+        long double float128;
+#endif
+        
     } value;
     struct object* _Opt parent; //to be removed
+    struct object* _Opt p_ref;
     struct expression * _Opt p_init_expression;
     
     struct object* _Opt _Owner members;
@@ -13994,8 +13750,8 @@ void object_to_string(const struct object* a, char buffer[], int sz);
 
 
 //Make constant value
-struct object            object_make_wchar_t(wchar_t value);
-struct object             object_make_size_t(size_t value);
+struct object            object_make_wchar_t(enum target target, int value);
+struct object             object_make_size_t(enum target target, uint64_t value);
 struct object               object_make_bool(bool value);
 struct object            object_make_nullptr();
 struct object        object_make_signed_char(signed char value);
@@ -14005,8 +13761,9 @@ struct object     object_make_unsigned_short(unsigned short value);
 struct object         object_make_signed_int(signed int value);
 struct object       object_make_unsigned_int(unsigned int value);
 
-struct object        object_make_signed_long(signed long value);
-struct object      object_make_unsigned_long(unsigned long value);
+struct object        object_make_signed_long(signed long long value, enum target target);
+struct object      object_make_unsigned_long(unsigned long long value, enum target target);
+
 struct object   object_make_signed_long_long(signed long long value);
 struct object object_make_unsigned_long_long(unsigned long long value);
 struct object              object_make_float(float value);
@@ -14022,7 +13779,7 @@ void object_set_signed_int(struct object* a, long long value);
 void object_set_unsigned_int(struct object* a, unsigned long long value);
 
 struct object object_cast(enum object_value_type e, const struct object* a);
-enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags);
+enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags, enum target target);
 
 errno_t object_increment_value(struct object* a);
 
@@ -14064,8 +13821,8 @@ void object_default_initialization(struct object* p_object, bool is_constant);
 
 struct object* _Opt object_get_member(struct object* p_object, int index);
 
-int make_object_with_name(const struct type* p_type, struct object* obj, const char* name);
-int make_object(const struct type* p_type, struct object* obj);
+int make_object_with_name(const struct type* p_type, struct object* obj, const char* name, enum target target);
+int make_object(const struct type* p_type, struct object* obj, enum target target);
 struct object object_dup(const struct object* src);
 
 bool object_is_reference(const struct object* p_object);
@@ -14086,11 +13843,11 @@ int object_set(
 
 struct type;
 
-enum object_value_type type_to_object_type(const struct type* type);
+enum object_value_type type_to_object_type(const struct type* type, enum target target);
 
 void object_print_to_debug(const struct object* object, enum target target);
 
-struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant);
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant, enum target target);
 struct object* object_get_non_const_referenced(struct object* p_object);
 
 
@@ -14105,6 +13862,7 @@ struct objects
 void objects_destroy(struct objects* arr);
 int objects_push(struct objects* arr, struct object* obj); // returns 0 on success, ENOMEM on alloc fail
 
+void object_print_value(struct osstream* ss, const struct object* a, enum target target);
 
 
 
@@ -16273,81 +16031,82 @@ void object_to_string(const struct object* a, char buffer[], int sz)
     buffer[0] = 0;
     switch (a->value_type)
     {
-    case TYPE_BOOL:
-        snprintf(buffer, sz, "%s", a->value.signed_char_value ? "true" : "false");
+
+    case TYPE_SIGNED_INT8:
+        snprintf(buffer, sz, "%" PRIi8, a->value.signed_int8);
         break;
 
-    case TYPE_SIGNED_CHAR:
-        snprintf(buffer, sz, "%c", a->value.signed_char_value);
+    case TYPE_UNSIGNED_INT8:
+        snprintf(buffer, sz, "%" PRIu8, a->value.unsigned_int8);
         break;
 
-    case TYPE_UNSIGNED_CHAR:
-        snprintf(buffer, sz, "%c", a->value.unsigned_char_value);
+    case TYPE_SIGNED_INT16:
+        snprintf(buffer, sz, "%" PRIi16, a->value.signed_int16);
+        break;
+    case TYPE_UNSIGNED_INT16:
+        snprintf(buffer, sz, "%" PRIu16, a->value.signed_int16);
         break;
 
-    case TYPE_SIGNED_SHORT:
-        snprintf(buffer, sz, "%c", a->value.signed_short_value);
-        break;
-    case TYPE_UNSIGNED_SHORT:
-        snprintf(buffer, sz, "%c", a->value.signed_short_value);
+    case TYPE_SIGNED_INT32:
+        snprintf(buffer, sz, "%" PRIi32, a->value.signed_int32);
         break;
 
-    case TYPE_SIGNED_INT:
-        snprintf(buffer, sz, "%d", a->value.signed_int_value);
+    case TYPE_UNSIGNED_INT32:
+        snprintf(buffer, sz, "%" PRIu32, a->value.signed_int32);
         break;
 
-    case TYPE_UNSIGNED_INT:
-        snprintf(buffer, sz, "%u", a->value.signed_int_value);
+
+    case TYPE_UNSIGNED_INT64:
+        snprintf(buffer, sz, "%" PRIu64, a->value.signed_int64);
         break;
 
-    case TYPE_SIGNED_LONG:
-        snprintf(buffer, sz, "%ld", a->value.signed_long_value);
+    case TYPE_FLOAT32:
+        snprintf(buffer, sz, "%f", a->value.float32);
         break;
 
-    case TYPE_UNSIGNED_LONG:
+    case TYPE_FLOAT64:
+        snprintf(buffer, sz, "%f", a->value.float64);
         break;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
+        snprintf(buffer, sz, "%Lf", a->value.float64);
+        break;
+#endif
 
-    case TYPE_SIGNED_LONG_LONG:
-        snprintf(buffer, sz, "%lud", a->value.signed_long_value);
-        break;
 
-    case TYPE_UNSIGNED_LONG_LONG:
-        snprintf(buffer, sz, "%llu", a->value.signed_long_long_value);
-        break;
-
-    case TYPE_FLOAT:
-        snprintf(buffer, sz, "%f", a->value.float_value);
-        break;
-
-    case TYPE_DOUBLE:
-        snprintf(buffer, sz, "%f", a->value.double_value);
-        break;
-
-    case TYPE_LONG_DOUBLE:
-        snprintf(buffer, sz, "%Lf", a->value.long_double_value);
-        break;
-
-    case TYPE_VOID_PTR:
-        if (a->value.void_pointer == NULL)
-            snprintf(buffer, sz, "null");
-        else
-            snprintf(buffer, sz, "%p", a->value.void_pointer);
-        break;
     }
 }
 
-struct object object_make_size_t(size_t value)
+struct object object_make_size_t(enum target target, uint64_t value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
+    switch (target)
+    {
+    case TARGET_DEFAULT:
 #if defined(_WIN64) || defined(__x86_64__) 
-    r.value_type = TYPE_UNSIGNED_LONG_LONG;
-    r.value.unsigned_long_long_value = value;
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = value;
 #else
-    r.value_type = TYPE_UNSIGNED_INT;
-    r.value.unsigned_int_value = value;
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = (unsigned int)value;
 #endif
+
+    case TARGET_X86_X64_GCC:
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = value;
+        break;
+
+    case TARGET_X86_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = (unsigned int)value;
+        break;
+
+    case TARGET_X64_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = value;
+        break;
+    }
 
     return r;
 }
@@ -16357,25 +16116,39 @@ struct object object_make_nullptr()
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
-    r.value_type = TYPE_SIGNED_INT;
-    r.value.signed_short_value = 0;
+    r.value_type = TYPE_SIGNED_INT32;
+    r.value.signed_int16 = 0;
     return r;
 }
 
-struct object object_make_wchar_t(wchar_t value)
+struct object object_make_wchar_t(enum target target, int value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
+    switch (target)
+    {
+    case TARGET_DEFAULT:
 #ifdef _WIN32
-    //static_assert(_Generic(L' ', unsigned short : 1), "");
-    r.value_type = TYPE_SIGNED_SHORT;
-    r.value.signed_short_value = value;
+        r.value_type = TYPE_UNSIGNED_INT16;
+        r.value.unsigned_int16 = (unsigned short)value;
 #else
-    //static_assert(_Generic(L' ', int : 1), "");
-    r.value_type = TYPE_SIGNED_INT;
-    r.value.signed_int_value = value;
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int32 = value;
 #endif
+        break;
+
+    case TARGET_X86_X64_GCC:
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int32 = value;
+        break;
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT16;
+        r.value.unsigned_int16 = (unsigned short)value;
+        break;
+    }
+
 
     return r;
 }
@@ -16385,8 +16158,8 @@ struct object object_make_bool(bool value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
-    r.value_type = TYPE_BOOL;
-    r.value.bool_value = value;
+    r.value_type = TYPE_UNSIGNED_INT8;
+    r.value.unsigned_int8 = value;
     return r;
 }
 
@@ -16402,36 +16175,43 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     switch (a->value_type)
     {
 
-    case TYPE_BOOL:
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
+
+    case TYPE_SIGNED_INT8:
+    case TYPE_SIGNED_INT16:
+    case TYPE_SIGNED_INT32:
+
+    case TYPE_SIGNED_INT64:
     {
         long long v = object_to_signed_long_long(a);
         snprintf(str, n, "%lld", v);
     }
     break;
 
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_INT8:
+    case TYPE_UNSIGNED_INT16:
+    case TYPE_UNSIGNED_INT32:
+
+    case TYPE_UNSIGNED_INT64:
     {
         unsigned long long v = object_to_unsigned_long_long(a);
         snprintf(str, n, "%llu", v);
     }
     break;
 
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
+    case TYPE_FLOAT32:
+    case TYPE_FLOAT64:
     {
         long double v = object_to_long_double(a);
         snprintf(str, n, "%Lf", v);
     }
+    break;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
+    {
+        long double v = object_to_long_double(a);
+        snprintf(str, n, "%Lf", v);
+    }
+#endif
     break;
     }
 
@@ -16446,22 +16226,23 @@ void object_set_signed_int(struct object* a, long long value)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: a->value.bool_value = value; break;
-    case TYPE_SIGNED_CHAR:  a->value.signed_char_value = value; break;
-    case TYPE_UNSIGNED_CHAR:  a->value.unsigned_char_value = value; break;
-    case TYPE_SIGNED_SHORT:  a->value.signed_short_value = value; break;
-    case TYPE_UNSIGNED_SHORT:  a->value.unsigned_short_value = value; break;
-    case TYPE_SIGNED_INT:  a->value.signed_int_value = value; break;
-    case TYPE_UNSIGNED_INT:  a->value.unsigned_int_value = value; break;
-    case TYPE_SIGNED_LONG:  a->value.signed_long_value = value; break;
-    case TYPE_UNSIGNED_LONG:  a->value.unsigned_long_value = value; break;
-    case TYPE_SIGNED_LONG_LONG:  a->value.signed_long_long_value = value; break;
-    case TYPE_UNSIGNED_LONG_LONG:  a->value.unsigned_long_long_value = value; break;
-    case TYPE_FLOAT:  a->value.float_value = value; break;
-    case TYPE_DOUBLE:  a->value.double_value = value; break;
-    case TYPE_LONG_DOUBLE:  a->value.long_double_value = value; break;
 
-    case TYPE_VOID_PTR:  assert(0);  break;
+    case TYPE_SIGNED_INT8:  a->value.signed_int8 = value; break;
+    case TYPE_UNSIGNED_INT8:  a->value.unsigned_int8 = value; break;
+    case TYPE_SIGNED_INT16:  a->value.signed_int16 = value; break;
+    case TYPE_UNSIGNED_INT16:  a->value.unsigned_int16 = value; break;
+    case TYPE_SIGNED_INT32:  a->value.signed_int32 = value; break;
+    case TYPE_UNSIGNED_INT32:  a->value.unsigned_int32 = value; break;
+
+    case TYPE_SIGNED_INT64:  a->value.signed_int64 = value; break;
+    case TYPE_UNSIGNED_INT64:  a->value.unsigned_int64 = value; break;
+    case TYPE_FLOAT32:  a->value.float32 = value; break;
+    case TYPE_FLOAT64:  a->value.float64 = value; break;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:  a->value.float128 = value; break;
+#endif
+
+
 
     }
 
@@ -16475,21 +16256,21 @@ void object_set_unsigned_int(struct object* a, unsigned long long value)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: a->value.bool_value = value; break;
-    case TYPE_SIGNED_CHAR:  a->value.signed_char_value = value; break;
-    case TYPE_UNSIGNED_CHAR:  a->value.unsigned_char_value = value; break;
-    case TYPE_SIGNED_SHORT:  a->value.signed_short_value = value; break;
-    case TYPE_UNSIGNED_SHORT:  a->value.unsigned_short_value = value; break;
-    case TYPE_SIGNED_INT:  a->value.signed_int_value = value; break;
-    case TYPE_UNSIGNED_INT:  a->value.unsigned_int_value = value; break;
-    case TYPE_SIGNED_LONG:  a->value.signed_long_value = value; break;
-    case TYPE_UNSIGNED_LONG:  a->value.unsigned_long_value = value; break;
-    case TYPE_SIGNED_LONG_LONG:  a->value.signed_long_long_value = value; break;
-    case TYPE_UNSIGNED_LONG_LONG:  a->value.unsigned_long_long_value = value; break;
-    case TYPE_FLOAT:  a->value.float_value = value; break;
-    case TYPE_DOUBLE:  a->value.double_value = value; break;
-    case TYPE_LONG_DOUBLE:  a->value.long_double_value = value; break;
-    case TYPE_VOID_PTR:  assert(0);  break;
+
+    case TYPE_SIGNED_INT8:  a->value.signed_int8 = value; break;
+    case TYPE_UNSIGNED_INT8:  a->value.unsigned_int8 = value; break;
+    case TYPE_SIGNED_INT16:  a->value.signed_int16 = value; break;
+    case TYPE_UNSIGNED_INT16:  a->value.unsigned_int16 = value; break;
+    case TYPE_SIGNED_INT32:  a->value.signed_int32 = value; break;
+    case TYPE_UNSIGNED_INT32:  a->value.unsigned_int32 = value; break;
+
+    case TYPE_SIGNED_INT64:  a->value.signed_int64 = value; break;
+    case TYPE_UNSIGNED_INT64:  a->value.unsigned_int64 = value; break;
+    case TYPE_FLOAT32:  a->value.float32 = value; break;
+    case TYPE_FLOAT64:  a->value.float64 = value; break;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:  a->value.float128 = value; break;
+#endif
 
     }
 
@@ -16502,21 +16283,22 @@ bool object_to_bool(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: return a->value.void_pointer != 0;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
+
     }
     assert(0);
     return 0;
@@ -16525,8 +16307,8 @@ struct object object_make_signed_char(signed char value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_SIGNED_CHAR;
-    r.value.signed_char_value = value;
+    r.value_type = TYPE_SIGNED_INT8;
+    r.value.signed_int8 = value;
     return r;
 }
 
@@ -16537,50 +16319,44 @@ errno_t object_increment_value(struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL:
-        a->value.bool_value++;
+
+    case TYPE_SIGNED_INT8:
+        a->value.signed_int8++;
         break;
-    case TYPE_SIGNED_CHAR:
-        a->value.signed_char_value++;
+    case TYPE_UNSIGNED_INT8:
+        a->value.unsigned_int8++;
         break;
-    case TYPE_UNSIGNED_CHAR:
-        a->value.unsigned_char_value++;
+    case TYPE_SIGNED_INT16:
+        a->value.signed_int16++;
         break;
-    case TYPE_SIGNED_SHORT:
-        a->value.signed_short_value++;
+    case TYPE_UNSIGNED_INT16:
+        a->value.unsigned_int16++;
         break;
-    case TYPE_UNSIGNED_SHORT:
-        a->value.unsigned_short_value++;
+    case TYPE_SIGNED_INT32:
+        a->value.signed_int32++;
         break;
-    case TYPE_SIGNED_INT:
-        a->value.signed_int_value++;
-        break;
-    case TYPE_UNSIGNED_INT:
-        a->value.unsigned_int_value++;
-        break;
-    case TYPE_SIGNED_LONG:
-        a->value.signed_long_value++;
-        break;
-    case TYPE_UNSIGNED_LONG:
-        a->value.unsigned_long_value++;
-        break;
-    case TYPE_SIGNED_LONG_LONG:
-        a->value.signed_long_long_value++;
-        break;
-    case TYPE_UNSIGNED_LONG_LONG:
-        a->value.unsigned_long_long_value++;
-        break;
-    case TYPE_FLOAT:
-        a->value.float_value++;
-        break;
-    case TYPE_DOUBLE:
-        a->value.double_value++;
-        break;
-    case TYPE_LONG_DOUBLE:
-        a->value.long_double_value++;
+    case TYPE_UNSIGNED_INT32:
+        a->value.unsigned_int32++;
         break;
 
-    case TYPE_VOID_PTR:  assert(0);  break;
+    case TYPE_SIGNED_INT64:
+        a->value.signed_int64++;
+        break;
+    case TYPE_UNSIGNED_INT64:
+        a->value.unsigned_int64++;
+        break;
+    case TYPE_FLOAT32:
+        a->value.float32++;
+        break;
+    case TYPE_FLOAT64:
+        a->value.float64++;
+        break;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
+        a->value.float128++;
+        break;
+#endif
+
 
     default:
         return 1;
@@ -16596,21 +16372,21 @@ signed char object_to_signed_char(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR:  return 0;// a->value.void_pointer;  break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -16620,8 +16396,8 @@ struct object object_make_unsigned_char(unsigned char value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_UNSIGNED_CHAR;
-    r.value.unsigned_char_value = value;
+    r.value_type = TYPE_UNSIGNED_INT8;
+    r.value.unsigned_int8 = value;
     return r;
 }
 
@@ -16632,21 +16408,21 @@ unsigned char object_to_unsigned_char(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
 
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -16655,8 +16431,8 @@ struct object object_make_signed_short(signed short value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_SIGNED_SHORT;
-    r.value.signed_short_value = value;
+    r.value_type = TYPE_SIGNED_INT16;
+    r.value.signed_int16 = value;
     return r;
 }
 
@@ -16667,21 +16443,21 @@ signed short object_to_signed_short(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
 
     }
     assert(0);
@@ -16691,8 +16467,8 @@ struct object object_make_unsigned_short(unsigned short value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_UNSIGNED_SHORT;
-    r.value.unsigned_short_value = value;
+    r.value_type = TYPE_UNSIGNED_INT16;
+    r.value.unsigned_int16 = value;
     return r;
 }
 
@@ -16703,21 +16479,21 @@ unsigned short object_to_unsigned_short(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -16726,8 +16502,8 @@ struct object object_make_signed_int(signed int value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_SIGNED_INT;
-    r.value.signed_int_value = value;
+    r.value_type = TYPE_SIGNED_INT32;
+    r.value.signed_int32 = value;
     return r;
 }
 
@@ -16738,21 +16514,21 @@ signed int object_to_signed_int(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: return (int)a->value.void_pointer; break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -16761,8 +16537,8 @@ struct object object_make_unsigned_int(unsigned int value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_UNSIGNED_INT;
-    r.value.unsigned_int_value = value;
+    r.value_type = TYPE_UNSIGNED_INT32;
+    r.value.unsigned_int32 = value;
     return r;
 }
 
@@ -16773,31 +16549,52 @@ unsigned int object_to_unsigned_int(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: return (int)a->value.void_pointer; break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
+
     }
     assert(0);
     return 0;
 }
-struct object object_make_signed_long(signed long value)
+struct object object_make_signed_long(signed long long value, enum target target)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_SIGNED_LONG;
-    r.value.signed_long_value = value;
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+#ifdef _WIN32
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int32 = value;
+#else
+        r.value_type = TYPE_SIGNED_INT64;
+        r.value.signed_int64 = value;
+#endif
+        break;
+    case TARGET_X86_X64_GCC:
+        r.value_type = TYPE_SIGNED_INT64;
+        r.value.signed_int64 = value;
+        break;
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int32 = value;
+        break;
+    }
+
     return r;
 }
 
@@ -16808,31 +16605,51 @@ signed long object_to_signed_long(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
 }
-struct object object_make_unsigned_long(unsigned long value)
+struct object object_make_unsigned_long(unsigned long long value, enum target target)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_UNSIGNED_LONG;
-    r.value.unsigned_long_value = value;
+
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+#ifdef _WIN32
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = value;
+#else
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = value;
+#endif
+        break;
+    case TARGET_X86_X64_GCC:
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = value;
+        break;
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = value;
+        break;
+    }
+
     return r;
 }
 
@@ -16843,21 +16660,21 @@ unsigned long object_to_unsigned_long(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -16866,8 +16683,8 @@ struct object object_make_signed_long_long(signed long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_SIGNED_LONG_LONG;
-    r.value.signed_long_long_value = value;
+    r.value_type = TYPE_SIGNED_INT64;
+    r.value.signed_int64 = value;
     return r;
 }
 
@@ -16878,21 +16695,21 @@ signed long long object_to_signed_long_long(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -16901,8 +16718,8 @@ struct object object_make_unsigned_long_long(unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_UNSIGNED_LONG_LONG;
-    r.value.unsigned_long_long_value = value;
+    r.value_type = TYPE_UNSIGNED_INT64;
+    r.value.unsigned_int64 = value;
     return r;
 }
 
@@ -16913,21 +16730,21 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -16936,8 +16753,8 @@ struct object object_make_float(float value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_FLOAT;
-    r.value.float_value = value;
+    r.value_type = TYPE_FLOAT32;
+    r.value.float32 = value;
     return r;
 }
 
@@ -16948,21 +16765,21 @@ float object_to_float(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -16971,8 +16788,8 @@ struct object object_make_double(double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_DOUBLE;
-    r.value.double_value = value;
+    r.value_type = TYPE_FLOAT64;
+    r.value.float64 = value;
     return r;
 }
 
@@ -16983,21 +16800,21 @@ double object_to_double(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -17007,8 +16824,8 @@ double object_to_double(const struct object* a)
 struct object  object_make_null_pointer()
 {
     struct object null_object = {
-       .value_type = TYPE_VOID_PTR,
-            .value.void_pointer = NULL,
+       .value_type = TYPE_UNSIGNED_INT64,
+            .value.unsigned_int64 = 0,
             .state = CONSTANT_VALUE_EQUAL,
     };
 
@@ -17021,8 +16838,8 @@ struct object object_make_pointer(struct object* object)
 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_EQUAL;
-    r.value_type = TYPE_VOID_PTR;
-    r.value.void_pointer = object;
+    r.value_type = TYPE_UNSIGNED_INT64;
+    r.value.unsigned_int64 = (uint64_t)object;
 
     return r;
 }
@@ -17033,9 +16850,9 @@ struct object object_make_reference(struct object* object)
 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_EQUAL;
-    r.value_type = TYPE_VOID_PTR_REF;
-    r.value.void_pointer = object;
-
+    r.value_type = TYPE_UNSIGNED_INT64;
+    r.value.unsigned_int64 = (uint64_t)object;
+    r.p_ref = object;
     return r;
 }
 
@@ -17043,8 +16860,13 @@ struct object object_make_long_double(long double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_LONG_DOUBLE;
-    r.value.long_double_value = value;
+#ifdef CAKE_FLOAT128_DEFINED
+    r.value_type = TYPE_FLOAT128;
+    r.value.float128 = value;
+#else
+    r.value_type = TYPE_FLOAT64;
+    r.value.float64 = value;
+#endif
     return r;
 }
 
@@ -17055,21 +16877,21 @@ long double object_to_long_double(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL: return a->value.bool_value;
-    case TYPE_SIGNED_CHAR: return a->value.signed_char_value;
-    case TYPE_UNSIGNED_CHAR: return a->value.unsigned_char_value;
-    case TYPE_SIGNED_SHORT: return a->value.signed_short_value;
-    case TYPE_UNSIGNED_SHORT: return a->value.unsigned_short_value;
-    case TYPE_SIGNED_INT: return a->value.signed_int_value;
-    case TYPE_UNSIGNED_INT: return a->value.unsigned_int_value;
-    case TYPE_SIGNED_LONG: return a->value.signed_long_value;
-    case TYPE_UNSIGNED_LONG: return a->value.unsigned_long_value;
-    case TYPE_SIGNED_LONG_LONG: return a->value.signed_long_long_value;
-    case TYPE_UNSIGNED_LONG_LONG: return a->value.unsigned_long_long_value;
-    case TYPE_FLOAT: return a->value.float_value;
-    case TYPE_DOUBLE: return a->value.double_value;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_value;
-    case TYPE_VOID_PTR: assert(0); break;
+
+    case TYPE_SIGNED_INT8: return a->value.signed_int8;
+    case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
+    case TYPE_SIGNED_INT16: return a->value.signed_int16;
+    case TYPE_UNSIGNED_INT16: return a->value.unsigned_int16;
+    case TYPE_SIGNED_INT32: return a->value.signed_int32;
+    case TYPE_UNSIGNED_INT32: return a->value.unsigned_int32;
+
+    case TYPE_SIGNED_INT64: return a->value.signed_int64;
+    case TYPE_UNSIGNED_INT64: return a->value.unsigned_int64;
+    case TYPE_FLOAT32: return a->value.float32;
+    case TYPE_FLOAT64: return a->value.float64;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128: return a->value.float128;
+#endif
     }
     assert(0);
     return 0;
@@ -17100,20 +16922,20 @@ struct object object_cast(enum object_value_type t, const struct object* v)
             };
             struct type types[] =
             {
-                {"bool", "bool", "TYPE_BOOL"},
-                {"signed char", "signed_char", "TYPE_SIGNED_CHAR"},
-                {"unsigned char", "unsigned_char", "TYPE_UNSIGNED_CHAR"},
-                {"signed short", "signed_short", "TYPE_SIGNED_SHORT"},
-                {"unsigned short", "unsigned_short", "TYPE_UNSIGNED_SHORT"},
-                {"signed int", "signed_int", "TYPE_SIGNED_INT"},
-                {"unsigned int", "unsigned_int", "TYPE_UNSIGNED_INT"},
+
+                {"signed char", "signed_char", "TYPE_SIGNED_INT8"},
+                {"unsigned char", "unsigned_char", "TYPE_UNSIGNED_INT8"},
+                {"signed short", "signed_short", "TYPE_SIGNED_INT16"},
+                {"unsigned short", "unsigned_short", "TYPE_UNSIGNED_INT16"},
+                {"signed int", "signed_int", "TYPE_SIGNED_INT32"},
+                {"unsigned int", "unsigned_int", "TYPE_UNSIGNED_INT32"},
                 {"signed long", "signed_long", "TYPE_SIGNED_LONG"},
                 {"unsigned long", "unsigned_long", "TYPE_UNSIGNED_LONG"},
-                {"signed long long", "signed_long_long", "TYPE_SIGNED_LONG_LONG"},
-                {"unsigned long long", "unsigned_long_long", "TYPE_UNSIGNED_LONG_LONG"},
-                {"float", "float", "TYPE_FLOAT"},
-                {"double", "double", "TYPE_DOUBLE"},
-                {"long double", "long_double", "TYPE_LONG_DOUBLE"}
+                {"signed long long", "signed_long_long", "TYPE_SIGNED_INT64"},
+                {"unsigned long long", "unsigned_long_long", "TYPE_UNSIGNED_INT64"},
+                {"float", "float", "TYPE_FLOAT32"},
+                {"double", "double", "TYPE_FLOAT64"},
+                {"long double", "long_double", "TYPE_FLOAT128"}
             };
 
 
@@ -17143,414 +16965,306 @@ struct object object_cast(enum object_value_type t, const struct object* v)
                 fclose(f);
             }
     */
-    if (t == TYPE_BOOL)
+    if (t == TYPE_SIGNED_INT8)
     {
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_bool((bool)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_bool((bool)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_bool((bool)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_bool((bool)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_bool((bool)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_bool((bool)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_bool((bool)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_bool((bool)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_bool((bool)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_bool((bool)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_bool((bool)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_bool((bool)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_bool((bool)v->value.long_double_value);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_signed_char((signed char)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_signed_char((signed char)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_signed_char((signed char)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_signed_char((signed char)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_signed_char((signed char)v->value.unsigned_int32);
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_signed_char((signed char)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_signed_char((signed char)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_signed_char((signed char)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_signed_char((signed char)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_signed_char((signed char)v->value.float128);
+#endif
     }
-    if (t == TYPE_SIGNED_CHAR)
+    if (t == TYPE_UNSIGNED_INT8)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_signed_char((signed char)v->value.bool_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_char((signed char)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_signed_char((signed char)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_char((signed char)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_signed_char((signed char)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_signed_char((signed char)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_signed_char((signed char)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_char((signed char)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_signed_char((signed char)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_char((signed char)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_signed_char((signed char)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_signed_char((signed char)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_signed_char((signed char)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_unsigned_char((unsigned char)v->value.signed_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_unsigned_char((unsigned char)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_unsigned_char((unsigned char)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_unsigned_char((unsigned char)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_unsigned_char((unsigned char)v->value.unsigned_int32);
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_unsigned_char((unsigned char)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_unsigned_char((unsigned char)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_unsigned_char((unsigned char)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_unsigned_char((unsigned char)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_unsigned_char((unsigned char)v->value.float128);
+#endif
     }
-    if (t == TYPE_UNSIGNED_CHAR)
+    if (t == TYPE_SIGNED_INT16)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_unsigned_char((unsigned char)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_char((unsigned char)v->value.signed_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_char((unsigned char)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_unsigned_char((unsigned char)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_unsigned_char((unsigned char)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_unsigned_char((unsigned char)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_char((unsigned char)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_unsigned_char((unsigned char)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_char((unsigned char)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_unsigned_char((unsigned char)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_unsigned_char((unsigned char)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_unsigned_char((unsigned char)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_char((unsigned char)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_signed_short((signed short)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_signed_short((signed short)v->value.unsigned_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_signed_short((signed short)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_signed_short((signed short)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_signed_short((signed short)v->value.unsigned_int32);
+
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_signed_short((signed short)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_signed_short((signed short)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_signed_short((signed short)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_signed_short((signed short)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_signed_short((signed short)v->value.float128);
+#endif
     }
-    if (t == TYPE_SIGNED_SHORT)
+    if (t == TYPE_UNSIGNED_INT16)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_signed_short((signed short)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_signed_short((signed short)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_short((signed short)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_short((signed short)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_signed_short((signed short)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_signed_short((signed short)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_signed_short((signed short)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_short((signed short)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_signed_short((signed short)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_short((signed short)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_signed_short((signed short)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_signed_short((signed short)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_signed_short((signed short)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_unsigned_short((unsigned short)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_unsigned_short((unsigned short)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_unsigned_short((unsigned short)v->value.signed_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_unsigned_short((unsigned short)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_unsigned_short((unsigned short)v->value.unsigned_int32);
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_unsigned_short((unsigned short)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_unsigned_short((unsigned short)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_unsigned_short((unsigned short)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_unsigned_short((unsigned short)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_unsigned_short((unsigned short)v->value.float128);
+#endif
     }
-    if (t == TYPE_UNSIGNED_SHORT)
+    if (t == TYPE_SIGNED_INT32)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_unsigned_short((unsigned short)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_short((unsigned short)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_unsigned_short((unsigned short)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_short((unsigned short)v->value.signed_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_unsigned_short((unsigned short)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_unsigned_short((unsigned short)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_short((unsigned short)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_unsigned_short((unsigned short)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_short((unsigned short)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_unsigned_short((unsigned short)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_unsigned_short((unsigned short)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_unsigned_short((unsigned short)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_short((unsigned short)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_signed_int((signed int)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_signed_int((signed int)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_signed_int((signed int)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_signed_int((signed int)v->value.unsigned_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_signed_int((signed int)v->value.unsigned_int32);
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_signed_int((signed int)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_signed_int((signed int)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_signed_int((signed int)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_signed_int((signed int)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_signed_int((signed int)v->value.float128);
+#endif
     }
-    if (t == TYPE_SIGNED_INT)
+    if (t == TYPE_UNSIGNED_INT32)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_signed_int((signed int)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_signed_int((signed int)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_int((signed int)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_signed_int((signed int)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_int((signed int)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_signed_int((signed int)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_signed_int((signed int)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_int((signed int)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_signed_int((signed int)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_int((signed int)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_signed_int((signed int)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_signed_int((signed int)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_signed_int((signed int)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_unsigned_int((unsigned int)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_unsigned_int((unsigned int)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_unsigned_int((unsigned int)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_unsigned_int((unsigned int)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_unsigned_int((unsigned int)v->value.signed_int32);
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_unsigned_int((unsigned int)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_unsigned_int((unsigned int)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_unsigned_int((unsigned int)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_unsigned_int((unsigned int)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_unsigned_int((unsigned int)v->value.float128);
+#endif
     }
-    if (t == TYPE_UNSIGNED_INT)
+    if (t == TYPE_SIGNED_INT64)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_unsigned_int((unsigned int)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_int((unsigned int)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_unsigned_int((unsigned int)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_int((unsigned int)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_unsigned_int((unsigned int)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_unsigned_int((unsigned int)v->value.signed_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_int((unsigned int)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_unsigned_int((unsigned int)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_int((unsigned int)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_unsigned_int((unsigned int)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_unsigned_int((unsigned int)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_unsigned_int((unsigned int)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_int((unsigned int)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_signed_long_long((signed long long)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_signed_long_long((signed long long)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_signed_long_long((signed long long)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_int32);
+
+
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_signed_long_long((signed long long)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_signed_long_long((signed long long)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_signed_long_long((signed long long)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_signed_long_long((signed long long)v->value.float128);
+#endif
     }
-    if (t == TYPE_SIGNED_LONG)
+    if (t == TYPE_UNSIGNED_INT64)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_signed_long((signed long)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_signed_long((signed long)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_long((signed long)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_signed_long((signed long)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_long((signed long)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_signed_long((signed long)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_signed_long((signed long)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_long((signed long)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_signed_long((signed long)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_long((signed long)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_signed_long((signed long)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_signed_long((signed long)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_signed_long((signed long)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_int32);
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_unsigned_long_long((unsigned long long)v->value.signed_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_unsigned_long_long((unsigned long long)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_unsigned_long_long((unsigned long long)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_unsigned_long_long((unsigned long long)v->value.float128);
+#endif
     }
-    if (t == TYPE_UNSIGNED_LONG)
+    if (t == TYPE_FLOAT32)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_unsigned_long((unsigned long)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_long((unsigned long)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_unsigned_long((unsigned long)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_long((unsigned long)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_unsigned_long((unsigned long)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_unsigned_long((unsigned long)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_unsigned_long((unsigned long)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_long((unsigned long)v->value.signed_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_long((unsigned long)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_unsigned_long((unsigned long)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_unsigned_long((unsigned long)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_unsigned_long((unsigned long)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_long((unsigned long)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_float((float)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_float((float)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_float((float)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_float((float)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_float((float)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_float((float)v->value.unsigned_int32);
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_float((float)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_float((float)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_float((float)v->value.float64);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_float((float)v->value.float128);
+#endif
     }
-    if (t == TYPE_SIGNED_LONG_LONG)
+    if (t == TYPE_FLOAT64)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_signed_long_long((signed long long)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_signed_long_long((signed long long)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_signed_long_long((signed long long)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_signed_long_long((signed long long)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_signed_long_long((signed long long)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_signed_long_long((signed long long)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_signed_long_long((signed long long)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_signed_long_long((signed long long)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_signed_long_long((signed long long)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_signed_long_long((signed long long)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_signed_long_long((signed long long)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_signed_long_long((signed long long)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_signed_long_long((signed long long)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_double((double)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_double((double)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_double((double)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_double((double)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_double((double)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_double((double)v->value.unsigned_int32);
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_double((double)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_double((double)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_double((double)v->value.float32);
+#ifdef CAKE_FLOAT128_DEFINED
+        if (v->value_type == TYPE_FLOAT128)
+            return object_make_double((double)v->value.float128);
+#endif
     }
-    if (t == TYPE_UNSIGNED_LONG_LONG)
+#ifdef CAKE_FLOAT128_DEFINED
+    if (t == TYPE_FLOAT128)
     {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_unsigned_long_long((unsigned long long)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_unsigned_long_long((unsigned long long)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_unsigned_long_long((unsigned long long)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_unsigned_long_long((unsigned long long)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_unsigned_long_long((unsigned long long)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_unsigned_long_long((unsigned long long)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_unsigned_long_long((unsigned long long)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_unsigned_long_long((unsigned long long)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_unsigned_long_long((unsigned long long)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_unsigned_long_long((unsigned long long)v->value.long_double_value);
+
+        if (v->value_type == TYPE_SIGNED_INT8)
+            return object_make_long_double((long double)v->value.signed_int8);
+        if (v->value_type == TYPE_UNSIGNED_INT8)
+            return object_make_long_double((long double)v->value.unsigned_int8);
+        if (v->value_type == TYPE_SIGNED_INT16)
+            return object_make_long_double((long double)v->value.signed_int16);
+        if (v->value_type == TYPE_UNSIGNED_INT16)
+            return object_make_long_double((long double)v->value.unsigned_int16);
+        if (v->value_type == TYPE_SIGNED_INT32)
+            return object_make_long_double((long double)v->value.signed_int32);
+        if (v->value_type == TYPE_UNSIGNED_INT32)
+            return object_make_long_double((long double)v->value.unsigned_int32);
+
+        if (v->value_type == TYPE_SIGNED_INT64)
+            return object_make_long_double((long double)v->value.signed_int64);
+        if (v->value_type == TYPE_UNSIGNED_INT64)
+            return object_make_long_double((long double)v->value.unsigned_int64);
+        if (v->value_type == TYPE_FLOAT32)
+            return object_make_long_double((long double)v->value.float32);
+        if (v->value_type == TYPE_FLOAT64)
+            return object_make_long_double((long double)v->value.float64);
     }
-    if (t == TYPE_FLOAT)
-    {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_float((float)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_float((float)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_float((float)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_float((float)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_float((float)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_float((float)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_float((float)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_float((float)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_float((float)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_float((float)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_float((float)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_float((float)v->value.double_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_float((float)v->value.long_double_value);
-    }
-    if (t == TYPE_DOUBLE)
-    {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_double((double)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_double((double)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_double((double)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_double((double)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_double((double)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_double((double)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_double((double)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_double((double)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_double((double)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_double((double)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_double((double)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_double((double)v->value.float_value);
-        if (v->value_type == TYPE_LONG_DOUBLE)
-            return object_make_double((double)v->value.long_double_value);
-    }
-    if (t == TYPE_LONG_DOUBLE)
-    {
-        if (v->value_type == TYPE_BOOL)
-            return object_make_long_double((long double)v->value.bool_value);
-        if (v->value_type == TYPE_SIGNED_CHAR)
-            return object_make_long_double((long double)v->value.signed_char_value);
-        if (v->value_type == TYPE_UNSIGNED_CHAR)
-            return object_make_long_double((long double)v->value.unsigned_char_value);
-        if (v->value_type == TYPE_SIGNED_SHORT)
-            return object_make_long_double((long double)v->value.signed_short_value);
-        if (v->value_type == TYPE_UNSIGNED_SHORT)
-            return object_make_long_double((long double)v->value.unsigned_short_value);
-        if (v->value_type == TYPE_SIGNED_INT)
-            return object_make_long_double((long double)v->value.signed_int_value);
-        if (v->value_type == TYPE_UNSIGNED_INT)
-            return object_make_long_double((long double)v->value.unsigned_int_value);
-        if (v->value_type == TYPE_SIGNED_LONG)
-            return object_make_long_double((long double)v->value.signed_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG)
-            return object_make_long_double((long double)v->value.unsigned_long_value);
-        if (v->value_type == TYPE_SIGNED_LONG_LONG)
-            return object_make_long_double((long double)v->value.signed_long_long_value);
-        if (v->value_type == TYPE_UNSIGNED_LONG_LONG)
-            return object_make_long_double((long double)v->value.unsigned_long_long_value);
-        if (v->value_type == TYPE_FLOAT)
-            return object_make_long_double((long double)v->value.float_value);
-        if (v->value_type == TYPE_DOUBLE)
-            return object_make_long_double((long double)v->value.double_value);
-    }
+#endif
     struct object empty = { 0 };
     return empty;
+
 }
 
 void object_default_initialization(struct object* p_object, bool is_constant)
@@ -17561,7 +17275,7 @@ void object_default_initialization(struct object* p_object, bool is_constant)
             p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
         else
             p_object->state = CONSTANT_VALUE_EQUAL;
-        p_object->value.unsigned_long_long_value = 0;
+        p_object->value.unsigned_int64 = 0;
     }
 
     if (type_is_union(&p_object->type))
@@ -17585,12 +17299,10 @@ void object_default_initialization(struct object* p_object, bool is_constant)
 
 struct object* object_get_non_const_referenced(struct object* p_object)
 {
-    if (p_object->value_type == TYPE_VOID_PTR_REF)
+    if (p_object->p_ref != NULL)
     {
-        p_object = p_object->value.void_pointer;
+        p_object = p_object->p_ref;
     }
-
-    assert(p_object->value_type != TYPE_VOID_PTR_REF);
 
     return p_object;
 }
@@ -17598,12 +17310,10 @@ struct object* object_get_non_const_referenced(struct object* p_object)
 
 const struct object* object_get_referenced(const struct object* p_object)
 {
-    if (p_object->value_type == TYPE_VOID_PTR_REF)
+    if (p_object->p_ref != NULL)
     {
-        p_object = p_object->value.void_pointer;
+        p_object = p_object->p_ref;
     }
-
-    assert(p_object->value_type != TYPE_VOID_PTR_REF);
 
     return p_object;
 }
@@ -17612,28 +17322,24 @@ const struct object* object_get_referenced(const struct object* p_object)
 int get_rank(enum object_value_type t)
 {
     //https://cigix.me/c23#6.3.1.1
-    if (t == TYPE_SIGNED_LONG_LONG ||
-        t == TYPE_UNSIGNED_LONG_LONG)
+    if (t == TYPE_SIGNED_INT64 ||
+        t == TYPE_UNSIGNED_INT64)
     {
         return 80;
     }
-    else if (t == TYPE_SIGNED_LONG ||
-             t == TYPE_UNSIGNED_LONG)
-    {
-        return 50;
-    }
-    else if (t == TYPE_SIGNED_INT ||
-             t == TYPE_UNSIGNED_INT)
+
+    else if (t == TYPE_SIGNED_INT32 ||
+             t == TYPE_UNSIGNED_INT32)
     {
         return 40;
     }
-    else if (t == TYPE_SIGNED_SHORT ||
-             t == TYPE_UNSIGNED_SHORT)
+    else if (t == TYPE_SIGNED_INT16 ||
+             t == TYPE_UNSIGNED_INT16)
     {
         return 30;
     }
-    else if (t == TYPE_SIGNED_CHAR ||
-             t == TYPE_UNSIGNED_CHAR)
+    else if (t == TYPE_SIGNED_INT8 ||
+             t == TYPE_UNSIGNED_INT8)
     {
         return 20;
     }
@@ -17643,34 +17349,26 @@ int get_rank(enum object_value_type t)
 
 int get_size(enum object_value_type t)
 {
-    if (t == TYPE_SIGNED_LONG_LONG ||
-        t == TYPE_UNSIGNED_LONG_LONG)
+    if (t == TYPE_SIGNED_INT64 ||
+        t == TYPE_UNSIGNED_INT64)
     {
         return sizeof(long long);
     }
-    else if (t == TYPE_SIGNED_LONG ||
-             t == TYPE_UNSIGNED_LONG)
-    {
-        return sizeof(long);
-    }
-    else if (t == TYPE_SIGNED_INT ||
-             t == TYPE_UNSIGNED_INT)
+
+    else if (t == TYPE_SIGNED_INT32 ||
+             t == TYPE_UNSIGNED_INT32)
     {
         return sizeof(int);
     }
-    else if (t == TYPE_SIGNED_SHORT ||
-             t == TYPE_UNSIGNED_SHORT)
+    else if (t == TYPE_SIGNED_INT16 ||
+             t == TYPE_UNSIGNED_INT16)
     {
         return sizeof(short);
     }
-    else if (t == TYPE_SIGNED_CHAR ||
-             t == TYPE_UNSIGNED_CHAR)
+    else if (t == TYPE_SIGNED_INT8 ||
+             t == TYPE_UNSIGNED_INT8)
     {
         return sizeof(char);
-    }
-    else if (t == TYPE_VOID_PTR)
-    {
-        return sizeof(void*);
     }
 
     return 1;
@@ -17680,16 +17378,20 @@ bool is_signed(enum object_value_type t)
 {
     switch (t)
     {
-    case TYPE_BOOL:
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
+
+    case TYPE_SIGNED_INT8:
+    case TYPE_SIGNED_INT16:
+    case TYPE_SIGNED_INT32:
+
+    case TYPE_SIGNED_INT64:
+    case TYPE_FLOAT64:
         return true;
-    case TYPE_VOID_PTR: break;
+
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
+        return true;
+#endif
+
     default:
         break;
     }
@@ -17700,11 +17402,10 @@ enum object_value_type to_unsigned(enum object_value_type t)
 {
     switch (t)
     {
-    case TYPE_SIGNED_CHAR: return TYPE_UNSIGNED_CHAR;
-    case TYPE_SIGNED_SHORT:return TYPE_UNSIGNED_SHORT;
-    case TYPE_SIGNED_INT: return TYPE_UNSIGNED_INT;
-    case TYPE_SIGNED_LONG:return  TYPE_UNSIGNED_LONG;
-    case TYPE_SIGNED_LONG_LONG: return TYPE_UNSIGNED_LONG_LONG;
+    case TYPE_SIGNED_INT8: return TYPE_UNSIGNED_INT8;
+    case TYPE_SIGNED_INT16:return TYPE_UNSIGNED_INT16;
+    case TYPE_SIGNED_INT32: return TYPE_UNSIGNED_INT32;
+    case TYPE_SIGNED_INT64: return TYPE_UNSIGNED_INT64;
     default:
         break;
     }
@@ -17715,12 +17416,11 @@ bool is_unsigned(enum object_value_type t)
 {
     switch (t)
     {
-    case TYPE_BOOL:
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
+
+    case TYPE_UNSIGNED_INT8:
+    case TYPE_UNSIGNED_INT16:
+    case TYPE_UNSIGNED_INT32:
+    case TYPE_UNSIGNED_INT64:
         return true;
     default:
         break;
@@ -17748,7 +17448,7 @@ bool object_is_signed(const struct object* p_object)
 
 bool object_is_derived(const struct object* p_object)
 {
-    if (p_object->value_type == TYPE_VOID_PTR_REF)
+    if (p_object->p_ref != NULL)
         return false;
 
     return p_object->members != NULL;
@@ -17756,7 +17456,7 @@ bool object_is_derived(const struct object* p_object)
 
 bool object_is_reference(const struct object* p_object)
 {
-    return p_object->value_type == TYPE_VOID_PTR_REF;
+    return p_object->p_ref != NULL;
 }
 
 static void object_fix_parent(struct object* p_object, struct object* parent)
@@ -17881,7 +17581,7 @@ int object_set(
     return 0;
 }
 
-struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const char* name)
+struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const char* name, enum target target)
 {
     struct object* _Owner _Opt p_object = NULL;
 
@@ -17934,7 +17634,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 {
                     char buffer[200] = { 0 };
                     snprintf(buffer, sizeof buffer, "%s[%llu]", name, i);
-                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&array_item_type, buffer);
+                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&array_item_type, buffer, target);
                     if (p_member_obj == NULL)
                     {
                         type_destroy(&array_item_type);
@@ -17972,8 +17672,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
 
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
-            p_object->value_type = type_to_object_type(p_type);
-            p_object->value.signed_long_long_value = -1;
+            p_object->value_type = type_to_object_type(p_type, target);
+            p_object->value.signed_int64 = -1;
             p_object->debug_name = strdup(name);
             p_object->type = type_dup(p_type);
 
@@ -18017,7 +17717,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                         snprintf(buffer, sizeof buffer, "%s.%s", name, p_member_declarator->declarator->name_opt->lexeme);
 
 
-                        struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer);
+                        struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer, target);
                         if (p_member_obj == NULL)
                             throw;
 
@@ -18053,7 +17753,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     snprintf(buffer, sizeof buffer, ".%s", name);
 
 
-                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer);
+                    struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer, target);
                     if (p_member_obj == NULL)
                         throw;
 
@@ -18089,14 +17789,14 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
 }
 
-struct object* _Owner _Opt make_object_ptr(const struct type* p_type)
+struct object* _Owner _Opt make_object_ptr(const struct type* p_type, enum target target)
 {
-    return make_object_ptr_core(p_type, "");
+    return make_object_ptr_core(p_type, "", target);
 }
 
-int make_object_with_name(const struct type* p_type, struct object* obj, const char* name)
+int make_object_with_name(const struct type* p_type, struct object* obj, const char* name, enum target target)
 {
-    struct object* _Owner _Opt p = make_object_ptr_core(p_type, name);
+    struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, target);
     if (p)
     {
         *obj = *p;
@@ -18123,70 +17823,113 @@ struct object object_dup(const struct object* src)
     return result;
 }
 
-int make_object(const struct type* p_type, struct object* obj)
+int make_object(const struct type* p_type, struct object* obj, enum target target)
 {
-    return make_object_with_name(p_type, obj, "");
+    return make_object_with_name(p_type, obj, "", target);
 }
 
 
-enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags)
+enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags, enum target target)
 {
 
     if (type_specifier_flags & TYPE_SPECIFIER_BOOL)
-        return TYPE_BOOL;
+        return TYPE_UNSIGNED_INT8;
 
     if (type_specifier_flags & TYPE_SPECIFIER_FLOAT)
-        return TYPE_FLOAT;
+        return TYPE_FLOAT32;
 
     if (type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
+
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-            return TYPE_LONG_DOUBLE;
-        return TYPE_DOUBLE;
+        {
+#ifdef CAKE_FLOAT128_DEFINED
+            return TYPE_FLOAT128;
+#else
+            return TYPE_FLOAT64;
+#endif
+        }
+
+        return TYPE_FLOAT64;
     }
 
 
     if (type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
-            return TYPE_UNSIGNED_CHAR;
+            return TYPE_UNSIGNED_INT8;
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
-            return TYPE_UNSIGNED_SHORT;
+            return TYPE_UNSIGNED_INT16;
+
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-            return TYPE_UNSIGNED_LONG; /*check before int*/
+        {
+            switch (target)
+            {
+            case TARGET_DEFAULT:
+#ifdef _WIN32
+                return TYPE_UNSIGNED_INT32; /*check before int*/
+#else
+                return TYPE_UNSIGNED_INT64; /*check before int*/
+#endif
+
+            case TARGET_X86_X64_GCC:
+                return TYPE_UNSIGNED_INT64; /*check before int*/
+
+            case TARGET_X86_MSVC:
+            case TARGET_X64_MSVC:
+                return TYPE_UNSIGNED_INT32; /*check before int*/
+            }
+
+        }
+
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
-            return TYPE_UNSIGNED_INT;
+            return TYPE_UNSIGNED_INT32;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-            return TYPE_UNSIGNED_LONG_LONG;
+            return TYPE_UNSIGNED_INT64;
     }
     else
     {
         if (type_specifier_flags & TYPE_SPECIFIER_CHAR)
-            return TYPE_SIGNED_CHAR;
+            return TYPE_SIGNED_INT8;
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
-            return TYPE_SIGNED_SHORT;
+            return TYPE_SIGNED_INT16;
+
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
-            return TYPE_SIGNED_LONG; /*check before int*/
+        {
+            switch (target)
+            {
+            case TARGET_DEFAULT:
+#ifdef _WIN32
+                return TYPE_SIGNED_INT32; /*check before int*/
+#else
+                return TYPE_SIGNED_INT64; /*check before int*/
+#endif
+
+            case TARGET_X86_X64_GCC:
+                return TYPE_SIGNED_INT64; /*check before int*/
+
+            case TARGET_X86_MSVC:
+            case TARGET_X64_MSVC:
+                return TYPE_SIGNED_INT32; /*check before int*/
+            }
+        }
+
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
-            return TYPE_SIGNED_INT;
+            return TYPE_SIGNED_INT32;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-            return TYPE_SIGNED_LONG_LONG;
+            return TYPE_SIGNED_INT64;
     }
-    return TYPE_SIGNED_INT;
+    return TYPE_SIGNED_INT32;
 }
 
-enum object_value_type type_to_object_type(const struct type* type)
+enum object_value_type type_to_object_type(const struct type* type, enum target target)
 {
     if (type_is_pointer(type))
     {
-#if defined(_WIN64) || defined(__x86_64__) 
-        return TYPE_UNSIGNED_LONG_LONG;
-#else
-        return TYPE_UNSIGNED_INT;
-#endif
+        return TYPE_UNSIGNED_INT64;
     }
 
-    return type_specifier_to_object_type(type->type_specifier_flags);
+    return type_specifier_to_object_type(type->type_specifier_flags, target);
 }
 
 
@@ -18198,59 +17941,49 @@ void object_print_value_debug(const struct object* a)
     switch (a->value_type)
     {
 
-    case TYPE_BOOL:
-        printf("%s (bool)", a->value.bool_value ? "true" : "false");
-        break;
+    case TYPE_SIGNED_INT8:
 
-    case TYPE_SIGNED_CHAR:
-
-        printf("%d (signed char)", (int)a->value.signed_char_value);
+        printf("%d (signed char)", (int)a->value.signed_int8);
         break;
 
 
-    case TYPE_UNSIGNED_CHAR:
-        printf("%d (unsigned char)", (int)a->value.unsigned_char_value);
+    case TYPE_UNSIGNED_INT8:
+        printf("%d (unsigned char)", (int)a->value.unsigned_int8);
         break;
 
 
-    case TYPE_SIGNED_SHORT:
-        printf("%d (short)", a->value.signed_short_value);
+    case TYPE_SIGNED_INT16:
+        printf("%d (short)", a->value.signed_int16);
         break;
 
-    case TYPE_UNSIGNED_SHORT:
-        printf("%d (unsigned short)", a->value.unsigned_short_value);
+    case TYPE_UNSIGNED_INT16:
+        printf("%d (unsigned short)", a->value.unsigned_int16);
         break;
 
-    case TYPE_SIGNED_INT:
-        printf("%d (int)", a->value.signed_int_value);
+    case TYPE_SIGNED_INT32:
+        printf("%d (int)", a->value.signed_int32);
         break;
-    case TYPE_UNSIGNED_INT:
-        printf("%du (unsigned int)", a->value.unsigned_int_value);
+    case TYPE_UNSIGNED_INT32:
+        printf("%du (unsigned int)", a->value.unsigned_int32);
         break;
-    case TYPE_SIGNED_LONG:
-        printf("%ld (long)", a->value.signed_long_value);
+
+    case TYPE_SIGNED_INT64:
+        printf("%lld (long long)", a->value.signed_int64);
         break;
-    case TYPE_UNSIGNED_LONG:
-        printf("%lu (unsigned long)", a->value.unsigned_long_value);
+    case TYPE_UNSIGNED_INT64:
+        printf("%llu (unsigned long long)", a->value.unsigned_int64);
         break;
-    case TYPE_SIGNED_LONG_LONG:
-        printf("%lld (long long)", a->value.signed_long_long_value);
+    case TYPE_FLOAT32:
+        printf("%f (float)", a->value.float32);
         break;
-    case TYPE_UNSIGNED_LONG_LONG:
-        printf("%llu (unsigned long long)", a->value.unsigned_long_long_value);
+    case TYPE_FLOAT64:
+        printf("%lf (double)", a->value.float64);
         break;
-    case TYPE_FLOAT:
-        printf("%f (float)", a->value.float_value);
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
+        printf("%Lf (long double)", a->value.float128);
         break;
-    case TYPE_DOUBLE:
-        printf("%lf (double)", a->value.double_value);
-        break;
-    case TYPE_LONG_DOUBLE:
-        printf("%Lf (long double)", a->value.long_double_value);
-        break;
-    case TYPE_VOID_PTR:
-        printf("%p (void*)", a->value.void_pointer);
-        break;
+#endif
     }
 
 }
@@ -18321,7 +18054,7 @@ void object_print_to_debug(const struct object* object, enum target target)
 /*
    extends the array to the max_index returning the added item.
 */
-struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant)
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant, enum target target)
 {
     struct object* _Opt it = a->members;
 
@@ -18341,7 +18074,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
             if (it == NULL)
             {
                 assert(a->members == NULL);
-                a->members = make_object_ptr(p_type);
+                a->members = make_object_ptr(p_type, target);
                 if (a->members == NULL)
                     throw;
 
@@ -18359,7 +18092,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
             }
             else
             {
-                struct object* _Owner _Opt p = make_object_ptr(p_type);
+                struct object* _Owner _Opt p = make_object_ptr(p_type, target);
                 if (p == NULL)
                     throw;
                 char name[100] = { 0 };
@@ -18392,11 +18125,10 @@ bool object_is_promoted(const struct object* a)
     /*
       types smaller than int are promoted to int
     */
-    if ((a->value_type == TYPE_BOOL) ||
-        (a->value_type == TYPE_SIGNED_CHAR) ||
-        (a->value_type == TYPE_UNSIGNED_CHAR) ||
-        (a->value_type == TYPE_SIGNED_SHORT) ||
-        a->value_type == TYPE_UNSIGNED_SHORT)
+    if ((a->value_type == TYPE_SIGNED_INT8) ||
+        (a->value_type == TYPE_UNSIGNED_INT8) ||
+        (a->value_type == TYPE_SIGNED_INT16) ||
+        a->value_type == TYPE_UNSIGNED_INT16)
     {
         return true;
     }
@@ -18432,10 +18164,12 @@ enum object_value_type object_common(const struct object* a, const struct object
       the other operand is converted, without change of type domain, to a type whose
       corresponding real type is long double
     */
-    if (a_type == TYPE_LONG_DOUBLE || b_type == TYPE_LONG_DOUBLE)
+#if CAKE_FLOAT128_DEFINED
+    if (a_type == TYPE_FLOAT128 || b_type == TYPE_FLOAT128)
     {
-        return TYPE_LONG_DOUBLE;
+        return TYPE_FLOAT128;
     }
+#endif
 
     /*
       Otherwise, if the corresponding real type of either operand is double,
@@ -18443,9 +18177,9 @@ enum object_value_type object_common(const struct object* a, const struct object
       whose corresponding real type is double.
     */
 
-    if (a_type == TYPE_DOUBLE || b_type == TYPE_DOUBLE)
+    if (a_type == TYPE_FLOAT64 || b_type == TYPE_FLOAT64)
     {
-        return TYPE_LONG_DOUBLE;
+        return TYPE_FLOAT64;
     }
 
     /*
@@ -18453,9 +18187,9 @@ enum object_value_type object_common(const struct object* a, const struct object
       the other operand is converted, without change of type domain,
       to a type whose corresponding real type is float
     */
-    if (a_type == TYPE_FLOAT || b_type == TYPE_FLOAT)
+    if (a_type == TYPE_FLOAT32 || b_type == TYPE_FLOAT32)
     {
-        return TYPE_FLOAT;
+        return TYPE_FLOAT32;
     }
 
 
@@ -18470,12 +18204,12 @@ enum object_value_type object_common(const struct object* a, const struct object
 
     if (object_is_promoted(a))
     {
-        a_type = TYPE_SIGNED_INT;
+        a_type = TYPE_SIGNED_INT32;
     }
 
     if (object_is_promoted(b))
     {
-        b_type = TYPE_SIGNED_INT;
+        b_type = TYPE_SIGNED_INT32;
     }
 
 
@@ -18550,49 +18284,43 @@ int object_greater_than_or_equal(const struct object* a, const struct object* b)
 
     switch (common_type)
     {
-    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_INT32:
         return object_to_signed_int(a) >= object_to_signed_int(b);
 
-    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_INT32:
         return object_to_unsigned_int(a) >= object_to_unsigned_int(b);
 
-    case TYPE_BOOL:
-        return object_to_bool(a) >= object_to_bool(b);
-
-    case TYPE_SIGNED_CHAR:
+    case TYPE_SIGNED_INT8:
         return object_to_signed_char(a) >= object_to_signed_char(b);
 
         break;
-    case TYPE_UNSIGNED_CHAR:
+    case TYPE_UNSIGNED_INT8:
         return object_to_unsigned_char(a) >= object_to_unsigned_char(b);
 
-    case TYPE_SIGNED_SHORT:
+    case TYPE_SIGNED_INT16:
         return object_to_signed_short(a) >= object_to_signed_short(b);
 
-    case TYPE_UNSIGNED_SHORT:
+    case TYPE_UNSIGNED_INT16:
         return object_to_unsigned_short(a) >= object_to_unsigned_short(b);
 
-    case TYPE_SIGNED_LONG:
-        return object_to_signed_long(a) >= object_to_signed_long(b);
 
-    case TYPE_UNSIGNED_LONG:
-        return object_to_unsigned_long(a) >= object_to_unsigned_long(b);
 
-    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_SIGNED_INT64:
         return object_to_signed_long_long(a) >= object_to_signed_long_long(b);
 
-    case TYPE_UNSIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_INT64:
         return object_to_unsigned_long_long(a) >= object_to_unsigned_long_long(b);
 
-    case TYPE_FLOAT:
+    case TYPE_FLOAT32:
         return object_to_float(a) >= object_to_float(b);
 
-    case TYPE_DOUBLE:
+    case TYPE_FLOAT64:
         return object_to_double(a) >= object_to_double(b);
 
-    case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
         return object_to_long_double(a) >= object_to_long_double(b);
-
+#endif
     }
 
     assert(false);
@@ -18609,48 +18337,43 @@ int object_smaller_than_or_equal(const struct object* a, const struct object* b)
 
     switch (common_type)
     {
-    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_INT32:
         return object_to_signed_int(a) <= object_to_signed_int(b);
 
-    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_INT32:
         return object_to_unsigned_int(a) <= object_to_unsigned_int(b);
 
-    case TYPE_BOOL:
-        return object_to_bool(a) <= object_to_bool(b);
 
-    case TYPE_SIGNED_CHAR:
+    case TYPE_SIGNED_INT8:
         return object_to_signed_char(a) <= object_to_signed_char(b);
 
         break;
-    case TYPE_UNSIGNED_CHAR:
+    case TYPE_UNSIGNED_INT8:
         return object_to_unsigned_char(a) <= object_to_unsigned_char(b);
 
-    case TYPE_SIGNED_SHORT:
+    case TYPE_SIGNED_INT16:
         return object_to_signed_short(a) <= object_to_signed_short(b);
 
-    case TYPE_UNSIGNED_SHORT:
+    case TYPE_UNSIGNED_INT16:
         return object_to_unsigned_short(a) <= object_to_unsigned_short(b);
 
-    case TYPE_SIGNED_LONG:
-        return object_to_signed_long(a) <= object_to_signed_long(b);
 
-    case TYPE_UNSIGNED_LONG:
-        return object_to_unsigned_long(a) <= object_to_unsigned_long(b);
 
-    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_SIGNED_INT64:
         return object_to_signed_long_long(a) <= object_to_signed_long_long(b);
 
-    case TYPE_UNSIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_INT64:
         return object_to_unsigned_long_long(a) <= object_to_unsigned_long_long(b);
 
-    case TYPE_FLOAT:
+    case TYPE_FLOAT32:
         return object_to_float(a) <= object_to_float(b);
 
-    case TYPE_DOUBLE:
+    case TYPE_FLOAT64:
         return object_to_double(a) <= object_to_double(b);
-
-    case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
         return object_to_long_double(a) <= object_to_long_double(b);
+#endif
 
     }
 
@@ -18667,48 +18390,43 @@ struct object object_add(const struct object* a, const struct object* b)
 
     switch (common_type)
     {
-    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_INT32:
         return object_make_signed_int(object_to_signed_int(a) + object_to_signed_int(b));
 
-    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_INT32:
         return object_make_unsigned_int(object_to_unsigned_int(a) + object_to_unsigned_int(b));
 
-    case TYPE_BOOL:
-        return object_make_bool(object_to_bool(a) + object_to_bool(b));
 
-        //case TYPE_SIGNED_CHAR:
+        //case TYPE_SIGNED_INT8:
           //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
 
           //  break;
-        //case TYPE_UNSIGNED_CHAR:
+        //case TYPE_UNSIGNED_INT8:
     //        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
 
-        //case TYPE_SIGNED_SHORT:
+        //case TYPE_SIGNED_INT16:
           //  return object_to_signed_short(a) == object_to_signed_short(b);
 
-        //case TYPE_UNSIGNED_SHORT:
+        //case TYPE_UNSIGNED_INT16:
           //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
 
-    case TYPE_SIGNED_LONG:
-        return object_make_signed_long(object_to_signed_long(a) + object_to_signed_long(b));
 
-    case TYPE_UNSIGNED_LONG:
-        return object_make_unsigned_long(object_to_unsigned_long(a) + object_to_unsigned_long(b));
 
-    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_SIGNED_INT64:
         return object_make_signed_long_long(object_to_signed_long_long(a) + object_to_signed_long_long(b));
 
-    case TYPE_UNSIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_INT64:
         return object_make_unsigned_long_long(object_to_unsigned_long_long(a) + object_to_unsigned_long_long(b));
 
-    case TYPE_FLOAT:
+    case TYPE_FLOAT32:
         return object_make_float(object_to_float(a) + object_to_float(b));
 
-    case TYPE_DOUBLE:
+    case TYPE_FLOAT64:
         return object_make_double(object_to_double(a) + object_to_double(b));
-
-    case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
         return object_make_long_double(object_to_long_double(a) + object_to_long_double(b));
+#endif
 
     }
 
@@ -18727,49 +18445,42 @@ struct object object_sub(const struct object* a, const struct object* b)
 
     switch (common_type)
     {
-    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_INT32:
         return object_make_signed_int(object_to_signed_int(a) - object_to_signed_int(b));
 
-    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_INT32:
         return object_make_unsigned_int(object_to_unsigned_int(a) - object_to_unsigned_int(b));
 
-    case TYPE_BOOL:
-        return object_make_bool(object_to_bool(a) - object_to_bool(b));
 
-        //case TYPE_SIGNED_CHAR:
+        //case TYPE_SIGNED_INT8:
           //  return object_make_signed_char(object_to_signed_char(a) == object_to_signed_char(b);
 
           //  break;
-        //case TYPE_UNSIGNED_CHAR:
+        //case TYPE_UNSIGNED_INT8:
     //        return object_to_unsigned_char(a) == object_to_unsigned_char(b);
 
-        //case TYPE_SIGNED_SHORT:
+        //case TYPE_SIGNED_INT16:
           //  return object_to_signed_short(a) == object_to_signed_short(b);
 
-        //case TYPE_UNSIGNED_SHORT:
+        //case TYPE_UNSIGNED_INT16:
           //  return object_to_unsigned_short(a) == object_to_unsigned_short(b);
 
-    case TYPE_SIGNED_LONG:
-        return object_make_signed_long(object_to_signed_long(a) - object_to_signed_long(b));
 
-    case TYPE_UNSIGNED_LONG:
-        return object_make_unsigned_long(object_to_unsigned_long(a) - object_to_unsigned_long(b));
-
-    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_SIGNED_INT64:
         return object_make_signed_long_long(object_to_signed_long_long(a) - object_to_signed_long_long(b));
 
-    case TYPE_UNSIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_INT64:
         return object_make_unsigned_long_long(object_to_unsigned_long_long(a) - object_to_unsigned_long_long(b));
 
-    case TYPE_FLOAT:
+    case TYPE_FLOAT32:
         return object_make_float(object_to_float(a) - object_to_float(b));
 
-    case TYPE_DOUBLE:
+    case TYPE_FLOAT64:
         return object_make_double(object_to_double(a) - object_to_double(b));
-
-    case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
         return object_make_long_double(object_to_long_double(a) - object_to_long_double(b));
-
+#endif
     }
 
     assert(false);
@@ -18787,48 +18498,43 @@ int object_equal(const struct object* a, const struct object* b)
 
     switch (common_type)
     {
-    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_INT32:
         return object_to_signed_int(a) == object_to_signed_int(b);
 
-    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_INT32:
         return object_to_unsigned_int(a) == object_to_unsigned_int(b);
 
-    case TYPE_BOOL:
-        return object_to_bool(a) == object_to_bool(b);
 
-    case TYPE_SIGNED_CHAR:
+    case TYPE_SIGNED_INT8:
         return object_to_signed_char(a) == object_to_signed_char(b);
 
         break;
-    case TYPE_UNSIGNED_CHAR:
+    case TYPE_UNSIGNED_INT8:
         return object_to_unsigned_char(a) == object_to_unsigned_char(b);
 
-    case TYPE_SIGNED_SHORT:
+    case TYPE_SIGNED_INT16:
         return object_to_signed_short(a) == object_to_signed_short(b);
 
-    case TYPE_UNSIGNED_SHORT:
+    case TYPE_UNSIGNED_INT16:
         return object_to_unsigned_short(a) == object_to_unsigned_short(b);
 
-    case TYPE_SIGNED_LONG:
-        return object_to_signed_long(a) == object_to_signed_long(b);
 
-    case TYPE_UNSIGNED_LONG:
-        return object_to_unsigned_long(a) == object_to_unsigned_long(b);
 
-    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_SIGNED_INT64:
         return object_to_signed_long_long(a) == object_to_signed_long_long(b);
 
-    case TYPE_UNSIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_INT64:
         return object_to_unsigned_long_long(a) == object_to_unsigned_long_long(b);
 
-    case TYPE_FLOAT:
+    case TYPE_FLOAT32:
         return object_to_float(a) == object_to_float(b);
 
-    case TYPE_DOUBLE:
+    case TYPE_FLOAT64:
         return object_to_double(a) == object_to_double(b);
-
-    case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
         return object_to_long_double(a) == object_to_long_double(b);
+#endif
 
     }
 
@@ -18846,48 +18552,44 @@ int object_not_equal(const struct object* a, const struct object* b)
 
     switch (common_type)
     {
-    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_INT32:
         return object_to_signed_int(a) != object_to_signed_int(b);
 
-    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_INT32:
         return object_to_unsigned_int(a) != object_to_unsigned_int(b);
 
-    case TYPE_BOOL:
-        return object_to_bool(a) != object_to_bool(b);
 
-    case TYPE_SIGNED_CHAR:
+    case TYPE_SIGNED_INT8:
         return object_to_signed_char(a) != object_to_signed_char(b);
 
         break;
-    case TYPE_UNSIGNED_CHAR:
+    case TYPE_UNSIGNED_INT8:
         return object_to_unsigned_char(a) != object_to_unsigned_char(b);
 
-    case TYPE_SIGNED_SHORT:
+    case TYPE_SIGNED_INT16:
         return object_to_signed_short(a) != object_to_signed_short(b);
 
-    case TYPE_UNSIGNED_SHORT:
+    case TYPE_UNSIGNED_INT16:
         return object_to_unsigned_short(a) != object_to_unsigned_short(b);
 
-    case TYPE_SIGNED_LONG:
-        return object_to_signed_long(a) != object_to_signed_long(b);
 
-    case TYPE_UNSIGNED_LONG:
-        return object_to_unsigned_long(a) != object_to_unsigned_long(b);
 
-    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_SIGNED_INT64:
         return object_to_signed_long_long(a) != object_to_signed_long_long(b);
 
-    case TYPE_UNSIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_INT64:
         return object_to_unsigned_long_long(a) != object_to_unsigned_long_long(b);
 
-    case TYPE_FLOAT:
+    case TYPE_FLOAT32:
         return object_to_float(a) != object_to_float(b);
 
-    case TYPE_DOUBLE:
+    case TYPE_FLOAT64:
         return object_to_double(a) != object_to_double(b);
 
-    case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
         return object_to_long_double(a) != object_to_long_double(b);
+#endif
 
     }
 
@@ -18930,6 +18632,71 @@ int objects_push(struct objects* arr, struct object* obj)
 }
 
 
+
+void object_print_value(struct osstream* ss, const struct object* a, enum target target)
+{
+    a = object_get_referenced(a);
+
+    switch (a->value_type)
+    {
+
+
+    case TYPE_SIGNED_INT8:
+
+        //ss_fprintf(ss, "((signed char)%d)", (int)a->value.signed_int8);
+        ss_fprintf(ss, "%d", (int)a->value.signed_int8);
+        break;
+
+
+    case TYPE_UNSIGNED_INT8:
+        //ss_fprintf(ss, "((unsigned char)%d)", (int)a->value.unsigned_int8);
+        ss_fprintf(ss, "%d", (int)a->value.unsigned_int8);
+        break;
+
+
+    case TYPE_SIGNED_INT16:
+        //        ss_fprintf(ss, "((short)%d)", a->value.signed_int16);
+        ss_fprintf(ss, "%d", a->value.signed_int16);
+        break;
+
+    case TYPE_UNSIGNED_INT16:
+        //ss_fprintf(ss, "((unsigned short) %d)", a->value.unsigned_int16);
+        ss_fprintf(ss, "%d", a->value.unsigned_int16);
+        break;
+
+    case TYPE_SIGNED_INT32:
+        ss_fprintf(ss, "%d", a->value.signed_int32);
+        break;
+
+    case TYPE_UNSIGNED_INT32:
+        ss_fprintf(ss, "%u", a->value.unsigned_int32);
+        ss_fprintf(ss, "U");
+        break;
+
+    case TYPE_SIGNED_INT64:
+        ss_fprintf(ss, "%lld", a->value.signed_int64);
+        ss_fprintf(ss, "LL");
+        break;
+    case TYPE_UNSIGNED_INT64:
+        ss_fprintf(ss, "%llu", a->value.unsigned_int64);
+        ss_fprintf(ss, "ULL");
+        break;
+    case TYPE_FLOAT32:
+        ss_fprintf(ss, "%f", a->value.float32);
+        ss_fprintf(ss, "f");
+        break;
+    case TYPE_FLOAT64:
+        ss_fprintf(ss, "%lf", a->value.float64);
+        break;
+#ifdef CAKE_FLOAT128_DEFINED
+    case TYPE_FLOAT128:
+        ss_fprintf(ss, "%Lf", a->value.float64);
+        ss_fprintf(ss, "L");
+        break;
+#endif
+    }
+
+}
 
 
 /*
@@ -19518,7 +19285,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
-            p_expression_node->object = object_make_unsigned_char((unsigned char)c);//, ctx->evaluation_is_disabled);
+            p_expression_node->object = object_make_unsigned_char(c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -19546,12 +19313,12 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
-            if (c > USHRT_MAX)
+            if (c > target_get_wchar_max(ctx->options.target))
             {
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->object = object_make_wchar_t((wchar_t)c);
+            p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
         }
         else if (p[0] == 'U')
         {
@@ -19584,7 +19351,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->object = object_make_wchar_t((wchar_t)c);
+            p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
         }
         else if (p[0] == 'L')
         {
@@ -19629,22 +19396,15 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     //decoded
                     value = c;
                 }
-#ifdef _WIN32
-                if (value > USHRT_MAX)
+
+                if (value > target_get_wchar_max(ctx->options.target))
                 {
                     compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
                 }
-#else
-                if (value > UINT_MAX)
-                {
-                    compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
-                    break;
-                }
-#endif
             }
 
-            p_expression_node->object = object_make_wchar_t((wchar_t)value);
+            p_expression_node->object = object_make_wchar_t(ctx->options.target, (unsigned int)value);
         }
         else
         {
@@ -19704,7 +19464,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     return p_expression_node;
 }
 
-int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled)
+int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
     if (ctx->current == NULL)
     {
@@ -19801,14 +19561,14 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 p_expression_node->object = object_make_unsigned_int((unsigned int)value);
                 p_expression_node->type.type_specifier_flags = (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED);
             }
-            else if (value <= ULONG_MAX && suffix[2] != 'L')
+            else if (value <= target_get_unsigned_long_max(target) && suffix[2] != 'L')
             {
-                p_expression_node->object = object_make_unsigned_long((unsigned long)value);
+                p_expression_node->object = object_make_unsigned_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
             else //if (value <= ULLONG_MAX)
             {
-                p_expression_node->object = object_make_unsigned_long_long((unsigned long long)value);
+                p_expression_node->object = object_make_unsigned_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
         }
@@ -19820,14 +19580,14 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
-            else if (value <= LONG_MAX && suffix[1] != 'L' /*!= LL*/)
+            else if (value <= (unsigned long long) target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
-                p_expression_node->object = object_make_signed_long((long)value);
+                p_expression_node->object = object_make_signed_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
-            else if (value <= LLONG_MAX)
+            else if (value <= (unsigned long long) target_get_signed_long_long_max(target))
             {
-                p_expression_node->object = object_make_signed_long_long((long long)value);
+                p_expression_node->object = object_make_signed_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
             }
             else
@@ -20095,8 +19855,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     if (p_new == NULL) throw;
 
                     p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
-                    p_new->value_type = TYPE_SIGNED_CHAR;
-                    p_new->value.signed_char_value = value;
+                    p_new->value_type = TYPE_SIGNED_INT8;
+                    p_new->value.signed_int8 = (char)value;
 
                     if (p_expression_node->object.members == NULL)
                     {
@@ -20114,8 +19874,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 if (p_new == NULL) throw;
 
                 p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
-                p_new->value_type = TYPE_SIGNED_CHAR;
-                p_new->value.signed_char_value = 0;
+                p_new->value_type = TYPE_SIGNED_INT8;
+                p_new->value.signed_int8 = 0;
 
                 if (last == NULL)
                 {
@@ -20200,7 +19960,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
             p_expression_node->expression_type = PRIMARY_EXPRESSION_NUMBER;
 
-            convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/);
+            convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/, ctx->options.target);
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -20601,7 +20361,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
-                make_object(&p_expression_node_new->type, &p_expression_node_new->object);
+                make_object(&p_expression_node_new->type, &p_expression_node_new->object, ctx->options.target);
                 p_expression_node_new->last_token = ctx->previous;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
@@ -20999,7 +20759,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             }
             else
             {
-                int er = make_object(&p_expression_node->type, &p_expression_node->object);
+                int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
                 if (er != 0)
                 {
                     compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
@@ -21381,59 +21141,50 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (!ctx->evaluation_is_disabled &&
                   object_has_constant_value(&new_expression->right->object))
                 {
-                    enum object_value_type vt = type_to_object_type(&new_expression->type);
+                    enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
                     switch (vt)
                     {
-                    case TYPE_SIGNED_INT:
+                    case TYPE_SIGNED_INT32:
                     {
                         signed int r = object_to_signed_int(&new_expression->right->object);
                         new_expression->object = object_make_signed_int(~r);
                     }
                     break;
 
-                    case TYPE_UNSIGNED_INT:
+                    case TYPE_UNSIGNED_INT32:
                     {
                         unsigned int r = object_to_unsigned_int(&new_expression->right->object);
                         new_expression->object = object_make_unsigned_int(~r);
                     }
                     break;
 
-                    case TYPE_SIGNED_LONG:
-                    {
-                        signed long r = object_to_signed_long(&new_expression->right->object);
-                        new_expression->object = object_make_signed_long(~r);
-                    }
-                    break;
-                    case TYPE_UNSIGNED_LONG:
-                    {
-                        unsigned long r = object_to_unsigned_long(&new_expression->right->object);
-                        new_expression->object = object_make_unsigned_long(~r);
-                    }
-                    break;
-
-                    case TYPE_SIGNED_LONG_LONG:
+                      
+                    case TYPE_SIGNED_INT64:
                     {
                         signed long long r = object_to_signed_long_long(&new_expression->right->object);
                         new_expression->object = object_make_signed_long_long(~r);
                     }
                     break;
-                    case TYPE_UNSIGNED_LONG_LONG:
+                    case TYPE_UNSIGNED_INT64:
                     {
                         unsigned long long r = object_to_unsigned_long_long(&new_expression->right->object);
                         new_expression->object = object_make_unsigned_long_long(~r);
                     }
                     break;
 
-                    case TYPE_SIGNED_SHORT:
-                    case TYPE_UNSIGNED_SHORT:
-                    case TYPE_SIGNED_CHAR:
-                    case TYPE_UNSIGNED_CHAR:
+                    case TYPE_SIGNED_INT16:
+                    case TYPE_UNSIGNED_INT16:
+                    case TYPE_SIGNED_INT8:
+                    case TYPE_UNSIGNED_INT8:
 
-                    case TYPE_BOOL:
-                    case TYPE_FLOAT:
-                    case TYPE_DOUBLE:
-                    case TYPE_LONG_DOUBLE:
+                    
+                    case TYPE_FLOAT32:
+                    case TYPE_FLOAT64:
                         break;
+#ifdef CAKE_FLOAT128_DEFINED
+                    case TYPE_FLOAT128:
+                        break;
+#endif
                     };
                 }
             }
@@ -21450,10 +21201,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (!ctx->evaluation_is_disabled &&
                     object_has_constant_value(&new_expression->right->object))
                 {
-                    enum object_value_type vt = type_to_object_type(&new_expression->type);
+                    enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
                     switch (vt)
                     {
-                    case TYPE_SIGNED_INT:
+                    case TYPE_SIGNED_INT32:
                     {
                         const int a = object_to_signed_int(&new_expression->right->object);
                         if (op == '-')
@@ -21463,7 +21214,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_UNSIGNED_INT:
+                    case TYPE_UNSIGNED_INT32:
                     {
                         unsigned int a = object_to_unsigned_int(&new_expression->right->object);
                         if (op == '-')
@@ -21475,34 +21226,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_unsigned_int(+a);
                     }
                     break;
+                              
 
-                    case TYPE_SIGNED_LONG:
-                    {
-                        const signed long a = object_to_signed_long(&new_expression->right->object);
-                        if (op == '-')
-                        {
-                            //TODO check overflow
-                            new_expression->object = object_make_signed_long(-a);
-                        }
-                        else
-                            new_expression->object = object_make_signed_long(+a);
-                    }
-                    break;
-                    case TYPE_UNSIGNED_LONG:
-                    {
-                        unsigned long a = object_to_unsigned_long(&new_expression->right->object);
-                        if (op == '-')
-                        {
-                            //
-                            //error C4146: unary minus operator applied to unsigned type, result still unsigned
-                            new_expression->object = object_make_unsigned_long(-a);
-                        }
-                        else
-                            new_expression->object = object_make_unsigned_long(+a);
-                    }
-                    break;
-
-                    case TYPE_SIGNED_LONG_LONG:
+                    case TYPE_SIGNED_INT64:
                     {
                         signed long long a = object_to_signed_long_long(&new_expression->right->object);
                         if (op == '-')
@@ -21512,7 +21238,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_UNSIGNED_LONG_LONG:
+                    case TYPE_UNSIGNED_INT64:
                     {
                         unsigned long long a = object_to_unsigned_long_long(&new_expression->right->object);
 
@@ -21526,17 +21252,17 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_BOOL:
-                    case TYPE_SIGNED_CHAR:
-                    case TYPE_UNSIGNED_CHAR:
-                    case TYPE_SIGNED_SHORT:
-                    case TYPE_UNSIGNED_SHORT:
+                    
+                    case TYPE_SIGNED_INT8:
+                    case TYPE_UNSIGNED_INT8:
+                    case TYPE_SIGNED_INT16:
+                    case TYPE_UNSIGNED_INT16:
                         assert(false); //they are promoted
                         expression_delete(new_expression);
                         throw;
                         break;
 
-                    case TYPE_FLOAT:
+                    case TYPE_FLOAT32:
                     {
                         float a = object_to_float(&new_expression->right->object);
                         if (op == '-')
@@ -21545,7 +21271,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_float(+a);
                     }
                     break;
-                    case TYPE_DOUBLE:
+                    case TYPE_FLOAT64:
                     {
                         double a = object_to_double(&new_expression->right->object);
                         if (op == '-')
@@ -21554,7 +21280,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_double(+a);
                     }
                     break;
-                    case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+                    case TYPE_FLOAT128:
                     {
                         long double a = object_to_long_double(&new_expression->right->object);
                         if (op == '-')
@@ -21563,6 +21290,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_long_double(+a);
                     }
                     break;
+#endif
                     };
                 }
                 //'//'new_expression->type = type_dup(&new_expression->right->type);
@@ -21911,7 +21639,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->object = object_make_size_t(offsetof);
+            new_expression->object = object_make_size_t(ctx->options.target, offsetof);
 
             return new_expression;
         }
@@ -21986,7 +21714,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             throw;
                         }
 
-                        new_expression->object = object_make_size_t(type_sizeof);
+                        new_expression->object = object_make_size_t(ctx->options.target, type_sizeof);
                     }
                 }
             }
@@ -22018,7 +21746,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     size_t sz = 0;
                     if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
                         throw;
-                    new_expression->object = object_make_size_t(sz);
+                    new_expression->object = object_make_size_t(ctx->options.target, sz);
                 }
             }
 
@@ -22095,13 +21823,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             p = p->next;
                         }
                     }
-                    new_expression->object = object_make_size_t(nelements);
+                    new_expression->object = object_make_size_t(ctx->options.target, nelements);
                 }
                 else if (type_is_array(&new_expression->type_name->abstract_declarator->type))
                 {
                     size_t nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
                     if (nelements > 0)
-                        new_expression->object = object_make_size_t(nelements);
+                        new_expression->object = object_make_size_t(ctx->options.target, nelements);
                 }
                 else
                 {
@@ -22166,7 +21894,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             p = p->next;
                         }
                     }
-                    new_expression->object = object_make_size_t(nelements);
+                    new_expression->object = object_make_size_t(ctx->options.target, nelements);
 
                 }
                 else if (type_is_array(&new_expression->right->type))
@@ -22174,7 +21902,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     size_t nelements = new_expression->right->type.num_of_elements;
                     if (nelements > 0)
                     {
-                        new_expression->object = object_make_size_t(nelements);
+                        new_expression->object = object_make_size_t(ctx->options.target, nelements);
                     }
                     else
                     {
@@ -22320,7 +22048,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         size_t type_alignof = 0;
                         type_alignof = type_get_alignof(&new_expression->type_name->abstract_declarator->type, ctx->options.target);
 
-                        new_expression->object = object_make_size_t(type_alignof);
+                        new_expression->object = object_make_size_t(ctx->options.target, type_alignof);
                     }
                 }
             }
@@ -22351,7 +22079,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 {
                     size_t sz = 0;
                     sz = type_get_alignof(&new_expression->right->type, ctx->options.target);
-                    new_expression->object = object_make_size_t(sz);
+                    new_expression->object = object_make_size_t(ctx->options.target, sz);
                 }
             }
 
@@ -22678,7 +22406,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                 if (!ctx->evaluation_is_disabled &&
                     object_has_constant_value(&p_expression_node->left->object))
                 {
-                    enum object_value_type vt = type_to_object_type(&p_expression_node->type);
+                    enum object_value_type vt = type_to_object_type(&p_expression_node->type, ctx->options.target);
 
                     p_expression_node->object =
                         object_cast(vt, &p_expression_node->left->object);
@@ -22797,10 +22525,10 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             common_type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            enum object_value_type vt = type_to_object_type(&common_type);
+            enum object_value_type vt = type_to_object_type(&common_type, ctx->options.target);
             switch (vt)
             {
-            case TYPE_SIGNED_INT:
+            case TYPE_SIGNED_INT32:
             {
                 const int a = object_to_signed_int(&new_expression->left->object);
                 const int b = object_to_signed_int(&new_expression->right->object);
@@ -22904,7 +22632,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_UNSIGNED_INT:
+            case TYPE_UNSIGNED_INT32:
             {
                 unsigned int a = object_to_unsigned_int(&new_expression->left->object);
                 unsigned int b = object_to_unsigned_int(&new_expression->right->object);
@@ -23006,216 +22734,9 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
+     
 
-            case TYPE_SIGNED_LONG:
-            {
-                const signed long a = object_to_signed_long(&new_expression->left->object);
-                const signed long b = object_to_signed_long(&new_expression->right->object);
-
-                if (op == '+')
-                {
-                    const signed long computed_result = a + b;
-                    signed long long exact_result;
-                    if (signed_long_long_add(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_signed_long(computed_result);
-                }
-                else if (op == '-')
-                {
-                    const signed long computed_result = a - b;
-                    signed long long exact_result;
-                    if (signed_long_long_sub(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_signed_long(computed_result);
-                }
-                else if (op == '*')
-                {
-                    const signed long computed_result = a * b;
-                    signed long long exact_result;
-                    if (signed_long_long_mul(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_signed_long(computed_result);
-                }
-                else if (op == '/')
-                {
-                    if (b == 0)
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                    else if (a == LONG_MIN && b == -1)
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, new_expression->right->first_token, NULL, "integer overflow");
-                        value = object_make_signed_long(LONG_MIN); //this is what compilers are doing
-                    }
-                    else
-                        value = object_make_signed_long(a / b);
-                }
-                else if (op == '%')
-                {
-                    if (b == 0)
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                    else
-                        value = object_make_signed_long(a % b);
-                }
-                //////////
-                else if (op == '>')
-                {
-                    value = object_make_signed_long(a > b);
-                }
-                else if (op == '<')
-                {
-                    value = object_make_signed_long(a < b);
-                }
-                else if (op == '>=')
-                {
-                    value = object_make_signed_long(a >= b);
-                }
-                else if (op == '<=')
-                {
-                    value = object_make_signed_long(a <= b);
-                }
-                //
-                else if (op == '==')
-                {
-                    value = object_make_signed_long(a == b);
-                }
-                else if (op == '!=')
-                {
-                    value = object_make_signed_long(a != b);
-                }
-            }
-            break;
-
-            case TYPE_UNSIGNED_LONG:
-            {
-                unsigned long a = object_to_unsigned_long(&new_expression->left->object);
-                unsigned long b = object_to_unsigned_long(&new_expression->right->object);
-
-                if (op == '+')
-                {
-                    const unsigned long computed_result = a + b;
-                    unsigned long long exact_result;
-                    if (unsigned_long_long_add(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_unsigned_long(computed_result);
-                }
-                else if (op == '-')
-                {
-                    const unsigned long computed_result = a - b;
-                    unsigned long long exact_result;
-                    if (unsigned_long_long_sub(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_unsigned_long(computed_result);
-                }
-                else if (op == '*')
-                {
-                    const unsigned long computed_result = a * b;
-                    unsigned long long exact_result;
-                    if (unsigned_long_long_mul(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-
-                    value = object_make_unsigned_long(computed_result);
-                }
-                else if (op == '/')
-                {
-                    if (b == 0)
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                    else
-                        value = object_make_unsigned_long(a / b);
-                }
-                else if (op == '%')
-                {
-                    if (b == 0)
-                    {
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                        throw;
-                    }
-
-                    value = object_make_unsigned_long(a % b);
-                }
-                //////////                
-                else if (op == '>')
-                {
-                    value = object_make_unsigned_long(a > b);
-                }
-                else if (op == '<')
-                {
-                    value = object_make_unsigned_long(a < b);
-                }
-                else if (op == '>=')
-                {
-                    value = object_make_unsigned_long(a >= b);
-                }
-                else if (op == '<=')
-                {
-                    value = object_make_unsigned_long(a <= b);
-                }
-                //
-                else if (op == '==')
-                {
-                    value = object_make_unsigned_long(a == b);
-                }
-                else if (op == '!=')
-                {
-                    value = object_make_unsigned_long(a != b);
-                }
-
-            }
-            break;
-
-            case TYPE_SIGNED_LONG_LONG:
+            case TYPE_SIGNED_INT64:
             {
                 long long a = object_to_signed_long_long(&new_expression->left->object);
                 long long b = object_to_signed_long_long(&new_expression->right->object);
@@ -23302,7 +22823,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_UNSIGNED_LONG_LONG:
+            case TYPE_UNSIGNED_INT64:
             {
                 unsigned long long a = object_to_unsigned_long_long(&new_expression->left->object);
                 unsigned long long b = object_to_unsigned_long_long(&new_expression->right->object);
@@ -23397,16 +22918,16 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_BOOL:
-            case TYPE_SIGNED_CHAR:
-            case TYPE_UNSIGNED_CHAR:
-            case TYPE_SIGNED_SHORT:
-            case TYPE_UNSIGNED_SHORT:
+            
+            case TYPE_SIGNED_INT8:
+            case TYPE_UNSIGNED_INT8:
+            case TYPE_SIGNED_INT16:
+            case TYPE_UNSIGNED_INT16:
                 assert(false); //they are promoted
                 throw;
                 break;
 
-            case TYPE_FLOAT:
+            case TYPE_FLOAT32:
             {
                 float a = object_to_float(&new_expression->left->object);
                 float b = object_to_float(&new_expression->right->object);
@@ -23469,7 +22990,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
-            case TYPE_DOUBLE:
+            case TYPE_FLOAT64:
             {
                 double a = object_to_double(&new_expression->left->object);
                 double b = object_to_double(&new_expression->right->object);
@@ -23530,7 +23051,8 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
-            case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+            case TYPE_FLOAT128:
             {
                 long double a = object_to_long_double(&new_expression->left->object);
                 long double b = object_to_long_double(&new_expression->right->object);
@@ -23591,6 +23113,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
+#endif
 
             };
 
@@ -24456,10 +23979,10 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             object_has_constant_value(&new_expression->left->object) &&
             object_has_constant_value(&new_expression->right->object))
         {
-            enum object_value_type vt = type_to_object_type(&new_expression->type);
+            enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
             switch (vt)
             {
-            case TYPE_SIGNED_INT:
+            case TYPE_SIGNED_INT32:
             {
                 int a = object_to_signed_int(&new_expression->left->object);
                 int b = object_to_signed_int(&new_expression->right->object);
@@ -24481,7 +24004,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 new_expression->object = object_make_signed_int(r);
             }
             break;
-            case TYPE_UNSIGNED_INT:
+            case TYPE_UNSIGNED_INT32:
             {
                 unsigned int a = object_to_unsigned_int(&new_expression->left->object);
                 unsigned int b = object_to_unsigned_int(&new_expression->right->object);
@@ -24503,53 +24026,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            case TYPE_SIGNED_LONG:
-            {
-                signed long a = object_to_signed_long(&new_expression->left->object);
-                signed long b = object_to_signed_long(&new_expression->right->object);
-
-                int r = 0;
-                if (op == '|')
-                    r = a | b;
-                else if (op == '^')
-                    r = a ^ b;
-                else if (op == '&')
-                    r = a & b;
-                //
-                else if (op == '>>')
-                    r = a >> b;
-                else if (op == '<<')
-                    r = a << b;
-
-                object_destroy(&new_expression->object);
-                new_expression->object = object_make_signed_long(r);
-            }
-            break;
-
-            case TYPE_UNSIGNED_LONG:
-            {
-                unsigned long a = object_to_unsigned_long(&new_expression->left->object);
-                unsigned long b = object_to_unsigned_long(&new_expression->right->object);
-                int r = 0;
-                if (op == '|')
-                    r = a | b;
-                else if (op == '^')
-                    r = a ^ b;
-                else if (op == '&')
-                    r = a & b;
-                //
-                else if (op == '>>')
-                    r = a >> b;
-                else if (op == '<<')
-                    r = a << b;
-
-                object_destroy(&new_expression->object);
-                new_expression->object = object_make_unsigned_long(r);
-            }
-            break;
-
-
-            case TYPE_SIGNED_LONG_LONG:
+ 
+            case TYPE_SIGNED_INT64:
             {
                 signed long long a = object_to_signed_long_long(&new_expression->left->object);
                 signed long long b = object_to_signed_long_long(&new_expression->right->object);
@@ -24572,7 +24050,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            case TYPE_UNSIGNED_LONG_LONG:
+            case TYPE_UNSIGNED_INT64:
             {
                 unsigned long long a = object_to_unsigned_long_long(&new_expression->left->object);
                 unsigned long long b = object_to_unsigned_long_long(&new_expression->right->object);
@@ -24594,22 +24072,27 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            case TYPE_BOOL:
-            case TYPE_SIGNED_CHAR:
-            case TYPE_UNSIGNED_CHAR:
-            case TYPE_SIGNED_SHORT:
-            case TYPE_UNSIGNED_SHORT:
+            
+            case TYPE_SIGNED_INT8:
+            case TYPE_UNSIGNED_INT8:
+            case TYPE_SIGNED_INT16:
+            case TYPE_UNSIGNED_INT16:
                 assert(false); //they are promoted
                 throw;
                 break;
 
 
-            case TYPE_FLOAT:
-            case TYPE_DOUBLE:
-            case TYPE_LONG_DOUBLE:
+            case TYPE_FLOAT32:
+            case TYPE_FLOAT64:
                 assert(false); //works for integers only
                 throw;
                 break;
+#ifdef CAKE_FLOAT128_DEFINED
+            case TYPE_FLOAT128:
+                assert(false); //works for integers only
+                throw;
+                break;
+#endif
             };
         }
         return 0;//ok
@@ -26347,7 +25830,7 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 /*
  * preprocessor uses long long
  */
-static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result)
+static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result, enum target target)
 {
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
@@ -26423,9 +25906,9 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
                 cv = object_make_unsigned_int((unsigned int)value);
 
             }
-            else if (value <= ULONG_MAX && suffix[2] != 'L')
+            else if (value <= target_get_unsigned_long_max(target) && suffix[2] != 'L')
             {
-                cv = object_make_unsigned_long((unsigned long)value);
+                cv = object_make_unsigned_long((unsigned long)value, target);
             }
             else //if (value <= ULLONG_MAX)
             {
@@ -26439,11 +25922,11 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
             {
                 cv = object_make_signed_int((int)value);
             }
-            else if (value <= LONG_MAX && suffix[1] != 'L' /*!= LL*/)
+            else if (value <= target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
-                cv = object_make_signed_long((long)value);
+                cv = object_make_signed_long((long)value, target);
             }
-            else if (value <= LLONG_MAX)
+            else if (value <= target_get_signed_long_long_max(target))
             {
                 cv = object_make_signed_long_long((long long)value);
             }
@@ -26492,7 +25975,7 @@ static struct token* _Opt pre_match(struct preprocessor_ctx* ctx)
 }
 
 //TODO share this with parser
-static struct object char_constant_to_value(const char* s, char error_message[/*sz*/], int error_message_sz_bytes)
+static struct object char_constant_to_value(const char* s, char error_message[/*sz*/], int error_message_sz_bytes, enum target target)
 {
     error_message[0] = '\0';
 
@@ -26534,7 +26017,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
             }
 
-            return object_make_wchar_t((wchar_t)c);//, ctx->evaluation_is_disabled);
+            return object_make_wchar_t(target, c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -26564,12 +26047,12 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
             }
 
-            if (c > USHRT_MAX)
+            if ((int)c > target_get_wchar_max(target))
             {
                 snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
             }
 
-            return object_make_wchar_t((wchar_t)c);
+            return object_make_wchar_t(target, c);
         }
         else if (p[0] == 'U')
         {
@@ -26605,7 +26088,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
             }
 
-            return object_make_wchar_t((wchar_t)c);
+            return object_make_wchar_t(target, c);
         }
         else if (p[0] == 'L')
         {
@@ -26641,22 +26124,15 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
        
                 // TODO \u
                 value = value * 256 + c;
-#ifdef _WIN32
-                if (value > USHRT_MAX)
+
+                if (value > target_get_wchar_max(target))
                 {
                     snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
                     break;
                 }
-#else
-                if (value > UINT_MAX)
-                {
-                    snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
-                    break;
-                }
-#endif
             }
 
-            return object_make_wchar_t((wchar_t)value);
+            return object_make_wchar_t(target, (int) value);
         }
         else
         {
@@ -26704,7 +26180,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                     break;
                 }
             }
-            return object_make_wchar_t((wchar_t)value);
+            return object_make_wchar_t(target, (int) value);
         }
     }
     catch
@@ -26737,7 +26213,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         {
             const char* p = ctx->current->lexeme + 1;
             char errmsg[200] = { 0 };
-            struct object v = char_constant_to_value(p, errmsg, sizeof errmsg);
+            struct object v = char_constant_to_value(p, errmsg, sizeof errmsg, ctx->options.target);
             if (errmsg[0] != '\0')
             {
                 preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, "%s", errmsg);
@@ -26748,7 +26224,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         }
         else if (ctx->current->type == TK_PPNUMBER)
         {
-            ppnumber_to_longlong(ctx, ctx->current, &ectx->value);
+            ppnumber_to_longlong(ctx, ctx->current, &ectx->value, ctx->options.target);
             pre_match(ctx);
         }        
         else if (ctx->current->type == '(')
@@ -27702,7 +27178,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.10.54"
+#define CAKE_VERSION "0.11.00"
 
 
 
@@ -30455,7 +29931,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
 
-                int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, ctx->options.target);
                 if (er != 0)
                 {
                     compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
@@ -30554,7 +30030,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
                 int er = make_object_with_name(&p_init_declarator->p_declarator->type,
-                    &p_init_declarator->p_declarator->object, name2);
+                    &p_init_declarator->p_declarator->object, name2, ctx->options.target);
 
                 if (er != 0)
                 {
@@ -30587,7 +30063,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                 int er = make_object_with_name(&p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
-                    name2);
+                    name2, ctx->options.target);
 
                 if (er != 0)
                 {
@@ -32980,7 +32456,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
 
     if (p_enum_specifier->specifier_qualifier_list)
     {
-        enum object_value_type vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+        enum object_value_type vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags, ctx->options.target);
         next_enumerator_value = object_cast(vt, &next_enumerator_value);
     }
 
@@ -34233,7 +33709,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         }
         else
         {
-            int er = make_object(&p_parameter_declaration->declarator->type, &p_parameter_declaration->declarator->object);
+            int er = make_object(&p_parameter_declaration->declarator->type, &p_parameter_declaration->declarator->object, ctx->options.target);
             if (er != 0)
             {
                 //compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
@@ -38522,7 +37998,7 @@ int compile_one_file(const char* file_name,
     prectx.options = *options;
     prectx.macros.capacity = 5000;
 
-    add_standard_macros(&prectx);
+    add_standard_macros(&prectx, options->target);
 
     if (include_config_header(&prectx, file_name) != 0)
     {
@@ -39049,7 +38525,7 @@ struct ast get_ast(struct options* options,
         prectx.options = *options;
         prectx.macros.capacity = 5000;
 
-        add_standard_macros(&prectx);
+        add_standard_macros(&prectx, options->target);
 
         ast.token_list = preprocessor(&prectx, &list, 0);
         if (prectx.n_errors != 0)
@@ -39123,7 +38599,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
         }
 
         prectx.options = options;
-        add_standard_macros(&prectx);
+        add_standard_macros(&prectx, options.target);
 
         if (options.preprocess_only)
         {
@@ -39688,7 +39164,8 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct designator* p_designator,
     bool is_constant,
     struct type* p_type_out2,
-    bool not_error)
+    bool not_error,
+    enum target target)
 {
     try
     {
@@ -39725,7 +39202,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                                 strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
                             {
                                 if (p_designator->next != NULL)
-                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out2, false);
+                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
                                 else
                                 {
                                     struct type t = type_dup(&p_member_declarator->declarator->type);
@@ -39760,7 +39237,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                                                                          p_designator,
                                                                          is_constant,
                                                                          p_type_out2,
-                                                                         true);
+                                                                         true, ctx->options.target);
                             if (p)
                             {
                                 type_destroy(&t);
@@ -39807,7 +39284,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                     max_index = index;
                     if (compute_array_size)
                     {
-                        member_obj = object_extend_array_to_index(&array_item_type, current_object, max_index, is_constant);
+                        member_obj = object_extend_array_to_index(&array_item_type, current_object, max_index, is_constant, target);
                     }
                 }
 
@@ -39841,7 +39318,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                 if (p_designator->next != NULL)
                 {
                     struct object* _Opt p =
-                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out2, false);
+                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
 
                     type_destroy(&array_item_type);
                     return p;
@@ -39988,7 +39465,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                         if (compute_array_size)
                         {
-                            object_extend_array_to_index(&array_item_type, current_object, num_of_elements - 1, is_constant);
+                            object_extend_array_to_index(&array_item_type, current_object, num_of_elements - 1, is_constant, ctx->options.target);
                         }
 
                         if (object_set(ctx,
@@ -40034,10 +39511,10 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                     if (array_to_expand_index > array_to_expand_max_index)
                         array_to_expand_max_index = array_to_expand_index;
 
-                    object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
+                    object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant, ctx->options.target);
                 }
                 is_subobject_of_union = type_is_union(&subobject_type);
-                p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false);
+                p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false, ctx->options.target);
                 if (p_subobject == NULL)
                 {
                     // already have the error, need not say that it was not consumed
@@ -40058,7 +39535,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                         if (array_to_expand_index > array_to_expand_max_index)
                             array_to_expand_max_index = array_to_expand_index;
 
-                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
+                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant,  ctx->options.target);
                     }
                 }
 
@@ -41418,80 +40895,6 @@ static void il_print_defer_list(struct d_visit_ctx* ctx, struct osstream* oss, s
     }
 }
 
-static void object_print_value(struct osstream* ss, const struct object* a)
-{
-    a = object_get_referenced(a);
-
-    switch (a->value_type)
-    {
-
-    case TYPE_BOOL:
-        //ss_fprintf(ss, "((unsigned char) %s)", a->value.bool_value ? "1" : "0");
-        ss_fprintf(ss, "%d", a->value.bool_value ? 1 : 0);
-        break;
-
-    case TYPE_SIGNED_CHAR:
-
-        //ss_fprintf(ss, "((signed char)%d)", (int)a->value.signed_char_value);
-        ss_fprintf(ss, "%d", (int)a->value.signed_char_value);
-        break;
-
-
-    case TYPE_UNSIGNED_CHAR:
-        //ss_fprintf(ss, "((unsigned char)%d)", (int)a->value.unsigned_char_value);
-        ss_fprintf(ss, "%d", (int)a->value.unsigned_char_value);
-        break;
-
-
-    case TYPE_SIGNED_SHORT:
-        //        ss_fprintf(ss, "((short)%d)", a->value.signed_short_value);
-        ss_fprintf(ss, "%d", a->value.signed_short_value);
-        break;
-
-    case TYPE_UNSIGNED_SHORT:
-        //ss_fprintf(ss, "((unsigned short) %d)", a->value.unsigned_short_value);
-        ss_fprintf(ss, "%d", a->value.unsigned_short_value);
-        break;
-
-    case TYPE_SIGNED_INT:
-        ss_fprintf(ss, "%d", a->value.signed_int_value);
-        break;
-
-    case TYPE_UNSIGNED_INT:
-        ss_fprintf(ss, "%u", a->value.unsigned_int_value);
-        ss_fprintf(ss, "U");
-        break;
-    case TYPE_SIGNED_LONG:
-        ss_fprintf(ss, "%ld", a->value.signed_long_value);
-        ss_fprintf(ss, "L");
-        break;
-    case TYPE_UNSIGNED_LONG:
-        ss_fprintf(ss, "%lu", a->value.unsigned_long_value);
-        ss_fprintf(ss, "UL");
-        break;
-    case TYPE_SIGNED_LONG_LONG:
-        ss_fprintf(ss, "%lld", a->value.signed_long_long_value);
-        ss_fprintf(ss, "LL");
-        break;
-    case TYPE_UNSIGNED_LONG_LONG:
-        ss_fprintf(ss, "%llu", a->value.unsigned_long_long_value);
-        ss_fprintf(ss, "ULL");
-        break;
-    case TYPE_FLOAT:
-        ss_fprintf(ss, "%f", a->value.float_value);
-        ss_fprintf(ss, "f");
-        break;
-    case TYPE_DOUBLE:
-        ss_fprintf(ss, "%lf", a->value.double_value);
-        break;
-    case TYPE_LONG_DOUBLE:
-        ss_fprintf(ss, "%Lf", a->value.long_double_value);
-        ss_fprintf(ss, "L");
-        break;
-    }
-
-}
-
 
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression);
 
@@ -41718,7 +41121,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     if (object_has_constant_value(&p_expression->object))
     {
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         return;
     }
 
@@ -41911,7 +41314,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case PRIMARY_EXPRESSION_CHAR_LITERAL:
     case PRIMARY_EXPRESSION_NUMBER:
     case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
     case PRIMARY_EXPRESSION_PARENTESIS:
@@ -42160,17 +41563,17 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
     case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
     case UNARY_EXPRESSION_ALIGNOF_TYPE:
     case UNARY_EXPRESSION_COUNTOF:
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
     case UNARY_EXPRESSION_CONSTEVAL:
@@ -43753,7 +43156,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
         {
             if (object_has_constant_value(&object->p_init_expression->object))
             {
-                object_print_value(ss, &object->p_init_expression->object);
+                object_print_value(ss, &object->p_init_expression->object, ctx->options.target);
             }
             else if (object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
             {
@@ -52267,6 +51670,726 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 }
 */
 
+
+
+
+#if defined(_WIN32) || defined(_WIN64)
+#  define PLATFORM_NAME "windows"
+#elif defined(__APPLE__) && defined(__MACH__)
+#  define PLATFORM_NAME "apple"
+#elif defined(__linux__)
+#  define PLATFORM_NAME "linux"
+#elif defined(__EMSCRIPTEN__)
+#  define PLATFORM_NAME "emscripten"
+#else
+#error add new platform 
+#endif
+
+
+
+#if defined(__clang__)
+#define COMPILER_NAME "clang"
+
+#elif defined(__GNUC__) && !defined(__TINYC__) && !defined(__HLC__)
+#define COMPILER_NAME "gcc"
+#elif defined(_MSC_VER) && !defined(__TINYC__) && !defined(__HLC__)
+#define COMPILER_NAME "msvc"
+#elif defined(__INTEL_COMPILER)
+#define COMPILER_NAME "intel"
+#elif defined(__TINYC__)
+#define COMPILER_NAME "tcc"
+#elif defined(__HLC__)
+#define COMPILER_NAME "hlc"
+#else
+#error add new compiler 
+#endif
+
+
+#if defined(__x86_64__) || defined(_M_X64)
+#  define ARCH_NAME "X86_64"
+#elif defined(__i386__) || defined(_M_IX86)
+#  define ARCH_NAME "X86"
+
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#  define ARCH_NAME "ARM64"
+#elif defined(__arm__) || defined(_M_ARM)
+#  define ARCH_NAME "ARM"
+#elif defined(__wasm32__)
+#  define ARCH_NAME "wasm32"
+#elif defined(__wasm64__)
+#  define ARCH_NAME "wasm64"
+#elif defined(__wasm__)
+#  define ARCH_NAME "wasm"
+#else
+#error add new architeture
+#endif
+
+
+const char* target_to_string(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+        return PLATFORM_NAME " " COMPILER_NAME  " " ARCH_NAME " (default)";
+
+    case TARGET_X86_X64_GCC:
+        return "X86_X64_GCC";
+    case TARGET_X86_MSVC:
+        return "X86_MSVC";
+    case TARGET_X64_MSVC:
+        return "X64_MSVC";
+    }
+    return "";
+}
+
+int target_get_wchar_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+#ifdef _WIN32
+        return USHRT_MAX;
+#else
+        return INT_MAX;
+#endif
+
+    case TARGET_X86_X64_GCC:
+        return INT_MAX;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return USHRT_MAX;
+    }
+
+    assert(false);
+    return 0;
+}
+
+long long target_get_signed_long_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+        return LONG_MAX;
+
+    case TARGET_X86_X64_GCC:
+        return 0x7fffffffffffffffLL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 2147483647LL;
+    }
+
+    assert(false);
+    return 0;
+}
+
+long long target_get_signed_long_long_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+        return LLONG_MAX;
+
+    case TARGET_X86_X64_GCC:
+        return 9223372036854775807LL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 9223372036854775807LL;
+    }
+
+    assert(false);
+    return 0;
+}
+
+unsigned long long target_get_unsigned_long_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+        return ULONG_MAX;
+
+    case TARGET_X86_X64_GCC:
+        return 18446744073709551615ULL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 0xffffffff;
+    }
+
+    assert(false);
+    return 0;
+}
+
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define CAKE_STANDARD_MACROS  \
+"#define __CAKE__ 202311L\n"\
+"#define __STDC_VERSION__ 202311L\n"\
+"#define __FILE__ \"__FILE__\"\n"\
+"#define __LINE__ 0\n"\
+"#define __COUNTER__ 0\n"\
+"#define _CONSOLE\n"\
+"#define __STDC_OWNERSHIP__ 1\n" \
+"#define __STDC_NO_ATOMICS__ " TOSTRING(__STDC_NO_ATOMICS__) "\n"\
+"#define __STDC_NO_COMPLEX__  " TOSTRING(__STDC_NO_COMPLEX__) "\n"\
+"#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__) "\n"\
+"#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__) "\n"
+
+
+
+#if 0
+
+//PROGRAM TO GENERATE DEFINES
+
+
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+
+int main()
+{
+
+    const char* text =
+        /*some gcc stuff need to parse linux headers*/
+        "#define __linux__\n"
+        //see
+        //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html                
+        "#define __x86_64__ " TOSTRING(__x86_64__) "\n"
+        "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
+        "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
+        "#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
+        "#define __WCHAR_TYPE__ " TOSTRING(__WCHAR_TYPE__) "\n"
+        "#define __WINT_TYPE__ " TOSTRING(__WINT_TYPE__) "\n"
+        "#define __INTMAX_TYPE__ " TOSTRING(__INTMAX_TYPE__) "\n"
+        "#define __UINTMAX_TYPE__ " TOSTRING(__UINTMAX_TYPE__) "\n"
+        "#define __SIG_ATOMIC_TYPE__ " TOSTRING(__SIG_ATOMIC_TYPE__) "\n"
+        "#define __INT8_TYPE__ " TOSTRING(__INT8_TYPE__) "\n"
+        "#define __INT16_TYPE__ " TOSTRING(__INT16_TYPE__) "\n"
+        "#define __INT32_TYPE__ " TOSTRING(__INT32_TYPE__) "\n"
+        "#define __INT64_TYPE__ " TOSTRING(__INT64_TYPE__) "\n"
+        "#define __UINT8_TYPE__ " TOSTRING(__UINT8_TYPE__) "\n"
+        "#define __UINT16_TYPE__ " TOSTRING(__UINT16_TYPE__) "\n"
+        "#define __UINT32_TYPE__ " TOSTRING(__UINT32_TYPE__) "\n"
+        "#define __UINT64_TYPE__ " TOSTRING(__UINT64_TYPE__) "\n"
+        "#define __INT_LEAST8_TYPE__ " TOSTRING(__INT_LEAST8_TYPE__) "\n"
+        "#define __INT_LEAST16_TYPE__ " TOSTRING(__INT_LEAST16_TYPE__) "\n"
+        "#define __INT_LEAST32_TYPE__ " TOSTRING(__INT_LEAST32_TYPE__) "\n"
+        "#define __INT_LEAST64_TYPE__ " TOSTRING(__INT_LEAST64_TYPE__) "\n"
+        "#define __UINT_LEAST8_TYPE__ " TOSTRING(__UINT_LEAST8_TYPE__) "\n"
+        "#define __UINT_LEAST16_TYPE__ " TOSTRING(__UINT_LEAST16_TYPE__) "\n"
+        "#define __UINT_LEAST32_TYPE__ " TOSTRING(__UINT_LEAST32_TYPE__) "\n"
+        "#define __UINT_LEAST64_TYPE__ " TOSTRING(__UINT_LEAST64_TYPE__) "\n"
+        "#define __INT_FAST8_TYPE__ " TOSTRING(__INT_FAST8_TYPE__) "\n"
+        "#define __INT_FAST16_TYPE__ " TOSTRING(__INT_FAST16_TYPE__) "\n"
+        "#define __INT_FAST32_TYPE__ " TOSTRING(__INT_FAST32_TYPE__) "\n"
+        "#define __INT_FAST64_TYPE__ " TOSTRING(__INT_FAST64_TYPE__) "\n"
+        "#define __UINT_FAST8_TYPE__ " TOSTRING(__UINT_FAST8_TYPE__) "\n"
+        "#define __UINT_FAST16_TYPE__ " TOSTRING(__UINT_FAST16_TYPE__) "\n"
+        "#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
+        "#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
+        "#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
+        "#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
+
+        "#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
+        "#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
+        "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
+        "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
+        "#define __DBL_EPSILON__ " TOSTRING(__DBL_EPSILON__) "\n"
+        "#define __LDBL_EPSILON__ " TOSTRING(__LDBL_EPSILON__) "\n"
+        "#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
+        "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
+        "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
+
+        // gcc -dM -E
+
+        "#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
+        "#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
+        "#define __FLT_DECIMAL_DIG__ " TOSTRING(__FLT_DECIMAL_DIG__) "\n"
+
+
+        "#define __FLT_MIN_10_EXP__ " TOSTRING(__FLT_MIN_10_EXP__) "\n"
+        "#define __FLT_MIN__ " TOSTRING(__FLT_MIN__) "\n"
+        "#define __FLT_MAX__ " TOSTRING(__FLT_MAX__) "\n"
+        "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
+        "#define __FLT_DIG__ " TOSTRING(__FLT_DIG__) "\n"
+        "#define __FLT_MANT_DIG__ " TOSTRING(__FLT_MANT_DIG__) "\n"
+        "#define __FLT_MIN_EXP__ " TOSTRING(__FLT_MIN_EXP__) "\n"
+        "#define __FLT_MAX_10_EXP__ " TOSTRING(__FLT_MAX_10_EXP__) "\n"
+        "#define __FLT_ROUNDS__ " TOSTRING(__FLT_ROUNDS__) "\n"
+        "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
+        "#define __FLT_HAS_SUBNORM__ " TOSTRING(__FLT_HAS_SUBNORM__) "\n"
+
+        "#define __FLT_MAX_EXP__ " TOSTRING(__FLT_MAX_EXP__) "\n"
+        "#define __FLT_HAS_DENORM__ " TOSTRING(__FLT_HAS_DENORM__) "\n"
+
+
+        "#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
+        "#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
+        "#define __SHRT_MAX__ " TOSTRING(__SHRT_MAX__) "\n"
+        "#define __INT_MAX__ " TOSTRING(__INT_MAX__) "\n"
+        "#define __LONG_MAX__ " TOSTRING(__LONG_MAX__) "\n"
+        "#define __LONG_LONG_MAX__ " TOSTRING(__LONG_LONG_MAX__) "\n"
+        "#define __WINT_MAX__ " TOSTRING(__WINT_MAX__) "\n"
+        "#define __SIZE_MAX__ " TOSTRING(__SIZE_MAX__) "\n"
+        "#define __PTRDIFF_MAX__ " TOSTRING(__PTRDIFF_MAX__) "\n"
+        "#define __INTMAX_MAX__ " TOSTRING(__INTMAX_MAX__) "\n"
+        "#define __UINTMAX_MAX__ " TOSTRING(__UINTMAX_MAX__) "\n"
+        "#define __SIG_ATOMIC_MAX__ " TOSTRING(__SIG_ATOMIC_MAX__) "\n"
+        "#define __INT8_MAX__ " TOSTRING(__INT8_MAX__) "\n"
+        "#define __INT16_MAX__ " TOSTRING(__INT16_MAX__) "\n"
+        "#define __INT32_MAX__ " TOSTRING(__INT32_MAX__) "\n"
+        "#define __INT64_MAX__ " TOSTRING(__INT64_MAX__) "\n"
+        "#define __UINT8_MAX__ " TOSTRING(__UINT8_MAX__) "\n"
+        "#define __UINT16_MAX__ " TOSTRING(__UINT16_MAX__) "\n"
+        "#define __UINT32_MAX__ " TOSTRING(__UINT32_MAX__) "\n"
+        "#define __UINT64_MAX__ " TOSTRING(__UINT64_MAX__) "\n"
+        "#define __INT_LEAST8_MAX__ " TOSTRING(__INT_LEAST8_MAX__) "\n"
+        "#define __INT_LEAST16_MAX__ " TOSTRING(__INT_LEAST16_MAX__) "\n"
+        "#define __INT_LEAST32_MAX__ " TOSTRING(__INT_LEAST32_MAX__) "\n"
+        "#define __INT_LEAST64_MAX__ " TOSTRING(__INT_LEAST64_MAX__) "\n"
+        "#define __UINT_LEAST8_MAX__ " TOSTRING(__UINT_LEAST8_MAX__) "\n"
+        "#define __UINT_LEAST16_MAX__ " TOSTRING(__UINT_LEAST16_MAX__) "\n"
+        "#define __UINT_LEAST32_MAX__ " TOSTRING(__UINT_LEAST32_MAX__) "\n"
+        "#define __UINT_LEAST64_MAX__ " TOSTRING(__UINT_LEAST64_MAX__) "\n"
+        "#define __INT_FAST8_MAX__ " TOSTRING(__INT_FAST8_MAX__) "\n"
+        "#define __INT_FAST16_MAX__ " TOSTRING(__INT_FAST16_MAX__) "\n"
+        "#define __INT_FAST32_MAX__ " TOSTRING(__INT_FAST32_MAX__) "\n"
+        "#define __INT_FAST64_MAX__ " TOSTRING(__INT_FAST64_MAX__) "\n"
+        "#define __UINT_FAST8_MAX__ " TOSTRING(__UINT_FAST8_MAX__) "\n"
+        "#define __UINT_FAST16_MAX__ " TOSTRING(__UINT_FAST16_MAX__) "\n"
+        "#define __UINT_FAST32_MAX__ " TOSTRING(__UINT_FAST32_MAX__) "\n"
+        "#define __UINT_FAST64_MAX__ " TOSTRING(__UINT_FAST64_MAX__) "\n"
+        "#define __INTPTR_MAX__ " TOSTRING(__INTPTR_MAX__) "\n"
+        "#define __UINTPTR_MAX__ " TOSTRING(__UINTPTR_MAX__) "\n"
+        "#define __WCHAR_MIN__ " TOSTRING(__WCHAR_MIN__) "\n"
+        "#define __WINT_MIN__ " TOSTRING(__WINT_MIN__) "\n"
+        "#define __SIG_ATOMIC_MIN__ " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+
+        "#define __INT8_C " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+        "#define __INT16_C " TOSTRING(__INT16_C) "\n"
+        "#define __INT32_C " TOSTRING(__INT32_C) "\n"
+        "#define __INT64_C " TOSTRING(__INT64_C) "\n"
+        "#define __UINT8_C " TOSTRING(__UINT8_C) "\n"
+        "#define __UINT16_C " TOSTRING(__UINT16_C) "\n"
+        "#define __UINT32_C " TOSTRING(__UINT32_C) "\n"
+        "#define __UINT64_C " TOSTRING(__UINT64_C) "\n"
+        "#define __INTMAX_C " TOSTRING(__INTMAX_C) "\n"
+        "#define __UINTMAX_C " TOSTRING(__UINTMAX_C) "\n"
+
+        "#define __SCHAR_WIDTH__ " TOSTRING(__SCHAR_WIDTH__) "\n"
+        "#define __SHRT_WIDTH__ " TOSTRING(__SHRT_WIDTH__) "\n"
+        "#define __INT_WIDTH__ " TOSTRING(__INT_WIDTH__) "\n"
+        "#define __LONG_WIDTH__ " TOSTRING(__LONG_WIDTH__) "\n"
+        "#define __LONG_LONG_WIDTH__ " TOSTRING(__LONG_LONG_WIDTH__) "\n"
+        "#define __PTRDIFF_WIDTH__ " TOSTRING(__PTRDIFF_WIDTH__) "\n"
+        "#define __SIG_ATOMIC_WIDTH__ " TOSTRING(__SIG_ATOMIC_WIDTH__) "\n"
+        "#define __SIZE_WIDTH__ " TOSTRING(__SIZE_WIDTH__) "\n"
+        "#define __WCHAR_WIDTH__ " TOSTRING(__WCHAR_WIDTH__) "\n"
+        "#define __WINT_WIDTH__ " TOSTRING(__WINT_WIDTH__) "\n"
+        "#define __INT_LEAST8_WIDTH__ " TOSTRING(__INT_LEAST8_WIDTH__) "\n"
+        "#define __INT_LEAST16_WIDTH__ " TOSTRING(__INT_LEAST16_WIDTH__) "\n"
+        "#define __INT_LEAST32_WIDTH__ " TOSTRING(__INT_LEAST32_WIDTH__) "\n"
+        "#define __INT_LEAST64_WIDTH__ " TOSTRING(__INT_LEAST64_WIDTH__) "\n"
+        "#define __INT_FAST8_WIDTH__ " TOSTRING(__INT_FAST8_WIDTH__) "\n"
+        "#define __INT_FAST16_WIDTH__ " TOSTRING(__INT_FAST16_WIDTH__) "\n"
+        "#define __INT_FAST32_WIDTH__ " TOSTRING(__INT_FAST32_WIDTH__) "\n"
+        "#define __INT_FAST64_WIDTH__ " TOSTRING(__INT_FAST64_WIDTH__) "\n"
+        "#define __INTPTR_WIDTH__ " TOSTRING(__INTPTR_WIDTH__) "\n"
+        "#define __INTMAX_WIDTH__ " TOSTRING(__INTMAX_WIDTH__) "\n"
+        "#define __SIZEOF_INT__ " TOSTRING(__SIZEOF_INT__) "\n"
+        "#define __SIZEOF_LONG__ " TOSTRING(__SIZEOF_LONG__) "\n"
+        "#define __SIZEOF_LONG_LONG__ " TOSTRING(__SIZEOF_LONG_LONG__) "\n"
+        "#define __SIZEOF_SHORT__ " TOSTRING(__SIZEOF_SHORT__) "\n"
+        "#define __SIZEOF_POINTER__ " TOSTRING(__SIZEOF_POINTER__) "\n"
+        "#define __SIZEOF_FLOAT__ " TOSTRING(__SIZEOF_FLOAT__) "\n"
+        "#define __SIZEOF_DOUBLE__ " TOSTRING(__SIZEOF_DOUBLE__) "\n"
+        "#define __SIZEOF_LONG_DOUBLE__ " TOSTRING(__SIZEOF_LONG_DOUBLE__) "\n"
+        "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
+        "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
+        "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
+        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n";
+    printf("%s", text);
+}
+
+#endif
+
+const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS =
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+CAKE_STANDARD_MACROS
+"#define __linux__\n"
+"#define __x86_64__ 1\n"
+"#define __CHAR_BIT__ 8\n"
+"#define __SIZE_TYPE__ long unsigned int\n"
+"#define __PTRDIFF_TYPE__ long int\n"
+"#define __WCHAR_TYPE__ int\n"
+"#define __WINT_TYPE__ unsigned int\n"
+"#define __INTMAX_TYPE__ long int\n"
+"#define __UINTMAX_TYPE__ long unsigned int\n"
+"#define __SIG_ATOMIC_TYPE__ int\n"
+"#define __INT8_TYPE__ signed char\n"
+"#define __INT16_TYPE__ short int\n"
+"#define __INT32_TYPE__ int\n"
+"#define __INT64_TYPE__ long int\n"
+"#define __UINT8_TYPE__ unsigned char\n"
+"#define __UINT16_TYPE__ short unsigned int\n"
+"#define __UINT32_TYPE__ unsigned int\n"
+"#define __UINT64_TYPE__ long unsigned int\n"
+"#define __INT_LEAST8_TYPE__ signed char\n"
+"#define __INT_LEAST16_TYPE__ short int\n"
+"#define __INT_LEAST32_TYPE__ int\n"
+"#define __INT_LEAST64_TYPE__ long int\n"
+"#define __UINT_LEAST8_TYPE__ unsigned char\n"
+"#define __UINT_LEAST16_TYPE__ short unsigned int\n"
+"#define __UINT_LEAST32_TYPE__ unsigned int\n"
+"#define __UINT_LEAST64_TYPE__ long unsigned int\n"
+"#define __INT_FAST8_TYPE__ signed char\n"
+"#define __INT_FAST16_TYPE__ long int\n"
+"#define __INT_FAST32_TYPE__ long int\n"
+"#define __INT_FAST64_TYPE__ long int\n"
+"#define __UINT_FAST8_TYPE__ unsigned char\n"
+"#define __UINT_FAST16_TYPE__ long unsigned int\n"
+"#define __UINT_FAST32_TYPE__ long unsigned int\n"
+"#define __UINT_FAST64_TYPE__ long unsigned int\n"
+"#define __INTPTR_TYPE__ long int\n"
+"#define __UINTPTR_TYPE__ long unsigned int\n"
+"#define __DBL_MAX__ ((double)1.79769313486231570814527423731704357e+308L)\n"
+"#define __DBL_MIN__ ((double)2.22507385850720138309023271733240406e-308L)\n"
+"#define __FLT_RADIX__ 2\n"
+"#define __FLT_EPSILON__ 1.19209289550781250000000000000000000e-7F\n"
+"#define __DBL_EPSILON__ ((double)2.22044604925031308084726333618164062e-16L)\n"
+"#define __LDBL_EPSILON__ 1.08420217248550443400745280086994171e-19L\n"
+"#define __DBL_DECIMAL_DIG__ 17\n"
+"#define __FLT_EVAL_METHOD__ 0\n"
+"#define __FLT_RADIX__ 2\n"
+"#define __DBL_MAX_EXP__ 1024\n"
+"#define __DECIMAL_DIG__ 21\n"
+"#define __FLT_DECIMAL_DIG__ 9\n"
+"#define __FLT_MIN_10_EXP__ (-37)\n"
+"#define __FLT_MIN__ 1.17549435082228750796873653722224568e-38F\n"
+"#define __FLT_MAX__ 3.40282346638528859811704183484516925e+38F\n"
+"#define __FLT_EPSILON__ 1.19209289550781250000000000000000000e-7F\n"
+"#define __FLT_DIG__ 6\n"
+"#define __FLT_MANT_DIG__ 24\n"
+"#define __FLT_MIN_EXP__ (-125)\n"
+"#define __FLT_MAX_10_EXP__ 38\n"
+"#define __FLT_ROUNDS__ __FLT_ROUNDS__\n"
+"#define __FLT_EVAL_METHOD__ 0\n"
+"#define __FLT_HAS_SUBNORM__ __FLT_HAS_SUBNORM__\n"
+"#define __FLT_MAX_EXP__ 128\n"
+"#define __FLT_HAS_DENORM__ 1\n"
+"#define __SCHAR_MAX__ 0x7f\n"
+"#define __WCHAR_MAX__ 0x7fffffff\n"
+"#define __SHRT_MAX__ 0x7fff\n"
+"#define __INT_MAX__ 0x7fffffff\n"
+"#define __LONG_MAX__ 0x7fffffffffffffffL\n"
+"#define __LONG_LONG_MAX__ 0x7fffffffffffffffLL\n"
+"#define __WINT_MAX__ 0xffffffffU\n"
+"#define __SIZE_MAX__ 0xffffffffffffffffUL\n"
+"#define __PTRDIFF_MAX__ 0x7fffffffffffffffL\n"
+"#define __INTMAX_MAX__ 0x7fffffffffffffffL\n"
+"#define __UINTMAX_MAX__ 0xffffffffffffffffUL\n"
+"#define __SIG_ATOMIC_MAX__ 0x7fffffff\n"
+"#define __INT8_MAX__ 0x7f\n"
+"#define __INT16_MAX__ 0x7fff\n"
+"#define __INT32_MAX__ 0x7fffffff\n"
+"#define __INT64_MAX__ 0x7fffffffffffffffL\n"
+"#define __UINT8_MAX__ 0xff\n"
+"#define __UINT16_MAX__ 0xffff\n"
+"#define __UINT32_MAX__ 0xffffffffU\n"
+"#define __UINT64_MAX__ 0xffffffffffffffffUL\n"
+"#define __INT_LEAST8_MAX__ 0x7f\n"
+"#define __INT_LEAST16_MAX__ 0x7fff\n"
+"#define __INT_LEAST32_MAX__ 0x7fffffff\n"
+"#define __INT_LEAST64_MAX__ 0x7fffffffffffffffL\n"
+"#define __UINT_LEAST8_MAX__ 0xff\n"
+"#define __UINT_LEAST16_MAX__ 0xffff\n"
+"#define __UINT_LEAST32_MAX__ 0xffffffffU\n"
+"#define __UINT_LEAST64_MAX__ 0xffffffffffffffffUL\n"
+"#define __INT_FAST8_MAX__ 0x7f\n"
+"#define __INT_FAST16_MAX__ 0x7fffffffffffffffL\n"
+"#define __INT_FAST32_MAX__ 0x7fffffffffffffffL\n"
+"#define __INT_FAST64_MAX__ 0x7fffffffffffffffL\n"
+"#define __UINT_FAST8_MAX__ 0xff\n"
+"#define __UINT_FAST16_MAX__ 0xffffffffffffffffUL\n"
+"#define __UINT_FAST32_MAX__ 0xffffffffffffffffUL\n"
+"#define __UINT_FAST64_MAX__ 0xffffffffffffffffUL\n"
+"#define __INTPTR_MAX__ 0x7fffffffffffffffL\n"
+"#define __UINTPTR_MAX__ 0xffffffffffffffffUL\n"
+"#define __WCHAR_MIN__ (-0x7fffffff - 1)\n"
+"#define __WINT_MIN__ 0U\n"
+"#define __SIG_ATOMIC_MIN__ (-0x7fffffff - 1)\n"
+"#define __INT8_C (-0x7fffffff - 1)\n"
+"#define __INT16_C __INT16_C\n"
+"#define __INT32_C __INT32_C\n"
+"#define __INT64_C __INT64_C\n"
+"#define __UINT8_C __UINT8_C\n"
+"#define __UINT16_C __UINT16_C\n"
+"#define __UINT32_C __UINT32_C\n"
+"#define __UINT64_C __UINT64_C\n"
+"#define __INTMAX_C __INTMAX_C\n"
+"#define __UINTMAX_C __UINTMAX_C\n"
+"#define __SCHAR_WIDTH__ 8\n"
+"#define __SHRT_WIDTH__ 16\n"
+"#define __INT_WIDTH__ 32\n"
+"#define __LONG_WIDTH__ 64\n"
+"#define __LONG_LONG_WIDTH__ 64\n"
+"#define __PTRDIFF_WIDTH__ 64\n"
+"#define __SIG_ATOMIC_WIDTH__ 32\n"
+"#define __SIZE_WIDTH__ 64\n"
+"#define __WCHAR_WIDTH__ 32\n"
+"#define __WINT_WIDTH__ 32\n"
+"#define __INT_LEAST8_WIDTH__ 8\n"
+"#define __INT_LEAST16_WIDTH__ 16\n"
+"#define __INT_LEAST32_WIDTH__ 32\n"
+"#define __INT_LEAST64_WIDTH__ 64\n"
+"#define __INT_FAST8_WIDTH__ 8\n"
+"#define __INT_FAST16_WIDTH__ 64\n"
+"#define __INT_FAST32_WIDTH__ 64\n"
+"#define __INT_FAST64_WIDTH__ 64\n"
+"#define __INTPTR_WIDTH__ 64\n"
+"#define __INTMAX_WIDTH__ 64\n"
+"#define __SIZEOF_INT__ 4\n"
+"#define __SIZEOF_LONG__ 8\n"
+"#define __SIZEOF_LONG_LONG__ 8\n"
+"#define __SIZEOF_SHORT__ 2\n"
+"#define __SIZEOF_POINTER__ 8\n"
+"#define __SIZEOF_FLOAT__ 4\n"
+"#define __SIZEOF_DOUBLE__ 8\n"
+"#define __SIZEOF_LONG_DOUBLE__ 16\n"
+"#define __SIZEOF_SIZE_T__ 8\n"
+"#define __SIZEOF_WCHAR_T__ 4\n"
+"#define __SIZEOF_WINT_T__ 4\n"
+"#define __SIZEOF_PTRDIFF_T__ 8\n";
+
+
+const char* TARGET_DEFAULT_PREDEFINED_MACROS =
+CAKE_STANDARD_MACROS
+
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+#ifdef _WIN32
+
+//see
+//https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?_View=msvc-170
+"#define _WIN32 " TOSTRING(_WIN32) "\n"
+
+
+#ifdef _WIN64
+"#define _WIN64 " TOSTRING(_WIN64) "\n"
+#endif
+
+"#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
+
+"#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
+"#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
+"#define __pragma(a)\n"
+
+#endif
+
+#ifdef __linux__
+
+//https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
+    /*some gcc stuff need to parse linux headers*/
+"#define __linux__\n"
+//see
+//https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html                
+"#define __x86_64__ " TOSTRING(__x86_64__) "\n"
+"#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
+"#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
+"#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
+"#define __WCHAR_TYPE__ " TOSTRING(__WCHAR_TYPE__) "\n"
+"#define __WINT_TYPE__ " TOSTRING(__WINT_TYPE__) "\n"
+"#define __INTMAX_TYPE__ " TOSTRING(__INTMAX_TYPE__) "\n"
+"#define __UINTMAX_TYPE__ " TOSTRING(__UINTMAX_TYPE__) "\n"
+"#define __SIG_ATOMIC_TYPE__ " TOSTRING(__SIG_ATOMIC_TYPE__) "\n"
+"#define __INT8_TYPE__ " TOSTRING(__INT8_TYPE__) "\n"
+"#define __INT16_TYPE__ " TOSTRING(__INT16_TYPE__) "\n"
+"#define __INT32_TYPE__ " TOSTRING(__INT32_TYPE__) "\n"
+"#define __INT64_TYPE__ " TOSTRING(__INT64_TYPE__) "\n"
+"#define __UINT8_TYPE__ " TOSTRING(__UINT8_TYPE__) "\n"
+"#define __UINT16_TYPE__ " TOSTRING(__UINT16_TYPE__) "\n"
+"#define __UINT32_TYPE__ " TOSTRING(__UINT32_TYPE__) "\n"
+"#define __UINT64_TYPE__ " TOSTRING(__UINT64_TYPE__) "\n"
+"#define __INT_LEAST8_TYPE__ " TOSTRING(__INT_LEAST8_TYPE__) "\n"
+"#define __INT_LEAST16_TYPE__ " TOSTRING(__INT_LEAST16_TYPE__) "\n"
+"#define __INT_LEAST32_TYPE__ " TOSTRING(__INT_LEAST32_TYPE__) "\n"
+"#define __INT_LEAST64_TYPE__ " TOSTRING(__INT_LEAST64_TYPE__) "\n"
+"#define __UINT_LEAST8_TYPE__ " TOSTRING(__UINT_LEAST8_TYPE__) "\n"
+"#define __UINT_LEAST16_TYPE__ " TOSTRING(__UINT_LEAST16_TYPE__) "\n"
+"#define __UINT_LEAST32_TYPE__ " TOSTRING(__UINT_LEAST32_TYPE__) "\n"
+"#define __UINT_LEAST64_TYPE__ " TOSTRING(__UINT_LEAST64_TYPE__) "\n"
+"#define __INT_FAST8_TYPE__ " TOSTRING(__INT_FAST8_TYPE__) "\n"
+"#define __INT_FAST16_TYPE__ " TOSTRING(__INT_FAST16_TYPE__) "\n"
+"#define __INT_FAST32_TYPE__ " TOSTRING(__INT_FAST32_TYPE__) "\n"
+"#define __INT_FAST64_TYPE__ " TOSTRING(__INT_FAST64_TYPE__) "\n"
+"#define __UINT_FAST8_TYPE__ " TOSTRING(__UINT_FAST8_TYPE__) "\n"
+"#define __UINT_FAST16_TYPE__ " TOSTRING(__UINT_FAST16_TYPE__) "\n"
+"#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
+"#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
+"#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
+"#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
+
+"#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
+"#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
+"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
+"#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
+"#define __DBL_EPSILON__ " TOSTRING(__DBL_EPSILON__) "\n"
+"#define __LDBL_EPSILON__ " TOSTRING(__LDBL_EPSILON__) "\n"
+"#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
+"#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
+"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
+
+"#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
+"#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
+"#define __FLT_DECIMAL_DIG__ " TOSTRING(__FLT_DECIMAL_DIG__) "\n"
+
+
+"#define __FLT_MIN_10_EXP__ " TOSTRING(__FLT_MIN_10_EXP__) "\n"
+"#define __FLT_MIN__ " TOSTRING(__FLT_MIN__) "\n"
+"#define __FLT_MAX__ " TOSTRING(__FLT_MAX__) "\n"
+"#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
+"#define __FLT_DIG__ " TOSTRING(__FLT_DIG__) "\n"
+"#define __FLT_MANT_DIG__ " TOSTRING(__FLT_MANT_DIG__) "\n"
+"#define __FLT_MIN_EXP__ " TOSTRING(__FLT_MIN_EXP__) "\n"
+"#define __FLT_MAX_10_EXP__ " TOSTRING(__FLT_MAX_10_EXP__) "\n"
+"#define __FLT_ROUNDS__ " TOSTRING(__FLT_ROUNDS__) "\n"
+"#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
+"#define __FLT_HAS_SUBNORM__ " TOSTRING(__FLT_HAS_SUBNORM__) "\n"
+
+"#define __FLT_MAX_EXP__ " TOSTRING(__FLT_MAX_EXP__) "\n"
+"#define __FLT_HAS_DENORM__ " TOSTRING(__FLT_HAS_DENORM__) "\n"
+
+
+"#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
+"#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
+"#define __SHRT_MAX__ " TOSTRING(__SHRT_MAX__) "\n"
+"#define __INT_MAX__ " TOSTRING(__INT_MAX__) "\n"
+"#define __LONG_MAX__ " TOSTRING(__LONG_MAX__) "\n"
+"#define __LONG_LONG_MAX__ " TOSTRING(__LONG_LONG_MAX__) "\n"
+"#define __WINT_MAX__ " TOSTRING(__WINT_MAX__) "\n"
+"#define __SIZE_MAX__ " TOSTRING(__SIZE_MAX__) "\n"
+"#define __PTRDIFF_MAX__ " TOSTRING(__PTRDIFF_MAX__) "\n"
+"#define __INTMAX_MAX__ " TOSTRING(__INTMAX_MAX__) "\n"
+"#define __UINTMAX_MAX__ " TOSTRING(__UINTMAX_MAX__) "\n"
+"#define __SIG_ATOMIC_MAX__ " TOSTRING(__SIG_ATOMIC_MAX__) "\n"
+"#define __INT8_MAX__ " TOSTRING(__INT8_MAX__) "\n"
+"#define __INT16_MAX__ " TOSTRING(__INT16_MAX__) "\n"
+"#define __INT32_MAX__ " TOSTRING(__INT32_MAX__) "\n"
+"#define __INT64_MAX__ " TOSTRING(__INT64_MAX__) "\n"
+"#define __UINT8_MAX__ " TOSTRING(__UINT8_MAX__) "\n"
+"#define __UINT16_MAX__ " TOSTRING(__UINT16_MAX__) "\n"
+"#define __UINT32_MAX__ " TOSTRING(__UINT32_MAX__) "\n"
+"#define __UINT64_MAX__ " TOSTRING(__UINT64_MAX__) "\n"
+"#define __INT_LEAST8_MAX__ " TOSTRING(__INT_LEAST8_MAX__) "\n"
+"#define __INT_LEAST16_MAX__ " TOSTRING(__INT_LEAST16_MAX__) "\n"
+"#define __INT_LEAST32_MAX__ " TOSTRING(__INT_LEAST32_MAX__) "\n"
+"#define __INT_LEAST64_MAX__ " TOSTRING(__INT_LEAST64_MAX__) "\n"
+"#define __UINT_LEAST8_MAX__ " TOSTRING(__UINT_LEAST8_MAX__) "\n"
+"#define __UINT_LEAST16_MAX__ " TOSTRING(__UINT_LEAST16_MAX__) "\n"
+"#define __UINT_LEAST32_MAX__ " TOSTRING(__UINT_LEAST32_MAX__) "\n"
+"#define __UINT_LEAST64_MAX__ " TOSTRING(__UINT_LEAST64_MAX__) "\n"
+"#define __INT_FAST8_MAX__ " TOSTRING(__INT_FAST8_MAX__) "\n"
+"#define __INT_FAST16_MAX__ " TOSTRING(__INT_FAST16_MAX__) "\n"
+"#define __INT_FAST32_MAX__ " TOSTRING(__INT_FAST32_MAX__) "\n"
+"#define __INT_FAST64_MAX__ " TOSTRING(__INT_FAST64_MAX__) "\n"
+"#define __UINT_FAST8_MAX__ " TOSTRING(__UINT_FAST8_MAX__) "\n"
+"#define __UINT_FAST16_MAX__ " TOSTRING(__UINT_FAST16_MAX__) "\n"
+"#define __UINT_FAST32_MAX__ " TOSTRING(__UINT_FAST32_MAX__) "\n"
+"#define __UINT_FAST64_MAX__ " TOSTRING(__UINT_FAST64_MAX__) "\n"
+"#define __INTPTR_MAX__ " TOSTRING(__INTPTR_MAX__) "\n"
+"#define __UINTPTR_MAX__ " TOSTRING(__UINTPTR_MAX__) "\n"
+"#define __WCHAR_MIN__ " TOSTRING(__WCHAR_MIN__) "\n"
+"#define __WINT_MIN__ " TOSTRING(__WINT_MIN__) "\n"
+"#define __SIG_ATOMIC_MIN__ " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+
+"#define __INT8_C " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+"#define __INT16_C " TOSTRING(__INT16_C) "\n"
+"#define __INT32_C " TOSTRING(__INT32_C) "\n"
+"#define __INT64_C " TOSTRING(__INT64_C) "\n"
+"#define __UINT8_C " TOSTRING(__UINT8_C) "\n"
+"#define __UINT16_C " TOSTRING(__UINT16_C) "\n"
+"#define __UINT32_C " TOSTRING(__UINT32_C) "\n"
+"#define __UINT64_C " TOSTRING(__UINT64_C) "\n"
+"#define __INTMAX_C " TOSTRING(__INTMAX_C) "\n"
+"#define __UINTMAX_C " TOSTRING(__UINTMAX_C) "\n"
+
+"#define __SCHAR_WIDTH__ " TOSTRING(__SCHAR_WIDTH__) "\n"
+"#define __SHRT_WIDTH__ " TOSTRING(__SHRT_WIDTH__) "\n"
+"#define __INT_WIDTH__ " TOSTRING(__INT_WIDTH__) "\n"
+"#define __LONG_WIDTH__ " TOSTRING(__LONG_WIDTH__) "\n"
+"#define __LONG_LONG_WIDTH__ " TOSTRING(__LONG_LONG_WIDTH__) "\n"
+"#define __PTRDIFF_WIDTH__ " TOSTRING(__PTRDIFF_WIDTH__) "\n"
+"#define __SIG_ATOMIC_WIDTH__ " TOSTRING(__SIG_ATOMIC_WIDTH__) "\n"
+"#define __SIZE_WIDTH__ " TOSTRING(__SIZE_WIDTH__) "\n"
+"#define __WCHAR_WIDTH__ " TOSTRING(__WCHAR_WIDTH__) "\n"
+"#define __WINT_WIDTH__ " TOSTRING(__WINT_WIDTH__) "\n"
+"#define __INT_LEAST8_WIDTH__ " TOSTRING(__INT_LEAST8_WIDTH__) "\n"
+"#define __INT_LEAST16_WIDTH__ " TOSTRING(__INT_LEAST16_WIDTH__) "\n"
+"#define __INT_LEAST32_WIDTH__ " TOSTRING(__INT_LEAST32_WIDTH__) "\n"
+"#define __INT_LEAST64_WIDTH__ " TOSTRING(__INT_LEAST64_WIDTH__) "\n"
+"#define __INT_FAST8_WIDTH__ " TOSTRING(__INT_FAST8_WIDTH__) "\n"
+"#define __INT_FAST16_WIDTH__ " TOSTRING(__INT_FAST16_WIDTH__) "\n"
+"#define __INT_FAST32_WIDTH__ " TOSTRING(__INT_FAST32_WIDTH__) "\n"
+"#define __INT_FAST64_WIDTH__ " TOSTRING(__INT_FAST64_WIDTH__) "\n"
+"#define __INTPTR_WIDTH__ " TOSTRING(__INTPTR_WIDTH__) "\n"
+"#define __INTMAX_WIDTH__ " TOSTRING(__INTMAX_WIDTH__) "\n"
+"#define __SIZEOF_INT__ " TOSTRING(__SIZEOF_INT__) "\n"
+"#define __SIZEOF_LONG__ " TOSTRING(__SIZEOF_LONG__) "\n"
+"#define __SIZEOF_LONG_LONG__ " TOSTRING(__SIZEOF_LONG_LONG__) "\n"
+"#define __SIZEOF_SHORT__ " TOSTRING(__SIZEOF_SHORT__) "\n"
+"#define __SIZEOF_POINTER__ " TOSTRING(__SIZEOF_POINTER__) "\n"
+"#define __SIZEOF_FLOAT__ " TOSTRING(__SIZEOF_FLOAT__) "\n"
+"#define __SIZEOF_DOUBLE__ " TOSTRING(__SIZEOF_DOUBLE__) "\n"
+"#define __SIZEOF_LONG_DOUBLE__ " TOSTRING(__SIZEOF_LONG_DOUBLE__) "\n"
+"#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
+"#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
+"#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
+"#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
+#endif
+"\n";
+
+
+
+const char* TARGET_X86_MSVC_PREDEFINED_MACROS =
+
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+CAKE_STANDARD_MACROS 
+"#define _WIN32 1\n"
+"#define _INTEGRAL_MAX_BITS 64\n"
+"#define _MSC_VER 1944\n"
+"#define _M_IX86 600\n"
+"#define __pragma(a)\n"
+"\n";
+
+const char* TARGET_X64_MSVC_PREDEFINED_MACROS =
+
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+CAKE_STANDARD_MACROS 
+"#define _WIN32 1\n"
+"#define _WIN64 1\n"
+"#define _INTEGRAL_MAX_BITS 64\n"
+"#define _MSC_VER 1944\n"
+"#define _M_IX86 _M_IX86\n"
+"#define __pragma(a)\n"
+"\n";
 
 
 /*

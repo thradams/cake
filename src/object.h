@@ -14,35 +14,33 @@
 #include <wchar.h>
 #include "error.h"
 #include "type.h"
-
+#include <inttypes.h>
 struct parser_ctx;
+
+#ifdef __GNUC__
+#define CAKE_FLOAT128_DEFINED 1
+#endif
+
 
 enum object_value_type 
 {
+    TYPE_SIGNED_INT8,
+    TYPE_UNSIGNED_INT8,
 
-    TYPE_SIGNED_INT,
-    TYPE_UNSIGNED_INT,
+    TYPE_SIGNED_INT16,
+    TYPE_UNSIGNED_INT16,
 
-    TYPE_BOOL,
+    TYPE_SIGNED_INT32,
+    TYPE_UNSIGNED_INT32,
 
-    TYPE_SIGNED_CHAR,
-    TYPE_UNSIGNED_CHAR,
+    TYPE_SIGNED_INT64,
+    TYPE_UNSIGNED_INT64,
 
-    TYPE_SIGNED_SHORT,
-    TYPE_UNSIGNED_SHORT,
-
-    TYPE_SIGNED_LONG,
-    TYPE_UNSIGNED_LONG,
-
-    TYPE_SIGNED_LONG_LONG,
-    TYPE_UNSIGNED_LONG_LONG,
-
-    TYPE_FLOAT,
-    TYPE_DOUBLE,
-    TYPE_LONG_DOUBLE,
-    
-    TYPE_VOID_PTR,
-    TYPE_VOID_PTR_REF,
+    TYPE_FLOAT32,
+    TYPE_FLOAT64,
+#ifdef CAKE_FLOAT128_DEFINED
+    TYPE_FLOAT128    
+#endif
 };
 
 enum object_value_state
@@ -64,30 +62,28 @@ struct object
     const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
 
     union {
-        _Bool bool_value;
+  
+        int8_t signed_int8;
+        uint8_t unsigned_int8;
 
-        signed char signed_char_value;
-        unsigned char unsigned_char_value;
+        int16_t signed_int16;
+        uint16_t unsigned_int16;                
+        
+        int32_t signed_int32;
+        uint32_t unsigned_int32;
 
-        signed short signed_short_value;
-        unsigned short unsigned_short_value;
+        int64_t  signed_int64;
+        int64_t  unsigned_int64;
 
-        signed int signed_int_value;
-        unsigned int unsigned_int_value;
-
-        signed long signed_long_value;
-        unsigned long unsigned_long_value;
-
-        signed long long signed_long_long_value;
-        unsigned long long unsigned_long_long_value;
-
-        float float_value;
-        double double_value;
-        long double long_double_value;            
-
-        void * _Opt void_pointer;
+        float float32;
+        double float64;
+#ifdef CAKE_FLOAT128_DEFINED
+        long double float128;
+#endif
+        
     } value;
     struct object* _Opt parent; //to be removed
+    struct object* _Opt p_ref;
     struct expression * _Opt p_init_expression;
     
     struct object* _Opt _Owner members;
@@ -103,8 +99,8 @@ void object_to_string(const struct object* a, char buffer[], int sz);
 
 
 //Make constant value
-struct object            object_make_wchar_t(wchar_t value);
-struct object             object_make_size_t(size_t value);
+struct object            object_make_wchar_t(enum target target, int value);
+struct object             object_make_size_t(enum target target, uint64_t value);
 struct object               object_make_bool(bool value);
 struct object            object_make_nullptr();
 struct object        object_make_signed_char(signed char value);
@@ -114,8 +110,9 @@ struct object     object_make_unsigned_short(unsigned short value);
 struct object         object_make_signed_int(signed int value);
 struct object       object_make_unsigned_int(unsigned int value);
 
-struct object        object_make_signed_long(signed long value);
-struct object      object_make_unsigned_long(unsigned long value);
+struct object        object_make_signed_long(signed long long value, enum target target);
+struct object      object_make_unsigned_long(unsigned long long value, enum target target);
+
 struct object   object_make_signed_long_long(signed long long value);
 struct object object_make_unsigned_long_long(unsigned long long value);
 struct object              object_make_float(float value);
@@ -131,7 +128,7 @@ void object_set_signed_int(struct object* a, long long value);
 void object_set_unsigned_int(struct object* a, unsigned long long value);
 
 struct object object_cast(enum object_value_type e, const struct object* a);
-enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags);
+enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags, enum target target);
 
 errno_t object_increment_value(struct object* a);
 
@@ -173,8 +170,8 @@ void object_default_initialization(struct object* p_object, bool is_constant);
 
 struct object* _Opt object_get_member(struct object* p_object, int index);
 
-int make_object_with_name(const struct type* p_type, struct object* obj, const char* name);
-int make_object(const struct type* p_type, struct object* obj);
+int make_object_with_name(const struct type* p_type, struct object* obj, const char* name, enum target target);
+int make_object(const struct type* p_type, struct object* obj, enum target target);
 struct object object_dup(const struct object* src);
 
 bool object_is_reference(const struct object* p_object);
@@ -195,11 +192,11 @@ int object_set(
 
 struct type;
 
-enum object_value_type type_to_object_type(const struct type* type);
+enum object_value_type type_to_object_type(const struct type* type, enum target target);
 
 void object_print_to_debug(const struct object* object, enum target target);
 
-struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant);
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant, enum target target);
 struct object* object_get_non_const_referenced(struct object* p_object);
 
 
@@ -214,3 +211,4 @@ struct objects
 void objects_destroy(struct objects* arr);
 int objects_push(struct objects* arr, struct object* obj); // returns 0 on success, ENOMEM on alloc fail
 
+void object_print_value(struct osstream* ss, const struct object* a, enum target target);

@@ -62,7 +62,7 @@ struct tokenizer_ctx
 };
 
 struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
-void add_standard_macros(struct preprocessor_ctx* ctx);
+void add_standard_macros(struct preprocessor_ctx* ctx, enum target target);
 struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const char* path);
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);

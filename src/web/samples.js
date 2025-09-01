@@ -2761,3 +2761,46 @@ struct X * _Owner _Opt f()
 }
 
 `;
+
+sample["cross compiling"] = [];
+sample["cross compiling"]["target"] =
+`
+/*
+   Cake is a cross-compiling compiler, but unlike traditional compilers
+   that produce machine executables directly, Cake generates C code as
+   its output. This C code is tailored for the target platform, taking
+   into account differences in architecture, data sizes, and calling conventions.
+*/
+
+#ifdef _WIN64
+    // 64-bit Windows  -target=x64_msvc
+
+    //long is 4 bytes on windows
+    static_assert(sizeof(1L) == 4);
+    static_assert(sizeof(void*) == 8);
+    static_assert(sizeof(L""[0]) == 2);
+
+#elif defined _WIN32
+
+    // 32-bit Windows -target=x86_msvc
+    static_assert(sizeof(1L) == 4);
+    static_assert(sizeof(void*) == 4);
+
+#endif
+
+#ifdef __x86_64__
+
+    //linux -target=x86_x64_gcc
+
+    //long is 8 bytes on linux
+    static_assert(sizeof(1L) == 8);
+
+    static_assert(sizeof(void*) == 8);
+
+    static_assert(sizeof(L""[0]) == 4);
+
+#endif
+
+
+`;
+

@@ -594,7 +594,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
-            p_expression_node->object = object_make_unsigned_char((unsigned char)c);//, ctx->evaluation_is_disabled);
+            p_expression_node->object = object_make_unsigned_char(c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -622,12 +622,12 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
-            if (c > USHRT_MAX)
+            if (c > target_get_wchar_max(ctx->options.target))
             {
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->object = object_make_wchar_t((wchar_t)c);
+            p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
         }
         else if (p[0] == 'U')
         {
@@ -660,7 +660,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
 
-            p_expression_node->object = object_make_wchar_t((wchar_t)c);
+            p_expression_node->object = object_make_wchar_t(ctx->options.target, c);
         }
         else if (p[0] == 'L')
         {
@@ -705,22 +705,15 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     //decoded
                     value = c;
                 }
-#ifdef _WIN32
-                if (value > USHRT_MAX)
+
+                if (value > target_get_wchar_max(ctx->options.target))
                 {
                     compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
                 }
-#else
-                if (value > UINT_MAX)
-                {
-                    compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
-                    break;
-                }
-#endif
             }
 
-            p_expression_node->object = object_make_wchar_t((wchar_t)value);
+            p_expression_node->object = object_make_wchar_t(ctx->options.target, (unsigned int)value);
         }
         else
         {
@@ -780,7 +773,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     return p_expression_node;
 }
 
-int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled)
+int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
     if (ctx->current == NULL)
     {
@@ -877,14 +870,14 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 p_expression_node->object = object_make_unsigned_int((unsigned int)value);
                 p_expression_node->type.type_specifier_flags = (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED);
             }
-            else if (value <= ULONG_MAX && suffix[2] != 'L')
+            else if (value <= target_get_unsigned_long_max(target) && suffix[2] != 'L')
             {
-                p_expression_node->object = object_make_unsigned_long((unsigned long)value);
+                p_expression_node->object = object_make_unsigned_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
             else //if (value <= ULLONG_MAX)
             {
-                p_expression_node->object = object_make_unsigned_long_long((unsigned long long)value);
+                p_expression_node->object = object_make_unsigned_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
         }
@@ -896,14 +889,14 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
-            else if (value <= LONG_MAX && suffix[1] != 'L' /*!= LL*/)
+            else if (value <= (unsigned long long) target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
-                p_expression_node->object = object_make_signed_long((long)value);
+                p_expression_node->object = object_make_signed_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
-            else if (value <= LLONG_MAX)
+            else if (value <= (unsigned long long) target_get_signed_long_long_max(target))
             {
-                p_expression_node->object = object_make_signed_long_long((long long)value);
+                p_expression_node->object = object_make_signed_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
             }
             else
@@ -1171,8 +1164,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     if (p_new == NULL) throw;
 
                     p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
-                    p_new->value_type = TYPE_SIGNED_CHAR;
-                    p_new->value.signed_char_value = value;
+                    p_new->value_type = TYPE_SIGNED_INT8;
+                    p_new->value.signed_int8 = (char)value;
 
                     if (p_expression_node->object.members == NULL)
                     {
@@ -1190,8 +1183,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 if (p_new == NULL) throw;
 
                 p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
-                p_new->value_type = TYPE_SIGNED_CHAR;
-                p_new->value.signed_char_value = 0;
+                p_new->value_type = TYPE_SIGNED_INT8;
+                p_new->value.signed_int8 = 0;
 
                 if (last == NULL)
                 {
@@ -1276,7 +1269,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
             p_expression_node->expression_type = PRIMARY_EXPRESSION_NUMBER;
 
-            convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/);
+            convert_to_number(ctx, p_expression_node, false /*ctx->evaluation_is_disabled*/, ctx->options.target);
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -1677,7 +1670,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
-                make_object(&p_expression_node_new->type, &p_expression_node_new->object);
+                make_object(&p_expression_node_new->type, &p_expression_node_new->object, ctx->options.target);
                 p_expression_node_new->last_token = ctx->previous;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
@@ -2075,7 +2068,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             }
             else
             {
-                int er = make_object(&p_expression_node->type, &p_expression_node->object);
+                int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
                 if (er != 0)
                 {
                     compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
@@ -2457,59 +2450,50 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (!ctx->evaluation_is_disabled &&
                   object_has_constant_value(&new_expression->right->object))
                 {
-                    enum object_value_type vt = type_to_object_type(&new_expression->type);
+                    enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
                     switch (vt)
                     {
-                    case TYPE_SIGNED_INT:
+                    case TYPE_SIGNED_INT32:
                     {
                         signed int r = object_to_signed_int(&new_expression->right->object);
                         new_expression->object = object_make_signed_int(~r);
                     }
                     break;
 
-                    case TYPE_UNSIGNED_INT:
+                    case TYPE_UNSIGNED_INT32:
                     {
                         unsigned int r = object_to_unsigned_int(&new_expression->right->object);
                         new_expression->object = object_make_unsigned_int(~r);
                     }
                     break;
 
-                    case TYPE_SIGNED_LONG:
-                    {
-                        signed long r = object_to_signed_long(&new_expression->right->object);
-                        new_expression->object = object_make_signed_long(~r);
-                    }
-                    break;
-                    case TYPE_UNSIGNED_LONG:
-                    {
-                        unsigned long r = object_to_unsigned_long(&new_expression->right->object);
-                        new_expression->object = object_make_unsigned_long(~r);
-                    }
-                    break;
-
-                    case TYPE_SIGNED_LONG_LONG:
+                      
+                    case TYPE_SIGNED_INT64:
                     {
                         signed long long r = object_to_signed_long_long(&new_expression->right->object);
                         new_expression->object = object_make_signed_long_long(~r);
                     }
                     break;
-                    case TYPE_UNSIGNED_LONG_LONG:
+                    case TYPE_UNSIGNED_INT64:
                     {
                         unsigned long long r = object_to_unsigned_long_long(&new_expression->right->object);
                         new_expression->object = object_make_unsigned_long_long(~r);
                     }
                     break;
 
-                    case TYPE_SIGNED_SHORT:
-                    case TYPE_UNSIGNED_SHORT:
-                    case TYPE_SIGNED_CHAR:
-                    case TYPE_UNSIGNED_CHAR:
+                    case TYPE_SIGNED_INT16:
+                    case TYPE_UNSIGNED_INT16:
+                    case TYPE_SIGNED_INT8:
+                    case TYPE_UNSIGNED_INT8:
 
-                    case TYPE_BOOL:
-                    case TYPE_FLOAT:
-                    case TYPE_DOUBLE:
-                    case TYPE_LONG_DOUBLE:
+                    
+                    case TYPE_FLOAT32:
+                    case TYPE_FLOAT64:
                         break;
+#ifdef CAKE_FLOAT128_DEFINED
+                    case TYPE_FLOAT128:
+                        break;
+#endif
                     };
                 }
             }
@@ -2526,10 +2510,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (!ctx->evaluation_is_disabled &&
                     object_has_constant_value(&new_expression->right->object))
                 {
-                    enum object_value_type vt = type_to_object_type(&new_expression->type);
+                    enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
                     switch (vt)
                     {
-                    case TYPE_SIGNED_INT:
+                    case TYPE_SIGNED_INT32:
                     {
                         const int a = object_to_signed_int(&new_expression->right->object);
                         if (op == '-')
@@ -2539,7 +2523,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_UNSIGNED_INT:
+                    case TYPE_UNSIGNED_INT32:
                     {
                         unsigned int a = object_to_unsigned_int(&new_expression->right->object);
                         if (op == '-')
@@ -2551,34 +2535,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_unsigned_int(+a);
                     }
                     break;
+                              
 
-                    case TYPE_SIGNED_LONG:
-                    {
-                        const signed long a = object_to_signed_long(&new_expression->right->object);
-                        if (op == '-')
-                        {
-                            //TODO check overflow
-                            new_expression->object = object_make_signed_long(-a);
-                        }
-                        else
-                            new_expression->object = object_make_signed_long(+a);
-                    }
-                    break;
-                    case TYPE_UNSIGNED_LONG:
-                    {
-                        unsigned long a = object_to_unsigned_long(&new_expression->right->object);
-                        if (op == '-')
-                        {
-                            //
-                            //error C4146: unary minus operator applied to unsigned type, result still unsigned
-                            new_expression->object = object_make_unsigned_long(-a);
-                        }
-                        else
-                            new_expression->object = object_make_unsigned_long(+a);
-                    }
-                    break;
-
-                    case TYPE_SIGNED_LONG_LONG:
+                    case TYPE_SIGNED_INT64:
                     {
                         signed long long a = object_to_signed_long_long(&new_expression->right->object);
                         if (op == '-')
@@ -2588,7 +2547,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_UNSIGNED_LONG_LONG:
+                    case TYPE_UNSIGNED_INT64:
                     {
                         unsigned long long a = object_to_unsigned_long_long(&new_expression->right->object);
 
@@ -2602,17 +2561,17 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    case TYPE_BOOL:
-                    case TYPE_SIGNED_CHAR:
-                    case TYPE_UNSIGNED_CHAR:
-                    case TYPE_SIGNED_SHORT:
-                    case TYPE_UNSIGNED_SHORT:
+                    
+                    case TYPE_SIGNED_INT8:
+                    case TYPE_UNSIGNED_INT8:
+                    case TYPE_SIGNED_INT16:
+                    case TYPE_UNSIGNED_INT16:
                         assert(false); //they are promoted
                         expression_delete(new_expression);
                         throw;
                         break;
 
-                    case TYPE_FLOAT:
+                    case TYPE_FLOAT32:
                     {
                         float a = object_to_float(&new_expression->right->object);
                         if (op == '-')
@@ -2621,7 +2580,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_float(+a);
                     }
                     break;
-                    case TYPE_DOUBLE:
+                    case TYPE_FLOAT64:
                     {
                         double a = object_to_double(&new_expression->right->object);
                         if (op == '-')
@@ -2630,7 +2589,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_double(+a);
                     }
                     break;
-                    case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+                    case TYPE_FLOAT128:
                     {
                         long double a = object_to_long_double(&new_expression->right->object);
                         if (op == '-')
@@ -2639,6 +2599,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_long_double(+a);
                     }
                     break;
+#endif
                     };
                 }
                 //'//'new_expression->type = type_dup(&new_expression->right->type);
@@ -2987,7 +2948,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->object = object_make_size_t(offsetof);
+            new_expression->object = object_make_size_t(ctx->options.target, offsetof);
 
             return new_expression;
         }
@@ -3062,7 +3023,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             throw;
                         }
 
-                        new_expression->object = object_make_size_t(type_sizeof);
+                        new_expression->object = object_make_size_t(ctx->options.target, type_sizeof);
                     }
                 }
             }
@@ -3094,7 +3055,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     size_t sz = 0;
                     if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
                         throw;
-                    new_expression->object = object_make_size_t(sz);
+                    new_expression->object = object_make_size_t(ctx->options.target, sz);
                 }
             }
 
@@ -3171,13 +3132,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             p = p->next;
                         }
                     }
-                    new_expression->object = object_make_size_t(nelements);
+                    new_expression->object = object_make_size_t(ctx->options.target, nelements);
                 }
                 else if (type_is_array(&new_expression->type_name->abstract_declarator->type))
                 {
                     size_t nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
                     if (nelements > 0)
-                        new_expression->object = object_make_size_t(nelements);
+                        new_expression->object = object_make_size_t(ctx->options.target, nelements);
                 }
                 else
                 {
@@ -3242,7 +3203,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             p = p->next;
                         }
                     }
-                    new_expression->object = object_make_size_t(nelements);
+                    new_expression->object = object_make_size_t(ctx->options.target, nelements);
 
                 }
                 else if (type_is_array(&new_expression->right->type))
@@ -3250,7 +3211,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     size_t nelements = new_expression->right->type.num_of_elements;
                     if (nelements > 0)
                     {
-                        new_expression->object = object_make_size_t(nelements);
+                        new_expression->object = object_make_size_t(ctx->options.target, nelements);
                     }
                     else
                     {
@@ -3396,7 +3357,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         size_t type_alignof = 0;
                         type_alignof = type_get_alignof(&new_expression->type_name->abstract_declarator->type, ctx->options.target);
 
-                        new_expression->object = object_make_size_t(type_alignof);
+                        new_expression->object = object_make_size_t(ctx->options.target, type_alignof);
                     }
                 }
             }
@@ -3427,7 +3388,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 {
                     size_t sz = 0;
                     sz = type_get_alignof(&new_expression->right->type, ctx->options.target);
-                    new_expression->object = object_make_size_t(sz);
+                    new_expression->object = object_make_size_t(ctx->options.target, sz);
                 }
             }
 
@@ -3754,7 +3715,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                 if (!ctx->evaluation_is_disabled &&
                     object_has_constant_value(&p_expression_node->left->object))
                 {
-                    enum object_value_type vt = type_to_object_type(&p_expression_node->type);
+                    enum object_value_type vt = type_to_object_type(&p_expression_node->type, ctx->options.target);
 
                     p_expression_node->object =
                         object_cast(vt, &p_expression_node->left->object);
@@ -3873,10 +3834,10 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             common_type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            enum object_value_type vt = type_to_object_type(&common_type);
+            enum object_value_type vt = type_to_object_type(&common_type, ctx->options.target);
             switch (vt)
             {
-            case TYPE_SIGNED_INT:
+            case TYPE_SIGNED_INT32:
             {
                 const int a = object_to_signed_int(&new_expression->left->object);
                 const int b = object_to_signed_int(&new_expression->right->object);
@@ -3980,7 +3941,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_UNSIGNED_INT:
+            case TYPE_UNSIGNED_INT32:
             {
                 unsigned int a = object_to_unsigned_int(&new_expression->left->object);
                 unsigned int b = object_to_unsigned_int(&new_expression->right->object);
@@ -4082,216 +4043,9 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
+     
 
-            case TYPE_SIGNED_LONG:
-            {
-                const signed long a = object_to_signed_long(&new_expression->left->object);
-                const signed long b = object_to_signed_long(&new_expression->right->object);
-
-                if (op == '+')
-                {
-                    const signed long computed_result = a + b;
-                    signed long long exact_result;
-                    if (signed_long_long_add(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_signed_long(computed_result);
-                }
-                else if (op == '-')
-                {
-                    const signed long computed_result = a - b;
-                    signed long long exact_result;
-                    if (signed_long_long_sub(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_signed_long(computed_result);
-                }
-                else if (op == '*')
-                {
-                    const signed long computed_result = a * b;
-                    signed long long exact_result;
-                    if (signed_long_long_mul(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_signed_long(computed_result);
-                }
-                else if (op == '/')
-                {
-                    if (b == 0)
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                    else if (a == LONG_MIN && b == -1)
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, new_expression->right->first_token, NULL, "integer overflow");
-                        value = object_make_signed_long(LONG_MIN); //this is what compilers are doing
-                    }
-                    else
-                        value = object_make_signed_long(a / b);
-                }
-                else if (op == '%')
-                {
-                    if (b == 0)
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                    else
-                        value = object_make_signed_long(a % b);
-                }
-                //////////
-                else if (op == '>')
-                {
-                    value = object_make_signed_long(a > b);
-                }
-                else if (op == '<')
-                {
-                    value = object_make_signed_long(a < b);
-                }
-                else if (op == '>=')
-                {
-                    value = object_make_signed_long(a >= b);
-                }
-                else if (op == '<=')
-                {
-                    value = object_make_signed_long(a <= b);
-                }
-                //
-                else if (op == '==')
-                {
-                    value = object_make_signed_long(a == b);
-                }
-                else if (op == '!=')
-                {
-                    value = object_make_signed_long(a != b);
-                }
-            }
-            break;
-
-            case TYPE_UNSIGNED_LONG:
-            {
-                unsigned long a = object_to_unsigned_long(&new_expression->left->object);
-                unsigned long b = object_to_unsigned_long(&new_expression->right->object);
-
-                if (op == '+')
-                {
-                    const unsigned long computed_result = a + b;
-                    unsigned long long exact_result;
-                    if (unsigned_long_long_add(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_unsigned_long(computed_result);
-                }
-                else if (op == '-')
-                {
-                    const unsigned long computed_result = a - b;
-                    unsigned long long exact_result;
-                    if (unsigned_long_long_sub(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-                    value = object_make_unsigned_long(computed_result);
-                }
-                else if (op == '*')
-                {
-                    const unsigned long computed_result = a * b;
-                    unsigned long long exact_result;
-                    if (unsigned_long_long_mul(&exact_result, a, b))
-                    {
-                        if (computed_result != exact_result)
-                        {
-                            compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow results in '%d'. Exactly result is '%lld'.", computed_result, exact_result);
-                        }
-                    }
-                    else
-                    {
-                        compiler_diagnostic(W_INTEGER_OVERFLOW, ctx, NULL, &m, "integer overflow");
-                    }
-
-                    value = object_make_unsigned_long(computed_result);
-                }
-                else if (op == '/')
-                {
-                    if (b == 0)
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                    else
-                        value = object_make_unsigned_long(a / b);
-                }
-                else if (op == '%')
-                {
-                    if (b == 0)
-                    {
-                        compiler_diagnostic(W_DIVIZION_BY_ZERO, ctx, new_expression->right->first_token, NULL, "division by zero");
-                        throw;
-                    }
-
-                    value = object_make_unsigned_long(a % b);
-                }
-                //////////                
-                else if (op == '>')
-                {
-                    value = object_make_unsigned_long(a > b);
-                }
-                else if (op == '<')
-                {
-                    value = object_make_unsigned_long(a < b);
-                }
-                else if (op == '>=')
-                {
-                    value = object_make_unsigned_long(a >= b);
-                }
-                else if (op == '<=')
-                {
-                    value = object_make_unsigned_long(a <= b);
-                }
-                //
-                else if (op == '==')
-                {
-                    value = object_make_unsigned_long(a == b);
-                }
-                else if (op == '!=')
-                {
-                    value = object_make_unsigned_long(a != b);
-                }
-
-            }
-            break;
-
-            case TYPE_SIGNED_LONG_LONG:
+            case TYPE_SIGNED_INT64:
             {
                 long long a = object_to_signed_long_long(&new_expression->left->object);
                 long long b = object_to_signed_long_long(&new_expression->right->object);
@@ -4378,7 +4132,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_UNSIGNED_LONG_LONG:
+            case TYPE_UNSIGNED_INT64:
             {
                 unsigned long long a = object_to_unsigned_long_long(&new_expression->left->object);
                 unsigned long long b = object_to_unsigned_long_long(&new_expression->right->object);
@@ -4473,16 +4227,16 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            case TYPE_BOOL:
-            case TYPE_SIGNED_CHAR:
-            case TYPE_UNSIGNED_CHAR:
-            case TYPE_SIGNED_SHORT:
-            case TYPE_UNSIGNED_SHORT:
+            
+            case TYPE_SIGNED_INT8:
+            case TYPE_UNSIGNED_INT8:
+            case TYPE_SIGNED_INT16:
+            case TYPE_UNSIGNED_INT16:
                 assert(false); //they are promoted
                 throw;
                 break;
 
-            case TYPE_FLOAT:
+            case TYPE_FLOAT32:
             {
                 float a = object_to_float(&new_expression->left->object);
                 float b = object_to_float(&new_expression->right->object);
@@ -4545,7 +4299,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
-            case TYPE_DOUBLE:
+            case TYPE_FLOAT64:
             {
                 double a = object_to_double(&new_expression->left->object);
                 double b = object_to_double(&new_expression->right->object);
@@ -4606,7 +4360,8 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
-            case TYPE_LONG_DOUBLE:
+#ifdef CAKE_FLOAT128_DEFINED
+            case TYPE_FLOAT128:
             {
                 long double a = object_to_long_double(&new_expression->left->object);
                 long double b = object_to_long_double(&new_expression->right->object);
@@ -4667,6 +4422,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
+#endif
 
             };
 
@@ -5532,10 +5288,10 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             object_has_constant_value(&new_expression->left->object) &&
             object_has_constant_value(&new_expression->right->object))
         {
-            enum object_value_type vt = type_to_object_type(&new_expression->type);
+            enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
             switch (vt)
             {
-            case TYPE_SIGNED_INT:
+            case TYPE_SIGNED_INT32:
             {
                 int a = object_to_signed_int(&new_expression->left->object);
                 int b = object_to_signed_int(&new_expression->right->object);
@@ -5557,7 +5313,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
                 new_expression->object = object_make_signed_int(r);
             }
             break;
-            case TYPE_UNSIGNED_INT:
+            case TYPE_UNSIGNED_INT32:
             {
                 unsigned int a = object_to_unsigned_int(&new_expression->left->object);
                 unsigned int b = object_to_unsigned_int(&new_expression->right->object);
@@ -5579,53 +5335,8 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            case TYPE_SIGNED_LONG:
-            {
-                signed long a = object_to_signed_long(&new_expression->left->object);
-                signed long b = object_to_signed_long(&new_expression->right->object);
-
-                int r = 0;
-                if (op == '|')
-                    r = a | b;
-                else if (op == '^')
-                    r = a ^ b;
-                else if (op == '&')
-                    r = a & b;
-                //
-                else if (op == '>>')
-                    r = a >> b;
-                else if (op == '<<')
-                    r = a << b;
-
-                object_destroy(&new_expression->object);
-                new_expression->object = object_make_signed_long(r);
-            }
-            break;
-
-            case TYPE_UNSIGNED_LONG:
-            {
-                unsigned long a = object_to_unsigned_long(&new_expression->left->object);
-                unsigned long b = object_to_unsigned_long(&new_expression->right->object);
-                int r = 0;
-                if (op == '|')
-                    r = a | b;
-                else if (op == '^')
-                    r = a ^ b;
-                else if (op == '&')
-                    r = a & b;
-                //
-                else if (op == '>>')
-                    r = a >> b;
-                else if (op == '<<')
-                    r = a << b;
-
-                object_destroy(&new_expression->object);
-                new_expression->object = object_make_unsigned_long(r);
-            }
-            break;
-
-
-            case TYPE_SIGNED_LONG_LONG:
+ 
+            case TYPE_SIGNED_INT64:
             {
                 signed long long a = object_to_signed_long_long(&new_expression->left->object);
                 signed long long b = object_to_signed_long_long(&new_expression->right->object);
@@ -5648,7 +5359,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            case TYPE_UNSIGNED_LONG_LONG:
+            case TYPE_UNSIGNED_INT64:
             {
                 unsigned long long a = object_to_unsigned_long_long(&new_expression->left->object);
                 unsigned long long b = object_to_unsigned_long_long(&new_expression->right->object);
@@ -5670,22 +5381,27 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            case TYPE_BOOL:
-            case TYPE_SIGNED_CHAR:
-            case TYPE_UNSIGNED_CHAR:
-            case TYPE_SIGNED_SHORT:
-            case TYPE_UNSIGNED_SHORT:
+            
+            case TYPE_SIGNED_INT8:
+            case TYPE_UNSIGNED_INT8:
+            case TYPE_SIGNED_INT16:
+            case TYPE_UNSIGNED_INT16:
                 assert(false); //they are promoted
                 throw;
                 break;
 
 
-            case TYPE_FLOAT:
-            case TYPE_DOUBLE:
-            case TYPE_LONG_DOUBLE:
+            case TYPE_FLOAT32:
+            case TYPE_FLOAT64:
                 assert(false); //works for integers only
                 throw;
                 break;
+#ifdef CAKE_FLOAT128_DEFINED
+            case TYPE_FLOAT128:
+                assert(false); //works for integers only
+                throw;
+                break;
+#endif
             };
         }
         return 0;//ok

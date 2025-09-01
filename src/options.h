@@ -5,20 +5,7 @@
 
 #pragma once
 #include <stdbool.h>
-
-/*
-* Compiler options shared with compiler and preprocessor
-*/
-
-enum target
-{
-    TARGET_DEFAULT = 0,    
-    TARGET_X86_X64_GCC ,
-    TARGET_X86_MSVC ,
-    TARGET_X64_MSVC ,
-};
-
-const char* target_to_string(enum target target);
+#include "target.h"
 
 enum language_version
 {

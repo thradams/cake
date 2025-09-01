@@ -29,6 +29,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\console.c" />
     <ClCompile Include="..\src\flow.c" />
+    <ClCompile Include="..\src\target.c" />
     <ClCompile Include="..\src\visit_defer.c" />
     <ClCompile Include="..\src\visit_il.c" />
     <ClCompile Include="..\src\object.c" />
@@ -48,6 +49,7 @@
   <ItemGroup>
     <ClInclude Include="..\src\console.h" />
     <ClInclude Include="..\src\flow.h" />
+    <ClInclude Include="..\src\target.h" />
     <ClInclude Include="..\src\visit_defer.h" />
     <ClInclude Include="..\src\visit_il.h" />
     <ClInclude Include="..\src\object.h" />

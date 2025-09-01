@@ -196,80 +196,6 @@ static void il_print_defer_list(struct d_visit_ctx* ctx, struct osstream* oss, s
     }
 }
 
-static void object_print_value(struct osstream* ss, const struct object* a)
-{
-    a = object_get_referenced(a);
-
-    switch (a->value_type)
-    {
-
-    case TYPE_BOOL:
-        //ss_fprintf(ss, "((unsigned char) %s)", a->value.bool_value ? "1" : "0");
-        ss_fprintf(ss, "%d", a->value.bool_value ? 1 : 0);
-        break;
-
-    case TYPE_SIGNED_CHAR:
-
-        //ss_fprintf(ss, "((signed char)%d)", (int)a->value.signed_char_value);
-        ss_fprintf(ss, "%d", (int)a->value.signed_char_value);
-        break;
-
-
-    case TYPE_UNSIGNED_CHAR:
-        //ss_fprintf(ss, "((unsigned char)%d)", (int)a->value.unsigned_char_value);
-        ss_fprintf(ss, "%d", (int)a->value.unsigned_char_value);
-        break;
-
-
-    case TYPE_SIGNED_SHORT:
-        //        ss_fprintf(ss, "((short)%d)", a->value.signed_short_value);
-        ss_fprintf(ss, "%d", a->value.signed_short_value);
-        break;
-
-    case TYPE_UNSIGNED_SHORT:
-        //ss_fprintf(ss, "((unsigned short) %d)", a->value.unsigned_short_value);
-        ss_fprintf(ss, "%d", a->value.unsigned_short_value);
-        break;
-
-    case TYPE_SIGNED_INT:
-        ss_fprintf(ss, "%d", a->value.signed_int_value);
-        break;
-
-    case TYPE_UNSIGNED_INT:
-        ss_fprintf(ss, "%u", a->value.unsigned_int_value);
-        ss_fprintf(ss, "U");
-        break;
-    case TYPE_SIGNED_LONG:
-        ss_fprintf(ss, "%ld", a->value.signed_long_value);
-        ss_fprintf(ss, "L");
-        break;
-    case TYPE_UNSIGNED_LONG:
-        ss_fprintf(ss, "%lu", a->value.unsigned_long_value);
-        ss_fprintf(ss, "UL");
-        break;
-    case TYPE_SIGNED_LONG_LONG:
-        ss_fprintf(ss, "%lld", a->value.signed_long_long_value);
-        ss_fprintf(ss, "LL");
-        break;
-    case TYPE_UNSIGNED_LONG_LONG:
-        ss_fprintf(ss, "%llu", a->value.unsigned_long_long_value);
-        ss_fprintf(ss, "ULL");
-        break;
-    case TYPE_FLOAT:
-        ss_fprintf(ss, "%f", a->value.float_value);
-        ss_fprintf(ss, "f");
-        break;
-    case TYPE_DOUBLE:
-        ss_fprintf(ss, "%lf", a->value.double_value);
-        break;
-    case TYPE_LONG_DOUBLE:
-        ss_fprintf(ss, "%Lf", a->value.long_double_value);
-        ss_fprintf(ss, "L");
-        break;
-    }
-
-}
-
 
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression);
 
@@ -496,7 +422,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     if (object_has_constant_value(&p_expression->object))
     {
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         return;
     }
 
@@ -689,7 +615,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case PRIMARY_EXPRESSION_CHAR_LITERAL:
     case PRIMARY_EXPRESSION_NUMBER:
     case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
     case PRIMARY_EXPRESSION_PARENTESIS:
@@ -938,17 +864,17 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
     case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
     case UNARY_EXPRESSION_ALIGNOF_TYPE:
     case UNARY_EXPRESSION_COUNTOF:
-        object_print_value(oss, &p_expression->object);
+        object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
     case UNARY_EXPRESSION_CONSTEVAL:
@@ -2531,7 +2457,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
         {
             if (object_has_constant_value(&object->p_init_expression->object))
             {
-                object_print_value(ss, &object->p_init_expression->object);
+                object_print_value(ss, &object->p_init_expression->object, ctx->options.target);
             }
             else if (object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
             {

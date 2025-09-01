@@ -2731,7 +2731,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
 
-                int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, ctx->options.target);
                 if (er != 0)
                 {
                     compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
@@ -2830,7 +2830,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
                 int er = make_object_with_name(&p_init_declarator->p_declarator->type,
-                    &p_init_declarator->p_declarator->object, name2);
+                    &p_init_declarator->p_declarator->object, name2, ctx->options.target);
 
                 if (er != 0)
                 {
@@ -2863,7 +2863,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
                 int er = make_object_with_name(&p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
-                    name2);
+                    name2, ctx->options.target);
 
                 if (er != 0)
                 {
@@ -5256,7 +5256,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
 
     if (p_enum_specifier->specifier_qualifier_list)
     {
-        enum object_value_type vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+        enum object_value_type vt = type_specifier_to_object_type(p_enum_specifier->specifier_qualifier_list->type_specifier_flags, ctx->options.target);
         next_enumerator_value = object_cast(vt, &next_enumerator_value);
     }
 
@@ -6509,7 +6509,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         }
         else
         {
-            int er = make_object(&p_parameter_declaration->declarator->type, &p_parameter_declaration->declarator->object);
+            int er = make_object(&p_parameter_declaration->declarator->type, &p_parameter_declaration->declarator->object, ctx->options.target);
             if (er != 0)
             {
                 //compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
@@ -10798,7 +10798,7 @@ int compile_one_file(const char* file_name,
     prectx.options = *options;
     prectx.macros.capacity = 5000;
 
-    add_standard_macros(&prectx);
+    add_standard_macros(&prectx, options->target);
 
     if (include_config_header(&prectx, file_name) != 0)
     {
@@ -11325,7 +11325,7 @@ struct ast get_ast(struct options* options,
         prectx.options = *options;
         prectx.macros.capacity = 5000;
 
-        add_standard_macros(&prectx);
+        add_standard_macros(&prectx, options->target);
 
         ast.token_list = preprocessor(&prectx, &list, 0);
         if (prectx.n_errors != 0)
@@ -11399,7 +11399,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
         }
 
         prectx.options = options;
-        add_standard_macros(&prectx);
+        add_standard_macros(&prectx, options.target);
 
         if (options.preprocess_only)
         {
@@ -11964,7 +11964,8 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct designator* p_designator,
     bool is_constant,
     struct type* p_type_out2,
-    bool not_error)
+    bool not_error,
+    enum target target)
 {
     try
     {
@@ -12001,7 +12002,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                                 strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
                             {
                                 if (p_designator->next != NULL)
-                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out2, false);
+                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
                                 else
                                 {
                                     struct type t = type_dup(&p_member_declarator->declarator->type);
@@ -12036,7 +12037,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                                                                          p_designator,
                                                                          is_constant,
                                                                          p_type_out2,
-                                                                         true);
+                                                                         true, ctx->options.target);
                             if (p)
                             {
                                 type_destroy(&t);
@@ -12083,7 +12084,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                     max_index = index;
                     if (compute_array_size)
                     {
-                        member_obj = object_extend_array_to_index(&array_item_type, current_object, max_index, is_constant);
+                        member_obj = object_extend_array_to_index(&array_item_type, current_object, max_index, is_constant, target);
                     }
                 }
 
@@ -12117,7 +12118,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                 if (p_designator->next != NULL)
                 {
                     struct object* _Opt p =
-                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out2, false);
+                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
 
                     type_destroy(&array_item_type);
                     return p;
@@ -12264,7 +12265,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                         if (compute_array_size)
                         {
-                            object_extend_array_to_index(&array_item_type, current_object, num_of_elements - 1, is_constant);
+                            object_extend_array_to_index(&array_item_type, current_object, num_of_elements - 1, is_constant, ctx->options.target);
                         }
 
                         if (object_set(ctx,
@@ -12310,10 +12311,10 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                     if (array_to_expand_index > array_to_expand_max_index)
                         array_to_expand_max_index = array_to_expand_index;
 
-                    object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
+                    object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant, ctx->options.target);
                 }
                 is_subobject_of_union = type_is_union(&subobject_type);
-                p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false);
+                p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false, ctx->options.target);
                 if (p_subobject == NULL)
                 {
                     // already have the error, need not say that it was not consumed
@@ -12334,7 +12335,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                         if (array_to_expand_index > array_to_expand_max_index)
                             array_to_expand_max_index = array_to_expand_index;
 
-                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant);
+                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant,  ctx->options.target);
                     }
                 }
 

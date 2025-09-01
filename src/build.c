@@ -31,6 +31,7 @@
     " visit_il.c "        \
     " flow.c "            \
     " error.c "           \
+    " target.c "          \
     " type.c "
 
 #define HOEDOWN_SOURCE_FILES \
