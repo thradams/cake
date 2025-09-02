@@ -34,7 +34,7 @@ int main(void)
 
 sample["C95"] = [];
 sample["C95"]["wide strings"] =
-`
+    `
 /*
    Currently, cake is not converting wide strings to C89.
 */
@@ -216,7 +216,7 @@ int main()
 `;
 
 sample["C99"]["inline"] =
-`
+    `
 inline int sum(int a, int b)
 {
     return a + b;
@@ -1753,7 +1753,7 @@ int main(void)
 `;
 
 sample["Extensions"]["consteval"] =
-`
+    `
 
 //syntax : const(constant-expression)
 // This would be more useful when cake evaluate functions
@@ -2764,7 +2764,7 @@ struct X * _Owner _Opt f()
 
 sample["cross compiling"] = [];
 sample["cross compiling"]["target"] =
-`
+    `
 /*
    Cake is a cross-compiling compiler, but unlike traditional compilers
    that produce machine executables directly, Cake generates C code as
@@ -2803,4 +2803,26 @@ sample["cross compiling"]["target"] =
 
 
 `;
+
+
+sample["cross compiling"]["long"] =
+    `
+
+#include <stdio.h>
+int main(void)
+{
+    printf("value=%ld", 2147483647L + 10);
+
+    #ifdef _WIN32
+    //use option : -target=x86_msvc
+    static_assert(-2147483639 == 2147483647L + 10, "");
+    #else
+    //use option : -target=x86_x64_gcc
+    static_assert(2147483657LL == 2147483647L + 10, "");
+    #endif
+
+}
+
+`;
+
 
