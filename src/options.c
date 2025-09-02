@@ -273,6 +273,12 @@ int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
     return 0;//"";
 }
 
+static int has_prefix(const char* str, const char* prefix)
+{
+    size_t len_prefix = strlen(prefix);
+    return strncmp(str, prefix, len_prefix) == 0;
+}
+
 int fill_options(struct options* options,
     int argc,
     const char** argv)
@@ -459,27 +465,16 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strstr(argv[i], "-target") != NULL)
+        if (has_prefix(argv[i], "-target"))
         {
-            if (strcmp(argv[i], "-target=x86_x64_gcc") == 0)
+            int r = parse_target(argv[i], &options->target);
+            if (r != 0)
             {
-                options->target = TARGET_X86_X64_GCC;
-                continue;
+                printf("Invalid target. Options: ");
+                print_target_options();
+                printf("\n");
             }
-
-            if (strcmp(argv[i], "-target=x64_msvc") == 0)
-            {
-                options->target = TARGET_X64_MSVC;
-                continue;
-            }
-
-            if (strcmp(argv[i], "-target=x86_msvc") == 0)
-            {
-                options->target = TARGET_X86_MSVC;
-                continue;
-            }
-
-            printf("invalid target. Options are: x86_x64_gcc / x64_msvc / x86_msvc");
+            continue;
         }
 
 

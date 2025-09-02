@@ -2,6 +2,8 @@
 #include <limits.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #  define PLATFORM_NAME "windows"
@@ -54,6 +56,35 @@
 #error add new architeture
 #endif
 
+int parse_target(const char* targetstr, enum target* target)
+{
+    if (strcmp(targetstr, "-target=" TARGET_X86_X64_GCC_STR) == 0)
+    {
+        *target = TARGET_X86_X64_GCC;
+        return 0;
+    }
+
+    if (strcmp(targetstr, "-target=" TARGET_X64_MSVC_STR) == 0)
+    {
+        *target = TARGET_X64_MSVC;
+        return 0;
+    }
+
+    if (strcmp(targetstr, "-target=" TARGET_X86_MSVC_STR) == 0)
+    {
+        *target = TARGET_X86_MSVC;
+        return 0;
+    }
+    return 1; //error
+}
+
+void print_target_options()
+{
+    printf(""
+            TARGET_X86_X64_GCC_STR " "
+            TARGET_X86_MSVC_STR " "
+            TARGET_X64_MSVC_STR " \n");
+}
 
 const char* target_to_string(enum target target)
 {
@@ -63,11 +94,11 @@ const char* target_to_string(enum target target)
         return PLATFORM_NAME " " COMPILER_NAME  " " ARCH_NAME " (default)";
 
     case TARGET_X86_X64_GCC:
-        return "X86_X64_GCC";
+        return TARGET_X86_X64_GCC_STR;
     case TARGET_X86_MSVC:
-        return "X86_MSVC";
+        return TARGET_X86_MSVC_STR;
     case TARGET_X64_MSVC:
-        return "X64_MSVC";
+        return TARGET_X64_MSVC_STR;
     }
     return "";
 }
@@ -532,163 +563,163 @@ CAKE_STANDARD_MACROS
 
 //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
     /*some gcc stuff need to parse linux headers*/
-"#define __linux__\n"
-//see
-//https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html                
-"#define __x86_64__ " TOSTRING(__x86_64__) "\n"
-"#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
-"#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
-"#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
-"#define __WCHAR_TYPE__ " TOSTRING(__WCHAR_TYPE__) "\n"
-"#define __WINT_TYPE__ " TOSTRING(__WINT_TYPE__) "\n"
-"#define __INTMAX_TYPE__ " TOSTRING(__INTMAX_TYPE__) "\n"
-"#define __UINTMAX_TYPE__ " TOSTRING(__UINTMAX_TYPE__) "\n"
-"#define __SIG_ATOMIC_TYPE__ " TOSTRING(__SIG_ATOMIC_TYPE__) "\n"
-"#define __INT8_TYPE__ " TOSTRING(__INT8_TYPE__) "\n"
-"#define __INT16_TYPE__ " TOSTRING(__INT16_TYPE__) "\n"
-"#define __INT32_TYPE__ " TOSTRING(__INT32_TYPE__) "\n"
-"#define __INT64_TYPE__ " TOSTRING(__INT64_TYPE__) "\n"
-"#define __UINT8_TYPE__ " TOSTRING(__UINT8_TYPE__) "\n"
-"#define __UINT16_TYPE__ " TOSTRING(__UINT16_TYPE__) "\n"
-"#define __UINT32_TYPE__ " TOSTRING(__UINT32_TYPE__) "\n"
-"#define __UINT64_TYPE__ " TOSTRING(__UINT64_TYPE__) "\n"
-"#define __INT_LEAST8_TYPE__ " TOSTRING(__INT_LEAST8_TYPE__) "\n"
-"#define __INT_LEAST16_TYPE__ " TOSTRING(__INT_LEAST16_TYPE__) "\n"
-"#define __INT_LEAST32_TYPE__ " TOSTRING(__INT_LEAST32_TYPE__) "\n"
-"#define __INT_LEAST64_TYPE__ " TOSTRING(__INT_LEAST64_TYPE__) "\n"
-"#define __UINT_LEAST8_TYPE__ " TOSTRING(__UINT_LEAST8_TYPE__) "\n"
-"#define __UINT_LEAST16_TYPE__ " TOSTRING(__UINT_LEAST16_TYPE__) "\n"
-"#define __UINT_LEAST32_TYPE__ " TOSTRING(__UINT_LEAST32_TYPE__) "\n"
-"#define __UINT_LEAST64_TYPE__ " TOSTRING(__UINT_LEAST64_TYPE__) "\n"
-"#define __INT_FAST8_TYPE__ " TOSTRING(__INT_FAST8_TYPE__) "\n"
-"#define __INT_FAST16_TYPE__ " TOSTRING(__INT_FAST16_TYPE__) "\n"
-"#define __INT_FAST32_TYPE__ " TOSTRING(__INT_FAST32_TYPE__) "\n"
-"#define __INT_FAST64_TYPE__ " TOSTRING(__INT_FAST64_TYPE__) "\n"
-"#define __UINT_FAST8_TYPE__ " TOSTRING(__UINT_FAST8_TYPE__) "\n"
-"#define __UINT_FAST16_TYPE__ " TOSTRING(__UINT_FAST16_TYPE__) "\n"
-"#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
-"#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
-"#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
-"#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
+    "#define __linux__\n"
+    //see
+    //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html                
+    "#define __x86_64__ " TOSTRING(__x86_64__) "\n"
+    "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
+    "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
+    "#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
+    "#define __WCHAR_TYPE__ " TOSTRING(__WCHAR_TYPE__) "\n"
+    "#define __WINT_TYPE__ " TOSTRING(__WINT_TYPE__) "\n"
+    "#define __INTMAX_TYPE__ " TOSTRING(__INTMAX_TYPE__) "\n"
+    "#define __UINTMAX_TYPE__ " TOSTRING(__UINTMAX_TYPE__) "\n"
+    "#define __SIG_ATOMIC_TYPE__ " TOSTRING(__SIG_ATOMIC_TYPE__) "\n"
+    "#define __INT8_TYPE__ " TOSTRING(__INT8_TYPE__) "\n"
+    "#define __INT16_TYPE__ " TOSTRING(__INT16_TYPE__) "\n"
+    "#define __INT32_TYPE__ " TOSTRING(__INT32_TYPE__) "\n"
+    "#define __INT64_TYPE__ " TOSTRING(__INT64_TYPE__) "\n"
+    "#define __UINT8_TYPE__ " TOSTRING(__UINT8_TYPE__) "\n"
+    "#define __UINT16_TYPE__ " TOSTRING(__UINT16_TYPE__) "\n"
+    "#define __UINT32_TYPE__ " TOSTRING(__UINT32_TYPE__) "\n"
+    "#define __UINT64_TYPE__ " TOSTRING(__UINT64_TYPE__) "\n"
+    "#define __INT_LEAST8_TYPE__ " TOSTRING(__INT_LEAST8_TYPE__) "\n"
+    "#define __INT_LEAST16_TYPE__ " TOSTRING(__INT_LEAST16_TYPE__) "\n"
+    "#define __INT_LEAST32_TYPE__ " TOSTRING(__INT_LEAST32_TYPE__) "\n"
+    "#define __INT_LEAST64_TYPE__ " TOSTRING(__INT_LEAST64_TYPE__) "\n"
+    "#define __UINT_LEAST8_TYPE__ " TOSTRING(__UINT_LEAST8_TYPE__) "\n"
+    "#define __UINT_LEAST16_TYPE__ " TOSTRING(__UINT_LEAST16_TYPE__) "\n"
+    "#define __UINT_LEAST32_TYPE__ " TOSTRING(__UINT_LEAST32_TYPE__) "\n"
+    "#define __UINT_LEAST64_TYPE__ " TOSTRING(__UINT_LEAST64_TYPE__) "\n"
+    "#define __INT_FAST8_TYPE__ " TOSTRING(__INT_FAST8_TYPE__) "\n"
+    "#define __INT_FAST16_TYPE__ " TOSTRING(__INT_FAST16_TYPE__) "\n"
+    "#define __INT_FAST32_TYPE__ " TOSTRING(__INT_FAST32_TYPE__) "\n"
+    "#define __INT_FAST64_TYPE__ " TOSTRING(__INT_FAST64_TYPE__) "\n"
+    "#define __UINT_FAST8_TYPE__ " TOSTRING(__UINT_FAST8_TYPE__) "\n"
+    "#define __UINT_FAST16_TYPE__ " TOSTRING(__UINT_FAST16_TYPE__) "\n"
+    "#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
+    "#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
+    "#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
+    "#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
 
-"#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
-"#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
-"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-"#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
-"#define __DBL_EPSILON__ " TOSTRING(__DBL_EPSILON__) "\n"
-"#define __LDBL_EPSILON__ " TOSTRING(__LDBL_EPSILON__) "\n"
-"#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
-"#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
-"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
+    "#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
+    "#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
+    "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
+    "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
+    "#define __DBL_EPSILON__ " TOSTRING(__DBL_EPSILON__) "\n"
+    "#define __LDBL_EPSILON__ " TOSTRING(__LDBL_EPSILON__) "\n"
+    "#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
+    "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
+    "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
 
-"#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
-"#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
-"#define __FLT_DECIMAL_DIG__ " TOSTRING(__FLT_DECIMAL_DIG__) "\n"
-
-
-"#define __FLT_MIN_10_EXP__ " TOSTRING(__FLT_MIN_10_EXP__) "\n"
-"#define __FLT_MIN__ " TOSTRING(__FLT_MIN__) "\n"
-"#define __FLT_MAX__ " TOSTRING(__FLT_MAX__) "\n"
-"#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
-"#define __FLT_DIG__ " TOSTRING(__FLT_DIG__) "\n"
-"#define __FLT_MANT_DIG__ " TOSTRING(__FLT_MANT_DIG__) "\n"
-"#define __FLT_MIN_EXP__ " TOSTRING(__FLT_MIN_EXP__) "\n"
-"#define __FLT_MAX_10_EXP__ " TOSTRING(__FLT_MAX_10_EXP__) "\n"
-"#define __FLT_ROUNDS__ " TOSTRING(__FLT_ROUNDS__) "\n"
-"#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
-"#define __FLT_HAS_SUBNORM__ " TOSTRING(__FLT_HAS_SUBNORM__) "\n"
-
-"#define __FLT_MAX_EXP__ " TOSTRING(__FLT_MAX_EXP__) "\n"
-"#define __FLT_HAS_DENORM__ " TOSTRING(__FLT_HAS_DENORM__) "\n"
+    "#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
+    "#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
+    "#define __FLT_DECIMAL_DIG__ " TOSTRING(__FLT_DECIMAL_DIG__) "\n"
 
 
-"#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
-"#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
-"#define __SHRT_MAX__ " TOSTRING(__SHRT_MAX__) "\n"
-"#define __INT_MAX__ " TOSTRING(__INT_MAX__) "\n"
-"#define __LONG_MAX__ " TOSTRING(__LONG_MAX__) "\n"
-"#define __LONG_LONG_MAX__ " TOSTRING(__LONG_LONG_MAX__) "\n"
-"#define __WINT_MAX__ " TOSTRING(__WINT_MAX__) "\n"
-"#define __SIZE_MAX__ " TOSTRING(__SIZE_MAX__) "\n"
-"#define __PTRDIFF_MAX__ " TOSTRING(__PTRDIFF_MAX__) "\n"
-"#define __INTMAX_MAX__ " TOSTRING(__INTMAX_MAX__) "\n"
-"#define __UINTMAX_MAX__ " TOSTRING(__UINTMAX_MAX__) "\n"
-"#define __SIG_ATOMIC_MAX__ " TOSTRING(__SIG_ATOMIC_MAX__) "\n"
-"#define __INT8_MAX__ " TOSTRING(__INT8_MAX__) "\n"
-"#define __INT16_MAX__ " TOSTRING(__INT16_MAX__) "\n"
-"#define __INT32_MAX__ " TOSTRING(__INT32_MAX__) "\n"
-"#define __INT64_MAX__ " TOSTRING(__INT64_MAX__) "\n"
-"#define __UINT8_MAX__ " TOSTRING(__UINT8_MAX__) "\n"
-"#define __UINT16_MAX__ " TOSTRING(__UINT16_MAX__) "\n"
-"#define __UINT32_MAX__ " TOSTRING(__UINT32_MAX__) "\n"
-"#define __UINT64_MAX__ " TOSTRING(__UINT64_MAX__) "\n"
-"#define __INT_LEAST8_MAX__ " TOSTRING(__INT_LEAST8_MAX__) "\n"
-"#define __INT_LEAST16_MAX__ " TOSTRING(__INT_LEAST16_MAX__) "\n"
-"#define __INT_LEAST32_MAX__ " TOSTRING(__INT_LEAST32_MAX__) "\n"
-"#define __INT_LEAST64_MAX__ " TOSTRING(__INT_LEAST64_MAX__) "\n"
-"#define __UINT_LEAST8_MAX__ " TOSTRING(__UINT_LEAST8_MAX__) "\n"
-"#define __UINT_LEAST16_MAX__ " TOSTRING(__UINT_LEAST16_MAX__) "\n"
-"#define __UINT_LEAST32_MAX__ " TOSTRING(__UINT_LEAST32_MAX__) "\n"
-"#define __UINT_LEAST64_MAX__ " TOSTRING(__UINT_LEAST64_MAX__) "\n"
-"#define __INT_FAST8_MAX__ " TOSTRING(__INT_FAST8_MAX__) "\n"
-"#define __INT_FAST16_MAX__ " TOSTRING(__INT_FAST16_MAX__) "\n"
-"#define __INT_FAST32_MAX__ " TOSTRING(__INT_FAST32_MAX__) "\n"
-"#define __INT_FAST64_MAX__ " TOSTRING(__INT_FAST64_MAX__) "\n"
-"#define __UINT_FAST8_MAX__ " TOSTRING(__UINT_FAST8_MAX__) "\n"
-"#define __UINT_FAST16_MAX__ " TOSTRING(__UINT_FAST16_MAX__) "\n"
-"#define __UINT_FAST32_MAX__ " TOSTRING(__UINT_FAST32_MAX__) "\n"
-"#define __UINT_FAST64_MAX__ " TOSTRING(__UINT_FAST64_MAX__) "\n"
-"#define __INTPTR_MAX__ " TOSTRING(__INTPTR_MAX__) "\n"
-"#define __UINTPTR_MAX__ " TOSTRING(__UINTPTR_MAX__) "\n"
-"#define __WCHAR_MIN__ " TOSTRING(__WCHAR_MIN__) "\n"
-"#define __WINT_MIN__ " TOSTRING(__WINT_MIN__) "\n"
-"#define __SIG_ATOMIC_MIN__ " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+    "#define __FLT_MIN_10_EXP__ " TOSTRING(__FLT_MIN_10_EXP__) "\n"
+    "#define __FLT_MIN__ " TOSTRING(__FLT_MIN__) "\n"
+    "#define __FLT_MAX__ " TOSTRING(__FLT_MAX__) "\n"
+    "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
+    "#define __FLT_DIG__ " TOSTRING(__FLT_DIG__) "\n"
+    "#define __FLT_MANT_DIG__ " TOSTRING(__FLT_MANT_DIG__) "\n"
+    "#define __FLT_MIN_EXP__ " TOSTRING(__FLT_MIN_EXP__) "\n"
+    "#define __FLT_MAX_10_EXP__ " TOSTRING(__FLT_MAX_10_EXP__) "\n"
+    "#define __FLT_ROUNDS__ " TOSTRING(__FLT_ROUNDS__) "\n"
+    "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
+    "#define __FLT_HAS_SUBNORM__ " TOSTRING(__FLT_HAS_SUBNORM__) "\n"
 
-"#define __INT8_C " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
-"#define __INT16_C " TOSTRING(__INT16_C) "\n"
-"#define __INT32_C " TOSTRING(__INT32_C) "\n"
-"#define __INT64_C " TOSTRING(__INT64_C) "\n"
-"#define __UINT8_C " TOSTRING(__UINT8_C) "\n"
-"#define __UINT16_C " TOSTRING(__UINT16_C) "\n"
-"#define __UINT32_C " TOSTRING(__UINT32_C) "\n"
-"#define __UINT64_C " TOSTRING(__UINT64_C) "\n"
-"#define __INTMAX_C " TOSTRING(__INTMAX_C) "\n"
-"#define __UINTMAX_C " TOSTRING(__UINTMAX_C) "\n"
+    "#define __FLT_MAX_EXP__ " TOSTRING(__FLT_MAX_EXP__) "\n"
+    "#define __FLT_HAS_DENORM__ " TOSTRING(__FLT_HAS_DENORM__) "\n"
 
-"#define __SCHAR_WIDTH__ " TOSTRING(__SCHAR_WIDTH__) "\n"
-"#define __SHRT_WIDTH__ " TOSTRING(__SHRT_WIDTH__) "\n"
-"#define __INT_WIDTH__ " TOSTRING(__INT_WIDTH__) "\n"
-"#define __LONG_WIDTH__ " TOSTRING(__LONG_WIDTH__) "\n"
-"#define __LONG_LONG_WIDTH__ " TOSTRING(__LONG_LONG_WIDTH__) "\n"
-"#define __PTRDIFF_WIDTH__ " TOSTRING(__PTRDIFF_WIDTH__) "\n"
-"#define __SIG_ATOMIC_WIDTH__ " TOSTRING(__SIG_ATOMIC_WIDTH__) "\n"
-"#define __SIZE_WIDTH__ " TOSTRING(__SIZE_WIDTH__) "\n"
-"#define __WCHAR_WIDTH__ " TOSTRING(__WCHAR_WIDTH__) "\n"
-"#define __WINT_WIDTH__ " TOSTRING(__WINT_WIDTH__) "\n"
-"#define __INT_LEAST8_WIDTH__ " TOSTRING(__INT_LEAST8_WIDTH__) "\n"
-"#define __INT_LEAST16_WIDTH__ " TOSTRING(__INT_LEAST16_WIDTH__) "\n"
-"#define __INT_LEAST32_WIDTH__ " TOSTRING(__INT_LEAST32_WIDTH__) "\n"
-"#define __INT_LEAST64_WIDTH__ " TOSTRING(__INT_LEAST64_WIDTH__) "\n"
-"#define __INT_FAST8_WIDTH__ " TOSTRING(__INT_FAST8_WIDTH__) "\n"
-"#define __INT_FAST16_WIDTH__ " TOSTRING(__INT_FAST16_WIDTH__) "\n"
-"#define __INT_FAST32_WIDTH__ " TOSTRING(__INT_FAST32_WIDTH__) "\n"
-"#define __INT_FAST64_WIDTH__ " TOSTRING(__INT_FAST64_WIDTH__) "\n"
-"#define __INTPTR_WIDTH__ " TOSTRING(__INTPTR_WIDTH__) "\n"
-"#define __INTMAX_WIDTH__ " TOSTRING(__INTMAX_WIDTH__) "\n"
-"#define __SIZEOF_INT__ " TOSTRING(__SIZEOF_INT__) "\n"
-"#define __SIZEOF_LONG__ " TOSTRING(__SIZEOF_LONG__) "\n"
-"#define __SIZEOF_LONG_LONG__ " TOSTRING(__SIZEOF_LONG_LONG__) "\n"
-"#define __SIZEOF_SHORT__ " TOSTRING(__SIZEOF_SHORT__) "\n"
-"#define __SIZEOF_POINTER__ " TOSTRING(__SIZEOF_POINTER__) "\n"
-"#define __SIZEOF_FLOAT__ " TOSTRING(__SIZEOF_FLOAT__) "\n"
-"#define __SIZEOF_DOUBLE__ " TOSTRING(__SIZEOF_DOUBLE__) "\n"
-"#define __SIZEOF_LONG_DOUBLE__ " TOSTRING(__SIZEOF_LONG_DOUBLE__) "\n"
-"#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
-"#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
-"#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
-"#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
+
+    "#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
+    "#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
+    "#define __SHRT_MAX__ " TOSTRING(__SHRT_MAX__) "\n"
+    "#define __INT_MAX__ " TOSTRING(__INT_MAX__) "\n"
+    "#define __LONG_MAX__ " TOSTRING(__LONG_MAX__) "\n"
+    "#define __LONG_LONG_MAX__ " TOSTRING(__LONG_LONG_MAX__) "\n"
+    "#define __WINT_MAX__ " TOSTRING(__WINT_MAX__) "\n"
+    "#define __SIZE_MAX__ " TOSTRING(__SIZE_MAX__) "\n"
+    "#define __PTRDIFF_MAX__ " TOSTRING(__PTRDIFF_MAX__) "\n"
+    "#define __INTMAX_MAX__ " TOSTRING(__INTMAX_MAX__) "\n"
+    "#define __UINTMAX_MAX__ " TOSTRING(__UINTMAX_MAX__) "\n"
+    "#define __SIG_ATOMIC_MAX__ " TOSTRING(__SIG_ATOMIC_MAX__) "\n"
+    "#define __INT8_MAX__ " TOSTRING(__INT8_MAX__) "\n"
+    "#define __INT16_MAX__ " TOSTRING(__INT16_MAX__) "\n"
+    "#define __INT32_MAX__ " TOSTRING(__INT32_MAX__) "\n"
+    "#define __INT64_MAX__ " TOSTRING(__INT64_MAX__) "\n"
+    "#define __UINT8_MAX__ " TOSTRING(__UINT8_MAX__) "\n"
+    "#define __UINT16_MAX__ " TOSTRING(__UINT16_MAX__) "\n"
+    "#define __UINT32_MAX__ " TOSTRING(__UINT32_MAX__) "\n"
+    "#define __UINT64_MAX__ " TOSTRING(__UINT64_MAX__) "\n"
+    "#define __INT_LEAST8_MAX__ " TOSTRING(__INT_LEAST8_MAX__) "\n"
+    "#define __INT_LEAST16_MAX__ " TOSTRING(__INT_LEAST16_MAX__) "\n"
+    "#define __INT_LEAST32_MAX__ " TOSTRING(__INT_LEAST32_MAX__) "\n"
+    "#define __INT_LEAST64_MAX__ " TOSTRING(__INT_LEAST64_MAX__) "\n"
+    "#define __UINT_LEAST8_MAX__ " TOSTRING(__UINT_LEAST8_MAX__) "\n"
+    "#define __UINT_LEAST16_MAX__ " TOSTRING(__UINT_LEAST16_MAX__) "\n"
+    "#define __UINT_LEAST32_MAX__ " TOSTRING(__UINT_LEAST32_MAX__) "\n"
+    "#define __UINT_LEAST64_MAX__ " TOSTRING(__UINT_LEAST64_MAX__) "\n"
+    "#define __INT_FAST8_MAX__ " TOSTRING(__INT_FAST8_MAX__) "\n"
+    "#define __INT_FAST16_MAX__ " TOSTRING(__INT_FAST16_MAX__) "\n"
+    "#define __INT_FAST32_MAX__ " TOSTRING(__INT_FAST32_MAX__) "\n"
+    "#define __INT_FAST64_MAX__ " TOSTRING(__INT_FAST64_MAX__) "\n"
+    "#define __UINT_FAST8_MAX__ " TOSTRING(__UINT_FAST8_MAX__) "\n"
+    "#define __UINT_FAST16_MAX__ " TOSTRING(__UINT_FAST16_MAX__) "\n"
+    "#define __UINT_FAST32_MAX__ " TOSTRING(__UINT_FAST32_MAX__) "\n"
+    "#define __UINT_FAST64_MAX__ " TOSTRING(__UINT_FAST64_MAX__) "\n"
+    "#define __INTPTR_MAX__ " TOSTRING(__INTPTR_MAX__) "\n"
+    "#define __UINTPTR_MAX__ " TOSTRING(__UINTPTR_MAX__) "\n"
+    "#define __WCHAR_MIN__ " TOSTRING(__WCHAR_MIN__) "\n"
+    "#define __WINT_MIN__ " TOSTRING(__WINT_MIN__) "\n"
+    "#define __SIG_ATOMIC_MIN__ " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+
+    "#define __INT8_C " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+    "#define __INT16_C " TOSTRING(__INT16_C) "\n"
+    "#define __INT32_C " TOSTRING(__INT32_C) "\n"
+    "#define __INT64_C " TOSTRING(__INT64_C) "\n"
+    "#define __UINT8_C " TOSTRING(__UINT8_C) "\n"
+    "#define __UINT16_C " TOSTRING(__UINT16_C) "\n"
+    "#define __UINT32_C " TOSTRING(__UINT32_C) "\n"
+    "#define __UINT64_C " TOSTRING(__UINT64_C) "\n"
+    "#define __INTMAX_C " TOSTRING(__INTMAX_C) "\n"
+    "#define __UINTMAX_C " TOSTRING(__UINTMAX_C) "\n"
+
+    "#define __SCHAR_WIDTH__ " TOSTRING(__SCHAR_WIDTH__) "\n"
+    "#define __SHRT_WIDTH__ " TOSTRING(__SHRT_WIDTH__) "\n"
+    "#define __INT_WIDTH__ " TOSTRING(__INT_WIDTH__) "\n"
+    "#define __LONG_WIDTH__ " TOSTRING(__LONG_WIDTH__) "\n"
+    "#define __LONG_LONG_WIDTH__ " TOSTRING(__LONG_LONG_WIDTH__) "\n"
+    "#define __PTRDIFF_WIDTH__ " TOSTRING(__PTRDIFF_WIDTH__) "\n"
+    "#define __SIG_ATOMIC_WIDTH__ " TOSTRING(__SIG_ATOMIC_WIDTH__) "\n"
+    "#define __SIZE_WIDTH__ " TOSTRING(__SIZE_WIDTH__) "\n"
+    "#define __WCHAR_WIDTH__ " TOSTRING(__WCHAR_WIDTH__) "\n"
+    "#define __WINT_WIDTH__ " TOSTRING(__WINT_WIDTH__) "\n"
+    "#define __INT_LEAST8_WIDTH__ " TOSTRING(__INT_LEAST8_WIDTH__) "\n"
+    "#define __INT_LEAST16_WIDTH__ " TOSTRING(__INT_LEAST16_WIDTH__) "\n"
+    "#define __INT_LEAST32_WIDTH__ " TOSTRING(__INT_LEAST32_WIDTH__) "\n"
+    "#define __INT_LEAST64_WIDTH__ " TOSTRING(__INT_LEAST64_WIDTH__) "\n"
+    "#define __INT_FAST8_WIDTH__ " TOSTRING(__INT_FAST8_WIDTH__) "\n"
+    "#define __INT_FAST16_WIDTH__ " TOSTRING(__INT_FAST16_WIDTH__) "\n"
+    "#define __INT_FAST32_WIDTH__ " TOSTRING(__INT_FAST32_WIDTH__) "\n"
+    "#define __INT_FAST64_WIDTH__ " TOSTRING(__INT_FAST64_WIDTH__) "\n"
+    "#define __INTPTR_WIDTH__ " TOSTRING(__INTPTR_WIDTH__) "\n"
+    "#define __INTMAX_WIDTH__ " TOSTRING(__INTMAX_WIDTH__) "\n"
+    "#define __SIZEOF_INT__ " TOSTRING(__SIZEOF_INT__) "\n"
+    "#define __SIZEOF_LONG__ " TOSTRING(__SIZEOF_LONG__) "\n"
+    "#define __SIZEOF_LONG_LONG__ " TOSTRING(__SIZEOF_LONG_LONG__) "\n"
+    "#define __SIZEOF_SHORT__ " TOSTRING(__SIZEOF_SHORT__) "\n"
+    "#define __SIZEOF_POINTER__ " TOSTRING(__SIZEOF_POINTER__) "\n"
+    "#define __SIZEOF_FLOAT__ " TOSTRING(__SIZEOF_FLOAT__) "\n"
+    "#define __SIZEOF_DOUBLE__ " TOSTRING(__SIZEOF_DOUBLE__) "\n"
+    "#define __SIZEOF_LONG_DOUBLE__ " TOSTRING(__SIZEOF_LONG_DOUBLE__) "\n"
+    "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
+    "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
+    "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
+    "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
 #endif
-"\n";
+    "\n";
 
 
 
@@ -699,7 +730,7 @@ const char* TARGET_X86_MSVC_PREDEFINED_MACROS =
 "#pragma dir \"c:/\"\n"
 #endif
 
-CAKE_STANDARD_MACROS 
+CAKE_STANDARD_MACROS
 "#define _WIN32 1\n"
 "#define _INTEGRAL_MAX_BITS 64\n"
 "#define _MSC_VER 1944\n"
@@ -714,7 +745,7 @@ const char* TARGET_X64_MSVC_PREDEFINED_MACROS =
 "#pragma dir \"c:/\"\n"
 #endif
 
-CAKE_STANDARD_MACROS 
+CAKE_STANDARD_MACROS
 "#define _WIN32 1\n"
 "#define _WIN64 1\n"
 "#define _INTEGRAL_MAX_BITS 64\n"
