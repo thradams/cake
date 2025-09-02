@@ -1,0 +1,2 @@
+
+#define noreturn _Noreturn

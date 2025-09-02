@@ -907,7 +907,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     token,
                     NULL,
                     "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
-                p_expression_node->object = object_make_signed_long_long(value);
+                p_expression_node->object = object_make_unsigned_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
         }
@@ -1246,7 +1246,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            p_expression_node->object = object_make_nullptr();
+            p_expression_node->object = object_make_nullptr(ctx->options.target);
 
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;

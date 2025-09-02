@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #  define PLATFORM_NAME "windows"
@@ -56,6 +57,7 @@
 #error add new architeture
 #endif
 
+
 int parse_target(const char* targetstr, enum target* target)
 {
     if (strcmp(targetstr, "-target=" TARGET_X86_X64_GCC_STR) == 0)
@@ -84,6 +86,61 @@ void print_target_options()
             TARGET_X86_X64_GCC_STR " "
             TARGET_X86_MSVC_STR " "
             TARGET_X64_MSVC_STR " \n");
+}
+
+const char* target_intN_suffix(enum target target, int size)
+{
+    /*
+      The number we place in the output needs
+      to be the same size as the compiler understand it.
+    */
+
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+#ifdef _WIN32
+        if (size == 64) return "LL";
+#else
+        if (size == 64) return "LL";
+#endif
+
+    case TARGET_X86_X64_GCC:
+        if (size == 64) return "";
+        break;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        if (size == 64) return "LL";
+        break;
+    }
+    return "";
+}
+
+const char* target_uintN_suffix(enum target target, int size)
+{
+    switch (target)
+    {
+    case TARGET_DEFAULT:
+#ifdef _WIN32
+        if (size == 32) return "U";
+        if (size == 64) return "UL";
+#else
+        if (size == 32) return "U";
+        if (size == 64) return "U";
+#endif
+
+    case TARGET_X86_X64_GCC:
+        if (size == 32) return "U";
+        if (size == 64) return "U";
+        break;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        if (size == 32) return "U";
+        if (size == 64) return "UL";
+        break;
+    }
+    return "";
 }
 
 const char* target_to_string(enum target target)
@@ -551,10 +608,16 @@ CAKE_STANDARD_MACROS
 "#define _WIN64 " TOSTRING(_WIN64) "\n"
 #endif
 
-"#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
+#ifdef _M_X64
+"#define _M_X64 " TOSTRING(_M_X64) "\n"
+#endif
 
-"#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
+#ifdef _M_IX86
 "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
+#endif
+
+"#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
+"#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
 "#define __pragma(a)\n"
 
 #endif
@@ -750,6 +813,6 @@ CAKE_STANDARD_MACROS
 "#define _WIN64 1\n"
 "#define _INTEGRAL_MAX_BITS 64\n"
 "#define _MSC_VER 1944\n"
-"#define _M_IX86 _M_IX86\n"
+"#define _M_X64 100\n"
 "#define __pragma(a)\n"
 "\n";

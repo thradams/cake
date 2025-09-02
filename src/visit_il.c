@@ -214,10 +214,11 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
     }
     else
     {
-        if (type_is_bool(&p_expression->type))
+        if (type_is_bool(&p_expression->type) ||
+            type_is_essential_bool(&p_expression->type))
         {
             d_visit_expression(ctx, oss, p_expression);
-        }
+        }        
         else
         {
             ss_fprintf(oss, "!!(");

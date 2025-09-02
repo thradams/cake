@@ -330,7 +330,7 @@ struct object object_make_size_t(enum target target, uint64_t value)
     return r;
 }
 
-struct object object_make_nullptr()
+struct object object_make_nullptr(enum target target)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -1039,17 +1039,6 @@ double object_to_double(const struct object* a)
     return 0;
 }
 
-
-struct object  object_make_null_pointer()
-{
-    struct object null_object = {
-       .value_type = TYPE_UNSIGNED_INT64,
-            .value.unsigned_int64 = 0,
-            .state = CONSTANT_VALUE_EQUAL,
-    };
-
-    return null_object;
-}
 
 struct object object_make_pointer(struct object* object)
 {
@@ -1822,7 +1811,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             if (p_object == NULL)
                 throw;
 
-            *p_object = object_make_nullptr();
+            *p_object = object_make_nullptr(target);
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
             assert(p_object->debug_name == NULL);
             p_object->debug_name = strdup(name);
@@ -2858,52 +2847,48 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
 
     switch (a->value_type)
     {
-
-
     case TYPE_SIGNED_INT8:
-
-        //ss_fprintf(ss, "((signed char)%d)", (int)a->value.signed_int8);
-        ss_fprintf(ss, "%d", (int)a->value.signed_int8);
+        ss_fprintf(ss, "%" PRIi8, (int)a->value.signed_int8);
         break;
 
 
-    case TYPE_UNSIGNED_INT8:
-        //ss_fprintf(ss, "((unsigned char)%d)", (int)a->value.unsigned_int8);
-        ss_fprintf(ss, "%d", (int)a->value.unsigned_int8);
+    case TYPE_UNSIGNED_INT8:        
+        ss_fprintf(ss, "%" PRIu8, (int)a->value.unsigned_int8);
         break;
 
 
-    case TYPE_SIGNED_INT16:
-        //        ss_fprintf(ss, "((short)%d)", a->value.signed_int16);
-        ss_fprintf(ss, "%d", a->value.signed_int16);
+    case TYPE_SIGNED_INT16:        
+        ss_fprintf(ss, "%" PRIi16, a->value.signed_int16);
         break;
 
-    case TYPE_UNSIGNED_INT16:
-        //ss_fprintf(ss, "((unsigned short) %d)", a->value.unsigned_int16);
-        ss_fprintf(ss, "%d", a->value.unsigned_int16);
+    case TYPE_UNSIGNED_INT16:        
+        ss_fprintf(ss, "%" PRIu16, a->value.unsigned_int16);
         break;
 
     case TYPE_SIGNED_INT32:
-        ss_fprintf(ss, "%d", a->value.signed_int32);
+        ss_fprintf(ss, "%" PRIi32, a->value.signed_int32);        
         break;
 
     case TYPE_UNSIGNED_INT32:
-        ss_fprintf(ss, "%u", a->value.unsigned_int32);
-        ss_fprintf(ss, "U");
+        ss_fprintf(ss, "%" PRIu32, a->value.unsigned_int32);
+        ss_fprintf(ss, target_uintN_suffix(target, 32));
         break;
 
     case TYPE_SIGNED_INT64:
-        ss_fprintf(ss, "%lld", a->value.signed_int64);
-        ss_fprintf(ss, "LL");
+        ss_fprintf(ss, "%" PRIi64, a->value.signed_int64);
+        ss_fprintf(ss, target_intN_suffix(target, 64));
         break;
+
     case TYPE_UNSIGNED_INT64:
-        ss_fprintf(ss, "%llu", a->value.unsigned_int64);
-        ss_fprintf(ss, "ULL");
+        ss_fprintf(ss, "%" PRIu64, a->value.unsigned_int64);
+        ss_fprintf(ss, target_uintN_suffix(target, 64));
         break;
+
     case TYPE_FLOAT32:
         ss_fprintf(ss, "%f", a->value.float32);
         ss_fprintf(ss, "f");
         break;
+
     case TYPE_FLOAT64:
         ss_fprintf(ss, "%lf", a->value.float64);
         break;

@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -431,7 +431,7 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
         return NULL;
 
     int mem_size_bytes = sizeof(char) * info.st_size + 1 /* \0 */ + 1 /*newline*/;
-    
+
     if (mem_size_bytes < 4)
     {
         //we always read 3 chars even if file is small
@@ -489,19 +489,21 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
     if (append_newline && data[bytes_read_part2 - 1] != '\n')
     {
         /*
-        A source file that is not empty shall end in a new-line character, which shall not 
+        A source file that is not empty shall end in a new-line character, which shall not
         be immediately preceded by a backslash character before any such splicing takes place.
         */
         data[bytes_read_part2] = '\n';
 
         //we already allocated an extra char for this
-        assert(bytes_read_part2+1 < mem_size_bytes);
-        data[bytes_read_part2+1] = '\0'; 
+        assert(bytes_read_part2 + 1 < mem_size_bytes);
+        data[bytes_read_part2 + 1] = '\0';
     }
 
     fclose(file);
     return data;
 }
+
+
 
 #else
 
@@ -510,71 +512,230 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
    embeded standard headers from .\include\
    the tool embed creates the .include version of each file
    in .\include\
-*/
-
-static const char file_assert_h[] = {
-#include "include\assert.h.include"
+*/static const char file_assert_h[] = {
+#include "include/assert.h.include"
 };
-
-static const char file_stdio_h[] = {
-#include "include\stdio.h.include"
+static const char file_complex_h[] = {
+#include "include/complex.h.include"
 };
-
+static const char file_ctype_h[] = {
+#include "include/ctype.h.include"
+};
 static const char file_errno_h[] = {
-#include "include\errno.h.include"
+#include "include/errno.h.include"
 };
-
-static const char file_string_h[] = {
-#include "include\string.h.include"
+static const char file_fenv_h[] = {
+#include "include/fenv.h.include"
 };
-
-static const char file_math_h[] = {
-#include "include\math.h.include"
+static const char file_float_h[] = {
+#include "include/float.h.include"
 };
-
-static const char file_stdlib_h[] = {
-#include "include\stdlib.h.include"
+static const char file_inttypes_h[] = {
+#include "include/inttypes.h.include"
 };
-
-static const char file_stddef_h[] = {
-#include "include\stddef.h.include"
+static const char file_iso646_h[] = {
+#include "include/iso646.h.include"
 };
-
 static const char file_limits_h[] = {
-    #include "include\limits.h.include"
+#include "include/limits.h.include"
 };
-
 static const char file_locale_h[] = {
-#include "include\locale.h.include"
+#include "include/locale.h.include"
+};
+static const char file_math_h[] = {
+#include "include/math.h.include"
+};
+static const char file_setjmp_h[] = {
+#include "include/setjmp.h.include"
+};
+static const char file_signal_h[] = {
+#include "include/signal.h.include"
+};
+static const char file_stdalign_h[] = {
+#include "include/stdalign.h.include"
+};
+static const char file_stdarg_h[] = {
+#include "include/stdarg.h.include"
+};
+static const char file_stdatomic_h[] = {
+#include "include/stdatomic.h.include"
+};
+static const char file_stdbit_h[] = {
+#include "include/stdbit.h.include"
+};
+static const char file_stdbool_h[] = {
+#include "include/stdbool.h.include"
+};
+static const char file_stdckdint_h[] = {
+#include "include/stdckdint.h.include"
+};
+static const char file_stddef_h[] = {
+#include "include/stddef.h.include"
+};
+static const char file_stdint_h[] = {
+#include "include/stdint.h.include"
+};
+static const char file_stdio_h[] = {
+#include "include/stdio.h.include"
+};
+static const char file_stdlib_h[] = {
+#include "include/stdlib.h.include"
+};
+static const char file_stdnoreturn_h[] = {
+#include "include/stdnoreturn.h.include"
+};
+static const char file_string_h[] = {
+#include "include/string.h.include"
+};
+static const char file_tgmath_h[] = {
+#include "include/tgmath.h.include"
+};
+static const char file_threads_h[] = {
+#include "include/threads.h.include"
+};
+static const char file_time_h[] = {
+#include "include/time.h.include"
+};
+static const char file_uchar_h[] = {
+#include "include/uchar.h.include"
+};
+static const char file_wchar_h[] = {
+#include "include/wchar.h.include"
+};
+static const char file_wctype_h[] = {
+#include "include/wctype.h.include"
 };
 
-const char file_wchar_h[] = {
-  #include "include\wchar.h.include"
-};
+
+
+
 
 char* _Owner read_file(const char* path, bool append_newline)
 {
-    if (strcmp(path, "c:/stdio.h") == 0)
-        return strdup(file_stdio_h);
-    else if (strcmp(path, "c:/stdlib.h") == 0)
-        return strdup(file_stdlib_h);
-    else if (strcmp(path, "c:/stddef.h") == 0)
-        return strdup(file_stddef_h);
-    else if (strcmp(path, "c:/math.h") == 0)
-        return strdup(file_math_h);
-    else if (strcmp(path, "c:/errno.h") == 0)
-        return strdup(file_errno_h);
-    else if (strcmp(path, "c:/string.h") == 0)
-        return strdup(file_string_h);
-    else if (strcmp(path, "c:/assert.h") == 0)
+    if (strcmp(path, "c:/assert.h") == 0)
+    {
         return strdup(file_assert_h);
+    }
+    else if (strcmp(path, "c:/complex.h") == 0)
+    {
+        return strdup(file_complex_h);
+    }
+    else if (strcmp(path, "c:/ctype.h") == 0)
+    {
+        return strdup(file_ctype_h);
+    }
+    else if (strcmp(path, "c:/errno.h") == 0)
+    {
+        return strdup(file_errno_h);
+    }
+    else if (strcmp(path, "c:/fenv.h") == 0)
+    {
+        return strdup(file_fenv_h);
+    }
+    else if (strcmp(path, "c:/float.h") == 0)
+    {
+        return strdup(file_float_h);
+    }
+    else if (strcmp(path, "c:/inttypes.h") == 0)
+    {
+        return strdup(file_inttypes_h);
+    }
+    else if (strcmp(path, "c:/iso646.h") == 0)
+    {
+        return strdup(file_iso646_h);
+    }
     else if (strcmp(path, "c:/limits.h") == 0)
+    {
         return strdup(file_limits_h);
+    }
     else if (strcmp(path, "c:/locale.h") == 0)
+    {
         return strdup(file_locale_h);
+    }
+    else if (strcmp(path, "c:/math.h") == 0)
+    {
+        return strdup(file_math_h);
+    }
+    else if (strcmp(path, "c:/setjmp.h") == 0)
+    {
+        return strdup(file_setjmp_h);
+    }
+    else if (strcmp(path, "c:/signal.h") == 0)
+    {
+        return strdup(file_signal_h);
+    }
+    else if (strcmp(path, "c:/stdalign.h") == 0)
+    {
+        return strdup(file_stdalign_h);
+    }
+    else if (strcmp(path, "c:/stdarg.h") == 0)
+    {
+        return strdup(file_stdarg_h);
+    }
+    else if (strcmp(path, "c:/stdatomic.h") == 0)
+    {
+        return strdup(file_stdatomic_h);
+    }
+    else if (strcmp(path, "c:/stdbit.h") == 0)
+    {
+        return strdup(file_stdbit_h);
+    }
+    else if (strcmp(path, "c:/stdbool.h") == 0)
+    {
+        return strdup(file_stdbool_h);
+    }
+    else if (strcmp(path, "c:/stdckdint.h") == 0)
+    {
+        return strdup(file_stdckdint_h);
+    }
+    else if (strcmp(path, "c:/stddef.h") == 0)
+    {
+        return strdup(file_stddef_h);
+    }
+    else if (strcmp(path, "c:/stdint.h") == 0)
+    {
+        return strdup(file_stdint_h);
+    }
+    else if (strcmp(path, "c:/stdio.h") == 0)
+    {
+        return strdup(file_stdio_h);
+    }
+    else if (strcmp(path, "c:/stdlib.h") == 0)
+    {
+        return strdup(file_stdlib_h);
+    }
+    else if (strcmp(path, "c:/stdnoreturn.h") == 0)
+    {
+        return strdup(file_stdnoreturn_h);
+    }
+    else if (strcmp(path, "c:/string.h") == 0)
+    {
+        return strdup(file_string_h);
+    }
+    else if (strcmp(path, "c:/tgmath.h") == 0)
+    {
+        return strdup(file_tgmath_h);
+    }
+    else if (strcmp(path, "c:/threads.h") == 0)
+    {
+        return strdup(file_threads_h);
+    }
+    else if (strcmp(path, "c:/time.h") == 0)
+    {
+        return strdup(file_time_h);
+    }
+    else if (strcmp(path, "c:/uchar.h") == 0)
+    {
+        return strdup(file_uchar_h);
+    }
     else if (strcmp(path, "c:/wchar.h") == 0)
+    {
         return strdup(file_wchar_h);
-
+    }
+    else if (strcmp(path, "c:/wctype.h") == 0)
+    {
+        return strdup(file_wctype_h);
+    }
     return NULL;
 }
 #endif

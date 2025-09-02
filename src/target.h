@@ -18,6 +18,9 @@ enum target
 #define  TARGET_X86_MSVC_STR "x86_msvc"
 #define  TARGET_X64_MSVC_STR "x64_msvc"
 
+const char* target_intN_suffix(enum target target, int size);
+const char* target_uintN_suffix(enum target target, int size);
+
 int parse_target(const char* targetstr, enum target* target);
 void print_target_options();
 

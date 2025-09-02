@@ -102,7 +102,7 @@ void object_to_string(const struct object* a, char buffer[], int sz);
 struct object            object_make_wchar_t(enum target target, int value);
 struct object             object_make_size_t(enum target target, uint64_t value);
 struct object               object_make_bool(bool value);
-struct object            object_make_nullptr();
+struct object            object_make_nullptr(enum target target);
 struct object        object_make_signed_char(signed char value);
 struct object      object_make_unsigned_char(unsigned char value);
 struct object       object_make_signed_short(signed short value);
@@ -119,8 +119,7 @@ struct object              object_make_float(float value);
 struct object             object_make_double(double value);
 struct object        object_make_long_double(long double value);
 struct object        object_make_reference(struct object* object);
-struct object        object_make_pointer(struct object* object);
-struct object        object_make_null_pointer();
+
 
 
 //dynamic cast

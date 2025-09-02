@@ -76,7 +76,14 @@ int main(int argc, char** argv)
     */
     printf("Cake " CAKE_VERSION " ");
 #if defined _MSC_VER 
-    printf("(MSVC)");
+    printf("(MSVC ");
+#ifdef _WIN64
+    printf("x64");
+#else
+    printf("x86");
+#endif
+    printf(")");
+
 #elif defined __linux__ && defined __GNUC__ 
     printf("(GCC)");
 #endif
