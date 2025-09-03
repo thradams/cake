@@ -768,12 +768,34 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
 
         d_visit_expression(ctx, oss, p_expression->left);
+
+        struct param* param = p_expression->left->type.params.head;
+
         ss_fprintf(oss, "(");
         struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
         while (arg)
         {
+            bool to_bool = 
+                param &&
+                type_is_bool(&param->type) && 
+                !(type_is_bool(&arg->expression->type) ||
+                  type_is_essential_bool(&arg->expression->type));
+
+            if (to_bool)
+            {
+                ss_fprintf(oss, "!!(");
+            }
             //TODO convert int to bool parameter
             d_visit_expression(ctx, oss, arg->expression);
+
+            if (to_bool)
+            {
+                ss_fprintf(oss, ")");
+            }
+
+            if (param)
+                param = param->next;
+
             if (arg->next)
                 ss_fprintf(oss, ", ");
             arg = arg->next;
