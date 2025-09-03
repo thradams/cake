@@ -284,6 +284,8 @@ int fill_options(struct options* options,
     const char** argv)
 {
 
+    options->target = CAKE_COMPILE_TIME_SELECTED_TARGET;
+
     /*
        default at this moment is same as -Wall
     */

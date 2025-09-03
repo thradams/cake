@@ -20,8 +20,7 @@
 size_t get_align_void_ptr(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(void*);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
@@ -33,8 +32,7 @@ size_t get_align_void_ptr(enum target target)
 size_t get_size_void_ptr(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(void*);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
@@ -47,8 +45,7 @@ size_t get_size_void_ptr(enum target target)
 size_t get_align_char(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(char);
+    {    
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -60,8 +57,7 @@ size_t get_align_char(enum target target)
 size_t get_size_char(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(char);
+    {    
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -74,8 +70,7 @@ size_t get_size_char(enum target target)
 size_t get_align_bool(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(_Bool);
+    {    
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -87,8 +82,7 @@ size_t get_align_bool(enum target target)
 size_t get_size_bool(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(_Bool);
+    {    
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -100,8 +94,7 @@ size_t get_size_bool(enum target target)
 size_t get_align_short(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(short);
+    {    
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
@@ -113,8 +106,7 @@ size_t get_align_short(enum target target)
 size_t get_size_short(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(short);
+    {    
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
@@ -126,8 +118,7 @@ size_t get_size_short(enum target target)
 size_t get_align_int(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(int);
+    {    
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -139,8 +130,7 @@ size_t get_align_int(enum target target)
 size_t get_size_int(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(int);
+    {    
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -152,8 +142,7 @@ size_t get_size_int(enum target target)
 size_t get_align_long(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(long);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -165,8 +154,7 @@ size_t get_align_long(enum target target)
 size_t get_size_long(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(long);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -178,8 +166,7 @@ size_t get_size_long(enum target target)
 size_t get_align_long_long(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(long long);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -191,8 +178,7 @@ size_t get_align_long_long(enum target target)
 size_t get_size_long_long(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(long long);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -206,8 +192,7 @@ size_t get_size_long_long(enum target target)
 size_t get_align_float(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(float);
+    {    
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -219,8 +204,7 @@ size_t get_align_float(enum target target)
 size_t get_size_float(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(float);
+    {    
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -233,7 +217,6 @@ size_t get_align_double(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:      return _Alignof(double);
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -245,8 +228,7 @@ size_t get_align_double(enum target target)
 size_t get_size_double(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(double);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -258,8 +240,7 @@ size_t get_size_double(enum target target)
 size_t get_align_long_double(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(long double);
+    {    
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -272,7 +253,6 @@ size_t get_size_long_double(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:      return sizeof(long double);
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -286,14 +266,6 @@ enum type_specifier_flags get_wchar_type_specifier(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT);
-#else
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-#endif
-        break;
-
     case TARGET_X86_X64_GCC:
         return (TYPE_SPECIFIER_INT);
         break;
@@ -311,24 +283,6 @@ enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-
-#ifdef _WIN32
-#ifdef _WIN64
-        return (TYPE_SPECIFIER_INT64);
-#else
-        return (TYPE_SPECIFIER_INT);
-#endif
-#else 
-#ifdef __x86_64__
-        /* 64-bit */
-        return (TYPE_SPECIFIER_LONG);
-#else
-        return (TYPE_SPECIFIER_INT);
-#endif
-#endif
-
-        break;
     case TARGET_X86_X64_GCC:
         return (TYPE_SPECIFIER_LONG);
         break;
@@ -348,24 +302,6 @@ enum type_specifier_flags get_size_t_specifier(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-
-#ifdef _WIN32
-#ifdef _WIN64
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64);
-#else
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-#endif
-#else 
-#ifdef __x86_64__
-        /* 64-bit */
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG);
-#else
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-#endif
-#endif
-
-        break;
     case TARGET_X86_X64_GCC:
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG);
         break;

@@ -1,6 +1,5 @@
-﻿#include <limits.h>
 
-#define TYPE_IS(E, T) _Generic(E, T: true, default: false)
+#define TYPE_IS(E, T) _Generic(E, T: 1, default: 0)
 
 // less <= than i32 max
 static_assert(TYPE_IS(1, int));
@@ -22,8 +21,15 @@ static_assert(TYPE_IS(9223372036854775808, unsigned long long));
 #pragma cake diagnostic check "-Wimplicitly-unsigned-literal"
 
 #else
+
+#ifdef _WIN32
+// max i32 + 1
+static_assert(TYPE_IS(2147483648, unsigned long));
+#else
 // max i32 + 1
 static_assert(TYPE_IS(2147483648, long long));
+#endif
+
 
 // maximum i64
 static_assert(TYPE_IS(9223372036854775807, long long));

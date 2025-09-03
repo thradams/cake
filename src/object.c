@@ -302,15 +302,6 @@ struct object object_make_size_t(enum target target, uint64_t value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     switch (target)
     {
-    case TARGET_DEFAULT:
-#if defined(_WIN64) || defined(__x86_64__) 
-        r.value_type = TYPE_UNSIGNED_INT64;
-        r.value.unsigned_int64 = value;
-#else
-        r.value_type = TYPE_UNSIGNED_INT32;
-        r.value.unsigned_int32 = (unsigned int)value;
-#endif
-
     case TARGET_X86_X64_GCC:
         r.value_type = TYPE_UNSIGNED_INT64;
         r.value.unsigned_int64 = value;
@@ -347,16 +338,6 @@ struct object object_make_wchar_t(enum target target, int value)
 
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        r.value_type = TYPE_UNSIGNED_INT16;
-        r.value.unsigned_int16 = (unsigned short)value;
-#else
-        r.value_type = TYPE_SIGNED_INT32;
-        r.value.signed_int32 = value;
-#endif
-        break;
-
     case TARGET_X86_X64_GCC:
         r.value_type = TYPE_SIGNED_INT32;
         r.value.signed_int32 = value;
@@ -794,15 +775,6 @@ struct object object_make_signed_long(signed long long value, enum target target
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        r.value_type = TYPE_SIGNED_INT32;
-        r.value.signed_int32 = value;
-#else
-        r.value_type = TYPE_SIGNED_INT64;
-        r.value.signed_int64 = value;
-#endif
-        break;
     case TARGET_X86_X64_GCC:
         r.value_type = TYPE_SIGNED_INT64;
         r.value.signed_int64 = value;
@@ -849,15 +821,6 @@ struct object object_make_unsigned_long(unsigned long long value, enum target ta
 
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        r.value_type = TYPE_UNSIGNED_INT32;
-        r.value.unsigned_int32 = value;
-#else
-        r.value_type = TYPE_UNSIGNED_INT64;
-        r.value.unsigned_int64 = value;
-#endif
-        break;
     case TARGET_X86_X64_GCC:
         r.value_type = TYPE_UNSIGNED_INT64;
         r.value.unsigned_int64 = value;
@@ -2073,13 +2036,6 @@ enum object_value_type  type_specifier_to_object_type(const enum type_specifier_
         {
             switch (target)
             {
-            case TARGET_DEFAULT:
-#ifdef _WIN32
-                return TYPE_UNSIGNED_INT32; /*check before int*/
-#else
-                return TYPE_UNSIGNED_INT64; /*check before int*/
-#endif
-
             case TARGET_X86_X64_GCC:
                 return TYPE_UNSIGNED_INT64; /*check before int*/
 
@@ -2106,13 +2062,6 @@ enum object_value_type  type_specifier_to_object_type(const enum type_specifier_
         {
             switch (target)
             {
-            case TARGET_DEFAULT:
-#ifdef _WIN32
-                return TYPE_SIGNED_INT32; /*check before int*/
-#else
-                return TYPE_SIGNED_INT64; /*check before int*/
-#endif
-
             case TARGET_X86_X64_GCC:
                 return TYPE_SIGNED_INT64; /*check before int*/
 

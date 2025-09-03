@@ -11199,7 +11199,11 @@ int compile(int argc, const char** argv, struct report* report)
     {
         return 1;
     }
-    
+
+    if (options.target != CAKE_COMPILE_TIME_SELECTED_TARGET)
+    {
+        printf("emulating %s\n", target_to_string(options.target));
+    }
     
     char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
@@ -12335,7 +12339,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                         if (array_to_expand_index > array_to_expand_max_index)
                             array_to_expand_max_index = array_to_expand_index;
 
-                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant,  ctx->options.target);
+                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant, ctx->options.target);
                     }
                 }
 

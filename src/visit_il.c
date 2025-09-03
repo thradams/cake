@@ -218,7 +218,7 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
             type_is_essential_bool(&p_expression->type))
         {
             d_visit_expression(ctx, oss, p_expression);
-        }        
+        }
         else
         {
             ss_fprintf(oss, "!!(");
@@ -2347,22 +2347,16 @@ static void d_print_type(struct d_visit_ctx* ctx,
 
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
     {
-        if (ctx->options.target == TARGET_DEFAULT)
+        switch (ctx->options.target)
         {
-#ifdef _MSC_VER
+        case TARGET_X86_MSVC:
+        case TARGET_X64_MSVC:
             ss_fprintf(ss, "__declspec(thread) ");
-#elif __GNUC__
+            break;
+
+        case TARGET_X86_X64_GCC:
             ss_fprintf(ss, "__thread ");
-#endif
-        }
-        else if (ctx->options.target == TARGET_X86_MSVC ||
-                 ctx->options.target == TARGET_X64_MSVC)
-        {
-            ss_fprintf(ss, "__declspec(thread) ");
-        }
-        else if (ctx->options.target == TARGET_X86_X64_GCC)
-        {
-            ss_fprintf(ss, "__thread ");
+            break;
         }
     }
 

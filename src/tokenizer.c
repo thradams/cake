@@ -5780,9 +5780,6 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 
     switch (target)
     {
-    case TARGET_DEFAULT:
-        pre_defined_macros_text = TARGET_DEFAULT_PREDEFINED_MACROS;
-        break;
     case TARGET_X86_X64_GCC:
         pre_defined_macros_text = TARGET_X86_X64_GCC_PREDEFINED_MACROS;
         break;
@@ -7463,7 +7460,7 @@ int test_predefined_macros()
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx, TARGET_DEFAULT);
+    add_standard_macros(&prectx, CAKE_COMPILE_TIME_SELECTED_TARGET);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
 
@@ -7512,7 +7509,7 @@ int test_counter()
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx, TARGET_DEFAULT);
+    add_standard_macros(&prectx, CAKE_COMPILE_TIME_SELECTED_TARGET);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
     const char* result = print_preprocessed_to_string(list2.head);

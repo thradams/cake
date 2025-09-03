@@ -707,11 +707,27 @@ void throw_break_point();
 
 enum target
 {
-    TARGET_DEFAULT = 0,
     TARGET_X86_X64_GCC,
     TARGET_X86_MSVC,
     TARGET_X64_MSVC,
 };
+
+#ifdef _WIN32 
+#ifdef _WIN64
+#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X64_MSVC
+#else
+#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_MSVC
+#endif
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64)
+#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_X64_GCC
+#endif
+
+#ifdef __EMSCRIPTEN__
+#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_X64_GCC
+#endif
+
 
 /*these strings are used as -target= option*/
 #define  TARGET_X86_X64_GCC_STR "x86_x64_gcc"
@@ -731,7 +747,7 @@ long long target_get_signed_long_max(enum target target);
 unsigned long long target_get_unsigned_long_max(enum target target);
 long long target_get_signed_long_long_max(enum target target);
 
-extern const char* TARGET_DEFAULT_PREDEFINED_MACROS;
+
 extern const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS;
 extern const char* TARGET_X86_MSVC_PREDEFINED_MACROS;
 extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
@@ -9157,9 +9173,6 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 
     switch (target)
     {
-    case TARGET_DEFAULT:
-        pre_defined_macros_text = TARGET_DEFAULT_PREDEFINED_MACROS;
-        break;
     case TARGET_X86_X64_GCC:
         pre_defined_macros_text = TARGET_X86_X64_GCC_PREDEFINED_MACROS;
         break;
@@ -10881,7 +10894,7 @@ int test_predefined_macros()
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx, TARGET_DEFAULT);
+    add_standard_macros(&prectx, CAKE_COMPILE_TIME_SELECTED_TARGET);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
 
@@ -10930,7 +10943,7 @@ int test_counter()
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx, TARGET_DEFAULT);
+    add_standard_macros(&prectx, CAKE_COMPILE_TIME_SELECTED_TARGET);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
     const char* result = print_preprocessed_to_string(list2.head);
@@ -13797,6 +13810,8 @@ int fill_options(struct options* options,
     int argc,
     const char** argv)
 {
+
+    options->target = CAKE_COMPILE_TIME_SELECTED_TARGET;
 
     /*
        default at this moment is same as -Wall
@@ -17014,15 +17029,6 @@ struct object object_make_size_t(enum target target, uint64_t value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     switch (target)
     {
-    case TARGET_DEFAULT:
-#if defined(_WIN64) || defined(__x86_64__) 
-        r.value_type = TYPE_UNSIGNED_INT64;
-        r.value.unsigned_int64 = value;
-#else
-        r.value_type = TYPE_UNSIGNED_INT32;
-        r.value.unsigned_int32 = (unsigned int)value;
-#endif
-
     case TARGET_X86_X64_GCC:
         r.value_type = TYPE_UNSIGNED_INT64;
         r.value.unsigned_int64 = value;
@@ -17059,16 +17065,6 @@ struct object object_make_wchar_t(enum target target, int value)
 
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        r.value_type = TYPE_UNSIGNED_INT16;
-        r.value.unsigned_int16 = (unsigned short)value;
-#else
-        r.value_type = TYPE_SIGNED_INT32;
-        r.value.signed_int32 = value;
-#endif
-        break;
-
     case TARGET_X86_X64_GCC:
         r.value_type = TYPE_SIGNED_INT32;
         r.value.signed_int32 = value;
@@ -17506,15 +17502,6 @@ struct object object_make_signed_long(signed long long value, enum target target
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        r.value_type = TYPE_SIGNED_INT32;
-        r.value.signed_int32 = value;
-#else
-        r.value_type = TYPE_SIGNED_INT64;
-        r.value.signed_int64 = value;
-#endif
-        break;
     case TARGET_X86_X64_GCC:
         r.value_type = TYPE_SIGNED_INT64;
         r.value.signed_int64 = value;
@@ -17561,15 +17548,6 @@ struct object object_make_unsigned_long(unsigned long long value, enum target ta
 
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        r.value_type = TYPE_UNSIGNED_INT32;
-        r.value.unsigned_int32 = value;
-#else
-        r.value_type = TYPE_UNSIGNED_INT64;
-        r.value.unsigned_int64 = value;
-#endif
-        break;
     case TARGET_X86_X64_GCC:
         r.value_type = TYPE_UNSIGNED_INT64;
         r.value.unsigned_int64 = value;
@@ -18785,13 +18763,6 @@ enum object_value_type  type_specifier_to_object_type(const enum type_specifier_
         {
             switch (target)
             {
-            case TARGET_DEFAULT:
-#ifdef _WIN32
-                return TYPE_UNSIGNED_INT32; /*check before int*/
-#else
-                return TYPE_UNSIGNED_INT64; /*check before int*/
-#endif
-
             case TARGET_X86_X64_GCC:
                 return TYPE_UNSIGNED_INT64; /*check before int*/
 
@@ -18818,13 +18789,6 @@ enum object_value_type  type_specifier_to_object_type(const enum type_specifier_
         {
             switch (target)
             {
-            case TARGET_DEFAULT:
-#ifdef _WIN32
-                return TYPE_SIGNED_INT32; /*check before int*/
-#else
-                return TYPE_SIGNED_INT64; /*check before int*/
-#endif
-
             case TARGET_X86_X64_GCC:
                 return TYPE_SIGNED_INT64; /*check before int*/
 
@@ -20465,10 +20429,6 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             "integer literal is too large to be represented in any integer type");
         }
 
-        ///////////////MICROSOFT ////////////////////////
-        //TODO i64 etc
-        ////////////////////////////////////////////////
-
         if (suffix[0] == 'U')
         {
             /*fixing the type that fits the size*/
@@ -20495,6 +20455,19 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
+            }
+            else if (value <= INT_MAX && suffix[1] != 'L')
+            {
+                p_expression_node->object = object_make_signed_long((int)value, target);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
+            }
+            else if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
+                      (value <= (unsigned long long) target_get_unsigned_long_max(target)) &&
+                      suffix[1] != 'L' /*!= LL*/)
+            {
+                // ONLY MSVC, NON STANDARD,  uses unsigned long instead of next big signed int
+                p_expression_node->object = object_make_unsigned_long(value, target);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
             }
             else if (value <= (unsigned long long) target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
@@ -22074,7 +22047,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                      
+
                     case TYPE_SIGNED_INT64:
                     {
                         signed long long r = object_to_signed_long_long(&new_expression->right->object);
@@ -22093,7 +22066,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     case TYPE_SIGNED_INT8:
                     case TYPE_UNSIGNED_INT8:
 
-                    
+
                     case TYPE_FLOAT32:
                     case TYPE_FLOAT64:
                         break;
@@ -22142,7 +22115,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_unsigned_int(+a);
                     }
                     break;
-                              
+
 
                     case TYPE_SIGNED_INT64:
                     {
@@ -22168,7 +22141,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    
+
                     case TYPE_SIGNED_INT8:
                     case TYPE_UNSIGNED_INT8:
                     case TYPE_SIGNED_INT16:
@@ -23650,7 +23623,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
-     
+
 
             case TYPE_SIGNED_INT64:
             {
@@ -23834,7 +23807,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            
+
             case TYPE_SIGNED_INT8:
             case TYPE_UNSIGNED_INT8:
             case TYPE_SIGNED_INT16:
@@ -24942,7 +24915,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
- 
+
             case TYPE_SIGNED_INT64:
             {
                 signed long long a = object_to_signed_long_long(&new_expression->left->object);
@@ -24988,7 +24961,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            
+
             case TYPE_SIGNED_INT8:
             case TYPE_UNSIGNED_INT8:
             case TYPE_SIGNED_INT16:
@@ -28094,7 +28067,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.11.00"
+#define CAKE_VERSION "0.11.01"
 
 
 
@@ -39315,7 +39288,11 @@ int compile(int argc, const char** argv, struct report* report)
     {
         return 1;
     }
-    
+
+    if (options.target != CAKE_COMPILE_TIME_SELECTED_TARGET)
+    {
+        printf("emulating %s\n", target_to_string(options.target));
+    }
     
     char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
@@ -40451,7 +40428,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                         if (array_to_expand_index > array_to_expand_max_index)
                             array_to_expand_max_index = array_to_expand_index;
 
-                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant,  ctx->options.target);
+                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant, ctx->options.target);
                     }
                 }
 
@@ -41833,7 +41810,7 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
             type_is_essential_bool(&p_expression->type))
         {
             d_visit_expression(ctx, oss, p_expression);
-        }        
+        }
         else
         {
             ss_fprintf(oss, "!!(");
@@ -43962,22 +43939,16 @@ static void d_print_type(struct d_visit_ctx* ctx,
 
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
     {
-        if (ctx->options.target == TARGET_DEFAULT)
+        switch (ctx->options.target)
         {
-#ifdef _MSC_VER
+        case TARGET_X86_MSVC:
+        case TARGET_X64_MSVC:
             ss_fprintf(ss, "__declspec(thread) ");
-#elif __GNUC__
+            break;
+
+        case TARGET_X86_X64_GCC:
             ss_fprintf(ss, "__thread ");
-#endif
-        }
-        else if (ctx->options.target == TARGET_X86_MSVC ||
-                 ctx->options.target == TARGET_X64_MSVC)
-        {
-            ss_fprintf(ss, "__declspec(thread) ");
-        }
-        else if (ctx->options.target == TARGET_X86_X64_GCC)
-        {
-            ss_fprintf(ss, "__thread ");
+            break;
         }
     }
 
@@ -52590,56 +52561,6 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 
 
-#if defined(_WIN32) || defined(_WIN64)
-#  define PLATFORM_NAME "windows"
-#elif defined(__APPLE__) && defined(__MACH__)
-#  define PLATFORM_NAME "apple"
-#elif defined(__linux__)
-#  define PLATFORM_NAME "linux"
-#elif defined(__EMSCRIPTEN__)
-#  define PLATFORM_NAME "emscripten"
-#else
-#error add new platform 
-#endif
-
-
-
-#if defined(__clang__)
-#define COMPILER_NAME "clang"
-
-#elif defined(__GNUC__) && !defined(__TINYC__) && !defined(__HLC__)
-#define COMPILER_NAME "gcc"
-#elif defined(_MSC_VER) && !defined(__TINYC__) && !defined(__HLC__)
-#define COMPILER_NAME "msvc"
-#elif defined(__INTEL_COMPILER)
-#define COMPILER_NAME "intel"
-#elif defined(__TINYC__)
-#define COMPILER_NAME "tcc"
-#elif defined(__HLC__)
-#define COMPILER_NAME "hlc"
-#else
-#error add new compiler 
-#endif
-
-
-#if defined(__x86_64__) || defined(_M_X64)
-#  define ARCH_NAME "X86_64"
-#elif defined(__i386__) || defined(_M_IX86)
-#  define ARCH_NAME "X86"
-
-#elif defined(__aarch64__) || defined(_M_ARM64)
-#  define ARCH_NAME "ARM64"
-#elif defined(__arm__) || defined(_M_ARM)
-#  define ARCH_NAME "ARM"
-#elif defined(__wasm32__)
-#  define ARCH_NAME "wasm32"
-#elif defined(__wasm64__)
-#  define ARCH_NAME "wasm64"
-#elif defined(__wasm__)
-#  define ARCH_NAME "wasm"
-#else
-#error add new architeture
-#endif
 
 
 int parse_target(const char* targetstr, enum target* target)
@@ -52681,13 +52602,6 @@ const char* target_intN_suffix(enum target target, int size)
 
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        if (size == 64) return "LL";
-#else
-        if (size == 64) return "LL";
-#endif
-
     case TARGET_X86_X64_GCC:
         if (size == 64) return "";
         break;
@@ -52704,15 +52618,6 @@ const char* target_uintN_suffix(enum target target, int size)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        if (size == 32) return "U";
-        if (size == 64) return "UL";
-#else
-        if (size == 32) return "U";
-        if (size == 64) return "U";
-#endif
-
     case TARGET_X86_X64_GCC:
         if (size == 32) return "U";
         if (size == 64) return "U";
@@ -52731,9 +52636,6 @@ const char* target_to_string(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-        return PLATFORM_NAME " " COMPILER_NAME  " " ARCH_NAME " (default)";
-
     case TARGET_X86_X64_GCC:
         return TARGET_X86_X64_GCC_STR;
     case TARGET_X86_MSVC:
@@ -52748,19 +52650,12 @@ int target_get_wchar_max(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        return USHRT_MAX;
-#else
-        return INT_MAX;
-#endif
-
     case TARGET_X86_X64_GCC:
-        return INT_MAX;
+        return 2147483647;
 
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
-        return USHRT_MAX;
+        return 0xffff;
     }
 
     assert(false);
@@ -52771,9 +52666,6 @@ long long target_get_signed_long_max(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-        return LONG_MAX;
-
     case TARGET_X86_X64_GCC:
         return 0x7fffffffffffffffLL;
 
@@ -52790,9 +52682,6 @@ long long target_get_signed_long_long_max(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-        return LLONG_MAX;
-
     case TARGET_X86_X64_GCC:
         return 9223372036854775807LL;
 
@@ -52809,9 +52698,6 @@ unsigned long long target_get_unsigned_long_max(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-        return ULONG_MAX;
-
     case TARGET_X86_X64_GCC:
         return 18446744073709551615ULL;
 
@@ -52841,182 +52727,6 @@ unsigned long long target_get_unsigned_long_max(enum target target)
 "#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__) "\n"
 
 
-
-#if 0
-
-//PROGRAM TO GENERATE DEFINES
-
-
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-
-
-int main()
-{
-
-    const char* text =
-        /*some gcc stuff need to parse linux headers*/
-        "#define __linux__\n"
-        //see
-        //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html                
-        "#define __x86_64__ " TOSTRING(__x86_64__) "\n"
-        "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
-        "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
-        "#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
-        "#define __WCHAR_TYPE__ " TOSTRING(__WCHAR_TYPE__) "\n"
-        "#define __WINT_TYPE__ " TOSTRING(__WINT_TYPE__) "\n"
-        "#define __INTMAX_TYPE__ " TOSTRING(__INTMAX_TYPE__) "\n"
-        "#define __UINTMAX_TYPE__ " TOSTRING(__UINTMAX_TYPE__) "\n"
-        "#define __SIG_ATOMIC_TYPE__ " TOSTRING(__SIG_ATOMIC_TYPE__) "\n"
-        "#define __INT8_TYPE__ " TOSTRING(__INT8_TYPE__) "\n"
-        "#define __INT16_TYPE__ " TOSTRING(__INT16_TYPE__) "\n"
-        "#define __INT32_TYPE__ " TOSTRING(__INT32_TYPE__) "\n"
-        "#define __INT64_TYPE__ " TOSTRING(__INT64_TYPE__) "\n"
-        "#define __UINT8_TYPE__ " TOSTRING(__UINT8_TYPE__) "\n"
-        "#define __UINT16_TYPE__ " TOSTRING(__UINT16_TYPE__) "\n"
-        "#define __UINT32_TYPE__ " TOSTRING(__UINT32_TYPE__) "\n"
-        "#define __UINT64_TYPE__ " TOSTRING(__UINT64_TYPE__) "\n"
-        "#define __INT_LEAST8_TYPE__ " TOSTRING(__INT_LEAST8_TYPE__) "\n"
-        "#define __INT_LEAST16_TYPE__ " TOSTRING(__INT_LEAST16_TYPE__) "\n"
-        "#define __INT_LEAST32_TYPE__ " TOSTRING(__INT_LEAST32_TYPE__) "\n"
-        "#define __INT_LEAST64_TYPE__ " TOSTRING(__INT_LEAST64_TYPE__) "\n"
-        "#define __UINT_LEAST8_TYPE__ " TOSTRING(__UINT_LEAST8_TYPE__) "\n"
-        "#define __UINT_LEAST16_TYPE__ " TOSTRING(__UINT_LEAST16_TYPE__) "\n"
-        "#define __UINT_LEAST32_TYPE__ " TOSTRING(__UINT_LEAST32_TYPE__) "\n"
-        "#define __UINT_LEAST64_TYPE__ " TOSTRING(__UINT_LEAST64_TYPE__) "\n"
-        "#define __INT_FAST8_TYPE__ " TOSTRING(__INT_FAST8_TYPE__) "\n"
-        "#define __INT_FAST16_TYPE__ " TOSTRING(__INT_FAST16_TYPE__) "\n"
-        "#define __INT_FAST32_TYPE__ " TOSTRING(__INT_FAST32_TYPE__) "\n"
-        "#define __INT_FAST64_TYPE__ " TOSTRING(__INT_FAST64_TYPE__) "\n"
-        "#define __UINT_FAST8_TYPE__ " TOSTRING(__UINT_FAST8_TYPE__) "\n"
-        "#define __UINT_FAST16_TYPE__ " TOSTRING(__UINT_FAST16_TYPE__) "\n"
-        "#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
-        "#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
-        "#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
-        "#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
-
-        "#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
-        "#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
-        "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-        "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
-        "#define __DBL_EPSILON__ " TOSTRING(__DBL_EPSILON__) "\n"
-        "#define __LDBL_EPSILON__ " TOSTRING(__LDBL_EPSILON__) "\n"
-        "#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
-        "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
-        "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-
-        // gcc -dM -E
-
-        "#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
-        "#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
-        "#define __FLT_DECIMAL_DIG__ " TOSTRING(__FLT_DECIMAL_DIG__) "\n"
-
-
-        "#define __FLT_MIN_10_EXP__ " TOSTRING(__FLT_MIN_10_EXP__) "\n"
-        "#define __FLT_MIN__ " TOSTRING(__FLT_MIN__) "\n"
-        "#define __FLT_MAX__ " TOSTRING(__FLT_MAX__) "\n"
-        "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
-        "#define __FLT_DIG__ " TOSTRING(__FLT_DIG__) "\n"
-        "#define __FLT_MANT_DIG__ " TOSTRING(__FLT_MANT_DIG__) "\n"
-        "#define __FLT_MIN_EXP__ " TOSTRING(__FLT_MIN_EXP__) "\n"
-        "#define __FLT_MAX_10_EXP__ " TOSTRING(__FLT_MAX_10_EXP__) "\n"
-        "#define __FLT_ROUNDS__ " TOSTRING(__FLT_ROUNDS__) "\n"
-        "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
-        "#define __FLT_HAS_SUBNORM__ " TOSTRING(__FLT_HAS_SUBNORM__) "\n"
-
-        "#define __FLT_MAX_EXP__ " TOSTRING(__FLT_MAX_EXP__) "\n"
-        "#define __FLT_HAS_DENORM__ " TOSTRING(__FLT_HAS_DENORM__) "\n"
-
-
-        "#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
-        "#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
-        "#define __SHRT_MAX__ " TOSTRING(__SHRT_MAX__) "\n"
-        "#define __INT_MAX__ " TOSTRING(__INT_MAX__) "\n"
-        "#define __LONG_MAX__ " TOSTRING(__LONG_MAX__) "\n"
-        "#define __LONG_LONG_MAX__ " TOSTRING(__LONG_LONG_MAX__) "\n"
-        "#define __WINT_MAX__ " TOSTRING(__WINT_MAX__) "\n"
-        "#define __SIZE_MAX__ " TOSTRING(__SIZE_MAX__) "\n"
-        "#define __PTRDIFF_MAX__ " TOSTRING(__PTRDIFF_MAX__) "\n"
-        "#define __INTMAX_MAX__ " TOSTRING(__INTMAX_MAX__) "\n"
-        "#define __UINTMAX_MAX__ " TOSTRING(__UINTMAX_MAX__) "\n"
-        "#define __SIG_ATOMIC_MAX__ " TOSTRING(__SIG_ATOMIC_MAX__) "\n"
-        "#define __INT8_MAX__ " TOSTRING(__INT8_MAX__) "\n"
-        "#define __INT16_MAX__ " TOSTRING(__INT16_MAX__) "\n"
-        "#define __INT32_MAX__ " TOSTRING(__INT32_MAX__) "\n"
-        "#define __INT64_MAX__ " TOSTRING(__INT64_MAX__) "\n"
-        "#define __UINT8_MAX__ " TOSTRING(__UINT8_MAX__) "\n"
-        "#define __UINT16_MAX__ " TOSTRING(__UINT16_MAX__) "\n"
-        "#define __UINT32_MAX__ " TOSTRING(__UINT32_MAX__) "\n"
-        "#define __UINT64_MAX__ " TOSTRING(__UINT64_MAX__) "\n"
-        "#define __INT_LEAST8_MAX__ " TOSTRING(__INT_LEAST8_MAX__) "\n"
-        "#define __INT_LEAST16_MAX__ " TOSTRING(__INT_LEAST16_MAX__) "\n"
-        "#define __INT_LEAST32_MAX__ " TOSTRING(__INT_LEAST32_MAX__) "\n"
-        "#define __INT_LEAST64_MAX__ " TOSTRING(__INT_LEAST64_MAX__) "\n"
-        "#define __UINT_LEAST8_MAX__ " TOSTRING(__UINT_LEAST8_MAX__) "\n"
-        "#define __UINT_LEAST16_MAX__ " TOSTRING(__UINT_LEAST16_MAX__) "\n"
-        "#define __UINT_LEAST32_MAX__ " TOSTRING(__UINT_LEAST32_MAX__) "\n"
-        "#define __UINT_LEAST64_MAX__ " TOSTRING(__UINT_LEAST64_MAX__) "\n"
-        "#define __INT_FAST8_MAX__ " TOSTRING(__INT_FAST8_MAX__) "\n"
-        "#define __INT_FAST16_MAX__ " TOSTRING(__INT_FAST16_MAX__) "\n"
-        "#define __INT_FAST32_MAX__ " TOSTRING(__INT_FAST32_MAX__) "\n"
-        "#define __INT_FAST64_MAX__ " TOSTRING(__INT_FAST64_MAX__) "\n"
-        "#define __UINT_FAST8_MAX__ " TOSTRING(__UINT_FAST8_MAX__) "\n"
-        "#define __UINT_FAST16_MAX__ " TOSTRING(__UINT_FAST16_MAX__) "\n"
-        "#define __UINT_FAST32_MAX__ " TOSTRING(__UINT_FAST32_MAX__) "\n"
-        "#define __UINT_FAST64_MAX__ " TOSTRING(__UINT_FAST64_MAX__) "\n"
-        "#define __INTPTR_MAX__ " TOSTRING(__INTPTR_MAX__) "\n"
-        "#define __UINTPTR_MAX__ " TOSTRING(__UINTPTR_MAX__) "\n"
-        "#define __WCHAR_MIN__ " TOSTRING(__WCHAR_MIN__) "\n"
-        "#define __WINT_MIN__ " TOSTRING(__WINT_MIN__) "\n"
-        "#define __SIG_ATOMIC_MIN__ " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
-
-        "#define __INT8_C " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
-        "#define __INT16_C " TOSTRING(__INT16_C) "\n"
-        "#define __INT32_C " TOSTRING(__INT32_C) "\n"
-        "#define __INT64_C " TOSTRING(__INT64_C) "\n"
-        "#define __UINT8_C " TOSTRING(__UINT8_C) "\n"
-        "#define __UINT16_C " TOSTRING(__UINT16_C) "\n"
-        "#define __UINT32_C " TOSTRING(__UINT32_C) "\n"
-        "#define __UINT64_C " TOSTRING(__UINT64_C) "\n"
-        "#define __INTMAX_C " TOSTRING(__INTMAX_C) "\n"
-        "#define __UINTMAX_C " TOSTRING(__UINTMAX_C) "\n"
-
-        "#define __SCHAR_WIDTH__ " TOSTRING(__SCHAR_WIDTH__) "\n"
-        "#define __SHRT_WIDTH__ " TOSTRING(__SHRT_WIDTH__) "\n"
-        "#define __INT_WIDTH__ " TOSTRING(__INT_WIDTH__) "\n"
-        "#define __LONG_WIDTH__ " TOSTRING(__LONG_WIDTH__) "\n"
-        "#define __LONG_LONG_WIDTH__ " TOSTRING(__LONG_LONG_WIDTH__) "\n"
-        "#define __PTRDIFF_WIDTH__ " TOSTRING(__PTRDIFF_WIDTH__) "\n"
-        "#define __SIG_ATOMIC_WIDTH__ " TOSTRING(__SIG_ATOMIC_WIDTH__) "\n"
-        "#define __SIZE_WIDTH__ " TOSTRING(__SIZE_WIDTH__) "\n"
-        "#define __WCHAR_WIDTH__ " TOSTRING(__WCHAR_WIDTH__) "\n"
-        "#define __WINT_WIDTH__ " TOSTRING(__WINT_WIDTH__) "\n"
-        "#define __INT_LEAST8_WIDTH__ " TOSTRING(__INT_LEAST8_WIDTH__) "\n"
-        "#define __INT_LEAST16_WIDTH__ " TOSTRING(__INT_LEAST16_WIDTH__) "\n"
-        "#define __INT_LEAST32_WIDTH__ " TOSTRING(__INT_LEAST32_WIDTH__) "\n"
-        "#define __INT_LEAST64_WIDTH__ " TOSTRING(__INT_LEAST64_WIDTH__) "\n"
-        "#define __INT_FAST8_WIDTH__ " TOSTRING(__INT_FAST8_WIDTH__) "\n"
-        "#define __INT_FAST16_WIDTH__ " TOSTRING(__INT_FAST16_WIDTH__) "\n"
-        "#define __INT_FAST32_WIDTH__ " TOSTRING(__INT_FAST32_WIDTH__) "\n"
-        "#define __INT_FAST64_WIDTH__ " TOSTRING(__INT_FAST64_WIDTH__) "\n"
-        "#define __INTPTR_WIDTH__ " TOSTRING(__INTPTR_WIDTH__) "\n"
-        "#define __INTMAX_WIDTH__ " TOSTRING(__INTMAX_WIDTH__) "\n"
-        "#define __SIZEOF_INT__ " TOSTRING(__SIZEOF_INT__) "\n"
-        "#define __SIZEOF_LONG__ " TOSTRING(__SIZEOF_LONG__) "\n"
-        "#define __SIZEOF_LONG_LONG__ " TOSTRING(__SIZEOF_LONG_LONG__) "\n"
-        "#define __SIZEOF_SHORT__ " TOSTRING(__SIZEOF_SHORT__) "\n"
-        "#define __SIZEOF_POINTER__ " TOSTRING(__SIZEOF_POINTER__) "\n"
-        "#define __SIZEOF_FLOAT__ " TOSTRING(__SIZEOF_FLOAT__) "\n"
-        "#define __SIZEOF_DOUBLE__ " TOSTRING(__SIZEOF_DOUBLE__) "\n"
-        "#define __SIZEOF_LONG_DOUBLE__ " TOSTRING(__SIZEOF_LONG_DOUBLE__) "\n"
-        "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
-        "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
-        "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
-        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n";
-    printf("%s", text);
-}
-
-#endif
 
 const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS =
 #ifdef __EMSCRIPTEN__
@@ -53171,203 +52881,6 @@ CAKE_STANDARD_MACROS
 "#define __SIZEOF_PTRDIFF_T__ 8\n";
 
 
-const char* TARGET_DEFAULT_PREDEFINED_MACROS =
-CAKE_STANDARD_MACROS
-
-#ifdef __EMSCRIPTEN__
-//include dir on emscripten
-"#pragma dir \"c:/\"\n"
-#endif
-
-#ifdef _WIN32
-
-//see
-//https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?_View=msvc-170
-"#define _WIN32 " TOSTRING(_WIN32) "\n"
-
-
-#ifdef _WIN64
-"#define _WIN64 " TOSTRING(_WIN64) "\n"
-#endif
-
-#ifdef _M_X64
-"#define _M_X64 " TOSTRING(_M_X64) "\n"
-#endif
-
-#ifdef _M_IX86
-"#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
-#endif
-
-"#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
-"#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
-"#define __pragma(a)\n"
-
-#endif
-
-#ifdef __linux__
-
-//https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
-    /*some gcc stuff need to parse linux headers*/
-    "#define __linux__\n"
-    //see
-    //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html                
-    "#define __x86_64__ " TOSTRING(__x86_64__) "\n"
-    "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
-    "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
-    "#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
-    "#define __WCHAR_TYPE__ " TOSTRING(__WCHAR_TYPE__) "\n"
-    "#define __WINT_TYPE__ " TOSTRING(__WINT_TYPE__) "\n"
-    "#define __INTMAX_TYPE__ " TOSTRING(__INTMAX_TYPE__) "\n"
-    "#define __UINTMAX_TYPE__ " TOSTRING(__UINTMAX_TYPE__) "\n"
-    "#define __SIG_ATOMIC_TYPE__ " TOSTRING(__SIG_ATOMIC_TYPE__) "\n"
-    "#define __INT8_TYPE__ " TOSTRING(__INT8_TYPE__) "\n"
-    "#define __INT16_TYPE__ " TOSTRING(__INT16_TYPE__) "\n"
-    "#define __INT32_TYPE__ " TOSTRING(__INT32_TYPE__) "\n"
-    "#define __INT64_TYPE__ " TOSTRING(__INT64_TYPE__) "\n"
-    "#define __UINT8_TYPE__ " TOSTRING(__UINT8_TYPE__) "\n"
-    "#define __UINT16_TYPE__ " TOSTRING(__UINT16_TYPE__) "\n"
-    "#define __UINT32_TYPE__ " TOSTRING(__UINT32_TYPE__) "\n"
-    "#define __UINT64_TYPE__ " TOSTRING(__UINT64_TYPE__) "\n"
-    "#define __INT_LEAST8_TYPE__ " TOSTRING(__INT_LEAST8_TYPE__) "\n"
-    "#define __INT_LEAST16_TYPE__ " TOSTRING(__INT_LEAST16_TYPE__) "\n"
-    "#define __INT_LEAST32_TYPE__ " TOSTRING(__INT_LEAST32_TYPE__) "\n"
-    "#define __INT_LEAST64_TYPE__ " TOSTRING(__INT_LEAST64_TYPE__) "\n"
-    "#define __UINT_LEAST8_TYPE__ " TOSTRING(__UINT_LEAST8_TYPE__) "\n"
-    "#define __UINT_LEAST16_TYPE__ " TOSTRING(__UINT_LEAST16_TYPE__) "\n"
-    "#define __UINT_LEAST32_TYPE__ " TOSTRING(__UINT_LEAST32_TYPE__) "\n"
-    "#define __UINT_LEAST64_TYPE__ " TOSTRING(__UINT_LEAST64_TYPE__) "\n"
-    "#define __INT_FAST8_TYPE__ " TOSTRING(__INT_FAST8_TYPE__) "\n"
-    "#define __INT_FAST16_TYPE__ " TOSTRING(__INT_FAST16_TYPE__) "\n"
-    "#define __INT_FAST32_TYPE__ " TOSTRING(__INT_FAST32_TYPE__) "\n"
-    "#define __INT_FAST64_TYPE__ " TOSTRING(__INT_FAST64_TYPE__) "\n"
-    "#define __UINT_FAST8_TYPE__ " TOSTRING(__UINT_FAST8_TYPE__) "\n"
-    "#define __UINT_FAST16_TYPE__ " TOSTRING(__UINT_FAST16_TYPE__) "\n"
-    "#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
-    "#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
-    "#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
-    "#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
-
-    "#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
-    "#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
-    "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-    "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
-    "#define __DBL_EPSILON__ " TOSTRING(__DBL_EPSILON__) "\n"
-    "#define __LDBL_EPSILON__ " TOSTRING(__LDBL_EPSILON__) "\n"
-    "#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
-    "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
-    "#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-
-    "#define __DBL_MAX_EXP__ " TOSTRING(__DBL_MAX_EXP__) "\n"
-    "#define __DECIMAL_DIG__ " TOSTRING(__DECIMAL_DIG__) "\n"
-    "#define __FLT_DECIMAL_DIG__ " TOSTRING(__FLT_DECIMAL_DIG__) "\n"
-
-
-    "#define __FLT_MIN_10_EXP__ " TOSTRING(__FLT_MIN_10_EXP__) "\n"
-    "#define __FLT_MIN__ " TOSTRING(__FLT_MIN__) "\n"
-    "#define __FLT_MAX__ " TOSTRING(__FLT_MAX__) "\n"
-    "#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
-    "#define __FLT_DIG__ " TOSTRING(__FLT_DIG__) "\n"
-    "#define __FLT_MANT_DIG__ " TOSTRING(__FLT_MANT_DIG__) "\n"
-    "#define __FLT_MIN_EXP__ " TOSTRING(__FLT_MIN_EXP__) "\n"
-    "#define __FLT_MAX_10_EXP__ " TOSTRING(__FLT_MAX_10_EXP__) "\n"
-    "#define __FLT_ROUNDS__ " TOSTRING(__FLT_ROUNDS__) "\n"
-    "#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
-    "#define __FLT_HAS_SUBNORM__ " TOSTRING(__FLT_HAS_SUBNORM__) "\n"
-
-    "#define __FLT_MAX_EXP__ " TOSTRING(__FLT_MAX_EXP__) "\n"
-    "#define __FLT_HAS_DENORM__ " TOSTRING(__FLT_HAS_DENORM__) "\n"
-
-
-    "#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
-    "#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
-    "#define __SHRT_MAX__ " TOSTRING(__SHRT_MAX__) "\n"
-    "#define __INT_MAX__ " TOSTRING(__INT_MAX__) "\n"
-    "#define __LONG_MAX__ " TOSTRING(__LONG_MAX__) "\n"
-    "#define __LONG_LONG_MAX__ " TOSTRING(__LONG_LONG_MAX__) "\n"
-    "#define __WINT_MAX__ " TOSTRING(__WINT_MAX__) "\n"
-    "#define __SIZE_MAX__ " TOSTRING(__SIZE_MAX__) "\n"
-    "#define __PTRDIFF_MAX__ " TOSTRING(__PTRDIFF_MAX__) "\n"
-    "#define __INTMAX_MAX__ " TOSTRING(__INTMAX_MAX__) "\n"
-    "#define __UINTMAX_MAX__ " TOSTRING(__UINTMAX_MAX__) "\n"
-    "#define __SIG_ATOMIC_MAX__ " TOSTRING(__SIG_ATOMIC_MAX__) "\n"
-    "#define __INT8_MAX__ " TOSTRING(__INT8_MAX__) "\n"
-    "#define __INT16_MAX__ " TOSTRING(__INT16_MAX__) "\n"
-    "#define __INT32_MAX__ " TOSTRING(__INT32_MAX__) "\n"
-    "#define __INT64_MAX__ " TOSTRING(__INT64_MAX__) "\n"
-    "#define __UINT8_MAX__ " TOSTRING(__UINT8_MAX__) "\n"
-    "#define __UINT16_MAX__ " TOSTRING(__UINT16_MAX__) "\n"
-    "#define __UINT32_MAX__ " TOSTRING(__UINT32_MAX__) "\n"
-    "#define __UINT64_MAX__ " TOSTRING(__UINT64_MAX__) "\n"
-    "#define __INT_LEAST8_MAX__ " TOSTRING(__INT_LEAST8_MAX__) "\n"
-    "#define __INT_LEAST16_MAX__ " TOSTRING(__INT_LEAST16_MAX__) "\n"
-    "#define __INT_LEAST32_MAX__ " TOSTRING(__INT_LEAST32_MAX__) "\n"
-    "#define __INT_LEAST64_MAX__ " TOSTRING(__INT_LEAST64_MAX__) "\n"
-    "#define __UINT_LEAST8_MAX__ " TOSTRING(__UINT_LEAST8_MAX__) "\n"
-    "#define __UINT_LEAST16_MAX__ " TOSTRING(__UINT_LEAST16_MAX__) "\n"
-    "#define __UINT_LEAST32_MAX__ " TOSTRING(__UINT_LEAST32_MAX__) "\n"
-    "#define __UINT_LEAST64_MAX__ " TOSTRING(__UINT_LEAST64_MAX__) "\n"
-    "#define __INT_FAST8_MAX__ " TOSTRING(__INT_FAST8_MAX__) "\n"
-    "#define __INT_FAST16_MAX__ " TOSTRING(__INT_FAST16_MAX__) "\n"
-    "#define __INT_FAST32_MAX__ " TOSTRING(__INT_FAST32_MAX__) "\n"
-    "#define __INT_FAST64_MAX__ " TOSTRING(__INT_FAST64_MAX__) "\n"
-    "#define __UINT_FAST8_MAX__ " TOSTRING(__UINT_FAST8_MAX__) "\n"
-    "#define __UINT_FAST16_MAX__ " TOSTRING(__UINT_FAST16_MAX__) "\n"
-    "#define __UINT_FAST32_MAX__ " TOSTRING(__UINT_FAST32_MAX__) "\n"
-    "#define __UINT_FAST64_MAX__ " TOSTRING(__UINT_FAST64_MAX__) "\n"
-    "#define __INTPTR_MAX__ " TOSTRING(__INTPTR_MAX__) "\n"
-    "#define __UINTPTR_MAX__ " TOSTRING(__UINTPTR_MAX__) "\n"
-    "#define __WCHAR_MIN__ " TOSTRING(__WCHAR_MIN__) "\n"
-    "#define __WINT_MIN__ " TOSTRING(__WINT_MIN__) "\n"
-    "#define __SIG_ATOMIC_MIN__ " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
-
-    "#define __INT8_C " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
-    "#define __INT16_C " TOSTRING(__INT16_C) "\n"
-    "#define __INT32_C " TOSTRING(__INT32_C) "\n"
-    "#define __INT64_C " TOSTRING(__INT64_C) "\n"
-    "#define __UINT8_C " TOSTRING(__UINT8_C) "\n"
-    "#define __UINT16_C " TOSTRING(__UINT16_C) "\n"
-    "#define __UINT32_C " TOSTRING(__UINT32_C) "\n"
-    "#define __UINT64_C " TOSTRING(__UINT64_C) "\n"
-    "#define __INTMAX_C " TOSTRING(__INTMAX_C) "\n"
-    "#define __UINTMAX_C " TOSTRING(__UINTMAX_C) "\n"
-
-    "#define __SCHAR_WIDTH__ " TOSTRING(__SCHAR_WIDTH__) "\n"
-    "#define __SHRT_WIDTH__ " TOSTRING(__SHRT_WIDTH__) "\n"
-    "#define __INT_WIDTH__ " TOSTRING(__INT_WIDTH__) "\n"
-    "#define __LONG_WIDTH__ " TOSTRING(__LONG_WIDTH__) "\n"
-    "#define __LONG_LONG_WIDTH__ " TOSTRING(__LONG_LONG_WIDTH__) "\n"
-    "#define __PTRDIFF_WIDTH__ " TOSTRING(__PTRDIFF_WIDTH__) "\n"
-    "#define __SIG_ATOMIC_WIDTH__ " TOSTRING(__SIG_ATOMIC_WIDTH__) "\n"
-    "#define __SIZE_WIDTH__ " TOSTRING(__SIZE_WIDTH__) "\n"
-    "#define __WCHAR_WIDTH__ " TOSTRING(__WCHAR_WIDTH__) "\n"
-    "#define __WINT_WIDTH__ " TOSTRING(__WINT_WIDTH__) "\n"
-    "#define __INT_LEAST8_WIDTH__ " TOSTRING(__INT_LEAST8_WIDTH__) "\n"
-    "#define __INT_LEAST16_WIDTH__ " TOSTRING(__INT_LEAST16_WIDTH__) "\n"
-    "#define __INT_LEAST32_WIDTH__ " TOSTRING(__INT_LEAST32_WIDTH__) "\n"
-    "#define __INT_LEAST64_WIDTH__ " TOSTRING(__INT_LEAST64_WIDTH__) "\n"
-    "#define __INT_FAST8_WIDTH__ " TOSTRING(__INT_FAST8_WIDTH__) "\n"
-    "#define __INT_FAST16_WIDTH__ " TOSTRING(__INT_FAST16_WIDTH__) "\n"
-    "#define __INT_FAST32_WIDTH__ " TOSTRING(__INT_FAST32_WIDTH__) "\n"
-    "#define __INT_FAST64_WIDTH__ " TOSTRING(__INT_FAST64_WIDTH__) "\n"
-    "#define __INTPTR_WIDTH__ " TOSTRING(__INTPTR_WIDTH__) "\n"
-    "#define __INTMAX_WIDTH__ " TOSTRING(__INTMAX_WIDTH__) "\n"
-    "#define __SIZEOF_INT__ " TOSTRING(__SIZEOF_INT__) "\n"
-    "#define __SIZEOF_LONG__ " TOSTRING(__SIZEOF_LONG__) "\n"
-    "#define __SIZEOF_LONG_LONG__ " TOSTRING(__SIZEOF_LONG_LONG__) "\n"
-    "#define __SIZEOF_SHORT__ " TOSTRING(__SIZEOF_SHORT__) "\n"
-    "#define __SIZEOF_POINTER__ " TOSTRING(__SIZEOF_POINTER__) "\n"
-    "#define __SIZEOF_FLOAT__ " TOSTRING(__SIZEOF_FLOAT__) "\n"
-    "#define __SIZEOF_DOUBLE__ " TOSTRING(__SIZEOF_DOUBLE__) "\n"
-    "#define __SIZEOF_LONG_DOUBLE__ " TOSTRING(__SIZEOF_LONG_DOUBLE__) "\n"
-    "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
-    "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
-    "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
-    "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
-#endif
-    "\n";
-
-
-
 const char* TARGET_X86_MSVC_PREDEFINED_MACROS =
 
 #ifdef __EMSCRIPTEN__
@@ -53413,8 +52926,7 @@ CAKE_STANDARD_MACROS
 size_t get_align_void_ptr(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(void*);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
@@ -53426,8 +52938,7 @@ size_t get_align_void_ptr(enum target target)
 size_t get_size_void_ptr(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(void*);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
@@ -53440,8 +52951,7 @@ size_t get_size_void_ptr(enum target target)
 size_t get_align_char(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(char);
+    {    
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -53453,8 +52963,7 @@ size_t get_align_char(enum target target)
 size_t get_size_char(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(char);
+    {    
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -53467,8 +52976,7 @@ size_t get_size_char(enum target target)
 size_t get_align_bool(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(_Bool);
+    {    
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -53480,8 +52988,7 @@ size_t get_align_bool(enum target target)
 size_t get_size_bool(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(_Bool);
+    {    
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -53493,8 +53000,7 @@ size_t get_size_bool(enum target target)
 size_t get_align_short(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(short);
+    {    
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
@@ -53506,8 +53012,7 @@ size_t get_align_short(enum target target)
 size_t get_size_short(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(short);
+    {    
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
@@ -53519,8 +53024,7 @@ size_t get_size_short(enum target target)
 size_t get_align_int(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(int);
+    {    
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53532,8 +53036,7 @@ size_t get_align_int(enum target target)
 size_t get_size_int(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(int);
+    {    
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53545,8 +53048,7 @@ size_t get_size_int(enum target target)
 size_t get_align_long(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(long);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53558,8 +53060,7 @@ size_t get_align_long(enum target target)
 size_t get_size_long(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(long);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53571,8 +53072,7 @@ size_t get_size_long(enum target target)
 size_t get_align_long_long(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(long long);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53584,8 +53084,7 @@ size_t get_align_long_long(enum target target)
 size_t get_size_long_long(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(long long);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53599,8 +53098,7 @@ size_t get_size_long_long(enum target target)
 size_t get_align_float(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(float);
+    {    
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53612,8 +53110,7 @@ size_t get_align_float(enum target target)
 size_t get_size_float(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(float);
+    {    
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53626,7 +53123,6 @@ size_t get_align_double(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:      return _Alignof(double);
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53638,8 +53134,7 @@ size_t get_align_double(enum target target)
 size_t get_size_double(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return sizeof(double);
+    {    
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53651,8 +53146,7 @@ size_t get_size_double(enum target target)
 size_t get_align_long_double(enum target target)
 {
     switch (target)
-    {
-    case TARGET_DEFAULT:      return _Alignof(long double);
+    {    
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53665,7 +53159,6 @@ size_t get_size_long_double(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:      return sizeof(long double);
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53679,14 +53172,6 @@ enum type_specifier_flags get_wchar_type_specifier(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-#ifdef _WIN32
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT);
-#else
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-#endif
-        break;
-
     case TARGET_X86_X64_GCC:
         return (TYPE_SPECIFIER_INT);
         break;
@@ -53704,24 +53189,6 @@ enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-
-#ifdef _WIN32
-#ifdef _WIN64
-        return (TYPE_SPECIFIER_INT64);
-#else
-        return (TYPE_SPECIFIER_INT);
-#endif
-#else 
-#ifdef __x86_64__
-        /* 64-bit */
-        return (TYPE_SPECIFIER_LONG);
-#else
-        return (TYPE_SPECIFIER_INT);
-#endif
-#endif
-
-        break;
     case TARGET_X86_X64_GCC:
         return (TYPE_SPECIFIER_LONG);
         break;
@@ -53741,24 +53208,6 @@ enum type_specifier_flags get_size_t_specifier(enum target target)
 {
     switch (target)
     {
-    case TARGET_DEFAULT:
-
-#ifdef _WIN32
-#ifdef _WIN64
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64);
-#else
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-#endif
-#else 
-#ifdef __x86_64__
-        /* 64-bit */
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG);
-#else
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-#endif
-#endif
-
-        break;
     case TARGET_X86_X64_GCC:
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG);
         break;

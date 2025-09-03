@@ -858,10 +858,6 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             "integer literal is too large to be represented in any integer type");
         }
 
-        ///////////////MICROSOFT ////////////////////////
-        //TODO i64 etc
-        ////////////////////////////////////////////////
-
         if (suffix[0] == 'U')
         {
             /*fixing the type that fits the size*/
@@ -888,6 +884,19 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
+            }
+            else if (value <= INT_MAX && suffix[1] != 'L')
+            {
+                p_expression_node->object = object_make_signed_long((int)value, target);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
+            }
+            else if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
+                      (value <= (unsigned long long) target_get_unsigned_long_max(target)) &&
+                      suffix[1] != 'L' /*!= LL*/)
+            {
+                // ONLY MSVC, NON STANDARD,  uses unsigned long instead of next big signed int
+                p_expression_node->object = object_make_unsigned_long(value, target);
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
             }
             else if (value <= (unsigned long long) target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
@@ -2467,7 +2476,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                      
+
                     case TYPE_SIGNED_INT64:
                     {
                         signed long long r = object_to_signed_long_long(&new_expression->right->object);
@@ -2486,7 +2495,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     case TYPE_SIGNED_INT8:
                     case TYPE_UNSIGNED_INT8:
 
-                    
+
                     case TYPE_FLOAT32:
                     case TYPE_FLOAT64:
                         break;
@@ -2535,7 +2544,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                             new_expression->object = object_make_unsigned_int(+a);
                     }
                     break;
-                              
+
 
                     case TYPE_SIGNED_INT64:
                     {
@@ -2561,7 +2570,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     }
                     break;
 
-                    
+
                     case TYPE_SIGNED_INT8:
                     case TYPE_UNSIGNED_INT8:
                     case TYPE_SIGNED_INT16:
@@ -4043,7 +4052,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
 
             }
             break;
-     
+
 
             case TYPE_SIGNED_INT64:
             {
@@ -4227,7 +4236,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
             }
             break;
 
-            
+
             case TYPE_SIGNED_INT8:
             case TYPE_UNSIGNED_INT8:
             case TYPE_SIGNED_INT16:
@@ -5335,7 +5344,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
- 
+
             case TYPE_SIGNED_INT64:
             {
                 signed long long a = object_to_signed_long_long(&new_expression->left->object);
@@ -5381,7 +5390,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
             }
             break;
 
-            
+
             case TYPE_SIGNED_INT8:
             case TYPE_UNSIGNED_INT8:
             case TYPE_SIGNED_INT16:
