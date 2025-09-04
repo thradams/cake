@@ -827,7 +827,7 @@ enum diagnostic_id {
     W_UNUSED_LABEL,
     W_REDEFINING_BUITIN_MACRO,
     W_UNUSED_FUNCTION,
-    W_NOT_DEFINED57,
+    W_BOOL_COMPARISON,
     W_NOT_DEFINED58,
     W_NOT_DEFINED59,
     W_NOT_DEFINED60,
@@ -13663,6 +13663,7 @@ s_warnings[] = {
 
     {W_CONST_NOT_INITIALIZED, "const-init"},
     {W_NULL_CONVERTION, "null-conversion"},
+    {W_BOOL_COMPARISON, "bool-comparison"},
     {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
     {W_INTEGER_OVERFLOW, "overflow"},
     {W_ARRAY_SIZE, "array-size"},
@@ -14775,6 +14776,9 @@ bool object_is_reference(const struct object* p_object);
 bool object_is_derived(const struct object* p_object);
 bool object_is_signed(const struct object* p_object);
 void object_set_any(struct object* p_object);
+
+bool object_is_one(const struct object* p_object);
+bool object_is_zero(const struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 
@@ -18338,6 +18342,51 @@ void object_set_any(struct object* p_object)
     }
 }
 
+bool object_is_zero(const struct object* p_object)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+
+    if (!object_has_constant_value(p_object))
+        return false;
+
+
+    if (object_is_signed(p_object))
+    {
+        signed long long r = object_to_signed_long_long(p_object);
+        return r == 0;
+    }
+    else
+    {
+        unsigned long long r = object_to_unsigned_long_long(p_object);
+        return r == 0;
+    }
+
+    return false;
+}
+
+
+bool object_is_one(const struct object* p_object)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+
+    if (!object_has_constant_value(p_object))
+        return false;
+
+
+    if (object_is_signed(p_object))
+    {
+        signed long long r = object_to_signed_long_long(p_object);
+        return r == 1;
+    }
+    else
+    {
+        unsigned long long r = object_to_unsigned_long_long(p_object);
+        return r == 1;
+    }
+
+    return false;
+}
+
 bool object_is_signed(const struct object* p_object)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
@@ -19528,21 +19577,21 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         break;
 
 
-    case TYPE_UNSIGNED_INT8:        
+    case TYPE_UNSIGNED_INT8:
         ss_fprintf(ss, "%" PRIu8, (int)a->value.unsigned_int8);
         break;
 
 
-    case TYPE_SIGNED_INT16:        
+    case TYPE_SIGNED_INT16:
         ss_fprintf(ss, "%" PRIi16, a->value.signed_int16);
         break;
 
-    case TYPE_UNSIGNED_INT16:        
+    case TYPE_UNSIGNED_INT16:
         ss_fprintf(ss, "%" PRIu16, a->value.unsigned_int16);
         break;
 
     case TYPE_SIGNED_INT32:
-        ss_fprintf(ss, "%" PRIi32, a->value.signed_int32);        
+        ss_fprintf(ss, "%" PRIi32, a->value.signed_int32);
         break;
 
     case TYPE_UNSIGNED_INT32:
@@ -24479,6 +24528,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
                 throw;
             }
             new_expression->first_token = ctx->current;
+            struct token* optk = ctx->current;
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -24510,7 +24560,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             check_comparison(ctx,
               new_expression->left,
               new_expression->right,
-              ctx->current);
+              optk);
 
             if (op == '>')
             {
@@ -24644,6 +24694,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
                (ctx->current->type == '==' ||
                    ctx->current->type == '!='))
         {
+            struct token* op = ctx->current;
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -24680,7 +24731,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             check_comparison(ctx,
               new_expression->left,
               new_expression->right,
-              ctx->current);
+              op);
 
             new_expression->last_token = new_expression->right->last_token;
             new_expression->first_token = operator_token;
@@ -26119,6 +26170,9 @@ void check_comparison(struct parser_ctx* ctx,
     const struct token* op_token)
 {
     //TODO more checks unsigned < 0
+    bool equal_not_equal =
+        op_token->type == '!=' ||
+        op_token->type == '==';
 
     struct type* p_a_type = &p_a_expression->type;
     struct type* p_b_type = &p_b_expression->type;
@@ -26137,6 +26191,42 @@ void check_comparison(struct parser_ctx* ctx,
                                         ctx,
                                         op_token, NULL,
                                         "comparison between pointer and integer");
+        }
+    }
+
+    if (type_is_bool(p_a_type) &&
+        !(type_is_bool(p_b_type) || type_is_essential_bool(p_b_type)))
+    {
+        if (equal_not_equal && (object_is_zero(&p_b_expression->object) ||
+            object_is_one(&p_b_expression->object)))
+        {
+            //no warning when comparing == 0 == 1 != 0 != 0
+        }
+        else
+        {
+            compiler_diagnostic(W_BOOL_COMPARISON,
+                                 ctx,
+                                 op_token, NULL,
+                                 "comparison bool with non bool");
+        }
+    }
+
+    if (type_is_bool(p_b_type) &&
+        !(type_is_bool(p_a_type) || type_is_essential_bool(p_a_type))
+        )
+    {
+        if (equal_not_equal &&
+            (object_is_zero(&p_a_expression->object) ||
+                object_is_one(&p_a_expression->object)))
+        {
+            //no warning when comparing == 0 == 1 != 0 != 0
+        }
+        else
+        {
+            compiler_diagnostic(W_BOOL_COMPARISON,
+                                 ctx,
+                                 op_token, NULL,
+                                 "comparison bool with non bool");
         }
     }
 
@@ -28067,7 +28157,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.11.02"
+#define CAKE_VERSION "0.11.04"
 
 
 
@@ -32138,7 +32228,7 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _
 {
     if (p)
     {
-        if (p->has_shared_ownership > 0)
+        if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
             struct_or_union_specifier_sink(p);
@@ -33109,7 +33199,7 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
 {
     if (p)
     {
-        if (p->has_shared_ownership > 0)
+        if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
             enum_specifier_delete_sink(p);
@@ -33395,7 +33485,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 {
     if (p)
     {
-        if (p->has_shared_ownership > 0)
+        if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
             enumerator_sink(p);
@@ -33767,7 +33857,7 @@ void declarator_delete(struct declarator* _Owner _Opt p)
 {
     if (p)
     {
-        if (p->has_shared_ownership > 0)
+        if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
             declarator_sink(p);
@@ -41813,9 +41903,38 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
         }
         else
         {
-            ss_fprintf(oss, "!!(");
-            d_visit_expression(ctx, oss, p_expression);
-            ss_fprintf(oss, ")");
+            switch (p_expression->expression_type)
+            {
+            //Operators with lower precedence than != are:
+            //&& ||  ? assignments(=, +=, …) ,
+            case LOGICAL_OR_EXPRESSION:
+            case LOGICAL_AND_EXPRESSION:
+            case ASSIGNMENT_EXPRESSION_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+            case EXPRESSION_EXPRESSION:
+            case CONDITIONAL_EXPRESSION:
+                ss_fprintf(oss, "((");
+                d_visit_expression(ctx, oss, p_expression);
+                ss_fprintf(oss, ") != 0)");
+                break;
+            default:
+                //we are taking some risks eliminating () to make it easier to read.
+                //external ()  are optional, but I think it makes it clear.
+                ss_fprintf(oss, "(");
+                d_visit_expression(ctx, oss, p_expression);
+                ss_fprintf(oss, " != 0)");
+                break;
+            }
+
         }
     }
 }
@@ -42367,22 +42486,19 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
         while (arg)
         {
-            bool to_bool = 
+            bool to_bool =
                 param &&
-                type_is_bool(&param->type) && 
+                type_is_bool(&param->type) &&
                 !(type_is_bool(&arg->expression->type) ||
                   type_is_essential_bool(&arg->expression->type));
 
             if (to_bool)
             {
-                ss_fprintf(oss, "!!(");
+                expression_to_bool_value(ctx, oss, arg->expression);
             }
-            //TODO convert int to bool parameter
-            d_visit_expression(ctx, oss, arg->expression);
-
-            if (to_bool)
+            else
             {
-                ss_fprintf(oss, ")");
+                d_visit_expression(ctx, oss, arg->expression);
             }
 
             if (param)
@@ -43749,7 +43865,14 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
-                ss_fprintf(&local, "unsigned char ");
+                switch (ctx->options.target)
+                {
+                case TARGET_X86_X64_GCC:
+                case TARGET_X86_MSVC:
+                case TARGET_X64_MSVC:
+                    ss_fprintf(&local, "unsigned char");
+                    first = false;
+                }
             }
             else
             {
@@ -53362,6 +53485,9 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
         print_item(ss, first, "_Decimal128");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        print_item(ss, first, "bool");
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         print_item(ss, first, "nullptr_t");

@@ -4049,7 +4049,7 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _
 {
     if (p)
     {
-        if (p->has_shared_ownership > 0)
+        if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
             struct_or_union_specifier_sink(p);
@@ -5020,7 +5020,7 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p)
 {
     if (p)
     {
-        if (p->has_shared_ownership > 0)
+        if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
             enum_specifier_delete_sink(p);
@@ -5306,7 +5306,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 {
     if (p)
     {
-        if (p->has_shared_ownership > 0)
+        if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
             enumerator_sink(p);
@@ -5678,7 +5678,7 @@ void declarator_delete(struct declarator* _Owner _Opt p)
 {
     if (p)
     {
-        if (p->has_shared_ownership > 0)
+        if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
             declarator_sink(p);

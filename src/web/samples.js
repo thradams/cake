@@ -49,29 +49,35 @@ int main(void)
 
 sample["C99"] = [];
 sample["C99"]["_Bool"] =
-    `
+`
 
 int main(void)
 {
-    _Bool b = true;
+    _Bool b0 = false;
+    _Bool b1 = true;
     _Bool b2 = 123;
 
-     b2 = b;
-     b2 = 12;
-
+    b1 = b0;
+    b2 = 1234;
     return 0;
 }
 
+void f1(_Bool b, int i){}
 
-void f1(_Bool i)
+_Bool f2(int i, int j)
 {
-}
+    _Bool b = i;
 
-_Bool f2(int i)
-{
-    _Bool b2 = i;
-    f1(i);//TODO
-    return i; //TODO
+    f1(i, i);
+    f1(i = j, i = j);
+    f1(1 ? i : j, 1 ? i : j);
+
+    b = i;
+    b = i = j;
+    b = i = j && i;
+    b = 1 ? i : j;
+    b = 1, i;
+    return i;
 }
 
 `;

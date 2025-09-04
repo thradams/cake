@@ -435,6 +435,9 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
         print_item(ss, first, "_Decimal128");
 
+    if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        print_item(ss, first, "bool");
+
     if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         print_item(ss, first, "nullptr_t");
 

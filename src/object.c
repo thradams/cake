@@ -1611,6 +1611,51 @@ void object_set_any(struct object* p_object)
     }
 }
 
+bool object_is_zero(const struct object* p_object)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+
+    if (!object_has_constant_value(p_object))
+        return false;
+
+
+    if (object_is_signed(p_object))
+    {
+        signed long long r = object_to_signed_long_long(p_object);
+        return r == 0;
+    }
+    else
+    {
+        unsigned long long r = object_to_unsigned_long_long(p_object);
+        return r == 0;
+    }
+
+    return false;
+}
+
+
+bool object_is_one(const struct object* p_object)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+
+    if (!object_has_constant_value(p_object))
+        return false;
+
+
+    if (object_is_signed(p_object))
+    {
+        signed long long r = object_to_signed_long_long(p_object);
+        return r == 1;
+    }
+    else
+    {
+        unsigned long long r = object_to_unsigned_long_long(p_object);
+        return r == 1;
+    }
+
+    return false;
+}
+
 bool object_is_signed(const struct object* p_object)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
@@ -2801,21 +2846,21 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         break;
 
 
-    case TYPE_UNSIGNED_INT8:        
+    case TYPE_UNSIGNED_INT8:
         ss_fprintf(ss, "%" PRIu8, (int)a->value.unsigned_int8);
         break;
 
 
-    case TYPE_SIGNED_INT16:        
+    case TYPE_SIGNED_INT16:
         ss_fprintf(ss, "%" PRIi16, a->value.signed_int16);
         break;
 
-    case TYPE_UNSIGNED_INT16:        
+    case TYPE_UNSIGNED_INT16:
         ss_fprintf(ss, "%" PRIu16, a->value.unsigned_int16);
         break;
 
     case TYPE_SIGNED_INT32:
-        ss_fprintf(ss, "%" PRIi32, a->value.signed_int32);        
+        ss_fprintf(ss, "%" PRIi32, a->value.signed_int32);
         break;
 
     case TYPE_UNSIGNED_INT32:

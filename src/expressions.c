@@ -4908,6 +4908,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
                 throw;
             }
             new_expression->first_token = ctx->current;
+            struct token* optk = ctx->current;
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -4939,7 +4940,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             check_comparison(ctx,
               new_expression->left,
               new_expression->right,
-              ctx->current);
+              optk);
 
             if (op == '>')
             {
@@ -5073,6 +5074,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
                (ctx->current->type == '==' ||
                    ctx->current->type == '!='))
         {
+            struct token* op = ctx->current;
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -5109,7 +5111,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             check_comparison(ctx,
               new_expression->left,
               new_expression->right,
-              ctx->current);
+              op);
 
             new_expression->last_token = new_expression->right->last_token;
             new_expression->first_token = operator_token;
@@ -6548,6 +6550,9 @@ void check_comparison(struct parser_ctx* ctx,
     const struct token* op_token)
 {
     //TODO more checks unsigned < 0
+    bool equal_not_equal =
+        op_token->type == '!=' ||
+        op_token->type == '==';
 
     struct type* p_a_type = &p_a_expression->type;
     struct type* p_b_type = &p_b_expression->type;
@@ -6566,6 +6571,42 @@ void check_comparison(struct parser_ctx* ctx,
                                         ctx,
                                         op_token, NULL,
                                         "comparison between pointer and integer");
+        }
+    }
+
+    if (type_is_bool(p_a_type) &&
+        !(type_is_bool(p_b_type) || type_is_essential_bool(p_b_type)))
+    {
+        if (equal_not_equal && (object_is_zero(&p_b_expression->object) ||
+            object_is_one(&p_b_expression->object)))
+        {
+            //no warning when comparing == 0 == 1 != 0 != 0
+        }
+        else
+        {
+            compiler_diagnostic(W_BOOL_COMPARISON,
+                                 ctx,
+                                 op_token, NULL,
+                                 "comparison bool with non bool");
+        }
+    }
+
+    if (type_is_bool(p_b_type) &&
+        !(type_is_bool(p_a_type) || type_is_essential_bool(p_a_type))
+        )
+    {
+        if (equal_not_equal &&
+            (object_is_zero(&p_a_expression->object) ||
+                object_is_one(&p_a_expression->object)))
+        {
+            //no warning when comparing == 0 == 1 != 0 != 0
+        }
+        else
+        {
+            compiler_diagnostic(W_BOOL_COMPARISON,
+                                 ctx,
+                                 op_token, NULL,
+                                 "comparison bool with non bool");
         }
     }
 

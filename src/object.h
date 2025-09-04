@@ -178,6 +178,9 @@ bool object_is_derived(const struct object* p_object);
 bool object_is_signed(const struct object* p_object);
 void object_set_any(struct object* p_object);
 
+bool object_is_one(const struct object* p_object);
+bool object_is_zero(const struct object* p_object);
+
 const struct object* object_get_referenced(const struct object* p_object);
 
 NODISCARD

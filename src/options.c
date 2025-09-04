@@ -136,6 +136,7 @@ s_warnings[] = {
 
     {W_CONST_NOT_INITIALIZED, "const-init"},
     {W_NULL_CONVERTION, "null-conversion"},
+    {W_BOOL_COMPARISON, "bool-comparison"},
     {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
     {W_INTEGER_OVERFLOW, "overflow"},
     {W_ARRAY_SIZE, "array-size"},

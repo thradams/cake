@@ -221,9 +221,38 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
         }
         else
         {
-            ss_fprintf(oss, "!!(");
-            d_visit_expression(ctx, oss, p_expression);
-            ss_fprintf(oss, ")");
+            switch (p_expression->expression_type)
+            {
+            //Operators with lower precedence than != are:
+            //&& ||  ? assignments(=, +=, …) ,
+            case LOGICAL_OR_EXPRESSION:
+            case LOGICAL_AND_EXPRESSION:
+            case ASSIGNMENT_EXPRESSION_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
+            case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+            case EXPRESSION_EXPRESSION:
+            case CONDITIONAL_EXPRESSION:
+                ss_fprintf(oss, "((");
+                d_visit_expression(ctx, oss, p_expression);
+                ss_fprintf(oss, ") != 0)");
+                break;
+            default:
+                //we are taking some risks eliminating () to make it easier to read.
+                //external ()  are optional, but I think it makes it clear.
+                ss_fprintf(oss, "(");
+                d_visit_expression(ctx, oss, p_expression);
+                ss_fprintf(oss, " != 0)");
+                break;
+            }
+
         }
     }
 }
@@ -775,22 +804,19 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
         while (arg)
         {
-            bool to_bool = 
+            bool to_bool =
                 param &&
-                type_is_bool(&param->type) && 
+                type_is_bool(&param->type) &&
                 !(type_is_bool(&arg->expression->type) ||
                   type_is_essential_bool(&arg->expression->type));
 
             if (to_bool)
             {
-                ss_fprintf(oss, "!!(");
+                expression_to_bool_value(ctx, oss, arg->expression);
             }
-            //TODO convert int to bool parameter
-            d_visit_expression(ctx, oss, arg->expression);
-
-            if (to_bool)
+            else
             {
-                ss_fprintf(oss, ")");
+                d_visit_expression(ctx, oss, arg->expression);
             }
 
             if (param)
@@ -2157,7 +2183,14 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
-                ss_fprintf(&local, "unsigned char ");
+                switch (ctx->options.target)
+                {
+                case TARGET_X86_X64_GCC:
+                case TARGET_X86_MSVC:
+                case TARGET_X64_MSVC:
+                    ss_fprintf(&local, "unsigned char");
+                    first = false;
+                }
             }
             else
             {
