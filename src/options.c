@@ -402,15 +402,23 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-ownership=enable") == 0)
+        if (has_prefix(argv[i], "-ownership="))
         {
-            options->ownership_enabled = true;
-            continue;
-        }
+            if (strcmp(argv[i], "-ownership=enable") == 0)
+            {
+                options->ownership_enabled = true;
+                continue;
+            }
 
-        if (strcmp(argv[i], "-ownership=disable") == 0)
-        {
-            options->ownership_enabled = false;
+            if (strcmp(argv[i], "-ownership=disable") == 0)
+            {
+                options->ownership_enabled = false;
+                continue;
+            }
+
+            printf("Invalid option. Options are: "
+                   "enable, disable"
+                   "\n");
             continue;
         }
 
@@ -427,37 +435,50 @@ int fill_options(struct options* options,
             continue;
         }
 
-
-        //
-        if (strcmp(argv[i], "-style=cake") == 0)
+        if (has_prefix(argv[i], "-style"))
         {
-            options->style = STYLE_CAKE;
-            continue;
+            if (strcmp(argv[i], "-style=cake") == 0)
+            {
+                options->style = STYLE_CAKE;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-style=gnu") == 0)
+            {
+                options->style = STYLE_GNU;
+                continue;
+            }
+            if (strcmp(argv[i], "-style=microsoft") == 0)
+            {
+                options->style = STYLE_GNU;
+                continue;
+            }
+
+            printf("Invalid style. Options are: "
+                   "cake, gnu, microsoft"
+                   "\n");
         }
 
-        if (strcmp(argv[i], "-style=gnu") == 0)
-        {
-            options->style = STYLE_GNU;
-            continue;
-        }
 
-        if (strcmp(argv[i], "-style=microsoft") == 0)
+        if (has_prefix(argv[i], "-nullable="))
         {
-            options->style = STYLE_GNU;
-            continue;
-        }
+            if (strcmp(argv[i], "-nullable=disable") == 0)
+            {
+                options->null_checks_enabled = false;
+                unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
+                options->diagnostic_stack.stack[0].warnings &= ~w;
+                continue;
+            }
 
-        if (strcmp(argv[i], "-nullable=disable") == 0)
-        {
-            options->null_checks_enabled = false;
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-            options->diagnostic_stack.stack[0].warnings &= ~w;
-            continue;
-        }
+            if (strcmp(argv[i], "-nullable=enabled") == 0)
+            {
+                options->null_checks_enabled = true;
+                continue;
+            }
 
-        if (strcmp(argv[i], "-nullable=enabled") == 0)
-        {
-            options->null_checks_enabled = true;
+            printf("Invalid option. Options are: "
+               "disable, enabled"
+               "\n");
             continue;
         }
 
@@ -468,7 +489,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (has_prefix(argv[i], "-target"))
+        if (has_prefix(argv[i], "-target="))
         {
             int r = parse_target(argv[i], &options->target);
             if (r != 0)
@@ -584,9 +605,6 @@ void print_help()
         LIGHTCYAN "  -E                    " RESET "Copies preprocessor output to standard output \n"
         "\n"
         LIGHTCYAN "  -o name.c             " RESET "Defines the output name when compiling one file\n"
-        "\n"
-        LIGHTCYAN "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
-        "                        (not implemented yet, input is considered C23)                    \n"
         "\n"
         LIGHTCYAN "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"

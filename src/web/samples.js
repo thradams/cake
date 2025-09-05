@@ -194,8 +194,14 @@ const double dmin = 0x1p-1022;
 `;
 
 sample["C99"]["_Pragma"] =
-    `
-   //TODO !!
+`
+//6.10.11 Pragma operator
+
+#define LISTING(x) PRAGMA(listing on #x)
+#define PRAGMA(x) _Pragma(#x)
+
+LISTING (..\listing.dir)
+
 `;
 
 sample["C99"]["__func__"] =
@@ -1024,6 +1030,12 @@ enum a {
 };
 
 int main () {}
+`;
+
+sample["C23"]["_Bitint(N)"] =
+`
+//TODO
+
 `;
 
 

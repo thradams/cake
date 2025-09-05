@@ -1,14 +1,5 @@
-void f(int i, int j)
-{
-    _Bool b;
-    b == 1;
-    b == 0;
-    b != 1;    
-    b != 0;    
+#define LISTING(x) PRAGMA(listing on #x)
+#define PRAGMA(x) _Pragma(#x)
 
-    1 == b;
-    0 == b;
-    1 != b;    
-    0 != b;    
-
-}
+LISTING (..listing.dir \n)
+ 

@@ -7448,10 +7448,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             ctx->n_warnings++;
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//error
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-            preprocessor_diagnostic(C_ERROR_PREPROCESSOR_C_ERROR_DIRECTIVE, ctx, input_list->head, "#error");
+
             token_list_append_list(&r, &r6);
             token_list_destroy(&r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
+            preprocessor_diagnostic(C_ERROR_PREPROCESSOR_C_ERROR_DIRECTIVE, ctx, r.head, "#error");
 
 
         }
@@ -7463,11 +7464,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             ctx->n_warnings++;
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
-
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-            preprocessor_diagnostic(W_NONE, ctx, input_list->head, "#warning");
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
+            preprocessor_diagnostic(W_NONE, ctx, r.head, "#warning");
             token_list_destroy(&r6);
         }
         else if (strcmp(input_list->head->lexeme, "pragma") == 0)
@@ -7754,7 +7754,9 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         if (macro->parameters == NULL)
         {
             //we have a non empty argument list, calling a macro without parameters
-            preprocessor_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too many arguments provided to function-like macro invocation\n");
+            preprocessor_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
+                ctx,
+                macro_name_token, "too many arguments provided to function-like macro invocation\n");
             throw;
         }
 
@@ -7802,7 +7804,10 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         }
                         else
                         {
-                            preprocessor_diagnostic(C_ERROR_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
+                            preprocessor_diagnostic(C_ERROR_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
+                                ctx,
+                                macro_name_token,
+                                "too few arguments provided to function-like macro invocation\n");
                             throw;
                         }
                     }
@@ -7836,7 +7841,10 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 
                     if (p_current_parameter->next == NULL)
                     {
-                        preprocessor_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_argument_list.tokens.tail, "too many arguments provided to function-like macro invocation\n");
+                        preprocessor_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
+                            ctx,
+                            macro_argument_list.tokens.tail,
+                            "too many arguments provided to function-like macro invocation\n");
                         macro_argument_delete(p_argument);
                         p_argument = NULL; //DELETED
                         throw;
@@ -7899,7 +7907,9 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             {
                 if (r.tail == NULL)
                 {
-                    preprocessor_diagnostic(C_ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT, ctx, input_list->head, "missing macro argument (should be checked before)");
+                    preprocessor_diagnostic(C_ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT,
+                        ctx,
+                        input_list->head, "missing macro argument (should be checked before)");
                     break;
                 }
                 /*
@@ -8120,7 +8130,9 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     if (s == NULL)
                     {
                         token_list_destroy(&argumentlist);
-                        preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, input_list->head, "unexpected");
+                        preprocessor_diagnostic(C_ERROR_UNEXPECTED,
+                            ctx,
+                            input_list->head, "unexpected");
                         throw;
                     }
                     struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
@@ -8235,6 +8247,150 @@ static bool macro_already_expanded(struct macro_expanded* _Opt p_list, const cha
     return false;
 }
 
+static char* _Owner decode_pragma_string(const char* literal)
+{
+    /*
+      The string literal is destringized
+      - by deleting any encoding prefix,
+      - deleting the leading and trailing double-quotes,
+      - replacing each escape sequence \" by a double-quote,
+      - and replacing each escape sequence \\ by a single backslash.
+   */
+
+    while (*literal != '"')
+        literal++; //skip string prefix u8 etc
+
+    literal++; //skip leading double-quotes
+
+    size_t len = 0;
+    const char* p = literal;
+
+    // Compute the maximum possible length
+    p = literal;
+    while (*p && *p != '"')
+    {
+        if (*p == '\\' && *(p + 1))
+        {
+            p++;
+            switch (*p)
+            {
+            case '"':
+            case '\\':              
+                break;
+
+            default:
+                len++;
+            }
+        }
+        
+        len++;        
+        p++;
+    }
+
+    char* _Owner result = (char*)malloc(len + 1);
+    if (!result) return NULL;
+
+    char* out = result;
+    p = literal;
+    while (*p && *p != '"')
+    {
+        if (*p == '\\' && *(p + 1))
+        {
+            p++;
+            switch (*p)
+            {
+            case '"':
+            case '\\':
+                break;
+
+            default:
+                *out++ = '\\';
+                break;
+            }
+        }
+        
+        *out++ = *p;        
+        p++;
+    }
+    *out = '\0';
+    return result;
+}
+
+
+static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
+{
+    struct token_list r = { 0 };
+    try
+    {
+        if (input_list->head->type != TK_IDENTIFIER)
+        {
+            throw; //internal error
+        }
+
+        prematch(&r, input_list);
+        r.tail->type = TK_PRAGMA;
+        r.tail->flags |= TK_FLAG_FINAL;
+
+
+        skip_blanks_level(ctx, &r, input_list, level);
+
+        if (input_list->head->type != '(')
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+            ctx,
+            input_list->head,
+            "expected (");
+            throw; //internal error
+        }
+
+        token_list_pop_front(input_list); // (
+
+        skip_blanks_level(ctx, &r, input_list, level);
+
+        if (input_list->head->type != TK_STRING_LITERAL)
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+            ctx,
+            input_list->head,
+            "expected string");
+            throw; //internal error
+        }
+
+        char* _Owner line = decode_pragma_string(input_list->head->lexeme);
+        if (line == NULL)
+            throw;
+
+        token_list_pop_front(input_list); // ""
+
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list r0 = tokenizer(&tctx, line, "", 0, TK_FLAG_NONE);
+        free(line);
+
+        token_list_pop_front(&r0); // (
+        token_list_append_list(&r, &r0); //)    
+
+        skip_blanks_level(ctx, &r, input_list, level);
+
+        if (input_list->head->type != ')')
+        {
+            preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+            ctx,
+            input_list->head,
+            "expected (");
+            throw; //internal error
+        }
+
+        prematch(&r, input_list); //)
+        r.tail->type = TK_PRAGMA_END;
+        r.tail->flags |= TK_FLAG_FINAL;
+    }
+    catch
+    {
+        token_list_clear(&r);
+    }
+    return r;
+}
+
 struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
     struct macro_expanded* p_list,
     struct token_list* oldlist,
@@ -8254,9 +8410,13 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
         struct token_list new_list = concatenate(ctx, oldlist);
         while (new_list.head != NULL)
         {
-            //OBS: #def macro have newlinew
-            //assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-            // assert(!token_is_blank(new_list.head));
+            if (new_list.head->type == TK_IDENTIFIER &&
+                strcmp(new_list.head->lexeme, "_Pragma") == 0)
+            {
+                struct token_list list = operator_pragma(ctx, &new_list, true, level);
+                token_list_append_list(&new_list, &list);
+                continue;
+            }
 
             struct macro* _Opt macro = NULL;
             if (new_list.head->type == TK_IDENTIFIER)
@@ -8677,6 +8837,14 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
             struct macro* _Opt macro = NULL;
             struct token* _Opt start_token = input_list->head;
             const struct token* _Opt origin = NULL;
+
+            if (input_list->head->type == TK_IDENTIFIER &&
+                strcmp(input_list->head->lexeme, "_Pragma") == 0)
+            {
+                struct token_list r0 = operator_pragma(ctx, input_list, is_active, level);
+                token_list_append_list(&r, &r0);
+                continue;
+            }
 
             if (is_active && input_list->head->type == TK_IDENTIFIER)
             {
@@ -9672,6 +9840,33 @@ const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p
                     if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE))
                         ss_fprintf(&ss, " ");
                 }
+            }
+
+            if (current->type == TK_PRAGMA)
+            {
+                /*
+                   This is not exactly how the compiler interprets see pragma;
+                   it is representation where _Pragma and #pragma are printed in the same way.
+                   Compiler sees TK_PRAGMA ..tokens.. TK_PRAGMA_END
+                */
+                if (strcmp(current->lexeme, "_Pragma") == 0)
+                {
+                    ss_fprintf(&ss, "\n"); /*added for visualization*/
+                }
+
+                ss_fprintf(&ss, "#pragma ");
+
+                current = current->next;
+
+                while (current->type != TK_PRAGMA_END)
+                {
+                    ss_fprintf(&ss, "%s", current->lexeme);
+                    current = current->next;
+                }
+
+                ss_fprintf(&ss, "\n"); /*added for visualization*/
+                current = current->next;
+                continue;
             }
 
             if (current->lexeme[0] != '\0')
@@ -13929,15 +14124,23 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-ownership=enable") == 0)
+        if (has_prefix(argv[i], "-ownership="))
         {
-            options->ownership_enabled = true;
-            continue;
-        }
+            if (strcmp(argv[i], "-ownership=enable") == 0)
+            {
+                options->ownership_enabled = true;
+                continue;
+            }
 
-        if (strcmp(argv[i], "-ownership=disable") == 0)
-        {
-            options->ownership_enabled = false;
+            if (strcmp(argv[i], "-ownership=disable") == 0)
+            {
+                options->ownership_enabled = false;
+                continue;
+            }
+
+            printf("Invalid option. Options are: "
+                   "enable, disable"
+                   "\n");
             continue;
         }
 
@@ -13954,37 +14157,50 @@ int fill_options(struct options* options,
             continue;
         }
 
-
-        //
-        if (strcmp(argv[i], "-style=cake") == 0)
+        if (has_prefix(argv[i], "-style"))
         {
-            options->style = STYLE_CAKE;
-            continue;
+            if (strcmp(argv[i], "-style=cake") == 0)
+            {
+                options->style = STYLE_CAKE;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-style=gnu") == 0)
+            {
+                options->style = STYLE_GNU;
+                continue;
+            }
+            if (strcmp(argv[i], "-style=microsoft") == 0)
+            {
+                options->style = STYLE_GNU;
+                continue;
+            }
+
+            printf("Invalid style. Options are: "
+                   "cake, gnu, microsoft"
+                   "\n");
         }
 
-        if (strcmp(argv[i], "-style=gnu") == 0)
-        {
-            options->style = STYLE_GNU;
-            continue;
-        }
 
-        if (strcmp(argv[i], "-style=microsoft") == 0)
+        if (has_prefix(argv[i], "-nullable="))
         {
-            options->style = STYLE_GNU;
-            continue;
-        }
+            if (strcmp(argv[i], "-nullable=disable") == 0)
+            {
+                options->null_checks_enabled = false;
+                unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
+                options->diagnostic_stack.stack[0].warnings &= ~w;
+                continue;
+            }
 
-        if (strcmp(argv[i], "-nullable=disable") == 0)
-        {
-            options->null_checks_enabled = false;
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-            options->diagnostic_stack.stack[0].warnings &= ~w;
-            continue;
-        }
+            if (strcmp(argv[i], "-nullable=enabled") == 0)
+            {
+                options->null_checks_enabled = true;
+                continue;
+            }
 
-        if (strcmp(argv[i], "-nullable=enabled") == 0)
-        {
-            options->null_checks_enabled = true;
+            printf("Invalid option. Options are: "
+               "disable, enabled"
+               "\n");
             continue;
         }
 
@@ -13995,7 +14211,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (has_prefix(argv[i], "-target"))
+        if (has_prefix(argv[i], "-target="))
         {
             int r = parse_target(argv[i], &options->target);
             if (r != 0)
@@ -14111,9 +14327,6 @@ void print_help()
         LIGHTCYAN "  -E                    " RESET "Copies preprocessor output to standard output \n"
         "\n"
         LIGHTCYAN "  -o name.c             " RESET "Defines the output name when compiling one file\n"
-        "\n"
-        LIGHTCYAN "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
-        "                        (not implemented yet, input is considered C23)                    \n"
         "\n"
         LIGHTCYAN "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
@@ -28157,7 +28370,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.11.04"
+#define CAKE_VERSION "0.11.05"
 
 
 
