@@ -762,9 +762,7 @@ enum language_version
 
 enum diagnostic_id {
 
-    W_NONE = 0,  /*not a real warning, used in especial cases*/
-    
-    
+    W_WARNING_DIRECTIVE = 0,     
     W_UNUSED_VARIABLE, //-Wunused-variable
     W_DEPRECATED,
     W_ENUN_CONVERSION,//-Wenum-conversion
@@ -7445,7 +7443,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             /*
               # error pp-tokensopt new-line
             */
-            ctx->n_warnings++;
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//error
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
 
@@ -7461,13 +7458,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             /*
               # warning pp-tokensopt new-line
             */
-            ctx->n_warnings++;
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-            preprocessor_diagnostic(W_NONE, ctx, r.head, "#warning");
+            preprocessor_diagnostic(W_WARNING_DIRECTIVE, ctx, r.head, "#warning");
             token_list_destroy(&r6);
         }
         else if (strcmp(input_list->head->lexeme, "pragma") == 0)
@@ -8289,7 +8285,7 @@ static char* _Owner decode_pragma_string(const char* literal)
 
     char* _Owner result = (char*)malloc(len + 1);
     if (!result) return NULL;
-
+    
     char* out = result;
     p = literal;
     while (*p && *p != '"')
@@ -28370,7 +28366,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.11.05"
+#define CAKE_VERSION "0.11.06"
 
 
 
