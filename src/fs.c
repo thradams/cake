@@ -514,97 +514,97 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
    in .\include\
 */static const char file_assert_h[] = {
 #include "include/assert.h.include"
-};
+, 0 };
 static const char file_complex_h[] = {
 #include "include/complex.h.include"
-};
+, 0 };
 static const char file_ctype_h[] = {
 #include "include/ctype.h.include"
-};
+, 0 };
 static const char file_errno_h[] = {
 #include "include/errno.h.include"
-};
+, 0 };
 static const char file_fenv_h[] = {
 #include "include/fenv.h.include"
-};
+, 0 };
 static const char file_float_h[] = {
 #include "include/float.h.include"
-};
+, 0 };
 static const char file_inttypes_h[] = {
 #include "include/inttypes.h.include"
-};
+, 0 };
 static const char file_iso646_h[] = {
 #include "include/iso646.h.include"
-};
+, 0 };
 static const char file_limits_h[] = {
 #include "include/limits.h.include"
-};
+, 0 };
 static const char file_locale_h[] = {
 #include "include/locale.h.include"
-};
+, 0 };
 static const char file_math_h[] = {
 #include "include/math.h.include"
-};
+, 0 };
 static const char file_setjmp_h[] = {
 #include "include/setjmp.h.include"
-};
+, 0 };
 static const char file_signal_h[] = {
 #include "include/signal.h.include"
-};
+, 0 };
 static const char file_stdalign_h[] = {
 #include "include/stdalign.h.include"
-};
+, 0 };
 static const char file_stdarg_h[] = {
 #include "include/stdarg.h.include"
-};
+, 0 };
 static const char file_stdatomic_h[] = {
 #include "include/stdatomic.h.include"
-};
+, 0 };
 static const char file_stdbit_h[] = {
 #include "include/stdbit.h.include"
-};
+, 0 };
 static const char file_stdbool_h[] = {
 #include "include/stdbool.h.include"
-};
+, 0 };
 static const char file_stdckdint_h[] = {
 #include "include/stdckdint.h.include"
-};
+, 0 };
 static const char file_stddef_h[] = {
 #include "include/stddef.h.include"
-};
+, 0 };
 static const char file_stdint_h[] = {
 #include "include/stdint.h.include"
-};
+, 0 };
 static const char file_stdio_h[] = {
 #include "include/stdio.h.include"
-};
+, 0 };
 static const char file_stdlib_h[] = {
 #include "include/stdlib.h.include"
-};
+, 0 };
 static const char file_stdnoreturn_h[] = {
 #include "include/stdnoreturn.h.include"
-};
+, 0 };
 static const char file_string_h[] = {
 #include "include/string.h.include"
-};
+, 0 };
 static const char file_tgmath_h[] = {
 #include "include/tgmath.h.include"
-};
+, 0 };
 static const char file_threads_h[] = {
 #include "include/threads.h.include"
-};
+, 0 };
 static const char file_time_h[] = {
 #include "include/time.h.include"
-};
+, 0 };
 static const char file_uchar_h[] = {
 #include "include/uchar.h.include"
-};
+, 0 };
 static const char file_wchar_h[] = {
 #include "include/wchar.h.include"
-};
+, 0 };
 static const char file_wctype_h[] = {
 #include "include/wctype.h.include"
-};
+, 0 };
 
 
 
