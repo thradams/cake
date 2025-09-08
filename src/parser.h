@@ -209,7 +209,7 @@ struct declaration_specifiers
 {
     /*
      declaration-specifiers:
-       declaration-specifier attribute-specifier-sequence _Opt
+       declaration-specifier attribute-specifier-sequence opt
        declaration-specifier declaration-specifiers
     */
 
@@ -220,7 +220,7 @@ struct declaration_specifiers
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
     enum function_specifier_flags function_specifier_flags;
-    
+
     enum alignment_specifier_flags alignment_specifier_flags;
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
 
@@ -289,7 +289,7 @@ struct attribute_specifier_sequence
 {
     /*
      attribute-specifier-sequence:
-       attribute-specifier-sequence _Opt attribute-specifier
+       attribute-specifier-sequence opt attribute-specifier
     */
 
     struct token* first_token;
@@ -410,7 +410,7 @@ struct type_specifier
     struct token* token;
     struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier;
     struct typeof_specifier* _Owner _Opt  typeof_specifier;
-    struct enum_specifier* _Owner _Opt enum_specifier;    
+    struct enum_specifier* _Owner _Opt enum_specifier;
     struct declarator* _Opt typedef_declarator;
     struct atomic_type_specifier* _Owner _Opt  atomic_type_specifier;
 };
@@ -495,8 +495,8 @@ struct simple_declaration
 void simple_declaration_delete(struct simple_declaration* _Owner _Opt p);
 
 struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
-    bool ignore_semicolon);
+    bool ignore_semicolon,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
 
 struct condition
 {
@@ -749,10 +749,10 @@ struct declarator
     struct token* _Opt name_opt; //shortcut , null for abstract declarator
 
     struct compound_statement* _Opt function_body;
-    
+
     /*
-        points to someone that has the function_body or 
-        to someone that points to someone that has the function_body        
+        points to someone that has the function_body or
+        to someone that points to someone that has the function_body
     */
     struct declarator* _Opt p_complete_declarator;
 
@@ -990,7 +990,7 @@ struct specifier_qualifier_list
 {
     /*
       specifier-qualifier-list:
-        type-specifier-qualifier attribute-specifier-sequence _Opt
+        type-specifier-qualifier attribute-specifier-sequence opt
         type-specifier-qualifier specifier-qualifier-list
     */
 
@@ -1317,7 +1317,7 @@ struct expression_statement
     struct expression* _Owner _Opt expression_opt;
 };
 
-struct expression_statement* _Owner _Opt expression_statement(struct parser_ctx* ctx, bool ignore_semicolon);
+struct expression_statement* _Owner _Opt expression_statement(struct parser_ctx* ctx, bool ignore_semicolon, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 void expression_statement_delete(struct expression_statement* _Owner _Opt  p);
 
 struct block_item
@@ -1440,13 +1440,13 @@ struct unlabeled_statement
         attribute-specifier-sequence opt primary-block
         attribute-specifier-sequence opt jump-statement
      */
-
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct expression_statement* _Owner _Opt expression_statement;
     struct primary_block* _Owner _Opt primary_block;
     struct jump_statement* _Owner _Opt jump_statement;
 };
 
-struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx);
+struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
 void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p);
 
 struct labeled_statement
@@ -1459,7 +1459,7 @@ struct labeled_statement
     struct statement* _Owner statement;
 };
 
-struct labeled_statement* _Owner _Opt labeled_statement(struct parser_ctx* ctx);
+struct labeled_statement* _Owner _Opt labeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 void labeled_statement_delete(struct labeled_statement* _Owner _Opt p);
 
 struct statement
@@ -1473,7 +1473,7 @@ struct statement
     struct unlabeled_statement* _Owner _Opt unlabeled_statement;
 };
 
-struct statement* _Owner _Opt statement(struct parser_ctx* ctx);
+struct statement* _Owner _Opt statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 void statement_delete(struct statement* _Owner _Opt  p);
 
 struct designator_list
@@ -1553,8 +1553,8 @@ struct enumerator
         identifier
 
       enumerator:
-        enumeration-constant attribute-specifier-sequence _Opt
-        enumeration-constant attribute-specifier-sequence _Opt = constant-expression
+        enumeration-constant attribute-specifier-sequence opt
+        enumeration-constant attribute-specifier-sequence opt = constant-expression
     */
 
     /*
@@ -1635,6 +1635,7 @@ struct label
        attribute-specifier-sequence opt "case" constant-expression :
        attribute-specifier-sequence opt "default" :
     */
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct expression* _Owner _Opt constant_expression;
     struct expression* _Owner _Opt constant_expression_end;
 
@@ -1645,7 +1646,7 @@ struct label
     int label_id; //unique id inside the function scope
 };
 
-struct label* _Owner _Opt label(struct parser_ctx* ctx);
+struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
 void label_delete(struct label* _Owner _Opt p);
 
 struct ast

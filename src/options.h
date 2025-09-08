@@ -16,7 +16,8 @@ enum language_version
 
 enum diagnostic_id {
 
-    W_WARNING_DIRECTIVE = 0,     
+    DIAGNOSTIC_ID_NONE = 0,
+    W_WARNING_DIRECTIVE,     
     W_UNUSED_VARIABLE, //-Wunused-variable
     W_DEPRECATED,
     W_ENUN_CONVERSION,//-Wenum-conversion

@@ -7091,6 +7091,9 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
     case LOGICAL_OR_EXPRESSION:
     {
+        assert(p_expression->left != NULL);
+        assert(p_expression->right != NULL);
+        
         struct object a = expression_eval(p_expression->left);
         if (object_has_constant_value(&a))
         {

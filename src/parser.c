@@ -2109,10 +2109,13 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
 struct declaration* _Owner _Opt function_definition_or_declaration(struct parser_ctx* ctx)
 {
-    return declaration(ctx, NULL, STORAGE_SPECIFIER_NONE, true);
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence =
+        attribute_specifier_sequence_opt(ctx);
+
+    return declaration(ctx, p_attribute_specifier_sequence, STORAGE_SPECIFIER_NONE, true);
     /*
      function-definition:
-        attribute-specifier-sequence _Opt declaration-specifiers declarator function-body
+        attribute-specifier-sequence opt declaration-specifiers declarator function-body
     */
 
     /*
@@ -2126,8 +2129,8 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 }
 
 struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
-    bool ignore_semicolon)
+    bool ignore_semicolon,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt)
 {
 
     if (ctx->current == NULL)
@@ -2220,7 +2223,7 @@ static void check_unused_parameters(struct parser_ctx* ctx, struct parameter_lis
 }
 
 struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt00,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
     enum storage_class_specifier_flags storage_specifier_flags,
     bool extern_declaration)
 {
@@ -2233,12 +2236,12 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             throw;
         }
 
-        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt =
-            attribute_specifier_sequence_opt(ctx);
 
         bool is_function_definition = false;
 
         p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, storage_specifier_flags, false);
+        p_attribute_specifier_sequence_opt = NULL;  //MOVED
+
         if (p_declaration == NULL)
             throw;
 
@@ -5049,10 +5052,10 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
     /*
         enum-specifier:
 
-        "enum" attribute-specifier-sequence _Opt identifier _Opt enum-type-specifier _Opt
+        "enum" attribute-specifier-sequence opt identifier _Opt enum-type-specifier _Opt
         { enumerator-list }
 
-        "enum" attribute-specifier-sequence _Opt identifier _Opt enum-type-specifier _Opt
+        "enum" attribute-specifier-sequence opt identifier _Opt enum-type-specifier _Opt
         { enumerator-list , }
         enum identifier enum-type-specifier _Opt
     */
@@ -8213,7 +8216,7 @@ void statement_delete(struct statement* _Owner _Opt p)
     }
 }
 
-struct statement* _Owner _Opt statement(struct parser_ctx* ctx)
+struct statement* _Owner _Opt statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
     struct statement* _Owner _Opt p_statement = calloc(1, sizeof(struct statement));
     try
@@ -8223,13 +8226,15 @@ struct statement* _Owner _Opt statement(struct parser_ctx* ctx)
 
         if (first_of_labeled_statement(ctx))
         {
-            p_statement->labeled_statement = labeled_statement(ctx);
+            p_statement->labeled_statement = labeled_statement(ctx, p_attribute_specifier_sequence);
+            p_attribute_specifier_sequence = NULL;
             if (p_statement->labeled_statement == NULL)
                 throw;
         }
         else
         {
-            p_statement->unlabeled_statement = unlabeled_statement(ctx);
+            p_statement->unlabeled_statement = unlabeled_statement(ctx, p_attribute_specifier_sequence);
+            p_attribute_specifier_sequence = NULL;
             if (p_statement->unlabeled_statement == NULL)
                 throw;
         }
@@ -8239,6 +8244,7 @@ struct statement* _Owner _Opt statement(struct parser_ctx* ctx)
         statement_delete(p_statement);
         p_statement = NULL;
     }
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_statement;
 }
 
@@ -8319,7 +8325,13 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
 
         p_secondary_block->first_token = ctx->current;
 
-        struct statement* _Owner _Opt p_statement = statement(ctx);
+        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt =
+            attribute_specifier_sequence_opt(ctx);
+
+
+        struct statement* _Owner _Opt p_statement = statement(ctx, p_attribute_specifier_sequence_opt);
+        p_attribute_specifier_sequence_opt = NULL;  //MOVED
+
         if (p_statement == NULL)
             throw;
 
@@ -8439,13 +8451,13 @@ void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p)
     }
 }
 
-struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx)
+struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
     /*
      unlabeled-statement:
        expression-statement
-       attribute-specifier-sequence _Opt primary-block
-       attribute-specifier-sequence _Opt jump-statement
+       attribute-specifier-sequence opt primary-block
+       attribute-specifier-sequence opt jump-statement
     */
     struct unlabeled_statement* _Owner _Opt p_unlabeled_statement = calloc(1, sizeof(struct unlabeled_statement));
     try
@@ -8455,19 +8467,27 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 
         if (first_of_primary_block(ctx))
         {
+            p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
+            p_attribute_specifier_sequence = NULL;
+
             p_unlabeled_statement->primary_block = primary_block(ctx);
             if (p_unlabeled_statement->primary_block == NULL)
                 throw;
         }
         else if (first_of_jump_statement(ctx))
         {
+            p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
+            p_attribute_specifier_sequence = NULL;
+
             p_unlabeled_statement->jump_statement = jump_statement(ctx);
             if (p_unlabeled_statement->jump_statement == NULL)
                 throw;
         }
         else
         {
-            p_unlabeled_statement->expression_statement = expression_statement(ctx, false);
+            p_unlabeled_statement->expression_statement = expression_statement(ctx, false, p_attribute_specifier_sequence);
+            p_attribute_specifier_sequence = NULL;
+
             if (p_unlabeled_statement->expression_statement == NULL)
                 throw;
 
@@ -8542,7 +8562,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
         unlabeled_statement_delete(p_unlabeled_statement);
         p_unlabeled_statement = NULL;
     }
-
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_unlabeled_statement;
 }
 
@@ -8555,7 +8575,7 @@ void label_delete(struct label* _Owner _Opt p)
     }
 }
 
-struct label* _Owner _Opt label(struct parser_ctx* ctx)
+struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt)
 {
     if (ctx->current == NULL)
         return NULL;
@@ -8565,6 +8585,9 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
     {
         if (p_label == NULL)
             throw;
+
+        p_label->p_attribute_specifier_sequence = p_attribute_specifier_sequence_opt; //MOVED
+        p_attribute_specifier_sequence_opt = NULL;
 
         p_label->label_id = ctx->label_id++;
 
@@ -8788,6 +8811,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx)
         label_delete(p_label);
         p_label = NULL;
     }
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
     return p_label;
 }
 
@@ -8876,7 +8900,7 @@ void labeled_statement_delete(struct labeled_statement* _Owner _Opt p)
     }
 }
 
-struct labeled_statement* _Owner _Opt labeled_statement(struct parser_ctx* ctx)
+struct labeled_statement* _Owner _Opt labeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
     struct labeled_statement* _Owner _Opt p_labeled_statement = calloc(1, sizeof(struct labeled_statement));
     try
@@ -8885,14 +8909,17 @@ struct labeled_statement* _Owner _Opt labeled_statement(struct parser_ctx* ctx)
             throw;
 
         // label statement
-        struct label* _Owner _Opt p_label = label(ctx);
+        struct label* _Owner _Opt p_label = label(ctx, p_attribute_specifier_sequence);
+        p_attribute_specifier_sequence = NULL;
 
         if (p_label == NULL)
             throw;
 
         p_labeled_statement->label = p_label;
 
-        struct statement* _Owner _Opt p_statement = statement(ctx);
+        struct statement* _Owner _Opt p_statement = statement(ctx, p_attribute_specifier_sequence);
+        p_attribute_specifier_sequence = NULL;
+
         if (p_statement == NULL)
             throw;
 
@@ -8903,6 +8930,9 @@ struct labeled_statement* _Owner _Opt labeled_statement(struct parser_ctx* ctx)
         labeled_statement_delete(p_labeled_statement);
         p_labeled_statement = NULL;
     }
+
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
+
     return p_labeled_statement;
 }
 
@@ -9111,13 +9141,16 @@ void block_item_delete(struct block_item* _Owner _Opt p)
 
 struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 {
-    //   declaration
-    //     unlabeled_statement
-    //   label
+    /*
+     block-item:
+      declaration
+      unlabeled-statement
+      label
+    */
 
 
     struct block_item* _Owner _Opt p_block_item = NULL;
-
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt = NULL;
     try
     {
         if (ctx->current == NULL)
@@ -9134,13 +9167,11 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
          * Attributes can be first of declaration, labels etc..
          * so it is better to parse it in advance.
          */
-        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt =
-            attribute_specifier_sequence_opt(ctx);
+        p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
-            attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
             throw;
         }
 
@@ -9161,7 +9192,6 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
-                attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
                 unexpected_end_of_file(ctx);
                 throw;
             }
@@ -9190,7 +9220,6 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
             if (ctx->current == NULL)
             {
-                attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
                 unexpected_end_of_file(ctx);
                 throw;
             }
@@ -9203,9 +9232,10 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
             first_of_pragma_declaration(ctx))
         {
             p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_BLOCK_SCOPE, false);
+            p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
+
             if (p_block_item->declaration == NULL)
                 throw;
-            p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
 
             struct init_declarator* _Opt p = p_block_item->declaration->init_declarator_list.head;
             while (p)
@@ -9220,19 +9250,20 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
         else if (first_of_label(ctx))
         {
             // so identifier confunde com expression
-            p_block_item->label = label(ctx);
+            p_block_item->label = label(ctx, p_attribute_specifier_sequence_opt);
+            p_attribute_specifier_sequence_opt = NULL; //MOVED
+
             if (p_block_item->label == NULL)
             {
-                attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
                 throw;
             }
         }
         else
         {
-            p_block_item->unlabeled_statement = unlabeled_statement(ctx);
+            p_block_item->unlabeled_statement = unlabeled_statement(ctx, p_attribute_specifier_sequence_opt);
+            p_attribute_specifier_sequence_opt = NULL;
             if (p_block_item->unlabeled_statement == NULL)
             {
-                attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
                 throw;
             }
         }
@@ -9255,13 +9286,16 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
         attribute-specifier-sequenceopt default :
         */
 
-        attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
     }
     catch
     {
         block_item_delete(p_block_item);
         p_block_item = NULL;
     }
+
+    //if not moved it will be deleted
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+
     return p_block_item;
 }
 
@@ -10100,7 +10134,7 @@ void expression_statement_delete(struct expression_statement* _Owner _Opt p)
     }
 }
 
-struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx* ctx, bool ignore_semicolon)
+struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx* ctx, bool ignore_semicolon, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
     struct expression_statement* _Owner _Opt p_expression_statement = calloc(1, sizeof(struct expression_statement));
     try
@@ -10114,7 +10148,7 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
             throw;
 
         p_expression_statement->p_attribute_specifier_sequence_opt =
-            attribute_specifier_sequence_opt(ctx);
+            p_attribute_specifier_sequence;
 
         if (ctx->current == NULL)
         {
@@ -10270,13 +10304,20 @@ struct init_statement* _Owner _Opt init_statement(struct parser_ctx* ctx, bool i
         if (p_init_statement == NULL)
             throw;
 
+        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence =
+            attribute_specifier_sequence_opt(ctx);
+
+
         if (first_of_declaration_specifier(ctx))
         {
-            p_init_statement->p_simple_declaration = simple_declaration(ctx, NULL, ignore_semicolon);
+            p_init_statement->p_simple_declaration = simple_declaration(ctx, ignore_semicolon, p_attribute_specifier_sequence);
+            p_attribute_specifier_sequence = NULL;  //MOVED
         }
         else
         {
-            p_init_statement->p_expression_statement = expression_statement(ctx, ignore_semicolon);
+            p_init_statement->p_expression_statement = expression_statement(ctx, ignore_semicolon, p_attribute_specifier_sequence);
+            p_attribute_specifier_sequence = NULL;  //MOVED
+
         }
     }
     catch
@@ -11204,7 +11245,7 @@ int compile(int argc, const char** argv, struct report* report)
     {
         printf("emulating %s\n", target_to_string(options.target));
     }
-    
+
     char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);
