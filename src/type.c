@@ -1008,7 +1008,7 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
         return true;
     }
 
-    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence_opt = NULL;
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence = NULL;
 
     if (p_type->struct_or_union_specifier)
     {
@@ -1016,14 +1016,14 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
           struct [[maybe_unused]] X { }
           struct X x;
         */
-        p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
+        p_attribute_specifier_sequence = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
 
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        if (p_attribute_specifier_sequence_opt == NULL && p_complete)
+        if (p_attribute_specifier_sequence == NULL && p_complete)
         {
-            p_attribute_specifier_sequence_opt = p_complete->attribute_specifier_sequence_opt;
+            p_attribute_specifier_sequence = p_complete->attribute_specifier_sequence_opt;
         }
     }
     else if (p_type->enum_specifier)
@@ -1031,16 +1031,16 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
         const struct enum_specifier* _Opt p_complete_enum_specifier =
             get_complete_enum_specifier(p_type->enum_specifier);
 
-        p_attribute_specifier_sequence_opt = p_type->enum_specifier->attribute_specifier_sequence_opt;
+        p_attribute_specifier_sequence = p_type->enum_specifier->attribute_specifier_sequence_opt;
 
-        if (p_attribute_specifier_sequence_opt == NULL && p_complete_enum_specifier)
+        if (p_attribute_specifier_sequence == NULL && p_complete_enum_specifier)
         {
-            p_attribute_specifier_sequence_opt = p_complete_enum_specifier->attribute_specifier_sequence_opt;
+            p_attribute_specifier_sequence = p_complete_enum_specifier->attribute_specifier_sequence_opt;
         }
     }
 
-    if (p_attribute_specifier_sequence_opt &&
-        p_attribute_specifier_sequence_opt->attributes_flags & attributes)
+    if (p_attribute_specifier_sequence &&
+        p_attribute_specifier_sequence->attributes_flags & attributes)
     {
         return true;
     }

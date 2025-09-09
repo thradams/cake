@@ -3972,7 +3972,7 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     */
 }
 
-NODISCARD
+_Attr(nodiscard)
 static int arena_add_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name)
 {
     int state_number = ctx->state_number_generator;
@@ -6244,9 +6244,27 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->ctx->p_diagnostic_id_stack;
+    struct diagnostic_id_stack stack = { 0 };
+    ctx->ctx->p_diagnostic_id_stack = &stack;
+
+    if (p_expression_statement->p_attribute_specifier_sequence)
+    {
+        build_diagnostic_id_stack(p_expression_statement->p_attribute_specifier_sequence, &stack, 2);
+    }
+
     struct true_false_set d = { 0 };
     if (p_expression_statement->expression_opt)
         flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
+
+    if (p_expression_statement->p_attribute_specifier_sequence)
+    {
+        warn_unrecognized_warnings(ctx->ctx,
+        &stack,
+        p_expression_statement->p_attribute_specifier_sequence->first_token);
+    }
+    ctx->ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+
     true_false_set_destroy(&d);
 }
 

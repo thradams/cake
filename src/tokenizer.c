@@ -1710,7 +1710,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 break;
             }
             if (is_digit(&stream) ||
-                (stream.current[0] == '.' && isdigit(stream.current[0])))
+                (stream.current[0] == '.' && isdigit(stream.current[1])))
             {
                 struct token* _Owner _Opt p_new_token = ppnumber(&stream);
                 if (p_new_token == NULL) throw;

@@ -81,10 +81,9 @@ enum diagnostic_id {
     W_REDEFINING_BUITIN_MACRO,
     W_UNUSED_FUNCTION,
     W_BOOL_COMPARISON,
-    W_NOT_DEFINED58,
+    W_WARNING_DID_NOT_HAPPEN,
     W_NOT_DEFINED59,
     W_NOT_DEFINED60,
-    W_NOT_DEFINED61,
 
     W_LOCATION, /*prints code location*/
     W_NOTE,
@@ -269,6 +268,15 @@ struct diagnostic_stack
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack);
 void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
+
+struct diagnostic_id_stack
+{
+    int size;
+    enum  diagnostic_id stack[10];
+};
+
+int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id);
+void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack);
 
 
 struct options

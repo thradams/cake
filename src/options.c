@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#define _Countof(X) (sizeof(X)/sizeof(X[0]))
 
 bool is_diagnostic_note(enum diagnostic_id id)
 {
@@ -39,6 +40,28 @@ bool is_diagnostic_configurable(enum diagnostic_id id)
     //We have 0-63 configurable (bit set)
     //configurable diagnostic also have names. Other have numbers only    
     return id >= 0 && id < W_LOCATION;
+}
+
+int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id)
+{
+    if (diagnostic_stack->size < _Countof(diagnostic_stack->stack))
+    {
+        diagnostic_stack->stack[diagnostic_stack->size] = id;
+        diagnostic_stack->size++;
+    }
+    return 0;
+}
+
+void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack)
+{
+    if (diagnostic_stack->size > 0)
+    {
+        diagnostic_stack->size--;
+    }
+    else
+    {
+        assert(false);
+    }
 }
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
@@ -192,6 +215,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     switch (w)
     {
         //TODO should be everything that starts with FLOW
+    case W_FLOW_NULLABLE_TO_NON_NULLABLE:
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:
     case W_FLOW_MOVED:
@@ -261,7 +285,7 @@ int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
         {
             if (s_warnings[j].w == w)
             {
-                snprintf(buffer, n, "-W%s", s_warnings[j].name);
+                snprintf(buffer, n, "-W%s/-W%d", s_warnings[j].name, w);
                 return 0;
             }
         }
@@ -644,14 +668,14 @@ void test_get_warning_name()
 {
     char dbg_name[100];
     get_warning_name(W_FLOW_MISSING_DTOR, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wmissing-destructor") == 0);
+    assert(strcmp(dbg_name, "-Wmissing-destructor/-W29") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(dbg_name);
     assert(flags == (1ULL << W_FLOW_MISSING_DTOR));
 
 
     get_warning_name(W_STYLE, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wstyle") == 0);
+    assert(strcmp(dbg_name, "-Wstyle/-W11") == 0);
 
     unsigned long long  flags2 = get_warning_bit_mask(dbg_name);
     assert(flags2 == (1ULL << W_STYLE));

@@ -7,10 +7,10 @@
 
 typedef int errno_t;
 
-#if __STDC_VERSION__  >= 202311L 
-#define NODISCARD [[nodiscard]]
+#if __STDC_VERSION__  < 202311L 
+#define _Attr(...)
 #else
-#define NODISCARD
+#define _Attr(...) [[ __VA_ARGS__ ]]
 #endif
 
 

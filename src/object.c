@@ -17,7 +17,7 @@
 #include <assert.h>
 #include <string.h>
 
-NODISCARD
+_Attr(nodiscard)
 bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -29,7 +29,7 @@ bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -51,7 +51,7 @@ bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -66,7 +66,7 @@ bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
@@ -110,7 +110,7 @@ bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool signed_long_long_add(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
@@ -149,7 +149,7 @@ bool signed_long_long_add(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;

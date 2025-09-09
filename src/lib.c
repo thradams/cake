@@ -666,10 +666,10 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
 
 typedef int errno_t;
 
-#if __STDC_VERSION__  >= 202311L 
-#define NODISCARD [[nodiscard]]
+#if __STDC_VERSION__  < 202311L 
+#define _Attr(...)
 #else
-#define NODISCARD
+#define _Attr(...) [[ __VA_ARGS__ ]]
 #endif
 
 
@@ -827,10 +827,9 @@ enum diagnostic_id {
     W_REDEFINING_BUITIN_MACRO,
     W_UNUSED_FUNCTION,
     W_BOOL_COMPARISON,
-    W_NOT_DEFINED58,
+    W_WARNING_DID_NOT_HAPPEN,
     W_NOT_DEFINED59,
     W_NOT_DEFINED60,
-    W_NOT_DEFINED61,
 
     W_LOCATION, /*prints code location*/
     W_NOTE,
@@ -1015,6 +1014,15 @@ struct diagnostic_stack
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack);
 void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
+
+struct diagnostic_id_stack
+{
+    int size;
+    enum  diagnostic_id stack[10];
+};
+
+int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id);
+void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack);
 
 
 struct options
@@ -5102,7 +5110,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 break;
             }
             if (is_digit(&stream) ||
-                (stream.current[0] == '.' && isdigit(stream.current[0])))
+                (stream.current[0] == '.' && isdigit(stream.current[1])))
             {
                 struct token* _Owner _Opt p_new_token = ppnumber(&stream);
                 if (p_new_token == NULL) throw;
@@ -13731,6 +13739,7 @@ char* _Owner read_file(const char* path, bool append_newline)
 #pragma safety enable
 
 
+#define _Countof(X) (sizeof(X)/sizeof(X[0]))
 
 bool is_diagnostic_note(enum diagnostic_id id)
 {
@@ -13758,6 +13767,28 @@ bool is_diagnostic_configurable(enum diagnostic_id id)
     //We have 0-63 configurable (bit set)
     //configurable diagnostic also have names. Other have numbers only    
     return id >= 0 && id < W_LOCATION;
+}
+
+int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id)
+{
+    if (diagnostic_stack->size < _Countof(diagnostic_stack->stack))
+    {
+        diagnostic_stack->stack[diagnostic_stack->size] = id;
+        diagnostic_stack->size++;
+    }
+    return 0;
+}
+
+void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack)
+{
+    if (diagnostic_stack->size > 0)
+    {
+        diagnostic_stack->size--;
+    }
+    else
+    {
+        assert(false);
+    }
 }
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
@@ -13911,6 +13942,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     switch (w)
     {
         //TODO should be everything that starts with FLOW
+    case W_FLOW_NULLABLE_TO_NON_NULLABLE:
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:
     case W_FLOW_MOVED:
@@ -13980,7 +14012,7 @@ int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
         {
             if (s_warnings[j].w == w)
             {
-                snprintf(buffer, n, "-W%s", s_warnings[j].name);
+                snprintf(buffer, n, "-W%s/-W%d", s_warnings[j].name, w);
                 return 0;
             }
         }
@@ -14361,14 +14393,14 @@ void test_get_warning_name()
 {
     char dbg_name[100];
     get_warning_name(W_FLOW_MISSING_DTOR, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wmissing-destructor") == 0);
+    assert(strcmp(dbg_name, "-Wmissing-destructor/-W29") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(dbg_name);
     assert(flags == (1ULL << W_FLOW_MISSING_DTOR));
 
 
     get_warning_name(W_STYLE, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wstyle") == 0);
+    assert(strcmp(dbg_name, "-Wstyle/-W11") == 0);
 
     unsigned long long  flags2 = get_warning_bit_mask(dbg_name);
     assert(flags2 == (1ULL << W_STYLE));
@@ -14992,7 +15024,7 @@ bool object_is_zero(const struct object* p_object);
 
 const struct object* object_get_referenced(const struct object* p_object);
 
-NODISCARD
+_Attr(nodiscard)
 int object_set(
     struct parser_ctx* ctx, 
     struct object* to,
@@ -15376,6 +15408,8 @@ struct parser_ctx
 {
     struct options options;
 
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack;
+
     /*
       file scope -> function params -> function -> inner scope
     */
@@ -15437,7 +15471,7 @@ void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx);
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
 void unexpected_end_of_file(struct parser_ctx* ctx);
 void parser_match(struct parser_ctx* ctx);
-NODISCARD
+_Attr(nodiscard)
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 
 struct token* _Opt previous_parser_token(const struct token* token);
@@ -15507,7 +15541,7 @@ struct declaration_specifiers
     enum function_specifier_flags function_specifier_flags;
 
     enum alignment_specifier_flags alignment_specifier_flags;
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 
     /*shortcuts*/
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -15594,6 +15628,7 @@ struct attribute_specifier
      attribute-specifier:
         [ [ attribute-list ] ]
     */
+    enum diagnostic_id ack;
     struct token* first_token;
     struct token* last_token;
     struct attribute_list* _Owner attribute_list;
@@ -15603,7 +15638,7 @@ struct attribute_specifier
 struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* ctx);
 void attribute_specifier_delete(struct attribute_specifier* _Owner _Opt p);
 
-struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx);
+struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier);
 
 
 struct storage_class_specifier
@@ -15738,7 +15773,7 @@ struct declaration
         static_assert-declaration
         attribute-declaration
     */
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 
     struct static_assert_declaration* _Owner _Opt static_assert_declaration;
     struct pragma_declaration* _Owner _Opt pragma_declaration;
@@ -15770,7 +15805,7 @@ struct simple_declaration
       declaration-specifiers init-declarator-list _Opt ;
       attribute-specifier-sequence declaration-specifiers init-declarator-list ;
     */
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct declaration_specifiers* _Owner p_declaration_specifiers;
     struct init_declarator_list init_declarator_list;
     struct token* first_token;
@@ -15781,7 +15816,7 @@ void simple_declaration_delete(struct simple_declaration* _Owner _Opt p);
 
 struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx,
     bool ignore_semicolon,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 
 struct condition
 {
@@ -15793,7 +15828,7 @@ struct condition
        attribute-specifier-seq opt decl-specifier-seq declarator initializer
     */
     struct expression* _Owner _Opt expression;
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct declaration_specifiers* _Owner _Opt p_declaration_specifiers;
 
     /*
@@ -16007,6 +16042,7 @@ struct initializer
 };
 
 struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx);
+void initializer_destroy(_Dtor struct initializer* p);
 void initializer_delete(struct initializer* _Owner _Opt  p);
 
 struct declarator
@@ -16128,7 +16164,7 @@ struct direct_declarator
     struct declarator* _Owner _Opt declarator;
     struct array_declarator* _Owner _Opt array_declarator;
     struct function_declarator* _Owner _Opt function_declarator;
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 };
 
 void direct_declarator_delete(struct direct_declarator* _Owner _Opt p);
@@ -16357,7 +16393,7 @@ struct member_declaration
     struct static_assert_declaration* _Owner _Opt static_assert_declaration;
     struct pragma_declaration* _Owner _Opt pragma_declaration;
 
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct member_declaration* _Owner _Opt next;
 
 };
@@ -16598,7 +16634,7 @@ struct expression_statement
        attribute-specifier-sequence expression ;
     */
 
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct expression* _Owner _Opt expression_opt;
 };
 
@@ -16731,7 +16767,7 @@ struct unlabeled_statement
     struct jump_statement* _Owner _Opt jump_statement;
 };
 
-struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
+struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p);
 
 struct labeled_statement
@@ -16825,7 +16861,7 @@ struct attribute_list
     struct attribute* _Opt tail;
 };
 
-struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx);
+struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier);
 void attribute_list_destroy(_Dtor struct attribute_list* p);
 void attribute_list_delete(struct attribute_list* _Owner _Opt p);
 
@@ -16931,7 +16967,7 @@ struct label
     int label_id; //unique id inside the function scope
 };
 
-struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
+struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 void label_delete(struct label* _Owner _Opt p);
 
 struct ast
@@ -16958,8 +16994,16 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
+void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_specifier_sequence,
+                                struct diagnostic_id_stack* stack,
+                                int diagnostic_phase);
 
-NODISCARD
+void warn_unrecognized_warnings(struct parser_ctx* ctx,
+    struct diagnostic_id_stack* stack,
+    struct token* token);
+
+
+_Attr(nodiscard)
 bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -16971,7 +17015,7 @@ bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -16993,7 +17037,7 @@ bool unsigned_long_long_mul(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
     *result = 0;
@@ -17008,7 +17052,7 @@ bool unsigned_long_long_add(_Ctor unsigned long long* result, unsigned long long
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
@@ -17052,7 +17096,7 @@ bool signed_long_long_sub(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool signed_long_long_add(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
@@ -17091,7 +17135,7 @@ bool signed_long_long_add(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
-NODISCARD
+_Attr(nodiscard)
 bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, signed long long b)
 {
     *result = 0;
@@ -19874,7 +19918,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx);
 
-NODISCARD
+_Attr(nodiscard)
 static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expression* new_expression, int op);
 
 static int compare_function_arguments(struct parser_ctx* ctx,
@@ -21932,6 +21976,8 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                          &initializer,
                          is_constant,
                          requires_constant_initialization);
+
+            //initializer_destroy(&initializer); explodindo
         }
 
         if (ctx->previous == NULL)
@@ -22070,8 +22116,8 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
 
     if (ctx->current->type == TK_KEYWORD_CONST)
     {
-        struct token* ahead = parser_look_ahead(ctx);
-        if (ahead->type == '(')
+        struct token* _Opt ahead = parser_look_ahead(ctx);
+        if (ahead && ahead->type == '(')
             return true; //const(expr)
     }
 
@@ -22521,7 +22567,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                                             "invalid token");
                 throw;
             }
-            p_expression_node = new_expression;
+            p_expression_node = new_expression;            
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START)
         {
@@ -22535,6 +22581,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -22584,6 +22632,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -22621,6 +22671,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -22672,6 +22724,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -22785,6 +22839,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
             if (e != 0)
             {
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -22860,6 +22916,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         size_t type_sizeof = 0;
                         if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof, ctx->options.target) != 0)
                         {
+                            expression_delete(new_expression);
+                            new_expression = NULL;
                             throw;
                         }
 
@@ -22894,7 +22952,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 {
                     size_t sz = 0;
                     if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
+                    {
+                        expression_delete(new_expression);
+                        new_expression = NULL;
                         throw;
+                    }
                     new_expression->object = object_make_size_t(ctx->options.target, sz);
                 }
             }
@@ -23605,7 +23667,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 }
 
 
-NODISCARD
+_Attr(nodiscard)
 errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       const struct expression* new_expression,
                       int op,
@@ -25091,7 +25153,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
 }
 
 
-NODISCARD
+_Attr(nodiscard)
 static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expression* new_expression, int op)
 {
     try
@@ -26223,7 +26285,8 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case PRIMARY_EXPRESSION_GENERIC:  break;
     case PRIMARY_EXPRESSION_NUMBER:  break;
 
-    case PRIMARY_EXPRESSION_PARENTESIS:
+    case PRIMARY_EXPRESSION_PARENTESIS:        
+        assert(expr->right != NULL);
         count += expression_get_variables(expr->right, n, variables);
         break;
 
@@ -26266,12 +26329,17 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case MULTIPLICATIVE_EXPRESSION_MULT:
     case MULTIPLICATIVE_EXPRESSION_DIV:
     case MULTIPLICATIVE_EXPRESSION_MOD:
+        assert(expr->left != NULL);
+        assert(expr->right != NULL);
         count += expression_get_variables(expr->left, n, variables);
         count += expression_get_variables(expr->right, n, variables);
         break;
 
     case ADDITIVE_EXPRESSION_PLUS:
     case ADDITIVE_EXPRESSION_MINUS:
+        assert(expr->left != NULL);
+        assert(expr->right != NULL);
+
         count += expression_get_variables(expr->left, n, variables);
         count += expression_get_variables(expr->right, n, variables);
         break;
@@ -26286,6 +26354,8 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
     case EQUALITY_EXPRESSION_EQUAL:
     case EQUALITY_EXPRESSION_NOT_EQUAL:
+        assert(expr->left != NULL);
+        assert(expr->right != NULL);
         count += expression_get_variables(expr->left, n, variables);
         count += expression_get_variables(expr->right, n, variables);
         break;
@@ -26296,6 +26366,8 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
 
     case LOGICAL_OR_EXPRESSION:
     case LOGICAL_AND_EXPRESSION:
+        assert(expr->left != NULL);
+        assert(expr->right != NULL);
         count += expression_get_variables(expr->left, n, variables);
         count += expression_get_variables(expr->right, n, variables);
         break; //&&
@@ -26812,6 +26884,8 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
 
     case PRIMARY_EXPRESSION_PARENTESIS:
+        
+        assert(p_expression->right != NULL);
         result = expression_eval(p_expression->right);
         break;
 
@@ -26855,6 +26929,9 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
     case ADDITIVE_EXPRESSION_PLUS:
     {
+        assert(p_expression->left != NULL);
+        assert(p_expression->right != NULL);
+
         struct object a = expression_eval(p_expression->left);
         if (object_has_constant_value(&a))
         {
@@ -26870,6 +26947,9 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
     break;
     case ADDITIVE_EXPRESSION_MINUS:
     {
+        assert(p_expression->left != NULL);
+        assert(p_expression->right != NULL);
+
         struct object a = expression_eval(p_expression->left);
         if (object_has_constant_value(&a))
         {
@@ -28371,7 +28451,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.11.07"
+#define CAKE_VERSION "0.11.08"
 
 
 
@@ -28436,7 +28516,7 @@ void d_visit_ctx_destroy( _Dtor struct d_visit_ctx* ctx);
 #define MYMAX_PATH MAX_PATH
 #endif
 
-NODISCARD
+_Attr(nodiscard)
 int initializer_init_new(struct parser_ctx* ctx,
                        struct type* p_type, /*in (in/out for arrays [])*/
                         struct object* object, /*in (in/out for arrays [])*/
@@ -28687,6 +28767,24 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     const struct marker* _Opt p_marker_temp,
     const char* fmt, ...)
 {
+
+    if (ctx->p_diagnostic_id_stack &&
+        ctx->p_diagnostic_id_stack->size > 0)
+    {
+        enum diagnostic_id d =
+            ctx->p_diagnostic_id_stack->stack[ctx->p_diagnostic_id_stack->size - 1];
+
+        if (d == w)
+        {
+            diagnostic_id_stack_pop(ctx->p_diagnostic_id_stack);
+            return  false;
+        }
+        else
+        {
+
+        }
+    }
+
     bool included_file_location = false;
     struct marker marker = { 0 };
     if (p_marker_temp == NULL)
@@ -29055,8 +29153,9 @@ bool first_of_type_qualifier(const struct parser_ctx* ctx)
 
     if (ctx->current->type == TK_KEYWORD_CONST)
     {
-        struct token* ahead = parser_look_ahead(ctx);
-        if (ahead->type == '(')
+        //[[cake::W35]]
+        struct token* _Opt ahead = parser_look_ahead(ctx);
+        if (ahead && ahead->type == '(')
             return false; //expression const(expr)
     }
     return first_of_type_qualifier_token(ctx->current);
@@ -29975,7 +30074,7 @@ void unexpected_end_of_file(struct parser_ctx* ctx)
     compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, NULL, "unexpected end of file");
 }
 
-NODISCARD
+_Attr(nodiscard)
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
 {
     int error = 0;
@@ -30174,7 +30273,7 @@ void declaration_specifiers_delete(struct declaration_specifiers* _Owner _Opt p)
 {
     if (p)
     {
-        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
 
         struct declaration_specifier* _Owner _Opt item = p->head;
         while (item)
@@ -30312,13 +30411,13 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 
             declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
 
-            if (p_declaration_specifiers->p_attribute_specifier_sequence_opt == NULL)
+            if (p_declaration_specifiers->p_attribute_specifier_sequence == NULL)
             {
-                attribute_specifier_sequence_delete(p_declaration_specifiers->p_attribute_specifier_sequence_opt);
-                p_declaration_specifiers->p_attribute_specifier_sequence_opt = NULL;//
+                attribute_specifier_sequence_delete(p_declaration_specifiers->p_attribute_specifier_sequence);
+                p_declaration_specifiers->p_attribute_specifier_sequence = NULL;//
             }
 
-            p_declaration_specifiers->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+            p_declaration_specifiers->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             if (ctx->current == NULL)
             {
@@ -30360,7 +30459,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 }
 
 struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt /*SINK*/,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence /*SINK*/,
     bool can_be_function_definition,
     bool* is_function_definition,
     enum storage_class_specifier_flags default_storage_class_specifier_flags,
@@ -30389,8 +30488,8 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
             throw;
         }
 
-        p_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
-        p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
+        p_declaration->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
+        p_attribute_specifier_sequence = NULL; /*MOVED*/
 
         p_declaration->first_token = ctx->current;
 
@@ -30418,13 +30517,13 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 p_declaration->declaration_specifiers = declaration_specifiers(ctx, default_storage_class_specifier_flags);
                 if (p_declaration->declaration_specifiers == NULL) throw;
 
-                if (p_declaration->p_attribute_specifier_sequence_opt)
+                if (p_declaration->p_attribute_specifier_sequence)
                 {
                     p_declaration->declaration_specifiers->attributes_flags =
-                        p_declaration->p_attribute_specifier_sequence_opt->attributes_flags;
+                        p_declaration->p_attribute_specifier_sequence->attributes_flags;
 
                     p_declaration->declaration_specifiers->msvc_declspec_flags =
-                        p_declaration->p_attribute_specifier_sequence_opt->msvc_declspec_flags;
+                        p_declaration->p_attribute_specifier_sequence->msvc_declspec_flags;
                 }
 
                 if (ctx->current == NULL)
@@ -30490,13 +30589,13 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         p_declaration = NULL;
     }
 
-    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
 
     return p_declaration;
 }
 
 struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence,
     enum storage_class_specifier_flags storage_specifier_flags,
     bool extern_declaration);
 
@@ -30523,13 +30622,13 @@ struct declaration* _Owner _Opt function_definition_or_declaration(struct parser
 
 struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx,
     bool ignore_semicolon,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt)
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
 
     if (ctx->current == NULL)
     {
         unexpected_end_of_file(ctx);
-        attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+        attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
         return NULL;
     }
 
@@ -30549,18 +30648,18 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
 
         p_simple_declaration->first_token = ctx->current;
 
-        p_simple_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
-        p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
+        p_simple_declaration->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
+        p_attribute_specifier_sequence = NULL; /*MOVED*/
 
         struct declaration_specifiers* _Owner _Opt ptemp = declaration_specifiers(ctx, storage_specifier_flags);
         if (ptemp == NULL) throw;
 
         p_simple_declaration->p_declaration_specifiers = ptemp;
 
-        if (p_simple_declaration->p_attribute_specifier_sequence_opt)
+        if (p_simple_declaration->p_attribute_specifier_sequence)
         {
             p_simple_declaration->p_declaration_specifiers->attributes_flags =
-                p_simple_declaration->p_attribute_specifier_sequence_opt->attributes_flags;
+                p_simple_declaration->p_attribute_specifier_sequence->attributes_flags;
         }
 
         p_simple_declaration->init_declarator_list = init_declarator_list(ctx, p_simple_declaration->p_declaration_specifiers);
@@ -30584,7 +30683,7 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
         p_simple_declaration = NULL;
     }
 
-    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
 
     return p_simple_declaration;
 }
@@ -30616,7 +30715,7 @@ static void check_unused_parameters(struct parser_ctx* ctx, struct parameter_lis
 }
 
 struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt,
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence,
     enum storage_class_specifier_flags storage_specifier_flags,
     bool extern_declaration)
 {
@@ -30632,8 +30731,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
         bool is_function_definition = false;
 
-        p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, storage_specifier_flags, false);
-        p_attribute_specifier_sequence_opt = NULL;  //MOVED
+        p_declaration = declaration_core(ctx, p_attribute_specifier_sequence, true, &is_function_definition, storage_specifier_flags, false);
+        p_attribute_specifier_sequence = NULL;  //MOVED
 
         if (p_declaration == NULL)
             throw;
@@ -30864,7 +30963,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
     return p_declaration;
 
     //bool is_function_definition = false;
-    //return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, storage_specifier_flags, false);
+    //return declaration_core(ctx, p_attribute_specifier_sequence, false, &is_function_definition, storage_specifier_flags, false);
 }
 
 //(6.7) declaration-specifiers:
@@ -32897,7 +32996,7 @@ void member_declaration_delete(struct member_declaration* _Owner _Opt p)
         assert(p->next == NULL);
         specifier_qualifier_list_delete(p->specifier_qualifier_list);
         member_declarator_list_delete(p->member_declarator_list_opt);
-        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
         static_assert_declaration_delete(p->static_assert_declaration);
         pragma_declaration_delete(p->pragma_declaration);
         free(p);
@@ -32932,7 +33031,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
         }
         else
         {
-            p_member_declaration->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+            p_member_declaration->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
 
@@ -34185,7 +34284,7 @@ void direct_declarator_delete(struct direct_declarator* _Owner _Opt p)
     if (p)
     {
         declarator_delete(p->declarator);
-        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
         array_declarator_delete(p->array_declarator);
         function_declarator_delete(p->function_declarator);
 
@@ -34251,7 +34350,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
             }
 
             parser_match(ctx);
-            p_direct_declarator->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+            p_direct_declarator->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
         }
         else if (ctx->current->type == '(')
         {
@@ -34311,8 +34410,8 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
                 }
             }
             p_direct_declarator = p_direct_declarator2;
-            assert(p_direct_declarator->p_attribute_specifier_sequence_opt == NULL);
-            p_direct_declarator->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+            assert(p_direct_declarator->p_attribute_specifier_sequence == NULL);
+            p_direct_declarator->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
         }
     }
     catch
@@ -35275,6 +35374,12 @@ struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx
     return p_bracket_initializer_list;
 }
 
+void initializer_destroy(_Dtor struct initializer* p)
+{
+    expression_delete(p->assignment_expression);
+    braced_initializer_delete(p->braced_initializer);
+}
+
 void initializer_delete(struct initializer* _Owner _Opt p)
 {
     if (p)
@@ -36212,7 +36317,7 @@ struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* c
         if (parser_match_tk(ctx, '[') != 0)
             throw;
 
-        struct attribute_list* _Owner _Opt p_attribute_list = attribute_list(ctx);
+        struct attribute_list* _Owner _Opt p_attribute_list = attribute_list(ctx, p_attribute_specifier);
 
         if (p_attribute_list == NULL)
             throw;
@@ -36285,7 +36390,7 @@ void attribute_list_delete(struct attribute_list* _Owner _Opt p)
     }
 }
 
-struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx)
+struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
 {
     struct attribute_list* _Owner _Opt p_attribute_list = NULL;
     try
@@ -36301,7 +36406,7 @@ struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx)
         {
             if (first_of_attribute(ctx))
             {
-                struct attribute* _Owner _Opt p_attribute = attribute(ctx);
+                struct attribute* _Owner _Opt p_attribute = attribute(ctx, p_attribute_specifier);
                 if (p_attribute == NULL) throw;
 
                 p_attribute_list->attributes_flags |= p_attribute->attributes_flags;
@@ -36342,7 +36447,7 @@ bool first_of_attribute(const struct parser_ctx* ctx)
 
     return false;
 }
-enum attribute_flags attribute_token(struct parser_ctx* ctx)
+enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
 {
     enum attribute_flags attribute_flags = 0;
 
@@ -36424,7 +36529,14 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx)
             parser_match(ctx);
             if (is_cake_attr)
             {
-                compiler_diagnostic(W_ATTRIBUTES, ctx, attr_token, NULL, "warning '%s' is not an cake attribute", ctx->current->lexeme);
+                if (ctx->current->lexeme[0] == 'W')
+                {
+                    p_attribute_specifier->ack = atoi(ctx->current->lexeme + 1);
+                }
+                else
+                {
+                    compiler_diagnostic(W_ATTRIBUTES, ctx, attr_token, NULL, "warning '%s' is not an cake attribute", ctx->current->lexeme);
+                }
             }
 
             if (ctx->current == NULL)
@@ -36464,7 +36576,7 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx)
 }
 
 
-struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
+struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
 {
     struct attribute* _Owner _Opt p_attribute = NULL;
     try
@@ -36473,7 +36585,7 @@ struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx)
         if (p_attribute == NULL)
             throw;
 
-        enum attribute_flags attribute_flags = attribute_token(ctx);
+        enum attribute_flags attribute_flags = attribute_token(ctx, p_attribute_specifier);
 
         if (ctx->current == NULL)
         {
@@ -36718,12 +36830,12 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
 
         p_secondary_block->first_token = ctx->current;
 
-        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt =
+        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence =
             attribute_specifier_sequence_opt(ctx);
 
 
-        struct statement* _Owner _Opt p_statement = statement(ctx, p_attribute_specifier_sequence_opt);
-        p_attribute_specifier_sequence_opt = NULL;  //MOVED
+        struct statement* _Owner _Opt p_statement = statement(ctx, p_attribute_specifier_sequence);
+        p_attribute_specifier_sequence = NULL;  //MOVED
 
         if (p_statement == NULL)
             throw;
@@ -36844,6 +36956,43 @@ void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p)
     }
 }
 
+void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_specifier_sequence,
+                                struct diagnostic_id_stack* stack,
+                                int diagnostic_phase)
+{
+    struct attribute_specifier* _Opt p_attribute_specifier = p_attribute_specifier_sequence->head;
+    while (p_attribute_specifier)
+    {
+        enum diagnostic_id d = p_attribute_specifier->ack;
+        if (d != 0)
+        {
+            if (get_diagnostic_phase(d) == diagnostic_phase)
+            {
+                diagnostic_id_stack_push(stack, p_attribute_specifier->ack);
+            }
+        }
+        p_attribute_specifier = p_attribute_specifier->next;
+    }
+}
+
+void warn_unrecognized_warnings(struct parser_ctx* ctx,
+    struct diagnostic_id_stack* stack,
+    struct token* token)
+{
+    for (int i = stack->size - 1; i >= 0; i--)
+    {
+        char warning_name[200] = { 0 };
+        get_warning_name(stack->stack[i], sizeof(warning_name), warning_name);
+
+        compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
+            ctx,
+            token,
+            NULL,
+            "warning '%s' was not recognized",
+            warning_name);
+    }
+}
+
 struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
     /*
@@ -36860,12 +37009,35 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 
         if (first_of_primary_block(ctx))
         {
+            //TODO colocar em uma stack no ctx 
             p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
             p_attribute_specifier_sequence = NULL;
 
+            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->p_diagnostic_id_stack;
+            struct diagnostic_id_stack stack = { 0 };
+            ctx->p_diagnostic_id_stack = &stack;
+
+            if (p_unlabeled_statement->p_attribute_specifier_sequence)
+            {
+                build_diagnostic_id_stack(p_unlabeled_statement->p_attribute_specifier_sequence,
+                    &stack,
+                    0);
+            }
+
             p_unlabeled_statement->primary_block = primary_block(ctx);
+
+            if (p_unlabeled_statement->p_attribute_specifier_sequence && stack.size > 0)
+            {
+                warn_unrecognized_warnings(ctx,
+                    &stack,
+                    p_unlabeled_statement->p_attribute_specifier_sequence->first_token);
+            }
+
+            ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+
             if (p_unlabeled_statement->primary_block == NULL)
                 throw;
+
         }
         else if (first_of_jump_statement(ctx))
         {
@@ -36968,7 +37140,7 @@ void label_delete(struct label* _Owner _Opt p)
     }
 }
 
-struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt)
+struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence)
 {
     if (ctx->current == NULL)
         return NULL;
@@ -36979,8 +37151,8 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         if (p_label == NULL)
             throw;
 
-        p_label->p_attribute_specifier_sequence = p_attribute_specifier_sequence_opt; //MOVED
-        p_attribute_specifier_sequence_opt = NULL;
+        p_label->p_attribute_specifier_sequence = p_attribute_specifier_sequence; //MOVED
+        p_attribute_specifier_sequence = NULL;
 
         p_label->label_id = ctx->label_id++;
 
@@ -37204,7 +37376,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         label_delete(p_label);
         p_label = NULL;
     }
-    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_label;
 }
 
@@ -37543,7 +37715,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
 
     struct block_item* _Owner _Opt p_block_item = NULL;
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt = NULL;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence = NULL;
     try
     {
         if (ctx->current == NULL)
@@ -37560,7 +37732,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
          * Attributes can be first of declaration, labels etc..
          * so it is better to parse it in advance.
          */
-        p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+        p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
         if (ctx->current == NULL)
         {
@@ -37624,8 +37796,8 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
             first_of_static_assert_declaration(ctx) ||
             first_of_pragma_declaration(ctx))
         {
-            p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_BLOCK_SCOPE, false);
-            p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
+            p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence, STORAGE_SPECIFIER_BLOCK_SCOPE, false);
+            p_attribute_specifier_sequence = NULL; /*MOVED*/
 
             if (p_block_item->declaration == NULL)
                 throw;
@@ -37643,8 +37815,8 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
         else if (first_of_label(ctx))
         {
             // so identifier confunde com expression
-            p_block_item->label = label(ctx, p_attribute_specifier_sequence_opt);
-            p_attribute_specifier_sequence_opt = NULL; //MOVED
+            p_block_item->label = label(ctx, p_attribute_specifier_sequence);
+            p_attribute_specifier_sequence = NULL; //MOVED
 
             if (p_block_item->label == NULL)
             {
@@ -37653,8 +37825,8 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
         }
         else
         {
-            p_block_item->unlabeled_statement = unlabeled_statement(ctx, p_attribute_specifier_sequence_opt);
-            p_attribute_specifier_sequence_opt = NULL;
+            p_block_item->unlabeled_statement = unlabeled_statement(ctx, p_attribute_specifier_sequence);
+            p_attribute_specifier_sequence = NULL;
             if (p_block_item->unlabeled_statement == NULL)
             {
                 throw;
@@ -37687,7 +37859,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
     }
 
     //if not moved it will be deleted
-    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
 
     return p_block_item;
 }
@@ -38521,7 +38693,7 @@ void expression_statement_delete(struct expression_statement* _Owner _Opt p)
 {
     if (p)
     {
-        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
         expression_delete(p->expression_opt);
         free(p);
     }
@@ -38540,8 +38712,18 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
         if (p_expression_statement == NULL)
             throw;
 
-        p_expression_statement->p_attribute_specifier_sequence_opt =
-            p_attribute_specifier_sequence;
+        p_expression_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
+        p_attribute_specifier_sequence = NULL;
+
+        
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->p_diagnostic_id_stack;
+        struct diagnostic_id_stack stack = { 0 };
+        ctx->p_diagnostic_id_stack = &stack;
+
+        if (p_expression_statement->p_attribute_specifier_sequence)
+        {
+            build_diagnostic_id_stack(p_expression_statement->p_attribute_specifier_sequence, &stack, 0);
+        }
 
         if (ctx->current == NULL)
         {
@@ -38552,9 +38734,20 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
         if (ctx->current->type != ';')
         {
             p_expression_statement->expression_opt = expression(ctx);
+
+
+            if (p_expression_statement->p_attribute_specifier_sequence && stack.size > 0)
+            {
+                warn_unrecognized_warnings(ctx,
+                    &stack,
+                    p_expression_statement->p_attribute_specifier_sequence->first_token);
+            }
+
             if (p_expression_statement->expression_opt == NULL)
                 throw;
         }
+
+        ctx->p_diagnostic_id_stack = p_diagnostic_id_stack;
 
         if (!ignore_semicolon && parser_match_tk(ctx, ';') != 0)
             throw;
@@ -38588,7 +38781,7 @@ void simple_declaration_delete(struct simple_declaration* _Owner _Opt p_simple_d
     {
         declaration_specifiers_delete(p_simple_declaration->p_declaration_specifiers);
         init_declarator_list_destroy(&p_simple_declaration->init_declarator_list);
-        attribute_specifier_sequence_delete(p_simple_declaration->p_attribute_specifier_sequence_opt);
+        attribute_specifier_sequence_delete(p_simple_declaration->p_attribute_specifier_sequence);
 
         free(p_simple_declaration);
     }
@@ -38601,7 +38794,7 @@ void condition_delete(struct condition* _Owner _Opt p_condition)
         init_declarator_delete(p_condition->p_init_declarator);
         expression_delete(p_condition->expression);
 
-        attribute_specifier_sequence_delete(p_condition->p_attribute_specifier_sequence_opt);
+        attribute_specifier_sequence_delete(p_condition->p_attribute_specifier_sequence);
         declaration_specifiers_delete(p_condition->p_declaration_specifiers);
         free(p_condition);
     }
@@ -38630,7 +38823,7 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
         p_condition->first_token = ctx->current;
         if (first_of_declaration_specifier(ctx))
         {
-            p_condition->p_attribute_specifier_sequence_opt = attribute_specifier_sequence(ctx);
+            p_condition->p_attribute_specifier_sequence = attribute_specifier_sequence(ctx);
 
             p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_BLOCK_SCOPE);
             if (p_condition->p_declaration_specifiers == NULL)
@@ -38726,7 +38919,7 @@ void declaration_delete(struct declaration* _Owner _Opt p)
     if (p)
     {
 
-        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
         static_assert_declaration_delete(p->static_assert_declaration);
 
         declaration_specifiers_delete(p->declaration_specifiers);
@@ -40289,6 +40482,7 @@ struct find_object_result
 
 static bool find_next_subobject_core(const struct type* p_type, struct object* obj, struct object* subobj, struct find_object_result* result)
 {
+
     try
     {
         if (type_is_scalar(p_type))
@@ -40616,7 +40810,7 @@ static struct initializer_list_item* _Opt find_innner_initializer_list_item(stru
     return p_initializer_list_item;
 }
 
-NODISCARD
+_Attr(nodiscard)
 static int braced_initializer_new(struct parser_ctx* ctx,
                                   struct type* p_current_object_type,
                                   struct object* current_object,
@@ -49104,7 +49298,7 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     */
 }
 
-NODISCARD
+_Attr(nodiscard)
 static int arena_add_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name)
 {
     int state_number = ctx->state_number_generator;
@@ -51376,9 +51570,27 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->ctx->p_diagnostic_id_stack;
+    struct diagnostic_id_stack stack = { 0 };
+    ctx->ctx->p_diagnostic_id_stack = &stack;
+
+    if (p_expression_statement->p_attribute_specifier_sequence)
+    {
+        build_diagnostic_id_stack(p_expression_statement->p_attribute_specifier_sequence, &stack, 2);
+    }
+
     struct true_false_set d = { 0 };
     if (p_expression_statement->expression_opt)
         flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
+
+    if (p_expression_statement->p_attribute_specifier_sequence)
+    {
+        warn_unrecognized_warnings(ctx->ctx,
+        &stack,
+        p_expression_statement->p_attribute_specifier_sequence->first_token);
+    }
+    ctx->ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+
     true_false_set_destroy(&d);
 }
 
@@ -54314,7 +54526,7 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
         return true;
     }
 
-    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence_opt = NULL;
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence = NULL;
 
     if (p_type->struct_or_union_specifier)
     {
@@ -54322,14 +54534,14 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
           struct [[maybe_unused]] X { }
           struct X x;
         */
-        p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
+        p_attribute_specifier_sequence = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
 
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
-        if (p_attribute_specifier_sequence_opt == NULL && p_complete)
+        if (p_attribute_specifier_sequence == NULL && p_complete)
         {
-            p_attribute_specifier_sequence_opt = p_complete->attribute_specifier_sequence_opt;
+            p_attribute_specifier_sequence = p_complete->attribute_specifier_sequence_opt;
         }
     }
     else if (p_type->enum_specifier)
@@ -54337,16 +54549,16 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
         const struct enum_specifier* _Opt p_complete_enum_specifier =
             get_complete_enum_specifier(p_type->enum_specifier);
 
-        p_attribute_specifier_sequence_opt = p_type->enum_specifier->attribute_specifier_sequence_opt;
+        p_attribute_specifier_sequence = p_type->enum_specifier->attribute_specifier_sequence_opt;
 
-        if (p_attribute_specifier_sequence_opt == NULL && p_complete_enum_specifier)
+        if (p_attribute_specifier_sequence == NULL && p_complete_enum_specifier)
         {
-            p_attribute_specifier_sequence_opt = p_complete_enum_specifier->attribute_specifier_sequence_opt;
+            p_attribute_specifier_sequence = p_complete_enum_specifier->attribute_specifier_sequence_opt;
         }
     }
 
-    if (p_attribute_specifier_sequence_opt &&
-        p_attribute_specifier_sequence_opt->attributes_flags & attributes)
+    if (p_attribute_specifier_sequence &&
+        p_attribute_specifier_sequence->attributes_flags & attributes)
     {
         return true;
     }

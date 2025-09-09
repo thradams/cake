@@ -43,7 +43,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
 struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx);
 
-NODISCARD
+_Attr(nodiscard)
 static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expression* new_expression, int op);
 
 static int compare_function_arguments(struct parser_ctx* ctx,
@@ -2101,6 +2101,8 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                          &initializer,
                          is_constant,
                          requires_constant_initialization);
+
+            //initializer_destroy(&initializer); explodindo
         }
 
         if (ctx->previous == NULL)
@@ -2239,8 +2241,8 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
 
     if (ctx->current->type == TK_KEYWORD_CONST)
     {
-        struct token* ahead = parser_look_ahead(ctx);
-        if (ahead->type == '(')
+        struct token* _Opt ahead = parser_look_ahead(ctx);
+        if (ahead && ahead->type == '(')
             return true; //const(expr)
     }
 
@@ -2690,7 +2692,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                                             "invalid token");
                 throw;
             }
-            p_expression_node = new_expression;
+            p_expression_node = new_expression;            
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START)
         {
@@ -2704,6 +2706,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -2753,6 +2757,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -2790,6 +2796,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -2841,6 +2849,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -2954,6 +2964,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
             if (e != 0)
             {
+                expression_delete(new_expression);
+                new_expression = NULL;
                 throw;
             }
 
@@ -3029,6 +3041,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         size_t type_sizeof = 0;
                         if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof, ctx->options.target) != 0)
                         {
+                            expression_delete(new_expression);
+                            new_expression = NULL;
                             throw;
                         }
 
@@ -3063,7 +3077,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 {
                     size_t sz = 0;
                     if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
+                    {
+                        expression_delete(new_expression);
+                        new_expression = NULL;
                         throw;
+                    }
                     new_expression->object = object_make_size_t(ctx->options.target, sz);
                 }
             }
@@ -3774,7 +3792,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
 }
 
 
-NODISCARD
+_Attr(nodiscard)
 errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       const struct expression* new_expression,
                       int op,
@@ -5260,7 +5278,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
 }
 
 
-NODISCARD
+_Attr(nodiscard)
 static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expression* new_expression, int op)
 {
     try
@@ -6392,7 +6410,8 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case PRIMARY_EXPRESSION_GENERIC:  break;
     case PRIMARY_EXPRESSION_NUMBER:  break;
 
-    case PRIMARY_EXPRESSION_PARENTESIS:
+    case PRIMARY_EXPRESSION_PARENTESIS:        
+        assert(expr->right != NULL);
         count += expression_get_variables(expr->right, n, variables);
         break;
 
@@ -6435,12 +6454,17 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case MULTIPLICATIVE_EXPRESSION_MULT:
     case MULTIPLICATIVE_EXPRESSION_DIV:
     case MULTIPLICATIVE_EXPRESSION_MOD:
+        assert(expr->left != NULL);
+        assert(expr->right != NULL);
         count += expression_get_variables(expr->left, n, variables);
         count += expression_get_variables(expr->right, n, variables);
         break;
 
     case ADDITIVE_EXPRESSION_PLUS:
     case ADDITIVE_EXPRESSION_MINUS:
+        assert(expr->left != NULL);
+        assert(expr->right != NULL);
+
         count += expression_get_variables(expr->left, n, variables);
         count += expression_get_variables(expr->right, n, variables);
         break;
@@ -6455,6 +6479,8 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
     case EQUALITY_EXPRESSION_EQUAL:
     case EQUALITY_EXPRESSION_NOT_EQUAL:
+        assert(expr->left != NULL);
+        assert(expr->right != NULL);
         count += expression_get_variables(expr->left, n, variables);
         count += expression_get_variables(expr->right, n, variables);
         break;
@@ -6465,6 +6491,8 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
 
     case LOGICAL_OR_EXPRESSION:
     case LOGICAL_AND_EXPRESSION:
+        assert(expr->left != NULL);
+        assert(expr->right != NULL);
         count += expression_get_variables(expr->left, n, variables);
         count += expression_get_variables(expr->right, n, variables);
         break; //&&
@@ -6981,6 +7009,8 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
 
     case PRIMARY_EXPRESSION_PARENTESIS:
+        
+        assert(p_expression->right != NULL);
         result = expression_eval(p_expression->right);
         break;
 
@@ -7024,6 +7054,9 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
     case ADDITIVE_EXPRESSION_PLUS:
     {
+        assert(p_expression->left != NULL);
+        assert(p_expression->right != NULL);
+
         struct object a = expression_eval(p_expression->left);
         if (object_has_constant_value(&a))
         {
@@ -7039,6 +7072,9 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
     break;
     case ADDITIVE_EXPRESSION_MINUS:
     {
+        assert(p_expression->left != NULL);
+        assert(p_expression->right != NULL);
+
         struct object a = expression_eval(p_expression->left);
         if (object_has_constant_value(&a))
         {

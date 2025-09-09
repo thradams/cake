@@ -91,6 +91,8 @@ struct parser_ctx
 {
     struct options options;
 
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack;
+
     /*
       file scope -> function params -> function -> inner scope
     */
@@ -152,7 +154,7 @@ void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx);
 struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx);
 void unexpected_end_of_file(struct parser_ctx* ctx);
 void parser_match(struct parser_ctx* ctx);
-NODISCARD
+_Attr(nodiscard)
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 
 struct token* _Opt previous_parser_token(const struct token* token);
@@ -222,7 +224,7 @@ struct declaration_specifiers
     enum function_specifier_flags function_specifier_flags;
 
     enum alignment_specifier_flags alignment_specifier_flags;
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 
     /*shortcuts*/
     struct struct_or_union_specifier* _Opt struct_or_union_specifier;
@@ -309,6 +311,7 @@ struct attribute_specifier
      attribute-specifier:
         [ [ attribute-list ] ]
     */
+    enum diagnostic_id ack;
     struct token* first_token;
     struct token* last_token;
     struct attribute_list* _Owner attribute_list;
@@ -318,7 +321,7 @@ struct attribute_specifier
 struct attribute_specifier* _Owner _Opt attribute_specifier(struct parser_ctx* ctx);
 void attribute_specifier_delete(struct attribute_specifier* _Owner _Opt p);
 
-struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx);
+struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier);
 
 
 struct storage_class_specifier
@@ -453,7 +456,7 @@ struct declaration
         static_assert-declaration
         attribute-declaration
     */
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 
     struct static_assert_declaration* _Owner _Opt static_assert_declaration;
     struct pragma_declaration* _Owner _Opt pragma_declaration;
@@ -485,7 +488,7 @@ struct simple_declaration
       declaration-specifiers init-declarator-list _Opt ;
       attribute-specifier-sequence declaration-specifiers init-declarator-list ;
     */
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct declaration_specifiers* _Owner p_declaration_specifiers;
     struct init_declarator_list init_declarator_list;
     struct token* first_token;
@@ -496,7 +499,7 @@ void simple_declaration_delete(struct simple_declaration* _Owner _Opt p);
 
 struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx,
     bool ignore_semicolon,
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 
 struct condition
 {
@@ -508,7 +511,7 @@ struct condition
        attribute-specifier-seq opt decl-specifier-seq declarator initializer
     */
     struct expression* _Owner _Opt expression;
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct declaration_specifiers* _Owner _Opt p_declaration_specifiers;
 
     /*
@@ -722,6 +725,7 @@ struct initializer
 };
 
 struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx);
+void initializer_destroy(_Dtor struct initializer* p);
 void initializer_delete(struct initializer* _Owner _Opt  p);
 
 struct declarator
@@ -843,7 +847,7 @@ struct direct_declarator
     struct declarator* _Owner _Opt declarator;
     struct array_declarator* _Owner _Opt array_declarator;
     struct function_declarator* _Owner _Opt function_declarator;
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 };
 
 void direct_declarator_delete(struct direct_declarator* _Owner _Opt p);
@@ -1072,7 +1076,7 @@ struct member_declaration
     struct static_assert_declaration* _Owner _Opt static_assert_declaration;
     struct pragma_declaration* _Owner _Opt pragma_declaration;
 
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct member_declaration* _Owner _Opt next;
 
 };
@@ -1313,7 +1317,7 @@ struct expression_statement
        attribute-specifier-sequence expression ;
     */
 
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
     struct expression* _Owner _Opt expression_opt;
 };
 
@@ -1446,7 +1450,7 @@ struct unlabeled_statement
     struct jump_statement* _Owner _Opt jump_statement;
 };
 
-struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
+struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p);
 
 struct labeled_statement
@@ -1540,7 +1544,7 @@ struct attribute_list
     struct attribute* _Opt tail;
 };
 
-struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx);
+struct attribute_list* _Owner _Opt attribute_list(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier);
 void attribute_list_destroy(_Dtor struct attribute_list* p);
 void attribute_list_delete(struct attribute_list* _Owner _Opt p);
 
@@ -1646,7 +1650,7 @@ struct label
     int label_id; //unique id inside the function scope
 };
 
-struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence_opt);
+struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence);
 void label_delete(struct label* _Owner _Opt p);
 
 struct ast
@@ -1672,3 +1676,11 @@ int initializer_init_new(struct parser_ctx* ctx,
                          bool requires_constant_initialization);
 
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
+
+void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_specifier_sequence,
+                                struct diagnostic_id_stack* stack,
+                                int diagnostic_phase);
+
+void warn_unrecognized_warnings(struct parser_ctx* ctx,
+    struct diagnostic_id_stack* stack,
+    struct token* token);
