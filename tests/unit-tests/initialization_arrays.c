@@ -1,33 +1,36 @@
-﻿
+
 
 
 void T00()
 {
-    constexpr int i[2] = { 1, 2, 3 };
-#pragma cake diagnostic check "-E100"
+    // warning: warning: excess elements in initializer
+    [[cake::e100]]
+    constexpr int i[2] = {1, 2, 3};
 
-    constexpr int i2[2] = { 1,[3] = 2 };
-#pragma cake diagnostic check "-E720"
+    // error: array index '3' in initializer exceeds array bounds
+    [[cake::e720]]
+    constexpr int i2[2] = {1,[3] = 2};
 
-    constexpr int i3[2] = { 1,[2 - 3] = 2 };
-#pragma cake diagnostic check "-E720"
+    //error: array designator value '-1' is negative
+    [[cake::e720]]
+    constexpr int i3[2] = {1,[2 - 3] = 2};
 
-    constexpr int i5 = { {1} }; //ok
+    constexpr int i5 = {{1}}; //ok
 
-    constexpr int i4 = { 1, 2 };
-#pragma cake diagnostic check "-E100"
-
+    //warning: warning: excess elements in initializer
+    [[cake::w100]]
+    constexpr int i4 = {1, 2};
 }
 
 void T0()
 {
-    constexpr int i3 = { {3} };
+    constexpr int i3 = {{3}};
     static_assert(i3 == 3);
 
     constexpr int i = 1;
     static_assert(i == 1);
 
-    constexpr int i2 = { 2 };
+    constexpr int i2 = {2};
     static_assert(i2 == 2);
 }
 
@@ -46,7 +49,7 @@ void T1()
         struct X x2;
     };
 
-    constexpr struct Y y = { 1, {1, 2}, 3 };
+    constexpr struct Y y = {1, {1, 2}, 3};
     static_assert(y.i == 1);
 
     static_assert(y.x.a == 1);
@@ -64,8 +67,7 @@ void T2()
         int b;
     };
 
-    constexpr struct Y y = { .ar[1] = 2, 3, 4 };
-    //#pragma cake diagnostic check "-E100"
+    constexpr struct Y y = {.ar[1] = 2, 3, 4};
 
     static_assert(y.a == 0);
     static_assert(y.ar[0] == 0);
@@ -86,8 +88,8 @@ void T3()
         int i;
         struct X x;
     };
-    struct X x = { 0 };
-    struct Y y = { .x = x, .i = 4 };
+    struct X x = {0};
+    struct Y y = {.x = x, .i = 4};
 }
 
 void T4()
@@ -96,7 +98,7 @@ void T4()
     // The following four array declarations are the same
 
         //{1, 0, 0, 0, 0, 0, 2, 3, 0, 0, 0, 0, 4, 5, 6};
-    constexpr short q4[4][3][2] = { 1,[1] = 2, 3,[2] = 4, 5, 6 };
+    constexpr short q4[4][3][2] = {1,[1] = 2, 3,[2] = 4, 5, 6};
     static_assert(q4[0][0][0] == 1);
 
     static_assert(q4[1][0][0] == 2);
@@ -106,7 +108,7 @@ void T4()
     static_assert(q4[2][0][1] == 5);
     static_assert(q4[2][1][0] == 6);
 
-    constexpr short q1[4][3][2] = { {1}, {2, 3}, {4, 5, 6} };
+    constexpr short q1[4][3][2] = {{1}, {2, 3}, {4, 5, 6}};
 
     static_assert(q1[0][0][0] == 1);
 
@@ -117,7 +119,7 @@ void T4()
     static_assert(q1[2][0][1] == 5);
     static_assert(q1[2][1][0] == 6);
 
-    constexpr short q2[4][3][2] = { 1, 0, 0, 0, 0, 0, 2, 3, 0, 0, 0, 0, 4, 5, 6 };
+    constexpr short q2[4][3][2] = {1, 0, 0, 0, 0, 0, 2, 3, 0, 0, 0, 0, 4, 5, 6};
 
     static_assert(q2[0][0][0] == 1);
 
@@ -129,7 +131,7 @@ void T4()
     static_assert(q2[2][1][0] == 6);
 
 
-    constexpr short q3[4][3][2] = { {
+    constexpr short q3[4][3][2] = {{
                                        {1},
                                    },
                                    {
@@ -138,7 +140,7 @@ void T4()
                                    {
                                        {4, 5},
                                        {6},
-                                   } };
+                                   }};
 
 
     static_assert(q3[0][0][0] == 1);
@@ -153,7 +155,7 @@ void T4()
 
 void T5()
 {
-    constexpr int a[2][3] = { 1, 2, 3, 4, 5, 6 };
+    constexpr int a[2][3] = {1, 2, 3, 4, 5, 6};
 
     static_assert(a[0][0] == 1);
     static_assert(a[0][1] == 2);
@@ -174,7 +176,7 @@ void T7()
 {
     // initializes w (an array of two structs) to
     // { { {1,0,0}, 0}, { {2,0,0}, 0} }
-    constexpr struct { int a[3], b; } w[] = { [0] .a = {1},[1].a[0] = 2 };
+    constexpr struct { int a[3], b; } w[] = {[0] .a = {1},[1].a[0] = 2};
     static_assert(_Countof(w) == 2);
     static_assert(w[0].a[0] == 1);
     static_assert(w[0].a[1] == 0);
@@ -202,12 +204,12 @@ void T8()
 
 void T9()
 {
-    constexpr int x[] = { 1, 3, 5 }, * p = x;
+    constexpr int x[] = {1, 3, 5}, * p = x;
     static_assert(x[0] == 1);
     static_assert(x[1] == 3);
     static_assert(x[2] == 5);
 
-    constexpr int a[] = { 1, 2, 3 };
+    constexpr int a[] = {1, 2, 3};
     static_assert(a[0] == 1);
     static_assert(a[1] == 2);
     static_assert(a[2] == 3);
@@ -217,7 +219,7 @@ void T9()
 
 void T10()
 {
-    constexpr int a[3] = { [2] = 1,[1] = 2,[0] = 3 };
+    constexpr int a[3] = {[2] = 1,[1] = 2,[0] = 3};
     static_assert(a[0] == 3);
     static_assert(a[1] == 2);
     static_assert(a[2] == 1);
@@ -230,7 +232,7 @@ void T11()
         int a, b, c;
     };
 
-    constexpr struct X x = { .b = 2, 3 };
+    constexpr struct X x = {.b = 2, 3};
     static_assert(x.a == 0);
     static_assert(x.b == 2);
     static_assert(x.c == 3);
@@ -242,9 +244,9 @@ void T12()
     struct X {
         int a, b, c;
     };
-
-    constexpr struct X x = { .c = 3, 4 };
-#pragma cake diagnostic check "-E100"
+    //warning: warning: excess elements in initializer
+    [[cake::e100]]
+    constexpr struct X x = {.c = 3, 4};
 
     static_assert(x.a == 0);
     static_assert(x.b == 0);
@@ -259,8 +261,10 @@ void T13()
         int a, b, c;
     };
 
-    constexpr struct X x = { .d = 3 };
-#pragma cake diagnostic check "-E720"
+    //error: member 'd' not found in 'X'
+    [[cake::e720]]
+    constexpr struct X x = {.d = 3};
+
     static_assert(x.a == 0);
     static_assert(x.b == 0);
     static_assert(x.c == 0);

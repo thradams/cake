@@ -1,13 +1,14 @@
-﻿int main()
+int main()
 {
     int i;
     switch (i)
     {
-    case 1:break;
-    case 2: break;
-    case 1:break;
+        case 1:break;
+        case 2: break;
+        
+        //error: duplicate case '1'
+        [[cake::e1450]]
+        case 1:break;
     }
 }
-
-#pragma cake diagnostic check "-E1450"
 

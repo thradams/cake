@@ -1,4 +1,4 @@
-﻿
+
 #pragma safety enable
 
 struct Y {
@@ -14,9 +14,11 @@ void f(struct X* ctx)
     if (ctx->current == 0)
         return;
 
+    //warning: pointer is always non-null
+    [[cake::w28]]
     if (ctx->current != 0)
     {
-#pragma cake diagnostic check "-Wflow-not-null"
+
     }
     else
     {

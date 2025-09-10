@@ -1,17 +1,20 @@
-﻿#pragma safety enable
+#pragma safety enable
 
 void f(int* p)
 {
+    //pointer is always non-null   
+    [[cake::w28]]
     if (p != 0) {}
-#pragma cake diagnostic check "-Wflow-not-null"
 
+    //pointer is always non-null
+    [[cake::w28]]
     if (0 != p) {}
-#pragma cake diagnostic check "-Wflow-not-null"
 
+    //pointer is always non-null
+    [[cake::w28]]
     if (p == 0) {}
- #pragma cake diagnostic check "-Wflow-not-null"
 
+    //pointer is always non-null
+    [[cake::w28]]
     if (0 == p) {}
-#pragma cake diagnostic check "-Wflow-not-null"
-
 }

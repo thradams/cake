@@ -3,9 +3,9 @@
 
 struct X { char* _Owner text; };
 
-void x_destroy(_Dtor struct X*  p);
+void x_destroy(_Dtor struct X* p);
 
-void x_delete(struct X* _Owner _Opt p)
+void x_delete(struct X* _Owner _Opt p [[cake::leak]] )
 {
     if (p)
     {
@@ -13,7 +13,4 @@ void x_delete(struct X* _Owner _Opt p)
         //memory pointed by p not deleted
     }
 }
-#pragma cake diagnostic check "-Wmissing-destructor"
-
-
 

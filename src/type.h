@@ -53,7 +53,9 @@ enum attribute_flags
     */
     CAKE_ATTRIBUTE_FASTCALL = 1 << 27,
     CAKE_ATTRIBUTE_STDCALL = 1 << 28,
-    CAKE_ATTRIBUTE_CDECL = 1 << 29
+    CAKE_ATTRIBUTE_CDECL = 1 << 29,
+
+    CAKE_ATTRIBUTE_LEAK = 1 << 30,
 
 };
 

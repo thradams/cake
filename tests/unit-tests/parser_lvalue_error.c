@@ -1,8 +1,11 @@
 int main()
 {
-    1++;
-    //error: lvalue required as increment operand [E122]
-}
+    //error: lvalue required as decrement operand 
+    [[cake::e1230]]
+    1--;
 
-#pragma cake diagnostic check "-E1230"
+    //error: lvalue required as decrement operand 
+    [[cake::e1230]]
+    1++;
+}
 

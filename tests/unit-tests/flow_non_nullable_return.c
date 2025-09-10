@@ -1,11 +1,14 @@
 #pragma safety enable
 
 
-int * f();
+int* f();
 int main()
 {
-  int * _Opt p = f();
-  if (p)
-    return 0;
-#pragma cake diagnostic check "-Wflow-not-null"  
+    int* _Opt p = f();
+
+    //pointer is always not-null
+    [[cake::w28]]
+    if (p)
+        return 0;
+
 }

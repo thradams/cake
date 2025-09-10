@@ -10,11 +10,13 @@ struct X {
 
 void x_delete(struct X* _Owner _Opt p)
 {
-    if (p) {
-        //free(p->name);
+    if (p)
+    {
+
+        //object 'name' may not be empty
+        [[cake::w29]]
         free(p);
     }
 }
 
-#pragma cake diagnostic check "-Wmissing-destructor"
 

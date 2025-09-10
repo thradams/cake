@@ -2365,10 +2365,26 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             type_is_owner(p_visitor->p_type) &&
             p_visitor->p_object->current.state & FLOW_OBJECT_STATE_NOT_NULL)
         {
-            if (compiler_diagnostic(W_FLOW_MISSING_DTOR,
-                ctx->ctx,
-                position, NULL,
-                "object pointed by '%s' was not released.", previous_names))
+
+            bool show_warning = true;
+
+            if (p_visitor->p_object->p_declarator_origin &&
+                p_visitor->p_object->p_declarator_origin->direct_declarator &&
+                p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence)
+            {
+
+                enum attribute_flags  attributes_flags =
+                    p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence->attributes_flags;
+
+                if (attributes_flags & CAKE_ATTRIBUTE_LEAK)
+                    show_warning = false;
+            }
+
+            if (show_warning &&
+                compiler_diagnostic(W_FLOW_MISSING_DTOR,
+                    ctx->ctx,
+                    position, NULL,
+                    "object pointed by '%s' was not released.", previous_names))
             {
                 compiler_diagnostic(W_LOCATION,
                 ctx->ctx,
@@ -2403,10 +2419,26 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             }
             else
             {
-                if (compiler_diagnostic(W_FLOW_MISSING_DTOR,
-                    ctx->ctx,
-                    position, NULL,
-                    "object pointed by '%s' was not released.", previous_names))
+                bool show_warning = true;
+
+                if (p_visitor->p_object->p_declarator_origin &&
+                    p_visitor->p_object->p_declarator_origin->direct_declarator &&
+                    p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence)
+                {
+
+                    enum attribute_flags  attributes_flags =
+                        p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence->attributes_flags;
+
+                    if (attributes_flags & CAKE_ATTRIBUTE_LEAK)
+                        show_warning = false;
+                }
+
+
+                if (show_warning &&
+                    compiler_diagnostic(W_FLOW_MISSING_DTOR,
+                        ctx->ctx,
+                        position, NULL,
+                        "object pointed by '%s' was not released.", previous_names))
                 {
                     compiler_diagnostic(W_LOCATION,
                     ctx->ctx,
@@ -4225,7 +4257,8 @@ static void braced_initializer_flow(struct flow_visit_ctx* ctx, struct object* o
         {
             throw;
         }
-
+        //We are allowing invalid (not final) state
+#if 0
         /*
            Let´s check if the object has been initialized correctly
         */
@@ -4243,6 +4276,8 @@ static void braced_initializer_flow(struct flow_visit_ctx* ctx, struct object* o
         flow_obj->p_declarator_origin->first_token_opt,
         &a_marker,
         false);
+#endif
+
     }
     catch
     {
@@ -4348,6 +4383,8 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                     flow_object_set_zero(&t, pointed_calloc_object);
                     object_set_pointer(p_init_declarator->p_declarator->p_flow_object, pointed_calloc_object);
 
+                    //We are allowing invalid (not final) state
+#if 0
                     struct marker a_marker = {
                       .p_token_begin = p_init_declarator->p_declarator->first_token_opt,
                       .p_token_end = p_init_declarator->p_declarator->last_token_opt,
@@ -4360,7 +4397,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                         p_init_declarator->p_declarator->first_token_opt,
                         &a_marker,
                         false);
-
+#endif
                     type_destroy(&t);
                     p_init_declarator->p_declarator->p_flow_object->current.state = FLOW_OBJECT_STATE_NOT_NULL | FLOW_OBJECT_STATE_NULL;
                 }
@@ -6244,26 +6281,22 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
-    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->ctx->p_diagnostic_id_stack;
     struct diagnostic_id_stack stack = { 0 };
-    ctx->ctx->p_diagnostic_id_stack = &stack;
-
-    if (p_expression_statement->p_attribute_specifier_sequence)
-    {
-        build_diagnostic_id_stack(p_expression_statement->p_attribute_specifier_sequence, &stack, 2);
-    }
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+        build_diagnostic_id_stack(ctx->ctx,
+            p_expression_statement->p_attribute_specifier_sequence,
+            &stack,
+            2);
 
     struct true_false_set d = { 0 };
     if (p_expression_statement->expression_opt)
         flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
 
-    if (p_expression_statement->p_attribute_specifier_sequence)
-    {
-        warn_unrecognized_warnings(ctx->ctx,
-        &stack,
-        p_expression_statement->p_attribute_specifier_sequence->first_token);
-    }
-    ctx->ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+
+    warn_unrecognized_warnings(ctx->ctx,
+                               &stack,
+                               p_expression_statement->p_attribute_specifier_sequence,
+                               p_diagnostic_id_stack);
 
     true_false_set_destroy(&d);
 }
@@ -6659,6 +6692,8 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label);
 
 static void flow_visit_labeled_statement(struct flow_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)
 {
+
+
     flow_visit_label(ctx, p_labeled_statement->label);
     flow_visit_statement(ctx, p_labeled_statement->statement);
 }
@@ -6693,9 +6728,20 @@ static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_
 
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
+
     if (p_unlabeled_statement->primary_block)
     {
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx->ctx,
+                p_unlabeled_statement->p_attribute_specifier_sequence,
+                &stack,
+                2);
         flow_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
+        warn_unrecognized_warnings(ctx->ctx,
+                               &stack,
+                               p_unlabeled_statement->p_attribute_specifier_sequence,
+                               p_diagnostic_id_stack);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
@@ -6703,12 +6749,24 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
     }
     else if (p_unlabeled_statement->jump_statement)
     {
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx->ctx,
+                p_unlabeled_statement->p_attribute_specifier_sequence,
+                &stack,
+                2);
         flow_visit_jump_statement(ctx, p_unlabeled_statement->jump_statement);
+        warn_unrecognized_warnings(ctx->ctx,
+                               &stack,
+                               p_unlabeled_statement->p_attribute_specifier_sequence,
+                               p_diagnostic_id_stack);
     }
     else
     {
         assert(false);
     }
+
+
 }
 
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement)
@@ -6725,6 +6783,13 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 
 static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 {
+    struct diagnostic_id_stack stack = { 0 };
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+        build_diagnostic_id_stack(ctx->ctx,
+            p_label->p_attribute_specifier_sequence,
+            &stack,
+            2);
+
     if (p_label->p_identifier_opt)
     {
         for (int i = 0; i < ctx->labels_size; i++)
@@ -6743,6 +6808,10 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
         //case, default
         arena_restore_current_state_from(ctx, ctx->initial_state);
     }
+    warn_unrecognized_warnings(ctx->ctx,
+                              &stack,
+                              p_label->p_attribute_specifier_sequence,
+                              p_diagnostic_id_stack);
 }
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
@@ -7282,6 +7351,13 @@ static bool flow_is_last_item_return(struct compound_statement* p_compound_state
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
+    struct diagnostic_id_stack stack = { 0 };
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+        build_diagnostic_id_stack(ctx->ctx,
+            p_declaration->p_attribute_specifier_sequence,
+            &stack,
+            2);
+
     if (p_declaration->static_assert_declaration)
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
@@ -7323,10 +7399,26 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
         type_destroy(&type);
         ctx->p_return_type = NULL;
     }
+
+
+    if (p_declaration->function_body && !flow_is_last_item_return(p_declaration->function_body))
+    {
+        flow_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
+    }
+
+    warn_unrecognized_warnings(ctx->ctx,
+                               &stack,
+                               p_declaration->p_attribute_specifier_sequence,
+                               p_diagnostic_id_stack);
+
 }
 
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
+
+
+    //p_declaration->p_attribute_specifier_sequence
+
     ctx->labels_size = 0;
     flow_objects_clear(&ctx->arena);
 
@@ -7335,12 +7427,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
     if (p_declaration->function_body)
     {
         flow_visit_declaration(ctx, p_declaration);
-        assert(p_declaration->function_body != NULL); //flow_visit_declaration does not change this
 
-        if (!flow_is_last_item_return(p_declaration->function_body))
-        {
-            flow_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
-        }
     }
     else
     {

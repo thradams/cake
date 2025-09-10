@@ -1,5 +1,7 @@
+//error: cannot combine with previous 'long long' declaration specifier 
+[[cake::e980]]
 long long long a;
-#pragma cake diagnostic check "-E980"
 
+//error: incompatible specifiers
+[[cake::e1300]]
 signed unsigned b;
-#pragma cake diagnostic check "-E1300"

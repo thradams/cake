@@ -1,4 +1,6 @@
-int main(){ 
- const int i;
-#pragma cake diagnostic check "-Wconst-init"
+int main()
+{
+    //warning: const object should be initialized
+    [[cake::w48]]
+    const int i;
 }

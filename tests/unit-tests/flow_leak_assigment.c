@@ -8,9 +8,13 @@ struct X {
     char* _Owner name;
 };
 
-int main() {
+int main()
+{
     struct X* _Owner _Opt p = malloc(sizeof * p);
+
+    //object 'p' may not be empty
+    [[cake::w29]]
     p = 0;
 }
 
-#pragma cake diagnostic check "-Wmissing-destructor"
+

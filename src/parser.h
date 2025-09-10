@@ -52,17 +52,7 @@ struct report
     bool test_mode;
     int test_failed;
     int test_succeeded;
-
-    /*
-     Warnings are removed (-test-mode) on demand at next line,
-     but we can have more than one warning at same line then we need this array
-    */
-    enum diagnostic_id last_diagnostics_ids[2];
-
-    //this error is expected in test-mode
-    //it is used when the error aborts parsing
-    enum diagnostic_id fatal_error_expected;
-
+    
     /*
       direct commands like -autoconfig doesnt use report
     */
@@ -1677,10 +1667,12 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
-void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_specifier_sequence,
-                                struct diagnostic_id_stack* stack,
-                                int diagnostic_phase);
+struct diagnostic_id_stack* _Opt  build_diagnostic_id_stack(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
+                               struct diagnostic_id_stack* stack,
+                               int diagnostic_phase);
 
 void warn_unrecognized_warnings(struct parser_ctx* ctx,
     struct diagnostic_id_stack* stack,
-    struct token* token);
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack);

@@ -1,5 +1,6 @@
 int main()
 {
-   int a = 2 / 0;
-#pragma cake diagnostic check "-Wdiv-by-zero"
+    //warning: division by zero
+    [[cake::w37]]
+    int a = 2 / 0;
 }

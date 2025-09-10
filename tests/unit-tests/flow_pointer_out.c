@@ -22,8 +22,9 @@ int main()
         struct X* _Owner _Opt p2 = 0;
         f(p1, &p2);
 
+        //warning: pointer may be null (p2)
+        [[cake::w33]]
         free(p2->text);
-#pragma cake diagnostic check "-Wanalyzer-null-dereference"
 
         free(p2);
     }

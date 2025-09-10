@@ -82,7 +82,7 @@ enum diagnostic_id {
     W_UNUSED_FUNCTION,
     W_BOOL_COMPARISON,
     W_WARNING_DID_NOT_HAPPEN,
-    W_NOT_DEFINED59,
+    W_NULLABLE_TO_NON_NULLABLE,
     W_NOT_DEFINED60,
 
     W_LOCATION, /*prints code location*/
@@ -236,6 +236,7 @@ enum style
 
 };
 int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/]);
+int get_warning_name_and_number(enum diagnostic_id w, int n, char buffer[/*n*/]);
 unsigned long long  get_warning_bit_mask(const char* wname);
 
 enum diagnostic_id  get_warning(const char* wname);

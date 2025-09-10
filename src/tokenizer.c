@@ -4221,15 +4221,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
+                            unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme+1);
+
                             match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
                             assert(r.tail != NULL);
                             r.tail->flags |= TK_FLAG_FINAL;
-
-                            unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                         }
                     }
-                    else if (strcmp(input_list->head->lexeme, "ignore") == 0)
+                    else if (strcmp(input_list->head->lexeme, "ignored") == 0)
                     {
                         //#pragma CAKE diagnostic ignore "-Wenum-compare"
 
@@ -4241,7 +4241,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
-                            unsigned long long w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
+                            unsigned long long w = get_warning_bit_mask(input_list->head->lexeme + 1);
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
                         }
                     }

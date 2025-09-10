@@ -1,4 +1,4 @@
-﻿
+
 
 void T2()
 {
@@ -9,7 +9,6 @@ void T2()
     };
 
     constexpr struct Y y = { .ar[1] = 2, 3, 4 };
-    //#pragma cake diagnostic check "-E100"
 
     static_assert(y.a == 0);
     static_assert(y.ar[0] == 0);

@@ -3,9 +3,11 @@
 
 
 void* f();
-int main() {
-    void* _Owner p = f();
-   #pragma cake diagnostic check "-Wnon-owner-to-owner-move"
+int main()
+{
+    //cannot assign a non-owner to owner
+    [[cake::w25]]
+    void* _Owner p [[cake::leak]] = f();
 }
 
-#pragma cake diagnostic check "-Wmissing-destructor"
+

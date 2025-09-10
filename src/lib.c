@@ -828,7 +828,7 @@ enum diagnostic_id {
     W_UNUSED_FUNCTION,
     W_BOOL_COMPARISON,
     W_WARNING_DID_NOT_HAPPEN,
-    W_NOT_DEFINED59,
+    W_NULLABLE_TO_NON_NULLABLE,
     W_NOT_DEFINED60,
 
     W_LOCATION, /*prints code location*/
@@ -982,6 +982,7 @@ enum style
 
 };
 int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/]);
+int get_warning_name_and_number(enum diagnostic_id w, int n, char buffer[/*n*/]);
 unsigned long long  get_warning_bit_mask(const char* wname);
 
 enum diagnostic_id  get_warning(const char* wname);
@@ -7621,15 +7622,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
+                            unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme+1);
+
                             match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
                             assert(r.tail != NULL);
                             r.tail->flags |= TK_FLAG_FINAL;
-
-                            unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                         }
                     }
-                    else if (strcmp(input_list->head->lexeme, "ignore") == 0)
+                    else if (strcmp(input_list->head->lexeme, "ignored") == 0)
                     {
                         //#pragma CAKE diagnostic ignore "-Wenum-compare"
 
@@ -7641,7 +7642,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
-                            unsigned long long w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
+                            unsigned long long w = get_warning_bit_mask(input_list->head->lexeme + 1);
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
                         }
                     }
@@ -13892,7 +13893,8 @@ s_warnings[] = {
     {W_ARRAY_SIZE, "array-size"},
     {W_EMPTY_STATEMENT, "empty-statement"},
     {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"},
-    {W_UNUSED_LABEL, "unused-label"}
+    {W_UNUSED_LABEL, "unused-label"},
+    {W_NULLABLE_TO_NON_NULLABLE, "null-non-null" }
 };
 
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
@@ -14003,6 +14005,30 @@ unsigned long long  get_warning_bit_mask(const char* wname)
 }
 
 int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
+{
+    if (is_diagnostic_configurable(w))
+    {
+        //TODO because s_warnings is _Ctor of order ....
+        //this is a linear seatch instead of just index! TODOD
+        for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+        {
+            if (s_warnings[j].w == w)
+            {
+                snprintf(buffer, n, "-W%s", s_warnings[j].name);
+                return 0;
+            }
+        }
+        snprintf(buffer, n, "W%d", w);
+    }
+    else
+    {
+        snprintf(buffer, n, "E%d", w);
+    }
+
+    return 0;//"";
+}
+
+int get_warning_name_and_number(enum diagnostic_id w, int n, char buffer[/*n*/])
 {
     if (is_diagnostic_configurable(w))
     {
@@ -14393,14 +14419,14 @@ void test_get_warning_name()
 {
     char dbg_name[100];
     get_warning_name(W_FLOW_MISSING_DTOR, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wmissing-destructor/-W29") == 0);
+    assert(strcmp(dbg_name, "-Wmissing-destructor") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(dbg_name);
     assert(flags == (1ULL << W_FLOW_MISSING_DTOR));
 
 
     get_warning_name(W_STYLE, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wstyle/-W11") == 0);
+    assert(strcmp(dbg_name, "-Wstyle") == 0);
 
     unsigned long long  flags2 = get_warning_bit_mask(dbg_name);
     assert(flags2 == (1ULL << W_STYLE));
@@ -14481,7 +14507,9 @@ enum attribute_flags
     */
     CAKE_ATTRIBUTE_FASTCALL = 1 << 27,
     CAKE_ATTRIBUTE_STDCALL = 1 << 28,
-    CAKE_ATTRIBUTE_CDECL = 1 << 29
+    CAKE_ATTRIBUTE_CDECL = 1 << 29,
+
+    CAKE_ATTRIBUTE_LEAK = 1 << 30,
 
 };
 
@@ -15272,7 +15300,7 @@ struct expression
     struct token* last_token;
     
     //TODO https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
-    struct token* offsetof_member_designator;
+    struct token* _Opt offsetof_member_designator;
 
     /*if expression is an identifier it points to its declaration*/
     struct declarator* _Opt declarator;
@@ -15369,17 +15397,7 @@ struct report
     bool test_mode;
     int test_failed;
     int test_succeeded;
-
-    /*
-     Warnings are removed (-test-mode) on demand at next line,
-     but we can have more than one warning at same line then we need this array
-    */
-    enum diagnostic_id last_diagnostics_ids[2];
-
-    //this error is expected in test-mode
-    //it is used when the error aborts parsing
-    enum diagnostic_id fatal_error_expected;
-
+    
     /*
       direct commands like -autoconfig doesnt use report
     */
@@ -16994,13 +17012,15 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 struct object* _Opt find_object_declarator_by_index(struct object* p_object, struct member_declaration_list* list, int member_index);
 
-void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_specifier_sequence,
-                                struct diagnostic_id_stack* stack,
-                                int diagnostic_phase);
+struct diagnostic_id_stack* _Opt  build_diagnostic_id_stack(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
+                               struct diagnostic_id_stack* stack,
+                               int diagnostic_phase);
 
 void warn_unrecognized_warnings(struct parser_ctx* ctx,
     struct diagnostic_id_stack* stack,
-    struct token* token);
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack);
 
 
 _Attr(nodiscard)
@@ -20650,6 +20670,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
+
     if (ctx->current == NULL)
     {
         unexpected_end_of_file(ctx);
@@ -20738,16 +20759,19 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             /*fixing the type that fits the size*/
             if (value <= UINT_MAX && suffix[1] != 'L')
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_int((unsigned int)value);
                 p_expression_node->type.type_specifier_flags = (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED);
             }
             else if (value <= target_get_unsigned_long_max(target) && suffix[2] != 'L')
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
             else //if (value <= ULLONG_MAX)
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
@@ -20757,11 +20781,13 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             /*fixing the type that fits the size*/
             if (value <= INT_MAX && suffix[0] != 'L')
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
             else if (value <= INT_MAX && suffix[1] != 'L')
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long((int)value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
@@ -20770,16 +20796,19 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                       suffix[1] != 'L' /*!= LL*/)
             {
                 // ONLY MSVC, NON STANDARD,  uses unsigned long instead of next big signed int
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
             }
             else if (value <= (unsigned long long) target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
             else if (value <= (unsigned long long) target_get_signed_long_long_max(target))
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
             }
@@ -20791,6 +20820,8 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     token,
                     NULL,
                     "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
+
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
@@ -20814,6 +20845,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
             }
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
+            object_destroy(&p_expression_node->object);
             p_expression_node->object = object_make_float(value);
         }
         else if (suffix[0] == 'L')
@@ -20828,6 +20860,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
+            object_destroy(&p_expression_node->object);
             p_expression_node->object = object_make_long_double(value);
         }
         else
@@ -20836,6 +20869,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             if (value == HUGE_VAL && errno == ERANGE)
             {
             }
+            object_destroy(&p_expression_node->object);
             p_expression_node->object = object_make_double(value);
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
         }
@@ -21026,7 +21060,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
 
             const int char_byte_size = string_literal_char_byte_size(ctx->current->lexeme);
             int number_of_bytes = 0;
-            struct object* last = NULL;
+            struct object* _Opt last = NULL;
 
             while (ctx->current->type == TK_STRING_LITERAL)
             {
@@ -21044,7 +21078,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                         it++;
                     }
 
-                    struct object* p_new = calloc(1, sizeof * p_new);
+                    struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
                     if (p_new == NULL) throw;
 
                     p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -21063,7 +21097,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     last = p_new;
                 }
 
-                struct object* p_new = calloc(1, sizeof * p_new);
+                struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
                 if (p_new == NULL) throw;
 
                 p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -22567,29 +22601,27 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                                             "invalid token");
                 throw;
             }
-            p_expression_node = new_expression;            
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START)
         {
-            parser_match(ctx);
+
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_START;
-
+            parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->left = unary_expression(ctx);
@@ -22613,7 +22645,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->type = make_void_type();
@@ -22622,25 +22653,24 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END)
         {
-            parser_match(ctx);
+
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_END;
 
+            parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->left = unary_expression(ctx);
@@ -22653,7 +22683,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->type = make_void_type();
@@ -22672,14 +22701,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22693,7 +22720,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ',') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22707,7 +22733,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22725,14 +22750,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22746,7 +22769,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ',') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22760,7 +22782,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22779,13 +22800,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22799,7 +22820,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ',') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22807,7 +22827,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22816,7 +22835,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 //TODO
                 //https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->offsetof_member_designator = ctx->current;
@@ -22826,7 +22844,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22840,7 +22857,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (e != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -22871,14 +22887,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
                 new_expression->type_name = type_name(ctx);
                 if (new_expression->type_name == NULL)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -22917,7 +22931,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof, ctx->options.target) != 0)
                         {
                             expression_delete(new_expression);
-                            new_expression = NULL;
                             throw;
                         }
 
@@ -22954,7 +22967,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
                     {
                         expression_delete(new_expression);
-                        new_expression = NULL;
                         throw;
                     }
                     new_expression->object = object_make_size_t(ctx->options.target, sz);
@@ -23059,7 +23071,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -23152,7 +23163,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->right = expression(ctx);
@@ -23160,7 +23170,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             return new_expression;
@@ -23178,7 +23187,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->right = constant_expression(ctx, true);
@@ -23186,7 +23194,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             return new_expression;
@@ -23214,14 +23221,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
                 new_expression->type_name = type_name(ctx);
                 if (new_expression->type_name == NULL)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -23330,7 +23335,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -23340,14 +23344,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
                 new_expression->type_name = type_name(ctx);
                 if (new_expression->type_name == NULL)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -23357,7 +23359,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     unexpected_end_of_file(ctx);
 
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -23365,7 +23366,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, ')') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
                 p_type = &new_expression->type_name->abstract_declarator->type;
@@ -23386,7 +23386,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (ctx->previous == NULL)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -24520,7 +24519,6 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -24532,7 +24530,6 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -26285,7 +26282,7 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case PRIMARY_EXPRESSION_GENERIC:  break;
     case PRIMARY_EXPRESSION_NUMBER:  break;
 
-    case PRIMARY_EXPRESSION_PARENTESIS:        
+    case PRIMARY_EXPRESSION_PARENTESIS:
         assert(expr->right != NULL);
         count += expression_get_variables(expr->right, n, variables);
         break;
@@ -26388,7 +26385,16 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case EXPRESSION_EXPRESSION:  break;
 
     case CONDITIONAL_EXPRESSION:  break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+    case UNARY_EXPRESSION_CONSTEVAL:
+        break;
     }
+
     return count;
 }
 
@@ -26665,7 +26671,7 @@ void check_assigment(struct parser_ctx* ctx,
         is_null_pointer_constant)
     {
 
-        compiler_diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+        compiler_diagnostic(W_NULLABLE_TO_NON_NULLABLE,
             ctx,
             p_b_expression->first_token, NULL,
             "cannot convert a null pointer constant to non-nullable pointer");
@@ -26720,7 +26726,7 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(p_a_type))
     {
-        compiler_diagnostic(W_FLOW_NON_NULL,
+        compiler_diagnostic(W_PASSING_NULL_AS_ARRAY,
             ctx,
             p_b_expression->first_token, NULL,
             " passing null as array");
@@ -26884,7 +26890,7 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
 
     case PRIMARY_EXPRESSION_PARENTESIS:
-        
+
         assert(p_expression->right != NULL);
         result = expression_eval(p_expression->right);
         break;
@@ -27004,7 +27010,7 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
     {
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        
+
         struct object a = expression_eval(p_expression->left);
         if (object_has_constant_value(&a))
         {
@@ -27049,7 +27055,13 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
     case EXPRESSION_EXPRESSION:  break;
 
     case CONDITIONAL_EXPRESSION:  break;
-
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+    case UNARY_EXPRESSION_CONSTEVAL:
+        break;
     }
     return result;
 }
@@ -28451,7 +28463,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.11.08"
+#define CAKE_VERSION "0.11.09"
 
 
 
@@ -28868,13 +28880,6 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         return false;
     }
 
-    if (w != W_LOCATION)
-    {
-        //index 0 is the most recent
-        ctx->p_report->last_diagnostics_ids[1] = ctx->p_report->last_diagnostics_ids[0];
-        ctx->p_report->last_diagnostics_ids[0] = w;
-    }
-
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
     {
@@ -28887,7 +28892,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     char buffer[200] = { 0 };
 
     char diagnostic_name[100] = { 0 };
-    get_warning_name(w, sizeof diagnostic_name, diagnostic_name);
+    get_warning_name_and_number(w, sizeof diagnostic_name, diagnostic_name);
 
 
 
@@ -29984,49 +29989,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                         else if (is_note)
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
                     }
-                }
-                else if (ctx->current &&
-                    (strcmp(ctx->current->lexeme, "check") == 0))
-                {
-                    // TODO better name .  Ack. : means ‘alarm acknowledged’ ?
-                    ctx->current = ctx->current->next;
-                    pragma_skip_blanks(ctx);
-
-                    if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
-                    {
-                        enum diagnostic_id id = get_warning(ctx->current->lexeme + 1 + 2);
-                        bool found = false;
-                        for (int i = 0;
-                             i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
-                             i++)
-                        {
-                            if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
-
-                            if (ctx->p_report->last_diagnostics_ids[i] == id)
-                            {
-                                found = true;
-                                // lets remove this error/warning/info from the final report.
-
-                                int t =
-                                    get_diagnostic_type(&ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index],
-                                        id);
-                                if (t == 3)
-                                    ctx->p_report->error_count--;
-                                else if (t == 2)
-                                    ctx->p_report->warnings_count--;
-                                else if (t == 1)
-                                    ctx->p_report->info_count--;
-
-                                break;
-                            }
-                        }
-
-                        if (!found)
-                        {
-                            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "pragma check failed");
-                        }
-                    }
-                }
+                }                
                 else
                 {
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unknown pragma");
@@ -30417,6 +30380,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 p_declaration_specifiers->p_attribute_specifier_sequence = NULL;//
             }
 
+            assert(p_declaration_specifiers->p_attribute_specifier_sequence == NULL);
             p_declaration_specifiers->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             if (ctx->current == NULL)
@@ -30491,6 +30455,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         p_declaration->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
         p_attribute_specifier_sequence = NULL; /*MOVED*/
 
+
+
+
+
         p_declaration->first_token = ctx->current;
 
         if (ctx->current->type == ';')
@@ -30498,6 +30466,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
             p_declaration->last_token = ctx->current;
             parser_match(ctx);
             // empty declaration
+
+
+
+
             return p_declaration;
         }
 
@@ -30589,6 +30561,8 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         p_declaration = NULL;
     }
 
+
+
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
 
     return p_declaration;
@@ -30601,8 +30575,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
 struct declaration* _Owner _Opt function_definition_or_declaration(struct parser_ctx* ctx)
 {
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence =
-        attribute_specifier_sequence_opt(ctx);
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
     return declaration(ctx, p_attribute_specifier_sequence, STORAGE_SPECIFIER_NONE, true);
     /*
@@ -30731,11 +30704,20 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
         bool is_function_definition = false;
 
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx,
+                p_attribute_specifier_sequence,
+                &stack,
+                0);
+
         p_declaration = declaration_core(ctx, p_attribute_specifier_sequence, true, &is_function_definition, storage_specifier_flags, false);
         p_attribute_specifier_sequence = NULL;  //MOVED
 
         if (p_declaration == NULL)
             throw;
+
+
 
         if (is_function_definition)
         {
@@ -30953,6 +30935,11 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 flow_visit_ctx_destroy(&ctx2);
             }
         }
+
+        warn_unrecognized_warnings(ctx,
+                &stack,
+                p_declaration->p_attribute_specifier_sequence,
+                p_diagnostic_id_stack);
     }
     catch
     {
@@ -31162,8 +31149,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration");
-                    compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                    if (compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
+                    {
+                        compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                    }
                 }
             }
             else
@@ -32584,6 +32573,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             throw;
         }
 
+        assert(p_struct_or_union_specifier->attribute_specifier_sequence_opt == NULL);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
@@ -33031,6 +33021,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
         }
         else
         {
+            assert(p_member_declaration->p_attribute_specifier_sequence == NULL);
             p_member_declaration->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
@@ -33569,8 +33560,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         if (parser_match_tk(ctx, TK_KEYWORD_ENUM) != 0)
             throw;
 
-        p_enum_specifier->attribute_specifier_sequence_opt =
-            attribute_specifier_sequence_opt(ctx);
+        p_enum_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         if (ctx->current == NULL)
         {
@@ -34410,6 +34400,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
                 }
             }
             p_direct_declarator = p_direct_declarator2;
+
             assert(p_direct_declarator->p_attribute_specifier_sequence == NULL);
             p_direct_declarator->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
         }
@@ -34672,8 +34663,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             p = p_pointer;
             parser_match(ctx);
 
-            p_pointer->attribute_specifier_sequence_opt =
-                attribute_specifier_sequence_opt(ctx);
+            p_pointer->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
             if (first_of_type_qualifier(ctx))
             {
@@ -35853,56 +35843,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
                 else if (is_note)
                     ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
             }
-        }
-        else if (p_pragma_token &&
-            (strcmp(p_pragma_token->lexeme, "check") == 0))
-        {
-            p_pragma_token = pragma_match(p_pragma_token);
-
-            if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
-            {
-                enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1);
-                //warnings errors are removed on demand..
-
-                if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) ||
-                    (on_flow_analysis && get_diagnostic_phase(id) == 2))
-                {
-                    bool found = false;
-                    for (int i = 0;
-                         i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
-                         i++)
-                    {
-                        if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
-
-                        if (ctx->p_report->last_diagnostics_ids[i] == id)
-                        {
-                            // lets remove this error/warning/info from the final report.
-                            found = true;
-                            int t =
-                                get_diagnostic_type(&ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index],
-                                    id);
-                            if (t == 3)
-                                ctx->p_report->error_count--;
-                            else if (t == 2)
-                                ctx->p_report->warnings_count--;
-                            else if (t == 1)
-                                ctx->p_report->info_count--;
-
-                            break;
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        //is fatal error?
-                        //fatal errors are kept here and checked at end
-                        ctx->p_report->fatal_error_expected = atoi(p_pragma_token->lexeme + 3);
-
-                        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "pragma check failed");
-                    }
-                }
-            }
-        }
+        }      
         else
         {
             compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "unknown pragma");
@@ -36529,9 +36470,17 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute_sp
             parser_match(ctx);
             if (is_cake_attr)
             {
-                if (ctx->current->lexeme[0] == 'W')
+                if (ctx->current->lexeme[0] == 'E' ||
+                    ctx->current->lexeme[0] == 'e' ||
+                    ctx->current->lexeme[0] == 'W' ||
+                    ctx->current->lexeme[0] == 'w')
                 {
+                    //enum diagnostic_id  get_warning(const char* wname)
                     p_attribute_specifier->ack = atoi(ctx->current->lexeme + 1);
+                }
+                else if (strcmp(ctx->current->lexeme, "leak") == 0)
+                {
+                    attribute_flags = CAKE_ATTRIBUTE_LEAK;
                 }
                 else
                 {
@@ -36956,10 +36905,17 @@ void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p)
     }
 }
 
-void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_specifier_sequence,
-                                struct diagnostic_id_stack* stack,
-                                int diagnostic_phase)
+struct diagnostic_id_stack* _Opt  build_diagnostic_id_stack(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
+                               struct diagnostic_id_stack* stack,
+                               int diagnostic_phase)
 {
+    struct diagnostic_id_stack* _Opt previous = ctx->p_diagnostic_id_stack;
+    ctx->p_diagnostic_id_stack = stack;
+
+    if (p_attribute_specifier_sequence == NULL)
+        return previous;
+
     struct attribute_specifier* _Opt p_attribute_specifier = p_attribute_specifier_sequence->head;
     while (p_attribute_specifier)
     {
@@ -36973,16 +36929,25 @@ void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_
         }
         p_attribute_specifier = p_attribute_specifier->next;
     }
+    return previous;
 }
 
 void warn_unrecognized_warnings(struct parser_ctx* ctx,
     struct diagnostic_id_stack* stack,
-    struct token* token)
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack)
 {
+    ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+
+    if (p_attribute_specifier_sequence == NULL)
+    {
+        return;
+    }
+    struct token* token = p_attribute_specifier_sequence->first_token;
     for (int i = stack->size - 1; i >= 0; i--)
     {
         char warning_name[200] = { 0 };
-        get_warning_name(stack->stack[i], sizeof(warning_name), warning_name);
+        get_warning_name_and_number(stack->stack[i], sizeof(warning_name), warning_name);
 
         compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
             ctx,
@@ -37013,27 +36978,19 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
             p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
             p_attribute_specifier_sequence = NULL;
 
-            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->p_diagnostic_id_stack;
             struct diagnostic_id_stack stack = { 0 };
-            ctx->p_diagnostic_id_stack = &stack;
-
-            if (p_unlabeled_statement->p_attribute_specifier_sequence)
-            {
-                build_diagnostic_id_stack(p_unlabeled_statement->p_attribute_specifier_sequence,
+            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+                build_diagnostic_id_stack(ctx,
+                    p_unlabeled_statement->p_attribute_specifier_sequence,
                     &stack,
                     0);
-            }
 
             p_unlabeled_statement->primary_block = primary_block(ctx);
 
-            if (p_unlabeled_statement->p_attribute_specifier_sequence && stack.size > 0)
-            {
-                warn_unrecognized_warnings(ctx,
-                    &stack,
-                    p_unlabeled_statement->p_attribute_specifier_sequence->first_token);
-            }
-
-            ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+            warn_unrecognized_warnings(ctx,
+                &stack,
+                p_unlabeled_statement->p_attribute_specifier_sequence,
+                p_diagnostic_id_stack);
 
             if (p_unlabeled_statement->primary_block == NULL)
                 throw;
@@ -37042,9 +36999,20 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
         else if (first_of_jump_statement(ctx))
         {
             p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
-            p_attribute_specifier_sequence = NULL;
+            p_attribute_specifier_sequence = NULL; /*MOVED*/
+
+            struct diagnostic_id_stack stack = { 0 };
+            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+                build_diagnostic_id_stack(ctx, p_unlabeled_statement->p_attribute_specifier_sequence, &stack, 0);
 
             p_unlabeled_statement->jump_statement = jump_statement(ctx);
+
+            warn_unrecognized_warnings(ctx,
+            &stack,
+            p_unlabeled_statement->p_attribute_specifier_sequence,
+            p_diagnostic_id_stack);
+
+
             if (p_unlabeled_statement->jump_statement == NULL)
                 throw;
         }
@@ -37154,6 +37122,13 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         p_label->p_attribute_specifier_sequence = p_attribute_specifier_sequence; //MOVED
         p_attribute_specifier_sequence = NULL;
 
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx, p_label->p_attribute_specifier_sequence, &stack, 0);
+
+
+        //
+
         p_label->label_id = ctx->label_id++;
 
         p_label->p_first_token = ctx->current;
@@ -37190,6 +37165,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
+
         }
         else if (ctx->current->type == TK_KEYWORD_CASE)
         {
@@ -37370,6 +37346,10 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         // attribute_specifier_sequence_opt identifier ':'
         // attribute_specifier_sequence_opt 'case' constant_expression ':'
         // attribute_specifier_sequence_opt 'default' ':'
+
+        warn_unrecognized_warnings(ctx,
+                &stack,
+                p_label->p_attribute_specifier_sequence, p_diagnostic_id_stack);
     }
     catch
     {
@@ -37426,14 +37406,20 @@ struct label* _Opt case_label_list_find(const struct case_label_list* list, cons
     {
         if (p->constant_expression_end == NULL)
         {
-            if (object_equal(&p->constant_expression->object, object))
+            if (p->constant_expression &&
+                object_equal(&p->constant_expression->object, object))
+            {
                 return p;
+            }
         }
         else
         {
-            if (object_greater_than_or_equal(object, &p->constant_expression->object) &&
+            if (p->constant_expression &&
+                object_greater_than_or_equal(object, &p->constant_expression->object) &&
                 object_smaller_than_or_equal(object, &p->constant_expression_end->object))
+            {
                 return p;
+            }
         }
         p = p->next;
     }
@@ -38715,15 +38701,12 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
         p_expression_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
         p_attribute_specifier_sequence = NULL;
 
-        
-        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->p_diagnostic_id_stack;
-        struct diagnostic_id_stack stack = { 0 };
-        ctx->p_diagnostic_id_stack = &stack;
 
-        if (p_expression_statement->p_attribute_specifier_sequence)
-        {
-            build_diagnostic_id_stack(p_expression_statement->p_attribute_specifier_sequence, &stack, 0);
-        }
+
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx, p_expression_statement->p_attribute_specifier_sequence, &stack, 0);
+
 
         if (ctx->current == NULL)
         {
@@ -38736,12 +38719,10 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
             p_expression_statement->expression_opt = expression(ctx);
 
 
-            if (p_expression_statement->p_attribute_specifier_sequence && stack.size > 0)
-            {
-                warn_unrecognized_warnings(ctx,
-                    &stack,
-                    p_expression_statement->p_attribute_specifier_sequence->first_token);
-            }
+            warn_unrecognized_warnings(ctx,
+                &stack,
+                p_expression_statement->p_attribute_specifier_sequence, p_diagnostic_id_stack);
+
 
             if (p_expression_statement->expression_opt == NULL)
                 throw;
@@ -38890,8 +38871,7 @@ struct init_statement* _Owner _Opt init_statement(struct parser_ctx* ctx, bool i
         if (p_init_statement == NULL)
             throw;
 
-        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence =
-            attribute_specifier_sequence_opt(ctx);
+        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
 
         if (first_of_declaration_specifier(ctx))
@@ -39611,14 +39591,7 @@ int compile_one_file(const char* file_name,
             }
             free(content_expected);
         }
-
-        if (report->fatal_error_expected != 0)
-        {
-            if (report->last_diagnostics_ids[0] == report->fatal_error_expected)
-            {
-                report->error_count--;
-            }
-        }
+        
         if (report->error_count > 0 || report->warnings_count > 0)
         {
 
@@ -39724,7 +39697,7 @@ static int compile_many_files(const char* file_name,
                                  &report_local);
 
 
-                report->fatal_error_expected = report_local.fatal_error_expected;
+                
                 report->error_count += report_local.error_count;
                 report->warnings_count += report_local.warnings_count;
                 report->info_count += report_local.info_count;
@@ -39920,7 +39893,7 @@ int compile(int argc, const char** argv, struct report* report)
             struct report report_local = { 0 };
             compile_one_file(fullpath, &options, output_file, argc, argv, &report_local);
 
-            report->fatal_error_expected = report_local.fatal_error_expected;
+            
             report->error_count += report_local.error_count;
             report->warnings_count += report_local.warnings_count;
             report->info_count += report_local.info_count;
@@ -40490,7 +40463,10 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
             if (result->object != NULL)
             {
                 result->object = obj;
+
+                type_destroy(&result->type);
                 result->type = type_dup(p_type);
+
                 return true;
             }
 
@@ -47691,10 +47667,26 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             type_is_owner(p_visitor->p_type) &&
             p_visitor->p_object->current.state & FLOW_OBJECT_STATE_NOT_NULL)
         {
-            if (compiler_diagnostic(W_FLOW_MISSING_DTOR,
-                ctx->ctx,
-                position, NULL,
-                "object pointed by '%s' was not released.", previous_names))
+
+            bool show_warning = true;
+
+            if (p_visitor->p_object->p_declarator_origin &&
+                p_visitor->p_object->p_declarator_origin->direct_declarator &&
+                p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence)
+            {
+
+                enum attribute_flags  attributes_flags =
+                    p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence->attributes_flags;
+
+                if (attributes_flags & CAKE_ATTRIBUTE_LEAK)
+                    show_warning = false;
+            }
+
+            if (show_warning &&
+                compiler_diagnostic(W_FLOW_MISSING_DTOR,
+                    ctx->ctx,
+                    position, NULL,
+                    "object pointed by '%s' was not released.", previous_names))
             {
                 compiler_diagnostic(W_LOCATION,
                 ctx->ctx,
@@ -47729,10 +47721,26 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             }
             else
             {
-                if (compiler_diagnostic(W_FLOW_MISSING_DTOR,
-                    ctx->ctx,
-                    position, NULL,
-                    "object pointed by '%s' was not released.", previous_names))
+                bool show_warning = true;
+
+                if (p_visitor->p_object->p_declarator_origin &&
+                    p_visitor->p_object->p_declarator_origin->direct_declarator &&
+                    p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence)
+                {
+
+                    enum attribute_flags  attributes_flags =
+                        p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence->attributes_flags;
+
+                    if (attributes_flags & CAKE_ATTRIBUTE_LEAK)
+                        show_warning = false;
+                }
+
+
+                if (show_warning &&
+                    compiler_diagnostic(W_FLOW_MISSING_DTOR,
+                        ctx->ctx,
+                        position, NULL,
+                        "object pointed by '%s' was not released.", previous_names))
                 {
                     compiler_diagnostic(W_LOCATION,
                     ctx->ctx,
@@ -49551,7 +49559,8 @@ static void braced_initializer_flow(struct flow_visit_ctx* ctx, struct object* o
         {
             throw;
         }
-
+        //We are allowing invalid (not final) state
+#if 0
         /*
            Let´s check if the object has been initialized correctly
         */
@@ -49569,6 +49578,8 @@ static void braced_initializer_flow(struct flow_visit_ctx* ctx, struct object* o
         flow_obj->p_declarator_origin->first_token_opt,
         &a_marker,
         false);
+#endif
+
     }
     catch
     {
@@ -49674,6 +49685,8 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                     flow_object_set_zero(&t, pointed_calloc_object);
                     object_set_pointer(p_init_declarator->p_declarator->p_flow_object, pointed_calloc_object);
 
+                    //We are allowing invalid (not final) state
+#if 0
                     struct marker a_marker = {
                       .p_token_begin = p_init_declarator->p_declarator->first_token_opt,
                       .p_token_end = p_init_declarator->p_declarator->last_token_opt,
@@ -49686,7 +49699,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
                         p_init_declarator->p_declarator->first_token_opt,
                         &a_marker,
                         false);
-
+#endif
                     type_destroy(&t);
                     p_init_declarator->p_declarator->p_flow_object->current.state = FLOW_OBJECT_STATE_NOT_NULL | FLOW_OBJECT_STATE_NULL;
                 }
@@ -51570,26 +51583,22 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
-    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->ctx->p_diagnostic_id_stack;
     struct diagnostic_id_stack stack = { 0 };
-    ctx->ctx->p_diagnostic_id_stack = &stack;
-
-    if (p_expression_statement->p_attribute_specifier_sequence)
-    {
-        build_diagnostic_id_stack(p_expression_statement->p_attribute_specifier_sequence, &stack, 2);
-    }
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+        build_diagnostic_id_stack(ctx->ctx,
+            p_expression_statement->p_attribute_specifier_sequence,
+            &stack,
+            2);
 
     struct true_false_set d = { 0 };
     if (p_expression_statement->expression_opt)
         flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
 
-    if (p_expression_statement->p_attribute_specifier_sequence)
-    {
-        warn_unrecognized_warnings(ctx->ctx,
-        &stack,
-        p_expression_statement->p_attribute_specifier_sequence->first_token);
-    }
-    ctx->ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+
+    warn_unrecognized_warnings(ctx->ctx,
+                               &stack,
+                               p_expression_statement->p_attribute_specifier_sequence,
+                               p_diagnostic_id_stack);
 
     true_false_set_destroy(&d);
 }
@@ -51985,6 +51994,8 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label);
 
 static void flow_visit_labeled_statement(struct flow_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)
 {
+
+
     flow_visit_label(ctx, p_labeled_statement->label);
     flow_visit_statement(ctx, p_labeled_statement->statement);
 }
@@ -52019,9 +52030,20 @@ static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_
 
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
+
     if (p_unlabeled_statement->primary_block)
     {
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx->ctx,
+                p_unlabeled_statement->p_attribute_specifier_sequence,
+                &stack,
+                2);
         flow_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
+        warn_unrecognized_warnings(ctx->ctx,
+                               &stack,
+                               p_unlabeled_statement->p_attribute_specifier_sequence,
+                               p_diagnostic_id_stack);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
@@ -52029,12 +52051,24 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
     }
     else if (p_unlabeled_statement->jump_statement)
     {
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx->ctx,
+                p_unlabeled_statement->p_attribute_specifier_sequence,
+                &stack,
+                2);
         flow_visit_jump_statement(ctx, p_unlabeled_statement->jump_statement);
+        warn_unrecognized_warnings(ctx->ctx,
+                               &stack,
+                               p_unlabeled_statement->p_attribute_specifier_sequence,
+                               p_diagnostic_id_stack);
     }
     else
     {
         assert(false);
     }
+
+
 }
 
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement)
@@ -52051,6 +52085,13 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 
 static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 {
+    struct diagnostic_id_stack stack = { 0 };
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+        build_diagnostic_id_stack(ctx->ctx,
+            p_label->p_attribute_specifier_sequence,
+            &stack,
+            2);
+
     if (p_label->p_identifier_opt)
     {
         for (int i = 0; i < ctx->labels_size; i++)
@@ -52069,6 +52110,10 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
         //case, default
         arena_restore_current_state_from(ctx, ctx->initial_state);
     }
+    warn_unrecognized_warnings(ctx->ctx,
+                              &stack,
+                              p_label->p_attribute_specifier_sequence,
+                              p_diagnostic_id_stack);
 }
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
@@ -52608,6 +52653,13 @@ static bool flow_is_last_item_return(struct compound_statement* p_compound_state
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
+    struct diagnostic_id_stack stack = { 0 };
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+        build_diagnostic_id_stack(ctx->ctx,
+            p_declaration->p_attribute_specifier_sequence,
+            &stack,
+            2);
+
     if (p_declaration->static_assert_declaration)
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
@@ -52649,10 +52701,26 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
         type_destroy(&type);
         ctx->p_return_type = NULL;
     }
+
+
+    if (p_declaration->function_body && !flow_is_last_item_return(p_declaration->function_body))
+    {
+        flow_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
+    }
+
+    warn_unrecognized_warnings(ctx->ctx,
+                               &stack,
+                               p_declaration->p_attribute_specifier_sequence,
+                               p_diagnostic_id_stack);
+
 }
 
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
+
+
+    //p_declaration->p_attribute_specifier_sequence
+
     ctx->labels_size = 0;
     flow_objects_clear(&ctx->arena);
 
@@ -52661,12 +52729,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
     if (p_declaration->function_body)
     {
         flow_visit_declaration(ctx, p_declaration);
-        assert(p_declaration->function_body != NULL); //flow_visit_declaration does not change this
 
-        if (!flow_is_last_item_return(p_declaration->function_body))
-        {
-            flow_exit_block_visit_defer_list(ctx, &p_declaration->defer_list, p_declaration->function_body->last_token);
-        }
     }
     else
     {

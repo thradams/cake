@@ -1,11 +1,15 @@
 struct X { int i; };
-struct X f() {
+struct X f()
+{
     struct X x = {};
     return x;
 }
-int main() {
+
+int main()
+{
+    //error: lvalue required as left operand of assignment
+    [[cake::e1230]]
     f().i = 1;
 }
-#pragma cake diagnostic check "-E1230"
 
 

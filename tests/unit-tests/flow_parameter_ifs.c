@@ -32,15 +32,15 @@ int main(struct X* _Opt pX)
     }
     else
     {
-        static_debug(pX);
+        //static_debug(pX);
         static_state(pX, "not-null null");
         static_state(pX->pi, "not-null null");
     }
 
+    // warning: pointer is always non-null 
+    [[cake::w28]]
     if (pX == 0 || (pX->pi = f()) == 0)
     {
-#pragma cake diagnostic check "-Wflow-not-null"
-
         static_state(pX, "null not-null");
     }
     else
@@ -48,5 +48,5 @@ int main(struct X* _Opt pX)
         //static_state(pX, "not-null"); //FAILS only on github windows!? WTF
     }
 
-    
+
 }

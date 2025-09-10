@@ -10,7 +10,8 @@ struct X {
     char* _Owner _Opt name;
 };
 
-void x_destroy(_Dtor struct X*  p) {
+void x_destroy(_Dtor struct X* p)
+{
     free(p->name);
 }
 
@@ -19,12 +20,17 @@ void x_print(struct X* p)
     //printf("%s", p->name);
 }
 
-int main() {
-    struct X x = { 0 };
+int main()
+{
+    //warning: object pointed by 'x.name' was not released.
+    struct X x [[cake::leak]] = {0};
     x.name = strdup("a");
-    x_destroy(&x);    
+    x_destroy(&x);
+
+    //warning: uninitialized object '&x.name'
+    [[cake::w30]]
     x_print(&x);
-    #pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
+
 }
-#pragma cake diagnostic check "-Wmissing-destructor"
+
 

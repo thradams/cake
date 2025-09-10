@@ -1,6 +1,8 @@
 int main()
 {
- int * p = &1;
+    //error: lvalue required as unary '&' operand 
+    [[cake::e1220]]
+    int* p = &1;
 }
-#pragma cake diagnostic check "-E1220"
+
 

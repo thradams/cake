@@ -7,10 +7,10 @@ void* _Owner _Opt malloc(int size);
 
 void f(int c)
 {
-    int* _Owner _Opt p = malloc(sizeof(int));
-    if (c) {
+    int* _Owner _Opt p [[cake::leak]] = malloc(sizeof(int));
+    if (c)
+    {
         free(p);
     }
 }
 
-#pragma cake diagnostic check "-Wmissing-destructor"

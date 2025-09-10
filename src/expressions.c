@@ -775,6 +775,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
+
     if (ctx->current == NULL)
     {
         unexpected_end_of_file(ctx);
@@ -863,16 +864,19 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             /*fixing the type that fits the size*/
             if (value <= UINT_MAX && suffix[1] != 'L')
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_int((unsigned int)value);
                 p_expression_node->type.type_specifier_flags = (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED);
             }
             else if (value <= target_get_unsigned_long_max(target) && suffix[2] != 'L')
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
             else //if (value <= ULLONG_MAX)
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
@@ -882,11 +886,13 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             /*fixing the type that fits the size*/
             if (value <= INT_MAX && suffix[0] != 'L')
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
             else if (value <= INT_MAX && suffix[1] != 'L')
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long((int)value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
@@ -895,16 +901,19 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                       suffix[1] != 'L' /*!= LL*/)
             {
                 // ONLY MSVC, NON STANDARD,  uses unsigned long instead of next big signed int
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG;
             }
             else if (value <= (unsigned long long) target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long(value, target);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
             else if (value <= (unsigned long long) target_get_signed_long_long_max(target))
             {
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG;
             }
@@ -916,6 +925,8 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     token,
                     NULL,
                     "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
+
+                object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_long_long(value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
             }
@@ -939,6 +950,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
             }
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
+            object_destroy(&p_expression_node->object);
             p_expression_node->object = object_make_float(value);
         }
         else if (suffix[0] == 'L')
@@ -953,6 +965,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             }
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
+            object_destroy(&p_expression_node->object);
             p_expression_node->object = object_make_long_double(value);
         }
         else
@@ -961,6 +974,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             if (value == HUGE_VAL && errno == ERANGE)
             {
             }
+            object_destroy(&p_expression_node->object);
             p_expression_node->object = object_make_double(value);
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
         }
@@ -1151,7 +1165,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
 
             const int char_byte_size = string_literal_char_byte_size(ctx->current->lexeme);
             int number_of_bytes = 0;
-            struct object* last = NULL;
+            struct object* _Opt last = NULL;
 
             while (ctx->current->type == TK_STRING_LITERAL)
             {
@@ -1169,7 +1183,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                         it++;
                     }
 
-                    struct object* p_new = calloc(1, sizeof * p_new);
+                    struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
                     if (p_new == NULL) throw;
 
                     p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -1188,7 +1202,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                     last = p_new;
                 }
 
-                struct object* p_new = calloc(1, sizeof * p_new);
+                struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
                 if (p_new == NULL) throw;
 
                 p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -2692,29 +2706,27 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                                             "invalid token");
                 throw;
             }
-            p_expression_node = new_expression;            
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START)
         {
-            parser_match(ctx);
+
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_START;
-
+            parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->left = unary_expression(ctx);
@@ -2738,7 +2750,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->type = make_void_type();
@@ -2747,25 +2758,24 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END)
         {
-            parser_match(ctx);
+
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_VA_END;
 
+            parser_match(ctx);
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->left = unary_expression(ctx);
@@ -2778,7 +2788,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->type = make_void_type();
@@ -2797,14 +2806,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2818,7 +2825,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ',') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2832,7 +2838,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2850,14 +2855,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2871,7 +2874,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ',') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2885,7 +2887,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2904,13 +2905,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
                 throw;
             }
 
             if (parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2924,7 +2925,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ',') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2932,7 +2932,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2941,7 +2940,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 //TODO
                 //https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->offsetof_member_designator = ctx->current;
@@ -2951,7 +2949,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2965,7 +2962,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (e != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -2996,14 +2992,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
                 new_expression->type_name = type_name(ctx);
                 if (new_expression->type_name == NULL)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -3042,7 +3036,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                         if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof, ctx->options.target) != 0)
                         {
                             expression_delete(new_expression);
-                            new_expression = NULL;
                             throw;
                         }
 
@@ -3079,7 +3072,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
                     {
                         expression_delete(new_expression);
-                        new_expression = NULL;
                         throw;
                     }
                     new_expression->object = object_make_size_t(ctx->options.target, sz);
@@ -3184,7 +3176,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -3277,7 +3268,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->right = expression(ctx);
@@ -3285,7 +3275,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             return new_expression;
@@ -3303,7 +3292,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             new_expression->right = constant_expression(ctx, true);
@@ -3311,7 +3299,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ')') != 0)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
             return new_expression;
@@ -3339,14 +3326,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
                 new_expression->type_name = type_name(ctx);
                 if (new_expression->type_name == NULL)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -3455,7 +3440,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -3465,14 +3449,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, '(') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
                 new_expression->type_name = type_name(ctx);
                 if (new_expression->type_name == NULL)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -3482,7 +3464,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     unexpected_end_of_file(ctx);
 
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -3490,7 +3471,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (parser_match_tk(ctx, ')') != 0)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
                 p_type = &new_expression->type_name->abstract_declarator->type;
@@ -3511,7 +3491,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 if (ctx->previous == NULL)
                 {
                     expression_delete(new_expression);
-                    new_expression = NULL;
                     throw;
                 }
 
@@ -4645,7 +4624,6 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
             {
                 unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -4657,7 +4635,6 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
                 throw;
             }
 
@@ -6410,7 +6387,7 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case PRIMARY_EXPRESSION_GENERIC:  break;
     case PRIMARY_EXPRESSION_NUMBER:  break;
 
-    case PRIMARY_EXPRESSION_PARENTESIS:        
+    case PRIMARY_EXPRESSION_PARENTESIS:
         assert(expr->right != NULL);
         count += expression_get_variables(expr->right, n, variables);
         break;
@@ -6513,7 +6490,16 @@ bool expression_get_variables(const struct expression* expr, int n, struct objec
     case EXPRESSION_EXPRESSION:  break;
 
     case CONDITIONAL_EXPRESSION:  break;
+
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+    case UNARY_EXPRESSION_CONSTEVAL:
+        break;
     }
+
     return count;
 }
 
@@ -6790,7 +6776,7 @@ void check_assigment(struct parser_ctx* ctx,
         is_null_pointer_constant)
     {
 
-        compiler_diagnostic(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+        compiler_diagnostic(W_NULLABLE_TO_NON_NULLABLE,
             ctx,
             p_b_expression->first_token, NULL,
             "cannot convert a null pointer constant to non-nullable pointer");
@@ -6845,7 +6831,7 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(p_a_type))
     {
-        compiler_diagnostic(W_FLOW_NON_NULL,
+        compiler_diagnostic(W_PASSING_NULL_AS_ARRAY,
             ctx,
             p_b_expression->first_token, NULL,
             " passing null as array");
@@ -7009,7 +6995,7 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
 
 
     case PRIMARY_EXPRESSION_PARENTESIS:
-        
+
         assert(p_expression->right != NULL);
         result = expression_eval(p_expression->right);
         break;
@@ -7129,7 +7115,7 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
     {
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
-        
+
         struct object a = expression_eval(p_expression->left);
         if (object_has_constant_value(&a))
         {
@@ -7174,7 +7160,13 @@ struct object expression_eval(struct expression* p_expression) //used by flow II
     case EXPRESSION_EXPRESSION:  break;
 
     case CONDITIONAL_EXPRESSION:  break;
-
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+    case UNARY_EXPRESSION_CONSTEVAL:
+        break;
     }
     return result;
 }

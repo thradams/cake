@@ -165,7 +165,8 @@ s_warnings[] = {
     {W_ARRAY_SIZE, "array-size"},
     {W_EMPTY_STATEMENT, "empty-statement"},
     {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"},
-    {W_UNUSED_LABEL, "unused-label"}
+    {W_UNUSED_LABEL, "unused-label"},
+    {W_NULLABLE_TO_NON_NULLABLE, "null-non-null" }
 };
 
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
@@ -276,6 +277,30 @@ unsigned long long  get_warning_bit_mask(const char* wname)
 }
 
 int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
+{
+    if (is_diagnostic_configurable(w))
+    {
+        //TODO because s_warnings is _Ctor of order ....
+        //this is a linear seatch instead of just index! TODOD
+        for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+        {
+            if (s_warnings[j].w == w)
+            {
+                snprintf(buffer, n, "-W%s", s_warnings[j].name);
+                return 0;
+            }
+        }
+        snprintf(buffer, n, "W%d", w);
+    }
+    else
+    {
+        snprintf(buffer, n, "E%d", w);
+    }
+
+    return 0;//"";
+}
+
+int get_warning_name_and_number(enum diagnostic_id w, int n, char buffer[/*n*/])
 {
     if (is_diagnostic_configurable(w))
     {
@@ -668,14 +693,14 @@ void test_get_warning_name()
 {
     char dbg_name[100];
     get_warning_name(W_FLOW_MISSING_DTOR, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wmissing-destructor/-W29") == 0);
+    assert(strcmp(dbg_name, "-Wmissing-destructor") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(dbg_name);
     assert(flags == (1ULL << W_FLOW_MISSING_DTOR));
 
 
     get_warning_name(W_STYLE, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wstyle/-W11") == 0);
+    assert(strcmp(dbg_name, "-Wstyle") == 0);
 
     unsigned long long  flags2 = get_warning_bit_mask(dbg_name);
     assert(flags2 == (1ULL << W_STYLE));

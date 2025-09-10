@@ -2,8 +2,11 @@ int main()
 {
 
     int x = 1;
+
+    //error: 'auto' requires a plain identifier
+    [[cake::e1290]]
     auto* p = &x;
-#pragma cake diagnostic check "-E1290"
-    * p = 0;
+
+    *p = 0;
 }
 

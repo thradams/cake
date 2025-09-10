@@ -5,11 +5,14 @@ void destroy(_Owner int i);
 
 int main()
 {
-    _Owner int i = 0;
+    _Owner int i [[cake::leak]] = 0;
     int v = i;
+
+    //warning: cannot assign a non-owner to owner
+    [[cake::w25]]
     destroy(v);
-    #pragma cake diagnostic check "-Wnon-owner-to-owner-move"
+
 }
-#pragma cake diagnostic check "-Wmissing-destructor"
+
 
 

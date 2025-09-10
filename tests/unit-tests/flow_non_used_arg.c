@@ -1,5 +1,9 @@
 #pragma safety enable
 
+//warning: object pointed by '?' was not released.
+[[cake::w29]]
+void free(void* _Owner)
+{
 
-void free(void* _Owner) { }
-#pragma cake diagnostic check "-Wmissing-destructor"
+}
+

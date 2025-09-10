@@ -1,2 +1,10 @@
-float f = .1;
-static_assert(.1 == 0.1);
+void F(int cp)
+{
+    switch (cp)
+    {
+    default:
+        break;
+    case 1:    
+        break;
+    }    
+}

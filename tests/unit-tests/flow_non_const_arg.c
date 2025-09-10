@@ -2,18 +2,17 @@
 
 
 struct X {
-  void * _Owner _Opt text;
+    void* _Owner _Opt text;
 };
 
 void x_change(struct X* list);
-void x_destroy(_Dtor struct X*  p);
+void x_destroy(_Dtor struct X* p);
 
 int main()
 {
-  struct X x = {};
-  x_change(&x);  
-  static_debug(x);
+    //object pointed by 'x.text' was not released
+    struct X x [[cake::leak]] = {};
+    x_change(&x);
 }
-//memory pointed by 'x.text' was not released.
-#pragma cake diagnostic check "-Wmissing-destructor"
+
 

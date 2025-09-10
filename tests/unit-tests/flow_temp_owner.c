@@ -10,10 +10,11 @@ struct X {
 
 int main()
 {
+    //warning: cannot assign a temporary owner to non-owner object. 
+    [[cake::w23]]
     struct X* _Opt p = (struct X* _Owner _Opt) malloc(1);
 }
 
-//flow analyze
-#pragma cake diagnostic check "-Wtemp-owner"
+
 
 

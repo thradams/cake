@@ -3,9 +3,9 @@ enum E1 { a };
 enum E2 { b };
 int main()
 {
+    //warning: operator '|' between enumerations of different types.
+    [[cake::w4]]
     int i = a | b;
-    //warning: operator '|' between enumerations of different types. (enum E1, enum E2) [-Wenum-conversion]
-#pragma cake diagnostic check "-Wenum-conversion"
 
     //TODO add more..
 }

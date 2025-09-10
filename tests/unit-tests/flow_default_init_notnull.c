@@ -1,4 +1,4 @@
-﻿#pragma safety enable;
+#pragma safety enable;
 
 struct X
  {
@@ -16,4 +16,4 @@ struct X
      };         
      free(x.p);
  }
- #pragma cake diagnostic check "-Wanalyzer-null-dereference"
+ 

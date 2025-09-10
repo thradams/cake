@@ -395,13 +395,6 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         return false;
     }
 
-    if (w != W_LOCATION)
-    {
-        //index 0 is the most recent
-        ctx->p_report->last_diagnostics_ids[1] = ctx->p_report->last_diagnostics_ids[0];
-        ctx->p_report->last_diagnostics_ids[0] = w;
-    }
-
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
     {
@@ -414,7 +407,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     char buffer[200] = { 0 };
 
     char diagnostic_name[100] = { 0 };
-    get_warning_name(w, sizeof diagnostic_name, diagnostic_name);
+    get_warning_name_and_number(w, sizeof diagnostic_name, diagnostic_name);
 
 
 
@@ -1511,49 +1504,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                         else if (is_note)
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
                     }
-                }
-                else if (ctx->current &&
-                    (strcmp(ctx->current->lexeme, "check") == 0))
-                {
-                    // TODO better name .  Ack. : means ‘alarm acknowledged’ ?
-                    ctx->current = ctx->current->next;
-                    pragma_skip_blanks(ctx);
-
-                    if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
-                    {
-                        enum diagnostic_id id = get_warning(ctx->current->lexeme + 1 + 2);
-                        bool found = false;
-                        for (int i = 0;
-                             i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
-                             i++)
-                        {
-                            if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
-
-                            if (ctx->p_report->last_diagnostics_ids[i] == id)
-                            {
-                                found = true;
-                                // lets remove this error/warning/info from the final report.
-
-                                int t =
-                                    get_diagnostic_type(&ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index],
-                                        id);
-                                if (t == 3)
-                                    ctx->p_report->error_count--;
-                                else if (t == 2)
-                                    ctx->p_report->warnings_count--;
-                                else if (t == 1)
-                                    ctx->p_report->info_count--;
-
-                                break;
-                            }
-                        }
-
-                        if (!found)
-                        {
-                            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "pragma check failed");
-                        }
-                    }
-                }
+                }                
                 else
                 {
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unknown pragma");
@@ -1944,6 +1895,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 p_declaration_specifiers->p_attribute_specifier_sequence = NULL;//
             }
 
+            assert(p_declaration_specifiers->p_attribute_specifier_sequence == NULL);
             p_declaration_specifiers->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             if (ctx->current == NULL)
@@ -2018,6 +1970,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         p_declaration->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
         p_attribute_specifier_sequence = NULL; /*MOVED*/
 
+
+
+
+
         p_declaration->first_token = ctx->current;
 
         if (ctx->current->type == ';')
@@ -2025,6 +1981,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
             p_declaration->last_token = ctx->current;
             parser_match(ctx);
             // empty declaration
+
+
+
+
             return p_declaration;
         }
 
@@ -2116,6 +2076,8 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         p_declaration = NULL;
     }
 
+
+
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
 
     return p_declaration;
@@ -2128,8 +2090,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
 struct declaration* _Owner _Opt function_definition_or_declaration(struct parser_ctx* ctx)
 {
-    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence =
-        attribute_specifier_sequence_opt(ctx);
+    struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
     return declaration(ctx, p_attribute_specifier_sequence, STORAGE_SPECIFIER_NONE, true);
     /*
@@ -2258,11 +2219,20 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
         bool is_function_definition = false;
 
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx,
+                p_attribute_specifier_sequence,
+                &stack,
+                0);
+
         p_declaration = declaration_core(ctx, p_attribute_specifier_sequence, true, &is_function_definition, storage_specifier_flags, false);
         p_attribute_specifier_sequence = NULL;  //MOVED
 
         if (p_declaration == NULL)
             throw;
+
+
 
         if (is_function_definition)
         {
@@ -2480,6 +2450,11 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 flow_visit_ctx_destroy(&ctx2);
             }
         }
+
+        warn_unrecognized_warnings(ctx,
+                &stack,
+                p_declaration->p_attribute_specifier_sequence,
+                p_diagnostic_id_stack);
     }
     catch
     {
@@ -2689,8 +2664,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration");
-                    compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                    if (compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
+                    {
+                        compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                    }
                 }
             }
             else
@@ -4111,6 +4088,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             throw;
         }
 
+        assert(p_struct_or_union_specifier->attribute_specifier_sequence_opt == NULL);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
@@ -4558,6 +4536,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
         }
         else
         {
+            assert(p_member_declaration->p_attribute_specifier_sequence == NULL);
             p_member_declaration->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
@@ -5096,8 +5075,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         if (parser_match_tk(ctx, TK_KEYWORD_ENUM) != 0)
             throw;
 
-        p_enum_specifier->attribute_specifier_sequence_opt =
-            attribute_specifier_sequence_opt(ctx);
+        p_enum_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         if (ctx->current == NULL)
         {
@@ -5937,6 +5915,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
                 }
             }
             p_direct_declarator = p_direct_declarator2;
+
             assert(p_direct_declarator->p_attribute_specifier_sequence == NULL);
             p_direct_declarator->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
         }
@@ -6199,8 +6178,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             p = p_pointer;
             parser_match(ctx);
 
-            p_pointer->attribute_specifier_sequence_opt =
-                attribute_specifier_sequence_opt(ctx);
+            p_pointer->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
             if (first_of_type_qualifier(ctx))
             {
@@ -7380,56 +7358,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
                 else if (is_note)
                     ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
             }
-        }
-        else if (p_pragma_token &&
-            (strcmp(p_pragma_token->lexeme, "check") == 0))
-        {
-            p_pragma_token = pragma_match(p_pragma_token);
-
-            if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
-            {
-                enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1);
-                //warnings errors are removed on demand..
-
-                if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) ||
-                    (on_flow_analysis && get_diagnostic_phase(id) == 2))
-                {
-                    bool found = false;
-                    for (int i = 0;
-                         i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
-                         i++)
-                    {
-                        if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
-
-                        if (ctx->p_report->last_diagnostics_ids[i] == id)
-                        {
-                            // lets remove this error/warning/info from the final report.
-                            found = true;
-                            int t =
-                                get_diagnostic_type(&ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index],
-                                    id);
-                            if (t == 3)
-                                ctx->p_report->error_count--;
-                            else if (t == 2)
-                                ctx->p_report->warnings_count--;
-                            else if (t == 1)
-                                ctx->p_report->info_count--;
-
-                            break;
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        //is fatal error?
-                        //fatal errors are kept here and checked at end
-                        ctx->p_report->fatal_error_expected = atoi(p_pragma_token->lexeme + 3);
-
-                        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "pragma check failed");
-                    }
-                }
-            }
-        }
+        }      
         else
         {
             compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "unknown pragma");
@@ -8056,9 +7985,17 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute_sp
             parser_match(ctx);
             if (is_cake_attr)
             {
-                if (ctx->current->lexeme[0] == 'W')
+                if (ctx->current->lexeme[0] == 'E' ||
+                    ctx->current->lexeme[0] == 'e' ||
+                    ctx->current->lexeme[0] == 'W' ||
+                    ctx->current->lexeme[0] == 'w')
                 {
+                    //enum diagnostic_id  get_warning(const char* wname)
                     p_attribute_specifier->ack = atoi(ctx->current->lexeme + 1);
+                }
+                else if (strcmp(ctx->current->lexeme, "leak") == 0)
+                {
+                    attribute_flags = CAKE_ATTRIBUTE_LEAK;
                 }
                 else
                 {
@@ -8483,10 +8420,17 @@ void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p)
     }
 }
 
-void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_specifier_sequence,
-                                struct diagnostic_id_stack* stack,
-                                int diagnostic_phase)
+struct diagnostic_id_stack* _Opt  build_diagnostic_id_stack(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
+                               struct diagnostic_id_stack* stack,
+                               int diagnostic_phase)
 {
+    struct diagnostic_id_stack* _Opt previous = ctx->p_diagnostic_id_stack;
+    ctx->p_diagnostic_id_stack = stack;
+
+    if (p_attribute_specifier_sequence == NULL)
+        return previous;
+
     struct attribute_specifier* _Opt p_attribute_specifier = p_attribute_specifier_sequence->head;
     while (p_attribute_specifier)
     {
@@ -8500,16 +8444,25 @@ void build_diagnostic_id_stack(struct attribute_specifier_sequence* p_attribute_
         }
         p_attribute_specifier = p_attribute_specifier->next;
     }
+    return previous;
 }
 
 void warn_unrecognized_warnings(struct parser_ctx* ctx,
     struct diagnostic_id_stack* stack,
-    struct token* token)
+    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
+    struct diagnostic_id_stack* _Opt p_diagnostic_id_stack)
 {
+    ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+
+    if (p_attribute_specifier_sequence == NULL)
+    {
+        return;
+    }
+    struct token* token = p_attribute_specifier_sequence->first_token;
     for (int i = stack->size - 1; i >= 0; i--)
     {
         char warning_name[200] = { 0 };
-        get_warning_name(stack->stack[i], sizeof(warning_name), warning_name);
+        get_warning_name_and_number(stack->stack[i], sizeof(warning_name), warning_name);
 
         compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
             ctx,
@@ -8540,27 +8493,19 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
             p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
             p_attribute_specifier_sequence = NULL;
 
-            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->p_diagnostic_id_stack;
             struct diagnostic_id_stack stack = { 0 };
-            ctx->p_diagnostic_id_stack = &stack;
-
-            if (p_unlabeled_statement->p_attribute_specifier_sequence)
-            {
-                build_diagnostic_id_stack(p_unlabeled_statement->p_attribute_specifier_sequence,
+            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+                build_diagnostic_id_stack(ctx,
+                    p_unlabeled_statement->p_attribute_specifier_sequence,
                     &stack,
                     0);
-            }
 
             p_unlabeled_statement->primary_block = primary_block(ctx);
 
-            if (p_unlabeled_statement->p_attribute_specifier_sequence && stack.size > 0)
-            {
-                warn_unrecognized_warnings(ctx,
-                    &stack,
-                    p_unlabeled_statement->p_attribute_specifier_sequence->first_token);
-            }
-
-            ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+            warn_unrecognized_warnings(ctx,
+                &stack,
+                p_unlabeled_statement->p_attribute_specifier_sequence,
+                p_diagnostic_id_stack);
 
             if (p_unlabeled_statement->primary_block == NULL)
                 throw;
@@ -8569,9 +8514,20 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
         else if (first_of_jump_statement(ctx))
         {
             p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
-            p_attribute_specifier_sequence = NULL;
+            p_attribute_specifier_sequence = NULL; /*MOVED*/
+
+            struct diagnostic_id_stack stack = { 0 };
+            struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+                build_diagnostic_id_stack(ctx, p_unlabeled_statement->p_attribute_specifier_sequence, &stack, 0);
 
             p_unlabeled_statement->jump_statement = jump_statement(ctx);
+
+            warn_unrecognized_warnings(ctx,
+            &stack,
+            p_unlabeled_statement->p_attribute_specifier_sequence,
+            p_diagnostic_id_stack);
+
+
             if (p_unlabeled_statement->jump_statement == NULL)
                 throw;
         }
@@ -8681,6 +8637,13 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         p_label->p_attribute_specifier_sequence = p_attribute_specifier_sequence; //MOVED
         p_attribute_specifier_sequence = NULL;
 
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx, p_label->p_attribute_specifier_sequence, &stack, 0);
+
+
+        //
+
         p_label->label_id = ctx->label_id++;
 
         p_label->p_first_token = ctx->current;
@@ -8717,6 +8680,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
+
         }
         else if (ctx->current->type == TK_KEYWORD_CASE)
         {
@@ -8897,6 +8861,10 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         // attribute_specifier_sequence_opt identifier ':'
         // attribute_specifier_sequence_opt 'case' constant_expression ':'
         // attribute_specifier_sequence_opt 'default' ':'
+
+        warn_unrecognized_warnings(ctx,
+                &stack,
+                p_label->p_attribute_specifier_sequence, p_diagnostic_id_stack);
     }
     catch
     {
@@ -8953,14 +8921,20 @@ struct label* _Opt case_label_list_find(const struct case_label_list* list, cons
     {
         if (p->constant_expression_end == NULL)
         {
-            if (object_equal(&p->constant_expression->object, object))
+            if (p->constant_expression &&
+                object_equal(&p->constant_expression->object, object))
+            {
                 return p;
+            }
         }
         else
         {
-            if (object_greater_than_or_equal(object, &p->constant_expression->object) &&
+            if (p->constant_expression &&
+                object_greater_than_or_equal(object, &p->constant_expression->object) &&
                 object_smaller_than_or_equal(object, &p->constant_expression_end->object))
+            {
                 return p;
+            }
         }
         p = p->next;
     }
@@ -10242,15 +10216,12 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
         p_expression_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
         p_attribute_specifier_sequence = NULL;
 
-        
-        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack = ctx->p_diagnostic_id_stack;
-        struct diagnostic_id_stack stack = { 0 };
-        ctx->p_diagnostic_id_stack = &stack;
 
-        if (p_expression_statement->p_attribute_specifier_sequence)
-        {
-            build_diagnostic_id_stack(p_expression_statement->p_attribute_specifier_sequence, &stack, 0);
-        }
+
+        struct diagnostic_id_stack stack = { 0 };
+        struct diagnostic_id_stack* _Opt p_diagnostic_id_stack =
+            build_diagnostic_id_stack(ctx, p_expression_statement->p_attribute_specifier_sequence, &stack, 0);
+
 
         if (ctx->current == NULL)
         {
@@ -10263,12 +10234,10 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
             p_expression_statement->expression_opt = expression(ctx);
 
 
-            if (p_expression_statement->p_attribute_specifier_sequence && stack.size > 0)
-            {
-                warn_unrecognized_warnings(ctx,
-                    &stack,
-                    p_expression_statement->p_attribute_specifier_sequence->first_token);
-            }
+            warn_unrecognized_warnings(ctx,
+                &stack,
+                p_expression_statement->p_attribute_specifier_sequence, p_diagnostic_id_stack);
+
 
             if (p_expression_statement->expression_opt == NULL)
                 throw;
@@ -10417,8 +10386,7 @@ struct init_statement* _Owner _Opt init_statement(struct parser_ctx* ctx, bool i
         if (p_init_statement == NULL)
             throw;
 
-        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence =
-            attribute_specifier_sequence_opt(ctx);
+        struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
 
         if (first_of_declaration_specifier(ctx))
@@ -11138,14 +11106,7 @@ int compile_one_file(const char* file_name,
             }
             free(content_expected);
         }
-
-        if (report->fatal_error_expected != 0)
-        {
-            if (report->last_diagnostics_ids[0] == report->fatal_error_expected)
-            {
-                report->error_count--;
-            }
-        }
+        
         if (report->error_count > 0 || report->warnings_count > 0)
         {
 
@@ -11251,7 +11212,7 @@ static int compile_many_files(const char* file_name,
                                  &report_local);
 
 
-                report->fatal_error_expected = report_local.fatal_error_expected;
+                
                 report->error_count += report_local.error_count;
                 report->warnings_count += report_local.warnings_count;
                 report->info_count += report_local.info_count;
@@ -11447,7 +11408,7 @@ int compile(int argc, const char** argv, struct report* report)
             struct report report_local = { 0 };
             compile_one_file(fullpath, &options, output_file, argc, argv, &report_local);
 
-            report->fatal_error_expected = report_local.fatal_error_expected;
+            
             report->error_count += report_local.error_count;
             report->warnings_count += report_local.warnings_count;
             report->info_count += report_local.info_count;
@@ -12017,7 +11978,10 @@ static bool find_next_subobject_core(const struct type* p_type, struct object* o
             if (result->object != NULL)
             {
                 result->object = obj;
+
+                type_destroy(&result->type);
                 result->type = type_dup(p_type);
+
                 return true;
             }
 

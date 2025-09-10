@@ -12,8 +12,11 @@ void* _Owner _Opt f1()
     struct X* _Owner _Opt p = calloc(1, sizeof(struct X));
     if (p)
     {
-        p->name = calloc(1,2);
-    }    
-    return p;    
+        p->name = calloc(1, 2);
+    }
+
+    //object 'name' may not be empty
+    [[cake::w29]]
+    return p;
 }
-#pragma cake diagnostic check "-Wmissing-destructor"
+

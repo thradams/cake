@@ -1,9 +1,11 @@
-﻿#pragma safety enable
+#pragma safety enable
 
 void f(int i)
 {
     int j;
-    if (i || j){
+    // warning: using a uninitialized object 'j'
+    [[cake::w30]]
+    if (i || j)
+    {
     }
-    #pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
 }

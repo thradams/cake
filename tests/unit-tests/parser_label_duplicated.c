@@ -2,7 +2,10 @@ int main()
 {
     goto a;
     a:;
+
+    //error: duplicated label 'a'
+    [[cake::e1440]]
     a:;
 }
-#pragma cake diagnostic check "-E1440"
+
 

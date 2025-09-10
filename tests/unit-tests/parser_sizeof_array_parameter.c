@@ -2,19 +2,20 @@
 int f(int a[2])
 {
     int i;
+    //warning: sizeof applied to array function parameter 
+    [[cake::w47]]
     i = sizeof(a);
-    //warning: sizeof applied to array function parameter
-#pragma cake diagnostic check "-Wsizeof-array-argument"    
 
+    //warning: sizeof applied to array function parameter
+    [[cake::w47]]
     static_assert(sizeof(a) == sizeof(void*));
-#pragma cake diagnostic check "-Wsizeof-array-argument"    
 }
 
 int main()
 {
     int i;
+    //error: struct is incomplete type
+    [[cake::e740]]
     i = sizeof(struct X);
-    //error: struct is incomplete type [E74]
-#pragma cake diagnostic check "-E740"        
 }
 

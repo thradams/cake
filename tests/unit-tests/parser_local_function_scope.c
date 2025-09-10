@@ -1,4 +1,4 @@
-﻿static int g;
+static int g;
 
 int main()
 {
@@ -11,17 +11,21 @@ int main()
         f(); //ok
         g;//ok
         s; //ok
+        //error: 'i' cannot be evaluated in this scope
+        [[cake::e1870]]
         i; //error
     }
-#pragma cake diagnostic check "-E1870"       
+
 
     (void())
     {
         f(); //ok
         g;//ok
         s; //ok
+
+        //error: 'i' cannot be evaluated in this scope
+        [[cake::e1870]]
         i; //error
     };
 
-#pragma cake diagnostic check "-E1870"       
 }

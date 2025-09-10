@@ -1,19 +1,18 @@
-﻿#pragma safety enable
+#pragma safety enable
 
 /*
   returns a non-null pointer
 */
-int * f();
+int* f();
 
 int main()
 {
-    int * p;
-    if ((p = f()) == 0)
-//      ~~~~~~~~ 
-    {
-//      warning: pointer is always not-null [-Wflow-not-null]
-#pragma cake diagnostic check "-Wflow-not-null"
+    int* p;
 
+    //pointer is always non-null
+    [[cake::w28]]
+    if ((p = f()) == 0)
+    {
         //if will not change the state
         static_state(p, "not-null");
     }

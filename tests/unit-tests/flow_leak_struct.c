@@ -5,16 +5,14 @@
 char* _Owner strdup(const char* s);
 void free(void* _Owner p);
 
-struct X 
+struct X
 {
     char* _Owner _Opt text;
 };
 
 void f(int a)
 {
-    struct X x = { 0 };
+    struct X x [[cake::leak]] = {0};
     x.text = strdup("a");
 }
-
-#pragma cake diagnostic check "-Wmissing-destructor"
 

@@ -204,7 +204,7 @@ struct expression
     struct token* last_token;
     
     //TODO https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
-    struct token* offsetof_member_designator;
+    struct token* _Opt offsetof_member_designator;
 
     /*if expression is an identifier it points to its declaration*/
     struct declarator* _Opt declarator;

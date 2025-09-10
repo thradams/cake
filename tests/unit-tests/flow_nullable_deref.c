@@ -17,14 +17,13 @@ int main()
     }
     else
     {
-        //p->name = malloc(1);
-        //#pragma cake diagnostic check "-Wanalyzer-null-dereference"
+        //p->name = malloc(1);        
     }
-    free(p->name);
-#pragma cake diagnostic check "-Wanalyzer-null-dereference"
-#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
+    //warning: pointer may be null
+    [[cake::w30]] [[cake::w33]]
+        free(p->name);
 
+    // warning: object 'name' may not be empty
+    [[cake::w29]]
     free(p);
-#pragma cake diagnostic check "-Wmissing-destructor"
-
 }

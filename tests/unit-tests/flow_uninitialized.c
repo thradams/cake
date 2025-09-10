@@ -8,11 +8,12 @@ int main(void)
 {
     int a;
 
-    f_const(a);
-#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
-#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
+    //warning: passing an uninitialized argument 'a' object
+    [[cake::w30]] [[cake::w30]]
+        f_const(a);
 
-    f(a);
-#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
-#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
+    //warning: passing an uninitialized argument 'a' object
+    [[cake::w30]] [[cake::w30]]
+        f(a);
+
 }

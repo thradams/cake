@@ -7,7 +7,7 @@ int rand();
 
 int main()
 {
-    char* _Owner _Opt s = malloc(1);
+    char* _Owner _Opt s [[cake::leak]] = malloc(1);
     try
     {
         if (rand())
@@ -16,12 +16,11 @@ int main()
         }
         else
         {
-            static_debug(s);
+            //static_debug(s);
             throw;
         }
     }
     catch
     {
-    }    
+    }
 }
-#pragma cake diagnostic check "-Wmissing-destructor"
