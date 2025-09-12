@@ -82,12 +82,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_ENUM = 1 << 16,
     TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-
-    TYPE_SPECIFIER_INT8 = 1 << 18,
-    TYPE_SPECIFIER_INT16 = 1 << 19,
-    TYPE_SPECIFIER_INT32 = 1 << 20,
-    TYPE_SPECIFIER_INT64 = 1 << 21,
-
+   
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
 
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
@@ -102,6 +97,7 @@ enum type_specifier_flags
 enum type_specifier_flags get_wchar_type_specifier(enum target target);
 enum type_specifier_flags get_size_t_specifier(enum target target);
 enum type_specifier_flags get_ptrdiff_t_specifier(enum target target);
+enum type_specifier_flags get_intN_type_specifier(enum target target, int nbits);
 
 
 enum type_qualifier_flags

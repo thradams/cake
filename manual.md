@@ -94,10 +94,10 @@ cake [options] source1.c source2.c ...
 SAMPLES
 
     cake source.c
-    Compiles source.c and outputs /out/source.c
+    Compiles source.c and outputs /[default-target]/source.c
 
-    cake -target=C11 source.c
-    Compiles source.c and outputs C11 code at /out/source.c
+    cake -target=X86_msvc source.c
+    Compiles source.c and outputs C11 code at /X86_msvc/source.c
 
 cake file.c -o file.cc && cl file.cc
     Compiles file.c and outputs file.cc then use cl to compile file.cc
@@ -155,7 +155,8 @@ Inside "Visual Studio -> External Tools" this command can be used for static ana
 `-Wstyle  -msvc-output  -no-output -sarif -sarif-path "$(SolutionDir).sarif" $(ItemPath)´
 
 ### -target=x86_x64_gcc, -target=x64_msvc, -target=x64_msvc
-This is used for cross compiling.
+Defines how the source code is interpreted (sizeof long, wchar_t etc) _and specifies which 
+compiler and configuration are required to compile the Cake output.
 
 #### -msvc-output          
 Output is compatible with Visual Studio IDE. 
@@ -208,7 +209,7 @@ output:
 ```
   c:\project
   ├── file1.c
-  ├── out
+  ├── target
       ├── file1.c
 ```
 
@@ -225,7 +226,7 @@ output
   ├── file1.c
   ├── other
   │   ├── file2.c
-  ├── out
+  ├── target
       ├── file1.c
       ├── other
           ├── file2.c

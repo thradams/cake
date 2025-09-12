@@ -141,7 +141,10 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstrea
 static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
-static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, const char* declarator_name, bool all);
+static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, 
+    const char* declarator_name, 
+    bool all,
+    bool initialize_objects_that_does_not_have_initializer);
 
 static void d_print_type_core(struct d_visit_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
 static void d_print_type(struct d_visit_ctx* ctx,
@@ -223,8 +226,8 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
         {
             switch (p_expression->expression_type)
             {
-            //Operators with lower precedence than != are:
-            //&& ||  ? assignments(=, +=, …) ,
+                //Operators with lower precedence than != are:
+                //&& ||  ? assignments(=, +=, …) ,
             case LOGICAL_OR_EXPRESSION:
             case LOGICAL_AND_EXPRESSION:
             case ASSIGNMENT_EXPRESSION_ASSIGN:
@@ -888,7 +891,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ss_clear(&local);
 
             //bool first = true;
-            object_print_non_constant_initialization(ctx, &local, &p_expression->object, name, true);
+            object_print_non_constant_initialization(ctx, &local, &p_expression->object, name, true, true);
 
             assert(local.c_str);
             ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
@@ -2531,7 +2534,8 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
     struct osstream* ss,
     const struct object* object,
     const char* declarator_name,
-    bool all)
+    bool all,
+    bool initialize_objects_that_does_not_have_initializer)
 {
 
     if (object_is_reference(object))
@@ -2573,8 +2577,11 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                     }
                     else if (all)
                     {
-                        print_identation_core(ss, ctx->indentation);
-                        ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->debug_name);
+                        if (initialize_objects_that_does_not_have_initializer)
+                        {
+                            print_identation_core(ss, ctx->indentation);
+                            ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->debug_name);
+                        }
                     }
                     member = member->next;
                 }
@@ -2591,18 +2598,50 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->debug_name);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);
+                ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);//TODO size of?
 
                 ss_fprintf(ss, ");\n");
                 ss_close(&local);
                 ctx->memcpy_used = true;
+            }
+            else if (object->p_init_expression)
+            {
+                /*                
+                       struct A { int x, y; };
+                       struct B { struct A a; };
+
+                       int main(void)
+                       {
+                         struct A ia = { 1, 2 };
+                         struct B b = { .a = ia, .a.y = 42 };     
+                       }
+                */
+                print_identation_core(ss, ctx->indentation);
+                ss_fprintf(ss, "_cake_memcpy(&%s%s, ", declarator_name, object->debug_name);
+                struct osstream local = { 0 };
+                d_visit_expression(ctx, &local, object->p_init_expression);
+                size_t sz = 0;
+                type_get_sizeof(&object->type, &sz, ctx->options.target);
+                ss_fprintf(ss, "&%s, %d", local.c_str, sz);
+
+                ss_fprintf(ss, ");\n");
+                ss_close(&local);
+                ctx->memcpy_used = true;
+
+                struct object* _Opt member = object->members;
+                while (member)
+                {
+                    object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, false);
+                    member = member->next;
+                }
+
             }
             else
             {
                 struct object* _Opt member = object->members;
                 while (member)
                 {
-                    object_print_non_constant_initialization(ctx, ss, member, declarator_name, all);
+                    object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, true);
                     member = member->next;
                 }
             }
@@ -2642,8 +2681,11 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
         }
         else if (all)
         {
-            print_identation_core(ss, ctx->indentation);
-            ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->debug_name);
+            if (initialize_objects_that_does_not_have_initializer)
+            {
+                print_identation_core(ss, ctx->indentation);
+                ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->debug_name);
+            }
         }
     }
 }
@@ -2746,7 +2788,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                         else
                         {
                             //ss_fprintf(oss, ";\n");
-                            object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true);
+                            object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true, true);
                         }
                     }
                 }

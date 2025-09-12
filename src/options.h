@@ -359,6 +359,11 @@ struct options
     bool visual_studio_ouput_format;
 
     /*
+      -fdiagnostics-color=never
+    */
+    bool disable_colors;
+
+    /*
       -dump-tokens
       print tokens before preprocessor
     */

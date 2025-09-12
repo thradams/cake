@@ -2117,7 +2117,7 @@ bool is_never_final(enum token_type type)
         type == TK_NEWLINE;
 }
 
-enum token_type is_keyword(const char* text);
+enum token_type is_keyword(const char* text, enum target target);
 
 struct token* _Opt preprocessor_look_ahead_core(struct token* p)
 {

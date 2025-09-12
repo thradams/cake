@@ -22,11 +22,11 @@
 
 
 
-static void print_report(struct report* report, bool msvc)
+static void print_report(struct report* report, bool no_colors)
 {
     printf("\n");
     printf(" %d files in %.2f seconds\n", report->no_files, report->cpu_time_used_sec);
-    if (msvc)
+    if (no_colors)
     {
         printf(" %d"   " errors ", report->error_count);
         printf("%d"  " warnings ", report->warnings_count);

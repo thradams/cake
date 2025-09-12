@@ -20,7 +20,7 @@
 size_t get_align_void_ptr(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
@@ -32,7 +32,7 @@ size_t get_align_void_ptr(enum target target)
 size_t get_size_void_ptr(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
@@ -45,7 +45,7 @@ size_t get_size_void_ptr(enum target target)
 size_t get_align_char(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -57,7 +57,7 @@ size_t get_align_char(enum target target)
 size_t get_size_char(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -70,7 +70,7 @@ size_t get_size_char(enum target target)
 size_t get_align_bool(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -82,7 +82,7 @@ size_t get_align_bool(enum target target)
 size_t get_size_bool(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -94,7 +94,7 @@ size_t get_size_bool(enum target target)
 size_t get_align_short(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
@@ -106,7 +106,7 @@ size_t get_align_short(enum target target)
 size_t get_size_short(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
@@ -118,7 +118,7 @@ size_t get_size_short(enum target target)
 size_t get_align_int(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -130,7 +130,7 @@ size_t get_align_int(enum target target)
 size_t get_size_int(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -142,7 +142,7 @@ size_t get_size_int(enum target target)
 size_t get_align_long(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -154,7 +154,7 @@ size_t get_align_long(enum target target)
 size_t get_size_long(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -166,7 +166,7 @@ size_t get_size_long(enum target target)
 size_t get_align_long_long(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -178,7 +178,7 @@ size_t get_align_long_long(enum target target)
 size_t get_size_long_long(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -192,7 +192,7 @@ size_t get_size_long_long(enum target target)
 size_t get_align_float(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -204,7 +204,7 @@ size_t get_align_float(enum target target)
 size_t get_size_float(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -228,7 +228,7 @@ size_t get_align_double(enum target target)
 size_t get_size_double(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -240,7 +240,7 @@ size_t get_size_double(enum target target)
 size_t get_align_long_double(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -279,6 +279,34 @@ enum type_specifier_flags get_wchar_type_specifier(enum target target)
     return 0;
 }
 
+
+enum type_specifier_flags get_intN_type_specifier(enum target target, int nbits)
+{
+    assert(nbits >= 8);
+
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:         
+        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
+        if (nbits == 16) return TYPE_SPECIFIER_SHORT;
+        if (nbits == 32) return TYPE_SPECIFIER_INT;
+        if (nbits == 64) return TYPE_SPECIFIER_LONG;
+        if (nbits == 128) return TYPE_SPECIFIER_LONG_LONG;
+        break;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
+        if (nbits == 16) return TYPE_SPECIFIER_SHORT;
+        if (nbits == 32) return TYPE_SPECIFIER_INT;
+        if (nbits == 64) return TYPE_SPECIFIER_LONG_LONG;
+        break;
+    }
+
+    assert(false);
+    return TYPE_SPECIFIER_LONG_LONG;
+}
+
 enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
 {
     switch (target)
@@ -290,7 +318,7 @@ enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
         return (TYPE_SPECIFIER_INT);
         break;
     case TARGET_X64_MSVC:
-        return (TYPE_SPECIFIER_INT64);
+        return (TYPE_SPECIFIER_LONG_LONG);
         break;
     }
     assert(false);
@@ -309,7 +337,7 @@ enum type_specifier_flags get_size_t_specifier(enum target target)
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
         break;
     case TARGET_X64_MSVC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64);
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG);
         break;
     }
     assert(false);
@@ -397,19 +425,6 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT8)
-        print_item(ss, first, "__int8");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT16)
-        print_item(ss, first, "__int16");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT32)
-        print_item(ss, first, "__int32");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT64)
-        print_item(ss, first, "__int64");
-
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
@@ -636,9 +651,8 @@ void type_integer_promotion(struct type* a)
 
     if ((a->type_specifier_flags & TYPE_SPECIFIER_BOOL) ||
         (a->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
-        (a->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
-        (a->type_specifier_flags & TYPE_SPECIFIER_INT8) ||
-        (a->type_specifier_flags & TYPE_SPECIFIER_INT16))
+        (a->type_specifier_flags & TYPE_SPECIFIER_SHORT)
+        )
     {
         a->type_specifier_flags = (TYPE_SPECIFIER_INT);
     }
@@ -1467,18 +1481,10 @@ bool type_is_integer(const struct type* p_type)
         (TYPE_SPECIFIER_CHAR |
             TYPE_SPECIFIER_SHORT |
             TYPE_SPECIFIER_INT |
-
-            TYPE_SPECIFIER_INT16 |
-            TYPE_SPECIFIER_INT32 |
-            TYPE_SPECIFIER_INT64 |
-
             TYPE_SPECIFIER_INT |
             TYPE_SPECIFIER_LONG |
             TYPE_SPECIFIER_SIGNED |
-            TYPE_SPECIFIER_UNSIGNED |
-            TYPE_SPECIFIER_INT8 |
-            TYPE_SPECIFIER_INT16 |
-            TYPE_SPECIFIER_INT64 |
+            TYPE_SPECIFIER_UNSIGNED |            
             TYPE_SPECIFIER_LONG_LONG |
             TYPE_SPECIFIER_BOOL);
 }
@@ -2049,8 +2055,7 @@ int type_get_integer_rank(const struct type* p_type1)
         return 40;
     }
 
-    if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT64))
+    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
         return 80;
     }
@@ -2058,8 +2063,7 @@ int type_get_integer_rank(const struct type* p_type1)
     {
         return 50; //?
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT32))
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG)
     {
         return 50;
     }
@@ -2068,17 +2072,15 @@ int type_get_integer_rank(const struct type* p_type1)
     {
         return 40;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT16))
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
         return 30;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT8))
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
         return 20;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL))
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL)
     {
         return 10;
     }
@@ -2800,23 +2802,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
             align = get_align_int(target);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
-        {
-            align = 8;
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
-        {
-            align = 4;
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
-        {
-            align = 2;
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
-        {
-            align = 1;
-        }
+        }        
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
             align = get_align_float(target);
@@ -3046,31 +3032,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         *size = get_size_int(target);
         return ESIZEOF_NONE;
     }
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
-    {
-        *size = get_size_long_long(target);
-        return ESIZEOF_NONE;
-    }
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
-    {
-        *size = 4;
-        return ESIZEOF_NONE;
-    }
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
-    {
-        *size = 2;
-        return ESIZEOF_NONE;
-    }
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
-    {
-        *size = 1;
-        return ESIZEOF_NONE;
-    }
-
+    
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
         *size = get_size_float(target);

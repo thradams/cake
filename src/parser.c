@@ -1059,7 +1059,7 @@ struct token* _Opt previous_parser_token(const struct token* token)
     return prev;
 }
 
-enum token_type is_keyword(const char* text)
+enum token_type is_keyword(const char* text, enum target target)
 {
     switch (text[0])
     {
@@ -1291,12 +1291,13 @@ enum token_type is_keyword(const char* text)
 
         if (strcmp("__builtin_va_copy", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
-
-        if (strcmp("__ptr32", text) == 0)
-            return TK_KEYWORD_MSVC__PTR32;
-        if (strcmp("__ptr64", text) == 0)
-            return TK_KEYWORD_MSVC__PTR64;
-
+        if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
+        {
+            if (strcmp("__ptr32", text) == 0)
+                return TK_KEYWORD_MSVC__PTR32;
+            if (strcmp("__ptr64", text) == 0)
+                return TK_KEYWORD_MSVC__PTR64;
+        }
 
         if (strcmp("_Bool", text) == 0)
             return TK_KEYWORD__BOOL;
@@ -1322,35 +1323,37 @@ enum token_type is_keyword(const char* text)
             return TK_KEYWORD__BITINT; /*(C23)*/
         if (strcmp("__typeof__", text) == 0)
             return TK_KEYWORD_TYPEOF; /*(C23)*/
-#ifdef  _MSC_VER
-        // begin microsoft
-        if (strcmp("__int8", text) == 0)
-            return TK_KEYWORD_MSVC__INT8;
-        if (strcmp("__int16", text) == 0)
-            return TK_KEYWORD_MSVC__INT16;
-        if (strcmp("__int32", text) == 0)
-            return TK_KEYWORD_MSVC__INT32;
-        if (strcmp("__int64", text) == 0)
-            return TK_KEYWORD_MSVC__INT64;
-        if (strcmp("__forceinline", text) == 0)
-            return TK_KEYWORD_INLINE;
-        if (strcmp("__inline", text) == 0)
-            return TK_KEYWORD_INLINE;
-        if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-            return TK_KEYWORD__ASM;
-        if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
-            return TK_KEYWORD_MSVC__STDCALL;
-        if (strcmp("__cdecl", text) == 0)
-            return TK_KEYWORD_MSVC__CDECL;
-        if (strcmp("__fastcall", text) == 0)
-            return TK_KEYWORD_MSVC__FASTCALL;
-        if (strcmp("__alignof", text) == 0)
-            return TK_KEYWORD__ALIGNOF;
-        if (strcmp("__restrict", text) == 0)
-            return TK_KEYWORD_RESTRICT;
-        if (strcmp("__declspec", text) == 0)
-            return TK_KEYWORD_MSVC__DECLSPEC;
-#endif
+
+        if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
+        {
+            // begin microsoft
+            if (strcmp("__int8", text) == 0)
+                return TK_KEYWORD_MSVC__INT8;
+            if (strcmp("__int16", text) == 0)
+                return TK_KEYWORD_MSVC__INT16;
+            if (strcmp("__int32", text) == 0)
+                return TK_KEYWORD_MSVC__INT32;
+            if (strcmp("__int64", text) == 0)
+                return TK_KEYWORD_MSVC__INT64;
+            if (strcmp("__forceinline", text) == 0)
+                return TK_KEYWORD_INLINE;
+            if (strcmp("__inline", text) == 0)
+                return TK_KEYWORD_INLINE;
+            if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
+                return TK_KEYWORD__ASM;
+            if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
+                return TK_KEYWORD_MSVC__STDCALL;
+            if (strcmp("__cdecl", text) == 0)
+                return TK_KEYWORD_MSVC__CDECL;
+            if (strcmp("__fastcall", text) == 0)
+                return TK_KEYWORD_MSVC__FASTCALL;
+            if (strcmp("__alignof", text) == 0)
+                return TK_KEYWORD__ALIGNOF;
+            if (strcmp("__restrict", text) == 0)
+                return TK_KEYWORD_RESTRICT;
+            if (strcmp("__declspec", text) == 0)
+                return TK_KEYWORD_MSVC__DECLSPEC;
+        }
         break;
     default:
         break;
@@ -1372,7 +1375,7 @@ static void token_promote(const struct parser_ctx* ctx, struct token* token)
 
     if (token->type == TK_IDENTIFIER)
     {
-        enum token_type t = is_keyword(token->lexeme);
+        enum token_type t = is_keyword(token->lexeme, ctx->options.target);
         if (t != TK_NONE)
             token->type = t;
     }
@@ -1531,7 +1534,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                         else if (is_note)
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
                     }
-                }                
+                }
                 else
                 {
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unknown pragma");
@@ -1643,10 +1646,6 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
         (flags & TYPE_SPECIFIER_INT) ||
         (flags & TYPE_SPECIFIER_LONG) ||
         (flags & TYPE_SPECIFIER_INT) ||
-        (flags & TYPE_SPECIFIER_INT8) ||
-        (flags & TYPE_SPECIFIER_INT16) ||
-        (flags & TYPE_SPECIFIER_INT32) ||
-        (flags & TYPE_SPECIFIER_INT64) ||
         (flags & TYPE_SPECIFIER_LONG_LONG))
     {
         return true;
@@ -1751,20 +1750,6 @@ int add_specifier(struct parser_ctx* ctx,
     case TYPE_SPECIFIER_ENUM:  //complex long double
     case TYPE_SPECIFIER_TYPEOF:  //typeof        
     case TYPE_SPECIFIER_TYPEDEF:
-
-    case TYPE_SPECIFIER_INT8:
-    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT8:
-
-    case TYPE_SPECIFIER_INT16:
-    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT16:
-    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT16:
-    case TYPE_SPECIFIER_INT32:
-    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT32:
-    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT32:
-    case TYPE_SPECIFIER_INT64:
-    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64:
-    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT64:
-        //VALID
         break;
     default:
         compiler_diagnostic(C_ERROR_TWO_OR_MORE_SPECIFIERS, ctx, ctx->current, NULL, "incompatible specifiers");
@@ -3808,25 +3793,25 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 
         case TK_KEYWORD_MSVC__INT8:
             p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+            p_type_specifier->flags = get_intN_type_specifier(ctx->options.target, 8);
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_MSVC__INT16:
             p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+            p_type_specifier->flags = get_intN_type_specifier(ctx->options.target, 16);
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_MSVC__INT32:
             p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+            p_type_specifier->flags = get_intN_type_specifier(ctx->options.target, 32);
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_MSVC__INT64:
             p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+            p_type_specifier->flags = get_intN_type_specifier(ctx->options.target, 64);
             parser_match(ctx);
             return p_type_specifier;
 
@@ -7385,7 +7370,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
                 else if (is_note)
                     ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
             }
-        }      
+        }
         else
         {
             compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "unknown pragma");
@@ -7925,7 +7910,7 @@ bool first_of_attribute(const struct parser_ctx* ctx)
     if (ctx->current->type == TK_IDENTIFIER)
         return true;
 
-    if (is_keyword(ctx->current->lexeme) != 0)
+    if (is_keyword(ctx->current->lexeme, ctx->options.target) != 0)
         return true;
 
     return false;
@@ -10935,6 +10920,17 @@ int generate_config_file(const char* configpath)
     return error;
 }
 
+static int get_first_line_len(const char* s)
+{
+    int n = 0;
+    while (*s && (*s != '\r' && *s != '\n'))
+    {
+        s++;
+        n++;
+    }
+    return n;
+}
+
 int compile_one_file(const char* file_name,
     struct options* options,
     const char* out_file_name,
@@ -11120,35 +11116,54 @@ int compile_one_file(const char* file_name,
     if (ctx.options.test_mode)
     {
         //lets check if the generated file is the expected
+        char file_name_no_ext[MYMAX_PATH] = { 0 };
+        remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
+
         char buf[MYMAX_PATH] = { 0 };
-        snprintf(buf, sizeof buf, "%s.out", file_name);
+        snprintf(buf, sizeof buf, "%s_%s.out", file_name_no_ext, target_to_string(ctx.options.target));
 
         char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/);
         if (content_expected)
         {
-            if (s && strcmp(content_expected, s) != 0)
+            //We don't compare the fist line because it has the version that changes.
+            int s_first_line_len = get_first_line_len(s);
+            int content_expected_first_line_len = get_first_line_len(content_expected);
+            if (s && strcmp(content_expected + content_expected_first_line_len, s + s_first_line_len) != 0)
             {
                 printf("different");
                 report->error_count++;
             }
             free(content_expected);
         }
-        
+
         if (report->error_count > 0 || report->warnings_count > 0)
         {
 
             printf("-------------------------------------------\n");
             printf("%s", content);
             printf("\n-------------------------------------------\n");
-            printf(LIGHTRED "TEST FAILED" RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+            if (ctx.options.disable_colors)
+            {
+                printf("TEST FAILED" " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+            }
+            else
+            {
+                printf(LIGHTRED "TEST FAILED" RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+            }
             printf("\n\n");
             report->test_failed++;
         }
         else
         {
-
             report->test_succeeded++;
-            printf(LIGHTGREEN "TEST OK\n" RESET);
+            if (ctx.options.disable_colors)
+            {
+                printf("TEST OK\n");
+            }
+            else
+            {
+                printf(LIGHTGREEN "TEST OK\n" RESET);
+            }
         }
     }
 
@@ -11239,7 +11254,7 @@ static int compile_many_files(const char* file_name,
                                  &report_local);
 
 
-                
+
                 report->error_count += report_local.error_count;
                 report->warnings_count += report_local.warnings_count;
                 report->info_count += report_local.info_count;
@@ -11406,7 +11421,8 @@ int compile(int argc, const char** argv, struct report* report)
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
-                strcat(output_file, "/out");
+                strcat(output_file, "/");
+                strcat(output_file, target_to_string(options.target));
 
                 strcat(output_file, fullpath + root_dir_len);
 
@@ -11435,7 +11451,7 @@ int compile(int argc, const char** argv, struct report* report)
             struct report report_local = { 0 };
             compile_one_file(fullpath, &options, output_file, argc, argv, &report_local);
 
-            
+
             report->error_count += report_local.error_count;
             report->warnings_count += report_local.warnings_count;
             report->info_count += report_local.info_count;

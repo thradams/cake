@@ -477,8 +477,27 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-msvc-output") == 0 ||
-            strcmp(argv[i], "-fdiagnostics-format=msvc") == 0) //same as clang
+        if (has_prefix(argv[i], "-fdiagnostics"))
+        {
+            if (strcmp(argv[i], "-fdiagnostics-color=never") == 0)
+            {
+                options->disable_colors = true;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-fdiagnostics-format=msvc") == 0) //same as clang
+            {
+                options->visual_studio_ouput_format = true;
+                continue;
+            }
+
+            printf("Invalid. Valid options are:"
+                   "-fdiagnostics-color=never" " "
+                   "-fdiagnostics-format=msvc"
+                   "\n");
+        }
+
+        if (strcmp(argv[i], "-msvc-output") == 0) //same as clang
         {
             options->visual_studio_ouput_format = true;
             continue;

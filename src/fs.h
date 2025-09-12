@@ -101,6 +101,7 @@ int get_self_path(char* buffer, int maxsize);
 char* _Owner _Opt read_file(const char* path, bool append_newline);
 char* dirname(char* path);
 char* basename(const char* filename);
+void remove_file_extension(const char* filename, int n, char out[/*n*/]);
 
 const char* get_posix_error_message(int error);
 

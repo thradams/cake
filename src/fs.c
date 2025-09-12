@@ -392,6 +392,28 @@ char* _Opt strrchr_ex(const char* s, int c1, int c2)
     return (char*)last;
 }
 
+void remove_file_extension(const char* filename, int n, char out[/*n*/])
+{
+    size_t last_dot_index = -1;
+    const char* p = filename;
+    int count = 0;
+    while (*p)
+    {
+        if (n == count)
+            break;
+
+        if (*p == '.')
+            last_dot_index = count;
+        out[count] = *p;
+        count++;
+        p++;
+    }
+
+    out[count] = 0;
+    if (last_dot_index > 0)
+        out[last_dot_index] = 0;
+}
+
 char* basename(const char* filename)
 {
     char* _Opt p = strrchr_ex(filename, '/', '\\'); //added \ to windows path

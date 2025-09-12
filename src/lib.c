@@ -1105,6 +1105,11 @@ struct options
     bool visual_studio_ouput_format;
 
     /*
+      -fdiagnostics-color=never
+    */
+    bool disable_colors;
+
+    /*
       -dump-tokens
       print tokens before preprocessor
     */
@@ -3440,6 +3445,7 @@ int get_self_path(char* buffer, int maxsize);
 char* _Owner _Opt read_file(const char* path, bool append_newline);
 char* dirname(char* path);
 char* basename(const char* filename);
+void remove_file_extension(const char* filename, int n, char out[/*n*/]);
 
 const char* get_posix_error_message(int error);
 
@@ -5518,7 +5524,7 @@ bool is_never_final(enum token_type type)
         type == TK_NEWLINE;
 }
 
-enum token_type is_keyword(const char* text);
+enum token_type is_keyword(const char* text, enum target target);
 
 struct token* _Opt preprocessor_look_ahead_core(struct token* p)
 {
@@ -11752,6 +11758,28 @@ char* _Opt strrchr_ex(const char* s, int c1, int c2)
     return (char*)last;
 }
 
+void remove_file_extension(const char* filename, int n, char out[/*n*/])
+{
+    size_t last_dot_index = -1;
+    const char* p = filename;
+    int count = 0;
+    while (*p)
+    {
+        if (n == count)
+            break;
+
+        if (*p == '.')
+            last_dot_index = count;
+        out[count] = *p;
+        count++;
+        p++;
+    }
+
+    out[count] = 0;
+    if (last_dot_index > 0)
+        out[last_dot_index] = 0;
+}
+
 char* basename(const char* filename)
 {
     char* _Opt p = strrchr_ex(filename, '/', '\\'); //added \ to windows path
@@ -14205,8 +14233,27 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-msvc-output") == 0 ||
-            strcmp(argv[i], "-fdiagnostics-format=msvc") == 0) //same as clang
+        if (has_prefix(argv[i], "-fdiagnostics"))
+        {
+            if (strcmp(argv[i], "-fdiagnostics-color=never") == 0)
+            {
+                options->disable_colors = true;
+                continue;
+            }
+
+            if (strcmp(argv[i], "-fdiagnostics-format=msvc") == 0) //same as clang
+            {
+                options->visual_studio_ouput_format = true;
+                continue;
+            }
+
+            printf("Invalid. Valid options are:"
+                   "-fdiagnostics-color=never" " "
+                   "-fdiagnostics-format=msvc"
+                   "\n");
+        }
+
+        if (strcmp(argv[i], "-msvc-output") == 0) //same as clang
         {
             options->visual_studio_ouput_format = true;
             continue;
@@ -14536,12 +14583,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_ENUM = 1 << 16,
     TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-
-    TYPE_SPECIFIER_INT8 = 1 << 18,
-    TYPE_SPECIFIER_INT16 = 1 << 19,
-    TYPE_SPECIFIER_INT32 = 1 << 20,
-    TYPE_SPECIFIER_INT64 = 1 << 21,
-
+   
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
 
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
@@ -14556,6 +14598,7 @@ enum type_specifier_flags
 enum type_specifier_flags get_wchar_type_specifier(enum target target);
 enum type_specifier_flags get_size_t_specifier(enum target target);
 enum type_specifier_flags get_ptrdiff_t_specifier(enum target target);
+enum type_specifier_flags get_intN_type_specifier(enum target target, int nbits);
 
 
 enum type_qualifier_flags
@@ -29543,7 +29586,7 @@ struct token* _Opt previous_parser_token(const struct token* token)
     return prev;
 }
 
-enum token_type is_keyword(const char* text)
+enum token_type is_keyword(const char* text, enum target target)
 {
     switch (text[0])
     {
@@ -29775,12 +29818,13 @@ enum token_type is_keyword(const char* text)
 
         if (strcmp("__builtin_va_copy", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
-
-        if (strcmp("__ptr32", text) == 0)
-            return TK_KEYWORD_MSVC__PTR32;
-        if (strcmp("__ptr64", text) == 0)
-            return TK_KEYWORD_MSVC__PTR64;
-
+        if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
+        {
+            if (strcmp("__ptr32", text) == 0)
+                return TK_KEYWORD_MSVC__PTR32;
+            if (strcmp("__ptr64", text) == 0)
+                return TK_KEYWORD_MSVC__PTR64;
+        }
 
         if (strcmp("_Bool", text) == 0)
             return TK_KEYWORD__BOOL;
@@ -29806,35 +29850,37 @@ enum token_type is_keyword(const char* text)
             return TK_KEYWORD__BITINT; /*(C23)*/
         if (strcmp("__typeof__", text) == 0)
             return TK_KEYWORD_TYPEOF; /*(C23)*/
-#ifdef  _MSC_VER
-        // begin microsoft
-        if (strcmp("__int8", text) == 0)
-            return TK_KEYWORD_MSVC__INT8;
-        if (strcmp("__int16", text) == 0)
-            return TK_KEYWORD_MSVC__INT16;
-        if (strcmp("__int32", text) == 0)
-            return TK_KEYWORD_MSVC__INT32;
-        if (strcmp("__int64", text) == 0)
-            return TK_KEYWORD_MSVC__INT64;
-        if (strcmp("__forceinline", text) == 0)
-            return TK_KEYWORD_INLINE;
-        if (strcmp("__inline", text) == 0)
-            return TK_KEYWORD_INLINE;
-        if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-            return TK_KEYWORD__ASM;
-        if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
-            return TK_KEYWORD_MSVC__STDCALL;
-        if (strcmp("__cdecl", text) == 0)
-            return TK_KEYWORD_MSVC__CDECL;
-        if (strcmp("__fastcall", text) == 0)
-            return TK_KEYWORD_MSVC__FASTCALL;
-        if (strcmp("__alignof", text) == 0)
-            return TK_KEYWORD__ALIGNOF;
-        if (strcmp("__restrict", text) == 0)
-            return TK_KEYWORD_RESTRICT;
-        if (strcmp("__declspec", text) == 0)
-            return TK_KEYWORD_MSVC__DECLSPEC;
-#endif
+
+        if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
+        {
+            // begin microsoft
+            if (strcmp("__int8", text) == 0)
+                return TK_KEYWORD_MSVC__INT8;
+            if (strcmp("__int16", text) == 0)
+                return TK_KEYWORD_MSVC__INT16;
+            if (strcmp("__int32", text) == 0)
+                return TK_KEYWORD_MSVC__INT32;
+            if (strcmp("__int64", text) == 0)
+                return TK_KEYWORD_MSVC__INT64;
+            if (strcmp("__forceinline", text) == 0)
+                return TK_KEYWORD_INLINE;
+            if (strcmp("__inline", text) == 0)
+                return TK_KEYWORD_INLINE;
+            if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
+                return TK_KEYWORD__ASM;
+            if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
+                return TK_KEYWORD_MSVC__STDCALL;
+            if (strcmp("__cdecl", text) == 0)
+                return TK_KEYWORD_MSVC__CDECL;
+            if (strcmp("__fastcall", text) == 0)
+                return TK_KEYWORD_MSVC__FASTCALL;
+            if (strcmp("__alignof", text) == 0)
+                return TK_KEYWORD__ALIGNOF;
+            if (strcmp("__restrict", text) == 0)
+                return TK_KEYWORD_RESTRICT;
+            if (strcmp("__declspec", text) == 0)
+                return TK_KEYWORD_MSVC__DECLSPEC;
+        }
         break;
     default:
         break;
@@ -29856,7 +29902,7 @@ static void token_promote(const struct parser_ctx* ctx, struct token* token)
 
     if (token->type == TK_IDENTIFIER)
     {
-        enum token_type t = is_keyword(token->lexeme);
+        enum token_type t = is_keyword(token->lexeme, ctx->options.target);
         if (t != TK_NONE)
             token->type = t;
     }
@@ -30015,7 +30061,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                         else if (is_note)
                             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
                     }
-                }                
+                }
                 else
                 {
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unknown pragma");
@@ -30127,10 +30173,6 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
         (flags & TYPE_SPECIFIER_INT) ||
         (flags & TYPE_SPECIFIER_LONG) ||
         (flags & TYPE_SPECIFIER_INT) ||
-        (flags & TYPE_SPECIFIER_INT8) ||
-        (flags & TYPE_SPECIFIER_INT16) ||
-        (flags & TYPE_SPECIFIER_INT32) ||
-        (flags & TYPE_SPECIFIER_INT64) ||
         (flags & TYPE_SPECIFIER_LONG_LONG))
     {
         return true;
@@ -30235,20 +30277,6 @@ int add_specifier(struct parser_ctx* ctx,
     case TYPE_SPECIFIER_ENUM:  //complex long double
     case TYPE_SPECIFIER_TYPEOF:  //typeof        
     case TYPE_SPECIFIER_TYPEDEF:
-
-    case TYPE_SPECIFIER_INT8:
-    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT8:
-
-    case TYPE_SPECIFIER_INT16:
-    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT16:
-    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT16:
-    case TYPE_SPECIFIER_INT32:
-    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT32:
-    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT32:
-    case TYPE_SPECIFIER_INT64:
-    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64:
-    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT64:
-        //VALID
         break;
     default:
         compiler_diagnostic(C_ERROR_TWO_OR_MORE_SPECIFIERS, ctx, ctx->current, NULL, "incompatible specifiers");
@@ -32292,25 +32320,25 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
 
         case TK_KEYWORD_MSVC__INT8:
             p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+            p_type_specifier->flags = get_intN_type_specifier(ctx->options.target, 8);
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_MSVC__INT16:
             p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+            p_type_specifier->flags = get_intN_type_specifier(ctx->options.target, 16);
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_MSVC__INT32:
             p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+            p_type_specifier->flags = get_intN_type_specifier(ctx->options.target, 32);
             parser_match(ctx);
             return p_type_specifier;
 
         case TK_KEYWORD_MSVC__INT64:
             p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+            p_type_specifier->flags = get_intN_type_specifier(ctx->options.target, 64);
             parser_match(ctx);
             return p_type_specifier;
 
@@ -35869,7 +35897,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
                 else if (is_note)
                     ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
             }
-        }      
+        }
         else
         {
             compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "unknown pragma");
@@ -36409,7 +36437,7 @@ bool first_of_attribute(const struct parser_ctx* ctx)
     if (ctx->current->type == TK_IDENTIFIER)
         return true;
 
-    if (is_keyword(ctx->current->lexeme) != 0)
+    if (is_keyword(ctx->current->lexeme, ctx->options.target) != 0)
         return true;
 
     return false;
@@ -39419,6 +39447,17 @@ int generate_config_file(const char* configpath)
     return error;
 }
 
+static int get_first_line_len(const char* s)
+{
+    int n = 0;
+    while (*s && (*s != '\r' && *s != '\n'))
+    {
+        s++;
+        n++;
+    }
+    return n;
+}
+
 int compile_one_file(const char* file_name,
     struct options* options,
     const char* out_file_name,
@@ -39604,35 +39643,54 @@ int compile_one_file(const char* file_name,
     if (ctx.options.test_mode)
     {
         //lets check if the generated file is the expected
+        char file_name_no_ext[MYMAX_PATH] = { 0 };
+        remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
+
         char buf[MYMAX_PATH] = { 0 };
-        snprintf(buf, sizeof buf, "%s.out", file_name);
+        snprintf(buf, sizeof buf, "%s_%s.out", file_name_no_ext, target_to_string(ctx.options.target));
 
         char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/);
         if (content_expected)
         {
-            if (s && strcmp(content_expected, s) != 0)
+            //We don't compare the fist line because it has the version that changes.
+            int s_first_line_len = get_first_line_len(s);
+            int content_expected_first_line_len = get_first_line_len(content_expected);
+            if (s && strcmp(content_expected + content_expected_first_line_len, s + s_first_line_len) != 0)
             {
                 printf("different");
                 report->error_count++;
             }
             free(content_expected);
         }
-        
+
         if (report->error_count > 0 || report->warnings_count > 0)
         {
 
             printf("-------------------------------------------\n");
             printf("%s", content);
             printf("\n-------------------------------------------\n");
-            printf(LIGHTRED "TEST FAILED" RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+            if (ctx.options.disable_colors)
+            {
+                printf("TEST FAILED" " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+            }
+            else
+            {
+                printf(LIGHTRED "TEST FAILED" RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+            }
             printf("\n\n");
             report->test_failed++;
         }
         else
         {
-
             report->test_succeeded++;
-            printf(LIGHTGREEN "TEST OK\n" RESET);
+            if (ctx.options.disable_colors)
+            {
+                printf("TEST OK\n");
+            }
+            else
+            {
+                printf(LIGHTGREEN "TEST OK\n" RESET);
+            }
         }
     }
 
@@ -39723,7 +39781,7 @@ static int compile_many_files(const char* file_name,
                                  &report_local);
 
 
-                
+
                 report->error_count += report_local.error_count;
                 report->warnings_count += report_local.warnings_count;
                 report->info_count += report_local.info_count;
@@ -39890,7 +39948,8 @@ int compile(int argc, const char** argv, struct report* report)
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
-                strcat(output_file, "/out");
+                strcat(output_file, "/");
+                strcat(output_file, target_to_string(options.target));
 
                 strcat(output_file, fullpath + root_dir_len);
 
@@ -39919,7 +39978,7 @@ int compile(int argc, const char** argv, struct report* report)
             struct report report_local = { 0 };
             compile_one_file(fullpath, &options, output_file, argc, argv, &report_local);
 
-            
+
             report->error_count += report_local.error_count;
             report->warnings_count += report_local.warnings_count;
             report->info_count += report_local.info_count;
@@ -42274,7 +42333,10 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstrea
 static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
-static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, const char* declarator_name, bool all);
+static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, 
+    const char* declarator_name, 
+    bool all,
+    bool initialize_objects_that_does_not_have_initializer);
 
 static void d_print_type_core(struct d_visit_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt);
 static void d_print_type(struct d_visit_ctx* ctx,
@@ -42356,8 +42418,8 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
         {
             switch (p_expression->expression_type)
             {
-            //Operators with lower precedence than != are:
-            //&& ||  ? assignments(=, +=, …) ,
+                //Operators with lower precedence than != are:
+                //&& ||  ? assignments(=, +=, …) ,
             case LOGICAL_OR_EXPRESSION:
             case LOGICAL_AND_EXPRESSION:
             case ASSIGNMENT_EXPRESSION_ASSIGN:
@@ -43021,7 +43083,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ss_clear(&local);
 
             //bool first = true;
-            object_print_non_constant_initialization(ctx, &local, &p_expression->object, name, true);
+            object_print_non_constant_initialization(ctx, &local, &p_expression->object, name, true, true);
 
             assert(local.c_str);
             ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
@@ -44664,7 +44726,8 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
     struct osstream* ss,
     const struct object* object,
     const char* declarator_name,
-    bool all)
+    bool all,
+    bool initialize_objects_that_does_not_have_initializer)
 {
 
     if (object_is_reference(object))
@@ -44706,8 +44769,11 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                     }
                     else if (all)
                     {
-                        print_identation_core(ss, ctx->indentation);
-                        ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->debug_name);
+                        if (initialize_objects_that_does_not_have_initializer)
+                        {
+                            print_identation_core(ss, ctx->indentation);
+                            ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->debug_name);
+                        }
                     }
                     member = member->next;
                 }
@@ -44724,18 +44790,50 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->debug_name);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);
+                ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);//TODO size of?
 
                 ss_fprintf(ss, ");\n");
                 ss_close(&local);
                 ctx->memcpy_used = true;
+            }
+            else if (object->p_init_expression)
+            {
+                /*                
+                       struct A { int x, y; };
+                       struct B { struct A a; };
+
+                       int main(void)
+                       {
+                         struct A ia = { 1, 2 };
+                         struct B b = { .a = ia, .a.y = 42 };     
+                       }
+                */
+                print_identation_core(ss, ctx->indentation);
+                ss_fprintf(ss, "_cake_memcpy(&%s%s, ", declarator_name, object->debug_name);
+                struct osstream local = { 0 };
+                d_visit_expression(ctx, &local, object->p_init_expression);
+                size_t sz = 0;
+                type_get_sizeof(&object->type, &sz, ctx->options.target);
+                ss_fprintf(ss, "&%s, %d", local.c_str, sz);
+
+                ss_fprintf(ss, ");\n");
+                ss_close(&local);
+                ctx->memcpy_used = true;
+
+                struct object* _Opt member = object->members;
+                while (member)
+                {
+                    object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, false);
+                    member = member->next;
+                }
+
             }
             else
             {
                 struct object* _Opt member = object->members;
                 while (member)
                 {
-                    object_print_non_constant_initialization(ctx, ss, member, declarator_name, all);
+                    object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, true);
                     member = member->next;
                 }
             }
@@ -44775,8 +44873,11 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
         }
         else if (all)
         {
-            print_identation_core(ss, ctx->indentation);
-            ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->debug_name);
+            if (initialize_objects_that_does_not_have_initializer)
+            {
+                print_identation_core(ss, ctx->indentation);
+                ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->debug_name);
+            }
         }
     }
 }
@@ -44879,7 +44980,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                         else
                         {
                             //ss_fprintf(oss, ";\n");
-                            object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true);
+                            object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true, true);
                         }
                     }
                 }
@@ -53627,7 +53728,7 @@ CAKE_STANDARD_MACROS
 size_t get_align_void_ptr(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
@@ -53639,7 +53740,7 @@ size_t get_align_void_ptr(enum target target)
 size_t get_size_void_ptr(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
@@ -53652,7 +53753,7 @@ size_t get_size_void_ptr(enum target target)
 size_t get_align_char(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -53664,7 +53765,7 @@ size_t get_align_char(enum target target)
 size_t get_size_char(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -53677,7 +53778,7 @@ size_t get_size_char(enum target target)
 size_t get_align_bool(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -53689,7 +53790,7 @@ size_t get_align_bool(enum target target)
 size_t get_size_bool(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
@@ -53701,7 +53802,7 @@ size_t get_size_bool(enum target target)
 size_t get_align_short(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
@@ -53713,7 +53814,7 @@ size_t get_align_short(enum target target)
 size_t get_size_short(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
@@ -53725,7 +53826,7 @@ size_t get_size_short(enum target target)
 size_t get_align_int(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53737,7 +53838,7 @@ size_t get_align_int(enum target target)
 size_t get_size_int(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53749,7 +53850,7 @@ size_t get_size_int(enum target target)
 size_t get_align_long(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53761,7 +53862,7 @@ size_t get_align_long(enum target target)
 size_t get_size_long(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53773,7 +53874,7 @@ size_t get_size_long(enum target target)
 size_t get_align_long_long(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53785,7 +53886,7 @@ size_t get_align_long_long(enum target target)
 size_t get_size_long_long(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53799,7 +53900,7 @@ size_t get_size_long_long(enum target target)
 size_t get_align_float(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53811,7 +53912,7 @@ size_t get_align_float(enum target target)
 size_t get_size_float(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
@@ -53835,7 +53936,7 @@ size_t get_align_double(enum target target)
 size_t get_size_double(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53847,7 +53948,7 @@ size_t get_size_double(enum target target)
 size_t get_align_long_double(enum target target)
 {
     switch (target)
-    {    
+    {
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
@@ -53886,6 +53987,34 @@ enum type_specifier_flags get_wchar_type_specifier(enum target target)
     return 0;
 }
 
+
+enum type_specifier_flags get_intN_type_specifier(enum target target, int nbits)
+{
+    assert(nbits >= 8);
+
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:         
+        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
+        if (nbits == 16) return TYPE_SPECIFIER_SHORT;
+        if (nbits == 32) return TYPE_SPECIFIER_INT;
+        if (nbits == 64) return TYPE_SPECIFIER_LONG;
+        if (nbits == 128) return TYPE_SPECIFIER_LONG_LONG;
+        break;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
+        if (nbits == 16) return TYPE_SPECIFIER_SHORT;
+        if (nbits == 32) return TYPE_SPECIFIER_INT;
+        if (nbits == 64) return TYPE_SPECIFIER_LONG_LONG;
+        break;
+    }
+
+    assert(false);
+    return TYPE_SPECIFIER_LONG_LONG;
+}
+
 enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
 {
     switch (target)
@@ -53897,7 +54026,7 @@ enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
         return (TYPE_SPECIFIER_INT);
         break;
     case TARGET_X64_MSVC:
-        return (TYPE_SPECIFIER_INT64);
+        return (TYPE_SPECIFIER_LONG_LONG);
         break;
     }
     assert(false);
@@ -53916,7 +54045,7 @@ enum type_specifier_flags get_size_t_specifier(enum target target)
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
         break;
     case TARGET_X64_MSVC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64);
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG);
         break;
     }
     assert(false);
@@ -54004,19 +54133,6 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT8)
-        print_item(ss, first, "__int8");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT16)
-        print_item(ss, first, "__int16");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT32)
-        print_item(ss, first, "__int32");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT64)
-        print_item(ss, first, "__int64");
-
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
@@ -54243,9 +54359,8 @@ void type_integer_promotion(struct type* a)
 
     if ((a->type_specifier_flags & TYPE_SPECIFIER_BOOL) ||
         (a->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
-        (a->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
-        (a->type_specifier_flags & TYPE_SPECIFIER_INT8) ||
-        (a->type_specifier_flags & TYPE_SPECIFIER_INT16))
+        (a->type_specifier_flags & TYPE_SPECIFIER_SHORT)
+        )
     {
         a->type_specifier_flags = (TYPE_SPECIFIER_INT);
     }
@@ -55074,18 +55189,10 @@ bool type_is_integer(const struct type* p_type)
         (TYPE_SPECIFIER_CHAR |
             TYPE_SPECIFIER_SHORT |
             TYPE_SPECIFIER_INT |
-
-            TYPE_SPECIFIER_INT16 |
-            TYPE_SPECIFIER_INT32 |
-            TYPE_SPECIFIER_INT64 |
-
             TYPE_SPECIFIER_INT |
             TYPE_SPECIFIER_LONG |
             TYPE_SPECIFIER_SIGNED |
-            TYPE_SPECIFIER_UNSIGNED |
-            TYPE_SPECIFIER_INT8 |
-            TYPE_SPECIFIER_INT16 |
-            TYPE_SPECIFIER_INT64 |
+            TYPE_SPECIFIER_UNSIGNED |            
             TYPE_SPECIFIER_LONG_LONG |
             TYPE_SPECIFIER_BOOL);
 }
@@ -55656,8 +55763,7 @@ int type_get_integer_rank(const struct type* p_type1)
         return 40;
     }
 
-    if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT64))
+    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
         return 80;
     }
@@ -55665,8 +55771,7 @@ int type_get_integer_rank(const struct type* p_type1)
     {
         return 50; //?
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT32))
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG)
     {
         return 50;
     }
@@ -55675,17 +55780,15 @@ int type_get_integer_rank(const struct type* p_type1)
     {
         return 40;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT16))
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
         return 30;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
-        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT8))
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
         return 20;
     }
-    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL))
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL)
     {
         return 10;
     }
@@ -56407,23 +56510,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
             align = get_align_int(target);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
-        {
-            align = 8;
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
-        {
-            align = 4;
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
-        {
-            align = 2;
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
-        {
-            align = 1;
-        }
+        }        
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
             align = get_align_float(target);
@@ -56653,31 +56740,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         *size = get_size_int(target);
         return ESIZEOF_NONE;
     }
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
-    {
-        *size = get_size_long_long(target);
-        return ESIZEOF_NONE;
-    }
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
-    {
-        *size = 4;
-        return ESIZEOF_NONE;
-    }
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
-    {
-        *size = 2;
-        return ESIZEOF_NONE;
-    }
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
-    {
-        *size = 1;
-        return ESIZEOF_NONE;
-    }
-
+    
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
         *size = get_size_float(target);
