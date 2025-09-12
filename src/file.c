@@ -1,10 +1,7 @@
-void F(int cp)
+#include <string.h>
+
+
+int main() 
 {
-    switch (cp)
-    {
-    default:
-        break;
-    case 1:    
-        break;
-    }    
+    strrchr("abc", 'c');
 }

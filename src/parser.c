@@ -43,6 +43,33 @@
 #define MYMAX_PATH MAX_PATH
 #endif
 
+#include <stddef.h>  // for NULL
+
+char* _Opt strrchr2(const char* s, int c)
+{
+    const char* last = NULL;
+    unsigned char ch = (unsigned char)c;
+
+    while (*s)
+    {
+        if ((unsigned char)*s == ch)
+        {
+            last = s;  // record last match
+        }
+        s++;
+    }
+
+    // Handle case where c == '\0': return pointer to string terminator
+    if (ch == '\0')
+    {
+        return (char*)s;
+    }
+
+    return (char*)last;
+}
+
+
+
 _Attr(nodiscard)
 int initializer_init_new(struct parser_ctx* ctx,
                        struct type* p_type, /*in (in/out for arrays [])*/
@@ -11144,7 +11171,7 @@ static int compile_many_files(const char* file_name,
     struct report* report)
 {
     const char* const file_name_name = basename(file_name);
-    const char* _Opt const file_name_extension = strrchr((char*)file_name_name, '.');
+    const char* _Opt const file_name_extension = strrchr2((char*)file_name_name, '.');
 
     if (file_name_extension == NULL)
     {
@@ -11182,7 +11209,7 @@ static int compile_many_files(const char* file_name,
         else
         {
             const char* const file_name_iter = basename(dp->d_name);
-            const char* _Opt const file_extension = strrchr((char*)file_name_iter, '.');
+            const char* _Opt const file_extension = strrchr2((char*)file_name_iter, '.');
 
             if (file_name_extension &&
                 file_extension &&
