@@ -28497,6 +28497,9 @@ struct d_visit_ctx
     
     bool zero_mem_used;
     bool memcpy_used;
+    
+    bool checking_lambda; // true when inside of a lambda check, doesnt make static variables
+    
     /*
     * Points to the function we're in. Or null in file scope.
     */
@@ -42740,7 +42743,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             */
 
             void* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
-            if (p == NULL)
+            if (p == NULL && !ctx->checking_lambda)
             {
                 /*
                   first time, let´s generate it
@@ -43007,8 +43010,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         
         const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;
         ctx->cake_declarator_number = 0; // this makes statics inside of the function literals actually work
-        
+        ctx->checking_lambda = true;
         d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);
+        ctx->checking_lambda = false;
         
         //printf("\n%s\n",lambda_nameless.c_str);
         
@@ -43030,7 +43034,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
             d_print_type(ctx, &lambda_sig, &p_expression->type, name);
             
-            printf("static %s\n%s\n",lambda_sig.c_str,lambda_inner.c_str);
             struct hash_item_set i = { 0 };
             i.number = ctx->cake_declarator_number-1;
             hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
