@@ -26,22 +26,23 @@
 #include <debugapi.h>
 #endif
 
-struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx);
+
+struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt exclusive_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
 _Attr(nodiscard)
 static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expression* new_expression, int op);
@@ -220,7 +221,7 @@ bool is_first_of_primary_expression(const struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD__GENERIC;
 }
 
-struct generic_association* _Owner _Opt generic_association(struct parser_ctx* ctx)
+struct generic_association* _Owner _Opt generic_association(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     struct generic_association* _Owner _Opt p_generic_association = NULL;
     try
@@ -270,7 +271,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         if (parser_match_tk(ctx, ':') != 0)
             throw;
 
-        struct expression* _Owner _Opt p_expression_temp = assignment_expression(ctx);
+        struct expression* _Owner _Opt p_expression_temp = assignment_expression(ctx, eval_mode);
         if (p_expression_temp == NULL)
         {
             throw;
@@ -294,7 +295,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
     return p_generic_association;
 }
 
-struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
+struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     struct generic_assoc_list list = { 0 };
     try
@@ -302,7 +303,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
         struct generic_association* _Opt p_default_generic_association = NULL;
 
         struct generic_association* _Owner _Opt p_generic_association =
-            generic_association(ctx);
+            generic_association(ctx, EXPRESSION_EVAL_MODE_TYPE);
 
         if (p_generic_association == NULL)
             throw;
@@ -329,7 +330,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
                 throw;
             }
 
-            struct generic_association* _Owner _Opt p_generic_association2 = generic_association(ctx);
+            struct generic_association* _Owner _Opt p_generic_association2 = generic_association(ctx, eval_mode);
             if (p_generic_association2 == NULL)
                 throw;
 
@@ -416,7 +417,10 @@ void generic_selection_delete(struct generic_selection* _Owner _Opt p)
         free(p);
     }
 }
-struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
+
+
+
+struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*C23
       generic-selection:
@@ -462,7 +466,7 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
         }
         else
         {
-            p_generic_selection->expression = assignment_expression(ctx);
+            p_generic_selection->expression = assignment_expression(ctx, eval_mode);
             if (p_generic_selection->expression == NULL)
                 throw;
         }
@@ -470,7 +474,7 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
         if (parser_match_tk(ctx, ',') != 0)
             throw;
 
-        p_generic_selection->generic_assoc_list = generic_association_list(ctx);
+        p_generic_selection->generic_assoc_list = generic_association_list(ctx, eval_mode);
         if (p_generic_selection->generic_assoc_list.head == NULL) throw;
 
         struct type lvalue_type = { 0 };
@@ -998,7 +1002,7 @@ static bool is_integer_or_floating_constant(enum token_type type)
         type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
-struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
      primary-expression:
@@ -1076,7 +1080,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 else if (ctx->p_current_function_scope_opt)
                 {
                     bool b_type_is_function = type_is_function(&p_declarator->type);
-                    if (!ctx->evaluation_is_disabled && !b_type_is_function)
+                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && !b_type_is_function)
                     {
                         bool inside_current_function_scope = false;
                         while (p_scope)
@@ -1310,7 +1314,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_GENERIC;
 
-            p_expression_node->generic_selection = generic_selection(ctx);
+            p_expression_node->generic_selection = generic_selection(ctx, eval_mode);
             if (p_expression_node->generic_selection == NULL)
                 throw;
 
@@ -1341,7 +1345,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            p_expression_node->right = expression(ctx);
+            p_expression_node->right = expression(ctx, eval_mode);
             if (p_expression_node->right == NULL)
                 throw;
 
@@ -1385,7 +1389,7 @@ void argument_expression_delete(struct argument_expression* _Owner _Opt p)
     }
 }
 
-struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
+struct argument_expression_list argument_expression_list(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
      argument-expression-list:
@@ -1410,7 +1414,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
         if (p_argument_expression == NULL)
             throw;
 
-        struct expression* _Owner _Opt p_assignment_expression = assignment_expression(ctx);
+        struct expression* _Owner _Opt p_assignment_expression = assignment_expression(ctx, eval_mode);
         if (p_assignment_expression == NULL)
         {
             argument_expression_delete(p_argument_expression);
@@ -1438,7 +1442,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
             struct argument_expression* _Owner _Opt p_argument_expression_2 = calloc(1, sizeof * p_argument_expression_2);
             if (p_argument_expression_2 == NULL)
                 throw;
-            struct expression* _Owner _Opt p_assignment_expression_2 = assignment_expression(ctx);
+            struct expression* _Owner _Opt p_assignment_expression_2 = assignment_expression(ctx, eval_mode);
             if (p_assignment_expression_2 == NULL)
             {
                 argument_expression_delete(p_argument_expression_2);
@@ -1543,7 +1547,7 @@ static void fix_arrow_member_type(struct type* p_type, const struct type* left, 
     type_destroy(&t);
 }
 
-struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, struct expression* _Owner p_expression_node_param)
+struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, struct expression* _Owner p_expression_node_param, enum expression_eval_mode eval_mode)
 {
 
     /*
@@ -1592,7 +1596,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 /*contem a expresao de dentro do  [ ] */
-                p_expression_node_new->right = expression(ctx);
+                p_expression_node_new->right = expression(ctx, eval_mode);
                 if (p_expression_node_new->right == NULL)
                 {
                     expression_delete(p_expression_node_new);
@@ -1675,7 +1679,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (ctx->current->type != ')')
                 {
-                    p_expression_node_new->argument_expression_list = argument_expression_list(ctx);
+                    p_expression_node_new->argument_expression_list = argument_expression_list(ctx, eval_mode);
                 }
                 if (parser_match_tk(ctx, ')') != 0)
                 {
@@ -2023,7 +2027,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* _Owner p_type_name_par)
+struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* _Owner p_type_name_par, enum expression_eval_mode eval_mode)
 {
     /*
         ( type-name ) { initializer-ctx }
@@ -2124,7 +2128,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
 
         p_expression_node->last_token = ctx->previous;
 
-        p_expression_node = postfix_expression_tail(ctx, p_expression_node);
+        p_expression_node = postfix_expression_tail(ctx, p_expression_node, eval_mode);
         if (p_expression_node == NULL)
             throw;
     }
@@ -2137,7 +2141,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
       postfix-expression:
@@ -2209,12 +2213,12 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx)
         }
         else
         {
-            p_expression_node = primary_expression(ctx);
+            p_expression_node = primary_expression(ctx, eval_mode);
             if (p_expression_node == NULL)
                 throw;
         }
 
-        p_expression_node = postfix_expression_tail(ctx, p_expression_node);
+        p_expression_node = postfix_expression_tail(ctx, p_expression_node, eval_mode);
         if (p_expression_node == NULL)
             throw;
     }
@@ -2342,7 +2346,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     return 0; //ok
 }
 
-struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
     unary-expression:
@@ -2386,7 +2390,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 expression_delete(new_expression);
                 throw;
             }
-            new_expression->right = unary_expression(ctx);
+            new_expression->right = unary_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -2426,7 +2430,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
 #endif
 
-            new_expression->right = cast_expression(ctx);
+            new_expression->right = cast_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -2437,7 +2441,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (op == '!')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_NOT;
-                if (!ctx->evaluation_is_disabled &&
+                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&new_expression->right->object))
                 {
                     const bool v = object_to_bool(&new_expression->right->object);
@@ -2472,7 +2476,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 type_integer_promotion(&promoted);
                 new_expression->type = promoted;
 
-                if (!ctx->evaluation_is_disabled &&
+                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                   object_has_constant_value(&new_expression->right->object))
                 {
                     enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
@@ -2532,7 +2536,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 //promote
                 new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type, ctx->options.target);
 
-                if (!ctx->evaluation_is_disabled &&
+                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&new_expression->right->object))
                 {
                     enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
@@ -2729,7 +2733,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 expression_delete(new_expression);
                 throw;
             }
-            new_expression->left = unary_expression(ctx);
+            new_expression->left = unary_expression(ctx, eval_mode);
             if (new_expression->left == NULL)
             {
                 expression_delete(new_expression);
@@ -2739,7 +2743,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             if (ctx->current->type == ',')
             {
                 parser_match(ctx);
-                new_expression->right = unary_expression(ctx);
+                new_expression->right = unary_expression(ctx, eval_mode);
                 if (new_expression->right == NULL)
                 {
                     expression_delete(new_expression);
@@ -2778,7 +2782,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 expression_delete(new_expression);
                 throw;
             }
-            new_expression->left = unary_expression(ctx);
+            new_expression->left = unary_expression(ctx, eval_mode);
             if (new_expression->left == NULL)
             {
                 expression_delete(new_expression);
@@ -2815,7 +2819,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->left = unary_expression(ctx);
+            new_expression->left = unary_expression(ctx, eval_mode);
             if (new_expression->left == NULL)
             {
                 expression_delete(new_expression);
@@ -2864,7 +2868,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->left = unary_expression(ctx);
+            new_expression->left = unary_expression(ctx, eval_mode);
             if (new_expression->left == NULL)
             {
                 expression_delete(new_expression);
@@ -2877,7 +2881,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->right = unary_expression(ctx);
+            new_expression->right = unary_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -2971,9 +2975,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
-            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = true;
-
             parser_match(ctx);
             if (ctx->current == NULL)
             {
@@ -3045,11 +3046,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                new_expression->right = unary_expression(ctx);
+                new_expression->right = unary_expression(ctx, EXPRESSION_EVAL_MODE_TYPE);
                 if (new_expression->right == NULL)
-                {
-                    /*restore*/
-                    ctx->evaluation_is_disabled = disable_evaluation_copy;
+                {                    
                     expression_delete(new_expression);
                     throw;
                 }
@@ -3081,9 +3080,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             type_destroy(&new_expression->type);
             new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
-
-            /*restore*/
-            ctx->evaluation_is_disabled = disable_evaluation_copy;
+            
         }
         else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
@@ -3179,11 +3176,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
-                ctx->evaluation_is_disabled = true;
-                new_expression->right = unary_expression(ctx);
-                /*restore*/
-                ctx->evaluation_is_disabled = disable_evaluation_copy;
+                new_expression->right = unary_expression(ctx, EXPRESSION_EVAL_MODE_TYPE);
 
                 if (new_expression->right == NULL)
                 {
@@ -3270,7 +3263,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 expression_delete(new_expression);
                 throw;
             }
-            new_expression->right = expression(ctx);
+            new_expression->right = expression(ctx, eval_mode);
 
             if (parser_match_tk(ctx, ')') != 0)
             {
@@ -3294,7 +3287,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                 expression_delete(new_expression);
                 throw;
             }
-            new_expression->right = constant_expression(ctx, true);
+            new_expression->right = constant_expression(ctx, true, eval_mode);
 
             if (parser_match_tk(ctx, ')') != 0)
             {
@@ -3305,8 +3298,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
-            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = true;
+            
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -3375,11 +3367,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                new_expression->right = unary_expression(ctx);
+                new_expression->right = unary_expression(ctx, EXPRESSION_EVAL_MODE_TYPE);
                 if (new_expression->right == NULL)
-                {
-                    /*restore*/
-                    ctx->evaluation_is_disabled = disable_evaluation_copy;
+                {                    
                     expression_delete(new_expression);
                     throw;
                 }
@@ -3408,8 +3398,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
 
-            /*restore*/
-            ctx->evaluation_is_disabled = disable_evaluation_copy;
+            
         }
         else if (
             ctx->current->type == TK_KEYWORD_IS_LVALUE ||
@@ -3423,8 +3412,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
             ctx->current->type == TK_KEYWORD_IS_INTEGRAL)
         {
-            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = true;
+
 
 
             struct token* traits_token = ctx->current;
@@ -3478,11 +3466,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             else
             {
 
-                new_expression->right = unary_expression(ctx);
+                new_expression->right = unary_expression(ctx, EXPRESSION_EVAL_MODE_TYPE);
                 if (new_expression->right == NULL)
                 {
-                    /*restore*/
-                    ctx->evaluation_is_disabled = disable_evaluation_copy;
                     expression_delete(new_expression);
                     throw;
                 }
@@ -3545,13 +3531,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             }
 
             new_expression->type = type_make_int_bool_like();
-            p_expression_node = new_expression;
-            /*restore*/
-            ctx->evaluation_is_disabled = disable_evaluation_copy;
+            p_expression_node = new_expression;            
         }
-        else // if (is_first_of_primary_expression(ctx))
+        else // if (is_first_of_primary_expression(ctx, eval_mode))
         {
-            p_expression_node = postfix_expression(ctx);
+            p_expression_node = postfix_expression(ctx, eval_mode);
             if (p_expression_node == NULL)
                 throw;
         }
@@ -3565,7 +3549,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
      cast-expression:
@@ -3620,7 +3604,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
             {
                 // Thinking it was a cast expression was a mistake... 
                 // because the { appeared then it is a compound literal which is a postfix.
-                struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name);
+                struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, eval_mode);
                 p_expression_node->type_name = NULL; // MOVED
 
                 if (new_expression == NULL) throw;
@@ -3630,7 +3614,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
             }
             else if (is_first_of_unary_expression(ctx))
             {
-                p_expression_node->left = cast_expression(ctx);
+                p_expression_node->left = cast_expression(ctx, eval_mode);
                 if (p_expression_node->left == NULL)
                 {
                     expression_delete(p_expression_node);
@@ -3718,7 +3702,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                 type_destroy(&p_expression_node->type);
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
 
-                if (!ctx->evaluation_is_disabled &&
+                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&p_expression_node->left->object))
                 {
                     enum object_value_type vt = type_to_object_type(&p_expression_node->type, ctx->options.target);
@@ -3740,7 +3724,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
         }
         else if (is_first_of_unary_expression(ctx))
         {
-            p_expression_node = unary_expression(ctx);
+            p_expression_node = unary_expression(ctx, eval_mode);
             if (p_expression_node == NULL)
             {
                 throw;
@@ -3777,9 +3761,6 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       int op,
                       struct object* result)
 {
-
-    assert(!ctx->evaluation_is_disabled);
-
     struct type common_type = { 0 };
 
     try
@@ -3827,8 +3808,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
         }
 
 
-        if (!ctx->evaluation_is_disabled &&
-            object_has_constant_value(&new_expression->left->object) &&
+        if (object_has_constant_value(&new_expression->left->object) &&
             object_has_constant_value(&new_expression->right->object))
         {
 
@@ -4450,7 +4430,7 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
     return 1; //error
 }
 
-struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
 
     /*
@@ -4463,7 +4443,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
-        p_expression_node = cast_expression(ctx);
+        p_expression_node = cast_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
         {
             throw;
@@ -4512,7 +4492,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; // MOVED
 
-            new_expression->right = cast_expression(ctx);
+            new_expression->right = cast_expression(ctx, eval_mode);
 
             if (new_expression->right == NULL)
             {
@@ -4566,7 +4546,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
             }
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+            if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
             {
                 expression_delete(new_expression);
                 throw;
@@ -4584,7 +4564,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
 }
 
 
-struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
      additive-expression:
@@ -4597,7 +4577,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
 
     try
     {
-        p_expression_node = multiplicative_expression(ctx);
+        p_expression_node = multiplicative_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
         {
             throw;
@@ -4631,7 +4611,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
             p_expression_node = NULL; /*MOVED*/
 
 
-            new_expression->right = multiplicative_expression(ctx);
+            new_expression->right = multiplicative_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -4670,7 +4650,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 {
                     new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-                    if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
                         expression_delete(new_expression);
                         throw;
@@ -4739,7 +4719,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
                 {
                     new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-                    if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                     {
                         expression_delete(new_expression);
                         throw;
@@ -4798,7 +4778,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
      shift-expression:
@@ -4809,7 +4789,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
-        p_expression_node = additive_expression(ctx);
+        p_expression_node = additive_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -4835,7 +4815,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            new_expression->right = multiplicative_expression(ctx);
+            new_expression->right = multiplicative_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -4871,7 +4851,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
     relational-expression:
@@ -4886,7 +4866,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt new_expression = NULL;
     try
     {
-        p_expression_node = shift_expression(ctx);
+        p_expression_node = shift_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -4915,7 +4895,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            new_expression->right = shift_expression(ctx);
+            new_expression->right = shift_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -4960,7 +4940,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             {
                 new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-                if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
                 {
                     expression_delete(new_expression);
                     new_expression = NULL;
@@ -5039,7 +5019,7 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
         //object_op(&left->object, &right->object, op);
 }
 
-struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
       equality-expression:
@@ -5061,7 +5041,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
 
     try
     {
-        p_expression_node = relational_expression(ctx);
+        p_expression_node = relational_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -5093,7 +5073,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            new_expression->right = relational_expression(ctx);
+            new_expression->right = relational_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
                 throw;
 
@@ -5116,7 +5096,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             if (type_is_arithmetic(&new_expression->left->type) &&
                 type_is_arithmetic(&new_expression->right->type))
             {
-                if (!ctx->evaluation_is_disabled && execute_arithmetic(ctx, new_expression, operator_token->type, &new_expression->object) != 0)
+                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, operator_token->type, &new_expression->object) != 0)
                 {
                     throw;
                 }
@@ -5137,7 +5117,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
      AND-expression:
@@ -5149,7 +5129,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
 
     try
     {
-        p_expression_node = equality_expression(ctx);
+        p_expression_node = equality_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -5172,7 +5152,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            new_expression->right = equality_expression(ctx);
+            new_expression->right = equality_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
                 throw;
 
@@ -5195,7 +5175,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
      exclusive-OR-expression:
@@ -5207,7 +5187,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
 
     try
     {
-        p_expression_node = and_expression(ctx);
+        p_expression_node = and_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -5231,7 +5211,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            new_expression->right = and_expression(ctx);
+            new_expression->right = and_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
                 throw;
 
@@ -5290,8 +5270,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
         type_destroy(&new_expression->type);
         new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-        if (!ctx->evaluation_is_disabled &&
-            object_has_constant_value(&new_expression->left->object) &&
+        if (object_has_constant_value(&new_expression->left->object) &&
             object_has_constant_value(&new_expression->right->object))
         {
             enum object_value_type vt = type_to_object_type(&new_expression->type, ctx->options.target);
@@ -5418,7 +5397,7 @@ static errno_t execute_bitwise_operator(struct parser_ctx* ctx, struct expressio
     return 1; //error
 }
 
-struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
     inclusive-OR-expression:
@@ -5428,7 +5407,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
-        p_expression_node = exclusive_or_expression(ctx);
+        p_expression_node = exclusive_or_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -5453,7 +5432,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            new_expression->right = exclusive_or_expression(ctx);
+            new_expression->right = exclusive_or_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -5486,7 +5465,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
     logical-AND-expression:
@@ -5496,7 +5475,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
-        p_expression_node = inclusive_or_expression(ctx);
+        p_expression_node = inclusive_or_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -5529,12 +5508,11 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
                 }
             }
 
-            const bool old_evaluation_is_disabled = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = right_evaluation_is_disabled;
 
-            new_expression->right = inclusive_or_expression(ctx);
+            new_expression->right = inclusive_or_expression(ctx,
+                right_evaluation_is_disabled ? EXPRESSION_EVAL_MODE_TYPE :
+                                               EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
-            ctx->evaluation_is_disabled = old_evaluation_is_disabled; //restore
 
             if (new_expression->right == NULL)
             {
@@ -5543,7 +5521,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
             }
             new_expression->last_token = new_expression->right->last_token;
 
-            if (!ctx->evaluation_is_disabled)
+            if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
             {
                 if (object_has_constant_value(&new_expression->left->object))
                 {
@@ -5595,7 +5573,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
       logical-OR-expression:
@@ -5607,9 +5585,11 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
     {
 
 
-        p_expression_node = logical_and_expression(ctx);
+        p_expression_node = logical_and_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
+
+        enum expression_eval_mode current_eval_mode = eval_mode;
 
         while (ctx->current != NULL &&
                (ctx->current->type == '||'))
@@ -5642,13 +5622,20 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
                     right_evaluation_is_disabled = true;
                 }
             }
+            switch (current_eval_mode)
+            {
+            case EXPRESSION_EVAL_MODE_NONE:
+            case EXPRESSION_EVAL_MODE_TYPE:
+                break;
+            case EXPRESSION_EVAL_MODE_VALUE_AND_TYPE:
+                if (right_evaluation_is_disabled)
+                {
+                    current_eval_mode = EXPRESSION_EVAL_MODE_TYPE;
+                }
+                break;
+            }
 
-            const bool old_evaluation_is_disabled = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = right_evaluation_is_disabled;
-
-            new_expression->right = logical_and_expression(ctx);
-
-            ctx->evaluation_is_disabled = old_evaluation_is_disabled; //restore
+            new_expression->right = logical_and_expression(ctx, current_eval_mode);
 
             if (new_expression->right == NULL)
             {
@@ -5658,7 +5645,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
 
             new_expression->last_token = new_expression->right->last_token;
 
-            if (!ctx->evaluation_is_disabled)
+            if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
             {
                 if (object_has_constant_value(&new_expression->left->object))
                 {
@@ -5711,7 +5698,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
     assignment-expression:
@@ -5728,7 +5715,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
     {
-        p_expression_node = conditional_expression(ctx);
+        p_expression_node = conditional_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -5861,7 +5848,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
                                             "lvalue required as left operand of assignment");
             }
 
-            new_expression->right = assignment_expression(ctx);
+            new_expression->right = assignment_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -5975,7 +5962,7 @@ void expression_delete(struct expression* _Owner _Opt p)
         free(p);
     }
 }
-struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*expression:
       assignment-expression
@@ -5990,7 +5977,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
             throw;
         }
 
-        p_expression_node = assignment_expression(ctx);
+        p_expression_node = assignment_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -6020,7 +6007,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = NULL; /*MOVED*/
 
-                p_expression_node_new->right = expression(ctx);
+                p_expression_node_new->right = expression(ctx, eval_mode);
                 if (p_expression_node_new->right == NULL)
                 {
                     expression_delete(p_expression_node_new);
@@ -6104,7 +6091,7 @@ bool expression_is_null_pointer_constant(const struct expression* expression)
     return false;
 }
 
-struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
       conditional-expression:
@@ -6116,9 +6103,11 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
     struct type right_type = { 0 };
     try
     {
-        p_expression_node = logical_or_expression(ctx);
+        p_expression_node = logical_or_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
+
+        enum expression_eval_mode current_eval_mode = eval_mode;
 
         if (ctx->current && ctx->current->type == '?')
         {
@@ -6151,14 +6140,17 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
                 }
             }
 
-            const bool old_evaluation_is_disabled = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = has_constant_expression && !constant_expression_is_true;
+            switch (current_eval_mode)
+            {
+            case EXPRESSION_EVAL_MODE_NONE:
+            case EXPRESSION_EVAL_MODE_TYPE:
+                break;
+            case EXPRESSION_EVAL_MODE_VALUE_AND_TYPE:
+                current_eval_mode = has_constant_expression && !constant_expression_is_true;
+                break;
+            }
 
-            struct expression* _Owner _Opt p_left = expression(ctx);
-
-            //restore original state (before throw)
-            ctx->evaluation_is_disabled = old_evaluation_is_disabled;
-
+            struct expression* _Owner _Opt p_left = expression(ctx, current_eval_mode);
 
             if (p_left == NULL)
             {
@@ -6182,11 +6174,24 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            ctx->evaluation_is_disabled = has_constant_expression && constant_expression_is_true;
+            enum expression_eval_mode new_eval_mode = EXPRESSION_EVAL_MODE_VALUE_AND_TYPE;
+            switch (eval_mode)
+            {
+            case EXPRESSION_EVAL_MODE_NONE:
+            case EXPRESSION_EVAL_MODE_TYPE:
+                new_eval_mode = eval_mode;
+                break;
 
-            struct expression* _Owner _Opt p_right = conditional_expression(ctx);
-            //restore original state (before throw)
-            ctx->evaluation_is_disabled = old_evaluation_is_disabled;
+            case EXPRESSION_EVAL_MODE_VALUE_AND_TYPE:
+                new_eval_mode = eval_mode;
+                if (has_constant_expression && constant_expression_is_true)
+                {
+                    new_eval_mode = EXPRESSION_EVAL_MODE_TYPE;
+                }
+                break;
+            }
+
+            struct expression* _Owner _Opt p_right = conditional_expression(ctx, new_eval_mode);
 
             if (p_right == NULL)
             {
@@ -6345,9 +6350,9 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant)
+struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant, enum expression_eval_mode eval_mode)
 {
-    struct expression* _Owner _Opt p_expression = conditional_expression(ctx);
+    struct expression* _Owner _Opt p_expression = conditional_expression(ctx, eval_mode);
 
     if (show_error_if_not_constant &&
         p_expression &&

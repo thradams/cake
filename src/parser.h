@@ -126,7 +126,6 @@ struct parser_ctx
     /*
        Expression inside sizeof etc.. are not evaluated
     */
-    bool evaluation_is_disabled;
 
     bool inside_generic_association;
 
@@ -714,7 +713,7 @@ struct initializer
     struct expression* _Owner _Opt assignment_expression;
 };
 
-struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx);
+struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 void initializer_destroy(_Dtor struct initializer* p);
 void initializer_delete(struct initializer* _Owner _Opt  p);
 
@@ -1388,7 +1387,7 @@ struct initializer_list
     int size;
 };
 
-struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx);
+struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 void initializer_list_delete(struct initializer_list* _Owner _Opt p);
 void initializer_list_add(struct initializer_list* list, struct initializer_list_item* _Owner p_item);
 
@@ -1610,7 +1609,7 @@ bool is_first_of_conditional_expression(struct parser_ctx* ctx);
 bool first_of_type_name(const struct parser_ctx* ctx);
 bool first_of_type_name_ahead(const struct parser_ctx* ctx);
 
-struct argument_expression_list argument_expression_list(struct parser_ctx* ctx);
+struct argument_expression_list argument_expression_list(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
 struct declaration_list
 {

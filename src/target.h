@@ -41,7 +41,7 @@ int parse_target(const char* targetstr, enum target* target);
 void print_target_options();
 
 const char* target_to_string(enum target target);
-int target_get_wchar_max(enum target target);
+unsigned int target_get_wchar_max(enum target target);
 
 long long target_get_signed_long_max(enum target target);
 unsigned long long target_get_unsigned_long_max(enum target target);

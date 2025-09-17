@@ -91,7 +91,7 @@ const char* target_to_string(enum target target)
     return "";
 }
 
-int target_get_wchar_max(enum target target)
+unsigned int target_get_wchar_max(enum target target)
 {
     switch (target)
     {

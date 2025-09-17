@@ -2332,12 +2332,12 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                     if (type != TK_KEYWORD_FALSE)
                     {
                         assert(p_declarator->p_expression_true == NULL);
-                        p_declarator->p_expression_true = expression(ctx);
+                        p_declarator->p_expression_true = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
                     }
                     else
                     {
                         assert(p_declarator->p_expression_false == NULL);
-                        p_declarator->p_expression_false = expression(ctx);
+                        p_declarator->p_expression_false = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
                     }
                     parser_match(ctx); //)
 
@@ -2428,7 +2428,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 }
             }
 
-            if (extern_declaration)
+            if (extern_declaration && ctx->p_report->error_count == 0)
             {
                 struct defer_visit_ctx ctx2 = { .ctx = ctx };
                 defer_start_visit_declaration(&ctx2, p_declaration);
@@ -2726,7 +2726,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             parser_match(ctx);
 
             assert(p_init_declarator->initializer == NULL);
-            p_init_declarator->initializer = initializer(ctx);
+            p_init_declarator->initializer = initializer(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
             if (p_init_declarator->initializer == NULL)
             {
@@ -3173,11 +3173,7 @@ struct typeof_specifier_argument* _Owner _Opt typeof_specifier_argument(struct p
         }
         else
         {
-            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = true;
-            new_typeof_specifier_argument->expression = expression(ctx);
-            /*restore*/
-            ctx->evaluation_is_disabled = disable_evaluation_copy;
+            new_typeof_specifier_argument->expression = expression(ctx, EXPRESSION_EVAL_MODE_TYPE);
 
             if (new_typeof_specifier_argument->expression == NULL)
                 throw;
@@ -3591,7 +3587,7 @@ static void gcc_attribute_argument(struct parser_ctx* ctx)
     }
     else //constant expressions
     {
-        struct expression* expr = constant_expression(ctx, true);
+        struct expression* expr = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
         expression_delete(expr);
     }
 }
@@ -4344,7 +4340,7 @@ struct member_declarator* _Owner _Opt member_declarator(
         if (ctx->current->type == ':')
         {
             parser_match(ctx);
-            p_member_declarator->constant_expression = constant_expression(ctx, true);
+            p_member_declarator->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
         }
     }
     catch
@@ -5378,7 +5374,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
         {
             parser_match(ctx);
             assert(p_enumerator->constant_expression_opt == NULL);
-            p_enumerator->constant_expression_opt = constant_expression(ctx, true);
+            p_enumerator->constant_expression_opt = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
             if (p_enumerator->constant_expression_opt == NULL) throw;
 
             if (enum_specifier_has_fixed_underlying_type(p_enum_specifier))
@@ -5455,7 +5451,7 @@ struct alignment_specifier* _Owner _Opt alignment_specifier(struct parser_ctx* c
         }
         else
         {
-            alignment_specifier->constant_expression = constant_expression(ctx, true);
+            alignment_specifier->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
             if (alignment_specifier->constant_expression == NULL)
                 throw;
             if (object_has_constant_value(&alignment_specifier->constant_expression->object))
@@ -5782,7 +5778,7 @@ bool declarator_is_function(struct declarator* p_declarator)
         p_declarator->direct_declarator->function_declarator != NULL);
 }
 
-struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx);
+struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct function_declarator* _Owner _Opt function_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx);
 
 void function_declarator_delete(struct function_declarator* _Owner _Opt p)
@@ -5908,7 +5904,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
 
             if (ctx->current->type == '[')
             {
-                p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx);
+                p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
                 p_direct_declarator = NULL; //MOVED
                 if (p_direct_declarator2->array_declarator == NULL)
                 {
@@ -5966,7 +5962,7 @@ size_t array_declarator_get_size(const struct array_declarator* p_array_declarat
     return 0;
 }
 
-struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx)
+struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     // direct_declarator '['          type_qualifier_list_opt           assignment_expression_opt ']'
     // direct_declarator '[' 'static' type_qualifier_list_opt           assignment_expression     ']'
@@ -6024,13 +6020,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
 
         if (has_static)
         {
-            // tem que ter..
-
-            const bool evaluation_is_disabled = ctx->evaluation_is_disabled;
-            ctx->evaluation_is_disabled = false;
-            p_array_declarator->assignment_expression = assignment_expression(ctx);
-            /*restore*/
-            ctx->evaluation_is_disabled = evaluation_is_disabled;
+            p_array_declarator->assignment_expression = assignment_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
             if (p_array_declarator->assignment_expression == NULL)
                 throw;
@@ -6050,12 +6040,8 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
             }
             else if (ctx->current->type != ']')
             {
-                const bool evaluation_is_disabled = ctx->evaluation_is_disabled;
-                ctx->evaluation_is_disabled = false;
-                p_array_declarator->assignment_expression = assignment_expression(ctx);
-
-                /*restore*/
-                ctx->evaluation_is_disabled = evaluation_is_disabled;
+                p_array_declarator->assignment_expression =
+                    assignment_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
                 if (p_array_declarator->assignment_expression == NULL)
                     throw;
@@ -6878,7 +6864,7 @@ struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx
 
         if (ctx->current->type != '}')
         {
-            p_bracket_initializer_list->initializer_list = initializer_list(ctx);
+            p_bracket_initializer_list->initializer_list = initializer_list(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
         }
         if (parser_match_tk(ctx, '}') != 0)
             throw;
@@ -6907,7 +6893,7 @@ void initializer_delete(struct initializer* _Owner _Opt p)
     }
 }
 
-struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx)
+struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
     initializer:
@@ -6938,7 +6924,7 @@ struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx)
         }
         else
         {
-            p_initializer->assignment_expression = assignment_expression(ctx);
+            p_initializer->assignment_expression = assignment_expression(ctx, eval_mode);
             if (p_initializer->assignment_expression == NULL) throw;
         }
     }
@@ -7021,7 +7007,7 @@ void initializer_list_delete(struct initializer_list* _Owner _Opt p)
         free(p);
     }
 }
-struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
+struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
     initializer-list:
@@ -7061,7 +7047,7 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
             p_initializer_list_item->designation = p_designation;
         }
 
-        struct initializer* _Owner _Opt p_initializer = initializer(ctx);
+        struct initializer* _Owner _Opt p_initializer = initializer(ctx, eval_mode);
 
         if (p_initializer == NULL)
         {
@@ -7102,7 +7088,7 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx)
             }
             p_initializer_list_item->designation = p_designation2;
 
-            struct initializer* _Owner _Opt p_initializer2 = initializer(ctx);
+            struct initializer* _Owner _Opt p_initializer2 = initializer(ctx, eval_mode);
             if (p_initializer2 == NULL)
             {
                 designation_delete(p_designation2);
@@ -7260,7 +7246,7 @@ struct designator* _Owner _Opt designator(struct parser_ctx* ctx)
         {
             if (parser_match_tk(ctx, '[') != 0)
                 throw;
-            p_designator->constant_expression_opt = constant_expression(ctx, true);
+            p_designator->constant_expression_opt = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
             if (parser_match_tk(ctx, ']') != 0)
                 throw;
         }
@@ -7567,7 +7553,7 @@ struct static_assert_declaration* _Owner _Opt static_assert_declaration(struct p
         if (ctx->options.flow_analysis)
             show_error_if_not_constant = false;
 
-        struct expression* _Owner _Opt p_constant_expression = constant_expression(ctx, show_error_if_not_constant);
+        struct expression* _Owner _Opt p_constant_expression = constant_expression(ctx, show_error_if_not_constant, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
         if (p_constant_expression == NULL)
             throw;
 
@@ -8706,7 +8692,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
 
             parser_match(ctx);
-            p_label->constant_expression = constant_expression(ctx, true);
+            p_label->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
             if (p_label->constant_expression == NULL)
                 throw;
 
@@ -8719,7 +8705,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
             if (ctx->current->type == '...')
             {
                 parser_match(ctx);
-                p_label->constant_expression_end = constant_expression(ctx, true);
+                p_label->constant_expression_end = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
                 if (p_label->constant_expression_end == NULL)
                     throw;
                 /*
@@ -9856,7 +9842,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             if (parser_match_tk(ctx, '(') != 0)
                 throw;
 
-            p_iteration_statement->expression1 = expression(ctx);
+            p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
             if (parser_match_tk(ctx, ';') != 0)
@@ -9868,7 +9854,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
             if (parser_match_tk(ctx, '(') != 0)
                 throw;
 
-            p_iteration_statement->expression1 = expression(ctx);
+            p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
             struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
@@ -9899,7 +9885,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
 
                 if (ctx->current->type != ';')
                 {
-                    p_iteration_statement->expression1 = expression(ctx);
+                    p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
                     if (p_iteration_statement->expression1 == NULL)
                     {
                         scope_list_pop(&ctx->scopes);
@@ -9926,7 +9912,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ')')
-                    p_iteration_statement->expression2 = expression(ctx);
+                    p_iteration_statement->expression2 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
                 if (parser_match_tk(ctx, ')') != 0)
                 {
@@ -9965,7 +9951,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ';')
-                    p_iteration_statement->expression0 = expression(ctx);
+                    p_iteration_statement->expression0 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
                 if (parser_match_tk(ctx, ';') != 0)
                     throw;
 
@@ -9976,7 +9962,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ';')
-                    p_iteration_statement->expression1 = expression(ctx);
+                    p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
                 if (parser_match_tk(ctx, ';') != 0)
                     throw;
@@ -9988,7 +9974,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 }
 
                 if (ctx->current->type != ')')
-                    p_iteration_statement->expression2 = expression(ctx);
+                    p_iteration_statement->expression2 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
                 if (parser_match_tk(ctx, ')') != 0)
                     throw;
@@ -10135,7 +10121,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
 
             if (ctx->current->type != ';')
             {
-                p_jump_statement->expression_opt = expression(ctx);
+                p_jump_statement->expression_opt = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
                 if (p_jump_statement->expression_opt)
                 {
@@ -10243,7 +10229,7 @@ struct expression_statement* _Owner _Opt  expression_statement(struct parser_ctx
 
         if (ctx->current->type != ';')
         {
-            p_expression_statement->expression_opt = expression(ctx);
+            p_expression_statement->expression_opt = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
 
             warn_unrecognized_warnings(ctx,
@@ -10347,7 +10333,7 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
         }
         else
         {
-            p_condition->expression = expression(ctx);
+            p_condition->expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
             if (p_condition->expression == NULL)
                 throw;
         }
@@ -11969,7 +11955,7 @@ static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not
         if (it == NULL)
             break;
 
-        struct object* next = it->next;
+        struct object* _Opt next = it->next;
 
         if (next != NULL)
         {

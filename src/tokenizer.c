@@ -2410,37 +2410,55 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 }
                 token_list_pop_front(input_list); //pop >
 
-                /*nodiscard
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall
-                * return the value 202003L
-                * when given nodiscard as the pp-tokens operand.
-                */
-
-                /*maybe_unused
+                const char* has_c_attribute_value = "0";
+                if (strcmp(path, "nodiscard") == 0)
+                {
+                    /*
+                    * The _has_c_attribute conditional inclusion expression (6.10.2)
+                      shall return the value 202311L when given nodiscard as the pp-tokens
+                      operand if the implementation supports the attribute.
+                    */
+                    has_c_attribute_value = "202311L";
+                }
+                else if (strcmp(path, "maybe_unused") == 0)
+                { /*maybe_unused
                 * The __has_c_attribute conditional inclusion expression (6.10.1) shall return
                 * the value 202106L when given maybe_unused as the pp-tokens operand.
                 */
-
-                /*deprecated
+                    has_c_attribute_value = "202106L";
+                }
+                else if (strcmp(path, "deprecated") == 0)
+                {    /*deprecated
                 * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 201904L
                 * when given deprecated as the pp-tokens operand
                 */
+                    has_c_attribute_value = "201904L";
+                }
+                else if (strcmp(path, "noreturn") == 0)
+                {
+                    /*noreturn
+                    * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202202L
+                    * when given noreturn as the pp-tokens operand.
+                    */
+                    has_c_attribute_value = "202202L";
+                }
+                else if (strcmp(path, "reproducible") == 0)
+                {
+                    /*reproducible
+                       * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
+                       * when given reproducible as the pp-tokens operand.
+                    */
+                    //has_c_attribute_value = "202207L";
+                }
+                else if (strcmp(path, "unsequenced") == 0)
+                {
+                    /*
+                       * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
+                       * when given unsequenced as the pp-tokens operand.
+                       */
+                       //has_c_attribute_value = "202207L";
+                }
 
-                /*noreturn
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202202L
-                * when given noreturn as the pp-tokens operand.
-                */
-
-                /*reproducible
-                 * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
-                 * when given reproducible as the pp-tokens operand.
-                */
-
-                /*
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
-                * when given unsequenced as the pp-tokens operand.
-                */
-                bool has_c_attribute = false;
 
                 struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
                 if (p_new_token == NULL)
@@ -2449,7 +2467,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 }
 
                 p_new_token->type = TK_PPNUMBER;
-                char* _Owner _Opt temp = strdup(has_c_attribute ? "1" : "0");
+                char* _Owner _Opt temp = strdup(has_c_attribute_value);
                 if (temp == NULL)
                 {
                     token_delete(p_new_token);
@@ -4221,7 +4239,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
-                            unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme+1);
+                            unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1);
 
                             match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
                             assert(r.tail != NULL);
@@ -4880,21 +4898,21 @@ static char* _Owner decode_pragma_string(const char* literal)
             switch (*p)
             {
             case '"':
-            case '\\':              
+            case '\\':
                 break;
 
             default:
                 len++;
             }
         }
-        
-        len++;        
+
+        len++;
         p++;
     }
 
     char* _Owner result = (char*)malloc(len + 1);
     if (!result) return NULL;
-    
+
     char* out = result;
     p = literal;
     while (*p && *p != '"')
@@ -4913,8 +4931,8 @@ static char* _Owner decode_pragma_string(const char* literal)
                 break;
             }
         }
-        
-        *out++ = *p;        
+
+        *out++ = *p;
         p++;
     }
     *out = '\0';

@@ -863,11 +863,11 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         
         const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;
         ctx->cake_declarator_number = 0; // this makes statics inside of the function literals actually work
+        bool checking_lambda = ctx->checking_lambda;
         ctx->checking_lambda = true;
-        d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);
-        ctx->checking_lambda = false;
+        d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);        
+        ctx->checking_lambda = checking_lambda;
         
-        //printf("\n%s\n",lambda_nameless.c_str);
         
         assert(lambda_nameless.c_str);
         

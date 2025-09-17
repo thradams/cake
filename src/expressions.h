@@ -12,6 +12,13 @@
 
 struct parser_ctx;
 
+enum expression_eval_mode
+{
+    EXPRESSION_EVAL_MODE_NONE,
+    EXPRESSION_EVAL_MODE_TYPE,
+    EXPRESSION_EVAL_MODE_VALUE_AND_TYPE,
+};
+
 enum expression_type
 {
     EXPRESSION_TYPE_INVALID, 
@@ -228,9 +235,9 @@ bool expression_is_calloc(const struct expression* p);
 
 void expression_delete(struct expression* _Owner _Opt p);
 
-struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt expression(struct parser_ctx* ctx);
-struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
+struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant, enum expression_eval_mode eval_mode);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
 bool expression_get_variables(const struct expression* expr, int n, struct object* variables[/*n*/]);
