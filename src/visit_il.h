@@ -31,6 +31,9 @@ struct d_visit_ctx
     
     bool zero_mem_used;
     bool memcpy_used;
+    
+    bool checking_lambda; // true when inside of a lambda check, doesnt make static variables
+    
     /*
     * Points to the function we're in. Or null in file scope.
     */
