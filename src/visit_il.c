@@ -846,7 +846,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->type_name != NULL);
 
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
 
         print_identation_core(&ctx->add_this_before, ctx->indentation);
 
@@ -880,6 +879,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
+            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
             ss_fprintf(&ctx->add_this_before_external_decl, "static ");
             d_print_type(ctx, &ctx->add_this_before_external_decl, &p_expression->type, name);
             ss_fprintf(&ctx->add_this_before_external_decl, "\n%s", lambda_inner.c_str);
@@ -1977,6 +1977,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                             struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
                             if (p_name != NULL)
                             {
+                                /*
                                 //ja existe uma com este nome
                                 char new_name[100] = { 0 };
                                 snprintf(new_name, sizeof name, "%s%d", p_complete->tag_name, ctx->cake_tag_count++);
@@ -1986,6 +1987,8 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                 i.number = 1;
                                 hashmap_set(&ctx->tag_names, new_name, &i);
                                 hash_item_set_destroy(&i);
+                                */
+                                break;
                             }
                             else
                             {
