@@ -866,7 +866,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         
         d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);
         
-        
+        //printf("\n%s\n",lambda_nameless.c_str);
         
         assert(lambda_nameless.c_str);
         
@@ -878,20 +878,23 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
-            struct osstream lambda = { 0 };
-            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", current_cake_declarator_number);
-            ss_fprintf(&lambda, "static ");
-            d_print_type(ctx, &lambda, &p_expression->type, name);
-            ss_fprintf(&lambda, "\n");
-            ctx->cake_declarator_number = current_cake_declarator_number + 1;
-            d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
+            struct osstream lambda_inner = { 0 };
+            struct osstream lambda_sig = { 0 };
+            
+            d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
+            ctx->cake_declarator_number += current_cake_declarator_number;
+            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
+            d_print_type(ctx, &lambda_sig, &p_expression->type, name);
+            
+            printf("static %s\n%s\n",lambda_sig.c_str,lambda_inner.c_str);
             struct hash_item_set i = { 0 };
-            i.number = current_cake_declarator_number;
+            i.number = ctx->cake_declarator_number-1;
             hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
             hash_item_set_destroy(&i);
             
-            ss_fprintf(&ctx->add_this_before_external_decl, "%s", lambda.c_str);
-            ss_close(&lambda);
+            ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, lambda_inner.c_str);
+            ss_close(&lambda_sig);
+            ss_close(&lambda_inner);
         }
         ctx->p_current_function_opt = p_current_function_opt;
         ctx->indentation = current_indentation;
