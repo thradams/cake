@@ -30,6 +30,7 @@ void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
     hashmap_destroy(&ctx->tag_names);
     hashmap_destroy(&ctx->structs_map);
     hashmap_destroy(&ctx->file_scope_declarator_map);
+    hashmap_destroy(&ctx->instantiated_lambdas);
     ss_close(&ctx->block_scope_declarators);
     ss_close(&ctx->add_this_before);
     ss_close(&ctx->add_this_before_external_decl);
@@ -849,25 +850,51 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         print_identation_core(&ctx->add_this_before, ctx->indentation);
 
-        struct osstream lambda = { 0 };
-        ss_fprintf(&lambda, "static ");
-        d_print_type(ctx, &lambda, &p_expression->type, name);
-        ss_fprintf(&lambda, "\n");
+        struct osstream lambda_sig = { 0 };
+        ss_fprintf(&lambda_sig, "static ");
+        d_print_type(ctx, &lambda_sig, &p_expression->type, NULL);
+        
         int current_indentation = ctx->indentation;
         ctx->indentation = 0;
         assert(p_expression->compound_statement != NULL);
 
         const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
         ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
-
-        d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
+        
+        struct osstream lambda_inner = { 0 };
+        
+        d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
         ctx->indentation = current_indentation;
         ctx->p_current_function_opt = p_current_function_opt;
+        
+        assert(lambda_inner.c_str);
+        assert(lambda_sig.c_str);
+        
+        struct osstream lambda_nameless = { 0 };
+        ss_fprintf(&lambda_nameless, "%s\n%s", lambda_sig.c_str, lambda_inner.c_str);
+        
+        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, lambda_nameless.c_str);
+        if (l)
+        {
+            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", l->data.number);
+        }
+        else
+        {
+            ss_fprintf(&ctx->add_this_before_external_decl, "static ");
+            d_print_type(ctx, &ctx->add_this_before_external_decl, &p_expression->type, name);
+            ss_fprintf(&ctx->add_this_before_external_decl, "\n%s", lambda_inner.c_str);
+            
+            struct hash_item_set i = { 0 };
+            i.number = ctx->cake_declarator_number - 1;
+            hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
+            hash_item_set_destroy(&i);
+        }
 
-        assert(lambda.c_str);
-        ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", lambda.c_str);
+
         ss_fprintf(oss, "%s", name);
-        ss_close(&lambda);
+        ss_close(&lambda_inner);
+        ss_close(&lambda_sig);
+        ss_close(&lambda_nameless);
     }
     break;
 

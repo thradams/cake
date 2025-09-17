@@ -21,6 +21,7 @@ struct d_visit_ctx
     struct hash_map tag_names;
     struct hash_map structs_map;
     struct hash_map file_scope_declarator_map;
+    struct hash_map instantiated_lambdas;
     
     struct osstream block_scope_declarators;
     struct osstream add_this_before;
