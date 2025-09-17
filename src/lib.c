@@ -42990,13 +42990,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->type_name != NULL);
 
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
 
         print_identation_core(&ctx->add_this_before, ctx->indentation);
 
-        struct osstream lambda_sig = { 0 };
-        ss_fprintf(&lambda_sig, "static ");
-        d_print_type(ctx, &lambda_sig, &p_expression->type, NULL);
+        struct osstream lambda_nameless = { 0 };
+        ss_fprintf(&lambda_nameless, "static ");
+        d_print_type(ctx, &lambda_nameless, &p_expression->type, NULL);
         
         int current_indentation = ctx->indentation;
         ctx->indentation = 0;
@@ -43004,40 +43003,44 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
         ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
+    
         
-        struct osstream lambda_inner = { 0 };
+        const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;
+        ctx->cake_declarator_number = 0; // this makes statics inside of the function literals actually work
         
-        d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
-        ctx->indentation = current_indentation;
-        ctx->p_current_function_opt = p_current_function_opt;
+        d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);
         
-        assert(lambda_inner.c_str);
-        assert(lambda_sig.c_str);
         
-        struct osstream lambda_nameless = { 0 };
-        ss_fprintf(&lambda_nameless, "%s\n%s", lambda_sig.c_str, lambda_inner.c_str);
+        
+        assert(lambda_nameless.c_str);
         
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, lambda_nameless.c_str);
         if (l)
         {
             snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", l->data.number);
+            ctx->cake_declarator_number = current_cake_declarator_number;
         }
         else
         {
-            ss_fprintf(&ctx->add_this_before_external_decl, "static ");
-            d_print_type(ctx, &ctx->add_this_before_external_decl, &p_expression->type, name);
-            ss_fprintf(&ctx->add_this_before_external_decl, "\n%s", lambda_inner.c_str);
-            
+            struct osstream lambda = { 0 };
+            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", current_cake_declarator_number);
+            ss_fprintf(&lambda, "static ");
+            d_print_type(ctx, &lambda, &p_expression->type, name);
+            ss_fprintf(&lambda, "\n");
+            ctx->cake_declarator_number = current_cake_declarator_number + 1;
+            d_visit_compound_statement(ctx, &lambda, p_expression->compound_statement);
             struct hash_item_set i = { 0 };
-            i.number = ctx->cake_declarator_number - 1;
+            i.number = current_cake_declarator_number;
             hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
             hash_item_set_destroy(&i);
+            
+            ss_fprintf(&ctx->add_this_before_external_decl, "%s", lambda.c_str);
+            ss_close(&lambda);
         }
-
+        ctx->p_current_function_opt = p_current_function_opt;
+        ctx->indentation = current_indentation;
 
         ss_fprintf(oss, "%s", name);
-        ss_close(&lambda_inner);
-        ss_close(&lambda_sig);
         ss_close(&lambda_nameless);
     }
     break;
@@ -44121,6 +44124,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                             struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
                             if (p_name != NULL)
                             {
+                                
                                 //ja existe uma com este nome
                                 char new_name[100] = { 0 };
                                 snprintf(new_name, sizeof name, "%s%d", p_complete->tag_name, ctx->cake_tag_count++);
@@ -44130,6 +44134,8 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                 i.number = 1;
                                 hashmap_set(&ctx->tag_names, new_name, &i);
                                 hash_item_set_destroy(&i);
+                                
+                                //break;
                             }
                             else
                             {
