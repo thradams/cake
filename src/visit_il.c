@@ -1977,7 +1977,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                             struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
                             if (p_name != NULL)
                             {
-                                /*
+                                
                                 //ja existe uma com este nome
                                 char new_name[100] = { 0 };
                                 snprintf(new_name, sizeof name, "%s%d", p_complete->tag_name, ctx->cake_tag_count++);
@@ -1987,8 +1987,8 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                 i.number = 1;
                                 hashmap_set(&ctx->tag_names, new_name, &i);
                                 hash_item_set_destroy(&i);
-                                */
-                                break;
+                                
+                                //break;
                             }
                             else
                             {
