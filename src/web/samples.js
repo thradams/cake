@@ -1551,6 +1551,8 @@ int main()
     int a = 1;
     int b = 2;
     SWAP(a, b);
+    SWAP(a, b);
+    SWAP(a, b);
 }
 `;
 
