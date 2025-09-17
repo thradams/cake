@@ -28690,7 +28690,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.11.10"
+#define CAKE_VERSION "0.12.00"
 
 
 

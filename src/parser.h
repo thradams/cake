@@ -126,6 +126,7 @@ struct parser_ctx
     /*
        Expression inside sizeof etc.. are not evaluated
     */
+    //bool evaluation_is_disabled;
 
     bool inside_generic_association;
 
