@@ -16335,6 +16335,11 @@ struct declarator
        final declarator type (after auto, typeof etc)
     */
     struct type type;
+    
+    /*
+      used in code generation to indicate when the declarator was renamed
+    */
+    bool declarator_renamed;
 };
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
@@ -28690,7 +28695,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.00"
+#define CAKE_VERSION "0.12.01"
 
 
 
@@ -28730,9 +28735,7 @@ struct d_visit_ctx
     
     bool zero_mem_used;
     bool memcpy_used;
-    
-    bool checking_lambda; // true when inside of a lambda check, doesnt make static variables
-    
+        
     /*
     * Points to the function we're in. Or null in file scope.
     */
@@ -42508,8 +42511,8 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstrea
 static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
-static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object, 
-    const char* declarator_name, 
+static void object_print_non_constant_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object,
+    const char* declarator_name,
     bool all,
     bool initialize_objects_that_does_not_have_initializer);
 
@@ -42962,7 +42965,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             */
 
             void* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
-            if (p == NULL && !ctx->checking_lambda)
+            if (p == NULL)
             {
                 /*
                   first time, let´s generate it
@@ -43216,48 +43219,42 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         print_identation_core(&ctx->add_this_before, ctx->indentation);
 
         struct osstream lambda_nameless = { 0 };
-        ss_fprintf(&lambda_nameless, "static ");
         d_print_type(ctx, &lambda_nameless, &p_expression->type, NULL);
-        
-        int current_indentation = ctx->indentation;
+
+        const int current_indentation = ctx->indentation;
         ctx->indentation = 0;
         assert(p_expression->compound_statement != NULL);
 
         const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
         ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
-    
-        
-        const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;
-        ctx->cake_declarator_number = 0; // this makes statics inside of the function literals actually work
-        bool checking_lambda = ctx->checking_lambda;
-        ctx->checking_lambda = true;
-        d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);        
-        ctx->checking_lambda = checking_lambda;
-        
-        
+
+        const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;        
+        d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);
+
+        ctx->cake_declarator_number = current_cake_declarator_number;
+
         assert(lambda_nameless.c_str);
-        
+
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, lambda_nameless.c_str);
-        if (l)
+        if (l != NULL)
         {
             snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", l->data.number);
-            ctx->cake_declarator_number = current_cake_declarator_number;
         }
         else
         {
+            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
+
             struct osstream lambda_inner = { 0 };
             struct osstream lambda_sig = { 0 };
-            
-            d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
-            ctx->cake_declarator_number += current_cake_declarator_number;
-            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
             d_print_type(ctx, &lambda_sig, &p_expression->type, name);
-            
+
+            d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
+
             struct hash_item_set i = { 0 };
-            i.number = ctx->cake_declarator_number-1;
+            i.number = current_cake_declarator_number;
             hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
             hash_item_set_destroy(&i);
-            
+
             ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, lambda_inner.c_str);
             ss_close(&lambda_sig);
             ss_close(&lambda_inner);
@@ -44349,7 +44346,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                             struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
                             if (p_name != NULL)
                             {
-                                
+
                                 //ja existe uma com este nome
                                 char new_name[100] = { 0 };
                                 snprintf(new_name, sizeof name, "%s%d", p_complete->tag_name, ctx->cake_tag_count++);
@@ -44359,7 +44356,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                 i.number = 1;
                                 hashmap_set(&ctx->tag_names, new_name, &i);
                                 hash_item_set_destroy(&i);
-                                
+
                                 //break;
                             }
                             else
@@ -45008,14 +45005,14 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             }
             else if (object->p_init_expression)
             {
-                /*                
+                /*
                        struct A { int x, y; };
                        struct B { struct A a; };
 
                        int main(void)
                        {
                          struct A ia = { 1, 2 };
-                         struct B b = { .a = ia, .a.y = 42 };     
+                         struct B b = { .a = ia, .a.y = 42 };
                        }
                 */
                 print_identation_core(ss, ctx->indentation);
@@ -45375,15 +45372,19 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
             if (rename_declarator)
             {
-                char name[100] = { 0 };
-                snprintf(name, sizeof(name),
-                    CAKE_PREFIX_FOR_CODE_GENERATION "%d_%s",
-                    ctx->cake_declarator_number++,
-                    p_init_declarator->p_declarator->name_opt->lexeme
-                );
+                if (!p_init_declarator->p_declarator->declarator_renamed)
+                {
+                    p_init_declarator->p_declarator->declarator_renamed = true;
+                    char name[100] = { 0 };
+                    snprintf(name, sizeof(name),
+                        CAKE_PREFIX_FOR_CODE_GENERATION "%d_%s",
+                        ctx->cake_declarator_number++,
+                        p_init_declarator->p_declarator->name_opt->lexeme
+                    );
 
-                free(p_init_declarator->p_declarator->name_opt->lexeme);
-                p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
+                    free(p_init_declarator->p_declarator->name_opt->lexeme);
+                    p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
+                }
             }
             return;
         }
@@ -45647,7 +45648,6 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     ss_close(&declarations);
 }
-
 
 /*
  *  This file is part of cake compiler

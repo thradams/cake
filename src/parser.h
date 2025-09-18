@@ -768,6 +768,11 @@ struct declarator
        final declarator type (after auto, typeof etc)
     */
     struct type type;
+    
+    /*
+      used in code generation to indicate when the declarator was renamed
+    */
+    bool declarator_renamed;
 };
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
