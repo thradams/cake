@@ -596,7 +596,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             */
 
             void* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
-            if (p == NULL)
+            if (p == NULL && !ctx->checking_lambda)
             {
                 /*
                   first time, let´s generate it
@@ -859,15 +859,20 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
         ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
 
-        const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;        
+        const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;
+		const bool current_checking_lambda = ctx->checking_lambda;
+		ctx->cake_declarator_number = 0; // this makes statics inside of the function literals actually work
+		ctx->checking_lambda = true;
+		
         d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);
-
+		
         ctx->cake_declarator_number = current_cake_declarator_number;
+		ctx->checking_lambda = current_checking_lambda;
 
         assert(lambda_nameless.c_str);
 
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, lambda_nameless.c_str);
-        if (l != NULL)
+        if (l != NULL && !ctx->checking_lambda)
         {
             snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", l->data.number);
         }
@@ -875,20 +880,23 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         {
             snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
 
-            struct osstream lambda_inner = { 0 };
-            struct osstream lambda_sig = { 0 };
-            d_print_type(ctx, &lambda_sig, &p_expression->type, name);
+			if(!ctx->checking_lambda)
+            {
+				struct osstream lambda_inner = { 0 };
+				struct osstream lambda_sig = { 0 };
+				d_print_type(ctx, &lambda_sig, &p_expression->type, name);
 
-            d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
+				d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
 
-            struct hash_item_set i = { 0 };
-            i.number = current_cake_declarator_number;
-            hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
-            hash_item_set_destroy(&i);
+				struct hash_item_set i = { 0 };
+				i.number = current_cake_declarator_number;
+				hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
+				hash_item_set_destroy(&i);
 
-            ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, lambda_inner.c_str);
-            ss_close(&lambda_sig);
-            ss_close(&lambda_inner);
+				ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, lambda_inner.c_str);
+				ss_close(&lambda_sig);
+				ss_close(&lambda_inner);
+			}
         }
         ctx->p_current_function_opt = p_current_function_opt;
         ctx->indentation = current_indentation;
