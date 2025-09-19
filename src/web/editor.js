@@ -131,6 +131,9 @@ function OnCompileButton()
 
     var options = document.getElementById("options").value;
 
+    var target = document.getElementById("target").value;
+    options += " -target=" + target;
+
     if (outputLanguage == 0)
         options += " -E";
  

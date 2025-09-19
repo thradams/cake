@@ -181,6 +181,7 @@ const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS =
 
 CAKE_STANDARD_MACROS
 "#define __linux__\n"
+"#define __GNUC__  16\n"
 "#define __x86_64__ 1\n"
 "#define __CHAR_BIT__ 8\n"
 "#define __SIZE_TYPE__ long unsigned int\n"

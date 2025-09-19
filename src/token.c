@@ -1549,6 +1549,9 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         case 't':
             *out_value = '\t';
             break;
+        case 'v':
+            *out_value = '\v';
+            break;
         case '\'':
             *out_value = '\'';
             break;

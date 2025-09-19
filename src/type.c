@@ -286,7 +286,7 @@ enum type_specifier_flags get_intN_type_specifier(enum target target, int nbits)
 
     switch (target)
     {
-    case TARGET_X86_X64_GCC:         
+    case TARGET_X86_X64_GCC:
         if (nbits == 8) return TYPE_SPECIFIER_CHAR;
         if (nbits == 16) return TYPE_SPECIFIER_SHORT;
         if (nbits == 32) return TYPE_SPECIFIER_INT;
@@ -373,9 +373,10 @@ void print_item(struct osstream* ss, bool* first, const char* item)
 
 bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target)
 {
-    if (target == TARGET_X86_MSVC ||
-             target == TARGET_X86_MSVC)
+    switch (target)
     {
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
         if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
             print_item(ss, first, "__declspec(align(8))");
         if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
@@ -386,9 +387,9 @@ bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment
             print_item(ss, first, "__declspec(align(64))");
         if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
             print_item(ss, first, "__declspec(align(128))");
-    }
-    else if (target == TARGET_X86_X64_GCC)
-    {
+        break;
+
+    case TARGET_X86_X64_GCC:
         if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
             print_item(ss, first, "__attribute__((aligned(8)))");
         if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
@@ -399,7 +400,10 @@ bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment
             print_item(ss, first, "__attribute__((aligned(64)))");
         if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
             print_item(ss, first, "__attribute__((aligned(128)))");
+        break;
+
     }
+
     return *first;
 }
 
@@ -1484,7 +1488,7 @@ bool type_is_integer(const struct type* p_type)
             TYPE_SPECIFIER_INT |
             TYPE_SPECIFIER_LONG |
             TYPE_SPECIFIER_SIGNED |
-            TYPE_SPECIFIER_UNSIGNED |            
+            TYPE_SPECIFIER_UNSIGNED |
             TYPE_SPECIFIER_LONG_LONG |
             TYPE_SPECIFIER_BOOL);
 }
@@ -2802,7 +2806,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
             align = get_align_int(target);
-        }        
+        }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
             align = get_align_float(target);
@@ -3032,7 +3036,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         *size = get_size_int(target);
         return ESIZEOF_NONE;
     }
-    
+
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
         *size = get_size_float(target);

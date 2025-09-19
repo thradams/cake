@@ -444,6 +444,7 @@ static const char* get_op_by_expression_type(enum expression_type type)
         return "|=";
     case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
         return "^=";
+
     default:
         break;
     }
@@ -845,56 +846,54 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         assert(p_expression->type_name != NULL);
 
-        char name[100] = { 0 };
+        char generated_function_literal_name[100] = { 0 };
 
         print_identation_core(&ctx->add_this_before, ctx->indentation);
 
         struct osstream lambda_nameless = { 0 };
         d_print_type(ctx, &lambda_nameless, &p_expression->type, NULL);
 
-        const int current_indentation = ctx->indentation;
-        ctx->indentation = 0;
+
         assert(p_expression->compound_statement != NULL);
 
         const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
         ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
-
-        const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;        
-        d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);
-
-        ctx->cake_declarator_number = current_cake_declarator_number;
-
-        assert(lambda_nameless.c_str);
-
-        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, lambda_nameless.c_str);
-        if (l != NULL)
-        {
-            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", l->data.number);
-        }
-        else
-        {
-            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
-
-            struct osstream lambda_inner = { 0 };
-            struct osstream lambda_sig = { 0 };
-            d_print_type(ctx, &lambda_sig, &p_expression->type, name);
-
-            d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
-
-            struct hash_item_set i = { 0 };
-            i.number = current_cake_declarator_number;
-            hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
-            hash_item_set_destroy(&i);
-
-            ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, lambda_inner.c_str);
-            ss_close(&lambda_sig);
-            ss_close(&lambda_inner);
-        }
+        const int current_indentation = ctx->indentation;
+        ctx->indentation = 0;
+        struct osstream function_literal_body = { 0 };
+        d_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement);
         ctx->p_current_function_opt = p_current_function_opt;
         ctx->indentation = current_indentation;
 
-        ss_fprintf(oss, "%s", name);
+        struct osstream function_literal = { 0 };
+        ss_fprintf(&function_literal, "%s%s", lambda_nameless.c_str, function_literal_body.c_str);
+
+        assert(lambda_nameless.c_str);
+
+        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, function_literal.c_str);
+        if (l != NULL)
+        {
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", l->data.number);
+        }
+        else
+        {
+            unsigned int current_cake_declarator_number = ctx->cake_declarator_number++;
+            struct hash_item_set i = { 0 };
+            i.number = current_cake_declarator_number;
+            hashmap_set(&ctx->instantiated_lambdas, function_literal.c_str, &i);
+            hash_item_set_destroy(&i);
+
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", current_cake_declarator_number);
+
+            struct osstream lambda_sig = { 0 };
+            d_print_type(ctx, &lambda_sig, &p_expression->type, generated_function_literal_name);
+            ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
+            ss_close(&lambda_sig);
+        }
+
+        ss_fprintf(oss, "%s", generated_function_literal_name);
         ss_close(&lambda_nameless);
+        ss_close(&function_literal);
     }
     break;
 
@@ -2221,14 +2220,21 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 case TARGET_X86_X64_GCC:
                 case TARGET_X86_MSVC:
                 case TARGET_X64_MSVC:
-                    ss_fprintf(&local, "unsigned char");
-                    first = false;
+                    print_item(&local, &first, "unsigned char");
                 }
             }
             else
             {
                 print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags, ctx->options.target);
                 print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
+                
+                
+                /*we dont print const, only volatile*/
+                if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+                {
+                    print_item(&local, &first, "volatile");
+                }
+
                 print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
             }
 

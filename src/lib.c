@@ -2782,6 +2782,9 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         case 't':
             *out_value = '\t';
             break;
+        case 'v':
+            *out_value = '\v';
+            break;
         case '\'':
             *out_value = '\'';
             break;
@@ -12743,7 +12746,20 @@ static const char file_stdarg_h[] = {
 ,99,114,116,95,118,97,95,101,110,100,13,10,32,32,32,32,32,32,32,32,35,100,101,102,105
 ,110,101,32,118,97,95,99,111,112,121,40,100,101,115,116,105,110,97,116,105,111,110,44,32,115
 ,111,117,114,99,101,41,32,40,40,100,101,115,116,105,110,97,116,105,111,110,41,32,61,32,40
-,115,111,117,114,99,101,41,41,13,10,13,10,13,10,35,101,110,100,105,102,13,10
+,115,111,117,114,99,101,41,41,13,10,13,10,13,10,35,101,110,100,105,102,13,10,13,10,35
+,105,102,100,101,102,32,95,95,71,78,85,67,95,95,13,10,13,10,13,10,116,121,112,101,100
+,101,102,32,95,95,98,117,105,108,116,105,110,95,118,97,95,108,105,115,116,32,95,95,103,110
+,117,99,95,118,97,95,108,105,115,116,59,13,10,116,121,112,101,100,101,102,32,95,95,103,110
+,117,99,95,118,97,95,108,105,115,116,32,118,97,95,108,105,115,116,59,13,10,13,10,35,100
+,101,102,105,110,101,32,118,97,95,115,116,97,114,116,40,118,44,108,41,9,95,95,98,117,105
+,108,116,105,110,95,118,97,95,115,116,97,114,116,40,118,44,108,41,13,10,35,100,101,102,105
+,110,101,32,118,97,95,101,110,100,40,118,41,9,32,32,32,32,95,95,98,117,105,108,116,105
+,110,95,118,97,95,101,110,100,40,118,41,13,10,35,100,101,102,105,110,101,32,118,97,95,97
+,114,103,40,118,44,108,41,9,32,32,32,32,95,95,98,117,105,108,116,105,110,95,118,97,95
+,97,114,103,40,118,44,108,41,13,10,35,100,101,102,105,110,101,32,118,97,95,99,111,112,121
+,40,100,44,115,41,32,32,32,32,95,95,98,117,105,108,116,105,110,95,118,97,95,99,111,112
+,121,40,100,44,115,41,13,10,13,10,32,32,32,32,32,32,13,10,35,101,110,100,105,102,13
+,10,13,10,13,10
 , 0 };
 static const char file_stdatomic_h[] = {
 
@@ -28695,7 +28711,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.01"
+#define CAKE_VERSION "0.12.02"
 
 
 
@@ -31960,7 +31976,8 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
             p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->type_name->abstract_declarator->type);
         }
 
-        if (p_typeof_specifier->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+        if (type_is_array(&p_typeof_specifier->type) &&
+            p_typeof_specifier->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
             compiler_diagnostic(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, NULL, "typeof used in array arguments");
 
@@ -42813,6 +42830,7 @@ static const char* get_op_by_expression_type(enum expression_type type)
         return "|=";
     case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
         return "^=";
+
     default:
         break;
     }
@@ -43214,56 +43232,54 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         assert(p_expression->type_name != NULL);
 
-        char name[100] = { 0 };
+        char generated_function_literal_name[100] = { 0 };
 
         print_identation_core(&ctx->add_this_before, ctx->indentation);
 
         struct osstream lambda_nameless = { 0 };
         d_print_type(ctx, &lambda_nameless, &p_expression->type, NULL);
 
-        const int current_indentation = ctx->indentation;
-        ctx->indentation = 0;
+
         assert(p_expression->compound_statement != NULL);
 
         const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
         ctx->p_current_function_opt = p_expression->type_name->abstract_declarator;
-
-        const unsigned int current_cake_declarator_number = ctx->cake_declarator_number;        
-        d_visit_compound_statement(ctx, &lambda_nameless, p_expression->compound_statement);
-
-        ctx->cake_declarator_number = current_cake_declarator_number;
-
-        assert(lambda_nameless.c_str);
-
-        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, lambda_nameless.c_str);
-        if (l != NULL)
-        {
-            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", l->data.number);
-        }
-        else
-        {
-            snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_flit", ctx->cake_declarator_number++);
-
-            struct osstream lambda_inner = { 0 };
-            struct osstream lambda_sig = { 0 };
-            d_print_type(ctx, &lambda_sig, &p_expression->type, name);
-
-            d_visit_compound_statement(ctx, &lambda_inner, p_expression->compound_statement);
-
-            struct hash_item_set i = { 0 };
-            i.number = current_cake_declarator_number;
-            hashmap_set(&ctx->instantiated_lambdas, lambda_nameless.c_str, &i);
-            hash_item_set_destroy(&i);
-
-            ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, lambda_inner.c_str);
-            ss_close(&lambda_sig);
-            ss_close(&lambda_inner);
-        }
+        const int current_indentation = ctx->indentation;
+        ctx->indentation = 0;
+        struct osstream function_literal_body = { 0 };
+        d_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement);
         ctx->p_current_function_opt = p_current_function_opt;
         ctx->indentation = current_indentation;
 
-        ss_fprintf(oss, "%s", name);
+        struct osstream function_literal = { 0 };
+        ss_fprintf(&function_literal, "%s%s", lambda_nameless.c_str, function_literal_body.c_str);
+
+        assert(lambda_nameless.c_str);
+
+        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, function_literal.c_str);
+        if (l != NULL)
+        {
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", l->data.number);
+        }
+        else
+        {
+            unsigned int current_cake_declarator_number = ctx->cake_declarator_number++;
+            struct hash_item_set i = { 0 };
+            i.number = current_cake_declarator_number;
+            hashmap_set(&ctx->instantiated_lambdas, function_literal.c_str, &i);
+            hash_item_set_destroy(&i);
+
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", current_cake_declarator_number);
+
+            struct osstream lambda_sig = { 0 };
+            d_print_type(ctx, &lambda_sig, &p_expression->type, generated_function_literal_name);
+            ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
+            ss_close(&lambda_sig);
+        }
+
+        ss_fprintf(oss, "%s", generated_function_literal_name);
         ss_close(&lambda_nameless);
+        ss_close(&function_literal);
     }
     break;
 
@@ -44590,14 +44606,21 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 case TARGET_X86_X64_GCC:
                 case TARGET_X86_MSVC:
                 case TARGET_X64_MSVC:
-                    ss_fprintf(&local, "unsigned char");
-                    first = false;
+                    print_item(&local, &first, "unsigned char");
                 }
             }
             else
             {
                 print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags, ctx->options.target);
                 print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
+                
+                
+                /*we dont print const, only volatile*/
+                if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+                {
+                    print_item(&local, &first, "volatile");
+                }
+
                 print_type_specifier_flags(&local, &first, p_type->type_specifier_flags);
             }
 
@@ -53748,6 +53771,7 @@ const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS =
 
 CAKE_STANDARD_MACROS
 "#define __linux__\n"
+"#define __GNUC__  16\n"
 "#define __x86_64__ 1\n"
 "#define __CHAR_BIT__ 8\n"
 "#define __SIZE_TYPE__ long unsigned int\n"
@@ -54204,7 +54228,7 @@ enum type_specifier_flags get_intN_type_specifier(enum target target, int nbits)
 
     switch (target)
     {
-    case TARGET_X86_X64_GCC:         
+    case TARGET_X86_X64_GCC:
         if (nbits == 8) return TYPE_SPECIFIER_CHAR;
         if (nbits == 16) return TYPE_SPECIFIER_SHORT;
         if (nbits == 32) return TYPE_SPECIFIER_INT;
@@ -54291,9 +54315,10 @@ void print_item(struct osstream* ss, bool* first, const char* item)
 
 bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target)
 {
-    if (target == TARGET_X86_MSVC ||
-             target == TARGET_X86_MSVC)
+    switch (target)
     {
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
         if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
             print_item(ss, first, "__declspec(align(8))");
         if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
@@ -54304,9 +54329,9 @@ bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment
             print_item(ss, first, "__declspec(align(64))");
         if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
             print_item(ss, first, "__declspec(align(128))");
-    }
-    else if (target == TARGET_X86_X64_GCC)
-    {
+        break;
+
+    case TARGET_X86_X64_GCC:
         if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
             print_item(ss, first, "__attribute__((aligned(8)))");
         if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
@@ -54317,7 +54342,10 @@ bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment
             print_item(ss, first, "__attribute__((aligned(64)))");
         if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
             print_item(ss, first, "__attribute__((aligned(128)))");
+        break;
+
     }
+
     return *first;
 }
 
@@ -55402,7 +55430,7 @@ bool type_is_integer(const struct type* p_type)
             TYPE_SPECIFIER_INT |
             TYPE_SPECIFIER_LONG |
             TYPE_SPECIFIER_SIGNED |
-            TYPE_SPECIFIER_UNSIGNED |            
+            TYPE_SPECIFIER_UNSIGNED |
             TYPE_SPECIFIER_LONG_LONG |
             TYPE_SPECIFIER_BOOL);
 }
@@ -56720,7 +56748,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
             align = get_align_int(target);
-        }        
+        }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
             align = get_align_float(target);
@@ -56950,7 +56978,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         *size = get_size_int(target);
         return ESIZEOF_NONE;
     }
-    
+
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
         *size = get_size_float(target);

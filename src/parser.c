@@ -3242,7 +3242,8 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
             p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->type_name->abstract_declarator->type);
         }
 
-        if (p_typeof_specifier->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+        if (type_is_array(&p_typeof_specifier->type) &&
+            p_typeof_specifier->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
             compiler_diagnostic(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, NULL, "typeof used in array arguments");
 

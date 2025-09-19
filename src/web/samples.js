@@ -1,40 +1,24 @@
 var sample = {};
 
 sample["C89"] = [];
-sample["C89"]["Backend"] =
-    `
+sample["C89"]["enuns"] =
+`
+enum escapes { BELL = '\\a', BACKSPACE = '\\b', TAB = '\\t',
+               NEWLINE = '\\n', VTAB = '\\v', RETURN = '\\r' };
 
-/*
-  Cake output is compatible with C89;
-  however, it is even simpler than C89.
-
-  - no preprocessor
-  - no enums
-  - no typedefs
-  - no constant-expression (everything is pre-calculated)
-  - array [] size are calculated
-  - no local static.
-
-  The objective is to have a subset of C89 that works as an
-  intermediate language.
-
-*/
-
-#define MACRO 1
-
-enum {A = 1 + MACRO};
-
-int main(void)
+enum months { JAN = 1, FEB, MAR, APR, MAY, JUN,
+              JUL, AUG, SEP, OCT, NOV, DEC };
+              /* FEB is 2, MAR is 3, etc. */
+int main()
 {
-    return A + 1;
+    enum months m  = FEB;
 }
-
 `;
 
 
 sample["C99"] = [];
 sample["C99"]["_Bool"] =
-`
+    `
 
 int main(void)
 {
@@ -179,7 +163,7 @@ const double dmin = 0x1p-1022;
 `;
 
 sample["C99"]["_Pragma"] =
-`
+    `
 //6.10.11 Pragma operator
 
 #define LISTING(x) PRAGMA(listing on #x)
@@ -1018,7 +1002,7 @@ int main () {}
 `;
 
 sample["C23"]["_Bitint(N)"] =
-`
+    `
 //TODO
 
 `;
@@ -1534,6 +1518,85 @@ int main()
   printf("%d", (int (void)){
     return 1;
   }());
+}
+`;
+
+sample["Extensions"]["generic functions I"] =
+ `
+#include <assert.h>
+#include <errno.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define SIZE_MAX 10000
+
+struct int_array {
+    int* data;
+    int size;
+    int capacity;
+};
+
+#def reserve(A, N)
+(int(typeof(A) p, int n)) {
+    if (n > p->capacity) {
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0])))) {
+            return EOVERFLOW;
+        }
+
+        void* pnew = realloc(p->data, n * sizeof(p->data[0]));
+        if (pnew == NULL) return ENOMEM;
+
+        p->data = pnew;
+        p->capacity = n;
+    }
+    return 0;
+}
+(A, N)
+#enddef
+
+#def push(A, I)
+    (int(typeof(A) p, typeof(I) value)) {
+    if (p->size == INT_MAX) {
+        return EOVERFLOW;
+    }
+
+    if (p->size + 1 > p->capacity) {
+        int new_capacity = 0;
+        if (p->capacity > (INT_MAX - p->capacity / 2)) {
+            /*overflow*/
+            new_capacity = INT_MAX;
+        } else {
+            new_capacity = p->capacity + p->capacity / 2;
+            if (new_capacity < p->size + 1) {
+                new_capacity = p->size + 1;
+            }
+        }
+
+        int error = reserve(p, new_capacity);
+        if (error != 0) {
+            return error;
+        }
+    }
+
+    p->data[p->size] = value;
+
+    p->size++;
+
+    return 0;
+}
+(A, I)
+#enddef
+
+void int_array_destroy(struct int_array* p) {
+
+    free(p->data);
+}
+
+int main() {
+    struct int_array a = {0};
+    push(&a, 1);
+    int_array_destroy(&a);
 }
 `;
 
@@ -2837,7 +2900,7 @@ int main(void)
 
 
 sample["cross compiling"]["integers"] =
-`
+    `
 
 
 auto i32_max = 2'147'483'647;
