@@ -31,11 +31,16 @@ char* _Owner _Opt strdup(const char* src);
 
 inline char* _Opt strrchr(char const *  _String, int _Ch);
 
+#ifdef _WIN32
+__inline int __cdecl snprintf(_Ctor char* const _Buffer, size_t  const _BufferCount, char const* const _Format, ...);
+#else
+
 int snprintf(
         _Ctor char*       const _Buffer,
         size_t      const _BufferCount,
         char const* const _Format,
         ...);
+#endif
 
 long strtol(
     char const* _String,

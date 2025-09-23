@@ -2128,7 +2128,17 @@ enum object_value_type type_to_object_type(const struct type* type, enum target 
 {
     if (type_is_pointer(type))
     {
-        return TYPE_UNSIGNED_INT64;
+        switch (target)
+        {
+        case TARGET_X86_X64_GCC:
+            return TYPE_UNSIGNED_INT64;
+
+        case TARGET_X86_MSVC:
+            return TYPE_UNSIGNED_INT32;
+
+        case TARGET_X64_MSVC:
+            return TYPE_UNSIGNED_INT64;
+        }
     }
 
     return type_specifier_to_object_type(type->type_specifier_flags, target);

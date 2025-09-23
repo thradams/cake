@@ -1,6 +1,4 @@
 
-volatile int i;
-int main()
-{
-    i = 1;
-}
+
+
+    int i = (void*)0;

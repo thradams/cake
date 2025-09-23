@@ -212,11 +212,17 @@ static int echo_sytem(const char* cmd)
 }
 
 
-static int echo_chdir(const char* path)
+static void echo_chdir(const char* path)
 {
     printf("chdir: %s\n", path);
     fflush(stdout);
-    return chdir(path);
+    int r = chdir(path);
+    if (r != 0)
+    {
+        printf("chdir failed. Wrong dir?\n");
+        exit(1);
+    }
+    
 }
 
 

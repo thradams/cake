@@ -30,7 +30,7 @@ void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
     hashmap_destroy(&ctx->tag_names);
     hashmap_destroy(&ctx->structs_map);
     hashmap_destroy(&ctx->file_scope_declarator_map);
-    hashmap_destroy(&ctx->instantiated_lambdas);
+    hashmap_destroy(&ctx->instantiated_function_literals);
     ss_close(&ctx->block_scope_declarators);
     ss_close(&ctx->add_this_before);
     ss_close(&ctx->add_this_before_external_decl);
@@ -227,8 +227,11 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
         {
             switch (p_expression->expression_type)
             {
-                //Operators with lower precedence than != are:
-                //&& ||  ? assignments(=, +=, …) ,
+            case EQUALITY_EXPRESSION_EQUAL:
+            case EQUALITY_EXPRESSION_NOT_EQUAL:
+            case AND_EXPRESSION:
+            case EXCLUSIVE_OR_EXPRESSION:
+            case INCLUSIVE_OR_EXPRESSION:
             case LOGICAL_OR_EXPRESSION:
             case LOGICAL_AND_EXPRESSION:
             case ASSIGNMENT_EXPRESSION_ASSIGN:
@@ -870,7 +873,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         assert(lambda_nameless.c_str);
 
-        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_lambdas, function_literal.c_str);
+        struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
         {
             snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", l->data.number);
@@ -880,7 +883,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             unsigned int current_cake_declarator_number = ctx->cake_declarator_number++;
             struct hash_item_set i = { 0 };
             i.number = current_cake_declarator_number;
-            hashmap_set(&ctx->instantiated_lambdas, function_literal.c_str, &i);
+            hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
             hash_item_set_destroy(&i);
 
             snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", current_cake_declarator_number);
@@ -2227,8 +2230,8 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             {
                 print_type_alignment_flags(&local, &first, p_type->alignment_specifier_flags, ctx->options.target);
                 print_msvc_declspec(&local, &first, p_type->msvc_declspec_flags);
-                
-                
+
+
                 /*we dont print const, only volatile*/
                 if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
                 {

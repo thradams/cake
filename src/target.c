@@ -71,7 +71,7 @@ const char* target_uintN_suffix(enum target target, int size)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         if (size == 32) return "U";
-        if (size == 64) return "UL";
+        if (size == 64) return "ULL";
         break;
     }
     return "";

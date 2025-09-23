@@ -195,8 +195,18 @@ int main()
 
 #ifndef TEST
     //compiling the generated code
-    echo_chdir("../out/src");
-    execute_cmd("cl main.c " CAKE_SOURCE_FILES);
+#ifdef _WIN64
+    echo_chdir("../x64_msvc/src");
+    execute_cmd("cl main.c -o cakex64msvc" CAKE_SOURCE_FILES);
+#elif defined _WIN32
+    echo_chdir("../x86_msvc/src");
+    execute_cmd("cl main.c -o cakex86msvc" CAKE_SOURCE_FILES);
+#else
+    echo_chdir("../x86_x64_gcc/src");
+    execute_cmd("cl main.c -o cakegcc" CAKE_SOURCE_FILES);
+#endif
+
+    
 #endif
 
 #endif
