@@ -5973,7 +5973,15 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     case TARGET_X64_MSVC:
         pre_defined_macros_text = TARGET_X64_MSVC_PREDEFINED_MACROS;
         break;
+    case TARGET_CCU8:
+        pre_defined_macros_text = TARGET_CCU8_PREDEFINED_MACROS;
+        break;
+
+    case TARGET_CATALINA:
+        pre_defined_macros_text = TARGET_CATALINA_PREDEFINED_MACROS;
+        break;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
 
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);

@@ -710,12 +710,33 @@ void throw_break_point();
 * Compiler options shared with compiler and preprocessor
 */
 
+/*
+  
+  *** ADDING NEW TARGET** 
+  Increment this number, and add a new enum.
+  Then compile. static assert will show places where we need to update
+
+*/
+
+#define NUMBER_OF_TARGETS 5
+
 enum target
 {
     TARGET_X86_X64_GCC,
     TARGET_X86_MSVC,
-    TARGET_X64_MSVC,
+    TARGET_X64_MSVC,    
+    TARGET_CCU8,
+    TARGET_CATALINA,
 };
+
+
+extern const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS;
+extern const char* TARGET_X86_MSVC_PREDEFINED_MACROS;
+extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
+extern const char* TARGET_CCU8_PREDEFINED_MACROS;
+extern const char* TARGET_CATALINA_PREDEFINED_MACROS;
+static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+
 
 #ifdef _WIN32 
 #ifdef _WIN64
@@ -734,10 +755,7 @@ enum target
 #endif
 
 
-/*these strings are used as -target= option*/
-#define  TARGET_X86_X64_GCC_STR "x86_x64_gcc"
-#define  TARGET_X86_MSVC_STR "x86_msvc"
-#define  TARGET_X64_MSVC_STR "x64_msvc"
+
 
 const char* target_intN_suffix(enum target target, int size);
 const char* target_uintN_suffix(enum target target, int size);
@@ -750,12 +768,15 @@ unsigned int target_get_wchar_max(enum target target);
 
 long long target_get_signed_long_max(enum target target);
 unsigned long long target_get_unsigned_long_max(enum target target);
+
+long long target_get_signed_int_max(enum target target);
+unsigned long long target_get_unsigned_int_max(enum target target);
+
+
 long long target_get_signed_long_long_max(enum target target);
+unsigned long long target_get_unsigned_long_long_max(enum target target);
 
 
-extern const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS;
-extern const char* TARGET_X86_MSVC_PREDEFINED_MACROS;
-extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
 
 
 enum language_version
@@ -9388,7 +9409,15 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     case TARGET_X64_MSVC:
         pre_defined_macros_text = TARGET_X64_MSVC_PREDEFINED_MACROS;
         break;
+    case TARGET_CCU8:
+        pre_defined_macros_text = TARGET_CCU8_PREDEFINED_MACROS;
+        break;
+
+    case TARGET_CATALINA:
+        pre_defined_macros_text = TARGET_CATALINA_PREDEFINED_MACROS;
+        break;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
 
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
@@ -17763,8 +17792,18 @@ struct object object_make_size_t(enum target target, uint64_t value)
         r.value_type = TYPE_UNSIGNED_INT64;
         r.value.unsigned_int64 = value;
         break;
-    }
 
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT16;
+        r.value.unsigned_int16 = value;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = (unsigned int)value;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return r;
 }
 
@@ -17773,8 +17812,36 @@ struct object object_make_nullptr(enum target target)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
-    r.value_type = TYPE_SIGNED_INT32;
-    r.value.signed_int16 = 0;
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = 0;
+        break;
+
+    case TARGET_X86_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = 0;
+        break;
+
+    case TARGET_X64_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = 0;
+        break;
+
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT16;
+        r.value.unsigned_int16 = 0;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = 0;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+
+
     return r;
 }
 
@@ -17794,8 +17861,17 @@ struct object object_make_wchar_t(enum target target, int value)
         r.value_type = TYPE_UNSIGNED_INT16;
         r.value.unsigned_int16 = (unsigned short)value;
         break;
-    }
 
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT8;
+        r.value.unsigned_int8 = value;
+        break;
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT8;
+        r.value.unsigned_int8 = value;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
 
     return r;
 }
@@ -18226,13 +18302,24 @@ struct object object_make_signed_long(signed long long value, enum target target
         r.value_type = TYPE_SIGNED_INT64;
         r.value.signed_int64 = value;
         break;
+
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         r.value_type = TYPE_SIGNED_INT32;
         r.value.signed_int32 = value;
         break;
-    }
 
+    case TARGET_CCU8:
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int32 = value;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int32 = value;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return r;
 }
 
@@ -18277,8 +18364,18 @@ struct object object_make_unsigned_long(unsigned long long value, enum target ta
         r.value_type = TYPE_UNSIGNED_INT32;
         r.value.unsigned_int32 = value;
         break;
-    }
 
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = value;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = value;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return r;
 }
 
@@ -19534,8 +19631,14 @@ enum object_value_type  type_specifier_to_object_type(const enum type_specifier_
             case TARGET_X86_MSVC:
             case TARGET_X64_MSVC:
                 return TYPE_UNSIGNED_INT32; /*check before int*/
-            }
 
+            case TARGET_CCU8:
+                return TYPE_UNSIGNED_INT32;
+
+            case TARGET_CATALINA:
+                return TYPE_UNSIGNED_INT32;
+            }
+            static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
         }
 
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
@@ -19555,12 +19658,19 @@ enum object_value_type  type_specifier_to_object_type(const enum type_specifier_
             switch (target)
             {
             case TARGET_X86_X64_GCC:
-                return TYPE_SIGNED_INT64; /*check before int*/
+                return TYPE_SIGNED_INT64;
 
             case TARGET_X86_MSVC:
             case TARGET_X64_MSVC:
-                return TYPE_SIGNED_INT32; /*check before int*/
+                return TYPE_SIGNED_INT32;
+
+            case TARGET_CCU8:
+                return TYPE_SIGNED_INT32;
+
+            case TARGET_CATALINA:
+                return TYPE_SIGNED_INT32;
             }
+            static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
         }
 
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
@@ -19585,7 +19695,14 @@ enum object_value_type type_to_object_type(const struct type* type, enum target 
 
         case TARGET_X64_MSVC:
             return TYPE_UNSIGNED_INT64;
+
+        case TARGET_CCU8:
+            return TYPE_UNSIGNED_INT16;
+
+        case TARGET_CATALINA:
+            return TYPE_UNSIGNED_INT32;
         }
+        static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     }
 
     return type_specifier_to_object_type(type->type_specifier_flags, target);
@@ -21199,7 +21316,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             break;
         }
 
-        if (value == ULLONG_MAX && errno == ERANGE)
+        if (value == target_get_unsigned_long_long_max(target) && errno == ERANGE)
         {
             compiler_diagnostic(
             C_ERROR_LITERAL_OVERFLOW,
@@ -21233,14 +21350,16 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         else
         {
+            static_assert(NUMBER_OF_TARGETS == 5, "does your target follow the C rules? see why MSVC is different");
+
             /*fixing the type that fits the size*/
-            if (value <= INT_MAX && suffix[0] != 'L')
+            if (value <= target_get_signed_int_max(target)&& suffix[0] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
-            else if (value <= INT_MAX && suffix[1] != 'L')
+            else if (value <= target_get_signed_int_max(target) && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long((int)value, target);
@@ -28919,7 +29038,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.04"
+#define CAKE_VERSION "0.12.05"
 
 
 
@@ -30236,6 +30355,9 @@ enum token_type is_keyword(const char* text, enum target target)
 
         if (strcmp("__builtin_va_copy", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
+
+        static_assert(NUMBER_OF_TARGETS == 5, "does your target have builtins or extensions?");
+
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
         {
             if (strcmp("__ptr32", text) == 0)
@@ -30243,6 +30365,7 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__ptr64", text) == 0)
                 return TK_KEYWORD_MSVC__PTR64;
         }
+        
 
         if (strcmp("_Bool", text) == 0)
             return TK_KEYWORD__BOOL;
@@ -44839,8 +44962,11 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 case TARGET_X86_X64_GCC:
                 case TARGET_X86_MSVC:
                 case TARGET_X64_MSVC:
-                    print_item(&local, &first, "unsigned char");
+                case TARGET_CCU8:
+                case TARGET_CATALINA:
+                    print_item(&local, &first, "unsigned char");                    
                 }
+                static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
             }
             else
             {
@@ -45070,7 +45196,16 @@ static void d_print_type(struct d_visit_ctx* ctx,
         case TARGET_X86_X64_GCC:
             ss_fprintf(ss, "__thread ");
             break;
+
+        case TARGET_CCU8:
+            ss_fprintf(ss, "/*thread*/");
+            break;
+
+        case TARGET_CATALINA:
+            ss_fprintf(ss, "__thread ");
+            break;
         }
+        static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     }
 
     ss_fprintf(ss, "%s", local.c_str);
@@ -45668,6 +45803,12 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
 
 static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration)
 {
+    
+    if (p_declaration->pragma_declaration) 
+    {
+        //does this targets requires us to keep some pragma?
+    }
+
     if (p_declaration->init_declarator_list.head)
     {
         assert(p_declaration->declaration_specifiers != NULL);
@@ -53834,36 +53975,39 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 
 
+static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+const char* target_name[NUMBER_OF_TARGETS] = {
+     "x86_x64_gcc",
+     "x86_msvc",
+     "x64_msvc",
+     "ccu8",
+     "catalina"
+};
+
 
 
 int parse_target(const char* targetstr, enum target* target)
 {
-    if (strcmp(targetstr, "-target=" TARGET_X86_X64_GCC_STR) == 0)
+    for (int i = 0; i < NUMBER_OF_TARGETS; i++)
     {
-        *target = TARGET_X86_X64_GCC;
-        return 0;
+        if (strcmp(targetstr + 8, target_name[i]) == 0)
+        {
+            *target = i;
+            return 0;
+        }
     }
 
-    if (strcmp(targetstr, "-target=" TARGET_X64_MSVC_STR) == 0)
-    {
-        *target = TARGET_X64_MSVC;
-        return 0;
-    }
-
-    if (strcmp(targetstr, "-target=" TARGET_X86_MSVC_STR) == 0)
-    {
-        *target = TARGET_X86_MSVC;
-        return 0;
-    }
     return 1; //error
 }
 
 void print_target_options()
 {
-    printf(""
-            TARGET_X86_X64_GCC_STR " "
-            TARGET_X86_MSVC_STR " "
-            TARGET_X64_MSVC_STR " \n");
+    for (int i = 0; i < NUMBER_OF_TARGETS; i++)
+    {
+        printf("%s ", target_name[i]);
+    }
+
+    printf("\n");
 }
 
 const char* target_intN_suffix(enum target target, int size)
@@ -53883,7 +54027,16 @@ const char* target_intN_suffix(enum target target, int size)
     case TARGET_X64_MSVC:
         if (size == 64) return "LL";
         break;
+    case TARGET_CCU8:
+        if (size == 32) return "L";
+        if (size == 64) return "LL";
+        break;
+
+    case TARGET_CATALINA:
+        if (size == 64) return "LL";
+        break;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return "";
 }
 
@@ -53901,21 +54054,25 @@ const char* target_uintN_suffix(enum target target, int size)
         if (size == 32) return "U";
         if (size == 64) return "ULL";
         break;
+    case TARGET_CCU8:
+        if (size == 32) return "UL";
+        if (size == 64) return "ULL";
+        break;
+    case TARGET_CATALINA:
+        if (size == 64) return "ULL";
+        break;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return "";
 }
 
 const char* target_to_string(enum target target)
 {
-    switch (target)
+    if (target >= 0 && target < NUMBER_OF_TARGETS)
     {
-    case TARGET_X86_X64_GCC:
-        return TARGET_X86_X64_GCC_STR;
-    case TARGET_X86_MSVC:
-        return TARGET_X86_MSVC_STR;
-    case TARGET_X64_MSVC:
-        return TARGET_X64_MSVC_STR;
+        return target_name[(int)target];
     }
+    assert(false);
     return "";
 }
 
@@ -53929,8 +54086,13 @@ unsigned int target_get_wchar_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 0xffff;
-    }
 
+    case TARGET_CCU8:
+        return 255;
+    case TARGET_CATALINA:
+        return 255;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     assert(false);
     return 0;
 }
@@ -53945,8 +54107,14 @@ long long target_get_signed_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 2147483647LL;
-    }
 
+    case TARGET_CCU8:
+        return 2147483647LL;
+
+    case TARGET_CATALINA:
+        return 2147483647LL;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     assert(false);
     return 0;
 }
@@ -53961,12 +54129,39 @@ long long target_get_signed_long_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 9223372036854775807LL;
-    }
 
+    case TARGET_CCU8:
+        return 2147483647LL;
+
+    case TARGET_CATALINA:
+        return 2147483647LL;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     assert(false);
     return 0;
 }
 
+unsigned long long target_get_unsigned_long_long_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        return 18446744073709551615ULL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 18446744073709551615ULL;
+
+    case TARGET_CCU8:
+        return 4294967295ULL;
+
+    case TARGET_CATALINA:
+        return 4294967295ULL;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    assert(false);
+    return 0;
+}
 unsigned long long target_get_unsigned_long_max(enum target target)
 {
     switch (target)
@@ -53977,8 +54172,60 @@ unsigned long long target_get_unsigned_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 0xffffffff;
+
+    case TARGET_CCU8:
+        return 4294967295ULL;
+
+    case TARGET_CATALINA:
+        return 0xffffffff;
+
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    assert(false);
+    return 0;
+}
+
+long long target_get_signed_int_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        return 2147483647LL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 2147483647LL;
+
+    case TARGET_CCU8:
+        return 32767ULL;
+
+    case TARGET_CATALINA:
+        return 2147483647LL;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    assert(false);
+    return 0;
+}
+
+unsigned long long target_get_unsigned_int_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        return 4294967295ULL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 4294967295ULL;
+
+    case TARGET_CCU8:
+        return 65535ULL;
+
+    case TARGET_CATALINA:
+        return 4294967295ULL;
     }
 
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     assert(false);
     return 0;
 }
@@ -54187,6 +54434,34 @@ CAKE_STANDARD_MACROS
 "\n";
 
 
+const char* TARGET_CCU8_PREDEFINED_MACROS =
+
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+CAKE_STANDARD_MACROS
+"\n";
+
+const char* TARGET_CATALINA_PREDEFINED_MACROS =
+
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+CAKE_STANDARD_MACROS
+"#define ___CATALINA__\n"
+"#define ___CATALYST__\n"
+"\n";
+
+
+static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+
+
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -54204,7 +54479,10 @@ size_t get_align_void_ptr(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
+    case TARGET_CCU8:         return 2;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54216,7 +54494,10 @@ size_t get_size_void_ptr(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 8;
+    case TARGET_CCU8:         return 2;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 
@@ -54229,7 +54510,10 @@ size_t get_align_char(enum target target)
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
+    case TARGET_CCU8:         return 1;
+    case TARGET_CATALINA:     return 1;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54241,7 +54525,10 @@ size_t get_size_char(enum target target)
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
+    case TARGET_CCU8:         return 1;
+    case TARGET_CATALINA:     return 1;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 
@@ -54254,7 +54541,10 @@ size_t get_align_bool(enum target target)
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
+    case TARGET_CCU8:         return 1;
+    case TARGET_CATALINA:     return 1;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54266,7 +54556,10 @@ size_t get_size_bool(enum target target)
     case TARGET_X86_X64_GCC:  return 1;
     case TARGET_X86_MSVC:     return 1;
     case TARGET_X64_MSVC:     return 1;
+    case TARGET_CCU8:         return 1;
+    case TARGET_CATALINA:     return 1;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54278,7 +54571,10 @@ size_t get_align_short(enum target target)
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
+    case TARGET_CCU8:         return 2;
+    case TARGET_CATALINA:     return 2;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54290,7 +54586,10 @@ size_t get_size_short(enum target target)
     case TARGET_X86_X64_GCC:  return 2;
     case TARGET_X86_MSVC:     return 2;
     case TARGET_X64_MSVC:     return 2;
+    case TARGET_CCU8:         return 2;
+    case TARGET_CATALINA:     return 2;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54302,7 +54601,10 @@ size_t get_align_int(enum target target)
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
+    case TARGET_CCU8:         return 2;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54314,7 +54616,10 @@ size_t get_size_int(enum target target)
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
+    case TARGET_CCU8:         return 2;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54326,7 +54631,10 @@ size_t get_align_long(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
+    case TARGET_CCU8:         return 4;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54338,7 +54646,10 @@ size_t get_size_long(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
+    case TARGET_CCU8:         return 4;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54350,7 +54661,10 @@ size_t get_align_long_long(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
+    case TARGET_CCU8:         return 4;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54362,7 +54676,10 @@ size_t get_size_long_long(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
+    case TARGET_CCU8:         return 4;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
 
     assert(false);
     return 0;
@@ -54376,7 +54693,10 @@ size_t get_align_float(enum target target)
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
+    case TARGET_CCU8:         return 4;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54388,7 +54708,10 @@ size_t get_size_float(enum target target)
     case TARGET_X86_X64_GCC:  return 4;
     case TARGET_X86_MSVC:     return 4;
     case TARGET_X64_MSVC:     return 4;
+    case TARGET_CCU8:         return 4;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54400,7 +54723,10 @@ size_t get_align_double(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
+    case TARGET_CCU8:         return 8;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54412,7 +54738,10 @@ size_t get_size_double(enum target target)
     case TARGET_X86_X64_GCC:  return 8;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
+    case TARGET_CCU8:         return 8;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54424,7 +54753,10 @@ size_t get_align_long_double(enum target target)
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
+    case TARGET_CCU8:         return 8;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54436,7 +54768,10 @@ size_t get_size_long_double(enum target target)
     case TARGET_X86_X64_GCC:  return 16;
     case TARGET_X86_MSVC:     return 8;
     case TARGET_X64_MSVC:     return 8;
+    case TARGET_CCU8:         return 8;
+    case TARGET_CATALINA:     return 4;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54454,7 +54789,15 @@ enum type_specifier_flags get_wchar_type_specifier(enum target target)
     case TARGET_X64_MSVC:
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT);
         break;
+
+    case TARGET_CCU8:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+        break;
+
+    case TARGET_CATALINA:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54481,7 +54824,21 @@ enum type_specifier_flags get_intN_type_specifier(enum target target, int nbits)
         if (nbits == 32) return TYPE_SPECIFIER_INT;
         if (nbits == 64) return TYPE_SPECIFIER_LONG_LONG;
         break;
+
+    case TARGET_CCU8:
+        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
+        if (nbits == 16) return TYPE_SPECIFIER_INT;
+        if (nbits == 32) return TYPE_SPECIFIER_LONG;
+        if (nbits == 64) return TYPE_SPECIFIER_LONG_LONG;
+        break;
+    case TARGET_CATALINA:
+        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
+        if (nbits == 16) return TYPE_SPECIFIER_SHORT;
+        if (nbits == 32) return TYPE_SPECIFIER_INT;
+        if (nbits == 64) return TYPE_SPECIFIER_LONG_LONG;
+        break;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
 
     assert(false);
     return TYPE_SPECIFIER_LONG_LONG;
@@ -54493,14 +54850,20 @@ enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
     {
     case TARGET_X86_X64_GCC:
         return (TYPE_SPECIFIER_LONG);
-        break;
+
     case TARGET_X86_MSVC:
         return (TYPE_SPECIFIER_INT);
-        break;
+
     case TARGET_X64_MSVC:
         return (TYPE_SPECIFIER_LONG_LONG);
-        break;
+
+    case TARGET_CCU8:
+        return (TYPE_SPECIFIER_INT);
+
+    case TARGET_CATALINA:
+        return (TYPE_SPECIFIER_INT);
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 
@@ -54512,14 +54875,21 @@ enum type_specifier_flags get_size_t_specifier(enum target target)
     {
     case TARGET_X86_X64_GCC:
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG);
-        break;
+
     case TARGET_X86_MSVC:
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-        break;
+
     case TARGET_X64_MSVC:
         return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG);
-        break;
+
+    case TARGET_CCU8:
+        return (TYPE_SPECIFIER_INT);
+
+    case TARGET_CATALINA:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
+
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add your new target here");
     assert(false);
     return 0;
 }
@@ -54582,7 +54952,33 @@ bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment
             print_item(ss, first, "__attribute__((aligned(128)))");
         break;
 
+    case TARGET_CCU8:
+        if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+            print_item(ss, first, "/*alignas(8)*/");
+        if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+            print_item(ss, first, "/*alignas(16)*/");
+        if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+            print_item(ss, first, "/*alignas(32)*/");
+        if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+            print_item(ss, first, "/*alignas(64)*/");
+        if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+            print_item(ss, first, "/*alignas(128)*/");
+        break;
+
+    case TARGET_CATALINA:
+        if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(8)))");
+        if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(16)))");
+        if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(32)))");
+        if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(32)))");
+        if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+            print_item(ss, first, "__attribute__((aligned(32)))");
+        break;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "does this compiler have something similar of alignas?");
 
     return *first;
 }

@@ -2242,8 +2242,11 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 case TARGET_X86_X64_GCC:
                 case TARGET_X86_MSVC:
                 case TARGET_X64_MSVC:
-                    print_item(&local, &first, "unsigned char");
+                case TARGET_CCU8:
+                case TARGET_CATALINA:
+                    print_item(&local, &first, "unsigned char");                    
                 }
+                static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
             }
             else
             {
@@ -2473,7 +2476,16 @@ static void d_print_type(struct d_visit_ctx* ctx,
         case TARGET_X86_X64_GCC:
             ss_fprintf(ss, "__thread ");
             break;
+
+        case TARGET_CCU8:
+            ss_fprintf(ss, "/*thread*/");
+            break;
+
+        case TARGET_CATALINA:
+            ss_fprintf(ss, "__thread ");
+            break;
         }
+        static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     }
 
     ss_fprintf(ss, "%s", local.c_str);
@@ -3071,6 +3083,12 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
 
 static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration)
 {
+    
+    if (p_declaration->pragma_declaration) 
+    {
+        //does this targets requires us to keep some pragma?
+    }
+
     if (p_declaration->init_declarator_list.head)
     {
         assert(p_declaration->declaration_specifiers != NULL);

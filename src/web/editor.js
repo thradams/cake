@@ -206,6 +206,18 @@ function OnLoad()
     const uri = monaco.Uri.parse("inmemory://test");
     model = monaco.editor.createModel("", "c", uri);
 
+    monaco.editor.defineTheme("myCTheme", {
+        base: "vs",  // or "vs" for light
+        inherit: true,    // inherit existing rules
+        rules: [            
+            { token: "keyword.special", foreground: "008000"},   // your special keywords            
+        ],
+        colors: {           
+        }
+    });
+
+    monaco.editor.setTheme("myCTheme");
+
     inputEditor = monaco.editor.create(document.getElementById('in'), {
         model,
         language: 'c',

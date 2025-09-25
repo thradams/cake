@@ -316,8 +316,18 @@ struct object object_make_size_t(enum target target, uint64_t value)
         r.value_type = TYPE_UNSIGNED_INT64;
         r.value.unsigned_int64 = value;
         break;
-    }
 
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT16;
+        r.value.unsigned_int16 = value;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = (unsigned int)value;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return r;
 }
 
@@ -326,8 +336,36 @@ struct object object_make_nullptr(enum target target)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
-    r.value_type = TYPE_SIGNED_INT32;
-    r.value.signed_int16 = 0;
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = 0;
+        break;
+
+    case TARGET_X86_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = 0;
+        break;
+
+    case TARGET_X64_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT64;
+        r.value.unsigned_int64 = 0;
+        break;
+
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT16;
+        r.value.unsigned_int16 = 0;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = 0;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+
+
     return r;
 }
 
@@ -347,8 +385,17 @@ struct object object_make_wchar_t(enum target target, int value)
         r.value_type = TYPE_UNSIGNED_INT16;
         r.value.unsigned_int16 = (unsigned short)value;
         break;
-    }
 
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT8;
+        r.value.unsigned_int8 = value;
+        break;
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT8;
+        r.value.unsigned_int8 = value;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
 
     return r;
 }
@@ -779,13 +826,24 @@ struct object object_make_signed_long(signed long long value, enum target target
         r.value_type = TYPE_SIGNED_INT64;
         r.value.signed_int64 = value;
         break;
+
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         r.value_type = TYPE_SIGNED_INT32;
         r.value.signed_int32 = value;
         break;
-    }
 
+    case TARGET_CCU8:
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int32 = value;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int32 = value;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return r;
 }
 
@@ -830,8 +888,18 @@ struct object object_make_unsigned_long(unsigned long long value, enum target ta
         r.value_type = TYPE_UNSIGNED_INT32;
         r.value.unsigned_int32 = value;
         break;
-    }
 
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = value;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT32;
+        r.value.unsigned_int32 = value;
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return r;
 }
 
@@ -2087,8 +2155,14 @@ enum object_value_type  type_specifier_to_object_type(const enum type_specifier_
             case TARGET_X86_MSVC:
             case TARGET_X64_MSVC:
                 return TYPE_UNSIGNED_INT32; /*check before int*/
-            }
 
+            case TARGET_CCU8:
+                return TYPE_UNSIGNED_INT32;
+
+            case TARGET_CATALINA:
+                return TYPE_UNSIGNED_INT32;
+            }
+            static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
         }
 
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
@@ -2108,12 +2182,19 @@ enum object_value_type  type_specifier_to_object_type(const enum type_specifier_
             switch (target)
             {
             case TARGET_X86_X64_GCC:
-                return TYPE_SIGNED_INT64; /*check before int*/
+                return TYPE_SIGNED_INT64;
 
             case TARGET_X86_MSVC:
             case TARGET_X64_MSVC:
-                return TYPE_SIGNED_INT32; /*check before int*/
+                return TYPE_SIGNED_INT32;
+
+            case TARGET_CCU8:
+                return TYPE_SIGNED_INT32;
+
+            case TARGET_CATALINA:
+                return TYPE_SIGNED_INT32;
             }
+            static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
         }
 
         if (type_specifier_flags & TYPE_SPECIFIER_INT)
@@ -2138,7 +2219,14 @@ enum object_value_type type_to_object_type(const struct type* type, enum target 
 
         case TARGET_X64_MSVC:
             return TYPE_UNSIGNED_INT64;
+
+        case TARGET_CCU8:
+            return TYPE_UNSIGNED_INT16;
+
+        case TARGET_CATALINA:
+            return TYPE_UNSIGNED_INT32;
         }
+        static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     }
 
     return type_specifier_to_object_type(type->type_specifier_flags, target);

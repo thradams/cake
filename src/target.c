@@ -5,37 +5,41 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <assert.h>
+
+static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+const char* target_name[NUMBER_OF_TARGETS] = {
+     "x86_x64_gcc",
+     "x86_msvc",
+     "x64_msvc",
+     "ccu8",
+     "catalina"
+};
 
 
 
 int parse_target(const char* targetstr, enum target* target)
 {
-    if (strcmp(targetstr, "-target=" TARGET_X86_X64_GCC_STR) == 0)
+    for (int i = 0; i < NUMBER_OF_TARGETS; i++)
     {
-        *target = TARGET_X86_X64_GCC;
-        return 0;
+        if (strcmp(targetstr + 8, target_name[i]) == 0)
+        {
+            *target = i;
+            return 0;
+        }
     }
 
-    if (strcmp(targetstr, "-target=" TARGET_X64_MSVC_STR) == 0)
-    {
-        *target = TARGET_X64_MSVC;
-        return 0;
-    }
-
-    if (strcmp(targetstr, "-target=" TARGET_X86_MSVC_STR) == 0)
-    {
-        *target = TARGET_X86_MSVC;
-        return 0;
-    }
     return 1; //error
 }
 
 void print_target_options()
 {
-    printf(""
-            TARGET_X86_X64_GCC_STR " "
-            TARGET_X86_MSVC_STR " "
-            TARGET_X64_MSVC_STR " \n");
+    for (int i = 0; i < NUMBER_OF_TARGETS; i++)
+    {
+        printf("%s ", target_name[i]);
+    }
+
+    printf("\n");
 }
 
 const char* target_intN_suffix(enum target target, int size)
@@ -55,7 +59,16 @@ const char* target_intN_suffix(enum target target, int size)
     case TARGET_X64_MSVC:
         if (size == 64) return "LL";
         break;
+    case TARGET_CCU8:
+        if (size == 32) return "L";
+        if (size == 64) return "LL";
+        break;
+
+    case TARGET_CATALINA:
+        if (size == 64) return "LL";
+        break;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return "";
 }
 
@@ -73,21 +86,25 @@ const char* target_uintN_suffix(enum target target, int size)
         if (size == 32) return "U";
         if (size == 64) return "ULL";
         break;
+    case TARGET_CCU8:
+        if (size == 32) return "UL";
+        if (size == 64) return "ULL";
+        break;
+    case TARGET_CATALINA:
+        if (size == 64) return "ULL";
+        break;
     }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     return "";
 }
 
 const char* target_to_string(enum target target)
 {
-    switch (target)
+    if (target >= 0 && target < NUMBER_OF_TARGETS)
     {
-    case TARGET_X86_X64_GCC:
-        return TARGET_X86_X64_GCC_STR;
-    case TARGET_X86_MSVC:
-        return TARGET_X86_MSVC_STR;
-    case TARGET_X64_MSVC:
-        return TARGET_X64_MSVC_STR;
+        return target_name[(int)target];
     }
+    assert(false);
     return "";
 }
 
@@ -101,8 +118,13 @@ unsigned int target_get_wchar_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 0xffff;
-    }
 
+    case TARGET_CCU8:
+        return 255;
+    case TARGET_CATALINA:
+        return 255;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     assert(false);
     return 0;
 }
@@ -117,8 +139,14 @@ long long target_get_signed_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 2147483647LL;
-    }
 
+    case TARGET_CCU8:
+        return 2147483647LL;
+
+    case TARGET_CATALINA:
+        return 2147483647LL;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     assert(false);
     return 0;
 }
@@ -133,12 +161,39 @@ long long target_get_signed_long_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 9223372036854775807LL;
-    }
 
+    case TARGET_CCU8:
+        return 2147483647LL;
+
+    case TARGET_CATALINA:
+        return 2147483647LL;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     assert(false);
     return 0;
 }
 
+unsigned long long target_get_unsigned_long_long_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        return 18446744073709551615ULL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 18446744073709551615ULL;
+
+    case TARGET_CCU8:
+        return 4294967295ULL;
+
+    case TARGET_CATALINA:
+        return 4294967295ULL;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    assert(false);
+    return 0;
+}
 unsigned long long target_get_unsigned_long_max(enum target target)
 {
     switch (target)
@@ -149,8 +204,60 @@ unsigned long long target_get_unsigned_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 0xffffffff;
+
+    case TARGET_CCU8:
+        return 4294967295ULL;
+
+    case TARGET_CATALINA:
+        return 0xffffffff;
+
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    assert(false);
+    return 0;
+}
+
+long long target_get_signed_int_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        return 2147483647LL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 2147483647LL;
+
+    case TARGET_CCU8:
+        return 32767ULL;
+
+    case TARGET_CATALINA:
+        return 2147483647LL;
+    }
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    assert(false);
+    return 0;
+}
+
+unsigned long long target_get_unsigned_int_max(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        return 4294967295ULL;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return 4294967295ULL;
+
+    case TARGET_CCU8:
+        return 65535ULL;
+
+    case TARGET_CATALINA:
+        return 4294967295ULL;
     }
 
+    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
     assert(false);
     return 0;
 }
@@ -357,3 +464,31 @@ CAKE_STANDARD_MACROS
 "#define _M_X64 100\n"
 "#define __pragma(a)\n"
 "\n";
+
+
+const char* TARGET_CCU8_PREDEFINED_MACROS =
+
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+CAKE_STANDARD_MACROS
+"\n";
+
+const char* TARGET_CATALINA_PREDEFINED_MACROS =
+
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+CAKE_STANDARD_MACROS
+"#define ___CATALINA__\n"
+"#define ___CATALYST__\n"
+"\n";
+
+
+static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+
+

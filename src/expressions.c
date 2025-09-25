@@ -853,7 +853,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             break;
         }
 
-        if (value == ULLONG_MAX && errno == ERANGE)
+        if (value == target_get_unsigned_long_long_max(target) && errno == ERANGE)
         {
             compiler_diagnostic(
             C_ERROR_LITERAL_OVERFLOW,
@@ -887,14 +887,16 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         else
         {
+            static_assert(NUMBER_OF_TARGETS == 5, "does your target follow the C rules? see why MSVC is different");
+
             /*fixing the type that fits the size*/
-            if (value <= INT_MAX && suffix[0] != 'L')
+            if (value <= target_get_signed_int_max(target)&& suffix[0] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
-            else if (value <= INT_MAX && suffix[1] != 'L')
+            else if (value <= target_get_signed_int_max(target) && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long((int)value, target);

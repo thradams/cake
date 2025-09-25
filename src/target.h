@@ -5,12 +5,33 @@
 * Compiler options shared with compiler and preprocessor
 */
 
+/*
+  
+  *** ADDING NEW TARGET** 
+  Increment this number, and add a new enum.
+  Then compile. static assert will show places where we need to update
+
+*/
+
+#define NUMBER_OF_TARGETS 5
+
 enum target
 {
     TARGET_X86_X64_GCC,
     TARGET_X86_MSVC,
-    TARGET_X64_MSVC,
+    TARGET_X64_MSVC,    
+    TARGET_CCU8,
+    TARGET_CATALINA,
 };
+
+
+extern const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS;
+extern const char* TARGET_X86_MSVC_PREDEFINED_MACROS;
+extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
+extern const char* TARGET_CCU8_PREDEFINED_MACROS;
+extern const char* TARGET_CATALINA_PREDEFINED_MACROS;
+static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+
 
 #ifdef _WIN32 
 #ifdef _WIN64
@@ -29,10 +50,7 @@ enum target
 #endif
 
 
-/*these strings are used as -target= option*/
-#define  TARGET_X86_X64_GCC_STR "x86_x64_gcc"
-#define  TARGET_X86_MSVC_STR "x86_msvc"
-#define  TARGET_X64_MSVC_STR "x64_msvc"
+
 
 const char* target_intN_suffix(enum target target, int size);
 const char* target_uintN_suffix(enum target target, int size);
@@ -45,9 +63,12 @@ unsigned int target_get_wchar_max(enum target target);
 
 long long target_get_signed_long_max(enum target target);
 unsigned long long target_get_unsigned_long_max(enum target target);
+
+long long target_get_signed_int_max(enum target target);
+unsigned long long target_get_unsigned_int_max(enum target target);
+
+
 long long target_get_signed_long_long_max(enum target target);
+unsigned long long target_get_unsigned_long_long_max(enum target target);
 
 
-extern const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS;
-extern const char* TARGET_X86_MSVC_PREDEFINED_MACROS;
-extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
