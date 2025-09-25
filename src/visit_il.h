@@ -31,6 +31,9 @@ struct d_visit_ctx
     
     bool zero_mem_used;
     bool memcpy_used;
+
+    bool define_nullptr;
+    bool null_pointer_constant_used;
         
     /*
     * Points to the function we're in. Or null in file scope.

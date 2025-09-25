@@ -10848,7 +10848,7 @@ int generate_config_file(const char* configpath)
 
         if (n <= 0)
         {
-            printf("INCLUDE not found.\nPlease, run cake -autoconfig inside visual studio command prompty.\n");
+            printf("INCLUDE not found.\nPlease, run cake -autoconfig inside visual studio command prompt.\n");
             error = 1;
             throw;
         }

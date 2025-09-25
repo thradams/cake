@@ -460,8 +460,27 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     if (object_has_constant_value(&p_expression->object))
     {
-        object_print_value(oss, &p_expression->object, ctx->options.target);
-        return;
+        if (type_is_pointer(&p_expression->type))
+        {
+            if (object_is_zero(&p_expression->object))
+            {
+                if (ctx->define_nullptr)
+                {
+                    ss_fprintf(oss, "NULL");
+                    ctx->null_pointer_constant_used = true;
+                }
+                else
+                {
+                    object_print_value(oss, &p_expression->object, ctx->options.target);
+                }
+                return;
+            }
+        }
+        else
+        {
+            object_print_value(oss, &p_expression->object, ctx->options.target);
+            return;
+        }
     }
 
     switch (p_expression->expression_type)
@@ -3254,6 +3273,11 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         }
     }
     ss_fprintf(oss, "\n");
+
+    if (ctx->define_nullptr && ctx->null_pointer_constant_used)
+    {
+        ss_fprintf(oss, "static const void* NULL = 0;\n");
+    }
 
     if (ctx->zero_mem_used)
     {
