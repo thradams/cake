@@ -1,5 +1,6 @@
 #pragma once
 
+#include <assert.h>
 
 /*
 * Compiler options shared with compiler and preprocessor
@@ -49,7 +50,9 @@ static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
 #define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_X64_GCC
 #endif
 
-
+#if defined(__APPLE__) && defined(__MACH__)
+#define CAKE_COMPILE_TIME_SELECTED_TARGET TARGET_X86_X64_GCC
+#endif
 
 
 const char* target_intN_suffix(enum target target, int size);
