@@ -1344,7 +1344,7 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__inline", text) == 0)
                 return TK_KEYWORD_INLINE;
             if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-                return TK_KEYWORD__ASM;
+                return TK_KEYWORD_MSVC__ASM;
             if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
                 return TK_KEYWORD_MSVC__STDCALL;
             if (strcmp("__cdecl", text) == 0)
@@ -9246,16 +9246,19 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
         p_block_item->first_token = ctx->current;
 
-        if (ctx->current->type == TK_KEYWORD__ASM)
-        { /*
-       asm-block:
-       __asm assembly-instruction ;_Opt
-       __asm { assembly-instruction-list } ;_Opt
+        if (ctx->current->type == TK_KEYWORD_MSVC__ASM)
+        { 
+            /*
+               MSVC
+               https://learn.microsoft.com/en-us/cpp/assembler/inline/asm?view=msvc-170
+               asm-block:
+               __asm assembly-instruction ; opt
+               __asm { assembly-instruction-list } ;opt
 
-   assembly-instruction-list:
-       assembly-instruction ;_Opt
-       assembly-instruction ; assembly-instruction-list ;_Opt
-       */
+               assembly-instruction-list:
+                 assembly-instruction ; opt
+                  assembly-instruction ; assembly-instruction-list ;opt
+            */
 
             parser_match(ctx);
 

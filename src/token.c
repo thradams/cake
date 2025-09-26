@@ -470,7 +470,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
         //KEYWORD__FASTCALL:
         //KEYWORD__STDCALL
         // 
-    case TK_KEYWORD__ASM:
+    case TK_KEYWORD_MSVC__ASM:
         //end microsoft
     case TK_KEYWORD__BOOL:
     case TK_KEYWORD__COMPLEX:

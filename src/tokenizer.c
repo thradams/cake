@@ -6137,7 +6137,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_MSVC__CDECL:return "TK_KEYWORD_MSVC__CDECL";
     case TK_KEYWORD_MSVC__DECLSPEC:return "TK_KEYWORD_MSVC__DECLSPEC";
         //#endif
-    case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
+    case TK_KEYWORD_MSVC__ASM: return "TK_KEYWORD_MSVC__ASM";
         //end microsoft
     case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
     case TK_KEYWORD__COMPLEX: return "TK_KEYWORD__COMPLEX";
