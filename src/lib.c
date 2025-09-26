@@ -420,7 +420,8 @@ enum token_type
     TK_BEGIN_OF_FILE,
 
     //C23 keywords
-    TK_KEYWORD_AUTO,
+    TK_KEYWORD_AUTO,        
+    TK_KEYWORD_ASM, //common extension
     TK_KEYWORD_BREAK,
     TK_KEYWORD_CASE,
     TK_KEYWORD_CONSTEXPR,
@@ -482,7 +483,10 @@ enum token_type
     TK_KEYWORD_GCC__BUILTIN_C23_VA_START,    
     TK_KEYWORD_GCC__BUILTIN_VA_COPY,
     TK_KEYWORD_GCC__BUILTIN_OFFSETOF,
-//#ifdef _WIN32 
+
+    //common extension
+    TK_KEYWORD__NEAR,
+    TK_KEYWORD__FAR,
 
     //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
     TK_KEYWORD_MSVC__PTR32,
@@ -492,9 +496,8 @@ enum token_type
     TK_KEYWORD_MSVC__STDCALL,
     TK_KEYWORD_MSVC__CDECL,    
     TK_KEYWORD_MSVC__DECLSPEC,
-//#endif
+    TK_KEYWORD_MSVC__ASM, 
 
-    TK_KEYWORD__ASM, 
     TK_KEYWORD__BOOL,
     TK_KEYWORD__COMPLEX,
     TK_KEYWORD__DECIMAL128,
@@ -1731,7 +1734,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
         //KEYWORD__FASTCALL:
         //KEYWORD__STDCALL
         // 
-    case TK_KEYWORD__ASM:
+    case TK_KEYWORD_MSVC__ASM:
         //end microsoft
     case TK_KEYWORD__BOOL:
     case TK_KEYWORD__COMPLEX:
@@ -9575,7 +9578,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_MSVC__CDECL:return "TK_KEYWORD_MSVC__CDECL";
     case TK_KEYWORD_MSVC__DECLSPEC:return "TK_KEYWORD_MSVC__DECLSPEC";
         //#endif
-    case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
+    case TK_KEYWORD_MSVC__ASM: return "TK_KEYWORD_MSVC__ASM";
         //end microsoft
     case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
     case TK_KEYWORD__COMPLEX: return "TK_KEYWORD__COMPLEX";
@@ -29748,6 +29751,10 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD_MSVC__PTR32 ||
         p_token->type == TK_KEYWORD_MSVC__PTR64 ||
 
+        p_token->type == TK_KEYWORD__NEAR ||
+        p_token->type == TK_KEYWORD__FAR ||
+
+
         /*extensions*/
         p_token->type == TK_KEYWORD__CTOR ||
         p_token->type == TK_KEYWORD_CAKE_OWNER ||
@@ -30130,6 +30137,10 @@ enum token_type is_keyword(const char* text, enum target target)
     switch (text[0])
     {
     case 'a':
+
+        if (strcmp("asm", text) == 0)
+            return TK_KEYWORD_ASM;
+
         if (strcmp("alignof", text) == 0)
             return TK_KEYWORD__ALIGNOF;
         if (strcmp("auto", text) == 0)
@@ -30334,40 +30345,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("_Atomic", text) == 0)
             return TK_KEYWORD__ATOMIC;
 
-        if (strcmp("__builtin_va_list", text) == 0)
-            return TK_KEYWORD_GCC__BUILTIN_VA_LIST;
 
-        if (strcmp("__attribute__", text) == 0)
-            return TK_KEYWORD_GCC__ATTRIBUTE;
-
-        if (strcmp("__builtin_offsetof", text) == 0)
-            return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
-
-        if (strcmp("__builtin_va_end", text) == 0)
-            return TK_KEYWORD_GCC__BUILTIN_VA_END;
-
-        if (strcmp("__builtin_va_arg", text) == 0)
-            return TK_KEYWORD_GCC__BUILTIN_VA_ARG;
-
-        if (strcmp("__builtin_c23_va_start", text) == 0)
-            return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
-
-        if (strcmp("__builtin_va_start", text) == 0)
-            return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
-
-        if (strcmp("__builtin_va_copy", text) == 0)
-            return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
-
-        static_assert(NUMBER_OF_TARGETS == 5, "does your target have builtins or extensions?");
-
-        if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
-        {
-            if (strcmp("__ptr32", text) == 0)
-                return TK_KEYWORD_MSVC__PTR32;
-            if (strcmp("__ptr64", text) == 0)
-                return TK_KEYWORD_MSVC__PTR64;
-        }
-        
 
         if (strcmp("_Bool", text) == 0)
             return TK_KEYWORD__BOOL;
@@ -30394,9 +30372,13 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("__typeof__", text) == 0)
             return TK_KEYWORD_TYPEOF; /*(C23)*/
 
+
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
         {
-            // begin microsoft
+            if (strcmp("__ptr32", text) == 0)
+                return TK_KEYWORD_MSVC__PTR32;
+            if (strcmp("__ptr64", text) == 0)
+                return TK_KEYWORD_MSVC__PTR64;
             if (strcmp("__int8", text) == 0)
                 return TK_KEYWORD_MSVC__INT8;
             if (strcmp("__int16", text) == 0)
@@ -30410,7 +30392,7 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__inline", text) == 0)
                 return TK_KEYWORD_INLINE;
             if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-                return TK_KEYWORD__ASM;
+                return TK_KEYWORD_MSVC__ASM;
             if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
                 return TK_KEYWORD_MSVC__STDCALL;
             if (strcmp("__cdecl", text) == 0)
@@ -30424,6 +30406,45 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__declspec", text) == 0)
                 return TK_KEYWORD_MSVC__DECLSPEC;
         }
+        else if (target == TARGET_X86_X64_GCC ||
+                 target == TARGET_CATALINA /*same as GCC?*/)
+        {
+            if (strcmp("__builtin_va_list", text) == 0)
+                return TK_KEYWORD_GCC__BUILTIN_VA_LIST;
+
+            if (strcmp("__attribute__", text) == 0)
+                return TK_KEYWORD_GCC__ATTRIBUTE;
+
+            if (strcmp("__builtin_offsetof", text) == 0)
+                return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
+
+            if (strcmp("__builtin_va_end", text) == 0)
+                return TK_KEYWORD_GCC__BUILTIN_VA_END;
+
+            if (strcmp("__builtin_va_arg", text) == 0)
+                return TK_KEYWORD_GCC__BUILTIN_VA_ARG;
+
+            if (strcmp("__builtin_c23_va_start", text) == 0)
+                return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
+
+            if (strcmp("__builtin_va_start", text) == 0)
+                return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
+
+            if (strcmp("__builtin_va_copy", text) == 0)
+                return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
+        }
+        else if (target == TARGET_CCU8)
+        {
+            if (strcmp("__near", text) == 0)
+                return TK_KEYWORD__NEAR;
+            if (strcmp("__far", text) == 0)
+                return TK_KEYWORD__FAR;
+        }
+        else
+        {
+            static_assert(NUMBER_OF_TARGETS == 5, "does your target have new keywords?");
+        }
+
         break;
     default:
         break;
@@ -38312,16 +38333,19 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
         p_block_item->first_token = ctx->current;
 
-        if (ctx->current->type == TK_KEYWORD__ASM)
-        { /*
-       asm-block:
-       __asm assembly-instruction ;_Opt
-       __asm { assembly-instruction-list } ;_Opt
+        if (ctx->current->type == TK_KEYWORD_MSVC__ASM)
+        {
+            /*
+               MSVC
+               https://learn.microsoft.com/en-us/cpp/assembler/inline/asm?view=msvc-170
+               asm-block:
+               __asm assembly-instruction ; opt
+               __asm { assembly-instruction-list } ;opt
 
-   assembly-instruction-list:
-       assembly-instruction ;_Opt
-       assembly-instruction ; assembly-instruction-list ;_Opt
-       */
+               assembly-instruction-list:
+                 assembly-instruction ; opt
+                  assembly-instruction ; assembly-instruction-list ;opt
+            */
 
             parser_match(ctx);
 
