@@ -108,6 +108,8 @@ https://github.com/PascalBeyer/Headerless-C-Compiler
 #  define LIBC_MINGW 1
 #elif defined(__dietlibc__)
 #  define LIBC_DIET 1
+#elif defined(__APPLE__) && defined(__MACH__)
+#  define LIBC_DARWIN 1
 #else
 #error LIBC_UNKNOWN
 #endif
