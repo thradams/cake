@@ -895,7 +895,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
         {
-            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", l->data.number);
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%zu_f", l->data.number);
         }
         else
         {
@@ -2903,10 +2903,6 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 {
     try
     {
-        const char* declarator_name = "";
-        if (p_init_declarator->p_declarator->name_opt)
-            declarator_name = p_init_declarator->p_declarator->name_opt->lexeme;
-
         const bool is_function = type_is_function(&p_init_declarator->p_declarator->type);
         const bool is_inline = (function_specifier_flags & FUNCTION_SPECIFIER_INLINE);
 

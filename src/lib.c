@@ -420,8 +420,7 @@ enum token_type
     TK_BEGIN_OF_FILE,
 
     //C23 keywords
-    TK_KEYWORD_AUTO,        
-    TK_KEYWORD_ASM, //common extension
+    TK_KEYWORD_AUTO,
     TK_KEYWORD_BREAK,
     TK_KEYWORD_CASE,
     TK_KEYWORD_CONSTEXPR,
@@ -483,10 +482,7 @@ enum token_type
     TK_KEYWORD_GCC__BUILTIN_C23_VA_START,    
     TK_KEYWORD_GCC__BUILTIN_VA_COPY,
     TK_KEYWORD_GCC__BUILTIN_OFFSETOF,
-
-    //common extension
-    TK_KEYWORD__NEAR,
-    TK_KEYWORD__FAR,
+//#ifdef _WIN32 
 
     //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
     TK_KEYWORD_MSVC__PTR32,
@@ -496,8 +492,9 @@ enum token_type
     TK_KEYWORD_MSVC__STDCALL,
     TK_KEYWORD_MSVC__CDECL,    
     TK_KEYWORD_MSVC__DECLSPEC,
-    TK_KEYWORD_MSVC__ASM, 
+//#endif
 
+    TK_KEYWORD__ASM, 
     TK_KEYWORD__BOOL,
     TK_KEYWORD__COMPLEX,
     TK_KEYWORD__DECIMAL128,
@@ -1734,7 +1731,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
         //KEYWORD__FASTCALL:
         //KEYWORD__STDCALL
         // 
-    case TK_KEYWORD_MSVC__ASM:
+    case TK_KEYWORD__ASM:
         //end microsoft
     case TK_KEYWORD__BOOL:
     case TK_KEYWORD__COMPLEX:
@@ -9578,7 +9575,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_MSVC__CDECL:return "TK_KEYWORD_MSVC__CDECL";
     case TK_KEYWORD_MSVC__DECLSPEC:return "TK_KEYWORD_MSVC__DECLSPEC";
         //#endif
-    case TK_KEYWORD_MSVC__ASM: return "TK_KEYWORD_MSVC__ASM";
+    case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
         //end microsoft
     case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
     case TK_KEYWORD__COMPLEX: return "TK_KEYWORD__COMPLEX";
@@ -17756,8 +17753,12 @@ void object_to_string(const struct object* a, char buffer[], int sz)
         break;
 
 
+    case TYPE_SIGNED_INT64:
+        snprintf(buffer, sz, "%" PRIi64, a->value.signed_int64);
+        break;
+
     case TYPE_UNSIGNED_INT64:
-        snprintf(buffer, sz, "%" PRIu64, a->value.signed_int64);
+        snprintf(buffer, sz, "%" PRIu64, a->value.unsigned_int64);
         break;
 
     case TYPE_FLOAT32:
@@ -17769,7 +17770,7 @@ void object_to_string(const struct object* a, char buffer[], int sz)
         break;
 #ifdef CAKE_FLOAT128_DEFINED
     case TYPE_FLOAT128:
-        snprintf(buffer, sz, "%Lf", a->value.float64);
+        snprintf(buffer, sz, "%Lf", a->value.float128);
         break;
 #endif
 
@@ -19152,7 +19153,7 @@ void object_set_any(struct object* p_object)
 {
     p_object = object_get_non_const_referenced(p_object);
     p_object->state = CONSTANT_VALUE_STATE_ANY;
-    struct object* p = p_object->members;
+    struct object* _Opt p = p_object->members;
     while (p)
     {
         object_set_any(p);
@@ -19724,35 +19725,35 @@ void object_print_value_debug(const struct object* a)
 
     case TYPE_SIGNED_INT8:
 
-        printf("%d (signed char)", (int)a->value.signed_int8);
+        printf("% " PRIi8 " (i8)", (int)a->value.signed_int8);
         break;
 
 
     case TYPE_UNSIGNED_INT8:
-        printf("%d (unsigned char)", (int)a->value.unsigned_int8);
+        printf("%" PRIu8 " (u8)", (int)a->value.unsigned_int8);
         break;
 
 
     case TYPE_SIGNED_INT16:
-        printf("%d (short)", a->value.signed_int16);
+        printf("%" PRIi16 " (i16)", a->value.signed_int16);
         break;
 
     case TYPE_UNSIGNED_INT16:
-        printf("%d (unsigned short)", a->value.unsigned_int16);
+        printf("%" PRIu16 " (u16)", a->value.unsigned_int16);
         break;
 
     case TYPE_SIGNED_INT32:
-        printf("%d (int)", a->value.signed_int32);
+        printf("%" PRIi32 " (i32)", a->value.signed_int32);
         break;
     case TYPE_UNSIGNED_INT32:
-        printf("%du (unsigned int)", a->value.unsigned_int32);
+        printf("%" PRIu32 " (u32)", a->value.unsigned_int32);
         break;
 
     case TYPE_SIGNED_INT64:
-        printf("%lld (long long)", a->value.signed_int64);
+        printf("%" PRIi64 " (i64)", a->value.signed_int64);
         break;
     case TYPE_UNSIGNED_INT64:
-        printf("%llu (unsigned long long)", a->value.unsigned_int64);
+        printf("%" PRIu64 " (u64)", a->value.unsigned_int64);
         break;
     case TYPE_FLOAT32:
         printf("%f (float)", a->value.float32);
@@ -20403,7 +20404,7 @@ int objects_push(struct objects* arr, struct object* obj)
     if (arr->size == arr->capacity)
     {
         size_t new_capacity = arr->capacity ? arr->capacity * 2 : OBJECTS_INITIAL_CAPACITY;
-        struct object** _Opt new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
+        struct object** _Opt _Owner new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
         if (!new_items) return ENOMEM;
         arr->items = new_items;
         arr->capacity = new_capacity;
@@ -29751,10 +29752,6 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         p_token->type == TK_KEYWORD_MSVC__PTR32 ||
         p_token->type == TK_KEYWORD_MSVC__PTR64 ||
 
-        p_token->type == TK_KEYWORD__NEAR ||
-        p_token->type == TK_KEYWORD__FAR ||
-
-
         /*extensions*/
         p_token->type == TK_KEYWORD__CTOR ||
         p_token->type == TK_KEYWORD_CAKE_OWNER ||
@@ -30137,10 +30134,6 @@ enum token_type is_keyword(const char* text, enum target target)
     switch (text[0])
     {
     case 'a':
-
-        if (strcmp("asm", text) == 0)
-            return TK_KEYWORD_ASM;
-
         if (strcmp("alignof", text) == 0)
             return TK_KEYWORD__ALIGNOF;
         if (strcmp("auto", text) == 0)
@@ -30345,7 +30338,40 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("_Atomic", text) == 0)
             return TK_KEYWORD__ATOMIC;
 
+        if (strcmp("__builtin_va_list", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_LIST;
 
+        if (strcmp("__attribute__", text) == 0)
+            return TK_KEYWORD_GCC__ATTRIBUTE;
+
+        if (strcmp("__builtin_offsetof", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
+
+        if (strcmp("__builtin_va_end", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_END;
+
+        if (strcmp("__builtin_va_arg", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_ARG;
+
+        if (strcmp("__builtin_c23_va_start", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
+
+        if (strcmp("__builtin_va_start", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
+
+        if (strcmp("__builtin_va_copy", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
+
+        static_assert(NUMBER_OF_TARGETS == 5, "does your target have builtins or extensions?");
+
+        if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
+        {
+            if (strcmp("__ptr32", text) == 0)
+                return TK_KEYWORD_MSVC__PTR32;
+            if (strcmp("__ptr64", text) == 0)
+                return TK_KEYWORD_MSVC__PTR64;
+        }
+        
 
         if (strcmp("_Bool", text) == 0)
             return TK_KEYWORD__BOOL;
@@ -30372,13 +30398,9 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("__typeof__", text) == 0)
             return TK_KEYWORD_TYPEOF; /*(C23)*/
 
-
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
         {
-            if (strcmp("__ptr32", text) == 0)
-                return TK_KEYWORD_MSVC__PTR32;
-            if (strcmp("__ptr64", text) == 0)
-                return TK_KEYWORD_MSVC__PTR64;
+            // begin microsoft
             if (strcmp("__int8", text) == 0)
                 return TK_KEYWORD_MSVC__INT8;
             if (strcmp("__int16", text) == 0)
@@ -30392,7 +30414,7 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__inline", text) == 0)
                 return TK_KEYWORD_INLINE;
             if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-                return TK_KEYWORD_MSVC__ASM;
+                return TK_KEYWORD__ASM;
             if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
                 return TK_KEYWORD_MSVC__STDCALL;
             if (strcmp("__cdecl", text) == 0)
@@ -30406,45 +30428,6 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__declspec", text) == 0)
                 return TK_KEYWORD_MSVC__DECLSPEC;
         }
-        else if (target == TARGET_X86_X64_GCC ||
-                 target == TARGET_CATALINA /*same as GCC?*/)
-        {
-            if (strcmp("__builtin_va_list", text) == 0)
-                return TK_KEYWORD_GCC__BUILTIN_VA_LIST;
-
-            if (strcmp("__attribute__", text) == 0)
-                return TK_KEYWORD_GCC__ATTRIBUTE;
-
-            if (strcmp("__builtin_offsetof", text) == 0)
-                return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
-
-            if (strcmp("__builtin_va_end", text) == 0)
-                return TK_KEYWORD_GCC__BUILTIN_VA_END;
-
-            if (strcmp("__builtin_va_arg", text) == 0)
-                return TK_KEYWORD_GCC__BUILTIN_VA_ARG;
-
-            if (strcmp("__builtin_c23_va_start", text) == 0)
-                return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
-
-            if (strcmp("__builtin_va_start", text) == 0)
-                return TK_KEYWORD_GCC__BUILTIN_C23_VA_START;
-
-            if (strcmp("__builtin_va_copy", text) == 0)
-                return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
-        }
-        else if (target == TARGET_CCU8)
-        {
-            if (strcmp("__near", text) == 0)
-                return TK_KEYWORD__NEAR;
-            if (strcmp("__far", text) == 0)
-                return TK_KEYWORD__FAR;
-        }
-        else
-        {
-            static_assert(NUMBER_OF_TARGETS == 5, "does your target have new keywords?");
-        }
-
         break;
     default:
         break;
@@ -38333,19 +38316,16 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
 
         p_block_item->first_token = ctx->current;
 
-        if (ctx->current->type == TK_KEYWORD_MSVC__ASM)
-        {
-            /*
-               MSVC
-               https://learn.microsoft.com/en-us/cpp/assembler/inline/asm?view=msvc-170
-               asm-block:
-               __asm assembly-instruction ; opt
-               __asm { assembly-instruction-list } ;opt
+        if (ctx->current->type == TK_KEYWORD__ASM)
+        { /*
+       asm-block:
+       __asm assembly-instruction ;_Opt
+       __asm { assembly-instruction-list } ;_Opt
 
-               assembly-instruction-list:
-                 assembly-instruction ; opt
-                  assembly-instruction ; assembly-instruction-list ;opt
-            */
+   assembly-instruction-list:
+       assembly-instruction ;_Opt
+       assembly-instruction ; assembly-instruction-list ;_Opt
+       */
 
             parser_match(ctx);
 
@@ -41092,118 +41072,6 @@ struct find_object_result
     struct type type;
 };
 
-static bool find_next_subobject_core(const struct type* p_type, struct object* obj, struct object* subobj, struct find_object_result* result)
-{
-
-    try
-    {
-        if (type_is_scalar(p_type))
-        {
-            if (result->object != NULL)
-            {
-                result->object = obj;
-
-                type_destroy(&result->type);
-                result->type = type_dup(p_type);
-
-                return true;
-            }
-
-        }
-
-        if (subobj == obj)
-        {
-            result->object = obj;
-            return false;
-        }
-
-        if (type_is_array(p_type))
-        {
-            struct type item_type = get_array_item_type(p_type);
-            struct object* _Opt it = obj->members;
-            for (; it; it = it->next)
-            {
-                if (find_next_subobject_core(&item_type, it, subobj, result))
-                {
-                    type_destroy(&item_type);
-                    return true;
-                }
-            }
-            type_destroy(&item_type);
-            return false;
-        }
-
-        if (p_type->struct_or_union_specifier)
-        {
-            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-            if (p_struct_or_union_specifier == NULL)
-            {
-                //incomplete
-                throw;
-            }
-
-
-            if (subobj == obj)
-            {
-                result->object = obj;
-                //continua para achar o proximo
-            }
-
-            struct member_declaration* _Opt p_member_declaration =
-                p_struct_or_union_specifier->member_declaration_list.head;
-
-            struct object* _Opt member_object = obj->members;
-
-            while (p_member_declaration)
-            {
-                if (p_member_declaration->member_declarator_list_opt)
-                {
-                    struct member_declarator* _Opt p_member_declarator =
-                        p_member_declaration->member_declarator_list_opt->head;
-
-                    while (p_member_declarator)
-                    {
-                        if (p_member_declarator->declarator)
-                        {
-                            if (find_next_subobject_core(&p_member_declarator->declarator->type, member_object, subobj, result))
-                            {
-                                return true;
-                            }
-
-                            member_object = member_object->next;
-                        }
-                        p_member_declarator = p_member_declarator->next;
-                    }
-                }
-                else if (p_member_declaration->specifier_qualifier_list != NULL)
-                {
-                    if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
-                    {
-                        struct type t = { 0 };
-                        t.category = TYPE_CATEGORY_ITSELF;
-                        t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
-                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-
-
-                        if (find_next_subobject_core(&t, member_object, subobj, result))
-                        {
-                            return true;
-                        }
-
-                        type_destroy(&t);
-                    }
-                }
-                p_member_declaration = p_member_declaration->next;
-            }
-        }
-    }
-    catch
-    {
-    }
-    return false;
-}
 
 static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     struct type* p_current_object_type,
@@ -43641,7 +43509,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
         {
-            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", l->data.number);
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%zu_f", l->data.number);
         }
         else
         {
@@ -45649,10 +45517,6 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 {
     try
     {
-        const char* declarator_name = "";
-        if (p_init_declarator->p_declarator->name_opt)
-            declarator_name = p_init_declarator->p_declarator->name_opt->lexeme;
-
         const bool is_function = type_is_function(&p_init_declarator->p_declarator->type);
         const bool is_inline = (function_specifier_flags & FUNCTION_SPECIFIER_INLINE);
 

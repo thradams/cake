@@ -275,8 +275,12 @@ void object_to_string(const struct object* a, char buffer[], int sz)
         break;
 
 
+    case TYPE_SIGNED_INT64:
+        snprintf(buffer, sz, "%" PRIi64, a->value.signed_int64);
+        break;
+
     case TYPE_UNSIGNED_INT64:
-        snprintf(buffer, sz, "%" PRIu64, a->value.signed_int64);
+        snprintf(buffer, sz, "%" PRIu64, a->value.unsigned_int64);
         break;
 
     case TYPE_FLOAT32:
@@ -288,7 +292,7 @@ void object_to_string(const struct object* a, char buffer[], int sz)
         break;
 #ifdef CAKE_FLOAT128_DEFINED
     case TYPE_FLOAT128:
-        snprintf(buffer, sz, "%Lf", a->value.float64);
+        snprintf(buffer, sz, "%Lf", a->value.float128);
         break;
 #endif
 
@@ -1671,7 +1675,7 @@ void object_set_any(struct object* p_object)
 {
     p_object = object_get_non_const_referenced(p_object);
     p_object->state = CONSTANT_VALUE_STATE_ANY;
-    struct object* p = p_object->members;
+    struct object* _Opt p = p_object->members;
     while (p)
     {
         object_set_any(p);
@@ -2243,35 +2247,35 @@ void object_print_value_debug(const struct object* a)
 
     case TYPE_SIGNED_INT8:
 
-        printf("%d (signed char)", (int)a->value.signed_int8);
+        printf("% " PRIi8 " (i8)", (int)a->value.signed_int8);
         break;
 
 
     case TYPE_UNSIGNED_INT8:
-        printf("%d (unsigned char)", (int)a->value.unsigned_int8);
+        printf("%" PRIu8 " (u8)", (int)a->value.unsigned_int8);
         break;
 
 
     case TYPE_SIGNED_INT16:
-        printf("%d (short)", a->value.signed_int16);
+        printf("%" PRIi16 " (i16)", a->value.signed_int16);
         break;
 
     case TYPE_UNSIGNED_INT16:
-        printf("%d (unsigned short)", a->value.unsigned_int16);
+        printf("%" PRIu16 " (u16)", a->value.unsigned_int16);
         break;
 
     case TYPE_SIGNED_INT32:
-        printf("%d (int)", a->value.signed_int32);
+        printf("%" PRIi32 " (i32)", a->value.signed_int32);
         break;
     case TYPE_UNSIGNED_INT32:
-        printf("%du (unsigned int)", a->value.unsigned_int32);
+        printf("%" PRIu32 " (u32)", a->value.unsigned_int32);
         break;
 
     case TYPE_SIGNED_INT64:
-        printf("%lld (long long)", a->value.signed_int64);
+        printf("%" PRIi64 " (i64)", a->value.signed_int64);
         break;
     case TYPE_UNSIGNED_INT64:
-        printf("%llu (unsigned long long)", a->value.unsigned_int64);
+        printf("%" PRIu64 " (u64)", a->value.unsigned_int64);
         break;
     case TYPE_FLOAT32:
         printf("%f (float)", a->value.float32);
@@ -2922,7 +2926,7 @@ int objects_push(struct objects* arr, struct object* obj)
     if (arr->size == arr->capacity)
     {
         size_t new_capacity = arr->capacity ? arr->capacity * 2 : OBJECTS_INITIAL_CAPACITY;
-        struct object** _Opt new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
+        struct object** _Opt _Owner new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
         if (!new_items) return ENOMEM;
         arr->items = new_items;
         arr->capacity = new_capacity;

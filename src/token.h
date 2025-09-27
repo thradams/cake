@@ -95,8 +95,7 @@ enum token_type
     TK_BEGIN_OF_FILE,
 
     //C23 keywords
-    TK_KEYWORD_AUTO,        
-    TK_KEYWORD_ASM, //common extension
+    TK_KEYWORD_AUTO,
     TK_KEYWORD_BREAK,
     TK_KEYWORD_CASE,
     TK_KEYWORD_CONSTEXPR,
@@ -158,10 +157,7 @@ enum token_type
     TK_KEYWORD_GCC__BUILTIN_C23_VA_START,    
     TK_KEYWORD_GCC__BUILTIN_VA_COPY,
     TK_KEYWORD_GCC__BUILTIN_OFFSETOF,
-
-    //common extension
-    TK_KEYWORD__NEAR,
-    TK_KEYWORD__FAR,
+//#ifdef _WIN32 
 
     //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
     TK_KEYWORD_MSVC__PTR32,
@@ -171,8 +167,9 @@ enum token_type
     TK_KEYWORD_MSVC__STDCALL,
     TK_KEYWORD_MSVC__CDECL,    
     TK_KEYWORD_MSVC__DECLSPEC,
-    TK_KEYWORD_MSVC__ASM, 
+//#endif
 
+    TK_KEYWORD__ASM, 
     TK_KEYWORD__BOOL,
     TK_KEYWORD__COMPLEX,
     TK_KEYWORD__DECIMAL128,
