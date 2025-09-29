@@ -540,6 +540,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         const bool is_static =
             p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
 
+        const bool is_auto=
+            p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO;
+
         const bool is_inline =
             p_expression->declarator->declaration_specifiers->function_specifier_flags & FUNCTION_SPECIFIER_INLINE;
 
@@ -565,7 +568,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 struct osstream ss = { 0 };
 
-                if ((is_inline || is_local_function_definition) && !is_static)
+                if ((is_inline || is_local_function_definition || is_auto) && !is_static)
                 {
                     ss_fprintf(&ss, "static ");
                 }
@@ -579,7 +582,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 const struct declarator* _Opt p_function_defined
                     = declarator_get_function_definition(p_expression->declarator);
 
-                if (p_function_defined && (is_static || is_inline || is_local_function_definition))
+                if (p_function_defined && (is_static || is_inline || is_auto || is_local_function_definition))
                 {
                     //We need to find the function..
 
@@ -2244,7 +2247,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 case TARGET_X64_MSVC:
                 case TARGET_CCU8:
                 case TARGET_CATALINA:
-                    print_item(&local, &first, "unsigned char");                    
+                    print_item(&local, &first, "unsigned char");
                 }
                 static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
             }
@@ -2915,6 +2918,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         if (is_typedef)
             return;
         const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+        const bool is_auto = (storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO);
 
         /*
          int i;               | !is_extern !is_block_scope !is_is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
@@ -3015,27 +3019,27 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         else
         {
             bool rename_declarator = false;
-            if (!is_extern && is_block_scope && !is_inline && is_static && !is_function && !is_function_body)
+            if (!is_extern && is_block_scope && !is_inline && is_static && !is_function)
             {
                 //{ static int i; }
                 rename_declarator = true;
             }
-            else if (!is_extern && is_block_scope && is_inline && !is_static && is_function && is_function_body)
+            else if (!is_inline && !is_static && !is_auto && is_function && !is_function_body)
             {
-                //{inline void f() {}}
+                //void f();
+            }
+            else if (!is_extern && is_block_scope && is_function)
+            {
+                //{ inline void f();  }
+                //{ auto   void f();  }
+                //{ static void f();  }
+                //{ inline void f() {} }
+                //{ auto   void f() {} }
+                //{ static void f() {} }
 
                 rename_declarator = true;
             }
-            else if (!is_extern && is_block_scope && !is_inline && is_static && is_function && is_function_body)
-            {
-                //{static void f() {}}
-                rename_declarator = true;
-            }
-            else if (!is_extern && is_block_scope && !is_inline && !is_static && is_function && is_function_body)
-            {
-                //{void f() {}       }
-                rename_declarator = true;
-            }
+
 
             if (rename_declarator)
             {
@@ -3079,8 +3083,8 @@ static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
 
 static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, struct declaration* p_declaration)
 {
-    
-    if (p_declaration->pragma_declaration) 
+
+    if (p_declaration->pragma_declaration)
     {
         //does this targets requires us to keep some pragma?
     }

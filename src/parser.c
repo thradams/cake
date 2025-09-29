@@ -47,7 +47,7 @@
 
 char* _Opt strrchr2(const char* s, int c)
 {
-    const char* last = NULL;
+    const char* _Opt last = NULL;
     unsigned char ch = (unsigned char)c;
 
     while (*s)
@@ -1301,7 +1301,7 @@ enum token_type is_keyword(const char* text, enum target target)
             if (strcmp("__ptr64", text) == 0)
                 return TK_KEYWORD_MSVC__PTR64;
         }
-        
+
 
         if (strcmp("_Bool", text) == 0)
             return TK_KEYWORD__BOOL;
@@ -2480,8 +2480,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
     return p_declaration;
 
-    //bool is_function_definition = false;
-    //return declaration_core(ctx, p_attribute_specifier_sequence, false, &is_function_definition, storage_specifier_flags, false);
 }
 
 //(6.7) declaration-specifiers:
@@ -2607,7 +2605,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         p_init_declarator->p_declarator->declaration_specifiers = p_declaration_specifiers;
         p_init_declarator->p_declarator->name_opt = tkname;
 
-        if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+        if (
+             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO) &&
+             (p_init_declarator->p_declarator->declaration_specifiers->type_specifier_flags == 0)
+            )
         {
             /*
               auto requires we find the type after initializer
@@ -2680,9 +2681,16 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    if (compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
+                    if (type_is_function(&p_init_declarator->p_declarator->type))
                     {
-                        compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                        //functions can be redeclared (they cannot be redefined, but then we check in another place)
+                    }
+                    else
+                    {
+                        if (compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
+                        {
+                            compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                        }
                     }
                 }
             }
