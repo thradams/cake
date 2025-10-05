@@ -17,7 +17,7 @@
 #define SIZE_T_TYPE_STR "unsigned int"
 #endif
 
-#define CAKE_PREFIX_FOR_CODE_GENERATION "__Ck" 
+#define CAKE_PREFIX_FOR_CODE_GENERATION "__c" 
 
 
 static void print_initializer(struct d_visit_ctx* ctx,
