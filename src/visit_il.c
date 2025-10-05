@@ -169,6 +169,26 @@ static void print_identation(const struct d_visit_ctx* ctx, struct osstream* oss
     }
 }
 
+const char* indentation(int indentation)
+{
+#define IDENTATION "    "
+    switch (indentation)
+    {
+    case 0: return "";
+    case 1: return IDENTATION;
+    case 2: return IDENTATION IDENTATION;
+    case 3: return IDENTATION IDENTATION IDENTATION;
+    case 4: return IDENTATION IDENTATION IDENTATION IDENTATION;    
+    case 5: return IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION;
+    case 6: return IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION;
+    case 7: return IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION;
+    default:
+        assert(false);
+        break;
+    }
+    return "";
+}
+
 
 static void il_print_defer_new(struct d_visit_ctx* ctx, struct osstream* oss, struct defer_list_item* p_item)
 {
