@@ -106,7 +106,7 @@ function Run()
     var http = new XMLHttpRequest();
 
     http.open("POST", "https://coliru.stacked-crooked.com/compile", false);
-    http.send(JSON.stringify({ "cmd": "gcc  -x c main.cpp && ./a.out", "src": outputEditor.getValue() }));
+    http.send(JSON.stringify({ "cmd": "gcc  -std=c89 -x c main.cpp && ./a.out", "src": outputEditor.getValue() }));
     var text = http.response;
     if (text.length == 0)
         text = "coliru compilation ok";
