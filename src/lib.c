@@ -29044,7 +29044,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.05"
+#define CAKE_VERSION "0.12.06"
 
 
 
@@ -43162,7 +43162,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         const bool is_static =
             p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
 
-        const bool is_auto=
+        const bool is_auto =
             p_expression->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO;
 
         const bool is_inline =
@@ -43212,7 +43212,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     struct osstream local4 = { 0 };
                     d_print_type(ctx, &local4, &p_function_defined->type, declarator_name);
 
-                    if (!is_static)
+                    const bool function_definition_is_static =
+                        p_function_defined->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
+
+                    if (!function_definition_is_static)
                         ss_fprintf(&local3, "static ");
 
                     ss_fprintf(&local3, "%s\n", local4.c_str);
@@ -43550,8 +43553,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         char name[100] = { 0 };
         snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_compound_lit", ctx->cake_declarator_number++);
 
-
-
         if (ctx->is_local)
         {
             struct osstream local = { 0 };
@@ -43563,7 +43564,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
             ss_clear(&local);
 
-            //bool first = true;
             object_print_non_constant_initialization(ctx, &local, &p_expression->object, name, true, true);
 
             assert(local.c_str);
@@ -43951,12 +43951,19 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
             // }
 
             char name[100] = { 0 };
-            snprintf(name, sizeof name, CAKE_PREFIX_FOR_CODE_GENERATION "%d_tmp", ctx->cake_declarator_number++);
+            snprintf(name, sizeof name, CAKE_PREFIX_FOR_CODE_GENERATION "%d", ctx->cake_declarator_number++);
 
+            {
+                struct osstream local = { 0 };
+                print_identation(ctx, &local);
+                d_print_type(ctx, &local, &return_type, name);
+                ss_fprintf(&local, ";\n", name);
+                ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+                ss_close(&local);
+            }
 
             print_identation(ctx, oss);
-            d_print_type(ctx, oss, &return_type, name);
-            ss_fprintf(oss, " = ");
+            ss_fprintf(oss, "%s = ", name);
             if (p_jump_statement->expression_opt)
             {
                 if (type_is_bool(&return_type))
@@ -45855,7 +45862,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 {
     struct osstream declarations = { 0 };
 
-    ss_fprintf(oss, "// Cake %s target=%s\n", CAKE_VERSION, target_to_string(ctx->options.target));
+    ss_fprintf(oss, "/* Cake %s target=%s */\n", CAKE_VERSION, target_to_string(ctx->options.target));
 
     ctx->indentation = 0;
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;

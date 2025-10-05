@@ -1436,6 +1436,25 @@ int main()
 }
 `;
 
+sample["Extensions"]["Local functions III"] =
+`
+#include < stdio.h >
+
+void f() {
+    printf("f1\n");
+}
+
+int main()
+{
+    static void f();
+    void f() {
+        printf("f2\n");
+    }
+
+    f();
+}
+`;
+
 
 
 sample["Extensions"]["Literal function async I"] =
