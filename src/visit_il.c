@@ -17,6 +17,9 @@
 #define SIZE_T_TYPE_STR "unsigned int"
 #endif
 
+/*
+  This prefix is used for generated unique variables and labels
+*/
 #define CAKE_PREFIX_FOR_CODE_GENERATION "__c" 
 
 
@@ -167,26 +170,6 @@ static void print_identation(const struct d_visit_ctx* ctx, struct osstream* oss
     {
         ss_fprintf(oss, "    ");
     }
-}
-
-const char* indentation(int indentation)
-{
-#define IDENTATION "    "
-    switch (indentation)
-    {
-    case 0: return "";
-    case 1: return IDENTATION;
-    case 2: return IDENTATION IDENTATION;
-    case 3: return IDENTATION IDENTATION IDENTATION;
-    case 4: return IDENTATION IDENTATION IDENTATION IDENTATION;    
-    case 5: return IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION;
-    case 6: return IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION;
-    case 7: return IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION IDENTATION;
-    default:
-        assert(false);
-        break;
-    }
-    return "";
 }
 
 
@@ -1304,7 +1287,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
-        ss_fprintf(oss, "goto _CKL%d;/*throw*/\n", p_jump_statement->label_id);
+        ss_fprintf(oss, "goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /* throw */\n", p_jump_statement->label_id);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
@@ -1393,7 +1376,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
         {
             if (ctx->break_reference.p_selection_statement)
             {
-                ss_fprintf(oss, "goto _CKL%d; /*break*/\n\n", ctx->break_reference.p_selection_statement->label_id);
+                ss_fprintf(oss, "goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /* break */\n\n", ctx->break_reference.p_selection_statement->label_id);
             }
             else
             {
@@ -1601,7 +1584,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
 
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_temp", ctx->cake_declarator_number++);
+        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d", ctx->cake_declarator_number++);
 
         print_identation(ctx, &ss);
         ss_fprintf(&ss, "register ");
@@ -1629,7 +1612,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 {
                     char str[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str);
-                    ss_fprintf(&ss, "if (%s == %s) goto _CKL%d; /*case %s*/\n", name, str, p_label->label_id, str);
+                    ss_fprintf(&ss, "if (%s == %s) goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /*case %s*/\n", name, str, p_label->label_id, str);
 
                 }
                 else
@@ -1638,7 +1621,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                     object_to_str(&p_label->constant_expression->object, 50, str_begin);
                     char str_end[50] = { 0 };
                     object_to_str(&p_label->constant_expression_end->object, 50, str_end);
-                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto _CKL%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
+                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
                 }
             }
 
@@ -1649,11 +1632,11 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         if (p_label_default)
         {
-            ss_fprintf(&ss, "goto _CKL%d;/*default*/\n", p_label_default->label_id);
+            ss_fprintf(&ss, "goto "CAKE_PREFIX_FOR_CODE_GENERATION"L%d;/*default*/\n", p_label_default->label_id);
         }
         else
         {
-            ss_fprintf(&ss, "goto _CKL%d;\n", p_selection_statement->label_id);
+            ss_fprintf(&ss, "goto "CAKE_PREFIX_FOR_CODE_GENERATION"L%d;\n", p_selection_statement->label_id);
         }
 
         ss_fprintf(&ss, "\n");
@@ -1661,7 +1644,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         d_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
 
         print_identation(ctx, &ss);
-        ss_fprintf(&ss, "_CKL%d:;\n", ctx->break_reference.p_selection_statement->label_id);
+        ss_fprintf(&ss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d:;\n", ctx->break_reference.p_selection_statement->label_id);
 
         ctx->indentation--;
         print_identation(ctx, &ss);
@@ -1797,7 +1780,7 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "else _CKL%d: /*catch*/ \n", p_try_statement->catch_label_id);
+    ss_fprintf(oss, "else " CAKE_PREFIX_FOR_CODE_GENERATION "L%d: /*catch*/ \n", p_try_statement->catch_label_id);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -1855,7 +1838,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "_CKL%d:", p_label->label_id);
+        ss_fprintf(oss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d:", p_label->label_id);
 
         char str[50] = { 0 };
         object_to_str(&p_label->constant_expression->object, 50, str);
@@ -1880,7 +1863,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "_CKL%d: /*default*/ \n", p_label->label_id);
+        ss_fprintf(oss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d: /*default*/ \n", p_label->label_id);
     }
 
 }
@@ -2531,9 +2514,9 @@ static bool is_all_zero(const struct object* object)
         object = object_get_referenced(object);
     }
 
-    if (object->members != NULL)
+    if (object->members.head != NULL)
     {
-        struct object* _Opt member = object->members;
+        struct object* _Opt member = object->members.head;
         while (member)
         {
             if (!is_all_zero(member))
@@ -2571,7 +2554,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
         object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
     {
         if (!(*first))
-            ss_fprintf(ss, ", ");
+            ss_fprintf(ss, ",");
 
         *first = false;
 
@@ -2579,19 +2562,19 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
         return;
     }
 
-    if (object->members != NULL)
+    if (object->members.head != NULL)
     {
         if (type_is_union(&object->type))
         {
             //In c89 only the first member can be initialized
             //we could make the first member be array of unsigned int
             //then initialize it
-            struct object* _Opt member = object->members;
+            struct object* _Opt member = object->members.head;
             object_print_constant_initialization(ctx, ss, member, first);
         }
         else
         {
-            struct object* _Opt member = object->members;
+            struct object* _Opt member = object->members.head;
             while (member)
             {
                 object_print_constant_initialization(ctx, ss, member, first);
@@ -2602,7 +2585,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
     else
     {
         if (!(*first))
-            ss_fprintf(ss, ", ");
+            ss_fprintf(ss, ",");
 
         *first = false;
 
@@ -2643,12 +2626,12 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
         object = object_get_referenced(object);
     }
 
-    if (object->members != NULL)
+    if (object->members.head != NULL)
     {
         if (type_is_union(&object->type))
         {
             //In c89 only the first member can be initialized
-            struct object* _Opt member = object->members;
+            struct object* _Opt member = object->members.head;
 
             if (member->p_init_expression &&
                 object_has_constant_value(&member->p_init_expression->object) &&
@@ -2667,7 +2650,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                     {
                         //object_print_non_constant_initialization(ctx, ss, member, declarator_name);
                         print_identation_core(ss, ctx->indentation);
-                        ss_fprintf(ss, "%s%s = ", declarator_name, member->debug_name);
+                        ss_fprintf(ss, "%s%s = ", declarator_name, member->member_designator);
                         struct osstream local = { 0 };
                         d_visit_expression(ctx, &local, member->p_init_expression);
                         ss_fprintf(ss, "%s", local.c_str);
@@ -2680,7 +2663,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                         if (initialize_objects_that_does_not_have_initializer)
                         {
                             print_identation_core(ss, ctx->indentation);
-                            ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->debug_name);
+                            ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->member_designator);
                         }
                     }
                     member = member->next;
@@ -2695,7 +2678,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             {
                 //char b[] = "abc";
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->debug_name);
+                ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
                 ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);//TODO size of?
@@ -2717,7 +2700,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                        }
                 */
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "_cake_memcpy(&%s%s, ", declarator_name, object->debug_name);
+                ss_fprintf(ss, "_cake_memcpy(&%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
                 size_t sz = 0;
@@ -2728,7 +2711,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_close(&local);
                 ctx->memcpy_used = true;
 
-                struct object* _Opt member = object->members;
+                struct object* _Opt member = object->members.head;
                 while (member)
                 {
                     object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, false);
@@ -2738,7 +2721,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             }
             else
             {
-                struct object* _Opt member = object->members;
+                struct object* _Opt member = object->members.head;
                 while (member)
                 {
                     object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, true);
@@ -2760,7 +2743,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 else if (!object_has_constant_value(&object->p_init_expression->object))
                 {
                     print_identation_core(ss, ctx->indentation);
-                    ss_fprintf(ss, "%s%s = ", declarator_name, object->debug_name);
+                    ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                     struct osstream local = { 0 };
                     d_visit_expression(ctx, &local, object->p_init_expression);
                     ss_fprintf(ss, "%s", local.c_str);
@@ -2771,7 +2754,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             else
             {
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "%s%s = ", declarator_name, object->debug_name);
+                ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
                 ss_fprintf(ss, "%s", local.c_str);
@@ -2784,7 +2767,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             if (initialize_objects_that_does_not_have_initializer)
             {
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->debug_name);
+                ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->member_designator);
             }
         }
     }
@@ -2886,8 +2869,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                             ss_fprintf(oss, ";\n");
                         }
                         else
-                        {
-                            //ss_fprintf(oss, ";\n");
+                        {                            
                             object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true, true);
                         }
                     }
@@ -3260,7 +3242,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 {
     struct osstream declarations = { 0 };
 
-    ss_fprintf(oss, "/* Cake %s target=%s */\n", CAKE_VERSION, target_to_string(ctx->options.target));
+    ss_fprintf(oss, "/* Cake %s %s */\n", CAKE_VERSION, target_to_string(ctx->options.target));
 
     ctx->indentation = 0;
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;

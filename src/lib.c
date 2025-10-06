@@ -15335,6 +15335,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
 void type_visit_to_mark_anonymous(struct type* p_type);
 
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
+void type_set_storage_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 
 void print_type_declarator(struct osstream* ss, const struct type* p_type, enum target target);
@@ -15367,6 +15368,7 @@ enum object_value_type
 
     TYPE_FLOAT32,
     TYPE_FLOAT64,
+
 #ifdef CAKE_FLOAT128_DEFINED
     TYPE_FLOAT128    
 #endif
@@ -15382,13 +15384,21 @@ enum object_value_state
     CONSTANT_VALUE_EQUAL,
 };
 
+struct object_list
+{    
+    struct object* _Owner _Opt head, * _Opt tail;
+    size_t count;
+};
+
+void object_list_push(struct object_list* list, struct object* item);
+
 struct object
 {    
     enum object_value_state state;
     enum object_value_type value_type;
-    struct type type; //TODO to be removed
+    struct type type; //TODO to be removed we have 2 types in two places.
 
-    const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
+    const char* _Opt _Owner member_designator;
 
     union {
   
@@ -15406,6 +15416,7 @@ struct object
 
         float float32;
         double float64;
+
 #ifdef CAKE_FLOAT128_DEFINED
         long double float128;
 #endif
@@ -15415,7 +15426,7 @@ struct object
     struct object* _Opt p_ref;
     struct expression * _Opt p_init_expression;
     
-    struct object* _Opt _Owner members;
+    struct object_list members;
     struct object* _Opt _Owner next;
 };
 
@@ -15498,7 +15509,7 @@ void object_default_initialization(struct object* p_object, bool is_constant);
 
 struct object* _Opt object_get_member(struct object* p_object, int index);
 
-int make_object_with_name(const struct type* p_type, struct object* obj, const char* name, enum target target);
+int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum target target);
 int make_object(const struct type* p_type, struct object* obj, enum target target);
 struct object object_dup(const struct object* src);
 
@@ -17682,6 +17693,22 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
+void object_list_push(struct object_list* list, struct object* pnew)
+{
+    if (list->head == NULL)
+    {
+        list->head = pnew;
+        list->tail = pnew;
+    }
+    else
+    {
+        assert(list->tail != NULL);
+        list->tail->next = pnew;
+        list->tail = pnew;
+    }
+    list->count++;
+}
+
 void object_swap(struct object* a, struct object* b)
 {
     struct object temp = *a;
@@ -17694,9 +17721,9 @@ void object_destroy(_Opt _Dtor struct object* p)
     assert(p->next == NULL);
 
     type_destroy(&p->type);
-    free((void* _Owner)p->debug_name);
+    free((void* _Owner)p->member_designator);
 
-    struct object* _Owner _Opt item = p->members;
+    struct object* _Owner _Opt item = p->members.head;
     while (item)
     {
         struct object* _Owner _Opt next = item->next;
@@ -18990,7 +19017,7 @@ struct object object_cast(enum object_value_type t, const struct object* v)
 
 void object_default_initialization(struct object* p_object, bool is_constant)
 {
-    if (p_object->members == NULL)
+    if (p_object->members.head == NULL)
     {
         if (is_constant)
             p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -19001,7 +19028,7 @@ void object_default_initialization(struct object* p_object, bool is_constant)
 
     if (type_is_union(&p_object->type))
     {
-        struct object* _Opt p = p_object->members;
+        struct object* _Opt p = p_object->members.head;
         if (p)
         {
             object_default_initialization(p, is_constant);
@@ -19009,7 +19036,7 @@ void object_default_initialization(struct object* p_object, bool is_constant)
     }
     else
     {
-        struct object* _Opt p = p_object->members;
+        struct object* _Opt p = p_object->members.head;
         while (p)
         {
             object_default_initialization(p, is_constant);
@@ -19153,7 +19180,7 @@ void object_set_any(struct object* p_object)
 {
     p_object = object_get_non_const_referenced(p_object);
     p_object->state = CONSTANT_VALUE_STATE_ANY;
-    struct object* _Opt p = p_object->members;
+    struct object* _Opt p = p_object->members.head;
     while (p)
     {
         object_set_any(p);
@@ -19217,7 +19244,7 @@ bool object_is_derived(const struct object* p_object)
     if (p_object->p_ref != NULL)
         return false;
 
-    return p_object->members != NULL;
+    return p_object->members.head != NULL;
 }
 
 bool object_is_reference(const struct object* p_object)
@@ -19227,7 +19254,7 @@ bool object_is_reference(const struct object* p_object)
 
 static void object_fix_parent(struct object* p_object, struct object* parent)
 {
-    struct object* _Opt it = p_object->members;
+    struct object* _Opt it = p_object->members.head;
     while (it)
     {
         it->parent = parent;
@@ -19239,10 +19266,10 @@ struct object* _Opt object_get_member(struct object* p_object, int index)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
-    if (p_object->members == NULL)
+    if (p_object->members.head == NULL)
         return NULL; //tODO
 
-    struct object* _Opt it = p_object->members;
+    struct object* _Opt it = p_object->members.head;
     int count = 0;
     while (it)
     {
@@ -19271,8 +19298,8 @@ int object_set(
 
         if (object_is_derived(to))
         {
-            struct object* _Opt it_to = to->members;
-            struct object* _Opt it_from = from->members;
+            struct object* _Opt it_to = to->members.head;
+            struct object* _Opt it_from = from->members.head;
 
             while (it_from && it_to)
             {
@@ -19290,7 +19317,7 @@ int object_set(
         }
         else
         {
-            assert(to->members == NULL);
+            assert(to->members.head == NULL);
 
             to->state = from->state;
             to->value = object_cast(to->value_type, from).value;
@@ -19347,7 +19374,7 @@ int object_set(
     return 0;
 }
 
-struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const char* name, enum target target)
+struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const char* member_designator, enum target target)
 {
     struct object* _Owner _Opt p_object = NULL;
 
@@ -19358,7 +19385,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object = calloc(1, sizeof * p_object);
             if (p_object == NULL)
                 throw;
-            p_object->debug_name = strdup(name);
+            p_object->member_designator = strdup(member_designator);
             p_object->type = type_dup(p_type);
             return p_object;
         }
@@ -19371,8 +19398,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
             *p_object = object_make_nullptr(target);
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
-            assert(p_object->debug_name == NULL);
-            p_object->debug_name = strdup(name);
+            assert(p_object->member_designator == NULL);
+            p_object->member_designator = strdup(member_designator);
 
             type_destroy(&p_object->type);
             p_object->type = type_dup(p_type);
@@ -19386,7 +19413,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             if (p_object == NULL)
                 throw;
             p_object->type = type_dup(p_type);
-            p_object->debug_name = strdup(name);
+            p_object->member_designator = strdup(member_designator);
 
             if (p_type->num_of_elements > 0)
             {
@@ -19395,11 +19422,11 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                 //too big..
                 const unsigned long long max_elements = p_type->num_of_elements > 1000 ? 1000 : p_type->num_of_elements;
 
-                struct object* _Opt p_tail_object = NULL;
+
                 for (unsigned long long i = 0; i < max_elements; i++)
                 {
                     char buffer[200] = { 0 };
-                    snprintf(buffer, sizeof buffer, "%s[%llu]", name, i);
+                    snprintf(buffer, sizeof buffer, "%s[%llu]", member_designator, i);
                     struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&array_item_type, buffer, target);
                     if (p_member_obj == NULL)
                     {
@@ -19408,20 +19435,9 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     }
                     p_member_obj->parent = p_object;
 
-                    free(p_member_obj->debug_name);
-                    p_member_obj->debug_name = strdup(buffer);
-                    if (p_tail_object == NULL)
-                    {
-                        assert(p_object->members == NULL);
-                        p_object->members = p_member_obj;
-                    }
-                    else
-                    {
-                        assert(p_object->next == NULL);
-                        p_tail_object->next = p_member_obj;
-                    }
-
-                    p_tail_object = p_member_obj;
+                    free(p_member_obj->member_designator);
+                    p_member_obj->member_designator = strdup(buffer);
+                    object_list_push(&p_object->members, p_member_obj);
                 }
                 type_destroy(&array_item_type);
             }
@@ -19440,7 +19456,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
             p_object->value_type = type_to_object_type(p_type, target);
             p_object->value.signed_int64 = -1;
-            p_object->debug_name = strdup(name);
+            p_object->member_designator = strdup(member_designator);
             p_object->type = type_dup(p_type);
 
             return p_object;
@@ -19460,10 +19476,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
         if (p_object == NULL)
             throw;
 
-        p_object->debug_name = strdup(name);
+        p_object->member_designator = strdup(member_designator);
         p_object->type = type_dup(p_type);
-
-        struct object* _Opt p_last_member_obj = NULL;
 
         struct member_declaration* _Opt p_member_declaration =
             p_struct_or_union_specifier->member_declaration_list.head;
@@ -19480,7 +19494,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_declarator->declarator)
                     {
                         char buffer[200] = { 0 };
-                        snprintf(buffer, sizeof buffer, "%s.%s", name, p_member_declarator->declarator->name_opt->lexeme);
+                        snprintf(buffer, sizeof buffer, "%s.%s", member_designator, p_member_declarator->declarator->name_opt->lexeme);
 
 
                         struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer, target);
@@ -19489,19 +19503,9 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
                         p_member_obj->parent = p_object;
 
-                        free(p_member_obj->debug_name);
-                        p_member_obj->debug_name = strdup(buffer);
-
-                        if (p_object->members == NULL)
-                        {
-                            p_object->members = p_member_obj;
-                        }
-                        else
-                        {
-                            //assert(p_last_member_obj->next != NULL);
-                            p_last_member_obj->next = p_member_obj;
-                        }
-                        p_last_member_obj = p_member_obj;
+                        free(p_member_obj->member_designator);
+                        p_member_obj->member_designator = strdup(buffer);
+                        object_list_push(&p_object->members, p_member_obj);
                     }
                     p_member_declarator = p_member_declarator->next;
                 }
@@ -19516,28 +19520,19 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
                     char buffer[200] = { 0 };
-                    snprintf(buffer, sizeof buffer, ".%s", name);
+                    snprintf(buffer, sizeof buffer, ".%s", member_designator);
 
 
                     struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&t, buffer, target);
                     if (p_member_obj == NULL)
                         throw;
 
-                    free(p_member_obj->debug_name);
-                    p_member_obj->debug_name = strdup(buffer);
+                    free(p_member_obj->member_designator);
+                    p_member_obj->member_designator = strdup(buffer);
 
                     p_member_obj->parent = p_object;
-                    if (p_last_member_obj == NULL)
-                    {
-                        assert(p_object->members == NULL);
-                        p_object->members = p_member_obj;
-                    }
-                    else
-                    {
-                        p_last_member_obj->next = p_member_obj;
-                    }
-                    p_last_member_obj = p_member_obj;
 
+                    object_list_push(&p_object->members, p_member_obj);
                     type_destroy(&t);
                 }
             }
@@ -19560,7 +19555,7 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type, enum targe
     return make_object_ptr_core(p_type, "", target);
 }
 
-int make_object_with_name(const struct type* p_type, struct object* obj, const char* name, enum target target)
+int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* name, enum target target)
 {
     struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, target);
     if (p)
@@ -19575,14 +19570,14 @@ int make_object_with_name(const struct type* p_type, struct object* obj, const c
 
 struct object object_dup(const struct object* src)
 {
-    assert(src->members == NULL);
+    assert(src->members.head == NULL);
     //assert(src->next == NULL); ??
 
     struct object result = *src;
     result.type = type_dup(&src->type);
 
-    if (src->debug_name)
-        result.debug_name = strdup(src->debug_name);
+    if (src->member_designator)
+        result.member_designator = strdup(src->member_designator);
 
     result.next = NULL;
 
@@ -19591,7 +19586,7 @@ struct object object_dup(const struct object* src)
 
 int make_object(const struct type* p_type, struct object* obj, enum target target)
 {
-    return make_object_with_name(p_type, obj, "", target);
+    return make_object_with_member_designator(p_type, obj, "", target);
 }
 
 
@@ -19780,17 +19775,17 @@ void object_print_to_debug_core(const struct object* object, int n, enum target 
 
 
     for (int i = 0; i < n; i++) printf("  ");
-    if (object->debug_name)
-        printf("%s ", object->debug_name);
+    if (object->member_designator)
+        printf("%s ", object->member_designator);
 
-    if (object->members != NULL)
+    if (object->members.head != NULL)
     {
 
         type_print(&object->type, target);
 
         printf(" {\n");
 
-        struct object* _Opt member = object->members;
+        struct object* _Opt member = object->members.head;
         while (member)
         {
             object_print_to_debug_core(member, n + 1, target);
@@ -19838,67 +19833,29 @@ void object_print_to_debug(const struct object* object, enum target target)
 */
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant, enum target target)
 {
-    struct object* _Opt it = a->members;
-
     try
-    {
-        int count = 0;
-        while (it)
+    {       
+        for ( int count = a->members.count; count < (max_index + 1); count++)
         {
-            count++;
-            if (it->next == NULL)
-                break;
-            it = it->next;
-        }
+            struct object* _Owner _Opt p = make_object_ptr(p_type, target);
+            if (p == NULL)
+                throw;
 
-        while (count < (max_index + 1))
-        {
-            if (it == NULL)
-            {
-                assert(a->members == NULL);
-                a->members = make_object_ptr(p_type, target);
-                if (a->members == NULL)
-                    throw;
-
-                char name[100] = { 0 };
-                snprintf(name, sizeof name, "[%d]", count);
-
-                free((void* _Owner)a->members->debug_name);
-                a->members->debug_name = strdup(name);
-
-                object_default_initialization(a->members, is_constant);
-
-                it = a->members;
-                it->parent = a;
-                count++;
-            }
-            else
-            {
-                struct object* _Owner _Opt p = make_object_ptr(p_type, target);
-                if (p == NULL)
-                    throw;
-                char name[100] = { 0 };
-                snprintf(name, sizeof name, "[%d]", count);
-
-                free((void* _Owner)p->debug_name);
-                p->debug_name = strdup(name);
-
-
-                p->parent = a;
-                object_default_initialization(p, is_constant);
-
-                assert(it->next == NULL);
-                it->next = p;
-
-                it = p;
-                count++;
-            }
+            char name[100] = { 0 };
+            snprintf(name, sizeof name, "[%d]", count);
+            free((void* _Owner)p->member_designator);
+            p->member_designator = strdup(name);
+            p->parent = a;
+            object_default_initialization(p, is_constant);
+            object_list_push(&a->members, p);
         }
     }
     catch
     {
+        
     }
-    return it;
+
+    return a->members.tail;
 }
 
 
@@ -21665,9 +21622,9 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     p_new->value_type = TYPE_SIGNED_INT8;
                     p_new->value.signed_int8 = (char)value;
 
-                    if (p_expression_node->object.members == NULL)
+                    if (p_expression_node->object.members.head == NULL)
                     {
-                        p_expression_node->object.members = p_new;
+                        p_expression_node->object.members.head = p_new;
                     }
                     else
                     {
@@ -21686,7 +21643,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                 if (last == NULL)
                 {
-                    p_expression_node->object.members = p_new;
+                    p_expression_node->object.members.head = p_new;
                 }
                 else
                 {
@@ -29044,7 +29001,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.06"
+#define CAKE_VERSION "0.12.07"
 
 
 
@@ -31901,7 +31858,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type, ctx->options.null_checks_enabled);
+                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type, ctx->options.null_checks_enabled);                        
                         type_swap(&t2, &t);
                         type_destroy(&t2);
                     }
@@ -31909,6 +31866,18 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     type_remove_names(&t);
                     assert(t.name_opt == NULL);
                     t.name_opt = strdup(p_init_declarator->p_declarator->name_opt->lexeme);
+
+                    /*
+                      consider:
+                         extern int func(void);
+                         static auto p_func = func;
+                    */
+
+                    t.storage_class_specifier_flags = 0; /*storage from func is not used*/
+
+                    /*storage p_func is added, but not auto*/
+                    type_set_storage_specifiers_using_declarator(&t, p_init_declarator->p_declarator);
+                    t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTO;
 
                     type_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
 
@@ -31922,7 +31891,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 const char* name2 = p_init_declarator->p_declarator->name_opt ?
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-                int er = make_object_with_name(&p_init_declarator->p_declarator->type,
+                int er = make_object_with_member_designator(&p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object, name2, ctx->options.target);
 
                 if (er != 0)
@@ -31954,7 +31923,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 const char* name2 = p_init_declarator->p_declarator->name_opt ?
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-                int er = make_object_with_name(&p_init_declarator->p_declarator->type,
+                int er = make_object_with_member_designator(&p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
                     name2, ctx->options.target);
 
@@ -33776,12 +33745,12 @@ static struct object* _Opt find_object_declarator_by_index_core(struct object* p
     if (list->head == NULL)
         return NULL;
 
-    if (p_object->members == NULL)
+    if (p_object->members.head == NULL)
     {
         return NULL;
     }
 
-    struct object* _Opt p_member_object = p_object->members;
+    struct object* _Opt p_member_object = p_object->members.head;
 
     struct member_declaration* _Opt p_member_declaration = list->head;
     while (p_member_declaration)
@@ -34813,8 +34782,8 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
         if (pp_token_name_opt && *pp_token_name_opt)
         {
-            free((void*)p_declarator->object.debug_name);
-            p_declarator->object.debug_name = strdup((*pp_token_name_opt)->lexeme);
+            free((void*)p_declarator->object.member_designator);
+            p_declarator->object.member_designator = strdup((*pp_token_name_opt)->lexeme);
         }
 
         if (ctx->current == NULL)
@@ -35600,8 +35569,8 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 
         if (p_parameter_declaration->declarator->name_opt)
         {
-            free((void*)p_parameter_declaration->declarator->object.debug_name);
-            p_parameter_declaration->declarator->object.debug_name = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
+            free((void*)p_parameter_declaration->declarator->object.member_designator);
+            p_parameter_declaration->declarator->object.member_designator = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
         }
 
         object_set_any(&p_parameter_declaration->declarator->object);
@@ -40948,7 +40917,7 @@ static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
-    if (p_object->members == NULL)
+    if (p_object->members.head == NULL)
     {
         *sub_object_of_union = false;
 
@@ -40960,11 +40929,11 @@ static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used
     }
 
     *sub_object_of_union = type_is_union(&p_object->type);
-    struct type t = type_dup(&p_object->members->type);
+    struct type t = type_dup(&p_object->members.head->type);
     type_swap(&t, p_type_out);
     type_destroy(&t);
 
-    return p_object->members; //tODO
+    return p_object->members.head; //tODO
 }
 
 static struct object* _Opt find_first_subobject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
@@ -40976,7 +40945,7 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
-    if (p_object->members == NULL)
+    if (p_object->members.head == NULL)
     {
         struct type t = type_dup(&p_object->type);
         type_swap(&t, p_type_out);
@@ -40984,7 +40953,7 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
         return p_object; //tODO
     }
 
-    struct object* _Opt it = p_object->members;
+    struct object* _Opt it = p_object->members.head;
 
     while (it)
     {
@@ -41020,11 +40989,11 @@ static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not
         return NULL;
 
 
-    if (it->members)
+    if (it->members.head)
     {
         *sub_object_of_union = type_is_union(&it->type);
 
-        it = it->members;
+        it = it->members.head;
 
         struct type t = type_dup(&it->type);
         type_swap(&t, p_type_out);
@@ -41110,7 +41079,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
             struct member_declarator* _Opt p_member_declarator = NULL;
 
             const char* name = p_designator->token->lexeme;
-            struct object* _Opt p_member_object = current_object->members;
+            struct object* _Opt p_member_object = current_object->members.head;
             while (p_member_declaration)
             {
                 if (p_member_declaration->member_declarator_list_opt)
@@ -41196,7 +41165,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
             long long max_index = -1;
             struct type array_item_type = get_array_item_type(p_current_object_type);
 
-            struct object* _Opt member_obj = current_object->members;
+            struct object* _Opt member_obj = current_object->members.head;
 
             if (p_designator->constant_expression_opt)
             {
@@ -42639,7 +42608,10 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 #define SIZE_T_TYPE_STR "unsigned int"
 #endif
 
-#define CAKE_PREFIX_FOR_CODE_GENERATION "__Ck" 
+/*
+  This prefix is used for generated unique variables and labels
+*/
+#define CAKE_PREFIX_FOR_CODE_GENERATION "__c" 
 
 
 static void print_initializer(struct d_visit_ctx* ctx,
@@ -43906,7 +43878,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
-        ss_fprintf(oss, "goto _CKL%d;/*throw*/\n", p_jump_statement->label_id);
+        ss_fprintf(oss, "goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /* throw */\n", p_jump_statement->label_id);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
@@ -43995,7 +43967,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
         {
             if (ctx->break_reference.p_selection_statement)
             {
-                ss_fprintf(oss, "goto _CKL%d; /*break*/\n\n", ctx->break_reference.p_selection_statement->label_id);
+                ss_fprintf(oss, "goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /* break */\n\n", ctx->break_reference.p_selection_statement->label_id);
             }
             else
             {
@@ -44203,7 +44175,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
 
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_temp", ctx->cake_declarator_number++);
+        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d", ctx->cake_declarator_number++);
 
         print_identation(ctx, &ss);
         ss_fprintf(&ss, "register ");
@@ -44231,7 +44203,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 {
                     char str[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str);
-                    ss_fprintf(&ss, "if (%s == %s) goto _CKL%d; /*case %s*/\n", name, str, p_label->label_id, str);
+                    ss_fprintf(&ss, "if (%s == %s) goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /*case %s*/\n", name, str, p_label->label_id, str);
 
                 }
                 else
@@ -44240,7 +44212,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                     object_to_str(&p_label->constant_expression->object, 50, str_begin);
                     char str_end[50] = { 0 };
                     object_to_str(&p_label->constant_expression_end->object, 50, str_end);
-                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto _CKL%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
+                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
                 }
             }
 
@@ -44251,11 +44223,11 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         if (p_label_default)
         {
-            ss_fprintf(&ss, "goto _CKL%d;/*default*/\n", p_label_default->label_id);
+            ss_fprintf(&ss, "goto "CAKE_PREFIX_FOR_CODE_GENERATION"L%d;/*default*/\n", p_label_default->label_id);
         }
         else
         {
-            ss_fprintf(&ss, "goto _CKL%d;\n", p_selection_statement->label_id);
+            ss_fprintf(&ss, "goto "CAKE_PREFIX_FOR_CODE_GENERATION"L%d;\n", p_selection_statement->label_id);
         }
 
         ss_fprintf(&ss, "\n");
@@ -44263,7 +44235,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         d_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
 
         print_identation(ctx, &ss);
-        ss_fprintf(&ss, "_CKL%d:;\n", ctx->break_reference.p_selection_statement->label_id);
+        ss_fprintf(&ss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d:;\n", ctx->break_reference.p_selection_statement->label_id);
 
         ctx->indentation--;
         print_identation(ctx, &ss);
@@ -44399,7 +44371,7 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "else _CKL%d: /*catch*/ \n", p_try_statement->catch_label_id);
+    ss_fprintf(oss, "else " CAKE_PREFIX_FOR_CODE_GENERATION "L%d: /*catch*/ \n", p_try_statement->catch_label_id);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -44457,7 +44429,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "_CKL%d:", p_label->label_id);
+        ss_fprintf(oss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d:", p_label->label_id);
 
         char str[50] = { 0 };
         object_to_str(&p_label->constant_expression->object, 50, str);
@@ -44482,7 +44454,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, "_CKL%d: /*default*/ \n", p_label->label_id);
+        ss_fprintf(oss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d: /*default*/ \n", p_label->label_id);
     }
 
 }
@@ -45133,9 +45105,9 @@ static bool is_all_zero(const struct object* object)
         object = object_get_referenced(object);
     }
 
-    if (object->members != NULL)
+    if (object->members.head != NULL)
     {
-        struct object* _Opt member = object->members;
+        struct object* _Opt member = object->members.head;
         while (member)
         {
             if (!is_all_zero(member))
@@ -45173,7 +45145,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
         object->p_init_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
     {
         if (!(*first))
-            ss_fprintf(ss, ", ");
+            ss_fprintf(ss, ",");
 
         *first = false;
 
@@ -45181,19 +45153,19 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
         return;
     }
 
-    if (object->members != NULL)
+    if (object->members.head != NULL)
     {
         if (type_is_union(&object->type))
         {
             //In c89 only the first member can be initialized
             //we could make the first member be array of unsigned int
             //then initialize it
-            struct object* _Opt member = object->members;
+            struct object* _Opt member = object->members.head;
             object_print_constant_initialization(ctx, ss, member, first);
         }
         else
         {
-            struct object* _Opt member = object->members;
+            struct object* _Opt member = object->members.head;
             while (member)
             {
                 object_print_constant_initialization(ctx, ss, member, first);
@@ -45204,7 +45176,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
     else
     {
         if (!(*first))
-            ss_fprintf(ss, ", ");
+            ss_fprintf(ss, ",");
 
         *first = false;
 
@@ -45245,12 +45217,12 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
         object = object_get_referenced(object);
     }
 
-    if (object->members != NULL)
+    if (object->members.head != NULL)
     {
         if (type_is_union(&object->type))
         {
             //In c89 only the first member can be initialized
-            struct object* _Opt member = object->members;
+            struct object* _Opt member = object->members.head;
 
             if (member->p_init_expression &&
                 object_has_constant_value(&member->p_init_expression->object) &&
@@ -45269,7 +45241,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                     {
                         //object_print_non_constant_initialization(ctx, ss, member, declarator_name);
                         print_identation_core(ss, ctx->indentation);
-                        ss_fprintf(ss, "%s%s = ", declarator_name, member->debug_name);
+                        ss_fprintf(ss, "%s%s = ", declarator_name, member->member_designator);
                         struct osstream local = { 0 };
                         d_visit_expression(ctx, &local, member->p_init_expression);
                         ss_fprintf(ss, "%s", local.c_str);
@@ -45282,7 +45254,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                         if (initialize_objects_that_does_not_have_initializer)
                         {
                             print_identation_core(ss, ctx->indentation);
-                            ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->debug_name);
+                            ss_fprintf(ss, "%s%s = 0;\n", declarator_name, member->member_designator);
                         }
                     }
                     member = member->next;
@@ -45297,7 +45269,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             {
                 //char b[] = "abc";
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->debug_name);
+                ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
                 ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);//TODO size of?
@@ -45319,7 +45291,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                        }
                 */
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "_cake_memcpy(&%s%s, ", declarator_name, object->debug_name);
+                ss_fprintf(ss, "_cake_memcpy(&%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
                 size_t sz = 0;
@@ -45330,7 +45302,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_close(&local);
                 ctx->memcpy_used = true;
 
-                struct object* _Opt member = object->members;
+                struct object* _Opt member = object->members.head;
                 while (member)
                 {
                     object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, false);
@@ -45340,7 +45312,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             }
             else
             {
-                struct object* _Opt member = object->members;
+                struct object* _Opt member = object->members.head;
                 while (member)
                 {
                     object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, true);
@@ -45362,7 +45334,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 else if (!object_has_constant_value(&object->p_init_expression->object))
                 {
                     print_identation_core(ss, ctx->indentation);
-                    ss_fprintf(ss, "%s%s = ", declarator_name, object->debug_name);
+                    ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                     struct osstream local = { 0 };
                     d_visit_expression(ctx, &local, object->p_init_expression);
                     ss_fprintf(ss, "%s", local.c_str);
@@ -45373,7 +45345,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             else
             {
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "%s%s = ", declarator_name, object->debug_name);
+                ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
                 ss_fprintf(ss, "%s", local.c_str);
@@ -45386,7 +45358,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             if (initialize_objects_that_does_not_have_initializer)
             {
                 print_identation_core(ss, ctx->indentation);
-                ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->debug_name);
+                ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->member_designator);
             }
         }
     }
@@ -45488,8 +45460,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                             ss_fprintf(oss, ";\n");
                         }
                         else
-                        {
-                            //ss_fprintf(oss, ";\n");
+                        {                            
                             object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true, true);
                         }
                     }
@@ -45862,7 +45833,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 {
     struct osstream declarations = { 0 };
 
-    ss_fprintf(oss, "/* Cake %s target=%s */\n", CAKE_VERSION, target_to_string(ctx->options.target));
+    ss_fprintf(oss, "/* Cake %s %s */\n", CAKE_VERSION, target_to_string(ctx->options.target));
 
     ctx->indentation = 0;
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
@@ -50187,7 +50158,7 @@ static void braced_initializer_flow_core(struct flow_visit_ctx* ctx, struct obje
         /*flow_object and object have the same number of members*/
         int i = 0;
 
-        struct object* _Opt m = obj->members;
+        struct object* _Opt m = obj->members.head;
         while (m)
         {
             braced_initializer_flow_core(ctx, m, flow_obj->members.data[i]);

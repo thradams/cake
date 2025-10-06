@@ -38,6 +38,7 @@ enum object_value_type
 
     TYPE_FLOAT32,
     TYPE_FLOAT64,
+
 #ifdef CAKE_FLOAT128_DEFINED
     TYPE_FLOAT128    
 #endif
@@ -53,13 +54,21 @@ enum object_value_state
     CONSTANT_VALUE_EQUAL,
 };
 
+struct object_list
+{    
+    struct object* _Owner _Opt head, * _Opt tail;
+    size_t count;
+};
+
+void object_list_push(struct object_list* list, struct object* item);
+
 struct object
 {    
     enum object_value_state state;
     enum object_value_type value_type;
-    struct type type; //TODO to be removed
+    struct type type; //TODO to be removed we have 2 types in two places.
 
-    const char* _Opt _Owner debug_name; //TODO we can remove this passing tthe type to print function
+    const char* _Opt _Owner member_designator;
 
     union {
   
@@ -77,6 +86,7 @@ struct object
 
         float float32;
         double float64;
+
 #ifdef CAKE_FLOAT128_DEFINED
         long double float128;
 #endif
@@ -86,7 +96,7 @@ struct object
     struct object* _Opt p_ref;
     struct expression * _Opt p_init_expression;
     
-    struct object* _Opt _Owner members;
+    struct object_list members;
     struct object* _Opt _Owner next;
 };
 
@@ -169,7 +179,7 @@ void object_default_initialization(struct object* p_object, bool is_constant);
 
 struct object* _Opt object_get_member(struct object* p_object, int index);
 
-int make_object_with_name(const struct type* p_type, struct object* obj, const char* name, enum target target);
+int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum target target);
 int make_object(const struct type* p_type, struct object* obj, enum target target);
 struct object object_dup(const struct object* src);
 

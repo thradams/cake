@@ -1,8 +1,3 @@
-int main()
-{
-    int a = 1;
-    if (int f = 1; f)
-    {
-        /*...*/
-    }
-}
+unsigned char s[] = {
+#embed "img.jpg"
+};

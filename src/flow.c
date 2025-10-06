@@ -4237,7 +4237,7 @@ static void braced_initializer_flow_core(struct flow_visit_ctx* ctx, struct obje
         /*flow_object and object have the same number of members*/
         int i = 0;
 
-        struct object* _Opt m = obj->members;
+        struct object* _Opt m = obj->members.head;
         while (m)
         {
             braced_initializer_flow_core(ctx, m, flow_obj->members.data[i]);

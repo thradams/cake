@@ -757,7 +757,7 @@ void f()
 auto literal_string = "hello auto";
 
 struct {int i;} x;
-auto x2 = x;
+
 
 auto bb = true;
 auto pnull = nullptr;
@@ -1438,17 +1438,21 @@ int main()
 
 sample["Extensions"]["Local functions III"] =
 `
-#include < stdio.h >
+#include <stdio.h>
 
 void f() {
-    printf("f1\n");
+    printf("f1\\n");
 }
 
 int main()
 {
+    /*
+       auto or static storage specifier ?
+       Currently it accepts both
+    */
     static void f();
     void f() {
-        printf("f2\n");
+        printf("f2\\n");
     }
 
     f();
@@ -1502,7 +1506,7 @@ int main()
 
 
 sample["Extensions"]["Literal function scopes"] =
-    `
+`
 
 void f1(){
     /*we cannot use local variables*/
@@ -1528,6 +1532,7 @@ void f3(){
 }
 
 `;
+
 sample["Extensions"]["Literal function 1"] =
     `
 /*simple lambda*/

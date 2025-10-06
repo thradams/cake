@@ -2831,7 +2831,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type, ctx->options.null_checks_enabled);
+                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type, ctx->options.null_checks_enabled);                        
                         type_swap(&t2, &t);
                         type_destroy(&t2);
                     }
@@ -2839,6 +2839,18 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     type_remove_names(&t);
                     assert(t.name_opt == NULL);
                     t.name_opt = strdup(p_init_declarator->p_declarator->name_opt->lexeme);
+
+                    /*
+                      consider:
+                         extern int func(void);
+                         static auto p_func = func;
+                    */
+
+                    t.storage_class_specifier_flags = 0; /*storage from func is not used*/
+
+                    /*storage p_func is added, but not auto*/
+                    type_set_storage_specifiers_using_declarator(&t, p_init_declarator->p_declarator);
+                    t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTO;
 
                     type_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
 
@@ -2852,7 +2864,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 const char* name2 = p_init_declarator->p_declarator->name_opt ?
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-                int er = make_object_with_name(&p_init_declarator->p_declarator->type,
+                int er = make_object_with_member_designator(&p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object, name2, ctx->options.target);
 
                 if (er != 0)
@@ -2884,7 +2896,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 const char* name2 = p_init_declarator->p_declarator->name_opt ?
                     p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-                int er = make_object_with_name(&p_init_declarator->p_declarator->type,
+                int er = make_object_with_member_designator(&p_init_declarator->p_declarator->type,
                     &p_init_declarator->p_declarator->object,
                     name2, ctx->options.target);
 
@@ -4706,12 +4718,12 @@ static struct object* _Opt find_object_declarator_by_index_core(struct object* p
     if (list->head == NULL)
         return NULL;
 
-    if (p_object->members == NULL)
+    if (p_object->members.head == NULL)
     {
         return NULL;
     }
 
-    struct object* _Opt p_member_object = p_object->members;
+    struct object* _Opt p_member_object = p_object->members.head;
 
     struct member_declaration* _Opt p_member_declaration = list->head;
     while (p_member_declaration)
@@ -5743,8 +5755,8 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
         if (pp_token_name_opt && *pp_token_name_opt)
         {
-            free((void*)p_declarator->object.debug_name);
-            p_declarator->object.debug_name = strdup((*pp_token_name_opt)->lexeme);
+            free((void*)p_declarator->object.member_designator);
+            p_declarator->object.member_designator = strdup((*pp_token_name_opt)->lexeme);
         }
 
         if (ctx->current == NULL)
@@ -6530,8 +6542,8 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 
         if (p_parameter_declaration->declarator->name_opt)
         {
-            free((void*)p_parameter_declaration->declarator->object.debug_name);
-            p_parameter_declaration->declarator->object.debug_name = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
+            free((void*)p_parameter_declaration->declarator->object.member_designator);
+            p_parameter_declaration->declarator->object.member_designator = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
         }
 
         object_set_any(&p_parameter_declaration->declarator->object);
@@ -11878,7 +11890,7 @@ static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
-    if (p_object->members == NULL)
+    if (p_object->members.head == NULL)
     {
         *sub_object_of_union = false;
 
@@ -11890,11 +11902,11 @@ static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used
     }
 
     *sub_object_of_union = type_is_union(&p_object->type);
-    struct type t = type_dup(&p_object->members->type);
+    struct type t = type_dup(&p_object->members.head->type);
     type_swap(&t, p_type_out);
     type_destroy(&t);
 
-    return p_object->members; //tODO
+    return p_object->members.head; //tODO
 }
 
 static struct object* _Opt find_first_subobject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
@@ -11906,7 +11918,7 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
-    if (p_object->members == NULL)
+    if (p_object->members.head == NULL)
     {
         struct type t = type_dup(&p_object->type);
         type_swap(&t, p_type_out);
@@ -11914,7 +11926,7 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
         return p_object; //tODO
     }
 
-    struct object* _Opt it = p_object->members;
+    struct object* _Opt it = p_object->members.head;
 
     while (it)
     {
@@ -11950,11 +11962,11 @@ static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not
         return NULL;
 
 
-    if (it->members)
+    if (it->members.head)
     {
         *sub_object_of_union = type_is_union(&it->type);
 
-        it = it->members;
+        it = it->members.head;
 
         struct type t = type_dup(&it->type);
         type_swap(&t, p_type_out);
@@ -12040,7 +12052,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
             struct member_declarator* _Opt p_member_declarator = NULL;
 
             const char* name = p_designator->token->lexeme;
-            struct object* _Opt p_member_object = current_object->members;
+            struct object* _Opt p_member_object = current_object->members.head;
             while (p_member_declaration)
             {
                 if (p_member_declaration->member_declarator_list_opt)
@@ -12126,7 +12138,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
             long long max_index = -1;
             struct type array_item_type = get_array_item_type(p_current_object_type);
 
-            struct object* _Opt member_obj = current_object->members;
+            struct object* _Opt member_obj = current_object->members.head;
 
             if (p_designator->constant_expression_opt)
             {

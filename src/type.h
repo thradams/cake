@@ -417,6 +417,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
 void type_visit_to_mark_anonymous(struct type* p_type);
 
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
+void type_set_storage_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 
 void print_type_declarator(struct osstream* ss, const struct type* p_type, enum target target);

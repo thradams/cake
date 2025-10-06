@@ -1196,9 +1196,9 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     p_new->value_type = TYPE_SIGNED_INT8;
                     p_new->value.signed_int8 = (char)value;
 
-                    if (p_expression_node->object.members == NULL)
+                    if (p_expression_node->object.members.head == NULL)
                     {
-                        p_expression_node->object.members = p_new;
+                        p_expression_node->object.members.head = p_new;
                     }
                     else
                     {
@@ -1217,7 +1217,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                 if (last == NULL)
                 {
-                    p_expression_node->object.members = p_new;
+                    p_expression_node->object.members.head = p_new;
                 }
                 else
                 {
