@@ -3512,8 +3512,10 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 #define TOSTRING(x) STRINGIFY(x)
 
 
-// Includes tokens that are not necessary for compilation at second level of includes
-enum { INCLUDE_ALL = 1 };
+/*
+  Includes tokens that are not necessary for compilation at second level of includes
+*/
+static const int INCLUDE_ALL = 1;
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
@@ -11817,7 +11819,7 @@ char* _Opt strrchr_ex(const char* s, int c1, int c2)
 
 void remove_file_extension(const char* filename, int n, char out[/*n*/])
 {
-    size_t last_dot_index = -1;
+    int last_dot_index = -1;
     const char* p = filename;
     int count = 0;
     while (*p)
@@ -11875,7 +11877,7 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
     if (stat(path, &info) != 0)
         return NULL;
 
-    int mem_size_bytes = sizeof(char) * info.st_size + 1 /* \0 */ + 1 /*newline*/;
+    size_t mem_size_bytes = sizeof(char) * info.st_size + 1 /* \0 */ + 1 /*newline*/;
 
     if (mem_size_bytes < 4)
     {
@@ -15507,7 +15509,7 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 
-struct object* _Opt object_get_member(struct object* p_object, int index);
+struct object* _Opt object_get_member(struct object* p_object, size_t index);
 
 int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum target target);
 int make_object(const struct type* p_type, struct object* obj, enum target target);
@@ -15807,7 +15809,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
 struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant, enum expression_eval_mode eval_mode);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
-bool expression_get_variables(const struct expression* expr, int n, struct object* variables[/*n*/]);
+bool expression_get_variables(struct expression* expr, int n, struct object* variables[/*n*/]);
 
 bool expression_is_lvalue(const struct expression* expr);
 
@@ -15937,7 +15939,7 @@ struct parser_ctx
     /*
     * Points to the selection_statement we're in. Or null.
     */
-    const struct selection_statement* _Opt p_current_selection_statement;
+    struct selection_statement* _Opt p_current_selection_statement;
 
 
     FILE* _Owner _Opt sarif_file;
@@ -15946,14 +15948,20 @@ struct parser_ctx
     _View struct token_list input_list;
     struct token* _Opt current;
     struct token* _Opt previous;
-    /*
-       Expression inside sizeof etc.. are not evaluated
-    */
-    //bool evaluation_is_disabled;
 
     bool inside_generic_association;
 
     int label_id; /*generates unique ids for labels*/
+    
+    /*
+       complete structs have unique ids
+    */
+    int unique_tag_id;
+
+    /*
+       Generate tag names for anonymous structs
+    */
+    int anonymous_struct_count;
 
     struct report* p_report;
 
@@ -16472,6 +16480,8 @@ struct struct_or_union_specifier
     *Token that has a strut tag
     */
     struct token* _Opt tagtoken;
+
+    int unique_id;
 
     char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
@@ -17828,7 +17838,7 @@ struct object object_make_size_t(enum target target, uint64_t value)
 
     case TARGET_CCU8:
         r.value_type = TYPE_UNSIGNED_INT16;
-        r.value.unsigned_int16 = value;
+        r.value.unsigned_int16 = (uint16_t)value;
         break;
 
     case TARGET_CATALINA:
@@ -17897,11 +17907,11 @@ struct object object_make_wchar_t(enum target target, int value)
 
     case TARGET_CCU8:
         r.value_type = TYPE_UNSIGNED_INT8;
-        r.value.unsigned_int8 = value;
+        r.value.unsigned_int8 = (uint8_t)value;
         break;
     case TARGET_CATALINA:
         r.value_type = TYPE_UNSIGNED_INT8;
-        r.value.unsigned_int8 = value;
+        r.value.unsigned_int8 = (uint8_t)value;
         break;
     }
     static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
@@ -19201,13 +19211,9 @@ bool object_is_zero(const struct object* p_object)
         signed long long r = object_to_signed_long_long(p_object);
         return r == 0;
     }
-    else
-    {
-        unsigned long long r = object_to_unsigned_long_long(p_object);
-        return r == 0;
-    }
 
-    return false;
+    unsigned long long r = object_to_unsigned_long_long(p_object);
+    return r == 0;
 }
 
 
@@ -19218,19 +19224,14 @@ bool object_is_one(const struct object* p_object)
     if (!object_has_constant_value(p_object))
         return false;
 
-
     if (object_is_signed(p_object))
     {
         signed long long r = object_to_signed_long_long(p_object);
         return r == 1;
     }
-    else
-    {
-        unsigned long long r = object_to_unsigned_long_long(p_object);
-        return r == 1;
-    }
 
-    return false;
+    unsigned long long r = object_to_unsigned_long_long(p_object);
+    return r == 1;
 }
 
 bool object_is_signed(const struct object* p_object)
@@ -19262,7 +19263,7 @@ static void object_fix_parent(struct object* p_object, struct object* parent)
     }
 }
 
-struct object* _Opt object_get_member(struct object* p_object, int index)
+struct object* _Opt object_get_member(struct object* p_object, size_t index)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
@@ -19270,7 +19271,7 @@ struct object* _Opt object_get_member(struct object* p_object, int index)
         return NULL; //tODO
 
     struct object* _Opt it = p_object->members.head;
-    int count = 0;
+    size_t count = 0;
     while (it)
     {
         if (index == count)
@@ -19435,7 +19436,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     }
                     p_member_obj->parent = p_object;
 
-                    free(p_member_obj->member_designator);
+                    free((void* _Owner)p_member_obj->member_designator);
                     p_member_obj->member_designator = strdup(buffer);
                     object_list_push(&p_object->members, p_member_obj);
                 }
@@ -19503,7 +19504,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
                         p_member_obj->parent = p_object;
 
-                        free(p_member_obj->member_designator);
+                        free((void* _Owner)p_member_obj->member_designator);
                         p_member_obj->member_designator = strdup(buffer);
                         object_list_push(&p_object->members, p_member_obj);
                     }
@@ -19527,7 +19528,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_obj == NULL)
                         throw;
 
-                    free(p_member_obj->member_designator);
+                    free((void* _Owner)p_member_obj->member_designator);
                     p_member_obj->member_designator = strdup(buffer);
 
                     p_member_obj->parent = p_object;
@@ -19834,8 +19835,8 @@ void object_print_to_debug(const struct object* object, enum target target)
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant, enum target target)
 {
     try
-    {       
-        for ( int count = a->members.count; count < (max_index + 1); count++)
+    {
+        for (size_t count = a->members.count; count < (max_index + 1); count++)
         {
             struct object* _Owner _Opt p = make_object_ptr(p_type, target);
             if (p == NULL)
@@ -19852,7 +19853,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
     }
     catch
     {
-        
+
     }
 
     return a->members.tail;
@@ -21024,7 +21025,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
-            p_expression_node->object = object_make_unsigned_char(c);//, ctx->evaluation_is_disabled);
+            p_expression_node->object = object_make_unsigned_char((unsigned char) c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -21316,13 +21317,13 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             static_assert(NUMBER_OF_TARGETS == 5, "does your target follow the C rules? see why MSVC is different");
 
             /*fixing the type that fits the size*/
-            if (value <= target_get_signed_int_max(target)&& suffix[0] != 'L')
+            if (value <= (unsigned long long) target_get_signed_int_max(target)&& suffix[0] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
-            else if (value <= target_get_signed_int_max(target) && suffix[1] != 'L')
+            else if (value <= (unsigned long long) target_get_signed_int_max(target) && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long((int)value, target);
@@ -21603,7 +21604,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             {
                 //"part1" "part2" TODO check different types
 
-                const unsigned char* it = ctx->current->lexeme + 1;
+                const unsigned char* it = (unsigned char*) ctx->current->lexeme + 1;
                 unsigned int value = 0;
                 while (it && *it != '"')
                 {
@@ -26792,7 +26793,7 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
     return p_expression;
 }
 
-bool expression_get_variables(const struct expression* expr, int n, struct object* variables[/*n*/])
+bool expression_get_variables(struct expression* expr, int n, struct object* variables[/*n*/])
 {
     int count = 0;
     switch (expr->expression_type)
@@ -27745,11 +27746,11 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
             {
                 cv = object_make_signed_int((int)value);
             }
-            else if (value <= target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
+            else if (value <= (unsigned long long) target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
                 cv = object_make_signed_long((long)value, target);
             }
-            else if (value <= target_get_signed_long_long_max(target))
+            else if (value <= (unsigned long long) target_get_signed_long_long_max(target))
             {
                 cv = object_make_signed_long_long((long long)value);
             }
@@ -29001,7 +29002,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.07"
+#define CAKE_VERSION "0.12.08"
 
 
 
@@ -29025,9 +29026,17 @@ struct d_visit_ctx
     struct options options;
     int indentation;
 
-    unsigned int cake_declarator_number; //used to create unique declarator names
+    /*
+       File scope counter to generate unique names
+    */
+    unsigned int cake_file_scope_declarator_number;
 
-    unsigned int cake_tag_count; //used to create unique tag names
+    /*
+       This counter is reset in each function
+    */
+    unsigned int cake_local_declarator_number;
+
+    
     struct hash_map tag_names;
     struct hash_map structs_map;
     struct hash_map file_scope_declarator_map;
@@ -29071,6 +29080,11 @@ void d_visit_ctx_destroy( _Dtor struct d_visit_ctx* ctx);
 #define MYMAX_PATH MAX_PATH
 #endif
 
+
+/*
+   Anonymous structs/unions receive a name
+*/
+#define CAKE_GENERATED_TAG_PREFIX  "__tag"
 
 char* _Opt strrchr2(const char* s, int c)
 {
@@ -29116,7 +29130,7 @@ void defer_statement_delete(struct defer_statement* _Owner _Opt p)
     }
 }
 
-static int s_anonymous_struct_count = 0;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token);
@@ -29459,13 +29473,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     }
 
     char buffer[200] = { 0 };
-
-    char diagnostic_name[100] = { 0 };
-    get_warning_name_and_number(w, sizeof diagnostic_name, diagnostic_name);
-
-
-
-
+    
     print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
 
 #pragma CAKE diagnostic push
@@ -29485,35 +29493,33 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     if (ctx->options.visual_studio_ouput_format)
     {
         if (is_error)
-            printf("error: ");
+            printf("error C%d: ", w);
         else if (is_warning)
-            printf("warning: ");
+            printf("warning C%d: ", w);
         else if (is_note)
             printf("note: ");
 
         printf("%s", buffer);
-
-        printf(" [%s]\n", diagnostic_name);
     }
     else
     {
         if (is_error)
         {
-            printf(LIGHTRED "error: " WHITE "%s [" LIGHTRED "%s" WHITE "]\n" RESET, buffer, diagnostic_name);
+            printf(LIGHTRED "error " WHITE "C%04d: %s\n" RESET, w, buffer);
         }
         else if (is_warning)
         {
-            printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "%s" WHITE "]\n" RESET, buffer, diagnostic_name);
+            printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" RESET, w, buffer);
         }
         else if (is_note)
         {
             if (w == W_LOCATION)
                 printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
             else
-                printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "%s" WHITE "]\n" RESET, buffer, diagnostic_name);
+                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
         }
     }
-
+    
     print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
 
 
@@ -29531,7 +29537,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         ((struct parser_ctx*)ctx)->sarif_entries++;
 
         fprintf(ctx->sarif_file, "   {\n");
-        fprintf(ctx->sarif_file, "     \"ruleId\":\"%s\",\n", diagnostic_name);
+        fprintf(ctx->sarif_file, "     \"ruleId\":\"C%d\",\n", w);
 
         if (is_error)
             fprintf(ctx->sarif_file, "     \"level\":\"error\",\n");
@@ -31858,7 +31864,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type, ctx->options.null_checks_enabled);                        
+                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type, ctx->options.null_checks_enabled);
                         type_swap(&t2, &t);
                         type_destroy(&t2);
                     }
@@ -33162,14 +33168,21 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         if (ctx->current->type == TK_IDENTIFIER)
         {
             p_struct_or_union_specifier->tagtoken = ctx->current;
+            snprintf(p_struct_or_union_specifier->tag_name,
+                     sizeof p_struct_or_union_specifier->tag_name, 
+                     "%s",
+                     p_struct_or_union_specifier->tagtoken->lexeme);
+
+            parser_match(ctx);
+            const bool is_struct_definition = (ctx->current->type == '{');
+
             /*
              Structure, union, and enumeration tags have scope that begins just after the
              appearance of the tag in a type specifier that declares the tag.
             */
 
-            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "%s", ctx->current->lexeme);
-
-            struct map_entry* _Opt p_entry = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
+            
+            struct map_entry* _Opt p_entry = hashmap_find(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tagtoken->lexeme);
             if (p_entry)
             {
                 /*this tag already exist in this scope*/
@@ -33183,40 +33196,57 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 {
                     compiler_diagnostic(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
                         ctx,
-                        ctx->current, NULL,
+                        p_struct_or_union_specifier->tagtoken,
+                        NULL,
                         "use of '%s' with tag type that does not match previous declaration.",
-                        ctx->current->lexeme);
+                        p_struct_or_union_specifier->tagtoken->lexeme);
                 }
             }
             else
             {
-                /*tag does not exist in the current scope, let search on upper scopes*/
-                struct struct_or_union_specifier* _Opt p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
-                if (p_first_tag_previous_scopes == NULL)
+                if (is_struct_definition)
                 {
-                    /*tag not found, so it is the first appearance*/
-
-                    p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-
                     struct hash_item_set item = { 0 };
                     item.p_struct_or_union_specifier = struct_or_union_specifier_add_ref(p_struct_or_union_specifier);
-                    hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, &item);
+                    hashmap_set(&ctx->scopes.tail->tags,
+                        p_struct_or_union_specifier->tagtoken->lexeme,
+                        &item);
                     hash_item_set_destroy(&item);
+                    p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_struct_or_union_specifier;
                 }
                 else
                 {
-                    /*tag already exists in some scope*/
-                    p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+
+                    /*
+                      tag does not exist in the current scope, let search on upper scopes
+                    */
+                    struct struct_or_union_specifier* _Opt p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tagtoken->lexeme);
+                    if (p_first_tag_previous_scopes == NULL)
+                    {
+                        /*tag not found, so it is the first appearance*/
+
+                        p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
+
+                        struct hash_item_set item = { 0 };
+                        item.p_struct_or_union_specifier = struct_or_union_specifier_add_ref(p_struct_or_union_specifier);
+                        hashmap_set(&ctx->scopes.tail->tags,
+                            p_struct_or_union_specifier->tagtoken->lexeme,
+                            &item);
+                        hash_item_set_destroy(&item);
+                    }
+                    else
+                    {
+                        /*tag already exists in some scope*/
+                        p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+                    }
                 }
             }
 
-            parser_match(ctx);
         }
         else
         {
             /*struct without a tag, in this case we make one*/
-            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_struct_tag_%d", s_anonymous_struct_count);
-            s_anonymous_struct_count++;
+            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, CAKE_GENERATED_TAG_PREFIX "%d", ctx->anonymous_struct_count++);            
             p_struct_or_union_specifier->has_anonymous_tag = true;
             p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
 
@@ -33247,6 +33277,8 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                    The first tag (will the one at symbol table) will point to the complete struct
                 */
                 first->complete_struct_or_union_specifier_indirection = p_struct_or_union_specifier;
+                ctx->unique_tag_id++;
+                p_struct_or_union_specifier->unique_id = ctx->unique_tag_id;
             }
 
             if (p_struct_or_union_specifier->tagtoken)
@@ -34152,8 +34184,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         }
         else
         {
-            snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
-            s_anonymous_struct_count++;
+            snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, CAKE_GENERATED_TAG_PREFIX "%d", ctx->anonymous_struct_count++);
         }
 
         if (ctx->current == NULL)
@@ -38687,7 +38718,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             }
         }
 
-        const struct selection_statement* _Opt previous = ctx->p_current_selection_statement;
+        struct selection_statement* _Opt previous = ctx->p_current_selection_statement;
         ctx->p_current_selection_statement = p_selection_statement;
 
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
@@ -39680,7 +39711,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     const struct defer_statement* _Opt p_current_defer_statement_opt = ctx->p_current_defer_statement_opt;
     ctx->p_current_defer_statement_opt = NULL;
 
-    const struct selection_statement* _Opt p_current_selection_statement = ctx->p_current_selection_statement;
+    struct selection_statement* _Opt p_current_selection_statement = ctx->p_current_selection_statement;
     ctx->p_current_selection_statement = NULL;
 
     struct label_list label_list = { 0 };
@@ -39707,7 +39738,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror)
 {
     *berror = false;
-    s_anonymous_struct_count = 0;
+    
     struct declaration_list l = { 0 };
     struct scope file_scope = { 0 };
     try
@@ -41176,11 +41207,11 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                     max_index = index;
                     if (compute_array_size)
                     {
-                        member_obj = object_extend_array_to_index(&array_item_type, current_object, max_index, is_constant, target);
+                        member_obj = object_extend_array_to_index(&array_item_type, current_object, (size_t)max_index, is_constant, target);
                     }
                 }
 
-                member_obj = object_get_member(current_object, index);
+                member_obj = object_get_member(current_object, (size_t)index);
                 if (member_obj == NULL)
                 {
                     if (index < 0)
@@ -41332,8 +41363,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         struct object* const _Opt parent_copy = current_object->parent;
         current_object->parent = NULL; //to be only here
         struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
-        int array_to_expand_index = -1;
-        int array_to_expand_max_index = -1;
+        ptrdiff_t array_to_expand_index = -1;
+        ptrdiff_t array_to_expand_max_index = -1;
         bool compute_array_size = false;
         struct type array_item_type = { 0 };
         if (type_is_array(p_current_object_type))
@@ -41398,7 +41429,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             {
                 if (compute_array_size)
                 {
-                    array_to_expand_index = object_to_signed_long_long(&p_initializer_list_item->designation->designator_list->head->constant_expression_opt->object);
+                    array_to_expand_index = (ptrdiff_t)object_to_signed_long_long(&p_initializer_list_item->designation->designator_list->head->constant_expression_opt->object);
 
                     if (array_to_expand_index > array_to_expand_max_index)
                         array_to_expand_max_index = array_to_expand_index;
@@ -42320,6 +42351,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         else
         {
             assert(false);
+            throw;
         }
     }
     catch
@@ -42608,11 +42640,21 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 #define SIZE_T_TYPE_STR "unsigned int"
 #endif
 
-/*
-  This prefix is used for generated unique variables and labels
-*/
-#define CAKE_PREFIX_FOR_CODE_GENERATION "__c" 
 
+/*
+*    Prefix used to create local variables
+*/
+#define CAKE_LOCAL_PREFIX  "__v" 
+
+/*
+*  Prefix used to create file scope declarators
+*/
+#define CAKE_FILE_SCOPE_PREFIX "__c" 
+
+/*
+  Prefix used to create labels
+*/
+#define CAKE_PREFIX_LABEL "__L"
 
 static void print_initializer(struct d_visit_ctx* ctx,
     struct osstream* oss,
@@ -42858,7 +42900,7 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
     }
 }
 
-static struct member_declarator* _Opt find_member_declarator_by_index2(struct member_declaration_list* list,
+static struct member_declarator* _Opt find_member_declarator_name_by_index(struct member_declaration_list* list,
     int member_index,
     char name[100],
     int* p_count)
@@ -42902,7 +42944,7 @@ static struct member_declarator* _Opt find_member_declarator_by_index2(struct me
                 if (p_complete)
                 {
                     char mname[100] = { 0 };
-                    p_member_declarator = find_member_declarator_by_index2(&p_complete->member_declaration_list, member_index, mname, p_count);
+                    p_member_declarator = find_member_declarator_name_by_index(&p_complete->member_declaration_list, member_index, mname, p_count);
                     if (p_member_declarator)
                     {
                         snprintf(name, 100, "__m%d.%s", no_name_index++, mname);
@@ -42931,7 +42973,7 @@ static int find_member_name(const struct type* p_type, int index, char name[100]
     {
         int count = 0;
         struct member_declarator* _Opt p =
-            find_member_declarator_by_index2(&p_complete->member_declaration_list, index, name, &count);
+            find_member_declarator_name_by_index(&p_complete->member_declaration_list, index, name, &count);
         if (p)
         {
             return 0;//p->declarator->name_opt->lexeme;
@@ -43065,7 +43107,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 }
                 else
                 {
-                    object_print_value(oss, &p_expression->object, ctx->options.target);
+                    ss_fprintf(oss, "0");
+                    //object_print_value(oss, &p_expression->object, ctx->options.target);
                 }
                 return;
             }
@@ -43495,17 +43538,17 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
         {
-            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%zu_f", l->data.number);
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_FILE_SCOPE_PREFIX "%zu_f", l->data.number);
         }
         else
         {
-            unsigned int current_cake_declarator_number = ctx->cake_declarator_number++;
+            unsigned int current_cake_declarator_number = ctx->cake_file_scope_declarator_number++;
             struct hash_item_set i = { 0 };
             i.number = current_cake_declarator_number;
             hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
             hash_item_set_destroy(&i);
 
-            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", current_cake_declarator_number);
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_FILE_SCOPE_PREFIX "%d_f", current_cake_declarator_number);
 
             struct osstream lambda_sig = { 0 };
             d_print_type(ctx, &lambda_sig, &p_expression->type, generated_function_literal_name);
@@ -43523,7 +43566,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
     {
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_compound_lit", ctx->cake_declarator_number++);
+        snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
         if (ctx->is_local)
         {
@@ -43878,7 +43921,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
-        ss_fprintf(oss, "goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /* throw */\n", p_jump_statement->label_id);
+        ss_fprintf(oss, "goto " CAKE_PREFIX_LABEL "%d; /* throw */\n", p_jump_statement->label_id);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
@@ -43923,7 +43966,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
             // }
 
             char name[100] = { 0 };
-            snprintf(name, sizeof name, CAKE_PREFIX_FOR_CODE_GENERATION "%d", ctx->cake_declarator_number++);
+            snprintf(name, sizeof name, CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
             {
                 struct osstream local = { 0 };
@@ -43967,7 +44010,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
         {
             if (ctx->break_reference.p_selection_statement)
             {
-                ss_fprintf(oss, "goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /* break */\n\n", ctx->break_reference.p_selection_statement->label_id);
+                ss_fprintf(oss, "goto " CAKE_PREFIX_LABEL "%d; /* break */\n\n", ctx->break_reference.p_selection_statement->label_id);
             }
             else
             {
@@ -44175,10 +44218,9 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
 
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d", ctx->cake_declarator_number++);
+        snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
         print_identation(ctx, &ss);
-        ss_fprintf(&ss, "register ");
         d_print_type(ctx, &ss, &p_selection_statement->condition->expression->type, name);
 
         ss_fprintf(&ss, " = ");
@@ -44203,7 +44245,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 {
                     char str[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str);
-                    ss_fprintf(&ss, "if (%s == %s) goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /*case %s*/\n", name, str, p_label->label_id, str);
+                    ss_fprintf(&ss, "if (%s == %s) goto " CAKE_PREFIX_LABEL "%d; /*case %s*/\n", name, str, p_label->label_id, str);
 
                 }
                 else
@@ -44212,7 +44254,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                     object_to_str(&p_label->constant_expression->object, 50, str_begin);
                     char str_end[50] = { 0 };
                     object_to_str(&p_label->constant_expression_end->object, 50, str_end);
-                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
+                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto " CAKE_PREFIX_LABEL "%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
                 }
             }
 
@@ -44223,11 +44265,11 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         if (p_label_default)
         {
-            ss_fprintf(&ss, "goto "CAKE_PREFIX_FOR_CODE_GENERATION"L%d;/*default*/\n", p_label_default->label_id);
+            ss_fprintf(&ss, "goto "CAKE_PREFIX_LABEL"%d;/*default*/\n", p_label_default->label_id);
         }
         else
         {
-            ss_fprintf(&ss, "goto "CAKE_PREFIX_FOR_CODE_GENERATION"L%d;\n", p_selection_statement->label_id);
+            ss_fprintf(&ss, "goto "CAKE_PREFIX_LABEL"%d;\n", p_selection_statement->label_id);
         }
 
         ss_fprintf(&ss, "\n");
@@ -44235,7 +44277,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         d_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
 
         print_identation(ctx, &ss);
-        ss_fprintf(&ss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d:;\n", ctx->break_reference.p_selection_statement->label_id);
+        ss_fprintf(&ss, CAKE_PREFIX_LABEL "%d:;\n", ctx->break_reference.p_selection_statement->label_id);
 
         ctx->indentation--;
         print_identation(ctx, &ss);
@@ -44371,7 +44413,7 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "else " CAKE_PREFIX_FOR_CODE_GENERATION "L%d: /*catch*/ \n", p_try_statement->catch_label_id);
+    ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -44429,7 +44471,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d:", p_label->label_id);
+        ss_fprintf(oss, CAKE_PREFIX_LABEL "%d:", p_label->label_id);
 
         char str[50] = { 0 };
         object_to_str(&p_label->constant_expression->object, 50, str);
@@ -44454,7 +44496,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d: /*default*/ \n", p_label->label_id);
+        ss_fprintf(oss, CAKE_PREFIX_LABEL "%d: /*default*/ \n", p_label->label_id);
     }
 
 }
@@ -44556,11 +44598,15 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition)
 {
+
     if (function_definition->function_body == NULL)
     {
         assert(false);
         return;
     }
+
+    ctx->cake_local_declarator_number = 0; //reset
+
     int indentation = ctx->indentation;
     ctx->indentation = 0;
     const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
@@ -44590,30 +44636,31 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
 
                     if (p_complete)
                     {
-                        char name[100] = { 0 };
-                        snprintf(name, sizeof name, "%p", (void*)p_complete);
+                        char unique_id[100] = { 0 };
+                        snprintf(unique_id, sizeof unique_id, "%d", p_complete->unique_id);
 
-                        struct map_entry* _Opt p = hashmap_find(&ctx->structs_map, name);
+                        struct map_entry* _Opt p = hashmap_find(&ctx->structs_map, unique_id);
                         if (p == NULL)
                         {
-                            //vamos ver se ja existe alguma com o mesmo tag?
-                            //se existir vamos mudar o tagname desta nova adicinando um numero.
+                            /*
+                               We already have a struct with the same tag, this happens because
+                               function scope declarations are moved to file scope.
+                            */
 
                             struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
                             if (p_name != NULL)
                             {
-
-                                //ja existe uma com este nome
+                                /*
+                                *   We already have a file scope tag with the same name
+                                */
                                 char new_name[100] = { 0 };
-                                snprintf(new_name, sizeof name, "%s%d", p_complete->tag_name, ctx->cake_tag_count++);
+                                snprintf(new_name, sizeof unique_id, CAKE_FILE_SCOPE_PREFIX "%s%d", p_complete->tag_name, p_complete->unique_id);
                                 snprintf(p_complete->tag_name, sizeof p_complete->tag_name, "%s", new_name);
 
                                 struct hash_item_set i = { 0 };
                                 i.number = 1;
                                 hashmap_set(&ctx->tag_names, new_name, &i);
                                 hash_item_set_destroy(&i);
-
-                                //break;
                             }
                             else
                             {
@@ -44632,7 +44679,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                             {
                                 struct hash_item_set i = { 0 };
                                 i.p_struct_entry = p_struct_entry;
-                                hashmap_set(&ctx->structs_map, name, &i);
+                                hashmap_set(&ctx->structs_map, unique_id, &i);
                                 hash_item_set_destroy(&i);
                             }
 
@@ -44661,7 +44708,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                     throw;
 
                                                 char name2[100] = { 0 };
-                                                snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+                                                snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                 register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -44682,7 +44729,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                         p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                                     char name2[100] = { 0 };
-                                                    snprintf(name2, sizeof name2, "%p", (void* _Opt)p_complete_member);
+                                                    snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                     register_struct_types_and_functions(ctx, &t);
                                                     struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -44724,7 +44771,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                             char name2[100] = { 0 };
-                                            snprintf(name2, sizeof name2, "%p", (void* _Opt)p_complete_member);
+                                            snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                             register_struct_types_and_functions(ctx, &t);
                                             struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -44749,7 +44796,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 }
 
                                                 char name2[100] = { 0 };
-                                                snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+                                                snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                 register_struct_types_and_functions(ctx, &t);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -44827,10 +44874,24 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             if (p_type->struct_or_union_specifier)
             {
-                if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
-                    ss_fprintf(&local, "union %s", p_type->struct_or_union_specifier->tag_name);
+                struct struct_or_union_specifier* _Opt p_complete =
+                    get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
+                if (p_complete)
+                {
+                    if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
+                        ss_fprintf(&local, "union %s", p_complete->tag_name);
+                    else
+                        ss_fprintf(&local, "struct %s", p_complete->tag_name);
+                }
                 else
-                    ss_fprintf(&local, "struct %s", p_type->struct_or_union_specifier->tag_name);
+                {
+                    if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
+                        ss_fprintf(&local, "union %s", p_type->struct_or_union_specifier->tag_name);
+                    else
+                        ss_fprintf(&local, "struct %s", p_type->struct_or_union_specifier->tag_name);
+                }
+
+
             }
             else if (p_type->enum_specifier)
             {
@@ -45460,7 +45521,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                             ss_fprintf(oss, ";\n");
                         }
                         else
-                        {                            
+                        {
                             object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true, true);
                         }
                     }
@@ -45504,165 +45565,161 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
     enum function_specifier_flags function_specifier_flags,
     enum storage_class_specifier_flags storage_class_specifier_flags)
 {
-    try
+
+    const bool is_function = type_is_function(&p_init_declarator->p_declarator->type);
+    const bool is_inline = (function_specifier_flags & FUNCTION_SPECIFIER_INLINE);
+
+    const bool is_block_scope = (storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE);
+    const bool is_typedef = (storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF);
+    const bool is_extern = (storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN);
+
+    const bool is_function_body = p_init_declarator->p_declarator->function_body != NULL;
+
+    if (is_typedef)
+        return;
+    const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+    const bool is_auto = (storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO);
+
+    /*
+     int i;               | !is_extern !is_block_scope !is_is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
+     {int i;           }  | !is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
+     extern void f() {}   |  is_extern !is_block_scope !is_inline !is_static  is_function  is_function_body   |  action = ACTION_DECLARE;
+     void f() {}          | !is_extern !is_block_scope !is_inline !is_static  is_function  is_function_body   |  action = ACTION_DECLARE;
+     static int i;        | !is_extern !is_block_scope !is_inline  is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     extern int i;        |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     void f();            |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     extern void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     inline void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     static void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     inline void f() {}   |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     static void f() {}   |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {extern int i;    }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {void f();        }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {extern void f(); }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {static int i;    }  |                                                                                   |  action = ACTION_ON_DEMAND_;/rename
+     {inline void f() {}} |  |                                                                                |  action = ACTION_ON_DEMAND_;/rename
+     {static void f() {}} |                                                                                   |  action = ACTION_ON_DEMAND_;/rename
+     {inline void f();  } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {static void f();  } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {void f() {}       } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;/rename
+     {extern void f() {}} |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  error
+    */
+
+
+    if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
     {
-        const bool is_function = type_is_function(&p_init_declarator->p_declarator->type);
-        const bool is_inline = (function_specifier_flags & FUNCTION_SPECIFIER_INLINE);
+        //int i;
 
-        const bool is_block_scope = (storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE);
-        const bool is_typedef = (storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF);
-        const bool is_extern = (storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN);
+        struct hash_item_set i = { 0 };
+        i.number = 1;
+        hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
 
-        const bool is_function_body = p_init_declarator->p_declarator->function_body != NULL;
+        struct osstream ss = { 0 };
+        d_print_type(ctx, &ss,
+           &p_init_declarator->p_declarator->type,
+           p_init_declarator->p_declarator->name_opt->lexeme
+        );
 
-        if (is_typedef)
-            return;
-        const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
-        const bool is_auto = (storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO);
+        ss_fprintf(oss0, "%s", ss.c_str);
 
-        /*
-         int i;               | !is_extern !is_block_scope !is_is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
-         {int i;           }  | !is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
-         extern void f() {}   |  is_extern !is_block_scope !is_inline !is_static  is_function  is_function_body   |  action = ACTION_DECLARE;
-         void f() {}          | !is_extern !is_block_scope !is_inline !is_static  is_function  is_function_body   |  action = ACTION_DECLARE;
-         static int i;        | !is_extern !is_block_scope !is_inline  is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         extern int i;        |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         void f();            |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         extern void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         inline void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         static void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         inline void f() {}   |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         static void f() {}   |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {extern int i;    }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {void f();        }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {extern void f(); }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {static int i;    }  |                                                                                   |  action = ACTION_ON_DEMAND_;/rename
-         {inline void f() {}} |  |                                                                                |  action = ACTION_ON_DEMAND_;/rename
-         {static void f() {}} |                                                                                   |  action = ACTION_ON_DEMAND_;/rename
-         {inline void f();  } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {static void f();  } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {void f() {}       } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;/rename
-         {extern void f() {}} |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  error
-        */
-
-
-        if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
+        if (p_init_declarator->initializer)
         {
-            //int i;
-
-            struct hash_item_set i = { 0 };
-            i.number = 1;
-            hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
-
-            struct osstream ss = { 0 };
-            d_print_type(ctx, &ss,
-               &p_init_declarator->p_declarator->type,
-               p_init_declarator->p_declarator->name_opt->lexeme
-            );
-
-            ss_fprintf(oss0, "%s", ss.c_str);
-
-            if (p_init_declarator->initializer)
-            {
-                print_initializer(ctx, oss0, p_init_declarator, true);
-            }
-            else
-                ss_fprintf(oss0, ";\n");
-
-            ss_close(&ss);
-            return;
-        }
-        else if (!is_extern && is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
-        {
-            //{ int i; }
-            struct osstream ss = { 0 };
-            d_print_type(ctx, &ss,
-              &p_init_declarator->p_declarator->type,
-              p_init_declarator->p_declarator->name_opt->lexeme);
-
-            print_identation(ctx, &ctx->block_scope_declarators);
-
-            ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
-            ss_close(&ss);
-
-            if (p_init_declarator->initializer)
-            {
-                //print_identation(ctx, &ctx->block_scope_declarators);
-
-                print_initializer(ctx, oss0, p_init_declarator, false);
-            }
-
-            return;
-        }
-        else if (!is_block_scope && !is_inline && !is_static && is_function && is_function_body)
-        {
-            // extern void f() {} 
-            //        void f() {} 
-            //action = ACTION_DECLARE;
-            struct osstream ss = { 0 };
-            d_print_type(ctx, &ss,
-               &p_init_declarator->p_declarator->type,
-               p_init_declarator->p_declarator->name_opt->lexeme);
-
-            struct hash_item_set i = { 0 };
-            i.number = 1;
-            hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
-
-            ss_fprintf(&ss, "\n");
-            d_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
-            ss_fprintf(&ss, "\n");
-
-            ss_fprintf(oss0, "%s\n", ss.c_str);
-            ss_close(&ss);
-            return;
+            print_initializer(ctx, oss0, p_init_declarator, true);
         }
         else
-        {
-            bool rename_declarator = false;
-            if (!is_extern && is_block_scope && !is_inline && is_static && !is_function)
-            {
-                //{ static int i; }
-                rename_declarator = true;
-            }
-            else if (!is_inline && !is_static && !is_auto && is_function && !is_function_body)
-            {
-                //void f();
-            }
-            else if (!is_extern && is_block_scope && is_function)
-            {
-                //{ inline void f();  }
-                //{ auto   void f();  }
-                //{ static void f();  }
-                //{ inline void f() {} }
-                //{ auto   void f() {} }
-                //{ static void f() {} }
+            ss_fprintf(oss0, ";\n");
 
-                rename_declarator = true;
-            }
-
-
-            if (rename_declarator)
-            {
-                if (!p_init_declarator->p_declarator->declarator_renamed)
-                {
-                    p_init_declarator->p_declarator->declarator_renamed = true;
-                    char name[100] = { 0 };
-                    snprintf(name, sizeof(name),
-                        CAKE_PREFIX_FOR_CODE_GENERATION "%d_%s",
-                        ctx->cake_declarator_number++,
-                        p_init_declarator->p_declarator->name_opt->lexeme
-                    );
-
-                    free(p_init_declarator->p_declarator->name_opt->lexeme);
-                    p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
-                }
-            }
-            return;
-        }
+        ss_close(&ss);
+        return;
     }
-    catch
+    else if (!is_extern && is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
     {
+        //{ int i; }
+        struct osstream ss = { 0 };
+        d_print_type(ctx, &ss,
+          &p_init_declarator->p_declarator->type,
+          p_init_declarator->p_declarator->name_opt->lexeme);
+
+        print_identation(ctx, &ctx->block_scope_declarators);
+
+        ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
+        ss_close(&ss);
+
+        if (p_init_declarator->initializer)
+        {
+            //print_identation(ctx, &ctx->block_scope_declarators);
+
+            print_initializer(ctx, oss0, p_init_declarator, false);
+        }
+
+        return;
     }
+    else if (!is_block_scope && !is_inline && !is_static && is_function && is_function_body)
+    {
+        // extern void f() {} 
+        //        void f() {} 
+        //action = ACTION_DECLARE;
+        struct osstream ss = { 0 };
+        d_print_type(ctx, &ss,
+           &p_init_declarator->p_declarator->type,
+           p_init_declarator->p_declarator->name_opt->lexeme);
+
+        struct hash_item_set i = { 0 };
+        i.number = 1;
+        hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
+
+        ss_fprintf(&ss, "\n");
+        d_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
+        ss_fprintf(&ss, "\n");
+
+        ss_fprintf(oss0, "%s\n", ss.c_str);
+        ss_close(&ss);
+        return;
+    }
+    else
+    {
+        bool rename_declarator = false;
+        if (!is_extern && is_block_scope && !is_inline && is_static && !is_function)
+        {
+            //{ static int i; }
+            rename_declarator = true;
+        }
+        else if (!is_inline && !is_static && !is_auto && is_function && !is_function_body)
+        {
+            //void f();
+        }
+        else if (!is_extern && is_block_scope && is_function)
+        {
+            //{ inline void f();  }
+            //{ auto   void f();  }
+            //{ static void f();  }
+            //{ inline void f() {} }
+            //{ auto   void f() {} }
+            //{ static void f() {} }
+
+            rename_declarator = true;
+        }
+
+
+        if (rename_declarator)
+        {
+            if (!p_init_declarator->p_declarator->declarator_renamed)
+            {
+                p_init_declarator->p_declarator->declarator_renamed = true;
+                char name[100] = { 0 };
+                snprintf(name, sizeof(name),
+                    CAKE_FILE_SCOPE_PREFIX "%d_%s",
+                    ctx->cake_file_scope_declarator_number++,
+                    p_init_declarator->p_declarator->name_opt->lexeme
+                );
+
+                free(p_init_declarator->p_declarator->name_opt->lexeme);
+                p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
+            }
+        }
+        return;
+    }
+
 }
 
 static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
@@ -50591,57 +50648,53 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
-    try
+
+    const int throw_join_state_old = ctx->throw_join_state;
+    struct secondary_block* _Opt catch_secondary_block_old = ctx->catch_secondary_block_opt;
+
+    ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
+
+    ctx->throw_join_state = arena_add_empty_state(ctx, "try");
+
+    const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
+
+
+    flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
+    arena_set_state_from_current(ctx, original_state_number); //state of end of secondary block
+
+    if (p_try_statement->catch_secondary_block_opt)
     {
-        const int throw_join_state_old = ctx->throw_join_state;
-        struct secondary_block* _Opt catch_secondary_block_old = ctx->catch_secondary_block_opt;
-
-        ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
-
-        ctx->throw_join_state = arena_add_empty_state(ctx, "try");
-
-        const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
-
-
-        flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-        arena_set_state_from_current(ctx, original_state_number); //state of end of secondary block
-
-        if (p_try_statement->catch_secondary_block_opt)
-        {
-            //current all possible states of throw
-            arena_restore_current_state_from(ctx, ctx->throw_join_state);
-            flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
-            //current has the state at the end of catch block
-        }
-
-        bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
-        bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
-
-        if (try_reached_the_end && catch_reached_the_end)
-        {
-            //we could merge directly at current
-            arena_merge_current_state_with_state_number(ctx, original_state_number);
-            arena_restore_current_state_from(ctx, original_state_number);
-        }
-        else if (try_reached_the_end)
-        {
-            arena_restore_current_state_from(ctx, original_state_number);
-        }
-        else if (catch_reached_the_end)
-        {
-            //ctx_object_restore_current_state_from(ctx, orignial);       
-        }
-
-
-        arena_remove_state(ctx, original_state_number);
-        arena_remove_state(ctx, ctx->throw_join_state);
-
-        ctx->throw_join_state = throw_join_state_old; //restore
-        ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
+        //current all possible states of throw
+        arena_restore_current_state_from(ctx, ctx->throw_join_state);
+        flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
+        //current has the state at the end of catch block
     }
-    catch
+
+    bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
+    bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
+
+    if (try_reached_the_end && catch_reached_the_end)
     {
+        //we could merge directly at current
+        arena_merge_current_state_with_state_number(ctx, original_state_number);
+        arena_restore_current_state_from(ctx, original_state_number);
     }
+    else if (try_reached_the_end)
+    {
+        arena_restore_current_state_from(ctx, original_state_number);
+    }
+    else if (catch_reached_the_end)
+    {
+        //ctx_object_restore_current_state_from(ctx, orignial);       
+    }
+
+
+    arena_remove_state(ctx, original_state_number);
+    arena_remove_state(ctx, ctx->throw_join_state);
+
+    ctx->throw_join_state = throw_join_state_old; //restore
+    ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
+
 }
 
 static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
@@ -52238,40 +52291,36 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     struct true_false_set true_false_set = { 0 };
 
-    try
+
+    if (p_iteration_statement->expression1)
     {
-        if (p_iteration_statement->expression1)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
-        }
-
-        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-        flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-
-        bool was_last_statement_inside_true_branch_return =
-            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-
-
-        if (was_last_statement_inside_true_branch_return)
-        {
-            //restore_state(ctx, 0);
-            //if (p_object_compared_with_not_null)
-            //{
-                //do {}  while (p);
-              //  p_object_compared_with_not_null->state = FLOW_OBJECT_STATE_NULL;
-            //}
-        }
-        else
-        {
-            //do { } while (p);
-            true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
-        }
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     }
-    catch
+
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
+    flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+    flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+
+    bool was_last_statement_inside_true_branch_return =
+        secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+
+
+    if (was_last_statement_inside_true_branch_return)
     {
+        //restore_state(ctx, 0);
+        //if (p_object_compared_with_not_null)
+        //{
+            //do {}  while (p);
+          //  p_object_compared_with_not_null->state = FLOW_OBJECT_STATE_NULL;
+        //}
     }
+    else
+    {
+        //do { } while (p);
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+    }
+
 
     true_false_set_destroy(&true_false_set);
 }
@@ -52383,54 +52432,50 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     struct true_false_set d = { 0 };
 
-    try
+
+    if (p_iteration_statement->declaration &&
+        p_iteration_statement->declaration->init_declarator_list.head)
     {
-        if (p_iteration_statement->declaration &&
-            p_iteration_statement->declaration->init_declarator_list.head)
-        {
-            flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
-        }
+        flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
+    }
 
-        if (p_iteration_statement->expression0)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
-        }
+    if (p_iteration_statement->expression0)
+    {
+        flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
+    }
 
-        if (p_iteration_statement->expression1)
-        {
-            flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
-            flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
-        }
+    if (p_iteration_statement->expression1)
+    {
+        flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
+    }
 
-        //TODO we need to merge states inside loops
+    //TODO we need to merge states inside loops
 
-        //Disable warning because the state is temporary..missing a visit
-        diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
+    //Disable warning because the state is temporary..missing a visit
+    diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
 
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
+    diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
+
+
+    if (p_iteration_statement->expression2)
+    {
+        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
+    }
+    const bool b_secondary_block_ends_with_jump =
+        secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+
+    /*we visit again*/
+    if (!b_secondary_block_ends_with_jump)
+    {
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
-
-
-        if (p_iteration_statement->expression2)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
-        }
-        const bool b_secondary_block_ends_with_jump =
-            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-
-        /*we visit again*/
-        if (!b_secondary_block_ends_with_jump)
-        {
-            flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-            flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-            flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-        }
-
+        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+        flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
     }
-    catch
-    {
-    }
+
+
     true_false_set_destroy(&d);
 }
 
@@ -57200,8 +57245,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
-        align = -1;
-        //seterror(error, "sizeof function");
+        align = SIZE_MAX-1;        
     }
     else if (category == TYPE_CATEGORY_ITSELF)
     {
@@ -57297,18 +57341,18 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
                 }
                 else
                 {
-                    align = -2;
+                    align = SIZE_MAX - 2;
                 }
             }
             else
             {
-                align = -2;
+                align = SIZE_MAX - 2;
                 assert(false);
             }
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            align = -3;
+            align = SIZE_MAX - 3;
             //seterror(error, "type information is missing");
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)

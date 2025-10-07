@@ -177,7 +177,7 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 
-struct object* _Opt object_get_member(struct object* p_object, int index);
+struct object* _Opt object_get_member(struct object* p_object, size_t index);
 
 int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum target target);
 int make_object(const struct type* p_type, struct object* obj, enum target target);

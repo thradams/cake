@@ -172,6 +172,7 @@
       <AdditionalOptions>/we4013
 /wd4996 /utf-8  /wd4100 /wd4068 /wd4146 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp14</LanguageStandard>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -188,6 +189,7 @@
       <AdditionalOptions>/we4013
 /wd4996 /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp14</LanguageStandard>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -207,6 +209,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <LanguageStandard>stdcpp14</LanguageStandard>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -225,6 +228,7 @@
 /wd4996 /utf-8  /wd4100 /wd4068 /wd4146 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <LanguageStandard>stdcpp14</LanguageStandard>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -241,6 +245,7 @@
 /wd4996 /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <LanguageStandard>stdcpp14</LanguageStandard>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -259,6 +264,7 @@
 /wd4996 /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <LanguageStandard>stdcpp14</LanguageStandard>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

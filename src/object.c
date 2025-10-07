@@ -339,7 +339,7 @@ struct object object_make_size_t(enum target target, uint64_t value)
 
     case TARGET_CCU8:
         r.value_type = TYPE_UNSIGNED_INT16;
-        r.value.unsigned_int16 = value;
+        r.value.unsigned_int16 = (uint16_t)value;
         break;
 
     case TARGET_CATALINA:
@@ -408,11 +408,11 @@ struct object object_make_wchar_t(enum target target, int value)
 
     case TARGET_CCU8:
         r.value_type = TYPE_UNSIGNED_INT8;
-        r.value.unsigned_int8 = value;
+        r.value.unsigned_int8 = (uint8_t)value;
         break;
     case TARGET_CATALINA:
         r.value_type = TYPE_UNSIGNED_INT8;
-        r.value.unsigned_int8 = value;
+        r.value.unsigned_int8 = (uint8_t)value;
         break;
     }
     static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
@@ -1712,13 +1712,9 @@ bool object_is_zero(const struct object* p_object)
         signed long long r = object_to_signed_long_long(p_object);
         return r == 0;
     }
-    else
-    {
-        unsigned long long r = object_to_unsigned_long_long(p_object);
-        return r == 0;
-    }
 
-    return false;
+    unsigned long long r = object_to_unsigned_long_long(p_object);
+    return r == 0;
 }
 
 
@@ -1729,19 +1725,14 @@ bool object_is_one(const struct object* p_object)
     if (!object_has_constant_value(p_object))
         return false;
 
-
     if (object_is_signed(p_object))
     {
         signed long long r = object_to_signed_long_long(p_object);
         return r == 1;
     }
-    else
-    {
-        unsigned long long r = object_to_unsigned_long_long(p_object);
-        return r == 1;
-    }
 
-    return false;
+    unsigned long long r = object_to_unsigned_long_long(p_object);
+    return r == 1;
 }
 
 bool object_is_signed(const struct object* p_object)
@@ -1773,7 +1764,7 @@ static void object_fix_parent(struct object* p_object, struct object* parent)
     }
 }
 
-struct object* _Opt object_get_member(struct object* p_object, int index)
+struct object* _Opt object_get_member(struct object* p_object, size_t index)
 {
     p_object = (struct object* _Opt) object_get_referenced(p_object);
 
@@ -1781,7 +1772,7 @@ struct object* _Opt object_get_member(struct object* p_object, int index)
         return NULL; //tODO
 
     struct object* _Opt it = p_object->members.head;
-    int count = 0;
+    size_t count = 0;
     while (it)
     {
         if (index == count)
@@ -1946,7 +1937,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     }
                     p_member_obj->parent = p_object;
 
-                    free(p_member_obj->member_designator);
+                    free((void* _Owner)p_member_obj->member_designator);
                     p_member_obj->member_designator = strdup(buffer);
                     object_list_push(&p_object->members, p_member_obj);
                 }
@@ -2014,7 +2005,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
 
                         p_member_obj->parent = p_object;
 
-                        free(p_member_obj->member_designator);
+                        free((void* _Owner)p_member_obj->member_designator);
                         p_member_obj->member_designator = strdup(buffer);
                         object_list_push(&p_object->members, p_member_obj);
                     }
@@ -2038,7 +2029,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_obj == NULL)
                         throw;
 
-                    free(p_member_obj->member_designator);
+                    free((void* _Owner)p_member_obj->member_designator);
                     p_member_obj->member_designator = strdup(buffer);
 
                     p_member_obj->parent = p_object;
@@ -2345,8 +2336,8 @@ void object_print_to_debug(const struct object* object, enum target target)
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant, enum target target)
 {
     try
-    {       
-        for ( int count = a->members.count; count < (max_index + 1); count++)
+    {
+        for (size_t count = a->members.count; count < (max_index + 1); count++)
         {
             struct object* _Owner _Opt p = make_object_ptr(p_type, target);
             if (p == NULL)
@@ -2363,7 +2354,7 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
     }
     catch
     {
-        
+
     }
 
     return a->members.tail;

@@ -394,7 +394,7 @@ char* _Opt strrchr_ex(const char* s, int c1, int c2)
 
 void remove_file_extension(const char* filename, int n, char out[/*n*/])
 {
-    size_t last_dot_index = -1;
+    int last_dot_index = -1;
     const char* p = filename;
     int count = 0;
     while (*p)
@@ -452,7 +452,7 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
     if (stat(path, &info) != 0)
         return NULL;
 
-    int mem_size_bytes = sizeof(char) * info.st_size + 1 /* \0 */ + 1 /*newline*/;
+    size_t mem_size_bytes = sizeof(char) * info.st_size + 1 /* \0 */ + 1 /*newline*/;
 
     if (mem_size_bytes < 4)
     {

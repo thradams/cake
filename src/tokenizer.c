@@ -74,8 +74,10 @@
 #define TOSTRING(x) STRINGIFY(x)
 
 
-// Includes tokens that are not necessary for compilation at second level of includes
-enum { INCLUDE_ALL = 1 };
+/*
+  Includes tokens that are not necessary for compilation at second level of includes
+*/
+static const int INCLUDE_ALL = 1;
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);

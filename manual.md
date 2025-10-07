@@ -154,9 +154,10 @@ Inside "Visual Studio -> External Tools" this command can be used for static ana
 
 `-Wstyle  -msvc-output  -no-output -sarif -sarif-path "$(SolutionDir).sarif" $(ItemPath)´
 
-### -target=x86_x64_gcc, -target=x64_msvc, -target=x64_msvc
-Defines how the source code is interpreted (sizeof long, wchar_t etc) _and specifies which 
-compiler and configuration are required to compile the Cake output.
+### -target
+Defines how the source code is interpreted (integers sizes, align etc) and specifies the
+C89 output that is compatible with the target compiler.
+Options: x86\_x64_gcc, x64\_msvc, x64\_msvc, catalina, ccu8
 
 #### -msvc-output          
 Output is compatible with Visual Studio IDE. 

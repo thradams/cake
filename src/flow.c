@@ -4670,57 +4670,53 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
-    try
+
+    const int throw_join_state_old = ctx->throw_join_state;
+    struct secondary_block* _Opt catch_secondary_block_old = ctx->catch_secondary_block_opt;
+
+    ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
+
+    ctx->throw_join_state = arena_add_empty_state(ctx, "try");
+
+    const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
+
+
+    flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
+    arena_set_state_from_current(ctx, original_state_number); //state of end of secondary block
+
+    if (p_try_statement->catch_secondary_block_opt)
     {
-        const int throw_join_state_old = ctx->throw_join_state;
-        struct secondary_block* _Opt catch_secondary_block_old = ctx->catch_secondary_block_opt;
-
-        ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
-
-        ctx->throw_join_state = arena_add_empty_state(ctx, "try");
-
-        const int original_state_number = arena_add_copy_of_current_state(ctx, "original");
-
-
-        flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-        arena_set_state_from_current(ctx, original_state_number); //state of end of secondary block
-
-        if (p_try_statement->catch_secondary_block_opt)
-        {
-            //current all possible states of throw
-            arena_restore_current_state_from(ctx, ctx->throw_join_state);
-            flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
-            //current has the state at the end of catch block
-        }
-
-        bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
-        bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
-
-        if (try_reached_the_end && catch_reached_the_end)
-        {
-            //we could merge directly at current
-            arena_merge_current_state_with_state_number(ctx, original_state_number);
-            arena_restore_current_state_from(ctx, original_state_number);
-        }
-        else if (try_reached_the_end)
-        {
-            arena_restore_current_state_from(ctx, original_state_number);
-        }
-        else if (catch_reached_the_end)
-        {
-            //ctx_object_restore_current_state_from(ctx, orignial);       
-        }
-
-
-        arena_remove_state(ctx, original_state_number);
-        arena_remove_state(ctx, ctx->throw_join_state);
-
-        ctx->throw_join_state = throw_join_state_old; //restore
-        ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
+        //current all possible states of throw
+        arena_restore_current_state_from(ctx, ctx->throw_join_state);
+        flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
+        //current has the state at the end of catch block
     }
-    catch
+
+    bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
+    bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
+
+    if (try_reached_the_end && catch_reached_the_end)
     {
+        //we could merge directly at current
+        arena_merge_current_state_with_state_number(ctx, original_state_number);
+        arena_restore_current_state_from(ctx, original_state_number);
     }
+    else if (try_reached_the_end)
+    {
+        arena_restore_current_state_from(ctx, original_state_number);
+    }
+    else if (catch_reached_the_end)
+    {
+        //ctx_object_restore_current_state_from(ctx, orignial);       
+    }
+
+
+    arena_remove_state(ctx, original_state_number);
+    arena_remove_state(ctx, ctx->throw_join_state);
+
+    ctx->throw_join_state = throw_join_state_old; //restore
+    ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
+
 }
 
 static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
@@ -6317,40 +6313,36 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     struct true_false_set true_false_set = { 0 };
 
-    try
+
+    if (p_iteration_statement->expression1)
     {
-        if (p_iteration_statement->expression1)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
-        }
-
-        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-        flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-
-        bool was_last_statement_inside_true_branch_return =
-            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-
-
-        if (was_last_statement_inside_true_branch_return)
-        {
-            //restore_state(ctx, 0);
-            //if (p_object_compared_with_not_null)
-            //{
-                //do {}  while (p);
-              //  p_object_compared_with_not_null->state = FLOW_OBJECT_STATE_NULL;
-            //}
-        }
-        else
-        {
-            //do { } while (p);
-            true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
-        }
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     }
-    catch
+
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
+    flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+    flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+
+    bool was_last_statement_inside_true_branch_return =
+        secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+
+
+    if (was_last_statement_inside_true_branch_return)
     {
+        //restore_state(ctx, 0);
+        //if (p_object_compared_with_not_null)
+        //{
+            //do {}  while (p);
+          //  p_object_compared_with_not_null->state = FLOW_OBJECT_STATE_NULL;
+        //}
     }
+    else
+    {
+        //do { } while (p);
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
+    }
+
 
     true_false_set_destroy(&true_false_set);
 }
@@ -6462,54 +6454,50 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     struct true_false_set d = { 0 };
 
-    try
+
+    if (p_iteration_statement->declaration &&
+        p_iteration_statement->declaration->init_declarator_list.head)
     {
-        if (p_iteration_statement->declaration &&
-            p_iteration_statement->declaration->init_declarator_list.head)
-        {
-            flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
-        }
+        flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
+    }
 
-        if (p_iteration_statement->expression0)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
-        }
+    if (p_iteration_statement->expression0)
+    {
+        flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
+    }
 
-        if (p_iteration_statement->expression1)
-        {
-            flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
-            flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
-        }
+    if (p_iteration_statement->expression1)
+    {
+        flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
+    }
 
-        //TODO we need to merge states inside loops
+    //TODO we need to merge states inside loops
 
-        //Disable warning because the state is temporary..missing a visit
-        diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
+    //Disable warning because the state is temporary..missing a visit
+    diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
 
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+
+    diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
+
+
+    if (p_iteration_statement->expression2)
+    {
+        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
+    }
+    const bool b_secondary_block_ends_with_jump =
+        secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+
+    /*we visit again*/
+    if (!b_secondary_block_ends_with_jump)
+    {
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
-
-
-        if (p_iteration_statement->expression2)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
-        }
-        const bool b_secondary_block_ends_with_jump =
-            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-
-        /*we visit again*/
-        if (!b_secondary_block_ends_with_jump)
-        {
-            flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-            flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-            flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-        }
-
+        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+        flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
     }
-    catch
-    {
-    }
+
+
     true_false_set_destroy(&d);
 }
 

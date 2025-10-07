@@ -114,7 +114,7 @@ struct parser_ctx
     /*
     * Points to the selection_statement we're in. Or null.
     */
-    const struct selection_statement* _Opt p_current_selection_statement;
+    struct selection_statement* _Opt p_current_selection_statement;
 
 
     FILE* _Owner _Opt sarif_file;
@@ -123,14 +123,20 @@ struct parser_ctx
     _View struct token_list input_list;
     struct token* _Opt current;
     struct token* _Opt previous;
-    /*
-       Expression inside sizeof etc.. are not evaluated
-    */
-    //bool evaluation_is_disabled;
 
     bool inside_generic_association;
 
     int label_id; /*generates unique ids for labels*/
+    
+    /*
+       complete structs have unique ids
+    */
+    int unique_tag_id;
+
+    /*
+       Generate tag names for anonymous structs
+    */
+    int anonymous_struct_count;
 
     struct report* p_report;
 
@@ -649,6 +655,8 @@ struct struct_or_union_specifier
     *Token that has a strut tag
     */
     struct token* _Opt tagtoken;
+
+    int unique_id;
 
     char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/

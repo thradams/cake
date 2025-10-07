@@ -598,7 +598,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
-            p_expression_node->object = object_make_unsigned_char(c);//, ctx->evaluation_is_disabled);
+            p_expression_node->object = object_make_unsigned_char((unsigned char) c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -890,13 +890,13 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             static_assert(NUMBER_OF_TARGETS == 5, "does your target follow the C rules? see why MSVC is different");
 
             /*fixing the type that fits the size*/
-            if (value <= target_get_signed_int_max(target)&& suffix[0] != 'L')
+            if (value <= (unsigned long long) target_get_signed_int_max(target)&& suffix[0] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_int((int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
-            else if (value <= target_get_signed_int_max(target) && suffix[1] != 'L')
+            else if (value <= (unsigned long long) target_get_signed_int_max(target) && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long((int)value, target);
@@ -1177,7 +1177,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             {
                 //"part1" "part2" TODO check different types
 
-                const unsigned char* it = ctx->current->lexeme + 1;
+                const unsigned char* it = (unsigned char*) ctx->current->lexeme + 1;
                 unsigned int value = 0;
                 while (it && *it != '"')
                 {
@@ -6366,7 +6366,7 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
     return p_expression;
 }
 
-bool expression_get_variables(const struct expression* expr, int n, struct object* variables[/*n*/])
+bool expression_get_variables(struct expression* expr, int n, struct object* variables[/*n*/])
 {
     int count = 0;
     switch (expr->expression_type)

@@ -696,6 +696,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         else
         {
             assert(false);
+            throw;
         }
     }
     catch

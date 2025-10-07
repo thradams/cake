@@ -149,11 +149,11 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
             {
                 cv = object_make_signed_int((int)value);
             }
-            else if (value <= target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
+            else if (value <= (unsigned long long) target_get_signed_long_max(target) && suffix[1] != 'L' /*!= LL*/)
             {
                 cv = object_make_signed_long((long)value, target);
             }
-            else if (value <= target_get_signed_long_long_max(target))
+            else if (value <= (unsigned long long) target_get_signed_long_long_max(target))
             {
                 cv = object_make_signed_long_long((long long)value);
             }

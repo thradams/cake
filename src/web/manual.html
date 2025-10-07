@@ -45,7 +45,7 @@
 <a href="#toc_4">OPTIONS</a>
 </li>
 <li>
-<a href="#toc_5">-target=x86<em>x64</em>gcc, -target=x64<em>msvc, -target=x64</em>msvc</a>
+<a href="#toc_5">-target</a>
 </li>
 <li>
 <a href="#toc_6">-fanalyzer</a>
@@ -483,10 +483,11 @@ Sarif Visual Studio plugin <a href="https://marketplace.visualstudio.com/items?i
 
 <p>`-Wstyle  -msvc-output  -no-output -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; $(ItemPath)´</p>
 
-<h3 id="toc_5">-target=x86<em>x64</em>gcc, -target=x64<em>msvc, -target=x64</em>msvc</h3>
+<h3 id="toc_5">-target</h3>
 
-<p>Defines how the source code is interpreted (sizeof long, wchar_t etc) _and specifies which 
-compiler and configuration are required to compile the Cake output.</p>
+<p>Defines how the source code is interpreted (integers sizes, align etc) and specifies the
+C89 output that is compatible with the target compiler.
+Options: x86_x64_gcc, x64_msvc, x64_msvc, catalina, ccu8</p>
 
 <h4>-msvc-output</h4>
 

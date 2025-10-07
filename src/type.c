@@ -2865,8 +2865,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
-        align = -1;
-        //seterror(error, "sizeof function");
+        align = SIZE_MAX-1;        
     }
     else if (category == TYPE_CATEGORY_ITSELF)
     {
@@ -2962,18 +2961,18 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
                 }
                 else
                 {
-                    align = -2;
+                    align = SIZE_MAX - 2;
                 }
             }
             else
             {
-                align = -2;
+                align = SIZE_MAX - 2;
                 assert(false);
             }
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            align = -3;
+            align = SIZE_MAX - 3;
             //seterror(error, "type information is missing");
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)

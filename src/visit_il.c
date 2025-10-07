@@ -17,11 +17,21 @@
 #define SIZE_T_TYPE_STR "unsigned int"
 #endif
 
-/*
-  This prefix is used for generated unique variables and labels
-*/
-#define CAKE_PREFIX_FOR_CODE_GENERATION "__c" 
 
+/*
+*    Prefix used to create local variables
+*/
+#define CAKE_LOCAL_PREFIX  "__v" 
+
+/*
+*  Prefix used to create file scope declarators
+*/
+#define CAKE_FILE_SCOPE_PREFIX "__c" 
+
+/*
+  Prefix used to create labels
+*/
+#define CAKE_PREFIX_LABEL "__L"
 
 static void print_initializer(struct d_visit_ctx* ctx,
     struct osstream* oss,
@@ -267,7 +277,7 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
     }
 }
 
-static struct member_declarator* _Opt find_member_declarator_by_index2(struct member_declaration_list* list,
+static struct member_declarator* _Opt find_member_declarator_name_by_index(struct member_declaration_list* list,
     int member_index,
     char name[100],
     int* p_count)
@@ -311,7 +321,7 @@ static struct member_declarator* _Opt find_member_declarator_by_index2(struct me
                 if (p_complete)
                 {
                     char mname[100] = { 0 };
-                    p_member_declarator = find_member_declarator_by_index2(&p_complete->member_declaration_list, member_index, mname, p_count);
+                    p_member_declarator = find_member_declarator_name_by_index(&p_complete->member_declaration_list, member_index, mname, p_count);
                     if (p_member_declarator)
                     {
                         snprintf(name, 100, "__m%d.%s", no_name_index++, mname);
@@ -340,7 +350,7 @@ static int find_member_name(const struct type* p_type, int index, char name[100]
     {
         int count = 0;
         struct member_declarator* _Opt p =
-            find_member_declarator_by_index2(&p_complete->member_declaration_list, index, name, &count);
+            find_member_declarator_name_by_index(&p_complete->member_declaration_list, index, name, &count);
         if (p)
         {
             return 0;//p->declarator->name_opt->lexeme;
@@ -474,7 +484,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 }
                 else
                 {
-                    object_print_value(oss, &p_expression->object, ctx->options.target);
+                    ss_fprintf(oss, "0");
+                    //object_print_value(oss, &p_expression->object, ctx->options.target);
                 }
                 return;
             }
@@ -904,17 +915,17 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
         {
-            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%zu_f", l->data.number);
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_FILE_SCOPE_PREFIX "%zu_f", l->data.number);
         }
         else
         {
-            unsigned int current_cake_declarator_number = ctx->cake_declarator_number++;
+            unsigned int current_cake_declarator_number = ctx->cake_file_scope_declarator_number++;
             struct hash_item_set i = { 0 };
             i.number = current_cake_declarator_number;
             hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
             hash_item_set_destroy(&i);
 
-            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_f", current_cake_declarator_number);
+            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_FILE_SCOPE_PREFIX "%d_f", current_cake_declarator_number);
 
             struct osstream lambda_sig = { 0 };
             d_print_type(ctx, &lambda_sig, &p_expression->type, generated_function_literal_name);
@@ -932,7 +943,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
     {
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d_compound_lit", ctx->cake_declarator_number++);
+        snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
         if (ctx->is_local)
         {
@@ -1287,7 +1298,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
     {
         il_print_defer_list(ctx, oss, &p_jump_statement->defer_list);
         print_identation(ctx, oss);
-        ss_fprintf(oss, "goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /* throw */\n", p_jump_statement->label_id);
+        ss_fprintf(oss, "goto " CAKE_PREFIX_LABEL "%d; /* throw */\n", p_jump_statement->label_id);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
@@ -1332,7 +1343,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
             // }
 
             char name[100] = { 0 };
-            snprintf(name, sizeof name, CAKE_PREFIX_FOR_CODE_GENERATION "%d", ctx->cake_declarator_number++);
+            snprintf(name, sizeof name, CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
             {
                 struct osstream local = { 0 };
@@ -1376,7 +1387,7 @@ static void d_visit_jump_statement(struct d_visit_ctx* ctx, struct osstream* oss
         {
             if (ctx->break_reference.p_selection_statement)
             {
-                ss_fprintf(oss, "goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /* break */\n\n", ctx->break_reference.p_selection_statement->label_id);
+                ss_fprintf(oss, "goto " CAKE_PREFIX_LABEL "%d; /* break */\n\n", ctx->break_reference.p_selection_statement->label_id);
             }
             else
             {
@@ -1584,10 +1595,9 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
 
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_PREFIX_FOR_CODE_GENERATION "%d", ctx->cake_declarator_number++);
+        snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
         print_identation(ctx, &ss);
-        ss_fprintf(&ss, "register ");
         d_print_type(ctx, &ss, &p_selection_statement->condition->expression->type, name);
 
         ss_fprintf(&ss, " = ");
@@ -1612,7 +1622,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                 {
                     char str[50] = { 0 };
                     object_to_str(&p_label->constant_expression->object, 50, str);
-                    ss_fprintf(&ss, "if (%s == %s) goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /*case %s*/\n", name, str, p_label->label_id, str);
+                    ss_fprintf(&ss, "if (%s == %s) goto " CAKE_PREFIX_LABEL "%d; /*case %s*/\n", name, str, p_label->label_id, str);
 
                 }
                 else
@@ -1621,7 +1631,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
                     object_to_str(&p_label->constant_expression->object, 50, str_begin);
                     char str_end[50] = { 0 };
                     object_to_str(&p_label->constant_expression_end->object, 50, str_end);
-                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto " CAKE_PREFIX_FOR_CODE_GENERATION "L%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
+                    ss_fprintf(&ss, "if (%s >= %s && %s <= %s) goto " CAKE_PREFIX_LABEL "%d; /*case %s ... %s*/\n", name, str_begin, name, str_end, p_label->label_id, str_begin, str_end);
                 }
             }
 
@@ -1632,11 +1642,11 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
         if (p_label_default)
         {
-            ss_fprintf(&ss, "goto "CAKE_PREFIX_FOR_CODE_GENERATION"L%d;/*default*/\n", p_label_default->label_id);
+            ss_fprintf(&ss, "goto "CAKE_PREFIX_LABEL"%d;/*default*/\n", p_label_default->label_id);
         }
         else
         {
-            ss_fprintf(&ss, "goto "CAKE_PREFIX_FOR_CODE_GENERATION"L%d;\n", p_selection_statement->label_id);
+            ss_fprintf(&ss, "goto "CAKE_PREFIX_LABEL"%d;\n", p_selection_statement->label_id);
         }
 
         ss_fprintf(&ss, "\n");
@@ -1644,7 +1654,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
         d_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
 
         print_identation(ctx, &ss);
-        ss_fprintf(&ss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d:;\n", ctx->break_reference.p_selection_statement->label_id);
+        ss_fprintf(&ss, CAKE_PREFIX_LABEL "%d:;\n", ctx->break_reference.p_selection_statement->label_id);
 
         ctx->indentation--;
         print_identation(ctx, &ss);
@@ -1780,7 +1790,7 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "else " CAKE_PREFIX_FOR_CODE_GENERATION "L%d: /*catch*/ \n", p_try_statement->catch_label_id);
+    ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -1838,7 +1848,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     if (p_label->p_first_token->type == TK_KEYWORD_CASE)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d:", p_label->label_id);
+        ss_fprintf(oss, CAKE_PREFIX_LABEL "%d:", p_label->label_id);
 
         char str[50] = { 0 };
         object_to_str(&p_label->constant_expression->object, 50, str);
@@ -1863,7 +1873,7 @@ static void d_visit_label(struct d_visit_ctx* ctx, struct osstream* oss, struct 
     else if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
     {
         print_identation(ctx, oss);
-        ss_fprintf(oss, CAKE_PREFIX_FOR_CODE_GENERATION "L%d: /*default*/ \n", p_label->label_id);
+        ss_fprintf(oss, CAKE_PREFIX_LABEL "%d: /*default*/ \n", p_label->label_id);
     }
 
 }
@@ -1965,11 +1975,15 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition)
 {
+
     if (function_definition->function_body == NULL)
     {
         assert(false);
         return;
     }
+
+    ctx->cake_local_declarator_number = 0; //reset
+
     int indentation = ctx->indentation;
     ctx->indentation = 0;
     const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
@@ -1999,30 +2013,31 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
 
                     if (p_complete)
                     {
-                        char name[100] = { 0 };
-                        snprintf(name, sizeof name, "%p", (void*)p_complete);
+                        char unique_id[100] = { 0 };
+                        snprintf(unique_id, sizeof unique_id, "%d", p_complete->unique_id);
 
-                        struct map_entry* _Opt p = hashmap_find(&ctx->structs_map, name);
+                        struct map_entry* _Opt p = hashmap_find(&ctx->structs_map, unique_id);
                         if (p == NULL)
                         {
-                            //vamos ver se ja existe alguma com o mesmo tag?
-                            //se existir vamos mudar o tagname desta nova adicinando um numero.
+                            /*
+                               We already have a struct with the same tag, this happens because
+                               function scope declarations are moved to file scope.
+                            */
 
                             struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
                             if (p_name != NULL)
                             {
-
-                                //ja existe uma com este nome
+                                /*
+                                *   We already have a file scope tag with the same name
+                                */
                                 char new_name[100] = { 0 };
-                                snprintf(new_name, sizeof name, "%s%d", p_complete->tag_name, ctx->cake_tag_count++);
+                                snprintf(new_name, sizeof unique_id, CAKE_FILE_SCOPE_PREFIX "%s%d", p_complete->tag_name, p_complete->unique_id);
                                 snprintf(p_complete->tag_name, sizeof p_complete->tag_name, "%s", new_name);
 
                                 struct hash_item_set i = { 0 };
                                 i.number = 1;
                                 hashmap_set(&ctx->tag_names, new_name, &i);
                                 hash_item_set_destroy(&i);
-
-                                //break;
                             }
                             else
                             {
@@ -2041,7 +2056,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                             {
                                 struct hash_item_set i = { 0 };
                                 i.p_struct_entry = p_struct_entry;
-                                hashmap_set(&ctx->structs_map, name, &i);
+                                hashmap_set(&ctx->structs_map, unique_id, &i);
                                 hash_item_set_destroy(&i);
                             }
 
@@ -2070,7 +2085,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                     throw;
 
                                                 char name2[100] = { 0 };
-                                                snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+                                                snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                 register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -2091,7 +2106,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                         p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                                     char name2[100] = { 0 };
-                                                    snprintf(name2, sizeof name2, "%p", (void* _Opt)p_complete_member);
+                                                    snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                     register_struct_types_and_functions(ctx, &t);
                                                     struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -2133,7 +2148,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 p_complete_member = get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
 
                                             char name2[100] = { 0 };
-                                            snprintf(name2, sizeof name2, "%p", (void* _Opt)p_complete_member);
+                                            snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                             register_struct_types_and_functions(ctx, &t);
                                             struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -2158,7 +2173,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 }
 
                                                 char name2[100] = { 0 };
-                                                snprintf(name2, sizeof name2, "%p", (void*)p_complete_member);
+                                                snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                 register_struct_types_and_functions(ctx, &t);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
@@ -2236,10 +2251,24 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             if (p_type->struct_or_union_specifier)
             {
-                if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
-                    ss_fprintf(&local, "union %s", p_type->struct_or_union_specifier->tag_name);
+                struct struct_or_union_specifier* _Opt p_complete =
+                    get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
+                if (p_complete)
+                {
+                    if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
+                        ss_fprintf(&local, "union %s", p_complete->tag_name);
+                    else
+                        ss_fprintf(&local, "struct %s", p_complete->tag_name);
+                }
                 else
-                    ss_fprintf(&local, "struct %s", p_type->struct_or_union_specifier->tag_name);
+                {
+                    if (struct_or_union_specifier_is_union(p_type->struct_or_union_specifier))
+                        ss_fprintf(&local, "union %s", p_type->struct_or_union_specifier->tag_name);
+                    else
+                        ss_fprintf(&local, "struct %s", p_type->struct_or_union_specifier->tag_name);
+                }
+
+
             }
             else if (p_type->enum_specifier)
             {
@@ -2869,7 +2898,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                             ss_fprintf(oss, ";\n");
                         }
                         else
-                        {                            
+                        {
                             object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, true, true);
                         }
                     }
@@ -2913,165 +2942,161 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
     enum function_specifier_flags function_specifier_flags,
     enum storage_class_specifier_flags storage_class_specifier_flags)
 {
-    try
+
+    const bool is_function = type_is_function(&p_init_declarator->p_declarator->type);
+    const bool is_inline = (function_specifier_flags & FUNCTION_SPECIFIER_INLINE);
+
+    const bool is_block_scope = (storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE);
+    const bool is_typedef = (storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF);
+    const bool is_extern = (storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN);
+
+    const bool is_function_body = p_init_declarator->p_declarator->function_body != NULL;
+
+    if (is_typedef)
+        return;
+    const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+    const bool is_auto = (storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO);
+
+    /*
+     int i;               | !is_extern !is_block_scope !is_is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
+     {int i;           }  | !is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
+     extern void f() {}   |  is_extern !is_block_scope !is_inline !is_static  is_function  is_function_body   |  action = ACTION_DECLARE;
+     void f() {}          | !is_extern !is_block_scope !is_inline !is_static  is_function  is_function_body   |  action = ACTION_DECLARE;
+     static int i;        | !is_extern !is_block_scope !is_inline  is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     extern int i;        |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     void f();            |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     extern void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     inline void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     static void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     inline void f() {}   |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     static void f() {}   |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {extern int i;    }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {void f();        }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {extern void f(); }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {static int i;    }  |                                                                                   |  action = ACTION_ON_DEMAND_;/rename
+     {inline void f() {}} |  |                                                                                |  action = ACTION_ON_DEMAND_;/rename
+     {static void f() {}} |                                                                                   |  action = ACTION_ON_DEMAND_;/rename
+     {inline void f();  } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {static void f();  } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
+     {void f() {}       } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;/rename
+     {extern void f() {}} |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  error
+    */
+
+
+    if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
     {
-        const bool is_function = type_is_function(&p_init_declarator->p_declarator->type);
-        const bool is_inline = (function_specifier_flags & FUNCTION_SPECIFIER_INLINE);
+        //int i;
 
-        const bool is_block_scope = (storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE);
-        const bool is_typedef = (storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF);
-        const bool is_extern = (storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN);
+        struct hash_item_set i = { 0 };
+        i.number = 1;
+        hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
 
-        const bool is_function_body = p_init_declarator->p_declarator->function_body != NULL;
+        struct osstream ss = { 0 };
+        d_print_type(ctx, &ss,
+           &p_init_declarator->p_declarator->type,
+           p_init_declarator->p_declarator->name_opt->lexeme
+        );
 
-        if (is_typedef)
-            return;
-        const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
-        const bool is_auto = (storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO);
+        ss_fprintf(oss0, "%s", ss.c_str);
 
-        /*
-         int i;               | !is_extern !is_block_scope !is_is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
-         {int i;           }  | !is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_DECLARE;
-         extern void f() {}   |  is_extern !is_block_scope !is_inline !is_static  is_function  is_function_body   |  action = ACTION_DECLARE;
-         void f() {}          | !is_extern !is_block_scope !is_inline !is_static  is_function  is_function_body   |  action = ACTION_DECLARE;
-         static int i;        | !is_extern !is_block_scope !is_inline  is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         extern int i;        |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         void f();            |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         extern void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         inline void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         static void f();     |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         inline void f() {}   |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         static void f() {}   |  is_extern !is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {extern int i;    }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {void f();        }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {extern void f(); }  |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {static int i;    }  |                                                                                   |  action = ACTION_ON_DEMAND_;/rename
-         {inline void f() {}} |  |                                                                                |  action = ACTION_ON_DEMAND_;/rename
-         {static void f() {}} |                                                                                   |  action = ACTION_ON_DEMAND_;/rename
-         {inline void f();  } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {static void f();  } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;
-         {void f() {}       } |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  action = ACTION_ON_DEMAND_;/rename
-         {extern void f() {}} |  is_extern  is_block_scope !is_inline !is_static !is_function !is_function_body   |  error
-        */
-
-
-        if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
+        if (p_init_declarator->initializer)
         {
-            //int i;
-
-            struct hash_item_set i = { 0 };
-            i.number = 1;
-            hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
-
-            struct osstream ss = { 0 };
-            d_print_type(ctx, &ss,
-               &p_init_declarator->p_declarator->type,
-               p_init_declarator->p_declarator->name_opt->lexeme
-            );
-
-            ss_fprintf(oss0, "%s", ss.c_str);
-
-            if (p_init_declarator->initializer)
-            {
-                print_initializer(ctx, oss0, p_init_declarator, true);
-            }
-            else
-                ss_fprintf(oss0, ";\n");
-
-            ss_close(&ss);
-            return;
-        }
-        else if (!is_extern && is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
-        {
-            //{ int i; }
-            struct osstream ss = { 0 };
-            d_print_type(ctx, &ss,
-              &p_init_declarator->p_declarator->type,
-              p_init_declarator->p_declarator->name_opt->lexeme);
-
-            print_identation(ctx, &ctx->block_scope_declarators);
-
-            ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
-            ss_close(&ss);
-
-            if (p_init_declarator->initializer)
-            {
-                //print_identation(ctx, &ctx->block_scope_declarators);
-
-                print_initializer(ctx, oss0, p_init_declarator, false);
-            }
-
-            return;
-        }
-        else if (!is_block_scope && !is_inline && !is_static && is_function && is_function_body)
-        {
-            // extern void f() {} 
-            //        void f() {} 
-            //action = ACTION_DECLARE;
-            struct osstream ss = { 0 };
-            d_print_type(ctx, &ss,
-               &p_init_declarator->p_declarator->type,
-               p_init_declarator->p_declarator->name_opt->lexeme);
-
-            struct hash_item_set i = { 0 };
-            i.number = 1;
-            hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
-
-            ss_fprintf(&ss, "\n");
-            d_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
-            ss_fprintf(&ss, "\n");
-
-            ss_fprintf(oss0, "%s\n", ss.c_str);
-            ss_close(&ss);
-            return;
+            print_initializer(ctx, oss0, p_init_declarator, true);
         }
         else
-        {
-            bool rename_declarator = false;
-            if (!is_extern && is_block_scope && !is_inline && is_static && !is_function)
-            {
-                //{ static int i; }
-                rename_declarator = true;
-            }
-            else if (!is_inline && !is_static && !is_auto && is_function && !is_function_body)
-            {
-                //void f();
-            }
-            else if (!is_extern && is_block_scope && is_function)
-            {
-                //{ inline void f();  }
-                //{ auto   void f();  }
-                //{ static void f();  }
-                //{ inline void f() {} }
-                //{ auto   void f() {} }
-                //{ static void f() {} }
+            ss_fprintf(oss0, ";\n");
 
-                rename_declarator = true;
-            }
-
-
-            if (rename_declarator)
-            {
-                if (!p_init_declarator->p_declarator->declarator_renamed)
-                {
-                    p_init_declarator->p_declarator->declarator_renamed = true;
-                    char name[100] = { 0 };
-                    snprintf(name, sizeof(name),
-                        CAKE_PREFIX_FOR_CODE_GENERATION "%d_%s",
-                        ctx->cake_declarator_number++,
-                        p_init_declarator->p_declarator->name_opt->lexeme
-                    );
-
-                    free(p_init_declarator->p_declarator->name_opt->lexeme);
-                    p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
-                }
-            }
-            return;
-        }
+        ss_close(&ss);
+        return;
     }
-    catch
+    else if (!is_extern && is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
     {
+        //{ int i; }
+        struct osstream ss = { 0 };
+        d_print_type(ctx, &ss,
+          &p_init_declarator->p_declarator->type,
+          p_init_declarator->p_declarator->name_opt->lexeme);
+
+        print_identation(ctx, &ctx->block_scope_declarators);
+
+        ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
+        ss_close(&ss);
+
+        if (p_init_declarator->initializer)
+        {
+            //print_identation(ctx, &ctx->block_scope_declarators);
+
+            print_initializer(ctx, oss0, p_init_declarator, false);
+        }
+
+        return;
     }
+    else if (!is_block_scope && !is_inline && !is_static && is_function && is_function_body)
+    {
+        // extern void f() {} 
+        //        void f() {} 
+        //action = ACTION_DECLARE;
+        struct osstream ss = { 0 };
+        d_print_type(ctx, &ss,
+           &p_init_declarator->p_declarator->type,
+           p_init_declarator->p_declarator->name_opt->lexeme);
+
+        struct hash_item_set i = { 0 };
+        i.number = 1;
+        hashmap_set(&ctx->file_scope_declarator_map, p_init_declarator->p_declarator->name_opt->lexeme, &i);
+
+        ss_fprintf(&ss, "\n");
+        d_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
+        ss_fprintf(&ss, "\n");
+
+        ss_fprintf(oss0, "%s\n", ss.c_str);
+        ss_close(&ss);
+        return;
+    }
+    else
+    {
+        bool rename_declarator = false;
+        if (!is_extern && is_block_scope && !is_inline && is_static && !is_function)
+        {
+            //{ static int i; }
+            rename_declarator = true;
+        }
+        else if (!is_inline && !is_static && !is_auto && is_function && !is_function_body)
+        {
+            //void f();
+        }
+        else if (!is_extern && is_block_scope && is_function)
+        {
+            //{ inline void f();  }
+            //{ auto   void f();  }
+            //{ static void f();  }
+            //{ inline void f() {} }
+            //{ auto   void f() {} }
+            //{ static void f() {} }
+
+            rename_declarator = true;
+        }
+
+
+        if (rename_declarator)
+        {
+            if (!p_init_declarator->p_declarator->declarator_renamed)
+            {
+                p_init_declarator->p_declarator->declarator_renamed = true;
+                char name[100] = { 0 };
+                snprintf(name, sizeof(name),
+                    CAKE_FILE_SCOPE_PREFIX "%d_%s",
+                    ctx->cake_file_scope_declarator_number++,
+                    p_init_declarator->p_declarator->name_opt->lexeme
+                );
+
+                free(p_init_declarator->p_declarator->name_opt->lexeme);
+                p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
+            }
+        }
+        return;
+    }
+
 }
 
 static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,
