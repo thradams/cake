@@ -2255,11 +2255,12 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 case TARGET_X86_X64_GCC:
                 case TARGET_X86_MSVC:
                 case TARGET_X64_MSVC:
+                case TARGET_LCCU16:
                 case TARGET_CCU8:
                 case TARGET_CATALINA:
                     print_item(&local, &first, "unsigned char");
                 }
-                static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+                static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
             }
             else
             {
@@ -2489,7 +2490,8 @@ static void d_print_type(struct d_visit_ctx* ctx,
         case TARGET_X86_X64_GCC:
             ss_fprintf(ss, "__thread ");
             break;
-
+        
+        case TARGET_LCCU16:
         case TARGET_CCU8:
             ss_fprintf(ss, "/*thread*/");
             break;
@@ -2498,7 +2500,7 @@ static void d_print_type(struct d_visit_ctx* ctx,
             ss_fprintf(ss, "__thread ");
             break;
         }
-        static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+        static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     }
 
     ss_fprintf(ss, "%s", local.c_str);

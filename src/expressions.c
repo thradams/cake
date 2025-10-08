@@ -887,7 +887,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         else
         {
-            static_assert(NUMBER_OF_TARGETS == 5, "does your target follow the C rules? see why MSVC is different");
+            static_assert(NUMBER_OF_TARGETS == 6, "does your target follow the C rules? see why MSVC is different");
 
             /*fixing the type that fits the size*/
             if (value <= target_get_signed_int_max(target)&& suffix[0] != 'L')
