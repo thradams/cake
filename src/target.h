@@ -14,7 +14,7 @@
 
 */
 
-#define NUMBER_OF_TARGETS 5
+#define NUMBER_OF_TARGETS 6
 
 enum target
 {
@@ -22,6 +22,7 @@ enum target
     TARGET_X86_MSVC,
     TARGET_X64_MSVC,    
     TARGET_CCU8,
+    TARGET_LCCU16,
     TARGET_CATALINA,
 };
 
@@ -30,8 +31,9 @@ extern const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS;
 extern const char* TARGET_X86_MSVC_PREDEFINED_MACROS;
 extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
 extern const char* TARGET_CCU8_PREDEFINED_MACROS;
+extern const char* TARGET_LCCU16_PREDEFINED_MACROS;
 extern const char* TARGET_CATALINA_PREDEFINED_MACROS;
-static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
 
 
 #ifdef _WIN32 

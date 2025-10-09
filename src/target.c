@@ -7,12 +7,13 @@
 #include <inttypes.h>
 #include <assert.h>
 
-static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
 const char* target_name[NUMBER_OF_TARGETS] = {
      "x86_x64_gcc",
      "x86_msvc",
      "x64_msvc",
      "ccu8",
+     "lcc-u16",
      "catalina"
 };
 
@@ -59,6 +60,7 @@ const char* target_intN_suffix(enum target target, int size)
     case TARGET_X64_MSVC:
         if (size == 64) return "LL";
         break;
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         if (size == 32) return "L";
         if (size == 64) return "LL";
@@ -68,7 +70,7 @@ const char* target_intN_suffix(enum target target, int size)
         if (size == 64) return "LL";
         break;
     }
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     return "";
 }
 
@@ -86,6 +88,7 @@ const char* target_uintN_suffix(enum target target, int size)
         if (size == 32) return "U";
         if (size == 64) return "ULL";
         break;
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         if (size == 32) return "UL";
         if (size == 64) return "ULL";
@@ -94,7 +97,7 @@ const char* target_uintN_suffix(enum target target, int size)
         if (size == 64) return "ULL";
         break;
     }
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     return "";
 }
 
@@ -118,13 +121,14 @@ unsigned int target_get_wchar_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 0xffff;
-
+    
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         return 255;
     case TARGET_CATALINA:
         return 255;
     }
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     assert(false);
     return 0;
 }
@@ -139,14 +143,15 @@ long long target_get_signed_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 2147483647LL;
-
+    
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         return 2147483647LL;
 
     case TARGET_CATALINA:
         return 2147483647LL;
     }
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     assert(false);
     return 0;
 }
@@ -161,14 +166,15 @@ long long target_get_signed_long_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 9223372036854775807LL;
-
+    
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         return 2147483647LL;
 
     case TARGET_CATALINA:
         return 2147483647LL;
     }
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     assert(false);
     return 0;
 }
@@ -183,14 +189,15 @@ unsigned long long target_get_unsigned_long_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 18446744073709551615ULL;
-
+    
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         return 4294967295ULL;
 
     case TARGET_CATALINA:
         return 4294967295ULL;
     }
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     assert(false);
     return 0;
 }
@@ -204,7 +211,8 @@ unsigned long long target_get_unsigned_long_max(enum target target)
     case TARGET_X86_MSVC:
     case TARGET_X64_MSVC:
         return 0xffffffff;
-
+    
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         return 4294967295ULL;
 
@@ -212,7 +220,7 @@ unsigned long long target_get_unsigned_long_max(enum target target)
         return 0xffffffff;
 
     }
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     assert(false);
     return 0;
 }
@@ -228,13 +236,14 @@ long long target_get_signed_int_max(enum target target)
     case TARGET_X64_MSVC:
         return 2147483647LL;
 
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         return 32767ULL;
 
     case TARGET_CATALINA:
         return 2147483647LL;
     }
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     assert(false);
     return 0;
 }
@@ -250,6 +259,7 @@ unsigned long long target_get_unsigned_int_max(enum target target)
     case TARGET_X64_MSVC:
         return 4294967295ULL;
 
+    case TARGET_LCCU16:
     case TARGET_CCU8:
         return 65535ULL;
 
@@ -257,7 +267,7 @@ unsigned long long target_get_unsigned_int_max(enum target target)
         return 4294967295ULL;
     }
 
-    static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     assert(false);
     return 0;
 }
@@ -474,6 +484,64 @@ const char* TARGET_CCU8_PREDEFINED_MACROS =
 #endif
 
 CAKE_STANDARD_MACROS
+"#define __EI()\n"
+"#define __DI()\n"
+"#define __asm()\n"
+"#define __SEGBASE_N()\n"
+"#define __SEGBASE_F()\n"
+"#define __SEGSIZE()\n"
+"#define __near\n"
+"#define __far\n"
+"#define __huge\n"
+"#define __PACKED\n"
+"#define __UNPACKED\n"
+"#define __noreg\n"
+"#define __STDC__\n"
+"#define __CCU8__\n"
+"#define __VERSION__\n"
+"#define __ARCHITECTURE__\n"
+"#define __DEBUG__\n"
+"#define __MS__\n"
+"#define __ML__\n"
+"#define __ML__\n"
+"#define __UNSIGNEDCHAR__\n"
+"#define __NOFAR__\n"
+"#define __LCCU16__\n"
+"#define __LAPISOMF__\n"
+"\n";
+
+const char* TARGET_LCCU16_PREDEFINED_MACROS =
+
+#ifdef __EMSCRIPTEN__
+//include dir on emscripten
+"#pragma dir \"c:/\"\n"
+#endif
+
+CAKE_STANDARD_MACROS
+"#define __EI()\n"
+"#define __DI()\n"
+"#define __asm()\n"
+"#define __SEGBASE_N()\n"
+"#define __SEGBASE_F()\n"
+"#define __SEGSIZE()\n"
+"#define __near\n"
+"#define __far\n"
+"#define __huge\n"
+"#define __PACKED\n"
+"#define __UNPACKED\n"
+"#define __noreg\n"
+"#define __STDC__\n"
+"#define __CCU8__\n"
+"#define __VERSION__\n"
+"#define __ARCHITECTURE__\n"
+"#define __DEBUG__\n"
+"#define __MS__\n"
+"#define __ML__\n"
+"#define __ML__\n"
+"#define __UNSIGNEDCHAR__\n"
+"#define __NOFAR__\n"
+"#define __LCCU16__\n"
+"#define __LAPISOMF__\n"
 "\n";
 
 const char* TARGET_CATALINA_PREDEFINED_MACROS =
@@ -489,6 +557,6 @@ CAKE_STANDARD_MACROS
 "\n";
 
 
-static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
 
 

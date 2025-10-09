@@ -1289,7 +1289,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("__builtin_va_copy", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
 
-        static_assert(NUMBER_OF_TARGETS == 5, "does your target have builtins or extensions?");
+        static_assert(NUMBER_OF_TARGETS == 6, "does your target have builtins or extensions?");
 
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
         {

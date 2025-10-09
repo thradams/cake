@@ -604,9 +604,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     struct osstream local3 = { 0 };
                     struct osstream local4 = { 0 };
                     d_print_type(ctx, &local4, &p_function_defined->type, declarator_name, false);
-
-                    const bool function_definition_is_static =
-                        p_function_defined->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
                     
                     ss_fprintf(&local3, "static %s\n", local4.c_str);
 
@@ -2282,11 +2279,12 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 case TARGET_X86_X64_GCC:
                 case TARGET_X86_MSVC:
                 case TARGET_X64_MSVC:
+                case TARGET_LCCU16:
                 case TARGET_CCU8:
                 case TARGET_CATALINA:
                     print_item(&local, &first, "unsigned char");
                 }
-                static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+                static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
             }
             else
             {
@@ -2519,6 +2517,7 @@ static void d_print_type(struct d_visit_ctx* ctx,
             ss_fprintf(ss, "__thread ");
             break;
 
+        case TARGET_LCCU16:
         case TARGET_CCU8:
             ss_fprintf(ss, "/*thread*/");
             break;
@@ -2527,7 +2526,7 @@ static void d_print_type(struct d_visit_ctx* ctx,
             ss_fprintf(ss, "__thread ");
             break;
         }
-        static_assert(NUMBER_OF_TARGETS == 5, "add new target here");
+        static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
     }
 
     ss_fprintf(ss, "%s", local.c_str);
