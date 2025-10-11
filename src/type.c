@@ -4017,6 +4017,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             p->category = TYPE_CATEGORY_ARRAY;
 
+            
             p->num_of_elements =
                 array_declarator_get_size(pdirectdeclarator->array_declarator);
 

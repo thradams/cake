@@ -14,6 +14,7 @@ struct d_visit_ctx
 {
     struct options options;
     int indentation;
+    bool print_qualifiers;
 
     /*
        File scope counter to generate unique names

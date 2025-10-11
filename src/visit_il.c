@@ -604,7 +604,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     struct osstream local3 = { 0 };
                     struct osstream local4 = { 0 };
                     d_print_type(ctx, &local4, &p_function_defined->type, declarator_name, false);
-                    
+
                     ss_fprintf(&local3, "static %s\n", local4.c_str);
 
                     d_visit_function_body(ctx, &local3, p_function_defined);
@@ -2005,6 +2005,10 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                     struct struct_or_union_specifier* _Opt p_complete =
                         get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
 
+                    if (p_complete == NULL)
+                    {
+                        p_complete = p_type->struct_or_union_specifier;                        
+                    }
 
                     if (p_complete)
                     {
@@ -2228,6 +2232,18 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
     }
 }
 
+static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags)
+{
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CONST)
+        print_item(ss, first, "const");
+
+    //if (e_type_qualifier_flags & TYPE_QUALIFIER_RESTRICT)
+      //  print_item(ss, first, "restrict");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+        print_item(ss, first, "volatile");
+}
+
 static void d_print_type_core(struct d_visit_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type0,
@@ -2243,6 +2259,12 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
         {
             struct osstream local = { 0 };
             bool first = true;
+
+            if (ctx->print_qualifiers)
+                d_print_type_qualifier_flags(&local, &first, p_type->type_qualifier_flags);
+
+            if (!first)
+                ss_fprintf(&local, " ");
 
             if (p_type->struct_or_union_specifier)
             {
@@ -2344,7 +2366,8 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             bool b = true;
 
 
-            //print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
+            if (ctx->print_qualifiers)
+                d_print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
 
             if (p_type->num_of_elements > 0)
             {
@@ -2441,6 +2464,8 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             ss_fprintf(&local, "*");
             bool first = false;
+            if (ctx->print_qualifiers)
+                d_print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
 
             if (name_opt)
             {
@@ -2993,7 +3018,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         struct osstream ss = { 0 };
         d_print_type(ctx, &ss,
            &p_init_declarator->p_declarator->type,
-           p_init_declarator->p_declarator->name_opt->lexeme, 
+           p_init_declarator->p_declarator->name_opt->lexeme,
            true
         );
 
@@ -3139,113 +3164,119 @@ static void d_visit_declaration(struct d_visit_ctx* ctx, struct osstream* oss, s
     }
 }
 
-static void print_complete_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
+static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
-    try
+
+    struct struct_or_union_specifier* _Opt p_complete =
+        get_complete_struct_or_union_specifier2(p_struct_or_union_specifier);
+
+    if (p_complete == NULL)
     {
-        struct struct_or_union_specifier* _Opt p_complete =
-            get_complete_struct_or_union_specifier2(p_struct_or_union_specifier);
-
-        if (p_complete == NULL)
-            throw;
-
-        struct member_declaration* _Opt member_declaration =
-            p_complete->member_declaration_list.head;
-
-        if (struct_or_union_specifier_is_union(p_complete))
+        if (struct_or_union_specifier_is_union(p_struct_or_union_specifier))
         {
-            ss_fprintf(ss, "union %s", p_complete->tag_name);
+            ss_fprintf(ss, "union %s;\n\n", p_struct_or_union_specifier->tag_name);
         }
         else
         {
-            ss_fprintf(ss, "struct %s", p_complete->tag_name);
+            ss_fprintf(ss, "struct %s;\n\n", p_struct_or_union_specifier->tag_name);
         }
+        return;
+    }
 
-        if (p_complete->member_declaration_list.head)
+
+    struct member_declaration* _Opt member_declaration =
+        p_complete->member_declaration_list.head;
+
+    if (struct_or_union_specifier_is_union(p_complete))
+    {
+        ss_fprintf(ss, "union %s", p_complete->tag_name);
+    }
+    else
+    {
+        ss_fprintf(ss, "struct %s", p_complete->tag_name);
+    }
+
+    if (p_complete->member_declaration_list.head)
+    {
+        ss_fprintf(ss, " ");
+        ss_fprintf(ss, "{\n");
+    }
+
+    int no_name_index = 0;
+
+    while (member_declaration)
+    {
+        struct member_declarator* _Opt member_declarator = NULL;
+
+        if (member_declaration->member_declarator_list_opt)
         {
-            ss_fprintf(ss, " ");
-            ss_fprintf(ss, "{\n");
-        }
+            member_declarator = member_declaration->member_declarator_list_opt->head;
 
-        int no_name_index = 0;
-
-        while (member_declaration)
-        {
-            struct member_declarator* _Opt member_declarator = NULL;
-
-            if (member_declaration->member_declarator_list_opt)
+            while (member_declarator)
             {
-                member_declarator = member_declaration->member_declarator_list_opt->head;
-
-                while (member_declarator)
+                if (member_declarator->declarator &&
+                    member_declarator->declarator->name_opt)
                 {
-                    if (member_declarator->declarator &&
-                        member_declarator->declarator->name_opt)
-                    {
-                        ss_fprintf(ss, "    ");
-
-                        if (type_is_array(&member_declarator->declarator->type) &&
-                            member_declarator->declarator->type.num_of_elements == 0)
-                        {
-                            //Flexible array members - we print as [1] instead 
-                            // of [0] or []
-                            //sizeof is not used in generated code, so this will not cause 
-                            //problems
-                            member_declarator->declarator->type.num_of_elements = 1;
-
-                            d_print_type(ctx,
-                             ss,
-                             &member_declarator->declarator->type,
-                             member_declarator->declarator->name_opt->lexeme,
-                                false);
-
-                            member_declarator->declarator->type.num_of_elements = 0; //restore
-                        }
-                        else
-                        {
-                            d_print_type(ctx,
-                                ss,
-                                &member_declarator->declarator->type,
-                                member_declarator->declarator->name_opt->lexeme,
-                                false);
-                        }
-                        ss_fprintf(ss, ";\n");
-                    }
-                    member_declarator = member_declarator->next;
-                }
-            }
-            else if (member_declaration->specifier_qualifier_list != NULL)
-            {
-                if (member_declaration->specifier_qualifier_list->struct_or_union_specifier)
-                {
-                    struct type t = { 0 };
-                    t.category = TYPE_CATEGORY_ITSELF;
-                    t.struct_or_union_specifier = member_declaration->specifier_qualifier_list->struct_or_union_specifier;
-                    t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-
-                    char name[100] = { 0 };
-                    snprintf(name, sizeof name, "__m%d", no_name_index++);
                     ss_fprintf(ss, "    ");
-                    d_print_type(ctx, ss, &t, name, false);
+
+                    if (type_is_array(&member_declarator->declarator->type) &&
+                        member_declarator->declarator->type.num_of_elements == 0)
+                    {
+                        //Flexible array members - we print as [1] instead 
+                        // of [0] or []
+                        //sizeof is not used in generated code, so this will not cause 
+                        //problems
+                        member_declarator->declarator->type.num_of_elements = 1;
+
+                        d_print_type(ctx,
+                         ss,
+                         &member_declarator->declarator->type,
+                         member_declarator->declarator->name_opt->lexeme,
+                            false);
+
+                        member_declarator->declarator->type.num_of_elements = 0; //restore
+                    }
+                    else
+                    {
+                        d_print_type(ctx,
+                            ss,
+                            &member_declarator->declarator->type,
+                            member_declarator->declarator->name_opt->lexeme,
+                            false);
+                    }
                     ss_fprintf(ss, ";\n");
-                    type_destroy(&t);
                 }
+                member_declarator = member_declarator->next;
             }
-
-
-            member_declaration = member_declaration->next;
         }
-        if (p_complete->member_declaration_list.head)
-            ss_fprintf(ss, "};\n\n");
-        else
-            ss_fprintf(ss, ";\n");
+        else if (member_declaration->specifier_qualifier_list != NULL)
+        {
+            if (member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+            {
+                struct type t = { 0 };
+                t.category = TYPE_CATEGORY_ITSELF;
+                t.struct_or_union_specifier = member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                char name[100] = { 0 };
+                snprintf(name, sizeof name, "__m%d", no_name_index++);
+                ss_fprintf(ss, "    ");
+                d_print_type(ctx, ss, &t, name, false);
+                ss_fprintf(ss, ";\n");
+                type_destroy(&t);
+            }
+        }
+
+
+        member_declaration = member_declaration->next;
     }
-    catch
-    {
-    }
+    if (p_complete->member_declaration_list.head)
+        ss_fprintf(ss, "};\n\n");
+    else
+        ss_fprintf(ss, ";\n");
 }
 
-void print_complete_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_entry* p_struct_entry)
+void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_entry* p_struct_entry)
 {
     if (p_struct_entry->done)
         return;
@@ -3253,14 +3284,14 @@ void print_complete_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct
     for (int i = 0; i < p_struct_entry->dependencies.size; i++)
     {
         struct struct_entry* p_struct_entry_item = p_struct_entry->dependencies.data[i];
-        print_complete_structs(ctx, ss, p_struct_entry_item);
+        d_print_structs(ctx, ss, p_struct_entry_item);
     }
 
     if (!p_struct_entry->done)
     {
         p_struct_entry->done = true;
         struct osstream local = { 0 };
-        print_complete_struct(ctx, &local, p_struct_entry->p_struct_or_union_specifier);
+        d_print_struct(ctx, &local, p_struct_entry->p_struct_or_union_specifier);
         if (local.c_str)
             ss_fprintf(ss, local.c_str);
         ss_close(&local);
@@ -3270,6 +3301,8 @@ void print_complete_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct
 void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 {
     struct osstream declarations = { 0 };
+
+    ctx->print_qualifiers = false; //TODO not ready yet..
 
     ss_fprintf(oss, "/* Cake %s %s */\n", CAKE_VERSION, target_to_string(ctx->options.target));
 
@@ -3324,7 +3357,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         while (entry)
         {
             assert(entry->data.p_struct_entry != NULL);
-            print_complete_structs(ctx, oss, entry->data.p_struct_entry);
+            d_print_structs(ctx, oss, entry->data.p_struct_entry);
             entry = entry->next;
         }
     }
@@ -3358,7 +3391,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
             "  " SIZE_T_TYPE_STR " i; \n"
             "\n"
             "  csrc = (char *)src;\n"
-            "  cdest = (char *)dest;\n"            
+            "  cdest = (char *)dest;\n"
             "  for (i = 0; i < n; i++) cdest[i] = csrc[i]; \n"
             "}\n\n";
         ss_fprintf(oss, "%s", str);

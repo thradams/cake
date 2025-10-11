@@ -257,6 +257,7 @@ struct type
 
     size_t num_of_elements;
     bool has_static_array_size;
+    
 
     /*
       address_of is true when the type is created by address of operator.

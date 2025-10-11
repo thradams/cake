@@ -437,7 +437,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     }
 
     char buffer[200] = { 0 };
-    
+
     print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
 
 #pragma CAKE diagnostic push
@@ -483,7 +483,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
                 printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
         }
     }
-    
+
     print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
 
 
@@ -4107,6 +4107,9 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         if (p_struct_or_union_specifier == NULL)
             throw;
 
+        ctx->unique_tag_id++;
+        p_struct_or_union_specifier->unique_id = ctx->unique_tag_id;
+
         if (ctx->current->type == TK_KEYWORD_STRUCT ||
             ctx->current->type == TK_KEYWORD_UNION)
         {
@@ -4133,7 +4136,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         {
             p_struct_or_union_specifier->tagtoken = ctx->current;
             snprintf(p_struct_or_union_specifier->tag_name,
-                     sizeof p_struct_or_union_specifier->tag_name, 
+                     sizeof p_struct_or_union_specifier->tag_name,
                      "%s",
                      p_struct_or_union_specifier->tagtoken->lexeme);
 
@@ -4145,7 +4148,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
              appearance of the tag in a type specifier that declares the tag.
             */
 
-            
+
             struct map_entry* _Opt p_entry = hashmap_find(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tagtoken->lexeme);
             if (p_entry)
             {
@@ -4210,7 +4213,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         else
         {
             /*struct without a tag, in this case we make one*/
-            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, CAKE_GENERATED_TAG_PREFIX "%d", ctx->anonymous_struct_count++);            
+            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, CAKE_GENERATED_TAG_PREFIX "%d", ctx->anonymous_struct_count++);
             p_struct_or_union_specifier->has_anonymous_tag = true;
             p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
 
@@ -4241,8 +4244,6 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                    The first tag (will the one at symbol table) will point to the complete struct
                 */
                 first->complete_struct_or_union_specifier_indirection = p_struct_or_union_specifier;
-                ctx->unique_tag_id++;
-                p_struct_or_union_specifier->unique_id = ctx->unique_tag_id;
             }
 
             if (p_struct_or_union_specifier->tagtoken)
@@ -5995,6 +5996,15 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p)
 
         free(p);
     }
+}
+
+size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator)
+{
+    if (p_array_declarator->assignment_expression)
+    {
+        return !object_has_constant_value(&p_array_declarator->assignment_expression->object);
+    }
+    return false;
 }
 
 size_t array_declarator_get_size(const struct array_declarator* p_array_declarator)
@@ -10702,7 +10712,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror)
 {
     *berror = false;
-    
+
     struct declaration_list l = { 0 };
     struct scope file_scope = { 0 };
     try

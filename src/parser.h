@@ -131,7 +131,7 @@ struct parser_ctx
     /*
        complete structs have unique ids
     */
-    int unique_tag_id;
+    unsigned int unique_tag_id;
 
     /*
        Generate tag names for anonymous structs
@@ -656,7 +656,7 @@ struct struct_or_union_specifier
     */
     struct token* _Opt tagtoken;
 
-    int unique_id;
+    unsigned int unique_id;
 
     char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
@@ -822,6 +822,7 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p);
   Return a value > 0 if it has constant size
 */
 size_t  array_declarator_get_size(const struct array_declarator* p_array_declarator);
+size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator);
 
 struct function_declarator
 {

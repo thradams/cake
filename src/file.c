@@ -1,10 +1,4 @@
-
-static void f2()
+int f(int n)
 {
+    int a[2][n];
 }
-
-int main()
-{
-    f2();
-}
-
