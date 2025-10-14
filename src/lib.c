@@ -15180,6 +15180,7 @@ struct type
 
     size_t num_of_elements;
     bool has_static_array_size;
+    
 
     /*
       address_of is true when the type is created by address of operator.
@@ -16650,6 +16651,7 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p);
   Return a value > 0 if it has constant size
 */
 size_t  array_declarator_get_size(const struct array_declarator* p_array_declarator);
+size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator);
 
 struct function_declarator
 {
@@ -29013,7 +29015,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.10"
+#define CAKE_VERSION "0.12.11"
 
 
 
@@ -31407,6 +31409,16 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             ctx->p_current_function_opt = p_declarator;
 
 
+            if (inner->direct_declarator->function_declarator == NULL)
+            {
+                if (inner->first_token_opt)
+                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, inner->first_token_opt, NULL, "missing function declarator");
+                else 
+                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "missing function declarator");
+
+                throw;
+            }
+
             struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
 
@@ -33242,8 +33254,6 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
 
                         p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
 
-
-
                         struct hash_item_set item = { 0 };
                         item.p_struct_or_union_specifier = struct_or_union_specifier_add_ref(p_struct_or_union_specifier);
                         hashmap_set(&ctx->scopes.tail->tags,
@@ -35046,6 +35056,15 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p)
 
         free(p);
     }
+}
+
+size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator)
+{
+    if (p_array_declarator->assignment_expression)
+    {
+        return !object_has_constant_value(&p_array_declarator->assignment_expression->object);
+    }
+    return false;
 }
 
 size_t array_declarator_get_size(const struct array_declarator* p_array_declarator)
@@ -42710,9 +42729,29 @@ struct struct_entry_list
 
 struct struct_entry
 {
-    bool done;
+    /*
+       true if the struct definition was already printed
+    */
+    bool definition_was_printed;
+
+    /*
+       true if the struct declaration was already printed
+    */
+    bool declaration_was_printed;
+
     struct struct_or_union_specifier* p_struct_or_union_specifier;
-    struct struct_entry_list dependencies;
+
+    /*
+     Structs that must be defined beforehand because we need the full definition.
+    */
+    struct struct_entry_list hard_dependencies;
+
+    /*
+       Structs that are used but only require a declaration, not a full definition.
+    */
+
+    struct struct_entry_list soft_dependencies;
+
     struct struct_entry* _Opt next;
 };
 
@@ -42720,7 +42759,8 @@ void struct_entry_delete(struct struct_entry* _Opt _Owner p)
 {
     if (p)
     {
-        free(p->dependencies.data);
+        free(p->hard_dependencies.data);
+        free(p->soft_dependencies.data);
         free(p);
     }
 }
@@ -44626,7 +44666,9 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     ctx->indentation = indentation; //restore
 }
 
-static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const struct type* p_type0)
+static void register_struct_types_and_functions(struct d_visit_ctx* ctx,
+    const struct type* p_type0,
+    struct struct_entry* _Opt p_struct_entry0)
 {
     try
     {
@@ -44645,7 +44687,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
 
                     if (p_complete == NULL)
                     {
-                        p_complete = p_type->struct_or_union_specifier;                        
+                        p_complete = p_type->struct_or_union_specifier;
                     }
 
                     if (p_complete)
@@ -44656,11 +44698,6 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                         struct map_entry* _Opt p = hashmap_find(&ctx->structs_map, unique_id);
                         if (p == NULL)
                         {
-                            /*
-                               We already have a struct with the same tag, this happens because
-                               function scope declarations are moved to file scope.
-                            */
-
                             struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
                             if (p_name != NULL)
                             {
@@ -44697,6 +44734,11 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                 hash_item_set_destroy(&i);
                             }
 
+                            if (p_struct_entry0 && p_struct_entry0 != p_struct_entry)
+                            {
+                                struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p_struct_entry);
+                            }
+
                             struct member_declaration* _Opt member_declaration =
                                 p_complete->member_declaration_list.head;
 
@@ -44724,12 +44766,12 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
-                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type, NULL);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
                                                     assert(p2->data.p_struct_entry != NULL);
-                                                    struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                                    struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                                 }
                                             }
                                             if (type_is_array(&member_declarator->declarator->type))
@@ -44745,23 +44787,23 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                     char name2[100] = { 0 };
                                                     snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
-                                                    register_struct_types_and_functions(ctx, &t);
+                                                    register_struct_types_and_functions(ctx, &t, NULL);
                                                     struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                     if (p2 != NULL)
                                                     {
                                                         assert(p2->data.p_struct_entry != NULL);
-                                                        struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                                        struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                                     }
                                                 }
                                                 else
                                                 {
-                                                    register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                                    register_struct_types_and_functions(ctx, &member_declarator->declarator->type, p_struct_entry);
                                                 }
                                                 type_destroy(&t);
                                             }
                                             else
                                             {
-                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type);
+                                                register_struct_types_and_functions(ctx, &member_declarator->declarator->type, p_struct_entry);
                                             }
                                         }
                                         member_declarator = member_declarator->next;
@@ -44787,12 +44829,12 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                             char name2[100] = { 0 };
                                             snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
-                                            register_struct_types_and_functions(ctx, &t);
+                                            register_struct_types_and_functions(ctx, &t, p_struct_entry);
                                             struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                             if (p2 != NULL)
                                             {
                                                 assert(p2->data.p_struct_entry != NULL);
-                                                struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                                struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                             }
                                         }
                                         if (type_is_array(&t))
@@ -44812,23 +44854,23 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                                 char name2[100] = { 0 };
                                                 snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
-                                                register_struct_types_and_functions(ctx, &t);
+                                                register_struct_types_and_functions(ctx, &t, p_struct_entry);
                                                 struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
                                                     assert(p2->data.p_struct_entry != NULL);
-                                                    struct_entry_list_push_back(&p_struct_entry->dependencies, p2->data.p_struct_entry);
+                                                    struct_entry_list_push_back(&p_struct_entry->hard_dependencies, p2->data.p_struct_entry);
                                                 }
                                             }
                                             else
                                             {
-                                                register_struct_types_and_functions(ctx, &t);
+                                                register_struct_types_and_functions(ctx, &t, p_struct_entry);
                                             }
                                             type_destroy(&t2);
                                         }
                                         else
                                         {
-                                            register_struct_types_and_functions(ctx, &t);
+                                            register_struct_types_and_functions(ctx, &t, p_struct_entry);
                                         }
 
                                         type_destroy(&t);
@@ -44836,6 +44878,13 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                                 }
 
                                 member_declaration = member_declaration->next;
+                            }
+                        }
+                        else
+                        {
+                            if (p_struct_entry0 && p_struct_entry0 != p->data.p_struct_entry)
+                            {
+                                struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p->data.p_struct_entry);
                             }
                         }
                     }
@@ -44851,7 +44900,7 @@ static void register_struct_types_and_functions(struct d_visit_ctx* ctx, const s
                 struct param* _Opt pa = p_type->params.head;
                 while (pa)
                 {
-                    register_struct_types_and_functions(ctx, &pa->type);
+                    register_struct_types_and_functions(ctx, &pa->type, p_struct_entry0);
                     pa = pa->next;
                 }
             }
@@ -45145,9 +45194,9 @@ static void d_print_type(struct d_visit_ctx* ctx,
     bool print_storage_qualifiers)
 {
 
-    //Register structs
 
-    register_struct_types_and_functions(ctx, p_type);
+    register_struct_types_and_functions(ctx, p_type, NULL);
+
 
     struct osstream local = { 0 };
 
@@ -45916,18 +45965,46 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
 
 void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct_entry* p_struct_entry)
 {
-    if (p_struct_entry->done)
+    if (p_struct_entry->definition_was_printed)
         return;
-
-    for (int i = 0; i < p_struct_entry->dependencies.size; i++)
+    /*
+       We print the structs we depend on before
+    */
+    for (int i = 0; i < p_struct_entry->hard_dependencies.size; i++)
     {
-        struct struct_entry* p_struct_entry_item = p_struct_entry->dependencies.data[i];
+        struct struct_entry* p_struct_entry_item = p_struct_entry->hard_dependencies.data[i];
         d_print_structs(ctx, ss, p_struct_entry_item);
     }
 
-    if (!p_struct_entry->done)
+    bool some_declartions_printed = false;
+    /*
+       Then we print the struct we need only declaration in case the definition is not printed yet.
+    */
+    for (int i = 0; i < p_struct_entry->soft_dependencies.size; i++)
     {
-        p_struct_entry->done = true;
+        struct struct_entry* p_struct_entry_item = p_struct_entry->soft_dependencies.data[i];
+        if (!p_struct_entry_item->definition_was_printed &&
+            !p_struct_entry_item->declaration_was_printed)
+        {
+            some_declartions_printed = true;
+            p_struct_entry_item->declaration_was_printed = true;
+            if (struct_or_union_specifier_is_union(p_struct_entry_item->p_struct_or_union_specifier))
+            {
+                ss_fprintf(ss, "union %s;\n", p_struct_entry_item->p_struct_or_union_specifier->tag_name);
+            }
+            else
+            {
+                ss_fprintf(ss, "struct %s;\n", p_struct_entry_item->p_struct_or_union_specifier->tag_name);
+            }
+        }
+    }
+
+    if (some_declartions_printed)
+        ss_fprintf(ss, "\n");
+
+    if (!p_struct_entry->definition_was_printed)
+    {
+        p_struct_entry->definition_was_printed = true;
         struct osstream local = { 0 };
         d_print_struct(ctx, &local, p_struct_entry->p_struct_or_union_specifier);
         if (local.c_str)
@@ -58522,6 +58599,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             p->category = TYPE_CATEGORY_ARRAY;
 
+            
             p->num_of_elements =
                 array_declarator_get_size(pdirectdeclarator->array_declarator);
 
