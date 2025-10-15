@@ -1,9 +1,23 @@
-struct X {
-    int i;
+struct index {
+    int indx;
+    char name[10];
+    void* addr;
 };
 
-struct Y {
-    void (*PF) (struct X* s1);
-};
+void f1(void)
+{
+}
 
-void f(struct X* pX, struct Y* pY) {}
+void f2(void)
+{
+}
+
+
+void main(void)
+{
+struct index my_index[] = {
+  {1, "f1", f1},
+  {2, "f2", f2},
+  {0, "", 0 }
+};
+}
