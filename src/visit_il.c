@@ -11,11 +11,6 @@
 #include "visit_il.h"
 #include "expressions.h"
 
-#if SIZE_MAX > UINT_MAX
-#define SIZE_T_TYPE_STR "unsigned long long"
-#else
-#define SIZE_T_TYPE_STR "unsigned int"
-#endif
 
 
 /*
@@ -2326,17 +2321,8 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
-                switch (ctx->options.target)
-                {
-                case TARGET_X86_X64_GCC:
-                case TARGET_X86_MSVC:
-                case TARGET_X64_MSVC:
-                case TARGET_LCCU16:
-                case TARGET_CCU8:
-                case TARGET_CATALINA:
-                    print_item(&local, &first, "unsigned char");
-                }
-                static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+                bool first0 = true;
+                print_type_specifier_flags(&local, &first0, get_bool_c89_type_specifier(ctx->options.target));
             }
             else
             {
@@ -2772,7 +2758,8 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);//TODO size of?
+                int string_size = object->p_init_expression->type.num_of_elements;                
+                ss_fprintf(ss, "%s, %d", local.c_str, string_size);
 
                 ss_fprintf(ss, ");\n");
                 ss_close(&local);
@@ -3436,31 +3423,44 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     if (ctx->zero_mem_used)
     {
-        const char* str =
-            "static void _cake_zmem(void *dest, register " SIZE_T_TYPE_STR " len)\n"
-            "{\n"
-            "  unsigned char *ptr;\n"
-            "\n"
-            "  ptr = (unsigned char*)dest;\n"
-            "  while (len-- > 0) *ptr++ = 0;\n"
-            "}\n\n";
-        ss_fprintf(oss, "%s", str);
+        struct osstream local = { 0 };
+        bool first = true;
+        print_type_specifier_flags(&local, &first, get_size_t_specifier(ctx->options.target));
+
+        ss_fprintf(oss,
+              "static void _cake_zmem(void *dest, %s len)\n"
+              "{\n"
+              "  unsigned char *ptr;\n"
+              "\n"
+              "  ptr = (unsigned char*)dest;\n"
+              "  while (len-- > 0) *ptr++ = 0;\n"
+              "}\n\n",
+             local.c_str);
+
+        ss_close(&local);
     }
 
     if (ctx->memcpy_used)
     {
-        const char* str =
-            "static void _cake_memcpy(void * dest, const void * src, " SIZE_T_TYPE_STR " n)\n"
+        struct osstream local = { 0 };
+        bool first = true;
+        print_type_specifier_flags(&local, &first, get_size_t_specifier(ctx->options.target));
+
+        ss_fprintf(oss,
+            "static void _cake_memcpy(void * dest, const void * src, %s n)\n"
             "{\n"
             "  char *csrc;\n"
             "  char *cdest;\n"
-            "  " SIZE_T_TYPE_STR " i; \n"
+            "  %s i; \n"
             "\n"
             "  csrc = (char *)src;\n"
             "  cdest = (char *)dest;\n"
             "  for (i = 0; i < n; i++) cdest[i] = csrc[i]; \n"
-            "}\n\n";
-        ss_fprintf(oss, "%s", str);
+            "}\n\n",
+             local.c_str,
+            local.c_str);
+
+        ss_close(&local);
     }
 
 

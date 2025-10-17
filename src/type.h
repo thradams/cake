@@ -93,7 +93,7 @@ enum type_specifier_flags
 };
 
 
-
+enum type_specifier_flags get_bool_c89_type_specifier(enum target target);
 enum type_specifier_flags get_wchar_type_specifier(enum target target);
 enum type_specifier_flags get_size_t_specifier(enum target target);
 enum type_specifier_flags get_ptrdiff_t_specifier(enum target target);

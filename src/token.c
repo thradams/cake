@@ -1582,6 +1582,7 @@ void token_list_remove_get_test()
     struct token_list r = token_list_remove_get(&list, pnew, pnew);
     assert(list.head == NULL);
     assert(list.tail == NULL);
+    r;
 }
 
 void token_list_remove_get_test2()
@@ -1595,6 +1596,7 @@ void token_list_remove_get_test2()
     struct token_list r = token_list_remove_get(&list, pnew1, pnew1);
     assert(list.head == pnew2);
     assert(list.tail == pnew2);
+    r;
 }
 
 

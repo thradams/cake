@@ -342,6 +342,29 @@ size_t get_size_long_double(enum target target)
 }
 
 
+enum type_specifier_flags get_bool_c89_type_specifier(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+
+    case TARGET_LCCU16:
+    case TARGET_CCU8:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+
+    case TARGET_CATALINA:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+    }
+    static_assert(NUMBER_OF_TARGETS == 6, "type specifier when generating c89 bool");
+    assert(false);
+    return 0;
+}
+
 enum type_specifier_flags get_wchar_type_specifier(enum target target)
 {
     switch (target)

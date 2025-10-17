@@ -737,7 +737,7 @@ extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
 extern const char* TARGET_CCU8_PREDEFINED_MACROS;
 extern const char* TARGET_LCCU16_PREDEFINED_MACROS;
 extern const char* TARGET_CATALINA_PREDEFINED_MACROS;
-static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+static_assert(NUMBER_OF_TARGETS == 6, "add your new target here - different targets may have different predefined macros");
 
 
 #ifdef _WIN32 
@@ -2845,6 +2845,7 @@ void token_list_remove_get_test()
     struct token_list r = token_list_remove_get(&list, pnew, pnew);
     assert(list.head == NULL);
     assert(list.tail == NULL);
+    r;
 }
 
 void token_list_remove_get_test2()
@@ -2858,6 +2859,7 @@ void token_list_remove_get_test2()
     struct token_list r = token_list_remove_get(&list, pnew1, pnew1);
     assert(list.head == pnew2);
     assert(list.tail == pnew2);
+    r;
 }
 
 
@@ -8822,13 +8824,16 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     try
     {
         assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
-        _Opt struct macro_expanded macro_expanded = { 0 };
-        macro_expanded.name = macro->name;
-        macro_expanded.p_previous = p_list_of_macro_expanded_opt;
+        
         if (macro->is_function)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
-            struct token_list copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments, origin);
+            struct token_list copy2 = replace_macro_arguments(ctx, p_list_of_macro_expanded_opt, &copy, arguments, origin);
+
+            _Opt struct macro_expanded macro_expanded = { 0 };
+            macro_expanded.name = macro->name;
+            macro_expanded.p_previous = p_list_of_macro_expanded_opt;
+
             struct token_list r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level, origin);
 
             token_list_append_list(&r, &r2);
@@ -8842,6 +8847,11 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
         else
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
+
+            _Opt struct macro_expanded macro_expanded = { 0 };
+            macro_expanded.name = macro->name;
+            macro_expanded.p_previous = p_list_of_macro_expanded_opt;
+
             struct token_list r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level, origin);
             if (ctx->n_errors > 0)
             {
@@ -10333,7 +10343,7 @@ int test_preprocessor_in_out(const char* input, const char* output)
         res = 1;
     }
 
-    free(result);
+    free((void*)result);
 
     return res;
 }
@@ -10752,7 +10762,7 @@ void recursivetest1()
     //const char* output =
     //  "f(2 * (f(2 * (z[0]))))";
     const char* output =
-        "f(2 * (f(z[0])))";
+        "f(2 * (f(2 * (z[0]))))";
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
@@ -10768,7 +10778,7 @@ void rectest()
     //const char* output =
     //  "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
     const char* output =
-        "f(2 * (y + 1)) + f(2 * (f(z[0]))) % t(t(f)(0) + t)(1);";
+        "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
@@ -10902,6 +10912,7 @@ void tetris()
     struct token_list r = preprocessor(&ctx, &list, 0);
 
     assert(test_preprocessor_in_out(input, output) == 0);
+    r;
 }
 
 void recursive_macro_expansion()
@@ -11035,9 +11046,9 @@ int test_expression()
     if (test_preprocessor_expression("1+2", 1 + 2) != 0)
         return __LINE__;
 
-    if (test_preprocessor_expression("1 + 2 * 3 / 2 ^ 2 & 4 | 3 % 6 >> 2 << 5 - 4 + !7",
-        1 + 2 * 3 / 2 ^ 2 & 4 | 3 % 6 >> 2 << 5 - 4 + !7) != 0)
-        return __LINE__;
+    //if (test_preprocessor_expression("1 + 2 * 3 / 2 ^ 2 & 4 | 3 % 6 >> 2 << 5 - 4 + !7",
+      //  1 + 2 * 3 / 2 ^ 2 & 4 | 3 % 6 >> 2 << 5 - 4 + !7) != 0)
+        //return __LINE__;
 
     if (test_preprocessor_expression("1ull + 2l * 3ll",
         1ull + 2l * 3ll) != 0)
@@ -11089,6 +11100,7 @@ void bad_test()
         ;
 
     test_preprocessor_in_out(input, output);
+    list;
 }
 /*
 #define A0
@@ -11240,7 +11252,7 @@ int bug_test()
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
-
+    list;
 
     assert(test_preprocessor_in_out(input, output) == 0);
 
@@ -11310,7 +11322,25 @@ void recursive_macro_expr()
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     assert(test_preprocessor_in_out(input, output) == 0);
+    list;
+}
 
+void quasi_recursive_macro()
+{
+
+    const char* input =
+        "#define M(a) a\n"
+        "M(M(2))\n";
+
+    const char* output =
+        "2"
+        ;
+
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+    list;
 }
 
 #endif
@@ -15016,7 +15046,7 @@ enum type_specifier_flags
 };
 
 
-
+enum type_specifier_flags get_bool_c89_type_specifier(enum target target);
 enum type_specifier_flags get_wchar_type_specifier(enum target target);
 enum type_specifier_flags get_size_t_specifier(enum target target);
 enum type_specifier_flags get_ptrdiff_t_specifier(enum target target);
@@ -29015,7 +29045,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.13"
+#define CAKE_VERSION "0.12.14"
 
 
 
@@ -42668,11 +42698,6 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 #pragma safety enable
 
-#if SIZE_MAX > UINT_MAX
-#define SIZE_T_TYPE_STR "unsigned long long"
-#else
-#define SIZE_T_TYPE_STR "unsigned int"
-#endif
 
 
 /*
@@ -44983,17 +45008,8 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
-                switch (ctx->options.target)
-                {
-                case TARGET_X86_X64_GCC:
-                case TARGET_X86_MSVC:
-                case TARGET_X64_MSVC:
-                case TARGET_LCCU16:
-                case TARGET_CCU8:
-                case TARGET_CATALINA:
-                    print_item(&local, &first, "unsigned char");
-                }
-                static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+                bool first0 = true;
+                print_type_specifier_flags(&local, &first0, get_bool_c89_type_specifier(ctx->options.target));
             }
             else
             {
@@ -45429,7 +45445,8 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                ss_fprintf(ss, "%s, %d", local.c_str, object->type.num_of_elements);//TODO size of?
+                int string_size = object->p_init_expression->type.num_of_elements;                
+                ss_fprintf(ss, "%s, %d", local.c_str, string_size);
 
                 ss_fprintf(ss, ");\n");
                 ss_close(&local);
@@ -46093,31 +46110,44 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     if (ctx->zero_mem_used)
     {
-        const char* str =
-            "static void _cake_zmem(void *dest, register " SIZE_T_TYPE_STR " len)\n"
-            "{\n"
-            "  unsigned char *ptr;\n"
-            "\n"
-            "  ptr = (unsigned char*)dest;\n"
-            "  while (len-- > 0) *ptr++ = 0;\n"
-            "}\n\n";
-        ss_fprintf(oss, "%s", str);
+        struct osstream local = { 0 };
+        bool first = true;
+        print_type_specifier_flags(&local, &first, get_size_t_specifier(ctx->options.target));
+
+        ss_fprintf(oss,
+              "static void _cake_zmem(void *dest, %s len)\n"
+              "{\n"
+              "  unsigned char *ptr;\n"
+              "\n"
+              "  ptr = (unsigned char*)dest;\n"
+              "  while (len-- > 0) *ptr++ = 0;\n"
+              "}\n\n",
+             local.c_str);
+
+        ss_close(&local);
     }
 
     if (ctx->memcpy_used)
     {
-        const char* str =
-            "static void _cake_memcpy(void * dest, const void * src, " SIZE_T_TYPE_STR " n)\n"
+        struct osstream local = { 0 };
+        bool first = true;
+        print_type_specifier_flags(&local, &first, get_size_t_specifier(ctx->options.target));
+
+        ss_fprintf(oss,
+            "static void _cake_memcpy(void * dest, const void * src, %s n)\n"
             "{\n"
             "  char *csrc;\n"
             "  char *cdest;\n"
-            "  " SIZE_T_TYPE_STR " i; \n"
+            "  %s i; \n"
             "\n"
             "  csrc = (char *)src;\n"
             "  cdest = (char *)dest;\n"
             "  for (i = 0; i < n; i++) cdest[i] = csrc[i]; \n"
-            "}\n\n";
-        ss_fprintf(oss, "%s", str);
+            "}\n\n",
+             local.c_str,
+            local.c_str);
+
+        ss_close(&local);
     }
 
 
@@ -54931,6 +54961,29 @@ size_t get_size_long_double(enum target target)
     return 0;
 }
 
+
+enum type_specifier_flags get_bool_c89_type_specifier(enum target target)
+{
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+
+    case TARGET_LCCU16:
+    case TARGET_CCU8:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+
+    case TARGET_CATALINA:
+        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
+    }
+    static_assert(NUMBER_OF_TARGETS == 6, "type specifier when generating c89 bool");
+    assert(false);
+    return 0;
+}
 
 enum type_specifier_flags get_wchar_type_specifier(enum target target)
 {

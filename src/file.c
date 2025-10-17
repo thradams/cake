@@ -1,18 +1,11 @@
-typedef struct index {
-    int indx;
-    char name[10];
-    void *addr;
-} index_t;
+struct X { int i; char s[32]; };
+    struct X x0 = { .i = 1, .s = "ad" };
+int main()
+{
+    bool b = true;
 
-extern void f1(void);
-
-extern void f2(void);
-
-index_t my_index[] = { 
-  {1, "f1", f1}, 
-  {2, "f2", f2}, 
-  {0, "", 0 }
-};
-
-void main(void) {
+    struct X x = {};
+    struct X x2 = { .i = 1, .s = "ad" };
+    x0;
+    b;
 }

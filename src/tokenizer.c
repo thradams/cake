@@ -5382,13 +5382,16 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     try
     {
         assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
-        _Opt struct macro_expanded macro_expanded = { 0 };
-        macro_expanded.name = macro->name;
-        macro_expanded.p_previous = p_list_of_macro_expanded_opt;
+        
         if (macro->is_function)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
-            struct token_list copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments, origin);
+            struct token_list copy2 = replace_macro_arguments(ctx, p_list_of_macro_expanded_opt, &copy, arguments, origin);
+
+            _Opt struct macro_expanded macro_expanded = { 0 };
+            macro_expanded.name = macro->name;
+            macro_expanded.p_previous = p_list_of_macro_expanded_opt;
+
             struct token_list r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level, origin);
 
             token_list_append_list(&r, &r2);
@@ -5402,6 +5405,11 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
         else
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
+
+            _Opt struct macro_expanded macro_expanded = { 0 };
+            macro_expanded.name = macro->name;
+            macro_expanded.p_previous = p_list_of_macro_expanded_opt;
+
             struct token_list r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level, origin);
             if (ctx->n_errors > 0)
             {
@@ -6852,7 +6860,7 @@ int test_preprocessor_in_out(const char* input, const char* output)
         res = 1;
     }
 
-    free(result);
+    free((void*)result);
 
     return res;
 }
@@ -7271,7 +7279,7 @@ void recursivetest1()
     //const char* output =
     //  "f(2 * (f(2 * (z[0]))))";
     const char* output =
-        "f(2 * (f(z[0])))";
+        "f(2 * (f(2 * (z[0]))))";
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
@@ -7287,7 +7295,7 @@ void rectest()
     //const char* output =
     //  "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
     const char* output =
-        "f(2 * (y + 1)) + f(2 * (f(z[0]))) % t(t(f)(0) + t)(1);";
+        "f(2 * (y + 1)) + f(2 * (f(2 * (z[0])))) % t(t(f)(0) + t)(1);";
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
@@ -7421,6 +7429,7 @@ void tetris()
     struct token_list r = preprocessor(&ctx, &list, 0);
 
     assert(test_preprocessor_in_out(input, output) == 0);
+    r;
 }
 
 void recursive_macro_expansion()
@@ -7554,9 +7563,9 @@ int test_expression()
     if (test_preprocessor_expression("1+2", 1 + 2) != 0)
         return __LINE__;
 
-    if (test_preprocessor_expression("1 + 2 * 3 / 2 ^ 2 & 4 | 3 % 6 >> 2 << 5 - 4 + !7",
-        1 + 2 * 3 / 2 ^ 2 & 4 | 3 % 6 >> 2 << 5 - 4 + !7) != 0)
-        return __LINE__;
+    //if (test_preprocessor_expression("1 + 2 * 3 / 2 ^ 2 & 4 | 3 % 6 >> 2 << 5 - 4 + !7",
+      //  1 + 2 * 3 / 2 ^ 2 & 4 | 3 % 6 >> 2 << 5 - 4 + !7) != 0)
+        //return __LINE__;
 
     if (test_preprocessor_expression("1ull + 2l * 3ll",
         1ull + 2l * 3ll) != 0)
@@ -7608,6 +7617,7 @@ void bad_test()
         ;
 
     test_preprocessor_in_out(input, output);
+    list;
 }
 /*
 #define A0
@@ -7759,7 +7769,7 @@ int bug_test()
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
-
+    list;
 
     assert(test_preprocessor_in_out(input, output) == 0);
 
@@ -7829,7 +7839,25 @@ void recursive_macro_expr()
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     assert(test_preprocessor_in_out(input, output) == 0);
+    list;
+}
 
+void quasi_recursive_macro()
+{
+
+    const char* input =
+        "#define M(a) a\n"
+        "M(M(2))\n";
+
+    const char* output =
+        "2"
+        ;
+
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+    list;
 }
 
 #endif

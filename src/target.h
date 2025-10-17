@@ -33,7 +33,7 @@ extern const char* TARGET_X64_MSVC_PREDEFINED_MACROS;
 extern const char* TARGET_CCU8_PREDEFINED_MACROS;
 extern const char* TARGET_LCCU16_PREDEFINED_MACROS;
 extern const char* TARGET_CATALINA_PREDEFINED_MACROS;
-static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+static_assert(NUMBER_OF_TARGETS == 6, "add your new target here - different targets may have different predefined macros");
 
 
 #ifdef _WIN32 
