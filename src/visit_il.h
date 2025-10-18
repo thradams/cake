@@ -43,6 +43,8 @@ struct d_visit_ctx
 
     bool define_nullptr;
     bool null_pointer_constant_used;
+
+    bool address_of_argument;
         
     /*
     * Points to the function we're in. Or null in file scope.

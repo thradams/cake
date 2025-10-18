@@ -29045,7 +29045,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.15"
+#define CAKE_VERSION "0.12.16"
 
 
 
@@ -29097,6 +29097,8 @@ struct d_visit_ctx
 
     bool define_nullptr;
     bool null_pointer_constant_used;
+
+    bool address_of_argument;
         
     /*
     * Points to the function we're in. Or null in file scope.
@@ -43175,7 +43177,8 @@ static const char* get_op_by_expression_type(enum expression_type type)
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
 
-    if (object_has_constant_value(&p_expression->object))
+    if (!ctx->address_of_argument &&
+        object_has_constant_value(&p_expression->object))
     {
         if (type_is_void_ptr(&p_expression->type) || 
             type_is_nullptr_t(&p_expression->type))
@@ -43201,6 +43204,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             return;
         }
     }
+    
+    ctx->address_of_argument = false;
 
     switch (p_expression->expression_type)
     {
@@ -43577,11 +43582,15 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case UNARY_EXPRESSION_ADDRESSOF:
-
+    {
+        //bool address_of_argument = ctx->address_of_argument;
         assert(p_expression->right != NULL);
         ss_fprintf(oss, "&");
+        ctx->address_of_argument = true;
         d_visit_expression(ctx, oss, p_expression->right);
-        break;
+        ctx->address_of_argument = false;
+    }
+    break;
 
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
     {
