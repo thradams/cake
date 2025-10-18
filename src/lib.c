@@ -29045,7 +29045,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.14"
+#define CAKE_VERSION "0.12.15"
 
 
 
@@ -43177,7 +43177,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     if (object_has_constant_value(&p_expression->object))
     {
-        if (type_is_pointer(&p_expression->type))
+        if (type_is_void_ptr(&p_expression->type) || 
+            type_is_nullptr_t(&p_expression->type))
         {
             if (object_is_zero(&p_expression->object))
             {
@@ -43194,7 +43195,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 return;
             }
         }
-        else
+        else if (type_is_arithmetic(&p_expression->type))
         {
             object_print_value(oss, &p_expression->object, ctx->options.target);
             return;
