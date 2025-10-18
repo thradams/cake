@@ -1591,7 +1591,15 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     {
         if (ctx->current->type != type)
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL, "expected %s", get_token_name(type));
+            compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+                ctx, 
+                ctx->current,
+                NULL, 
+                "expected token '%s' got '%s' ",
+                get_diagnostic_friendly_token_name(type), 
+                get_diagnostic_friendly_token_name(ctx->current->type)
+                );
+            
             error = 1;
         }
 

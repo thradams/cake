@@ -1265,6 +1265,7 @@ const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p
 void check_unused_macros(const struct hash_map* map);
 
 const char* get_token_name(enum token_type tk);
+const char* get_diagnostic_friendly_token_name(enum token_type tk);
 void print_all_macros(const struct preprocessor_ctx* prectx);
 
 int string_literal_char_byte_size(const char* s);
@@ -6129,7 +6130,7 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
             else
             {
                 if (input_list->head)
-                    preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token '%s' got '%s'\n", get_diagnostic_friendly_token_name(type), get_diagnostic_friendly_token_name(input_list->head->type));
                 else
                     preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, dest->tail, "expected EOF \n");
 
@@ -8824,7 +8825,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     try
     {
         assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
-        
+
         if (macro->is_function)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
@@ -9663,6 +9664,221 @@ const char* get_token_name(enum token_type tk)
     return "TK_X_MISSING_NAME";
 };
 
+const char* get_diagnostic_friendly_token_name(enum token_type tk)
+{
+    switch (tk)
+    {
+    case TK_NONE: return "?";
+    case TK_NEWLINE: return "new line";
+    case TK_WHITE_SPACE: return "white space";
+    case TK_EXCLAMATION_MARK: return "!";
+    case TK_QUOTATION_MARK: return "TK_QUOTATION_MARK";
+    case TK_NUMBER_SIGN: return "TK_NUMBER_SIGN";
+    case TK_DOLLAR_SIGN: return "TK_DOLLAR_SIGN";
+    case TK_PERCENT_SIGN: return "%";
+    case TK_AMPERSAND: return "&";
+    case TK_APOSTROPHE: return "TK_APOSTROPHE";
+    case TK_LEFT_PARENTHESIS: return "(";
+    case TK_RIGHT_PARENTHESIS: return ")";
+    case TK_ASTERISK: return "*";
+    case TK_PLUS_SIGN: return "+";
+    case TK_COMMA: return ",";
+    case TK_HYPHEN_MINUS: return "TK_HYPHEN_MINUS";
+    case TK_FULL_STOP: return ",";
+    case TK_SOLIDUS: return "TK_SOLIDUS";
+    case TK_COLON: return ":";
+    case TK_SEMICOLON: return ";";
+    case TK_LESS_THAN_SIGN: return "<";
+    case TK_EQUALS_SIGN: return "=";
+    case TK_GREATER_THAN_SIGN: return ">";
+    case TK_QUESTION_MARK: return "?";
+    case TK_COMMERCIAL_AT: return "@";
+    case TK_LEFT_SQUARE_BRACKET: return "[";
+    case TK_REVERSE_SOLIDUS: return "TK_REVERSE_SOLIDUS";
+    case TK_RIGHT_SQUARE_BRACKET: return "]";
+    case TK_CIRCUMFLEX_ACCENT: return "TK_CIRCUMFLEX_ACCENT";
+    case TK_FLOW_LINE: return "TK_FLOW_LINE";
+    case TK_GRAVE_ACCENT: return "TK_GRAVE_ACCENT";
+    case TK_LEFT_CURLY_BRACKET: return "{";
+    case TK_VERTICAL_LINE: return "|";
+    case TK_RIGHT_CURLY_BRACKET: return "}";
+    case TK_TILDE: return "~";
+    case TK_PREPROCESSOR_LINE: return "# preprocessor line";
+    case TK_PRAGMA: return "pragma";
+    case TK_STRING_LITERAL: return "\"literal-string\"";
+    case TK_CHAR_CONSTANT: return "'char-constant'";
+    case TK_LINE_COMMENT: return "//comment";
+    case TK_COMMENT: return "/*comment*/";
+    case TK_PPNUMBER: return "pp-number";
+
+    case TK_KEYWORD_GCC__ATTRIBUTE:return "TK_KEYWORD_GCC__ATTRIBUTE";
+    case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "TK_KEYWORD_GCC__BUILTIN_VA_LIST";
+    case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
+    case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";
+
+    case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
+
+        /*PPNUMBER sao convertidos para constantes antes do parse*/
+    case TK_COMPILER_DECIMAL_CONSTANT: return "TK_COMPILER_DECIMAL_CONSTANT";
+    case TK_COMPILER_OCTAL_CONSTANT: return "TK_COMPILER_OCTAL_CONSTANT";
+    case TK_COMPILER_HEXADECIMAL_CONSTANT: return "TK_COMPILER_HEXADECIMAL_CONSTANT";
+    case TK_COMPILER_BINARY_CONSTANT: return "TK_COMPILER_BINARY_CONSTANT";
+    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_DECIMAL_FLOATING_CONSTANT";
+    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT";
+
+
+    case TK_PLACEMARKER: return "TK_PLACEMARKER";
+
+    case TK_BLANKS: return "TK_BLANKS";
+    case TK_PLUSPLUS: return "TK_PLUSPLUS";
+    case TK_MINUSMINUS: return "TK_MINUSMINUS";
+    case TK_ARROW: return "->";
+    case TK_SHIFTLEFT: return "TK_SHIFTLEFT";
+    case TK_SHIFTRIGHT: return "TK_SHIFTRIGHT";
+    case TK_LOGICAL_OPERATOR_OR: return "TK_LOGICAL_OPERATOR_OR";
+    case TK_LOGICAL_OPERATOR_AND: return "TK_LOGICAL_OPERATOR_AND";
+
+    case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
+
+    case TK_IDENTIFIER: return "identifier";
+    case TK_IDENTIFIER_RECURSIVE_MACRO: return "TK_IDENTIFIER_RECURSIVE_MACRO"; /*usado para evitar recursao expansao macro*/
+
+    case TK_BEGIN_OF_FILE: return "begin-of-file";
+
+        //C23 keywords
+    case TK_KEYWORD_AUTO: return "auto";
+    case TK_KEYWORD_BREAK: return "break";
+    case TK_KEYWORD_CASE: return "case";
+    case TK_KEYWORD_CONSTEXPR: return "constexpr";
+    case TK_KEYWORD_CHAR: return "char";
+    case TK_KEYWORD_CONST: return "const";
+    case TK_KEYWORD_CONTINUE: return "continue";
+    case TK_KEYWORD_CAKE_CATCH: return "catch"; /*extension*/
+    case TK_KEYWORD_DEFAULT: return "default";
+    case TK_KEYWORD_DO: return "do";
+    case TK_KEYWORD_DEFER: return "defer"; /*extension*/
+    case TK_KEYWORD_DOUBLE: return "double";
+    case TK_KEYWORD_ELSE: return "else";
+    case TK_KEYWORD_ENUM: return "enum";
+    case TK_KEYWORD_EXTERN: return "extern";
+    case TK_KEYWORD_FLOAT: return "float";
+    case TK_KEYWORD_FOR: return "for";
+    case TK_KEYWORD_GOTO: return "goto";
+    case TK_KEYWORD_IF: return "if";
+    case TK_KEYWORD_INLINE: return "inline";
+    case TK_KEYWORD_INT: return "int";
+    case TK_KEYWORD_LONG: return "long";
+    case TK_KEYWORD_MSVC__INT8: return "__INT8";
+    case TK_KEYWORD_MSVC__INT16: return "__INT16";
+    case TK_KEYWORD_MSVC__INT32: return "__INT32";
+    case TK_KEYWORD_MSVC__INT64: return "__INT64";
+
+
+    case TK_KEYWORD_REGISTER: return "register";
+    case TK_KEYWORD_RESTRICT: return "restrict";
+    case TK_KEYWORD_RETURN: return "return";
+    case TK_KEYWORD_SHORT: return "short";
+    case TK_KEYWORD_SIGNED: return "signed";
+    case TK_KEYWORD_SIZEOF: return "sizeof";
+
+    case TK_KEYWORD_STATIC: return "static";
+    case TK_KEYWORD_STRUCT: return "struct";
+    case TK_KEYWORD_SWITCH: return "switch";
+    case TK_KEYWORD_TYPEDEF: return "typedef";
+    case TK_KEYWORD_CAKE_TRY: return "try"; /*extension*/
+    case TK_KEYWORD_CAKE_THROW: return "throw"; /*extension*/
+    case TK_KEYWORD_UNION: return "union";
+    case TK_KEYWORD_UNSIGNED: return "unsigned";
+    case TK_KEYWORD_VOID: return "void";
+    case TK_KEYWORD_VOLATILE: return "volatile";
+    case TK_KEYWORD_WHILE: return "while";
+
+    case TK_KEYWORD__ALIGNAS: return "alignas";
+    case TK_KEYWORD__ALIGNOF: return "alingof";
+    case TK_KEYWORD__ATOMIC: return "atomic";
+
+        //#ifdef _WIN32
+    case TK_KEYWORD_MSVC__FASTCALL: return "fastcall";
+    case TK_KEYWORD_MSVC__STDCALL:return "stdcall";
+    case TK_KEYWORD_MSVC__CDECL:return "__CDECL";
+    case TK_KEYWORD_MSVC__DECLSPEC:return "__DECLSPEC";
+        //#endif
+    case TK_KEYWORD__ASM: return "__ASM";
+        //end microsoft
+    case TK_KEYWORD__BOOL: return "bool";
+    case TK_KEYWORD__COMPLEX: return "__COMPLEX";
+    case TK_KEYWORD__DECIMAL128: return "_DECIMAL128";
+    case TK_KEYWORD__DECIMAL32: return "_DECIMAL32";
+    case TK_KEYWORD__DECIMAL64: return "_DECIMAL64";
+    case TK_KEYWORD__GENERIC: return "_GENERIC";
+    case TK_KEYWORD__IMAGINARY: return "_IMAGINARY";
+    case TK_KEYWORD__NORETURN: return "_NORETURN";
+    case TK_KEYWORD__STATIC_ASSERT: return "_STATIC_ASSERT";
+    case TK_KEYWORD_ASSERT: return "ASSERT"; /*extension*/
+    case TK_KEYWORD__THREAD_LOCAL: return "_THREAD_LOCAL";
+
+    case TK_KEYWORD_TYPEOF: return "TYPEOF"; /*C23*/
+
+    case TK_KEYWORD_TRUE: return "true";  /*C23*/
+    case TK_KEYWORD_FALSE: return "false";  /*C23*/
+    case TK_KEYWORD_NULLPTR: return "nullptr";  /*C23*/
+    case TK_KEYWORD_TYPEOF_UNQUAL: return "TYPEOF_UNQUAL"; /*C23*/
+    case TK_KEYWORD__BITINT: return "_BITINT";  /*C23*/
+
+
+
+        /*cake extension*/
+    case TK_KEYWORD_CAKE_OWNER: return "_Owner";
+    case TK_KEYWORD__CTOR: return "Out";
+    case TK_KEYWORD__DTOR: return "_OBJ_OWNER";
+    case TK_KEYWORD_CAKE_VIEW: return "_view";
+    case TK_KEYWORD_CAKE_OPT: return "_Opt";
+
+
+        /*extension compile time functions*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG: return "CAKE_STATIC_DEBUG"; /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "CAKE_STATIC_DEBUG_EX"; /*extension*/
+    case TK_KEYWORD_STATIC_STATE: return "STATIC_STATE"; /*extension*/
+    case TK_KEYWORD_STATIC_SET: return "STATIC_SET"; /*extension*/
+
+        /*https://en.cppreference.com/w/cpp/header/type_traits*/
+
+    case TK_KEYWORD_IS_POINTER: return "IS_POINTER";
+    case TK_KEYWORD_IS_LVALUE: return "IS_LVALUE";
+    case TK_KEYWORD_IS_CONST: return "IS_CONST";
+    case TK_KEYWORD_IS_OWNER: return "IS_OWNER";
+    case TK_KEYWORD_IS_ARRAY: return "IS_ARRAY";
+    case TK_KEYWORD_IS_FUNCTION: return "IS_FUNCTION";
+    case TK_KEYWORD_IS_SCALAR: return "IS_SCALAR";
+    case TK_KEYWORD_IS_ARITHMETIC: return "IS_ARITHMETIC";
+    case TK_KEYWORD_IS_FLOATING_POINT: return "IS_FLOATING_POINT";
+    case TK_KEYWORD_IS_INTEGRAL: return "IS_INTEGRAL";
+    case TK_PRAGMA_END: return "TK_PRAGMA_END";
+    case TK_KEYWORD__COUNTOF: return "_COUNTOF";
+    case TK_PLUS_ASSIGN: return "TK_PLUS_ASSIGN";
+    case TK_MINUS_ASSIGN: return "TK_MINUS_ASSIGN";
+    case TK_MULTI_ASSIGN: return "TK_MULTI_ASSIGN";
+    case TK_DIV_ASSIGN: return "TK_DIV_ASSIGN";
+    case TK_MOD_ASSIGN: return "TK_MOD_ASSIGN";
+    case TK_SHIFT_LEFT_ASSIGN: return "TK_SHIFT_LEFT_ASSIGN";
+    case TK_SHIFT_RIGHT_ASSIGN: return "TK_SHIFT_RIGHT_ASSIGN";
+    case TK_AND_ASSIGN: return "TK_AND_ASSIGN";
+    case TK_OR_ASSIGN: return "TK_OR_ASSIGN";
+    case TK_NOT_ASSIGN: return "TK_NOT_ASSIGN";
+
+    case TK_KEYWORD_GCC__BUILTIN_VA_END: return "GCC__BUILTIN_VA_END";
+    case TK_KEYWORD_GCC__BUILTIN_VA_ARG: return "GCC__BUILTIN_VA_ARG";
+    case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "GCC__BUILTIN_C23_VA_START";
+    case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "GCC__BUILTIN_VA_COPY";
+    case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "GCC__BUILTIN_OFFSETOF";
+
+    default:
+        break;
+
+    }
+    return get_token_name(tk);
+
+}
 
 int stringify(const char* input, int n, char output[])
 {
@@ -29045,7 +29261,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.16"
+#define CAKE_VERSION "0.12.17"
 
 
 
@@ -30673,7 +30889,15 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     {
         if (ctx->current->type != type)
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL, "expected %s", get_token_name(type));
+            compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
+                ctx, 
+                ctx->current,
+                NULL, 
+                "expected token '%s' got '%s' ",
+                get_diagnostic_friendly_token_name(type), 
+                get_diagnostic_friendly_token_name(ctx->current->type)
+                );
+            
             error = 1;
         }
 
@@ -54373,7 +54597,7 @@ const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS =
 
 CAKE_STANDARD_MACROS
 "#define __linux__\n"
-"#define __GNUC__  16\n"
+//"#define __GNUC__  16\n"
 "#define __x86_64__ 1\n"
 "#define __CHAR_BIT__ 8\n"
 "#define __SIZE_TYPE__ long unsigned int\n"
