@@ -198,7 +198,6 @@ bool is_diagnostic_warning(enum diagnostic_id id);
 bool is_diagnostic_error(enum diagnostic_id id);
 bool is_diagnostic_note(enum diagnostic_id id);
 
-
 /*
 * These warnings are removed when "nullable=disable"
 */
@@ -394,6 +393,8 @@ struct options
 int fill_options(struct options* options,
                  int argc,
                  const char** argv);
+
+bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w);
 
 void print_help();
 

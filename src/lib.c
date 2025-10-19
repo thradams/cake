@@ -974,7 +974,6 @@ bool is_diagnostic_warning(enum diagnostic_id id);
 bool is_diagnostic_error(enum diagnostic_id id);
 bool is_diagnostic_note(enum diagnostic_id id);
 
-
 /*
 * These warnings are removed when "nullable=disable"
 */
@@ -1170,6 +1169,8 @@ struct options
 int fill_options(struct options* options,
                  int argc,
                  const char** argv);
+
+bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w);
 
 void print_help();
 
@@ -10315,6 +10316,11 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
 }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
     if (!is_screaming_case(token->lexeme))
     {
         preprocessor_diagnostic(W_NOTE, ctx, token, "use SCREAMING_CASE for macros");
@@ -14435,6 +14441,16 @@ char* _Owner read_file(const char* path, bool append_newline)
 
 
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
+
+bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w)
+{
+    if (w > W_NOTE)
+        return true;
+
+    return ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors & (1ULL << w)) != 0) ||
+        ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings & (1ULL << w)) != 0) ||
+        ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
+}
 
 bool is_diagnostic_note(enum diagnostic_id id)
 {
@@ -29265,7 +29281,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.18"
+#define CAKE_VERSION "0.12.19"
 
 
 
@@ -29410,16 +29426,6 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool parser_is_diagnostic_enabled(const struct parser_ctx* ctx, enum diagnostic_id w)
-{
-    if (w > W_NOTE)
-        return true;
-
-    return ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & w) != 0) ||
-        ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & w) != 0) ||
-        ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & w) != 0);
-}
-
 static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
 {
     // token points to {
@@ -29428,7 +29434,7 @@ static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
         token->type == '{' &&
         token->prev &&
-        parser_is_diagnostic_enabled(ctx, W_STYLE))
+        is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
         {
@@ -29454,7 +29460,7 @@ static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
         token->type == '}' &&
         token->prev &&
         token->prev->prev &&
-        parser_is_diagnostic_enabled(ctx, W_STYLE))
+        is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
         {
@@ -29478,7 +29484,7 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
         token->type == '{' &&
         token->prev &&
-        parser_is_diagnostic_enabled(ctx, W_STYLE))
+        is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
         {
@@ -41079,7 +41085,7 @@ static bool is_pascal_case(const char* text)
  */
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -41102,7 +41108,7 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -41125,7 +41131,7 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -41148,7 +41154,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -41178,7 +41184,7 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
 
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -41201,7 +41207,7 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -41214,7 +41220,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -41227,7 +41233,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
 
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -43408,7 +43414,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     if (!ctx->address_of_argument &&
         object_has_constant_value(&p_expression->object))
     {
-        if (type_is_void_ptr(&p_expression->type) || 
+        if (type_is_void_ptr(&p_expression->type) ||
             type_is_nullptr_t(&p_expression->type))
         {
             if (object_is_zero(&p_expression->object))
@@ -43432,7 +43438,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             return;
         }
     }
-    
+
     ctx->address_of_argument = false;
 
     switch (p_expression->expression_type)
@@ -43629,10 +43635,20 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case PRIMARY_EXPRESSION_PARENTESIS:
+
         assert(p_expression->right != NULL);
-        ss_fprintf(oss, "(");
-        d_visit_expression(ctx, oss, p_expression->right);
-        ss_fprintf(oss, ")");
+        if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
+        {
+            //removes extra (())
+            d_visit_expression(ctx, oss, p_expression->right);
+        }
+        else
+        {
+            ss_fprintf(oss, "(");
+            d_visit_expression(ctx, oss, p_expression->right);
+            ss_fprintf(oss, ")");
+        }
+
         break;
 
     case PRIMARY_EXPRESSION_GENERIC:
@@ -43848,7 +43864,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(&function_literal, "%s%s", function_literal_nameless.c_str, function_literal_body.c_str);
 
         assert(function_literal_nameless.c_str);
-       // if (function_literal.c_str == NULL) throw;
+        // if (function_literal.c_str == NULL) throw;
 
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
@@ -45685,7 +45701,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                int string_size = object->p_init_expression->type.num_of_elements;                
+                int string_size = object->p_init_expression->type.num_of_elements;
                 ss_fprintf(ss, "%s, %d", local.c_str, string_size);
 
                 ss_fprintf(ss, ");\n");

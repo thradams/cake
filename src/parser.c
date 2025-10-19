@@ -108,16 +108,6 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool parser_is_diagnostic_enabled(const struct parser_ctx* ctx, enum diagnostic_id w)
-{
-    if (w > W_NOTE)
-        return true;
-
-    return ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & w) != 0) ||
-        ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & w) != 0) ||
-        ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & w) != 0);
-}
-
 static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
 {
     // token points to {
@@ -126,7 +116,7 @@ static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
         token->type == '{' &&
         token->prev &&
-        parser_is_diagnostic_enabled(ctx, W_STYLE))
+        is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
         {
@@ -152,7 +142,7 @@ static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
         token->type == '}' &&
         token->prev &&
         token->prev->prev &&
-        parser_is_diagnostic_enabled(ctx, W_STYLE))
+        is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
         {
@@ -176,7 +166,7 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
         token->type == '{' &&
         token->prev &&
-        parser_is_diagnostic_enabled(ctx, W_STYLE))
+        is_diagnostic_enabled(&ctx->options, W_STYLE))
     {
         if (ctx->options.style == STYLE_CAKE)
         {
@@ -11777,7 +11767,7 @@ static bool is_pascal_case(const char* text)
  */
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -11800,7 +11790,7 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -11823,7 +11813,7 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -11846,7 +11836,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -11876,7 +11866,7 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
 
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -11899,7 +11889,7 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -11912,7 +11902,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }
@@ -11925,7 +11915,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
 
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!parser_is_diagnostic_enabled(ctx, W_STYLE) || token->level != 0)
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
     {
         return;
     }

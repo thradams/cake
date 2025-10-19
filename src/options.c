@@ -14,6 +14,16 @@
 
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
 
+bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w)
+{
+    if (w > W_NOTE)
+        return true;
+
+    return ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors & (1ULL << w)) != 0) ||
+        ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings & (1ULL << w)) != 0) ||
+        ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
+}
+
 bool is_diagnostic_note(enum diagnostic_id id)
 {
     if (id == W_NOTE ||

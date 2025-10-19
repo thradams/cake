@@ -6872,6 +6872,11 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
 }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
     if (!is_screaming_case(token->lexeme))
     {
         preprocessor_diagnostic(W_NOTE, ctx, token, "use SCREAMING_CASE for macros");

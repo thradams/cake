@@ -1,1 +1,1 @@
-float d = (float)1E+300;
+#define macro2 1

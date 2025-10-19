@@ -491,7 +491,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     if (!ctx->address_of_argument &&
         object_has_constant_value(&p_expression->object))
     {
-        if (type_is_void_ptr(&p_expression->type) || 
+        if (type_is_void_ptr(&p_expression->type) ||
             type_is_nullptr_t(&p_expression->type))
         {
             if (object_is_zero(&p_expression->object))
@@ -515,7 +515,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             return;
         }
     }
-    
+
     ctx->address_of_argument = false;
 
     switch (p_expression->expression_type)
@@ -712,10 +712,20 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case PRIMARY_EXPRESSION_PARENTESIS:
+
         assert(p_expression->right != NULL);
-        ss_fprintf(oss, "(");
-        d_visit_expression(ctx, oss, p_expression->right);
-        ss_fprintf(oss, ")");
+        if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
+        {
+            //removes extra (()) ,we also could remove from other..
+            d_visit_expression(ctx, oss, p_expression->right);
+        }
+        else
+        {
+            ss_fprintf(oss, "(");
+            d_visit_expression(ctx, oss, p_expression->right);
+            ss_fprintf(oss, ")");
+        }
+
         break;
 
     case PRIMARY_EXPRESSION_GENERIC:
@@ -931,7 +941,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(&function_literal, "%s%s", function_literal_nameless.c_str, function_literal_body.c_str);
 
         assert(function_literal_nameless.c_str);
-       // if (function_literal.c_str == NULL) throw;
+        // if (function_literal.c_str == NULL) throw;
 
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
@@ -2768,7 +2778,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                int string_size = object->p_init_expression->type.num_of_elements;                
+                int string_size = object->p_init_expression->type.num_of_elements;
                 ss_fprintf(ss, "%s, %d", local.c_str, string_size);
 
                 ss_fprintf(ss, ");\n");
