@@ -6229,20 +6229,20 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_NEWLINE: return "new line";
     case TK_WHITE_SPACE: return "white space";
     case TK_EXCLAMATION_MARK: return "!";
-    case TK_QUOTATION_MARK: return "TK_QUOTATION_MARK";
-    case TK_NUMBER_SIGN: return "TK_NUMBER_SIGN";
-    case TK_DOLLAR_SIGN: return "TK_DOLLAR_SIGN";
+    case TK_QUOTATION_MARK: return "\"";
+    case TK_NUMBER_SIGN: return "#";
+    case TK_DOLLAR_SIGN: return "$";
     case TK_PERCENT_SIGN: return "%";
     case TK_AMPERSAND: return "&";
-    case TK_APOSTROPHE: return "TK_APOSTROPHE";
+    case TK_APOSTROPHE: return "\'";
     case TK_LEFT_PARENTHESIS: return "(";
     case TK_RIGHT_PARENTHESIS: return ")";
     case TK_ASTERISK: return "*";
     case TK_PLUS_SIGN: return "+";
     case TK_COMMA: return ",";
-    case TK_HYPHEN_MINUS: return "TK_HYPHEN_MINUS";
+    case TK_HYPHEN_MINUS: return "-";
     case TK_FULL_STOP: return ",";
-    case TK_SOLIDUS: return "TK_SOLIDUS";
+    case TK_SOLIDUS: return "/";
     case TK_COLON: return ":";
     case TK_SEMICOLON: return ";";
     case TK_LESS_THAN_SIGN: return "<";
@@ -6251,11 +6251,11 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_QUESTION_MARK: return "?";
     case TK_COMMERCIAL_AT: return "@";
     case TK_LEFT_SQUARE_BRACKET: return "[";
-    case TK_REVERSE_SOLIDUS: return "TK_REVERSE_SOLIDUS";
+    case TK_REVERSE_SOLIDUS: return "//";
     case TK_RIGHT_SQUARE_BRACKET: return "]";
-    case TK_CIRCUMFLEX_ACCENT: return "TK_CIRCUMFLEX_ACCENT";
-    case TK_FLOW_LINE: return "TK_FLOW_LINE";
-    case TK_GRAVE_ACCENT: return "TK_GRAVE_ACCENT";
+    case TK_CIRCUMFLEX_ACCENT: return "^";
+    case TK_FLOW_LINE: return "_";
+    case TK_GRAVE_ACCENT: return "`";
     case TK_LEFT_CURLY_BRACKET: return "{";
     case TK_VERTICAL_LINE: return "|";
     case TK_RIGHT_CURLY_BRACKET: return "}";
@@ -6268,37 +6268,37 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_COMMENT: return "/*comment*/";
     case TK_PPNUMBER: return "pp-number";
 
-    case TK_KEYWORD_GCC__ATTRIBUTE:return "TK_KEYWORD_GCC__ATTRIBUTE";
-    case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "TK_KEYWORD_GCC__BUILTIN_VA_LIST";
-    case TK_KEYWORD_MSVC__PTR32:return "TK_KEYWORD_MSVC__PTR32";
-    case TK_KEYWORD_MSVC__PTR64:return "TK_KEYWORD_MSVC__PTR64";
+    case TK_KEYWORD_GCC__ATTRIBUTE:return "__attribute";
+    case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "__builtin_va_list";
+    case TK_KEYWORD_MSVC__PTR32:return "__ptr32";
+    case TK_KEYWORD_MSVC__PTR64:return "__ptr64";
 
-    case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
+    case ANY_OTHER_PP_TOKEN: return "any_other_pp_token"; //@ por ex
 
         /*PPNUMBER sao convertidos para constantes antes do parse*/
-    case TK_COMPILER_DECIMAL_CONSTANT: return "TK_COMPILER_DECIMAL_CONSTANT";
-    case TK_COMPILER_OCTAL_CONSTANT: return "TK_COMPILER_OCTAL_CONSTANT";
-    case TK_COMPILER_HEXADECIMAL_CONSTANT: return "TK_COMPILER_HEXADECIMAL_CONSTANT";
-    case TK_COMPILER_BINARY_CONSTANT: return "TK_COMPILER_BINARY_CONSTANT";
-    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_DECIMAL_FLOATING_CONSTANT";
-    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT";
+    case TK_COMPILER_DECIMAL_CONSTANT: return "decimal_constant";
+    case TK_COMPILER_OCTAL_CONSTANT: return "octal_constant";
+    case TK_COMPILER_HEXADECIMAL_CONSTANT: return "hexadecimal_constant";
+    case TK_COMPILER_BINARY_CONSTANT: return "binary_constant";
+    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "decimal_floating_constant";
+    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "hexadecimal_floating_constant";
 
 
-    case TK_PLACEMARKER: return "TK_PLACEMARKER";
+    case TK_PLACEMARKER: return "place-marker";
 
-    case TK_BLANKS: return "TK_BLANKS";
-    case TK_PLUSPLUS: return "TK_PLUSPLUS";
-    case TK_MINUSMINUS: return "TK_MINUSMINUS";
+    case TK_BLANKS: return "blanks";
+    case TK_PLUSPLUS: return "++";
+    case TK_MINUSMINUS: return "--";
     case TK_ARROW: return "->";
-    case TK_SHIFTLEFT: return "TK_SHIFTLEFT";
-    case TK_SHIFTRIGHT: return "TK_SHIFTRIGHT";
-    case TK_LOGICAL_OPERATOR_OR: return "TK_LOGICAL_OPERATOR_OR";
-    case TK_LOGICAL_OPERATOR_AND: return "TK_LOGICAL_OPERATOR_AND";
+    case TK_SHIFTLEFT: return "<<";
+    case TK_SHIFTRIGHT: return ">>";
+    case TK_LOGICAL_OPERATOR_OR: return "||";
+    case TK_LOGICAL_OPERATOR_AND: return "&&";
 
     case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
 
     case TK_IDENTIFIER: return "identifier";
-    case TK_IDENTIFIER_RECURSIVE_MACRO: return "TK_IDENTIFIER_RECURSIVE_MACRO"; /*usado para evitar recursao expansao macro*/
+    case TK_IDENTIFIER_RECURSIVE_MACRO: return "recursive-macro"; /*usado para evitar recursao expansao macro*/
 
     case TK_BEGIN_OF_FILE: return "begin-of-file";
 
@@ -6325,10 +6325,10 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD_INLINE: return "inline";
     case TK_KEYWORD_INT: return "int";
     case TK_KEYWORD_LONG: return "long";
-    case TK_KEYWORD_MSVC__INT8: return "__INT8";
-    case TK_KEYWORD_MSVC__INT16: return "__INT16";
-    case TK_KEYWORD_MSVC__INT32: return "__INT32";
-    case TK_KEYWORD_MSVC__INT64: return "__INT64";
+    case TK_KEYWORD_MSVC__INT8: return "__int8";
+    case TK_KEYWORD_MSVC__INT16: return "__int16";
+    case TK_KEYWORD_MSVC__INT32: return "__int32";
+    case TK_KEYWORD_MSVC__INT64: return "__int64";
 
 
     case TK_KEYWORD_REGISTER: return "register";
@@ -6357,8 +6357,8 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
         //#ifdef _WIN32
     case TK_KEYWORD_MSVC__FASTCALL: return "fastcall";
     case TK_KEYWORD_MSVC__STDCALL:return "stdcall";
-    case TK_KEYWORD_MSVC__CDECL:return "__CDECL";
-    case TK_KEYWORD_MSVC__DECLSPEC:return "__DECLSPEC";
+    case TK_KEYWORD_MSVC__CDECL:return "__cdecl";
+    case TK_KEYWORD_MSVC__DECLSPEC:return "__declspec";
         //#endif
     case TK_KEYWORD__ASM: return "__ASM";
         //end microsoft
@@ -6367,22 +6367,20 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD__DECIMAL128: return "_DECIMAL128";
     case TK_KEYWORD__DECIMAL32: return "_DECIMAL32";
     case TK_KEYWORD__DECIMAL64: return "_DECIMAL64";
-    case TK_KEYWORD__GENERIC: return "_GENERIC";
+    case TK_KEYWORD__GENERIC: return "_Generic";
     case TK_KEYWORD__IMAGINARY: return "_IMAGINARY";
-    case TK_KEYWORD__NORETURN: return "_NORETURN";
-    case TK_KEYWORD__STATIC_ASSERT: return "_STATIC_ASSERT";
-    case TK_KEYWORD_ASSERT: return "ASSERT"; /*extension*/
+    case TK_KEYWORD__NORETURN: return "_Noreturn";
+    case TK_KEYWORD__STATIC_ASSERT: return "static_assert";
+    case TK_KEYWORD_ASSERT: return "assert"; /*extension*/
     case TK_KEYWORD__THREAD_LOCAL: return "_THREAD_LOCAL";
 
-    case TK_KEYWORD_TYPEOF: return "TYPEOF"; /*C23*/
+    case TK_KEYWORD_TYPEOF: return "typeof"; /*C23*/
 
     case TK_KEYWORD_TRUE: return "true";  /*C23*/
     case TK_KEYWORD_FALSE: return "false";  /*C23*/
     case TK_KEYWORD_NULLPTR: return "nullptr";  /*C23*/
-    case TK_KEYWORD_TYPEOF_UNQUAL: return "TYPEOF_UNQUAL"; /*C23*/
-    case TK_KEYWORD__BITINT: return "_BITINT";  /*C23*/
-
-
+    case TK_KEYWORD_TYPEOF_UNQUAL: return "typeof_unqual"; /*C23*/
+    case TK_KEYWORD__BITINT: return "_BitInt";  /*C23*/
 
         /*cake extension*/
     case TK_KEYWORD_CAKE_OWNER: return "_Owner";
@@ -6393,10 +6391,10 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
 
 
         /*extension compile time functions*/
-    case TK_KEYWORD_CAKE_STATIC_DEBUG: return "CAKE_STATIC_DEBUG"; /*extension*/
-    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "CAKE_STATIC_DEBUG_EX"; /*extension*/
-    case TK_KEYWORD_STATIC_STATE: return "STATIC_STATE"; /*extension*/
-    case TK_KEYWORD_STATIC_SET: return "STATIC_SET"; /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG: return "static_debugex"; /*extension*/
+    case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "static_debug_ex"; /*extension*/
+    case TK_KEYWORD_STATIC_STATE: return "static_state"; /*extension*/
+    case TK_KEYWORD_STATIC_SET: return "static_set"; /*extension*/
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 
@@ -6404,30 +6402,30 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD_IS_LVALUE: return "IS_LVALUE";
     case TK_KEYWORD_IS_CONST: return "IS_CONST";
     case TK_KEYWORD_IS_OWNER: return "IS_OWNER";
-    case TK_KEYWORD_IS_ARRAY: return "IS_ARRAY";
-    case TK_KEYWORD_IS_FUNCTION: return "IS_FUNCTION";
-    case TK_KEYWORD_IS_SCALAR: return "IS_SCALAR";
-    case TK_KEYWORD_IS_ARITHMETIC: return "IS_ARITHMETIC";
-    case TK_KEYWORD_IS_FLOATING_POINT: return "IS_FLOATING_POINT";
-    case TK_KEYWORD_IS_INTEGRAL: return "IS_INTEGRAL";
-    case TK_PRAGMA_END: return "TK_PRAGMA_END";
-    case TK_KEYWORD__COUNTOF: return "_COUNTOF";
-    case TK_PLUS_ASSIGN: return "TK_PLUS_ASSIGN";
-    case TK_MINUS_ASSIGN: return "TK_MINUS_ASSIGN";
-    case TK_MULTI_ASSIGN: return "TK_MULTI_ASSIGN";
-    case TK_DIV_ASSIGN: return "TK_DIV_ASSIGN";
-    case TK_MOD_ASSIGN: return "TK_MOD_ASSIGN";
-    case TK_SHIFT_LEFT_ASSIGN: return "TK_SHIFT_LEFT_ASSIGN";
-    case TK_SHIFT_RIGHT_ASSIGN: return "TK_SHIFT_RIGHT_ASSIGN";
-    case TK_AND_ASSIGN: return "TK_AND_ASSIGN";
-    case TK_OR_ASSIGN: return "TK_OR_ASSIGN";
-    case TK_NOT_ASSIGN: return "TK_NOT_ASSIGN";
+    case TK_KEYWORD_IS_ARRAY: return "_is_array";
+    case TK_KEYWORD_IS_FUNCTION: return "_is_function";
+    case TK_KEYWORD_IS_SCALAR: return "_is_scalar";
+    case TK_KEYWORD_IS_ARITHMETIC: return "_is_arithmetic";
+    case TK_KEYWORD_IS_FLOATING_POINT: return "is_floating_point";
+    case TK_KEYWORD_IS_INTEGRAL: return "_is_integral";
+    case TK_PRAGMA_END: return "pragma-end";
+    case TK_KEYWORD__COUNTOF: return "_Countof";
+    case TK_PLUS_ASSIGN: return "+=";
+    case TK_MINUS_ASSIGN: return "-=";
+    case TK_MULTI_ASSIGN: return "*=";
+    case TK_DIV_ASSIGN: return "/=";
+    case TK_MOD_ASSIGN: return "%=";
+    case TK_SHIFT_LEFT_ASSIGN: return "<<=";
+    case TK_SHIFT_RIGHT_ASSIGN: return ">>=";
+    case TK_AND_ASSIGN: return "&=";
+    case TK_OR_ASSIGN: return "|=";
+    case TK_NOT_ASSIGN: return "^=";
 
-    case TK_KEYWORD_GCC__BUILTIN_VA_END: return "GCC__BUILTIN_VA_END";
-    case TK_KEYWORD_GCC__BUILTIN_VA_ARG: return "GCC__BUILTIN_VA_ARG";
-    case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "GCC__BUILTIN_C23_VA_START";
-    case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "GCC__BUILTIN_VA_COPY";
-    case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "GCC__BUILTIN_OFFSETOF";
+    case TK_KEYWORD_GCC__BUILTIN_VA_END: return "__builtin_va_end";
+    case TK_KEYWORD_GCC__BUILTIN_VA_ARG: return "__builtin_va_arg";
+    case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "__builtin_c23_va_start";
+    case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "__builtin_va_copy";
+    case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "__builtin_offsetof";
 
     default:
         break;

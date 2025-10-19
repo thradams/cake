@@ -1595,7 +1595,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
                 ctx, 
                 ctx->current,
                 NULL, 
-                "expected token '%s' got '%s' ",
+                "expected token '%s', got '%s' ",
                 get_diagnostic_friendly_token_name(type), 
                 get_diagnostic_friendly_token_name(ctx->current->type)
                 );

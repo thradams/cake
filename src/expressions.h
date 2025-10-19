@@ -264,9 +264,5 @@ void check_assigment(struct parser_ctx* ctx,
     const struct expression* right,
     enum assigment_type assigment_type);
 
-void check_comparison(struct parser_ctx* ctx,
-    struct expression* p_a_expression,
-    struct expression* p_b_expression,
-    const struct token* op_token);
 
 struct object expression_eval(struct expression* p_expression);

@@ -558,6 +558,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
         assert(p_expression->declarator != NULL);
+        assert(p_expression->declarator->declaration_specifiers != NULL);
 
         const char* declarator_name = "";
         if (p_expression->declarator->name_opt)
@@ -860,7 +861,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         d_visit_expression(ctx, oss, p_expression->left);
 
-        struct param* param = p_expression->left->type.params.head;
+        struct param* _Opt param = p_expression->left->type.params.head;
 
         ss_fprintf(oss, "(");
         struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
@@ -930,6 +931,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(&function_literal, "%s%s", function_literal_nameless.c_str, function_literal_body.c_str);
 
         assert(function_literal_nameless.c_str);
+       // if (function_literal.c_str == NULL) throw;
 
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
@@ -3065,6 +3067,8 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
             ss_fprintf(oss0, ";\n");
 
         ss_close(&ss);
+        hash_item_set_destroy(&i);
+
         return;
     }
     else if (!is_extern && is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
@@ -3111,6 +3115,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
         ss_fprintf(oss0, "%s\n", ss.c_str);
         ss_close(&ss);
+        hash_item_set_destroy(&i);
         return;
     }
     else

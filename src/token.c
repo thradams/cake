@@ -1346,7 +1346,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
         {
             exponent_part_opt(stream);
             floating_suffix_opt(stream, suffix);
-
+            type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
         }
         else if (stream->current[0] == '.')
         {

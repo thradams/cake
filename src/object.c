@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-
+#include <math.h>
 _Attr(nodiscard)
 bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
@@ -2926,12 +2926,27 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         break;
 
     case TYPE_FLOAT32:
-        ss_fprintf(ss, "%f", a->value.float32);
+        if (isinf(a->value.float32))
+        {
+            assert(false); //TODO
+            ss_fprintf(ss, "%f", a->value.float32);        }
+        else
+        {
+            ss_fprintf(ss, "%f", a->value.float32);
+        }
         ss_fprintf(ss, "f");
         break;
 
     case TYPE_FLOAT64:
-        ss_fprintf(ss, "%lf", a->value.float64);
+        if (isinf(a->value.float64))
+        {
+            assert(false);//TODO we dont want inf to be printed.
+            ss_fprintf(ss, "%lf", a->value.float64);
+        }
+        else
+        {
+            ss_fprintf(ss, "%lf", a->value.float64);
+        }
         break;
 #ifdef CAKE_FLOAT128_DEFINED
     case TYPE_FLOAT128:

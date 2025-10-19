@@ -952,7 +952,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
             float value = strtof(buffer, NULL);
 #endif
-            if (value == HUGE_VALF && errno == ERANGE)
+            if (isinf(value) && errno == ERANGE)
             {
             }
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
@@ -966,7 +966,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 #else
             long double value = strtold(buffer, NULL);
 #endif
-            if (value == HUGE_VALL && errno == ERANGE)
+            if (isinf(value) && errno == ERANGE)
             {
             }
 
@@ -977,7 +977,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         else
         {
             double value = strtod(buffer, NULL);
-            if (value == HUGE_VAL && errno == ERANGE)
+            if (isinf(value) && errno == ERANGE)
             {
             }
             object_destroy(&p_expression_node->object);
@@ -4853,6 +4853,79 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
     return p_expression_node;
 }
 
+static void check_comparison(struct parser_ctx* ctx,
+    struct expression* p_a_expression,
+    struct expression* p_b_expression,
+    const struct token* op_token)
+{
+    //TODO more checks unsigned < 0
+    bool equal_not_equal =
+        op_token->type == '!=' ||
+        op_token->type == '==';
+
+    struct type* p_a_type = &p_a_expression->type;
+    struct type* p_b_type = &p_b_expression->type;
+
+    if (type_is_pointer(p_a_type) && type_is_integer(p_b_type))
+    {
+        if (expression_is_zero(p_b_expression))
+        {
+            // p == 0
+            //style warning
+        }
+        else
+        {
+            //array functions..
+            compiler_diagnostic(W_ENUN_CONVERSION,
+                                        ctx,
+                                        op_token, NULL,
+                                        "comparison between pointer and integer");
+        }
+    }
+
+    if (type_is_bool(p_a_type) &&
+        !(type_is_bool(p_b_type) || type_is_essential_bool(p_b_type)))
+    {
+        if (equal_not_equal && (object_is_zero(&p_b_expression->object) ||
+            object_is_one(&p_b_expression->object)))
+        {
+            //no warning when comparing == 0 == 1 != 0 != 0
+        }
+        else
+        {
+            compiler_diagnostic(W_BOOL_COMPARISON,
+                                 ctx,
+                                 op_token, NULL,
+                                 "comparison bool with non bool");
+        }
+    }
+
+    if (type_is_bool(p_b_type) &&
+        !(type_is_bool(p_a_type) || type_is_essential_bool(p_a_type))
+        )
+    {
+        if (equal_not_equal &&
+            (object_is_zero(&p_a_expression->object) ||
+                object_is_one(&p_a_expression->object)))
+        {
+            //no warning when comparing == 0 == 1 != 0 != 0
+        }
+        else
+        {
+            compiler_diagnostic(W_BOOL_COMPARISON,
+                                 ctx,
+                                 op_token, NULL,
+                                 "comparison bool with non bool");
+        }
+    }
+
+    check_diferent_enuns(ctx,
+                         op_token,
+                         p_a_expression,
+                         p_b_expression,
+                         "comparing different enums.");
+}
+
 struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
@@ -4914,10 +4987,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                 throw;
             }
 
-            check_comparison(ctx,
-              new_expression->left,
-              new_expression->right,
-              optk);
+            check_comparison(ctx, new_expression->left, new_expression->right, optk);
 
             if (op == '>')
             {
@@ -5085,10 +5155,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum 
                 throw;
             }
 
-            check_comparison(ctx,
-              new_expression->left,
-              new_expression->right,
-              op);
+            check_comparison(ctx, new_expression->left, new_expression->right, op);
 
             new_expression->last_token = new_expression->right->last_token;
             new_expression->first_token = operator_token;
@@ -6565,78 +6632,7 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression* expre
     return true;
 }
 
-void check_comparison(struct parser_ctx* ctx,
-    struct expression* p_a_expression,
-    struct expression* p_b_expression,
-    const struct token* op_token)
-{
-    //TODO more checks unsigned < 0
-    bool equal_not_equal =
-        op_token->type == '!=' ||
-        op_token->type == '==';
 
-    struct type* p_a_type = &p_a_expression->type;
-    struct type* p_b_type = &p_b_expression->type;
-
-    if (type_is_pointer(p_a_type) && type_is_integer(p_b_type))
-    {
-        if (expression_is_zero(p_b_expression))
-        {
-            // p == 0
-            //style warning
-        }
-        else
-        {
-            //array functions..
-            compiler_diagnostic(W_ENUN_CONVERSION,
-                                        ctx,
-                                        op_token, NULL,
-                                        "comparison between pointer and integer");
-        }
-    }
-
-    if (type_is_bool(p_a_type) &&
-        !(type_is_bool(p_b_type) || type_is_essential_bool(p_b_type)))
-    {
-        if (equal_not_equal && (object_is_zero(&p_b_expression->object) ||
-            object_is_one(&p_b_expression->object)))
-        {
-            //no warning when comparing == 0 == 1 != 0 != 0
-        }
-        else
-        {
-            compiler_diagnostic(W_BOOL_COMPARISON,
-                                 ctx,
-                                 op_token, NULL,
-                                 "comparison bool with non bool");
-        }
-    }
-
-    if (type_is_bool(p_b_type) &&
-        !(type_is_bool(p_a_type) || type_is_essential_bool(p_a_type))
-        )
-    {
-        if (equal_not_equal &&
-            (object_is_zero(&p_a_expression->object) ||
-                object_is_one(&p_a_expression->object)))
-        {
-            //no warning when comparing == 0 == 1 != 0 != 0
-        }
-        else
-        {
-            compiler_diagnostic(W_BOOL_COMPARISON,
-                                 ctx,
-                                 op_token, NULL,
-                                 "comparison bool with non bool");
-        }
-    }
-
-    check_diferent_enuns(ctx,
-                         op_token,
-                         p_a_expression,
-                         p_b_expression,
-                         "comparing different enums.");
-}
 
 void check_assigment(struct parser_ctx* ctx,
     const struct type* p_a_type, /*this is not expression because function parameters*/
