@@ -659,7 +659,7 @@ bool style_has_one_space(const struct token*  token);
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char erromsg[100]);
 const unsigned char* _Opt utf8_decode(const unsigned char* s, _Ctor unsigned int* c);
-const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
+const unsigned char* _Opt escape_sequences_decode_opt2(const unsigned char* p, unsigned int* out_value);
 
 
 /*
@@ -1272,7 +1272,7 @@ void print_all_macros(const struct preprocessor_ctx* prectx);
 int string_literal_char_byte_size(const char* s);
 int string_literal_byte_size_not_zero_included(const char* s);
 
-int get_char_type(const char* s);
+
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
 int stringify(const char* input, int n, char output[]);
 
@@ -2729,7 +2729,7 @@ static bool is_hex_digit(unsigned char c)
     return false;
 }
 
-const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
+const unsigned char* _Opt escape_sequences_decode_opt2(const unsigned char* p, unsigned int* out_value)
 {
     assert(*p != '\\');
     
@@ -4776,13 +4776,6 @@ struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct strea
     return p_new_token;
 }
 
-int get_char_type(const char* s)
-{
-    if (s[0] == 'L')
-        return 2; /*wchar*/
-
-    return 1;
-}
 /*
   Returns the char byte size according with the literal suffix
 */
@@ -4800,70 +4793,6 @@ int string_literal_char_byte_size(const char* s)
     return 1;
 }
 
-int string_literal_byte_size_not_zero_included(const char* s)
-{
-
-    _Opt struct stream stream = { .source = s };
-
-    stream.current = s;
-    stream.line = 1;
-    stream.col = 1;
-    stream.path = "";
-
-    int size = 0;
-    const int charsize = string_literal_char_byte_size(s);
-
-    try
-    {
-        /*encoding_prefix_opt*/
-        if (stream.current[0] == 'u')
-        {
-            stream_match(&stream);
-            if (stream.current[0] == '8')
-                stream_match(&stream);
-        }
-        else if (stream.current[0] == 'U' ||
-            stream.current[0] == 'L')
-        {
-            stream_match(&stream);
-        }
-
-
-        stream_match(&stream); //"
-
-
-        while (stream.current[0] != '"')
-        {
-            if (stream.current[0] == '\0' ||
-                stream.current[0] == '\n')
-            {
-                throw;
-            }
-
-            if (stream.current[0] == '\\')
-            {
-                stream_match(&stream);
-                stream_match(&stream);
-                size++;
-            }
-            else
-            {
-                stream_match(&stream);
-                size++;
-            }
-        }
-        stream_match(&stream);
-    }
-    catch
-    {
-    }
-
-    /*
-       Last \0 is not included
-    */
-
-    return size * charsize;
-}
 
 static struct token* _Owner _Opt ppnumber(struct stream* stream)
 {
@@ -15178,7 +15107,7 @@ void test_get_warning_name()
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
  *
  *  struct object is used to compute the compile time expressions (including constexpr)
  *
@@ -15557,7 +15486,7 @@ struct type get_array_item_type(const struct type* p_type);
 
 struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled);
 
-struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers, enum target target);
+struct type type_make_literal_string2(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers, enum target target);
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t(enum target target);
@@ -15620,7 +15549,7 @@ struct parser_ctx;
 #endif
 
 
-enum object_value_type 
+enum object_value_type
 {
     TYPE_SIGNED_INT8,
     TYPE_UNSIGNED_INT8,
@@ -15638,13 +15567,13 @@ enum object_value_type
     TYPE_FLOAT64,
 
 #ifdef CAKE_FLOAT128_DEFINED
-    TYPE_FLOAT128    
+    TYPE_FLOAT128
 #endif
 };
 
 enum object_value_state
-{    
-    CONSTANT_VALUE_STATE_UNINITIALIZED,        
+{
+    CONSTANT_VALUE_STATE_UNINITIALIZED,
     CONSTANT_VALUE_STATE_ANY,
     CONSTANT_VALUE_STATE_CONSTANT,
     //flow analysis
@@ -15653,7 +15582,7 @@ enum object_value_state
 };
 
 struct object_list
-{    
+{
     struct object* _Owner _Opt head, * _Opt tail;
     size_t count;
 };
@@ -15661,7 +15590,7 @@ struct object_list
 void object_list_push(struct object_list* list, struct object* item);
 
 struct object
-{    
+{
     enum object_value_state state;
     enum object_value_type value_type;
     struct type type; //TODO to be removed we have 2 types in two places.
@@ -15669,13 +15598,13 @@ struct object
     const char* _Opt _Owner member_designator;
 
     union {
-  
+
         int8_t signed_int8;
         uint8_t unsigned_int8;
 
         int16_t signed_int16;
-        uint16_t unsigned_int16;                
-        
+        uint16_t unsigned_int16;
+
         int32_t signed_int32;
         uint32_t unsigned_int32;
 
@@ -15688,12 +15617,12 @@ struct object
 #ifdef CAKE_FLOAT128_DEFINED
         long double float128;
 #endif
-        
+
     } value;
     struct object* _Opt parent; //to be removed
     struct object* _Opt p_ref;
-    struct expression * _Opt p_init_expression;
-    
+    struct expression* _Opt p_init_expression;
+
     struct object_list members;
     struct object* _Opt _Owner next;
 };
@@ -15707,6 +15636,7 @@ void object_to_string(const struct object* a, char buffer[], int sz);
 
 
 //Make constant value
+struct object            object_make_char(enum target target, int value);
 struct object            object_make_wchar_t(enum target target, int value);
 struct object             object_make_size_t(enum target target, uint64_t value);
 struct object               object_make_bool(bool value);
@@ -15728,6 +15658,10 @@ struct object             object_make_double(double value);
 struct object        object_make_long_double(long double value);
 struct object        object_make_reference(struct object* object);
 
+
+struct object     object_make_uint8(uint8_t value);
+struct object     object_make_uint16(uint16_t value);
+struct object     object_make_uint32(uint32_t value);
 
 
 //dynamic cast
@@ -15793,10 +15727,10 @@ const struct object* object_get_referenced(const struct object* p_object);
 
 _Attr(nodiscard)
 int object_set(
-    struct parser_ctx* ctx, 
+    struct parser_ctx* ctx,
     struct object* to,
-    struct expression* _Opt init_expression, 
-    const struct object* from, 
+    struct expression* _Opt init_expression,
+    const struct object* from,
     bool is_constant,
     bool requires_constant_initialization);
 
@@ -15811,7 +15745,7 @@ struct object* object_get_non_const_referenced(struct object* p_object);
 
 
 
-struct objects 
+struct objects
 {
     struct object** _Opt items;
     int size;
@@ -18155,6 +18089,40 @@ struct object object_make_nullptr(enum target target)
     return r;
 }
 
+struct object object_make_char(enum target target, int value)
+{
+    struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
+
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int8 = (int8_t)value;
+        break;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT16;
+        r.value.signed_int8 = (int8_t)value;
+        break;
+
+    case TARGET_LCCU16:
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT8;
+        r.value.unsigned_int8 = (uint8_t)value;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT8;
+        r.value.unsigned_int8 = (uint8_t)value; //signed?
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+
+    return r;
+}
+
 struct object object_make_wchar_t(enum target target, int value)
 {
     struct object r = { 0 };
@@ -18179,7 +18147,7 @@ struct object object_make_wchar_t(enum target target, int value)
         break;
     case TARGET_CATALINA:
         r.value_type = TYPE_UNSIGNED_INT8;
-        r.value.unsigned_int8 = (uint8_t)value;
+        r.value.unsigned_int8 = (uint8_t)value; //signed or unsigned?
         break;
     }
     static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
@@ -18461,6 +18429,7 @@ unsigned char object_to_unsigned_char(const struct object* a)
     assert(0);
     return 0;
 }
+
 struct object object_make_signed_short(signed short value)
 {
     struct object r = { 0 };
@@ -18512,8 +18481,6 @@ unsigned short object_to_unsigned_short(const struct object* a)
 
     switch (a->value_type)
     {
-
-
     case TYPE_SIGNED_INT8: return a->value.signed_int8;
     case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
     case TYPE_SIGNED_INT16: return a->value.signed_int16;
@@ -18532,8 +18499,32 @@ unsigned short object_to_unsigned_short(const struct object* a)
     assert(0);
     return 0;
 }
+
+struct object object_make_uint8(uint8_t value)
+{
+    struct object r = { 0 };
+    r.value_type = TYPE_UNSIGNED_INT8;
+    r.value.signed_int8 = value;
+    return r;
+}
+struct object object_make_uint16(uint16_t value)
+{
+    struct object r = { 0 };
+    r.value_type = TYPE_UNSIGNED_INT16;
+    r.value.signed_int8 = value;
+    return r;
+}
+struct object object_make_uint32(uint32_t value)
+{
+    struct object r = { 0 };
+    r.value_type = TYPE_UNSIGNED_INT32;
+    r.value.signed_int8 = value;
+    return r;
+}
+
 struct object object_make_signed_int(signed int value)
 {
+    //tODO
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT32;
@@ -20693,7 +20684,8 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         if (isinf(a->value.float32))
         {
             assert(false); //TODO
-            ss_fprintf(ss, "%f", a->value.float32);        }
+            ss_fprintf(ss, "%f", a->value.float32);
+        }
         else
         {
             ss_fprintf(ss, "%f", a->value.float32);
@@ -21296,7 +21288,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -21310,7 +21302,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit.");
             }
 
-            p_expression_node->object = object_make_unsigned_char((unsigned char) c);//, ctx->evaluation_is_disabled);
+            p_expression_node->object = object_make_unsigned_char((unsigned char)c);//, ctx->evaluation_is_disabled);
         }
         else if (p[0] == 'u')
         {
@@ -21329,7 +21321,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -21362,7 +21354,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -21408,7 +21400,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt(p, &c);
+                    p = escape_sequences_decode_opt2(p, &c);
                     if (p == NULL) throw;
                 }
 
@@ -21458,7 +21450,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt(p, &c);
+                    p = escape_sequences_decode_opt2(p, &c);
                     if (p == NULL) throw;
                 }
 
@@ -21602,7 +21594,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             static_assert(NUMBER_OF_TARGETS == 6, "does your target follow the C rules? see why MSVC is different");
 
             /*fixing the type that fits the size*/
-            if (value <= (unsigned long long) target_get_signed_int_max(target)&& suffix[0] != 'L')
+            if (value <= (unsigned long long) target_get_signed_int_max(target) && suffix[0] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_int((int)value);
@@ -21835,13 +21827,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     ctx->p_current_function_opt->name_opt->lexeme :
                     "unnamed";
 
-
-
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = type_make_literal_string(strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST, ctx->options.target);
+                p_expression_node->type = type_make_literal_string2(strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST, ctx->options.target);
             }
             else
             {
@@ -21865,52 +21855,118 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            enum type_specifier_flags char_type = TYPE_SPECIFIER_CHAR;
+            enum type_specifier_flags char_type_specifiers = TYPE_SPECIFIER_CHAR;
 
-            if (get_char_type(ctx->current->lexeme) == 2)
+            bool is_bigger_than_char = false;
+            bool is_wide = false;
+            bool is_u8 = false;
+            bool is_u32 = false;
+            bool is_u16 = false;
+      
+
+            if (ctx->current->lexeme[0] == 'L')
             {
-                /*
-                   automatically finding out the type of wchar_t to copy
-                   GCC or MSVC.
-                   windows it is short linux is
-                */
-                char_type = get_wchar_type_specifier(ctx->options.target);
+                is_wide = true;
+                is_bigger_than_char = true;
+                char_type_specifiers = get_wchar_type_specifier(ctx->options.target);
+            }
+            else if (ctx->current->lexeme[0] == 'u' &&
+                     ctx->current->lexeme[1] == '8')
+            {
+                is_u8 = true;                
+                char_type_specifiers = TYPE_SPECIFIER_CHAR;
+            }
+            else if (ctx->current->lexeme[0] == 'u')
+            {
+                is_u16 = true;
+                is_bigger_than_char = true;
+                char_type_specifiers = TYPE_SPECIFIER_UNSIGNED | get_intN_type_specifier(ctx->options.target, 16);
+            }
+            else if (ctx->current->lexeme[0] == 'U')
+            {
+                is_u32 = true;
+                is_bigger_than_char = true;
+                char_type_specifiers = TYPE_SPECIFIER_UNSIGNED | get_intN_type_specifier(ctx->options.target, 32);
+            }
+            else
+            {
+                char_type_specifiers = TYPE_SPECIFIER_CHAR;
             }
             /*
               string concatenation should have been done in a previous phase
               but since we keep the source format here it was an alternative
             */
 
-            const int char_byte_size = string_literal_char_byte_size(ctx->current->lexeme);
-            int number_of_bytes = 0;
+            unsigned int number_of_elements_including_zero = 0;
             struct object* _Opt last = NULL;
 
             while (ctx->current->type == TK_STRING_LITERAL)
             {
                 //"part1" "part2" TODO check different types
 
-                const unsigned char* it = (unsigned char*) ctx->current->lexeme + 1;
+
+                const unsigned char* it = (unsigned char*)ctx->current->lexeme;
+
+                //skip string literal prefix u8, L etc 
+                while (*it != '"')
+                    it++;
+
+                assert(*it == '"');
+                it++; //skip "
+
                 unsigned int value = 0;
                 while (it && *it != '"')
                 {
-                    if (*it == '\\')
+                    unsigned int c = 0;
+
+                    if (is_bigger_than_char)
                     {
-                        it++;
-                        it = escape_sequences_decode_opt(it, &value);
+                        it = utf8_decode(it, &c);
+                        if (it == NULL)
+                        {
+                            throw;
+                        }
                     }
                     else
                     {
-                        value = *it;
+                        c = *it;
                         it++;
+                    }
+
+                    if (c == '\\')
+                    {
+                        it = escape_sequences_decode_opt2(it, &value);
+                    }
+                    else
+                    {
+                        value = c;
                     }
 
                     struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
                     if (p_new == NULL) throw;
-
-                    p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
-                    p_new->value_type = TYPE_SIGNED_INT8;
-                    p_new->value.signed_int8 = (char)value;
-
+                    if (is_wide)
+                    {
+                        *p_new = object_make_wchar_t(ctx->options.target, value);
+                    }
+                    else if (is_u8)
+                    {
+                        //C11 u8 is sigend, C23 it is unsigned
+                        *p_new = object_make_uint8((uint8_t)value);
+                    }
+                    else if (is_u16)
+                    {
+                        *p_new = object_make_uint16((uint16_t)value);
+                    }
+                    else if (is_u32)
+                    {
+                        *p_new = object_make_uint32((uint32_t)value);
+                    }
+                    else
+                    {
+                        //u8"" also are char not (char8_t)
+                        *p_new = object_make_char(ctx->options.target, value);
+                    }
+                    number_of_elements_including_zero++;
                     if (p_expression_node->object.members.head == NULL)
                     {
                         p_expression_node->object.members.head = p_new;
@@ -21923,24 +21979,6 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     last = p_new;
                 }
 
-                struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
-                if (p_new == NULL) throw;
-
-                p_new->state = CONSTANT_VALUE_STATE_CONSTANT;
-                p_new->value_type = TYPE_SIGNED_INT8;
-                p_new->value.signed_int8 = 0;
-
-                if (last == NULL)
-                {
-                    p_expression_node->object.members.head = p_new;
-                }
-                else
-                {
-                    last->next = p_new;
-                }
-
-                number_of_bytes += string_literal_byte_size_not_zero_included(ctx->current->lexeme);
-
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -21949,8 +21987,47 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 }
             }
 
+            /*
+              Appending the last \0
+            */
+            struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
+            if (p_new == NULL) throw;
+
+            if (is_wide)
+            {
+                *p_new = object_make_wchar_t(ctx->options.target, 0);
+            }
+            else if (is_u8)
+            {
+                //C11 u8 is sigend, C23 it is unsigned
+                *p_new = object_make_uint8((uint8_t)0);
+            }
+            else if (is_u16)
+            {
+                *p_new = object_make_uint16(0);
+            }
+            else if (is_u32)
+            {
+                *p_new = object_make_uint32( 0);
+            }
+            else
+            {
+                //u8"" also are char not (char8_t)
+                *p_new = object_make_char(ctx->options.target, 0);
+            }
+            number_of_elements_including_zero++;
+
+            if (last == NULL)
+            {
+                p_expression_node->object.members.head = p_new;
+            }
+            else
+            {
+                last->next = p_new;
+            }
+
             enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
-            p_expression_node->type = type_make_literal_string(number_of_bytes + (1 * char_byte_size), char_type, lit_flags, ctx->options.target);
+            p_expression_node->type = type_make_literal_string2(number_of_elements_including_zero, char_type_specifiers, lit_flags, ctx->options.target);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
@@ -23765,7 +23842,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             {
                 new_expression->right = unary_expression(ctx, EXPRESSION_EVAL_MODE_TYPE);
                 if (new_expression->right == NULL)
-                {                    
+                {
                     expression_delete(new_expression);
                     throw;
                 }
@@ -23797,7 +23874,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             type_destroy(&new_expression->type);
             new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
-            
+
         }
         else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
@@ -24015,7 +24092,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
-            
+
 
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -24086,7 +24163,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             {
                 new_expression->right = unary_expression(ctx, EXPRESSION_EVAL_MODE_TYPE);
                 if (new_expression->right == NULL)
-                {                    
+                {
                     expression_delete(new_expression);
                     throw;
                 }
@@ -24115,7 +24192,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
 
-            
+
         }
         else if (
             ctx->current->type == TK_KEYWORD_IS_LVALUE ||
@@ -24248,7 +24325,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             }
 
             new_expression->type = type_make_int_bool_like();
-            p_expression_node = new_expression;            
+            p_expression_node = new_expression;
         }
         else // if (is_first_of_primary_expression(ctx, eval_mode))
         {
@@ -28108,7 +28185,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -28143,7 +28220,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -28178,7 +28255,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
 
                 if (p == NULL)
                 {
@@ -28225,7 +28302,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 }
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt(p, &c);
+                    p = escape_sequences_decode_opt2(p, &c);
                     if (p == NULL)
                         throw;
                 }
@@ -28268,7 +28345,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt(p, &c);
+                    p = escape_sequences_decode_opt2(p, &c);
                     if (p == NULL)
                         throw;
                 }
@@ -29286,7 +29363,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.20"
+#define CAKE_VERSION "0.12.21"
 
 
 
@@ -58386,7 +58463,7 @@ struct type type_make_int()
     return t;
 }
 
-struct type type_make_literal_string(int size_in_bytes,
+struct type type_make_literal_string2(int number_of_chars_including_zero,
     enum type_specifier_flags chartype,
     enum type_qualifier_flags qualifiers,
     enum target target)
@@ -58401,24 +58478,9 @@ struct type type_make_literal_string(int size_in_bytes,
         struct type char_type = { 0 };
         char_type.category = TYPE_CATEGORY_ITSELF;
         char_type.type_specifier_flags = chartype;
-
-        size_t char_size = 0;
-
-        if (type_get_sizeof(&char_type, &char_size, target) != 0)
-        {
-            type_delete(p2);
-            throw;
-        }
-
-        if (char_size == 0)
-        {
-            char_size = 1;
-        }
-        type_destroy(&char_type);
-
-
+       
         t.category = TYPE_CATEGORY_ARRAY;
-        t.num_of_elements = size_in_bytes / char_size;
+        t.num_of_elements = number_of_chars_including_zero;
 
         p2->category = TYPE_CATEGORY_ITSELF;
         p2->type_specifier_flags = chartype;

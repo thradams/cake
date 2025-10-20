@@ -391,6 +391,40 @@ struct object object_make_nullptr(enum target target)
     return r;
 }
 
+struct object object_make_char(enum target target, int value)
+{
+    struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
+
+    switch (target)
+    {
+    case TARGET_X86_X64_GCC:
+        r.value_type = TYPE_SIGNED_INT32;
+        r.value.signed_int8 = (int8_t)value;
+        break;
+
+    case TARGET_X86_MSVC:
+    case TARGET_X64_MSVC:
+        r.value_type = TYPE_UNSIGNED_INT16;
+        r.value.signed_int8 = (int8_t)value;
+        break;
+
+    case TARGET_LCCU16:
+    case TARGET_CCU8:
+        r.value_type = TYPE_UNSIGNED_INT8;
+        r.value.unsigned_int8 = (uint8_t)value;
+        break;
+
+    case TARGET_CATALINA:
+        r.value_type = TYPE_UNSIGNED_INT8;
+        r.value.unsigned_int8 = (uint8_t)value; //signed?
+        break;
+    }
+    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+
+    return r;
+}
+
 struct object object_make_wchar_t(enum target target, int value)
 {
     struct object r = { 0 };
@@ -415,7 +449,7 @@ struct object object_make_wchar_t(enum target target, int value)
         break;
     case TARGET_CATALINA:
         r.value_type = TYPE_UNSIGNED_INT8;
-        r.value.unsigned_int8 = (uint8_t)value;
+        r.value.unsigned_int8 = (uint8_t)value; //signed or unsigned?
         break;
     }
     static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
@@ -697,6 +731,7 @@ unsigned char object_to_unsigned_char(const struct object* a)
     assert(0);
     return 0;
 }
+
 struct object object_make_signed_short(signed short value)
 {
     struct object r = { 0 };
@@ -748,8 +783,6 @@ unsigned short object_to_unsigned_short(const struct object* a)
 
     switch (a->value_type)
     {
-
-
     case TYPE_SIGNED_INT8: return a->value.signed_int8;
     case TYPE_UNSIGNED_INT8: return a->value.unsigned_int8;
     case TYPE_SIGNED_INT16: return a->value.signed_int16;
@@ -768,8 +801,32 @@ unsigned short object_to_unsigned_short(const struct object* a)
     assert(0);
     return 0;
 }
+
+struct object object_make_uint8(uint8_t value)
+{
+    struct object r = { 0 };
+    r.value_type = TYPE_UNSIGNED_INT8;
+    r.value.signed_int8 = value;
+    return r;
+}
+struct object object_make_uint16(uint16_t value)
+{
+    struct object r = { 0 };
+    r.value_type = TYPE_UNSIGNED_INT16;
+    r.value.signed_int8 = value;
+    return r;
+}
+struct object object_make_uint32(uint32_t value)
+{
+    struct object r = { 0 };
+    r.value_type = TYPE_UNSIGNED_INT32;
+    r.value.signed_int8 = value;
+    return r;
+}
+
 struct object object_make_signed_int(signed int value)
 {
+    //tODO
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT32;
@@ -2929,7 +2986,8 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         if (isinf(a->value.float32))
         {
             assert(false); //TODO
-            ss_fprintf(ss, "%f", a->value.float32);        }
+            ss_fprintf(ss, "%f", a->value.float32);
+        }
         else
         {
             ss_fprintf(ss, "%f", a->value.float32);

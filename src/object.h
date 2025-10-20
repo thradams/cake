@@ -1,7 +1,7 @@
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
  *
  *  struct object is used to compute the compile time expressions (including constexpr)
  *
@@ -22,7 +22,7 @@ struct parser_ctx;
 #endif
 
 
-enum object_value_type 
+enum object_value_type
 {
     TYPE_SIGNED_INT8,
     TYPE_UNSIGNED_INT8,
@@ -40,13 +40,13 @@ enum object_value_type
     TYPE_FLOAT64,
 
 #ifdef CAKE_FLOAT128_DEFINED
-    TYPE_FLOAT128    
+    TYPE_FLOAT128
 #endif
 };
 
 enum object_value_state
-{    
-    CONSTANT_VALUE_STATE_UNINITIALIZED,        
+{
+    CONSTANT_VALUE_STATE_UNINITIALIZED,
     CONSTANT_VALUE_STATE_ANY,
     CONSTANT_VALUE_STATE_CONSTANT,
     //flow analysis
@@ -55,7 +55,7 @@ enum object_value_state
 };
 
 struct object_list
-{    
+{
     struct object* _Owner _Opt head, * _Opt tail;
     size_t count;
 };
@@ -63,7 +63,7 @@ struct object_list
 void object_list_push(struct object_list* list, struct object* item);
 
 struct object
-{    
+{
     enum object_value_state state;
     enum object_value_type value_type;
     struct type type; //TODO to be removed we have 2 types in two places.
@@ -71,13 +71,13 @@ struct object
     const char* _Opt _Owner member_designator;
 
     union {
-  
+
         int8_t signed_int8;
         uint8_t unsigned_int8;
 
         int16_t signed_int16;
-        uint16_t unsigned_int16;                
-        
+        uint16_t unsigned_int16;
+
         int32_t signed_int32;
         uint32_t unsigned_int32;
 
@@ -90,12 +90,12 @@ struct object
 #ifdef CAKE_FLOAT128_DEFINED
         long double float128;
 #endif
-        
+
     } value;
     struct object* _Opt parent; //to be removed
     struct object* _Opt p_ref;
-    struct expression * _Opt p_init_expression;
-    
+    struct expression* _Opt p_init_expression;
+
     struct object_list members;
     struct object* _Opt _Owner next;
 };
@@ -109,6 +109,7 @@ void object_to_string(const struct object* a, char buffer[], int sz);
 
 
 //Make constant value
+struct object            object_make_char(enum target target, int value);
 struct object            object_make_wchar_t(enum target target, int value);
 struct object             object_make_size_t(enum target target, uint64_t value);
 struct object               object_make_bool(bool value);
@@ -130,6 +131,10 @@ struct object             object_make_double(double value);
 struct object        object_make_long_double(long double value);
 struct object        object_make_reference(struct object* object);
 
+
+struct object     object_make_uint8(uint8_t value);
+struct object     object_make_uint16(uint16_t value);
+struct object     object_make_uint32(uint32_t value);
 
 
 //dynamic cast
@@ -195,10 +200,10 @@ const struct object* object_get_referenced(const struct object* p_object);
 
 _Attr(nodiscard)
 int object_set(
-    struct parser_ctx* ctx, 
+    struct parser_ctx* ctx,
     struct object* to,
-    struct expression* _Opt init_expression, 
-    const struct object* from, 
+    struct expression* _Opt init_expression,
+    const struct object* from,
     bool is_constant,
     bool requires_constant_initialization);
 
@@ -213,7 +218,7 @@ struct object* object_get_non_const_referenced(struct object* p_object);
 
 
 
-struct objects 
+struct objects
 {
     struct object** _Opt items;
     int size;

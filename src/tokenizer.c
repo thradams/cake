@@ -1330,13 +1330,6 @@ struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct strea
     return p_new_token;
 }
 
-int get_char_type(const char* s)
-{
-    if (s[0] == 'L')
-        return 2; /*wchar*/
-
-    return 1;
-}
 /*
   Returns the char byte size according with the literal suffix
 */
@@ -1354,70 +1347,6 @@ int string_literal_char_byte_size(const char* s)
     return 1;
 }
 
-int string_literal_byte_size_not_zero_included(const char* s)
-{
-
-    _Opt struct stream stream = { .source = s };
-
-    stream.current = s;
-    stream.line = 1;
-    stream.col = 1;
-    stream.path = "";
-
-    int size = 0;
-    const int charsize = string_literal_char_byte_size(s);
-
-    try
-    {
-        /*encoding_prefix_opt*/
-        if (stream.current[0] == 'u')
-        {
-            stream_match(&stream);
-            if (stream.current[0] == '8')
-                stream_match(&stream);
-        }
-        else if (stream.current[0] == 'U' ||
-            stream.current[0] == 'L')
-        {
-            stream_match(&stream);
-        }
-
-
-        stream_match(&stream); //"
-
-
-        while (stream.current[0] != '"')
-        {
-            if (stream.current[0] == '\0' ||
-                stream.current[0] == '\n')
-            {
-                throw;
-            }
-
-            if (stream.current[0] == '\\')
-            {
-                stream_match(&stream);
-                stream_match(&stream);
-                size++;
-            }
-            else
-            {
-                stream_match(&stream);
-                size++;
-            }
-        }
-        stream_match(&stream);
-    }
-    catch
-    {
-    }
-
-    /*
-       Last \0 is not included
-    */
-
-    return size * charsize;
-}
 
 static struct token* _Owner _Opt ppnumber(struct stream* stream)
 {

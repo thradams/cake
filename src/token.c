@@ -1464,7 +1464,7 @@ static bool is_hex_digit(unsigned char c)
     return false;
 }
 
-const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
+const unsigned char* _Opt escape_sequences_decode_opt2(const unsigned char* p, unsigned int* out_value)
 {
     assert(*p != '\\');
     

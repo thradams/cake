@@ -3502,7 +3502,7 @@ struct type type_make_int()
     return t;
 }
 
-struct type type_make_literal_string(int size_in_bytes,
+struct type type_make_literal_string2(int number_of_chars_including_zero,
     enum type_specifier_flags chartype,
     enum type_qualifier_flags qualifiers,
     enum target target)
@@ -3517,24 +3517,9 @@ struct type type_make_literal_string(int size_in_bytes,
         struct type char_type = { 0 };
         char_type.category = TYPE_CATEGORY_ITSELF;
         char_type.type_specifier_flags = chartype;
-
-        size_t char_size = 0;
-
-        if (type_get_sizeof(&char_type, &char_size, target) != 0)
-        {
-            type_delete(p2);
-            throw;
-        }
-
-        if (char_size == 0)
-        {
-            char_size = 1;
-        }
-        type_destroy(&char_type);
-
-
+       
         t.category = TYPE_CATEGORY_ARRAY;
-        t.num_of_elements = size_in_bytes / char_size;
+        t.num_of_elements = number_of_chars_including_zero;
 
         p2->category = TYPE_CATEGORY_ITSELF;
         p2->type_specifier_flags = chartype;

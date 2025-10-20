@@ -106,6 +106,6 @@ void print_all_macros(const struct preprocessor_ctx* prectx);
 int string_literal_char_byte_size(const char* s);
 int string_literal_byte_size_not_zero_included(const char* s);
 
-int get_char_type(const char* s);
+
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
 int stringify(const char* input, int n, char output[]);

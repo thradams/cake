@@ -227,7 +227,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -262,7 +262,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -297,7 +297,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt(p, &c);
+                p = escape_sequences_decode_opt2(p, &c);
 
                 if (p == NULL)
                 {
@@ -344,7 +344,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 }
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt(p, &c);
+                    p = escape_sequences_decode_opt2(p, &c);
                     if (p == NULL)
                         throw;
                 }
@@ -387,7 +387,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt(p, &c);
+                    p = escape_sequences_decode_opt2(p, &c);
                     if (p == NULL)
                         throw;
                 }

@@ -334,4 +334,4 @@ bool style_has_one_space(const struct token*  token);
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char erromsg[100]);
 const unsigned char* _Opt utf8_decode(const unsigned char* s, _Ctor unsigned int* c);
-const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
+const unsigned char* _Opt escape_sequences_decode_opt2(const unsigned char* p, unsigned int* out_value);
