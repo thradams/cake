@@ -1182,7 +1182,10 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 while (it && *it != '"')
                 {
                     if (*it == '\\')
+                    {
+                        it++;
                         it = escape_sequences_decode_opt(it, &value);
+                    }
                     else
                     {
                         value = *it;

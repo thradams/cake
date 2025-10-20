@@ -1,7 +1,7 @@
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -1887,8 +1887,8 @@ struct token* _Owner _Opt clone_token(struct token* p)
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last)
 {
     /*
-       token_list_remove_get removes a range of tokens from a doubly - linked token list and 
-       returns them as a new list.  It does not delete the tokens; it just detaches them from 
+       token_list_remove_get removes a range of tokens from a doubly - linked token list and
+       returns them as a new list.  It does not delete the tokens; it just detaches them from
        the original list.
     */
 
@@ -2731,6 +2731,8 @@ static bool is_hex_digit(unsigned char c)
 
 const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
 {
+    assert(*p != '\\');
+    
     // TODO OVERFLOW CHECK
     if (*p == 'x')
     {
@@ -21892,7 +21894,10 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 while (it && *it != '"')
                 {
                     if (*it == '\\')
+                    {
+                        it++;
                         it = escape_sequences_decode_opt(it, &value);
+                    }
                     else
                     {
                         value = *it;
@@ -29281,7 +29286,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.19"
+#define CAKE_VERSION "0.12.20"
 
 
 
@@ -43639,7 +43644,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->right != NULL);
         if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
         {
-            //removes extra (())
+            //removes extra (()) ,we also could remove from other..
             d_visit_expression(ctx, oss, p_expression->right);
         }
         else

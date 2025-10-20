@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -622,8 +622,8 @@ struct token* _Owner _Opt clone_token(struct token* p)
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last)
 {
     /*
-       token_list_remove_get removes a range of tokens from a doubly - linked token list and 
-       returns them as a new list.  It does not delete the tokens; it just detaches them from 
+       token_list_remove_get removes a range of tokens from a doubly - linked token list and
+       returns them as a new list.  It does not delete the tokens; it just detaches them from
        the original list.
     */
 
@@ -1466,6 +1466,8 @@ static bool is_hex_digit(unsigned char c)
 
 const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
 {
+    assert(*p != '\\');
+    
     // TODO OVERFLOW CHECK
     if (*p == 'x')
     {
