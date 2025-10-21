@@ -659,7 +659,7 @@ bool style_has_one_space(const struct token*  token);
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char erromsg[100]);
 const unsigned char* _Opt utf8_decode(const unsigned char* s, _Ctor unsigned int* c);
-const unsigned char* _Opt escape_sequences_decode_opt2(const unsigned char* p, unsigned int* out_value);
+const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
 
 
 /*
@@ -1268,9 +1268,6 @@ void check_unused_macros(const struct hash_map* map);
 const char* get_token_name(enum token_type tk);
 const char* get_diagnostic_friendly_token_name(enum token_type tk);
 void print_all_macros(const struct preprocessor_ctx* prectx);
-
-int string_literal_char_byte_size(const char* s);
-int string_literal_byte_size_not_zero_included(const char* s);
 
 
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
@@ -2729,10 +2726,12 @@ static bool is_hex_digit(unsigned char c)
     return false;
 }
 
-const unsigned char* _Opt escape_sequences_decode_opt2(const unsigned char* p, unsigned int* out_value)
+const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
 {
-    assert(*p != '\\');
-    
+    /*
+      caller must skip the / before calling this function
+    */
+
     // TODO OVERFLOW CHECK
     if (*p == 'x')
     {
@@ -4775,24 +4774,6 @@ struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct strea
 
     return p_new_token;
 }
-
-/*
-  Returns the char byte size according with the literal suffix
-*/
-int string_literal_char_byte_size(const char* s)
-{
-    if (s[0] == 'u')
-    {
-        //must be followed by u8 but not checked here
-    }
-    else if (s[0] == 'U' || s[0] == 'L')
-    {
-        return (int)sizeof(wchar_t);
-    }
-
-    return 1;
-}
-
 
 static struct token* _Owner _Opt ppnumber(struct stream* stream)
 {
@@ -21290,7 +21271,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -21323,7 +21304,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -21356,7 +21337,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -21402,7 +21383,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt2(p, &c);
+                    p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL) throw;
                 }
 
@@ -21452,7 +21433,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt2(p, &c);
+                    p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL) throw;
                 }
 
@@ -21937,7 +21918,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                     if (c == '\\')
                     {
-                        it = escape_sequences_decode_opt2(it, &value);
+                        it = escape_sequences_decode_opt(it, &value);
                     }
                     else
                     {
@@ -28195,7 +28176,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -28230,7 +28211,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -28265,7 +28246,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
 
                 if (p == NULL)
                 {
@@ -28312,7 +28293,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
                 }
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt2(p, &c);
+                    p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL)
                         throw;
                 }
@@ -28355,7 +28336,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt2(p, &c);
+                    p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL)
                         throw;
                 }

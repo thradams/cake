@@ -1330,24 +1330,6 @@ struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct strea
     return p_new_token;
 }
 
-/*
-  Returns the char byte size according with the literal suffix
-*/
-int string_literal_char_byte_size(const char* s)
-{
-    if (s[0] == 'u')
-    {
-        //must be followed by u8 but not checked here
-    }
-    else if (s[0] == 'U' || s[0] == 'L')
-    {
-        return (int)sizeof(wchar_t);
-    }
-
-    return 1;
-}
-
-
 static struct token* _Owner _Opt ppnumber(struct stream* stream)
 {
     /*

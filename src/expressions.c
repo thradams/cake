@@ -584,7 +584,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -617,7 +617,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -650,7 +650,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
             if (c == '\\')
             {
-                p = escape_sequences_decode_opt2(p, &c);
+                p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL) throw;
             }
 
@@ -696,7 +696,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt2(p, &c);
+                    p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL) throw;
                 }
 
@@ -746,7 +746,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
                 if (c == '\\')
                 {
-                    p = escape_sequences_decode_opt2(p, &c);
+                    p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL) throw;
                 }
 
@@ -1231,7 +1231,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                     if (c == '\\')
                     {
-                        it = escape_sequences_decode_opt2(it, &value);
+                        it = escape_sequences_decode_opt(it, &value);
                     }
                     else
                     {
