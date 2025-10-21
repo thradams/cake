@@ -783,6 +783,8 @@ struct declarator
     bool declarator_renamed;
 };
 
+const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p);
+
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
 

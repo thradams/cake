@@ -1158,7 +1158,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             bool is_u8 = false;
             bool is_u32 = false;
             bool is_u16 = false;
-      
+
 
             if (ctx->current->lexeme[0] == 'L')
             {
@@ -1169,7 +1169,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             else if (ctx->current->lexeme[0] == 'u' &&
                      ctx->current->lexeme[1] == '8')
             {
-                is_u8 = true;                
+                is_u8 = true;
                 char_type_specifiers = TYPE_SPECIFIER_CHAR;
             }
             else if (ctx->current->lexeme[0] == 'u')
@@ -1304,7 +1304,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             }
             else if (is_u32)
             {
-                *p_new = object_make_uint32( 0);
+                *p_new = object_make_uint32(0);
             }
             else
             {
@@ -2151,6 +2151,14 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
 
         if (type_is_function(&p_expression_node->type_name->abstract_declarator->type))
         {
+            //this keep the typedef for function out.. we must have the function declarator
+            const struct declarator* inner = declarator_get_innert_function_declarator(p_expression_node->type_name->abstract_declarator);
+            if (inner->direct_declarator->function_declarator == NULL)
+            {
+                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing function declarator");
+                throw;
+            }
+
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
 

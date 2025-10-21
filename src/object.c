@@ -417,7 +417,7 @@ struct object object_make_char(enum target target, int value)
 
     case TARGET_CATALINA:
         r.value_type = TYPE_UNSIGNED_INT8;
-        r.value.unsigned_int8 = (uint8_t)value; //signed?
+        r.value.unsigned_int8 = (uint8_t)value;
         break;
     }
     static_assert(NUMBER_OF_TARGETS == 6, "add new target here");

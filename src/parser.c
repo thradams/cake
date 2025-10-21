@@ -1582,14 +1582,14 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
         if (ctx->current->type != type)
         {
             compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
-                ctx, 
+                ctx,
                 ctx->current,
-                NULL, 
+                NULL,
                 "expected token '%s', got '%s' ",
-                get_diagnostic_friendly_token_name(type), 
+                get_diagnostic_friendly_token_name(type),
                 get_diagnostic_friendly_token_name(ctx->current->type)
-                );
-            
+            );
+
             error = 1;
         }
 
@@ -2361,7 +2361,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             {
                 if (inner->first_token_opt)
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, inner->first_token_opt, NULL, "missing function declarator");
-                else 
+                else
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "missing function declarator");
 
                 throw;
@@ -6748,6 +6748,24 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
         // TODO
         ss_fprintf(ss, "[]");
     }
+}
+
+const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p)
+{
+    const struct declarator* inner = p;
+    for (;;)
+    {
+        if (inner->direct_declarator &&
+            inner->direct_declarator->function_declarator &&
+            inner->direct_declarator->function_declarator->direct_declarator &&
+            inner->direct_declarator->function_declarator->direct_declarator->declarator)
+        {
+            inner = inner->direct_declarator->function_declarator->direct_declarator->declarator;
+        }
+        else
+            break;
+    }
+    return inner;
 }
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* declarator)

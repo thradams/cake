@@ -16804,6 +16804,8 @@ struct declarator
     bool declarator_renamed;
 };
 
+const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p);
+
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
 
@@ -18115,7 +18117,7 @@ struct object object_make_char(enum target target, int value)
 
     case TARGET_CATALINA:
         r.value_type = TYPE_UNSIGNED_INT8;
-        r.value.unsigned_int8 = (uint8_t)value; //signed?
+        r.value.unsigned_int8 = (uint8_t)value;
         break;
     }
     static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
@@ -21862,7 +21864,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             bool is_u8 = false;
             bool is_u32 = false;
             bool is_u16 = false;
-      
+
 
             if (ctx->current->lexeme[0] == 'L')
             {
@@ -21873,7 +21875,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             else if (ctx->current->lexeme[0] == 'u' &&
                      ctx->current->lexeme[1] == '8')
             {
-                is_u8 = true;                
+                is_u8 = true;
                 char_type_specifiers = TYPE_SPECIFIER_CHAR;
             }
             else if (ctx->current->lexeme[0] == 'u')
@@ -22008,7 +22010,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             }
             else if (is_u32)
             {
-                *p_new = object_make_uint32( 0);
+                *p_new = object_make_uint32(0);
             }
             else
             {
@@ -22855,6 +22857,14 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
 
         if (type_is_function(&p_expression_node->type_name->abstract_declarator->type))
         {
+            //this keep the typedef for function out.. we must have the function declarator
+            const struct declarator* inner = declarator_get_innert_function_declarator(p_expression_node->type_name->abstract_declarator);
+            if (inner->direct_declarator->function_declarator == NULL)
+            {
+                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing function declarator");
+                throw;
+            }
+
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
 
@@ -29363,7 +29373,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.21"
+#define CAKE_VERSION "0.12.22"
 
 
 
@@ -30982,14 +30992,14 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
         if (ctx->current->type != type)
         {
             compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN,
-                ctx, 
+                ctx,
                 ctx->current,
-                NULL, 
+                NULL,
                 "expected token '%s', got '%s' ",
-                get_diagnostic_friendly_token_name(type), 
+                get_diagnostic_friendly_token_name(type),
                 get_diagnostic_friendly_token_name(ctx->current->type)
-                );
-            
+            );
+
             error = 1;
         }
 
@@ -31761,7 +31771,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             {
                 if (inner->first_token_opt)
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, inner->first_token_opt, NULL, "missing function declarator");
-                else 
+                else
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "missing function declarator");
 
                 throw;
@@ -36148,6 +36158,24 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
         // TODO
         ss_fprintf(ss, "[]");
     }
+}
+
+const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p)
+{
+    const struct declarator* inner = p;
+    for (;;)
+    {
+        if (inner->direct_declarator &&
+            inner->direct_declarator->function_declarator &&
+            inner->direct_declarator->function_declarator->direct_declarator &&
+            inner->direct_declarator->function_declarator->direct_declarator->declarator)
+        {
+            inner = inner->direct_declarator->function_declarator->direct_declarator->declarator;
+        }
+        else
+            break;
+    }
+    return inner;
 }
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* declarator)
