@@ -105,7 +105,7 @@ void object_print_value_debug(const struct object* a);
 void object_destroy(_Opt _Dtor struct object* p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
-void object_to_string(const struct object* a, char buffer[], int sz);
+
 
 
 //Make constant value

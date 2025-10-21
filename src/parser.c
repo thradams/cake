@@ -2781,9 +2781,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
-                p_init_declarator->p_declarator->object.type.num_of_elements =
-                    p_init_declarator->p_declarator->type.num_of_elements;
-                //fixing the name of members?
+                assert(p_init_declarator->p_declarator->object.type.num_of_elements ==
+                    p_init_declarator->p_declarator->type.num_of_elements);                
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {

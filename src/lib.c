@@ -15613,7 +15613,7 @@ void object_print_value_debug(const struct object* a);
 void object_destroy(_Opt _Dtor struct object* p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
-void object_to_string(const struct object* a, char buffer[], int sz);
+
 
 
 //Make constant value
@@ -17940,63 +17940,6 @@ bool object_has_constant_value(const struct object* a)
     return a->state == CONSTANT_VALUE_STATE_CONSTANT;
 }
 
-void object_to_string(const struct object* a, char buffer[], int sz)
-{
-    a = object_get_referenced(a);
-
-    buffer[0] = 0;
-    switch (a->value_type)
-    {
-
-    case TYPE_SIGNED_INT8:
-        snprintf(buffer, sz, "%" PRIi8, a->value.signed_int8);
-        break;
-
-    case TYPE_UNSIGNED_INT8:
-        snprintf(buffer, sz, "%" PRIu8, a->value.unsigned_int8);
-        break;
-
-    case TYPE_SIGNED_INT16:
-        snprintf(buffer, sz, "%" PRIi16, a->value.signed_int16);
-        break;
-    case TYPE_UNSIGNED_INT16:
-        snprintf(buffer, sz, "%" PRIu16, a->value.signed_int16);
-        break;
-
-    case TYPE_SIGNED_INT32:
-        snprintf(buffer, sz, "%" PRIi32, a->value.signed_int32);
-        break;
-
-    case TYPE_UNSIGNED_INT32:
-        snprintf(buffer, sz, "%" PRIu32, a->value.signed_int32);
-        break;
-
-
-    case TYPE_SIGNED_INT64:
-        snprintf(buffer, sz, "%" PRIi64, a->value.signed_int64);
-        break;
-
-    case TYPE_UNSIGNED_INT64:
-        snprintf(buffer, sz, "%" PRIu64, a->value.unsigned_int64);
-        break;
-
-    case TYPE_FLOAT32:
-        snprintf(buffer, sz, "%f", a->value.float32);
-        break;
-
-    case TYPE_FLOAT64:
-        snprintf(buffer, sz, "%f", a->value.float64);
-        break;
-#ifdef CAKE_FLOAT128_DEFINED
-    case TYPE_FLOAT128:
-        snprintf(buffer, sz, "%Lf", a->value.float128);
-        break;
-#endif
-
-
-    }
-}
-
 struct object object_make_size_t(enum target target, uint64_t value)
 {
     struct object r = { 0 };
@@ -20085,14 +20028,13 @@ struct object* object_extend_array_to_index(const struct type* p_type, struct ob
     {
         for (size_t count = a->members.count; count < (max_index + 1); count++)
         {
-            struct object* _Owner _Opt p = make_object_ptr(p_type, target);
+            char name[50] = { 0 };
+            snprintf(name, sizeof name, "[%d]", count);
+
+            struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, target);
             if (p == NULL)
                 throw;
 
-            char name[100] = { 0 };
-            snprintf(name, sizeof name, "[%d]", count);
-            free((void* _Owner)p->member_designator);
-            p->member_designator = strdup(name);
             p->parent = a;
             object_default_initialization(p, is_constant);
             object_list_push(&a->members, p);
@@ -20680,11 +20622,37 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         if (isinf(a->value.float64))
         {
             assert(false);//TODO we dont want inf to be printed.
-            ss_fprintf(ss, "%lf", a->value.float64);
+            ss_fprintf(ss, "%.17g", a->value.float64);
         }
         else
         {
-            ss_fprintf(ss, "%lf", a->value.float64);
+            char temp[64] = { 0 };
+            snprintf(temp, sizeof temp, "%.17g", a->value.float64);
+
+            /*
+              This format is good but not adding . in some cases
+            */
+            char* p = temp;
+            bool dot_found = false;
+
+            while (*p)
+            {
+                if (*p == '.')
+                {
+                    dot_found = true;
+                    break;
+                }
+                p++;
+            }
+
+            if (!dot_found)
+            {
+                *p = '.'; p++;
+                *p = '0'; p++;
+                *p = '\0';
+            }
+
+            ss_fprintf(ss, "%s", temp);
         }
         break;
 #ifdef CAKE_FLOAT128_DEFINED
@@ -29354,7 +29322,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.22"
+#define CAKE_VERSION "0.12.23"
 
 
 
@@ -32172,9 +32140,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     throw;
                 }
 
-                p_init_declarator->p_declarator->object.type.num_of_elements =
-                    p_init_declarator->p_declarator->type.num_of_elements;
-                //fixing the name of members?
+                assert(p_init_declarator->p_declarator->object.type.num_of_elements ==
+                    p_init_declarator->p_declarator->type.num_of_elements);                
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
@@ -59262,7 +59229,14 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             struct type nt =
                 type_dup(&p_typedef_declarator->type);
-
+            
+            free((void*)nt.name_opt);
+            nt.name_opt = NULL;
+            if (pdeclarator->name_opt)
+            {
+                nt.name_opt = strdup(pdeclarator->name_opt->lexeme);
+            }
+            
             struct type* _Owner _Opt p_nt = calloc(1, sizeof(struct type));
             if (p_nt == NULL)
             {

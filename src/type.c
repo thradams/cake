@@ -4292,7 +4292,14 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             struct type nt =
                 type_dup(&p_typedef_declarator->type);
-
+            
+            free((void*)nt.name_opt);
+            nt.name_opt = NULL;
+            if (pdeclarator->name_opt)
+            {
+                nt.name_opt = strdup(pdeclarator->name_opt->lexeme);
+            }
+            
             struct type* _Owner _Opt p_nt = calloc(1, sizeof(struct type));
             if (p_nt == NULL)
             {
