@@ -75,9 +75,12 @@
 
 
 /*
-  Includes tokens that are not necessary for compilation at second level of includes
+  Includes tokens that are not necessary for compilation 
+  at second level of includes
+  If a message needs to print location on includes is this necessary? TODO
+  TODO create a variable do remove tokens from disabled blocks
 */
-static const int INCLUDE_ALL = 1;
+static const int CAKE_INCLUDE_EXTRA_TOKENS = 1;
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
@@ -2073,7 +2076,7 @@ static void skip_blanks_level(struct preprocessor_ctx* ctx, struct token_list* d
         if (!token_is_blank(input_list->head))
             break;
 
-        if (INCLUDE_ALL || level == 0)
+        if (CAKE_INCLUDE_EXTRA_TOKENS || level == 0)
         {
             struct token* _Owner _Opt p =
                 token_list_pop_front_get(input_list);
@@ -2101,7 +2104,7 @@ static void skip_blanks(struct preprocessor_ctx* ctx, struct token_list* dest, s
 
 void prematch_level(struct token_list* dest, struct token_list* input_list, int level)
 {
-    if (INCLUDE_ALL || level == 0)
+    if (CAKE_INCLUDE_EXTRA_TOKENS || level == 0)
     {
         struct token* _Owner _Opt p = token_list_pop_front_get(input_list);
         if (p)
@@ -2569,7 +2572,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
 void match_level(struct token_list* dest, struct token_list* input_list, int level)
 {
-    if (INCLUDE_ALL || level == 0)
+    if (CAKE_INCLUDE_EXTRA_TOKENS || level == 0)
     {
         struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
         if (tk)
@@ -2607,7 +2610,7 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
         }
         if (input_list->head != NULL)
         {
-            if (INCLUDE_ALL || level == 0)
+            if (CAKE_INCLUDE_EXTRA_TOKENS || level == 0)
                 token_list_add(dest, token_list_pop_front_get(input_list));
             else
                 token_list_pop_front(input_list);
@@ -5463,7 +5466,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 }
                 else
                 {
-                    if (level == 0 || INCLUDE_ALL)
+                    if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         token_list_append_list(&r, &arguments.tokens);
                 }
 
@@ -5497,7 +5500,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             }
                             else
                             {
-                                if (level == 0 || INCLUDE_ALL)
+                                if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                                 {
                                     token_list_append_list(&r, &arguments2.tokens);
                                 }
@@ -5577,7 +5580,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 {
                     if (blanks)
                     {
-                        if (level == 0 || INCLUDE_ALL)
+                        if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         {
                             prematch(&r, input_list);
                         }
@@ -5586,7 +5589,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     }
                     else
                     {
-                        if (level == 0 || INCLUDE_ALL)
+                        if (level == 0 || CAKE_INCLUDE_EXTRA_TOKENS)
                         {
                             prematch(&r, input_list);
                             if (is_final)

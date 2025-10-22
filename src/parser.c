@@ -2780,9 +2780,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
                     throw;
                 }
-
-                assert(p_init_declarator->p_declarator->object.type.num_of_elements ==
-                    p_init_declarator->p_declarator->type.num_of_elements);                
+                
+                /*
+                   this code is requiring the num_of_element adjustment
+                   char s[]={ "123" };
+                   static_assert(sizeof(s) == 4);
+                */
+                p_init_declarator->p_declarator->object.type.num_of_elements = 
+                    p_init_declarator->p_declarator->type.num_of_elements;                
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
