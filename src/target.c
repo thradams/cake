@@ -7,270 +7,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-const char* target_name[NUMBER_OF_TARGETS] = {
-     "x86_x64_gcc",
-     "x86_msvc",
-     "x64_msvc",
-     "ccu8",
-     "lcc-u16",
-     "catalina"
-};
-
-
-
-int parse_target(const char* targetstr, enum target* target)
-{
-    for (int i = 0; i < NUMBER_OF_TARGETS; i++)
-    {
-        if (strcmp(targetstr + 8, target_name[i]) == 0)
-        {
-            *target = i;
-            return 0;
-        }
-    }
-
-    return 1; //error
-}
-
-void print_target_options()
-{
-    for (int i = 0; i < NUMBER_OF_TARGETS; i++)
-    {
-        printf("%s ", target_name[i]);
-    }
-
-    printf("\n");
-}
-
-const char* target_intN_suffix(enum target target, int size)
-{
-    /*
-      The number we place in the output needs
-      to be the same size as the compiler understand it.
-    */
-
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        if (size == 64) return "";
-        break;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        if (size == 64) return "LL";
-        break;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        if (size == 32) return "L";
-        if (size == 64) return "LL";
-        break;
-
-    case TARGET_CATALINA:
-        if (size == 64) return "LL";
-        break;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    return "";
-}
-
-const char* target_uintN_suffix(enum target target, int size)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        if (size == 32) return "U";
-        if (size == 64) return "U";
-        break;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        if (size == 32) return "U";
-        if (size == 64) return "ULL";
-        break;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        if (size == 32) return "UL";
-        if (size == 64) return "ULL";
-        break;
-    case TARGET_CATALINA:
-        if (size == 64) return "ULL";
-        break;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    return "";
-}
-
-const char* target_to_string(enum target target)
-{
-    if (target >= 0 && target < NUMBER_OF_TARGETS)
-    {
-        return target_name[(int)target];
-    }
-    assert(false);
-    return "";
-}
-
-unsigned int target_get_wchar_max(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return 2147483647;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return 0xffff;
-    
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return 255;
-    case TARGET_CATALINA:
-        return 255;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    assert(false);
-    return 0;
-}
-
-long long target_get_signed_long_max(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return 0x7fffffffffffffffLL;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return 2147483647LL;
-    
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return 2147483647LL;
-
-    case TARGET_CATALINA:
-        return 2147483647LL;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    assert(false);
-    return 0;
-}
-
-long long target_get_signed_long_long_max(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return 9223372036854775807LL;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return 9223372036854775807LL;
-    
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return 2147483647LL;
-
-    case TARGET_CATALINA:
-        return 2147483647LL;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    assert(false);
-    return 0;
-}
-
-unsigned long long target_get_unsigned_long_long_max(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return 18446744073709551615ULL;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return 18446744073709551615ULL;
-    
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return 4294967295ULL;
-
-    case TARGET_CATALINA:
-        return 4294967295ULL;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    assert(false);
-    return 0;
-}
-unsigned long long target_get_unsigned_long_max(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return 18446744073709551615ULL;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return 0xffffffff;
-    
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return 4294967295ULL;
-
-    case TARGET_CATALINA:
-        return 0xffffffff;
-
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    assert(false);
-    return 0;
-}
-
-long long target_get_signed_int_max(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return 2147483647LL;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return 2147483647LL;
-
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return 32767ULL;
-
-    case TARGET_CATALINA:
-        return 2147483647LL;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    assert(false);
-    return 0;
-}
-
-unsigned long long target_get_unsigned_int_max(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return 4294967295ULL;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return 4294967295ULL;
-
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return 65535ULL;
-
-    case TARGET_CATALINA:
-        return 4294967295ULL;
-    }
-
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
-    assert(false);
-    return 0;
-}
+#define _Countof(A) (sizeof(A)/sizeof((A)[0]))
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
@@ -557,6 +294,334 @@ CAKE_STANDARD_MACROS
 "\n";
 
 
-static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+static_assert(NUMBER_OF_TARGETS == 6, "add static struct platform platform_name");
 
+
+
+static struct platform platform_x86_x64_gcc =
+{
+  .name = "x86_x64_gcc",
+  .thread_local_attr = "__thread",
+  .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
+
+  .size_t_type = TYPE_UNSIGNED_LONG,
+  .ptrdiff_type = TYPE_SIGNED_LONG, //long
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_aligment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_aligment = 1,
+
+
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG,
+
+  .pointer_n_bits = 64,
+  .pointer_aligment = 8,
+
+
+  .wchar_t_type = TYPE_UNSIGNED_INT,
+
+  .short_n_bits = 16,
+  .short_aligment = 2,
+  .int_n_bits = 32,
+  .int_aligment = 4,
+
+  .long_n_bits = 64,
+  .long_aligment = 8,
+
+  .long_long_n_bits = 64,
+  .long_long_aligment = 8,
+  .float_n_bits = 32,
+  .float_aligment = 4,
+
+  .double_n_bits = 64,
+  .double_aligment = 8,
+
+  .long_double_n_bits = 128,
+  .long_double_aligment = 168,
+
+};
+
+static struct platform platform_x86_msvc =
+{
+  .name = "x86_msvc",
+  .thread_local_attr = "__declspec(thread)",
+  .alignas_fmt_must_have_one_percent_d = "__declspec(align(%d))",
+
+  .size_t_type = TYPE_UNSIGNED_INT,
+  .ptrdiff_type = TYPE_SIGNED_INT, //long
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_aligment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_aligment = 1,
+
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG_LONG,
+
+  .pointer_n_bits = 32,
+  .pointer_aligment = 4,
+
+
+  .wchar_t_type = TYPE_UNSIGNED_SHORT,
+
+  .short_n_bits = 16,
+  .short_aligment = 2,
+  .int_n_bits = 32,
+  .int_aligment = 4,
+
+  .long_n_bits = 32,
+  .long_aligment = 4,
+
+  .long_long_n_bits = 64,
+  .long_long_aligment = 8,
+  .float_n_bits = 32,
+  .float_aligment = 4,
+
+  .double_n_bits = 64,
+  .double_aligment = 8,
+
+  .long_double_n_bits = 64,
+  .long_double_aligment = 8,
+};
+
+static struct platform platform_x64_msvc =
+{
+   .name = "x64_msvc",
+   .thread_local_attr = "__declspec(thread)",
+   .alignas_fmt_must_have_one_percent_d = "__declspec(align(%d))",
+
+  .size_t_type = TYPE_UNSIGNED_LONG_LONG,
+  .ptrdiff_type = TYPE_SIGNED_LONG_LONG, //long
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_aligment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_aligment = 1,
+
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG_LONG,
+
+  .pointer_n_bits = 64,
+  .pointer_aligment = 8,
+
+
+  .wchar_t_type = TYPE_UNSIGNED_SHORT,
+
+  .short_n_bits = 16,
+  .short_aligment = 2,
+  .int_n_bits = 32,
+  .int_aligment = 4,
+
+  .long_n_bits = 32,
+  .long_aligment = 4,
+
+  .long_long_n_bits = 64,
+  .long_long_aligment = 8,
+  .float_n_bits = 32,
+  .float_aligment = 4,
+
+  .double_n_bits = 64,
+  .double_aligment = 8,
+
+  .long_double_n_bits = 64,
+  .long_double_aligment = 8,
+};
+
+static struct platform platform_ccu8 =
+{
+  .name = "ccu8",
+  .thread_local_attr = "/*thread*/",
+  .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
+
+  .size_t_type = TYPE_UNSIGNED_INT,
+  .ptrdiff_type = TYPE_SIGNED_INT, //long
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_aligment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_aligment = 1,
+
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG_LONG,
+
+  .pointer_n_bits = 32,
+  .pointer_aligment = 8,
+
+
+  .wchar_t_type = TYPE_UNSIGNED_SHORT,
+  .short_n_bits = 16,
+  .short_aligment = 2,
+  .int_n_bits = 16,
+  .int_aligment = 2,
+
+  .long_n_bits = 64,
+  .long_aligment = 4,
+
+  .long_long_n_bits = 64,
+  .long_long_aligment = 8,
+  .float_n_bits = 32,
+  .float_aligment = 32,
+
+  .double_n_bits = 64,
+  .double_aligment = 8,
+
+  .long_double_n_bits = 64,
+  .long_double_aligment = 8,
+};
+
+static struct platform platform_catalina =
+{
+  .name = "catalina",
+  .thread_local_attr = "/*thread*/",
+  .alignas_fmt_must_have_one_percent_d = "__attribute__((aligned(%d)))",
+
+
+  .size_t_type = TYPE_UNSIGNED_INT,
+  .ptrdiff_type = TYPE_SIGNED_INT, //long
+
+  .bool_n_bits = 8,
+  .bool_type = TYPE_UNSIGNED_CHAR,
+  .bool_aligment = 1,
+
+  .char_n_bits = 8,
+  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_aligment = 1,
+
+
+  .int8_type = TYPE_SIGNED_CHAR,
+  .int16_type = TYPE_SIGNED_SHORT,
+  .int32_type = TYPE_SIGNED_INT,
+  .int64_type = TYPE_SIGNED_LONG_LONG,
+
+  .pointer_n_bits = 32,
+  .pointer_aligment = 8,
+
+
+  .wchar_t_type = TYPE_UNSIGNED_SHORT,
+  .short_n_bits = 16,
+  .short_aligment = 2,
+  .int_n_bits = 32,
+  .int_aligment = 4,
+
+  .long_n_bits = 32,
+  .long_aligment = 4,
+
+  .long_long_n_bits = 32,
+  .long_long_aligment = 4,
+  .float_n_bits = 32,
+  .float_aligment = 32,
+
+  .double_n_bits = 64,
+  .double_aligment = 8,
+
+  .long_double_n_bits = 64,
+  .long_double_aligment = 8,
+};
+
+static struct platform* platforms[NUMBER_OF_TARGETS] = {
+        [TARGET_X86_X64_GCC] = &platform_x86_x64_gcc,
+        [TARGET_X86_MSVC] = &platform_x86_msvc,
+        [TARGET_X64_MSVC] = &platform_x64_msvc,
+        [TARGET_CCU8] = &platform_ccu8,
+        [TARGET_LCCU16] = &platform_ccu8,
+        [TARGET_CATALINA] = &platform_catalina,
+};
+static_assert(NUMBER_OF_TARGETS == 6, "insert platform here");
+
+int parse_target(const char* targetstr, enum target* target)
+{
+    for (int i = 0; i < _Countof(platforms); i++)
+    {
+        if (strcmp(targetstr, platforms[i]->name) == 0)
+        {
+            *target = i;
+            return 0;
+        }
+    }
+
+    return 1; //error
+}
+
+void print_target_options()
+{
+    for (int i = 0; i < _Countof(platforms); i++)
+    {
+        printf("%s ", platforms[i]->name);
+    }
+
+    printf("\n");
+}
+
+struct platform* get_platform(enum  target target)
+{
+    return platforms[target];
+}
+
+
+int get_num_of_bits(enum target target, enum object_type type)
+{
+    switch (type)
+    {
+    case TYPE_SIGNED_CHAR:
+    case TYPE_UNSIGNED_CHAR:
+        return get_platform(target)->char_n_bits;
+
+    case TYPE_SIGNED_SHORT:
+    case TYPE_UNSIGNED_SHORT:
+        return get_platform(target)->short_n_bits;
+
+    case TYPE_SIGNED_INT:
+    case TYPE_SIGNED_LONG:
+    case TYPE_UNSIGNED_INT:
+    case TYPE_UNSIGNED_LONG:
+        return get_platform(target)->int_n_bits;
+
+    case TYPE_SIGNED_LONG_LONG:
+    case TYPE_UNSIGNED_LONG_LONG:
+        return get_platform(target)->long_long_n_bits;
+
+    }
+
+    return 0;
+}
+
+const char* target_get_predefined_macros(enum target e)
+{
+    switch (e)
+    {
+    case TARGET_X86_X64_GCC: return TARGET_X86_X64_GCC_PREDEFINED_MACROS;
+    case TARGET_X86_MSVC:return TARGET_X86_MSVC_PREDEFINED_MACROS;
+    case TARGET_X64_MSVC:     return TARGET_X64_MSVC_PREDEFINED_MACROS;
+    case TARGET_CCU8: return TARGET_CCU8_PREDEFINED_MACROS;
+    case TARGET_LCCU16: return TARGET_LCCU16_PREDEFINED_MACROS;
+    case TARGET_CATALINA: return TARGET_CATALINA_PREDEFINED_MACROS;
+    }
+    return "";
+};
 

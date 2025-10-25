@@ -1141,6 +1141,8 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm
 
 Not implemented
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf
+
 ### C23 Compound Literals with storage specifier
   
 Not implemented yet.
@@ -1153,9 +1155,6 @@ int main()
    F((static int []){1, 2, 3, 0})
 }
 ```
-
-### C23 BitInt(N)
-Not implemented yet (just parsed)
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 

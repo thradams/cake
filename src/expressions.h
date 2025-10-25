@@ -265,4 +265,3 @@ void check_assigment(struct parser_ctx* ctx,
     enum assigment_type assigment_type);
 
 
-struct object expression_eval(struct expression* p_expression);

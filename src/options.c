@@ -569,7 +569,7 @@ int fill_options(struct options* options,
 
         if (has_prefix(argv[i], "-target="))
         {
-            int r = parse_target(argv[i], &options->target);
+            int r = parse_target(argv[i] + (sizeof("-target=")-1), &options->target);
             if (r != 0)
             {
                 printf("Invalid target. Options: ");

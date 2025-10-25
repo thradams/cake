@@ -22,27 +22,12 @@ struct parser_ctx;
 #endif
 
 
-enum object_value_type
-{
-    TYPE_SIGNED_INT8,
-    TYPE_UNSIGNED_INT8,
 
-    TYPE_SIGNED_INT16,
-    TYPE_UNSIGNED_INT16,
 
-    TYPE_SIGNED_INT32,
-    TYPE_UNSIGNED_INT32,
 
-    TYPE_SIGNED_INT64,
-    TYPE_UNSIGNED_INT64,
+long long object_type_get_signed_max(enum  target target, enum object_type type);
+unsigned long long object_type_get_unsigned_max(enum  target target, enum object_type type);
 
-    TYPE_FLOAT32,
-    TYPE_FLOAT64,
-
-#ifdef CAKE_FLOAT128_DEFINED
-    TYPE_FLOAT128
-#endif
-};
 
 enum object_value_state
 {
@@ -62,40 +47,28 @@ struct object_list
 
 void object_list_push(struct object_list* list, struct object* item);
 
+
+
 struct object
 {
     enum object_value_state state;
-    enum object_value_type value_type;
+    enum object_type value_type;
     struct type type; //TODO to be removed we have 2 types in two places.
 
     const char* _Opt _Owner member_designator;
 
-    union {
-
-        int8_t signed_int8;
-        uint8_t unsigned_int8;
-
-        int16_t signed_int16;
-        uint16_t unsigned_int16;
-
-        int32_t signed_int32;
-        uint32_t unsigned_int32;
-
-        int64_t  signed_int64;
-        int64_t  unsigned_int64;
-
-        float float32;
-        double float64;
-
-#ifdef CAKE_FLOAT128_DEFINED
-        long double float128;
-#endif
+    union 
+    {
+        signed long long  host_long_long;
+        unsigned long long  host_u_long_long;
+        float host_float;
+        double host_double;
+        long double long_double_val;
 
     } value;
     struct object* _Opt parent; //to be removed
     struct object* _Opt p_ref;
     struct expression* _Opt p_init_expression;
-
     struct object_list members;
     struct object* _Opt _Owner next;
 };
@@ -112,64 +85,51 @@ bool object_has_constant_value(const struct object* a);
 struct object            object_make_char(enum target target, int value);
 struct object            object_make_wchar_t(enum target target, int value);
 struct object             object_make_size_t(enum target target, uint64_t value);
-struct object               object_make_bool(bool value);
+struct object               object_make_bool(enum target target, bool value);
 struct object            object_make_nullptr(enum target target);
-struct object        object_make_signed_char(signed char value);
-struct object      object_make_unsigned_char(unsigned char value);
-struct object       object_make_signed_short(signed short value);
-struct object     object_make_unsigned_short(unsigned short value);
-struct object         object_make_signed_int(signed int value);
-struct object       object_make_unsigned_int(unsigned int value);
 
-struct object        object_make_signed_long(signed long long value, enum target target);
-struct object      object_make_unsigned_long(unsigned long long value, enum target target);
+struct object      object_make_unsigned_char(enum target target, unsigned char value);
 
-struct object   object_make_signed_long_long(signed long long value);
-struct object object_make_unsigned_long_long(unsigned long long value);
+struct object         object_make_signed_int(enum target target, long long value);
+struct object       object_make_unsigned_int(enum target target, unsigned int value);
+
+struct object        object_make_signed_long(enum target target, signed long long value);
+struct object      object_make_unsigned_long(enum target target, unsigned long long value);
+
+struct object   object_make_signed_long_long(enum target target, signed long long value);
+struct object object_make_unsigned_long_long(enum target target, unsigned long long value);
 struct object              object_make_float(float value);
 struct object             object_make_double(double value);
 struct object        object_make_long_double(long double value);
 struct object        object_make_reference(struct object* object);
 
 
-struct object     object_make_uint8(uint8_t value);
-struct object     object_make_uint16(uint16_t value);
-struct object     object_make_uint32(uint32_t value);
+struct object     object_make_uint8(enum target target, uint8_t value);
+struct object     object_make_uint16(enum target target, uint16_t value);
+struct object     object_make_uint32(enum target target, uint32_t value);
 
 
-//dynamic cast
-void object_set_signed_int(struct object* a, long long value);
-void object_set_unsigned_int(struct object* a, unsigned long long value);
 
-struct object object_cast(enum object_value_type e, const struct object* a);
-enum object_value_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags, enum target target);
+struct object object_cast(enum target target, enum object_type e, const struct object* a);
+enum object_type  type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags, enum target target);
+enum type_specifier_flags object_type_to_type_specifier(enum object_type type);
 
-errno_t object_increment_value(struct object* a);
 
-//static cast
-signed char object_to_signed_char(const struct object* a);
-unsigned char object_to_unsigned_char(const struct object* a);
-signed short object_to_signed_short(const struct object* a);
-unsigned short object_to_unsigned_short(const struct object* a);
-signed int object_to_signed_int(const struct object* a);
-unsigned int object_to_unsigned_int(const struct object* a);
-signed long object_to_signed_long(const struct object* a);
-unsigned long object_to_unsigned_long(const struct object* a);
+void object_increment_value(enum target target, struct object* a);
+
+
 signed long long object_to_signed_long_long(const struct object* a);
 unsigned long long object_to_unsigned_long_long(const struct object* a);
-float object_to_float(const struct object* a);
-double object_to_double(const struct object* a);
-long double object_to_long_double(const struct object* a);
-bool object_to_bool(const struct object* a);
+
+
+bool object_is_true(const struct object* a);
 
 int object_to_str(const struct object* a, int n, char str[/*n*/]);
 
-int object_greater_than_or_equal(const struct object* a, const struct object* b);
-int object_smaller_than_or_equal(const struct object* a, const struct object* b);
-int object_equal(const struct object* a, const struct object* b);
-int object_not_equal(const struct object* a, const struct object* b);
-struct object object_add(const struct object* a, const struct object* b);
-struct object object_sub(const struct object* a, const struct object* b);
+int object_is_greater_than_or_equal(enum target target, const struct object* a, const struct object* b);
+int object_is_smaller_than_or_equal(enum target target, const struct object* a, const struct object* b);
+int object_is_equal(enum target target, const struct object* a, const struct object* b);
+int object_is_not_equal(enum target target, const struct object* a, const struct object* b);
 
 
 //Overflow checks
@@ -209,7 +169,7 @@ int object_set(
 
 struct type;
 
-enum object_value_type type_to_object_type(const struct type* type, enum target target);
+enum object_type type_to_object_type(const struct type* type, enum target target);
 
 void object_print_to_debug(const struct object* object, enum target target);
 
@@ -229,3 +189,95 @@ void objects_destroy(struct objects* arr);
 int objects_push(struct objects* arr, struct object* obj); // returns 0 on success, ENOMEM on alloc fail
 
 void object_print_value(struct osstream* ss, const struct object* a, enum target target);
+
+struct object object_add(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_sub(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_mul(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+
+struct object object_div(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+
+
+struct object object_mod(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_equal(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+
+struct object object_not_equal(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+
+struct object object_greater_than_or_equal(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_smaller_than_or_equal(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+
+
+struct object object_greater_than(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_smaller_than(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_logical_not(enum target target, const struct object* a, char warning_message[200]);
+struct object object_unary_minus(enum target target, const struct object* a, char warning_message[200]);
+struct object object_unary_plus(enum target target, const struct object* a, char warning_message[200]);
+struct object object_bitwise_not(enum target target, const struct object* a, char warning_message[200]);
+
+struct object object_bitwise_xor(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_bitwise_or(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_bitwise_and(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_shift_left(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);
+
+struct object object_shift_right(enum target target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200]);

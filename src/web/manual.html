@@ -257,65 +257,62 @@
 <a href="#toc_72">C23 Compound Literals with storage specifier</a>
 </li>
 <li>
-<a href="#toc_73">C23 BitInt(N)</a>
-</li>
-<li>
-<a href="#toc_74">C23 Variably-modified (VM) types</a>
+<a href="#toc_73">C23 Variably-modified (VM) types</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_75">C2Y Transformations</a>
+<a href="#toc_74">C2Y Transformations</a>
 <ul>
 <li>
-<a href="#toc_76">Obsolete implicitly octal literals</a>
+<a href="#toc_75">Obsolete implicitly octal literals</a>
 </li>
 <li>
-<a href="#toc_77">case range expressions</a>
+<a href="#toc_76">case range expressions</a>
 </li>
 <li>
-<a href="#toc_78">#def</a>
+<a href="#toc_77">#def</a>
 </li>
 <li>
-<a href="#toc_79">_Countof operator</a>
+<a href="#toc_78">_Countof operator</a>
 </li>
 <li>
-<a href="#toc_80">defer</a>
+<a href="#toc_79">defer</a>
 </li>
 <li>
-<a href="#toc_81">Function literals and local functions</a>
+<a href="#toc_80">Function literals and local functions</a>
 </li>
 <li>
-<a href="#toc_82">if declarations, v4</a>
+<a href="#toc_81">if declarations, v4</a>
 </li>
 <li>
-<a href="#toc_83">C2Y typename on _Generic</a>
+<a href="#toc_82">C2Y typename on _Generic</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_84">Cake Extensions (Not in C23, C2Y)</a>
+<a href="#toc_83">Cake Extensions (Not in C23, C2Y)</a>
 <ul>
 <li>
-<a href="#toc_85">Extension - try catch throw</a>
+<a href="#toc_84">Extension - try catch throw</a>
 </li>
 <li>
-<a href="#toc_86">Extension #pragma dir</a>
+<a href="#toc_85">Extension #pragma dir</a>
 </li>
 <li>
-<a href="#toc_87">Type traits</a>
+<a href="#toc_86">Type traits</a>
 </li>
 <li>
-<a href="#toc_88">Extension - Object lifetime checks</a>
+<a href="#toc_87">Extension - Object lifetime checks</a>
 </li>
 <li>
-<a href="#toc_89">GCC extensions</a>
+<a href="#toc_88">GCC extensions</a>
 </li>
 <li>
-<a href="#toc_90">MSVC extensions</a>
+<a href="#toc_89">MSVC extensions</a>
 </li>
 <li>
-<a href="#toc_91">Extension assert built-in</a>
+<a href="#toc_90">Extension assert built-in</a>
 </li>
 </ul>
 </li>
@@ -1395,6 +1392,8 @@ int main()
 
 <p>Not implemented</p>
 
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf</a></p>
+
 <h3 id="toc_72">C23 Compound Literals with storage specifier</h3>
 
 <p>Not implemented yet.</p>
@@ -1407,20 +1406,16 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_73">C23 BitInt(N)</h3>
-
-<p>Not implemented yet (just parsed)</p>
-
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm</a></p>
 
-<h3 id="toc_74">C23 Variably-modified (VM) types</h3>
+<h3 id="toc_73">C23 Variably-modified (VM) types</h3>
 
 <p>Not implemented
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf</a></p>
 
-<h2 id="toc_75">C2Y Transformations</h2>
+<h2 id="toc_74">C2Y Transformations</h2>
 
-<h3 id="toc_76">Obsolete implicitly octal literals</h3>
+<h3 id="toc_75">Obsolete implicitly octal literals</h3>
 
 <pre><code class="language-c">
 static_assert(0o52 == 052);
@@ -1436,22 +1431,22 @@ int main()
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm</a></p>
 
-<h3 id="toc_77">case range expressions</h3>
+<h3 id="toc_76">case range expressions</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm</a></p>
 
-<h3 id="toc_78">#def</h3>
+<h3 id="toc_77">#def</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt</a></p>
 
-<h3 id="toc_79">_Countof operator</h3>
+<h3 id="toc_78">_Countof operator</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf</a></p>
 
 <p>Obs: Cake extends countof to enums, returning the number
 of enumerators.</p>
 
-<h3 id="toc_80">defer</h3>
+<h3 id="toc_79">defer</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm</a></p>
 
@@ -1480,11 +1475,11 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_81">Function literals and local functions</h3>
+<h3 id="toc_80">Function literals and local functions</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf</a></p>
 
-<h3 id="toc_82">if declarations, v4</h3>
+<h3 id="toc_81">if declarations, v4</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm</a></p>
 
@@ -1503,7 +1498,7 @@ int main()
 <p>C++ proposal
 <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html</a></p>
 
-<h3 id="toc_83">C2Y typename on _Generic</h3>
+<h3 id="toc_82">C2Y typename on _Generic</h3>
 
 <p>This feature was created in Cake and now it is part of C2Y!</p>
 
@@ -1520,9 +1515,9 @@ int main()
 }
 </code></pre>
 
-<h2 id="toc_84">Cake Extensions (Not in C23, C2Y)</h2>
+<h2 id="toc_83">Cake Extensions (Not in C23, C2Y)</h2>
 
-<h3 id="toc_85">Extension - try catch throw</h3>
+<h3 id="toc_84">Extension - try catch throw</h3>
 
 <pre><code>   try-statement:
       try secondary-block
@@ -1554,14 +1549,14 @@ catch
 }
 </code></pre>
 
-<h3 id="toc_86">Extension #pragma dir</h3>
+<h3 id="toc_85">Extension #pragma dir</h3>
 
 <pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
 </code></pre>
 
 <p>pragma dir makes the preprocessor include the directory when searching for includes.</p>
 
-<h3 id="toc_87">Type traits</h3>
+<h3 id="toc_86">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.</p>
 
@@ -1596,7 +1591,7 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 <p>Note: Type traits that can be easily created with _Generic will be removed.
 _</p>
 
-<h3 id="toc_88">Extension - Object lifetime checks</h3>
+<h3 id="toc_87">Extension - Object lifetime checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
@@ -1605,7 +1600,7 @@ _Opt
 _View
 </code></pre>
 
-<h3 id="toc_89">GCC extensions</h3>
+<h3 id="toc_88">GCC extensions</h3>
 
 <p>These GCC extensions allow parsing headers and generate correct code for GCC </p>
 
@@ -1622,7 +1617,7 @@ __attribute__
 __typeof__ alias for typeof in cake
 </code></pre>
 
-<h3 id="toc_90">MSVC extensions</h3>
+<h3 id="toc_89">MSVC extensions</h3>
 
 <pre><code>__ptr32, __ptr64
 __int8 ... __int64
@@ -1633,7 +1628,7 @@ __forceinline alias for inline in cake
 
 </code></pre>
 
-<h3 id="toc_91">Extension assert built-in</h3>
+<h3 id="toc_90">Extension assert built-in</h3>
 
 <p>In cake assert is an built-in function.
 The reason is because it works as tips for flow analysis.</p>

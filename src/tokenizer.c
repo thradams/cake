@@ -75,7 +75,7 @@
 
 
 /*
-  Includes tokens that are not necessary for compilation 
+  Includes tokens that are not necessary for compilation
   at second level of includes
   If a message needs to print location on includes is this necessary? TODO
   TODO create a variable do remove tokens from disabled blocks
@@ -324,7 +324,7 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
         if (p_new_include_dir == NULL)
             throw;
 
-        int len = strlen(path);
+        size_t len = strlen(path);
         if (path[len - 1] == '\\')
         {
             //windows path format ending with \ .
@@ -484,7 +484,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
     struct include_dir* _Opt current = ctx->include_dir.head;
     while (current)
     {
-        int len = strlen(current->path);
+        size_t len = strlen(current->path);
         if (current->path[len - 1] == '/')
         {
             snprintf(full_path_out, full_path_out_size, "%s%s", current->path, path);
@@ -1562,7 +1562,7 @@ static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
         p_new_token->flags |= TK_FLAG_LINE_CONTINUATION;
         if (stream->line_continuation_count == 1)
         {
-            int l = strlen(p_new_token->lexeme);
+            size_t l = strlen(p_new_token->lexeme);
             if (p_new_token->lexeme[l - 1] == '\n')
             {
                 /*not sliced, line continuation is at end of token*/
@@ -4011,14 +4011,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         }
         else if (strcmp(input_list->head->lexeme, "pragma") == 0)
         {
-            /*
-              # pragma pp-tokensopt new-line
-            */
-            /*
-               #pragma will survive and compiler will handle as
-               pragma declaration
-            */
-            match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+            match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); /*pragma*/
 
             if (r.tail)
             {
@@ -4033,154 +4026,56 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 throw;
             }
 
-            if (input_list->head->type == TK_IDENTIFIER)
+            if (input_list->head->type == TK_IDENTIFIER &&
+                (strcmp(input_list->head->lexeme, "CAKE") == 0 ||
+                    strcmp(input_list->head->lexeme, "cake") == 0))
             {
-                if (strcmp(input_list->head->lexeme, "CAKE") == 0)
+                match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
+                if (r.tail)
                 {
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-                    if (r.tail)
-                    {
-                        r.tail->flags |= TK_FLAG_FINAL;
-                    }
-                    skip_blanks_level(ctx, &r, input_list, level);
-                }
-
-                if (input_list->head == NULL)
-                {
-                    pre_unexpected_end_of_file(r.tail, ctx);
-                    throw;
-                }
-
-                if (strcmp(input_list->head->lexeme, "once") == 0)
-                {
-                    pragma_once_add(ctx, input_list->head->token_origin->lexeme);
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                    if (r.tail)
-                    {
-                        r.tail->flags |= TK_FLAG_FINAL;
-                    }
-                }
-                else if (strcmp(input_list->head->lexeme, "dir") == 0)
-                {
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                    skip_blanks_level(ctx, &r, input_list, level);
-
-                    if (input_list->head == NULL)
-                    {
-                        pre_unexpected_end_of_file(r.tail, ctx);
-                        throw;
-                    }
-
-                    if (input_list->head->type != TK_STRING_LITERAL)
-                    {
-                        preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, input_list->head, "expected string");
-                        throw;
-                    }
-
-                    char path[200] = { 0 };
-                    strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
-                    include_dir_add(&ctx->include_dir, path);
-                    match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//pragma
-                    if (r.tail)
-                    {
-                        r.tail->flags |= TK_FLAG_FINAL;
-                    }
-                }
-                else if (strcmp(input_list->head->lexeme, "nullchecks") == 0)
-                {
-                    assert(false);
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
-                    assert(r.tail != NULL);
                     r.tail->flags |= TK_FLAG_FINAL;
-
-                    skip_blanks_level(ctx, &r, input_list, level);
-                    ctx->options.null_checks_enabled = true;
                 }
-
-                if (input_list->head == NULL)
-                {
-                    pre_unexpected_end_of_file(r.tail, ctx);
-                    throw;
-                }
-
-                if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
-                {
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
-                    assert(r.tail != NULL);
-                    r.tail->flags |= TK_FLAG_FINAL;
-
-                    skip_blanks_level(ctx, &r, input_list, level);
-
-                    if (input_list->head == NULL)
-                    {
-                        pre_unexpected_end_of_file(r.tail, ctx);
-                        throw;
-                    }
-
-                    if (strcmp(input_list->head->lexeme, "push") == 0)
-                    {
-                        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
-                        assert(r.tail != NULL);
-                        r.tail->flags |= TK_FLAG_FINAL;
-
-                        //#pragma GCC diagnostic push
-                        if (ctx->options.diagnostic_stack.top_index <
-                            sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack.stack[0]))
-                        {
-                            ctx->options.diagnostic_stack.top_index++;
-
-                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
-                                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
-                        }
-                    }
-                    else if (strcmp(input_list->head->lexeme, "pop") == 0)
-                    {
-                        //#pragma GCC diagnostic pop
-                        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pop
-                        assert(r.tail != NULL);
-                        r.tail->flags |= TK_FLAG_FINAL;
-                        if (ctx->options.diagnostic_stack.top_index > 0)
-                        {
-                            ctx->options.diagnostic_stack.top_index--;
-                        }
-                    }
-                    else if (strcmp(input_list->head->lexeme, "warning") == 0)
-                    {
-                        //#pragma CAKE diagnostic warning "-Wenum-compare"
-
-                        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
-                        assert(r.tail != NULL);
-                        r.tail->flags |= TK_FLAG_FINAL;
-                        skip_blanks_level(ctx, &r, input_list, level);
-
-                        if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
-                        {
-                            unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1);
-
-                            match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
-                            assert(r.tail != NULL);
-                            r.tail->flags |= TK_FLAG_FINAL;
-                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
-                        }
-                    }
-                    else if (strcmp(input_list->head->lexeme, "ignored") == 0)
-                    {
-                        //#pragma CAKE diagnostic ignore "-Wenum-compare"
-
-                        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//ignore
-                        assert(r.tail != NULL);
-                        r.tail->flags |= TK_FLAG_FINAL;
-
-                        skip_blanks_level(ctx, &r, input_list, level);
-
-                        if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
-                        {
-                            unsigned long long w = get_warning_bit_mask(input_list->head->lexeme + 1);
-                            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
-                        }
-                    }
-                }
+                skip_blanks_level(ctx, &r, input_list, level);
             }
+
+            if (input_list->head == NULL)
+            {
+                pre_unexpected_end_of_file(r.tail, ctx);
+                throw;
+            }
+
+            /*
+               parse only the pragmas used in preprocessor
+            */
+            if (strcmp(input_list->head->lexeme, "once") == 0)
+            {
+                pragma_once_add(ctx, input_list->head->token_origin->lexeme);
+                match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+            }
+            else if (strcmp(input_list->head->lexeme, "dir") == 0)
+            {
+                match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+                skip_blanks_level(ctx, &r, input_list, level);
+
+                if (input_list->head == NULL)
+                {
+                    pre_unexpected_end_of_file(r.tail, ctx);
+                    throw;
+                }
+
+                if (input_list->head->type != TK_STRING_LITERAL)
+                {
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, input_list->head, "expected string");
+                    throw;
+                }
+
+                char path[200] = { 0 };
+                strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
+                include_dir_add(&ctx->include_dir, path);
+                match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//pragma
+            }
+
+
 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
             token_list_append_list(&r, &r7);
@@ -5884,29 +5779,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
       macro_copy_replacement_list but they need to be registered here.
     */
 
-    const char* pre_defined_macros_text = NULL;
-
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        pre_defined_macros_text = TARGET_X86_X64_GCC_PREDEFINED_MACROS;
-        break;
-    case TARGET_X86_MSVC:
-        pre_defined_macros_text = TARGET_X86_MSVC_PREDEFINED_MACROS;
-        break;
-    case TARGET_X64_MSVC:
-        pre_defined_macros_text = TARGET_X64_MSVC_PREDEFINED_MACROS;
-        break;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        pre_defined_macros_text = TARGET_CCU8_PREDEFINED_MACROS;
-        break;
-
-    case TARGET_CATALINA:
-        pre_defined_macros_text = TARGET_CATALINA_PREDEFINED_MACROS;
-        break;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+    const char* pre_defined_macros_text = target_get_predefined_macros(target);
 
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);

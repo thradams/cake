@@ -3281,7 +3281,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             {
                 if (object_has_constant_value(&p_expression->object))
                 {
-                    bool not_zero = object_to_bool(&p_expression->object);
+                    bool not_zero = object_is_true(&p_expression->object);
                     p_object->current.state = not_zero ? FLOW_OBJECT_STATE_NOT_ZERO : FLOW_OBJECT_STATE_ZERO;
                 }
             }
@@ -3326,7 +3326,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
 
             if (object_has_constant_value(&p_expression->object))
             {
-                bool not_zero = object_to_bool(&p_expression->object);
+                bool not_zero = object_is_true(&p_expression->object);
                 p_object->current.state = not_zero ? FLOW_OBJECT_STATE_NOT_ZERO : FLOW_OBJECT_STATE_ZERO;
             }
             else
@@ -3350,7 +3350,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             {
                 if (object_has_constant_value(&p_expression->object))
                 {
-                    bool not_zero = object_to_bool(&p_expression->object);
+                    bool not_zero = object_is_true(&p_expression->object);
                     p_object->current.state = not_zero ? FLOW_OBJECT_STATE_NOT_NULL : FLOW_OBJECT_STATE_NULL;
                 }
                 else
@@ -3386,7 +3386,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             {
                 if (object_has_constant_value(&p_expression->object))
                 {
-                    bool not_zero = object_to_bool(&p_expression->object);
+                    bool not_zero = object_is_true(&p_expression->object);
                     p_object->current.state = not_zero ? FLOW_OBJECT_STATE_NOT_NULL : FLOW_OBJECT_STATE_NULL;
                 }
                 else
@@ -3398,7 +3398,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             {
                 if (object_has_constant_value(&p_expression->object))
                 {
-                    bool not_zero = object_to_bool(&p_expression->object);
+                    bool not_zero = object_is_true(&p_expression->object);
                     p_object->current.state = not_zero ? FLOW_OBJECT_STATE_NOT_ZERO : FLOW_OBJECT_STATE_ZERO;
                 }
                 else
@@ -6057,7 +6057,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_visit_expression(ctx, p_expression->left, &left_set);
 
         if (object_has_constant_value(&p_expression->left->object) &&
-            object_to_bool(&p_expression->left->object) == true)
+            object_is_true(&p_expression->left->object) == true)
         {
             // left || right
             //left is true, so the right side will not run

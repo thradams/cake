@@ -17,475 +17,6 @@
 #include "parser.h"
 #include "type.h"
 
-size_t get_align_void_ptr(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 8;
-    case TARGET_X86_MSVC:     return 4;
-    case TARGET_X64_MSVC:     return 8;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 2;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_void_ptr(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 8;
-    case TARGET_X86_MSVC:     return 4;
-    case TARGET_X64_MSVC:     return 8;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 2;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-
-}
-
-size_t get_align_char(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 1;
-    case TARGET_X86_MSVC:     return 1;
-    case TARGET_X64_MSVC:     return 1;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 1;
-    case TARGET_CATALINA:     return 1;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_char(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 1;
-    case TARGET_X86_MSVC:     return 1;
-    case TARGET_X64_MSVC:     return 1;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 1;
-    case TARGET_CATALINA:     return 1;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-
-}
-
-size_t get_align_bool(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 1;
-    case TARGET_X86_MSVC:     return 1;
-    case TARGET_X64_MSVC:     return 1;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 1;
-    case TARGET_CATALINA:     return 1;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_bool(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 1;
-    case TARGET_X86_MSVC:     return 1;
-    case TARGET_X64_MSVC:     return 1;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 1;
-    case TARGET_CATALINA:     return 1;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_align_short(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 2;
-    case TARGET_X86_MSVC:     return 2;
-    case TARGET_X64_MSVC:     return 2;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 2;
-    case TARGET_CATALINA:     return 2;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_short(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 2;
-    case TARGET_X86_MSVC:     return 2;
-    case TARGET_X64_MSVC:     return 2;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 2;
-    case TARGET_CATALINA:     return 2;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_align_int(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 4;
-    case TARGET_X86_MSVC:     return 4;
-    case TARGET_X64_MSVC:     return 4;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 2;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_int(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 4;
-    case TARGET_X86_MSVC:     return 4;
-    case TARGET_X64_MSVC:     return 4;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 2;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_align_long(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 8;
-    case TARGET_X86_MSVC:     return 4;
-    case TARGET_X64_MSVC:     return 4;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 4;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_long(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 8;
-    case TARGET_X86_MSVC:     return 4;
-    case TARGET_X64_MSVC:     return 4;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 4;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_align_long_long(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 8;
-    case TARGET_X86_MSVC:     return 8;
-    case TARGET_X64_MSVC:     return 8;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 4;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_long_long(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 8;
-    case TARGET_X86_MSVC:     return 8;
-    case TARGET_X64_MSVC:     return 8;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 4;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-
-    assert(false);
-    return 0;
-}
-
-
-size_t get_align_float(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 4;
-    case TARGET_X86_MSVC:     return 4;
-    case TARGET_X64_MSVC:     return 4;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 4;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_float(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 4;
-    case TARGET_X86_MSVC:     return 4;
-    case TARGET_X64_MSVC:     return 4;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 4;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_align_double(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 8;
-    case TARGET_X86_MSVC:     return 8;
-    case TARGET_X64_MSVC:     return 8;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 8;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_double(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 8;
-    case TARGET_X86_MSVC:     return 8;
-    case TARGET_X64_MSVC:     return 8;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 8;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_align_long_double(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 16;
-    case TARGET_X86_MSVC:     return 8;
-    case TARGET_X64_MSVC:     return 8;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 8;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-size_t get_size_long_double(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:  return 16;
-    case TARGET_X86_MSVC:     return 8;
-    case TARGET_X64_MSVC:     return 8;
-    case TARGET_LCCU16:
-    case TARGET_CCU8:         return 8;
-    case TARGET_CATALINA:     return 4;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-
-enum type_specifier_flags get_bool_c89_type_specifier(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
-
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
-
-    case TARGET_CATALINA:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "type specifier when generating c89 bool");
-    assert(false);
-    return 0;
-}
-
-enum type_specifier_flags get_wchar_type_specifier(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return (TYPE_SPECIFIER_INT);
-        break;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT);
-        break;
-
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
-        break;
-
-    case TARGET_CATALINA:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR);
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
-
-enum type_specifier_flags get_intN_type_specifier(enum target target, int nbits)
-{
-    assert(nbits >= 8);
-
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
-        if (nbits == 16) return TYPE_SPECIFIER_SHORT;
-        if (nbits == 32) return TYPE_SPECIFIER_INT;
-        if (nbits == 64) return TYPE_SPECIFIER_LONG;
-        if (nbits == 128) return TYPE_SPECIFIER_LONG_LONG;
-        break;
-
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
-        if (nbits == 16) return TYPE_SPECIFIER_SHORT;
-        if (nbits == 32) return TYPE_SPECIFIER_INT;
-        if (nbits == 64) return TYPE_SPECIFIER_LONG_LONG;
-        break;
-
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
-        if (nbits == 16) return TYPE_SPECIFIER_INT;
-        if (nbits == 32) return TYPE_SPECIFIER_LONG;
-        if (nbits == 64) return TYPE_SPECIFIER_LONG_LONG;
-        break;
-    case TARGET_CATALINA:
-        if (nbits == 8) return TYPE_SPECIFIER_CHAR;
-        if (nbits == 16) return TYPE_SPECIFIER_SHORT;
-        if (nbits == 32) return TYPE_SPECIFIER_INT;
-        if (nbits == 64) return TYPE_SPECIFIER_LONG_LONG;
-        break;
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-
-    assert(false);
-    return TYPE_SPECIFIER_LONG_LONG;
-}
-
-enum type_specifier_flags get_ptrdiff_t_specifier(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return (TYPE_SPECIFIER_LONG);
-
-    case TARGET_X86_MSVC:
-        return (TYPE_SPECIFIER_INT);
-
-    case TARGET_X64_MSVC:
-        return (TYPE_SPECIFIER_LONG_LONG);
-
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return (TYPE_SPECIFIER_INT);
-
-    case TARGET_CATALINA:
-        return (TYPE_SPECIFIER_INT);
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-
-}
-
-enum type_specifier_flags get_size_t_specifier(enum target target)
-{
-    switch (target)
-    {
-    case TARGET_X86_X64_GCC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG);
-
-    case TARGET_X86_MSVC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-
-    case TARGET_X64_MSVC:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG);
-
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        return (TYPE_SPECIFIER_INT);
-
-    case TARGET_CATALINA:
-        return (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT);
-
-    }
-    static_assert(NUMBER_OF_TARGETS == 6, "add your new target here");
-    assert(false);
-    return 0;
-}
-
 
 bool is_automatic_variable(enum storage_class_specifier_flags f)
 {
@@ -515,64 +46,27 @@ void print_item(struct osstream* ss, bool* first, const char* item)
 
 bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target)
 {
-    switch (target)
+    int align = 0;
+
+    if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
+        align = 8;
+    else if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
+        align = 16;
+    else if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
+        align = 32;
+    else if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
+        align = 64;
+    else if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
+        align = 128;
+
+    if (align != 0)
     {
-    case TARGET_X86_MSVC:
-    case TARGET_X64_MSVC:
-        if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-            print_item(ss, first, "__declspec(align(8))");
-        if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
-            print_item(ss, first, "__declspec(align(16))");
-        if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
-            print_item(ss, first, "__declspec(align(32))");
-        if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
-            print_item(ss, first, "__declspec(align(64))");
-        if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
-            print_item(ss, first, "__declspec(align(128))");
-        break;
-
-    case TARGET_X86_X64_GCC:
-        if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(8)))");
-        if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(16)))");
-        if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(32)))");
-        if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(64)))");
-        if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(128)))");
-        break;
-
-    case TARGET_LCCU16:
-    case TARGET_CCU8:
-        if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-            print_item(ss, first, "/*alignas(8)*/");
-        if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
-            print_item(ss, first, "/*alignas(16)*/");
-        if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
-            print_item(ss, first, "/*alignas(32)*/");
-        if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
-            print_item(ss, first, "/*alignas(64)*/");
-        if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
-            print_item(ss, first, "/*alignas(128)*/");
-        break;
-
-    case TARGET_CATALINA:
-        if (flags & ALIGNMENT_SPECIFIER_8_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(8)))");
-        if (flags & ALIGNMENT_SPECIFIER_16_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(16)))");
-        if (flags & ALIGNMENT_SPECIFIER_32_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(32)))");
-        if (flags & ALIGNMENT_SPECIFIER_64_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(32)))");
-        if (flags & ALIGNMENT_SPECIFIER_128_FLAGS)
-            print_item(ss, first, "__attribute__((aligned(32)))");
-        break;
+        /*must have %d*/
+        const char* fmt = get_platform(target)->alignas_fmt_must_have_one_percent_d;
+        char buffer[50] = { 0 };
+        snprintf(buffer, sizeof buffer, fmt, align);
+        print_item(ss, first, buffer);
     }
-    static_assert(NUMBER_OF_TARGETS == 6, "does this compiler have something similar of alignas?");
-
     return *first;
 }
 
@@ -2909,11 +2403,11 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        align = get_align_void_ptr(target);
+        align = get_platform(target)->pointer_aligment;
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
-        align = SIZE_MAX-1;
+        align = SIZE_MAX - 1;
         //seterror(error, "sizeof function");
     }
     else if (category == TYPE_CATEGORY_ITSELF)
@@ -2940,15 +2434,15 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
-            align = get_align_char(target);
+            align = get_platform(target)->char_aligment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
         {
-            align = get_align_bool(target);
+            align = get_platform(target)->bool_aligment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
-            align = get_align_short(target);
+            align = get_platform(target)->short_aligment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
@@ -2962,38 +2456,40 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
                 type_destroy(&t);
             }
             else
-                align = get_align_int(target);
+                align = get_platform(target)->int_aligment;
+        }
+        else if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
+        {
+            //before 
+            align = get_platform(target)->long_double_aligment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
         {
-            align = get_align_long(target);
+            align = get_platform(target)->long_aligment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
-            align = get_align_long_long(target);
+            align = get_platform(target)->long_long_aligment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
-            align = get_align_int(target);
+            align = get_platform(target)->int_aligment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
-            align = get_align_float(target);
+            align = get_platform(target)->float_aligment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
-            align = get_align_double(target);
+            align = get_platform(target)->double_aligment;
         }
-        else if (p_type->type_specifier_flags & (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
-        {
-            align = get_align_long_double(target);
-        }
+
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
         {
 #if __GNUC__
             align = _Alignof(__builtin_va_list);
 #else
-            align = get_align_void_ptr(target); //?            
+            align = get_platform(target)->pointer_aligment;
 #endif
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
@@ -3027,6 +2523,10 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
         {
             align = 1;
+        }
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
+        {
+            align = get_platform(target)->pointer_aligment;
         }
         else
         {
@@ -3083,7 +2583,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        *size = get_size_void_ptr(target);
+        *size = get_platform(target)->pointer_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
@@ -3096,8 +2596,8 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
     {
         if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
-            //void f(int a[2])
-            *size = get_size_void_ptr(target);
+            //void f(int a[2])            
+            *size = get_platform(target)->pointer_n_bits / 8;
             return ESIZEOF_NONE;
         }
         else
@@ -3161,19 +2661,19 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
-        *size = get_size_char(target);
+        *size = get_platform(target)->char_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
     {
-        *size = get_size_bool(target);
+        *size = get_platform(target)->bool_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
-        *size = get_size_short(target);
+        *size = get_platform(target)->short_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
@@ -3182,47 +2682,50 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
 #if __GNUC__
         * size = sizeof(__builtin_va_list);
 #else
-        * size = get_size_void_ptr(target); //?            
+        * size = get_platform(target)->pointer_n_bits / 8;
 #endif
+        return ESIZEOF_NONE;
+    }
+
+    /*must be before long*/
+    if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
+    {
+        *size = get_platform(target)->long_double_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
     {
-        *size = get_size_long(target);
+        *size = get_platform(target)->long_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
-        *size = get_size_long_long(target);
+        *size = get_platform(target)->long_long_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
     {
         //typedef long unsigned int uint64_t;
-        *size = get_size_int(target);
+        *size = get_platform(target)->int_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
-        *size = get_size_float(target);
+        *size = get_platform(target)->float_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
-        *size = get_size_double(target);
+        *size = get_platform(target)->double_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
-    if (p_type->type_specifier_flags & (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
-    {
-        *size = get_size_long_double(target);
-        return ESIZEOF_NONE;
-    }
+
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
@@ -3254,7 +2757,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         }
         else
         {
-            *size = get_size_int(target);
+            *size = get_platform(target)->int_n_bits / 8;
         }
         return ESIZEOF_NONE;
     }
@@ -3273,7 +2776,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
     {
-        *size = get_size_void_ptr(target);
+        *size = get_platform(target)->pointer_n_bits / 8;
         return ESIZEOF_NONE;
     }
 
@@ -3427,7 +2930,7 @@ struct type type_make_float()
 struct type type_make_ptrdiff_t(enum target target)
 {
     struct type t = { 0 };
-    t.type_specifier_flags = get_ptrdiff_t_specifier(target);
+    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->ptrdiff_type);
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
@@ -3435,7 +2938,7 @@ struct type type_make_ptrdiff_t(enum target target)
 struct type type_make_size_t(enum target target)
 {
     struct type t = { 0 };
-    t.type_specifier_flags = get_size_t_specifier(target);
+    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->size_t_type);
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
@@ -3488,7 +2991,7 @@ struct type make_with_type_specifier_flags(enum type_specifier_flags f)
 struct type make_size_t_type(enum target target)
 {
     struct type t = { 0 };
-    t.type_specifier_flags = get_size_t_specifier(target);
+    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->size_t_type);
 
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
@@ -3517,7 +3020,7 @@ struct type type_make_literal_string2(int number_of_chars_including_zero,
         struct type char_type = { 0 };
         char_type.category = TYPE_CATEGORY_ITSELF;
         char_type.type_specifier_flags = chartype;
-       
+
         t.category = TYPE_CATEGORY_ARRAY;
         t.num_of_elements = number_of_chars_including_zero;
 
@@ -4025,7 +3528,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             p->category = TYPE_CATEGORY_ARRAY;
 
-            
+
             p->num_of_elements =
                 array_declarator_get_size(pdirectdeclarator->array_declarator);
 
@@ -4292,14 +3795,14 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             struct type nt =
                 type_dup(&p_typedef_declarator->type);
-            
+
             free((void*)nt.name_opt);
             nt.name_opt = NULL;
             if (pdeclarator->name_opt)
             {
                 nt.name_opt = strdup(pdeclarator->name_opt->lexeme);
             }
-            
+
             struct type* _Owner _Opt p_nt = calloc(1, sizeof(struct type));
             if (p_nt == NULL)
             {

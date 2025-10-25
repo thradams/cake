@@ -612,7 +612,7 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier);
 
-const struct enumerator* _Opt find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, const struct object* object);
+const struct enumerator* _Opt find_enumerator_by_value(struct parser_ctx* ctx , const struct enum_specifier* p_enum_specifier, const struct object* object);
 
 struct member_declaration_list
 {
@@ -1215,9 +1215,9 @@ struct case_label_list
 };
 
 void case_label_list_push(struct case_label_list* list, struct label* pnew);
-struct label* _Opt case_label_list_find(const struct case_label_list* list, const struct object* object);
-struct label* _Opt case_label_list_find_default(const struct case_label_list* list);
-struct label* _Opt case_label_list_find_range(const struct case_label_list* list, const struct object* begin, const struct object* end);
+struct label* _Opt case_label_list_find(struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object);
+struct label* _Opt case_label_list_find_default(struct parser_ctx* ctx, const struct case_label_list* list);
+struct label* _Opt case_label_list_find_range(struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end);
 
 struct selection_statement
 {

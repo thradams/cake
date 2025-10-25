@@ -237,7 +237,7 @@ static void expression_to_bool_value(struct d_visit_ctx* ctx, struct osstream* o
 {
     if (object_has_constant_value(&p_expression->object))
     {
-        if (object_to_bool(&p_expression->object))
+        if (object_is_true(&p_expression->object))
         {
             ss_fprintf(oss, "1");
         }
@@ -2342,7 +2342,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
                 bool first0 = true;
-                print_type_specifier_flags(&local, &first0, get_bool_c89_type_specifier(ctx->options.target));
+                print_type_specifier_flags(&local, &first0, object_type_to_type_specifier(get_platform(ctx->options.target)->bool_type));
             }
             else
             {
@@ -2567,27 +2567,8 @@ static void d_print_type(struct d_visit_ctx* ctx,
 
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
     {
-        switch (ctx->options.target)
-        {
-        case TARGET_X86_MSVC:
-        case TARGET_X64_MSVC:
-            ss_fprintf(ss, "__declspec(thread) ");
-            break;
-
-        case TARGET_X86_X64_GCC:
-            ss_fprintf(ss, "__thread ");
-            break;
-
-        case TARGET_LCCU16:
-        case TARGET_CCU8:
-            ss_fprintf(ss, "/*thread*/");
-            break;
-
-        case TARGET_CATALINA:
-            ss_fprintf(ss, "__thread ");
-            break;
-        }
-        static_assert(NUMBER_OF_TARGETS == 6, "add new target here");
+        const char* ta = get_platform(ctx->options.target)->thread_local_attr;
+        ss_fprintf(ss, "%s ", ta);
     }
 
     ss_fprintf(ss, "%s", local.c_str);
@@ -2618,7 +2599,7 @@ static bool is_all_zero(const struct object* object)
     {
         if (object_has_constant_value(&object->p_init_expression->object))
         {
-            if (object_to_bool(&object->p_init_expression->object) != 0)
+            if (object_is_true(&object->p_init_expression->object) != 0)
             {
                 return false;
             }
@@ -2778,8 +2759,8 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                int string_size = object->p_init_expression->type.num_of_elements;
-                ss_fprintf(ss, "%s, %d", local.c_str, string_size);
+                size_t string_size = object->p_init_expression->type.num_of_elements;
+                ss_fprintf(ss, "%s, %zu", local.c_str, string_size);
 
                 ss_fprintf(ss, ");\n");
                 ss_close(&local);
@@ -3380,7 +3361,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     ctx->print_qualifiers = false; //TODO not ready yet..
 
-    ss_fprintf(oss, "/* Cake %s %s */\n", CAKE_VERSION, target_to_string(ctx->options.target));
+    ss_fprintf(oss, "/* Cake %s %s */\n", CAKE_VERSION, get_platform(ctx->options.target)->name);
 
     ctx->indentation = 0;
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
@@ -3448,7 +3429,10 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     {
         struct osstream local = { 0 };
         bool first = true;
-        print_type_specifier_flags(&local, &first, get_size_t_specifier(ctx->options.target));
+        print_type_specifier_flags(&local,
+                                   &first,
+                                   object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
+
 
         ss_fprintf(oss,
               "static void _cake_zmem(void *dest, %s len)\n"
@@ -3467,7 +3451,9 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     {
         struct osstream local = { 0 };
         bool first = true;
-        print_type_specifier_flags(&local, &first, get_size_t_specifier(ctx->options.target));
+        print_type_specifier_flags(&local,
+            &first,
+            object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
 
         ss_fprintf(oss,
             "static void _cake_memcpy(void * dest, const void * src, %s n)\n"
