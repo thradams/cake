@@ -20060,7 +20060,7 @@ struct object object_add(enum target target,
             {
                 snprintf(warning_message,
                         200,
-                        "integer overflow results in '%lld'. Exactly result is '%lld'.", r.value.host_long_long, exact_result);
+                        "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
             }
         }
         else
@@ -20088,7 +20088,7 @@ struct object object_add(enum target target,
             {
                 snprintf(warning_message,
                         200,
-                        "integer wrap-around results in '%llu'. Exactly result is '%llu'.", r.value.host_u_long_long, exact_result);
+                        "integer wrap-around results in '%llu'. The exact result is '%llu'.", r.value.host_u_long_long, exact_result);
             }
         }
         else
@@ -20147,7 +20147,7 @@ struct object object_sub(enum target target,
             {
                 snprintf(warning_message,
                         200,
-                        "integer overflow results in '%lld'. Exactly result is '%lld'.", r.value.host_long_long, exact_result);
+                        "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
             }
         }
         else
@@ -20175,7 +20175,7 @@ struct object object_sub(enum target target,
             {
                 snprintf(warning_message,
                         200,
-                        "integer wrap-around results in '%llu'. Exactly result is '%llu'.", r.value.host_u_long_long, exact_result);
+                        "integer wrap-around results in '%llu'. The exact result is '%llu'.", r.value.host_u_long_long, exact_result);
             }
         }
         else
@@ -20235,7 +20235,7 @@ struct object object_mul(enum target target,
             {
                 snprintf(warning_message,
                         200,
-                        "integer overflow results in '%lld'. Exactly result is '%lld'.", r.value.host_long_long, exact_result);
+                        "integer overflow results in '%lld'. The exact result is '%lld'.", r.value.host_long_long, exact_result);
             }
         }
         else
@@ -20263,7 +20263,7 @@ struct object object_mul(enum target target,
             {
                 snprintf(warning_message,
                         200,
-                        "integer wrap-around results in '%llu'. Exactly result is '%llu'.", r.value.host_u_long_long, exact_result);
+                        "integer wrap-around results in '%llu'. The exact result is '%llu'.", r.value.host_u_long_long, exact_result);
             }
         }
         else
@@ -28774,7 +28774,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.25"
+#define CAKE_VERSION "0.12.26"
 
 
 
