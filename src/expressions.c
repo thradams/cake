@@ -780,6 +780,8 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
+    const unsigned long long unsigned_int_max_value = 
+        object_type_get_signed_max(ctx->options.target, TYPE_UNSIGNED_INT);
 
     const unsigned long long signed_int_max_value = 
         object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_INT);
@@ -883,7 +885,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         if (suffix[0] == 'U')
         {
             /*fixing the type that fits the size*/
-            if (value <= UINT_MAX && suffix[1] != 'L')
+            if (value <= unsigned_int_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_int(ctx->options.target, (unsigned int)value);
@@ -913,14 +915,14 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 p_expression_node->object = object_make_signed_int(ctx->options.target, (int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
-            else if (value <= signed_int_max_value && suffix[1] != 'L')
+            else if (value <= signed_long_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long(target, (int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
             else if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
-                      (value <= (unsigned long long) unsigned_long_max_value) &&
+                      (value <= unsigned_long_max_value) &&
                       suffix[1] != 'L' /*!= LL*/)
             {
                 // ONLY MSVC, NON STANDARD,  uses unsigned long instead of next big signed int

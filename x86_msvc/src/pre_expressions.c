@@ -1,55 +1,16 @@
-// Cake 0.12.05 target=x86_msvc
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
-};
-
-struct include_dir_list {
-    struct include_dir * head;
-    struct include_dir * tail;
-};
-
-struct diagnostic {
-    unsigned long long errors;
-    unsigned long long warnings;
-    unsigned long long notes;
-};
-
-union _struct_tag_5 {
-    unsigned int number;
-    struct enum_specifier * p_enum_specifier;
-    struct enumerator * p_enumerator;
-    struct struct_or_union_specifier * p_struct_or_union_specifier;
-    struct declarator * p_declarator;
-    struct init_declarator * p_init_declarator;
-    struct macro * p_macro;
-    struct struct_entry * p_struct_entry;
-};
-
-struct include_dir {
-    char * path;
-    struct include_dir * next;
-};
-
-union _struct_tag_17 {
-    signed char signed_int8;
-    unsigned char unsigned_int8;
-    short signed_int16;
-    unsigned short unsigned_int16;
-    int signed_int32;
-    unsigned int unsigned_int32;
-    long long signed_int64;
-    long long unsigned_int64;
-    float float32;
-    double float64;
-};
+/* Cake 0.12.26 x86_msvc */
+struct param;
 
 struct param_list {
-    unsigned char is_var_args;
-    unsigned char is_void;
+    unsigned char  is_var_args;
+    unsigned char  is_void;
     struct param * head;
     struct param * tail;
 };
+
+struct struct_or_union_specifier;
+struct enum_specifier;
+struct expression;
 
 struct type {
     int category;
@@ -64,8 +25,8 @@ struct type {
     struct enum_specifier * enum_specifier;
     struct expression * array_num_elements_expression;
     unsigned int num_of_elements;
-    unsigned char has_static_array_size;
-    unsigned char address_of;
+    unsigned char  has_static_array_size;
+    unsigned char  address_of;
     struct param_list  params;
     struct type * next;
 };
@@ -75,21 +36,62 @@ struct param {
     struct param * next;
 };
 
-struct object {
-    int state;
-    int value_type;
-    struct type  type;
-    char * debug_name;
-    union _struct_tag_17  value;
-    struct object * parent;
-    struct object * p_ref;
-    struct expression * p_init_expression;
-    struct object * members;
-    struct object * next;
+struct token;
+
+struct token_list {
+    struct token * head;
+    struct token * tail;
 };
 
-struct pre_expression_ctx {
-    long long value;
+struct init_declarator;
+
+struct struct_or_union_specifier;
+
+struct enumerator;
+
+struct enum_specifier;
+
+struct declarator;
+
+struct platform {
+    char * name;
+    char * thread_local_attr;
+    char * alignas_fmt_must_have_one_percent_d;
+    int bool_n_bits;
+    int bool_aligment;
+    int bool_type;
+    int char_n_bits;
+    int char_t_type;
+    int char_aligment;
+    int short_n_bits;
+    int short_aligment;
+    int int_n_bits;
+    int int_aligment;
+    int long_n_bits;
+    int long_aligment;
+    int long_long_n_bits;
+    int long_long_aligment;
+    int float_n_bits;
+    int float_aligment;
+    int double_n_bits;
+    int double_aligment;
+    int long_double_n_bits;
+    int long_double_aligment;
+    int pointer_n_bits;
+    int pointer_aligment;
+    int wchar_t_type;
+    int int8_type;
+    int int16_type;
+    int int32_type;
+    int int64_type;
+    int size_t_type;
+    int ptrdiff_type;
+};
+
+struct diagnostic {
+    unsigned long long errors;
+    unsigned long long warnings;
+    unsigned long long notes;
 };
 
 struct diagnostic_stack {
@@ -97,58 +99,91 @@ struct diagnostic_stack {
     struct diagnostic stack[10];
 };
 
+struct include_dir;
+
+struct include_dir_list {
+    struct include_dir * head;
+    struct include_dir * tail;
+};
+
 struct options {
     int input;
     int target;
     struct diagnostic_stack  diagnostic_stack;
     int style;
-    unsigned char show_includes;
-    unsigned char disable_assert;
-    unsigned char flow_analysis;
-    unsigned char test_mode;
-    unsigned char null_checks_enabled;
-    unsigned char ownership_enabled;
-    unsigned char preprocess_only;
-    unsigned char preprocess_def_macro;
-    unsigned char clear_error_at_end;
-    unsigned char sarif_output;
-    unsigned char no_output;
-    unsigned char const_literal;
-    unsigned char visual_studio_ouput_format;
-    unsigned char disable_colors;
-    unsigned char dump_tokens;
-    unsigned char dump_pptokens;
-    unsigned char auto_config;
-    unsigned char do_static_debug;
+    unsigned char  show_includes;
+    unsigned char  disable_assert;
+    unsigned char  flow_analysis;
+    unsigned char  test_mode;
+    unsigned char  null_checks_enabled;
+    unsigned char  ownership_enabled;
+    unsigned char  preprocess_only;
+    unsigned char  preprocess_def_macro;
+    unsigned char  clear_error_at_end;
+    unsigned char  sarif_output;
+    unsigned char  no_output;
+    unsigned char  const_literal;
+    unsigned char  visual_studio_ouput_format;
+    unsigned char  disable_colors;
+    unsigned char  dump_tokens;
+    unsigned char  dump_pptokens;
+    unsigned char  auto_config;
+    unsigned char  do_static_debug;
     int static_debug_lines;
     char output[200];
     char sarifpath[200];
 };
 
-struct hash_map {
-    struct map_entry ** table;
-    int capacity;
-    int size;
+struct include_dir {
+    char * path;
+    struct include_dir * next;
 };
 
-struct token_list {
-    struct token * head;
-    struct token * tail;
+struct object;
+
+struct object_list {
+    struct object * head;
+    struct object * tail;
+    unsigned int count;
 };
 
-struct preprocessor_ctx {
-    struct options  options;
-    int flags;
-    struct hash_map  macros;
-    struct include_dir_list  include_dir;
-    struct hash_map  pragma_once_map;
-    struct token * current;
-    struct token_list  input_list;
-    unsigned int count_macro_value;
-    unsigned char conditional_inclusion;
-    int n_warnings;
-    int n_errors;
+struct pre_expression_ctx {
+    long long value;
 };
+
+struct __crt_multibyte_data;
+
+struct __crt_locale_data;
+
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
+};
+
+struct struct_entry;
+
+struct macro;
+
+union __tag5 {
+    unsigned int number;
+    struct enum_specifier * p_enum_specifier;
+    struct enumerator * p_enumerator;
+    struct struct_or_union_specifier * p_struct_or_union_specifier;
+    struct declarator * p_declarator;
+    struct init_declarator * p_init_declarator;
+    struct macro * p_macro;
+    struct struct_entry * p_struct_entry;
+};
+
+struct map_entry {
+    struct map_entry * next;
+    unsigned int hash;
+    char * key;
+    int type;
+    union __tag5  data;
+};
+
+struct expression;
 
 struct token {
     int type;
@@ -163,18 +198,53 @@ struct token {
     struct token * prev;
 };
 
-struct map_entry {
-    struct map_entry * next;
-    unsigned int hash;
-    char * key;
-    int type;
-    union _struct_tag_5  data;
+union __tag17 {
+    signed long long host_long_long;
+    unsigned long long host_u_long_long;
+    float host_float;
+    double host_double;
+    long double long_double_val;
+};
+
+struct object {
+    int state;
+    int value_type;
+    struct type  type;
+    char * member_designator;
+    union __tag17  value;
+    struct object * parent;
+    struct object * p_ref;
+    struct expression * p_init_expression;
+    struct object_list  members;
+    struct object * next;
+};
+
+struct hash_map {
+    struct map_entry ** table;
+    int capacity;
+    int size;
+};
+
+struct preprocessor_ctx {
+    struct options  options;
+    int flags;
+    struct hash_map  macros;
+    struct include_dir_list  include_dir;
+    struct hash_map  pragma_once_map;
+    struct token * current;
+    struct token_list  input_list;
+    unsigned int count_macro_value;
+    unsigned char  conditional_inclusion;
+    int n_warnings;
+    int n_errors;
 };
 
 
-static void _cake_zmem(void *dest, register unsigned int len)
+static void _cake_zmem(void *dest, unsigned int len)
 {
-  register unsigned char *ptr = (unsigned char*)dest;
+  unsigned char *ptr;
+
+  ptr = (unsigned char*)dest;
   while (len-- > 0) *ptr++ = 0;
 }
 
@@ -199,30 +269,29 @@ static void pre_postfix_expression(struct preprocessor_ctx * ctx, struct pre_exp
 static void pre_primary_expression(struct preprocessor_ctx * ctx, struct pre_expression_ctx * ectx);
 void pre_unexpected_end_of_file(struct token * p_token, struct preprocessor_ctx * ctx);
 static struct object char_constant_to_value(char * s, char error_message[], int error_message_sz_bytes, int target);
+unsigned long long object_type_get_unsigned_max(int target, int type);
+struct platform *get_platform(int target);
 unsigned char *utf8_decode(unsigned char * s, unsigned int * c);
 unsigned char *escape_sequences_decode_opt(unsigned char * p, unsigned int * out_value);
 static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, ...);
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList);
 int __cdecl __stdio_common_vsprintf(unsigned long long _Options, char * _Buffer, unsigned int _BufferCount, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 static unsigned long long *__cdecl __local_stdio_printf_options(void);
-static unsigned long long __Ck0__OptionsStorage;
+static unsigned long long __c0__OptionsStorage;
 struct object object_make_wchar_t(int target, int value);
-unsigned int target_get_wchar_max(int target);
 signed long long object_to_signed_long_long(struct object * a);
 void object_destroy(struct object * p);
 static int ppnumber_to_longlong(struct preprocessor_ctx * ctx, struct token * token, long long * result, int target);
+long long object_type_get_signed_max(int target, int type);
 int parse_number(char * lexeme, char suffix[4], char erromsg[100]);
 unsigned long long strtoull(char * _String, char ** _EndPtr, int _Radix);
 int *__cdecl _errno(void);
-struct object object_make_unsigned_int(unsigned int value);
-unsigned long long target_get_unsigned_long_max(int target);
-struct object object_make_unsigned_long(unsigned long long value, int target);
-struct object object_make_unsigned_long_long(unsigned long long value);
-struct object object_make_signed_int(signed int value);
-long long target_get_signed_long_max(int target);
-struct object object_make_signed_long(signed long long value, int target);
-long long target_get_signed_long_long_max(int target);
-struct object object_make_signed_long_long(signed long long value);
+struct object object_make_unsigned_int(int target, unsigned int value);
+struct object object_make_unsigned_long(int target, unsigned long long value);
+struct object object_make_unsigned_long_long(int target, unsigned long long value);
+struct object object_make_signed_int(int target, long long value);
+struct object object_make_signed_long(int target, signed long long value);
+struct object object_make_signed_long_long(int target, signed long long value);
 static void pre_expression(struct preprocessor_ctx * ctx, struct pre_expression_ctx * ectx);
 static void pre_assignment_expression(struct preprocessor_ctx * ctx, struct pre_expression_ctx * ectx);
 
@@ -240,9 +309,9 @@ int pre_constant_expression(struct preprocessor_ctx * ctx, long long * pvalue)
 
 static struct token *pre_match(struct preprocessor_ctx * ctx)
 {
-    if (ctx->current == 0U)
+    if (ctx->current == 0)
     {
-        return 0U;
+        return 0;
     }
     ctx->current = ctx->current->next;
     while (ctx->current && token_is_blank(ctx->current))
@@ -254,14 +323,14 @@ static struct token *pre_match(struct preprocessor_ctx * ctx)
 
 static unsigned long long *__cdecl __local_stdio_printf_options(void)
 {
-    return &__Ck0__OptionsStorage;
+    return &__c0__OptionsStorage;
 }
 
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList)
 {
     int _Result;
 
-    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0U, _ArgList);
+    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0, _ArgList);
     return _Result < 0 ? -1 : _Result;
 }
 
@@ -270,19 +339,21 @@ static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _F
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
     _Result = vsnprintf(_Buffer, _BufferCount, _Format, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 
 static struct object char_constant_to_value(char * s, char error_message[], int error_message_sz_bytes, int target)
 {
     unsigned char * p;
+    unsigned long long wchar_max_value;
     struct object  empty;
 
     error_message[0] = 0;
     p = (unsigned char *)s;
+    wchar_max_value = object_type_get_unsigned_max(target, get_platform(target)->wchar_t_type);
     if (1) /*try*/
     {
         if (p[0] == 117 && p[1] == 56)
@@ -294,16 +365,16 @@ static struct object char_constant_to_value(char * s, char error_message[], int 
             p++;
             c = 0;
             p = utf8_decode(p, &c);
-            if (p == 0U)
+            if (p == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (c == 92)
             {
                 p = escape_sequences_decode_opt(p, &c);
-                if (p == 0U)
+                if (p == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
             }
             if (*p != 39)
@@ -326,23 +397,23 @@ static struct object char_constant_to_value(char * s, char error_message[], int 
                 p++;
                 c = 0;
                 p = utf8_decode(p, &c);
-                if (p == 0U)
+                if (p == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 if (c == 92)
                 {
                     p = escape_sequences_decode_opt(p, &c);
-                    if (p == 0U)
+                    if (p == 0)
                     {
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                 }
                 if (*p != 39)
                 {
                     snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
                 }
-                if ((int)c > target_get_wchar_max(target))
+                if ((int)c > wchar_max_value)
                 {
                     snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
                 }
@@ -358,23 +429,23 @@ static struct object char_constant_to_value(char * s, char error_message[], int 
                     p++;
                     c = 0;
                     p = utf8_decode(p, &c);
-                    if (p == 0U)
+                    if (p == 0)
                     {
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     if (c == 92)
                     {
                         p = escape_sequences_decode_opt(p, &c);
-                        if (p == 0U)
+                        if (p == 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                     }
                     if (*p != 39)
                     {
                         snprintf(error_message, error_message_sz_bytes, "Unicode character literals may not contain multiple characters.");
                     }
-                    if (c > 4294967295U)
+                    if (c > 4294967295L)
                     {
                         snprintf(error_message, error_message_sz_bytes, "Character too large for enclosing character literal type.");
                     }
@@ -395,20 +466,20 @@ static struct object char_constant_to_value(char * s, char error_message[], int 
 
                             c = 0;
                             p = utf8_decode(p, &c);
-                            if (p == 0U)
+                            if (p == 0)
                             {
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             if (c == 92)
                             {
                                 p = escape_sequences_decode_opt(p, &c);
-                                if (p == 0U)
+                                if (p == 0)
                                 {
-                                    goto _CKL0;/*throw*/
+                                    goto __L0; /* throw */
                                 }
                             }
                             value = value * 256 + c;
-                            if (value > target_get_wchar_max(target))
+                            if (value > (long long)wchar_max_value)
                             {
                                 snprintf(error_message, error_message_sz_bytes, "character constant too long for its type");
                                 break;
@@ -428,16 +499,16 @@ static struct object char_constant_to_value(char * s, char error_message[], int 
 
                             c = 0;
                             p = utf8_decode(p, &c);
-                            if (p == 0U)
+                            if (p == 0)
                             {
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             if (c == 92)
                             {
                                 p = escape_sequences_decode_opt(p, &c);
-                                if (p == 0U)
+                                if (p == 0)
                                 {
-                                    goto _CKL0;/*throw*/
+                                    goto __L0; /* throw */
                                 }
                             }
                             if (c < 128)
@@ -460,15 +531,18 @@ static struct object char_constant_to_value(char * s, char error_message[], int 
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
-    _cake_zmem(&empty, 112);
+    _cake_zmem(&empty, 120);
     return empty;
 }
 
 static int ppnumber_to_longlong(struct preprocessor_ctx * ctx, struct token * token, long long * result, int target)
 {
+    long long signed_long_max_value;
+    unsigned long long unsigned_long_max_value;
+    long long signed_long_long_max_value;
     int c;
     char buffer[260];
     char * s;
@@ -477,6 +551,9 @@ static int ppnumber_to_longlong(struct preprocessor_ctx * ctx, struct token * to
     int type;
     struct object  cv;
 
+    signed_long_max_value = object_type_get_signed_max(ctx->options.target, 6);
+    unsigned_long_max_value = object_type_get_unsigned_max(ctx->options.target, 7);
+    signed_long_long_max_value = object_type_get_signed_max(ctx->options.target, 8);
     c = 0;
     _cake_zmem(&buffer, 260);
     s = token->lexeme;
@@ -496,77 +573,77 @@ static int ppnumber_to_longlong(struct preprocessor_ctx * ctx, struct token * to
         preprocessor_diagnostic(1380, ctx, token, "%s", errormsg);
         return 0;
     }
-    _cake_zmem(&cv, 112);
+    _cake_zmem(&cv, 120);
     /*switch*/
     {
-        register int __Ck1_temp = type;
-        if (__Ck1_temp == 136) goto _CKL3; /*case 136*/
-        if (__Ck1_temp == 137) goto _CKL4; /*case 137*/
-        if (__Ck1_temp == 138) goto _CKL5; /*case 138*/
-        if (__Ck1_temp == 139) goto _CKL6; /*case 139*/
-        if (__Ck1_temp == 140) goto _CKL20; /*case 140*/
-        if (__Ck1_temp == 141) goto _CKL21; /*case 141*/
-        goto _CKL22;/*default*/
+        int __v0 = type;
+        if (__v0 == 136) goto __L3; /*case 136*/
+        if (__v0 == 137) goto __L4; /*case 137*/
+        if (__v0 == 138) goto __L5; /*case 138*/
+        if (__v0 == 139) goto __L6; /*case 139*/
+        if (__v0 == 140) goto __L20; /*case 140*/
+        if (__v0 == 141) goto __L21; /*case 141*/
+        goto __L22; /* default */
 
         {
-            _CKL3: /*case 136*/ 
-            _CKL4: /*case 137*/ 
-            _CKL5: /*case 138*/ 
-            _CKL6: /*case 139*/ 
+            __L3: /*case 136*/ 
+            __L4: /*case 137*/ 
+            __L5: /*case 138*/ 
+            __L6: /*case 139*/ 
             {
                 unsigned long long value;
 
                 value = 0;
                 /*switch*/
                 {
-                    register int __Ck2_temp = type;
-                    if (__Ck2_temp == 136) goto _CKL8; /*case 136*/
-                    if (__Ck2_temp == 137) goto _CKL9; /*case 137*/
-                    if (__Ck2_temp == 138) goto _CKL10; /*case 138*/
-                    if (__Ck2_temp == 139) goto _CKL11; /*case 139*/
-                    goto _CKL12;/*default*/
+                    int __v1 = type;
+                    if (__v1 == 136) goto __L8; /*case 136*/
+                    if (__v1 == 137) goto __L9; /*case 137*/
+                    if (__v1 == 138) goto __L10; /*case 138*/
+                    if (__v1 == 139) goto __L11; /*case 139*/
+                    goto __L12; /* default */
 
                     {
-                        _CKL8: /*case 136*/ 
-                        value = strtoull(buffer, 0U, 10);
-                        goto _CKL7; /*break*/
+                        __L8: /*case 136*/ 
+                        value = strtoull(buffer, 0, 10);
+                        goto __L7; /* break */
 
-                        _CKL9: /*case 137*/ 
-                        value = strtoull(buffer + 1, 0U, 8);
-                        goto _CKL7; /*break*/
+                        __L9: /*case 137*/ 
+                        value = strtoull(buffer + 1, 0, 8);
+                        goto __L7; /* break */
 
-                        _CKL10: /*case 138*/ 
-                        value = strtoull(buffer + 2, 0U, 16);
-                        goto _CKL7; /*break*/
+                        __L10: /*case 138*/ 
+                        value = strtoull(buffer + 2, 0, 16);
+                        goto __L7; /* break */
 
-                        _CKL11: /*case 139*/ 
-                        value = strtoull(buffer + 2, 0U, 2);
-                        goto _CKL7; /*break*/
+                        __L11: /*case 139*/ 
+                        value = strtoull(buffer + 2, 0, 2);
+                        goto __L7; /* break */
 
-                        _CKL12: /*default*/ 
-                        goto _CKL7; /*break*/
+                        __L12: /* default */ 
+                        goto __L7; /* break */
 
                     }
-                    _CKL7:;
+                    __L7:;
                 }
                 if (value == 18446744073709551615ULL && (*_errno()) == 34)
                 {
                 }
                 if (suffix[0] == 85)
                 {
-                    if (value <= 4294967295U && suffix[1] != 76)
+                    if (value <= 4294967295L && suffix[1] != 76)
                     {
-                        cv = object_make_unsigned_int((unsigned int)value);
+                        cv = object_make_unsigned_int(ctx->options.target, (unsigned int)value);
                     }
                     else
                     {
-                        if (value <= target_get_unsigned_long_max(target) && suffix[2] != 76)
+                        if (value <= unsigned_long_max_value && suffix[2] != 76)
                         {
-                            cv = object_make_unsigned_long((unsigned long)value, target);
+                            cv = object_make_unsigned_long(target, (unsigned long)value);
                         }
                         else
                         {
-                            cv = object_make_unsigned_long_long((unsigned long long)value);
+                            cv = object_make_unsigned_long_long(ctx->options.target, (unsigned long long)value);
                         }
                     }
                 }
@@ -574,38 +651,38 @@ static int ppnumber_to_longlong(struct preprocessor_ctx * ctx, struct token * to
                 {
                     if (value <= 2147483647 && suffix[0] != 76)
                     {
-                        cv = object_make_signed_int((int)value);
+                        cv = object_make_signed_int(ctx->options.target, (int)value);
                     }
                     else
                     {
-                        if (value <= target_get_signed_long_max(target) && suffix[1] != 76)
+                        if (value <= (unsigned long long)signed_long_max_value && suffix[1] != 76)
                         {
-                            cv = object_make_signed_long((long)value, target);
+                            cv = object_make_signed_long(target, (long)value);
                         }
                         else
                         {
-                            if (value <= target_get_signed_long_long_max(target))
+                            if (value <= (unsigned long long)signed_long_long_max_value)
                             {
-                                cv = object_make_signed_long_long((long long)value);
+                                cv = object_make_signed_long_long(ctx->options.target, (long long)value);
                             }
                             else
                             {
-                                cv = object_make_signed_long_long(value);
+                                cv = object_make_signed_long_long(ctx->options.target, value);
                             }
                         }
                     }
                 }
             }
-            goto _CKL2; /*break*/
+            goto __L2; /* break */
 
-            _CKL20: /*case 140*/ 
-            _CKL21: /*case 141*/ 
-            goto _CKL2; /*break*/
+            __L20: /*case 140*/ 
+            __L21: /*case 141*/ 
+            goto __L2; /* break */
 
-            _CKL22: /*default*/ 
+            __L22: /* default */ 
             ;
         }
-        _CKL2:;
+        __L2:;
     }
     *result = object_to_signed_long_long(&cv);
     return 0;
@@ -618,15 +695,15 @@ static void pre_assignment_expression(struct preprocessor_ctx * ctx, struct pre_
         pre_conditional_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 61 || ctx->current->type == 10813 || ctx->current->type == 12093 || ctx->current->type == 11069 || ctx->current->type == 11581 || ctx->current->type == 3947581 || ctx->current->type == 4079165 || ctx->current->type == 9789 || ctx->current->type == 24125 || ctx->current->type == 31805))
+        while (ctx->current != 0 && (ctx->current->type == 61 || ctx->current->type == 10813 || ctx->current->type == 12093 || ctx->current->type == 11069 || ctx->current->type == 11581 || ctx->current->type == 3947581 || ctx->current->type == 4079165 || ctx->current->type == 9789 || ctx->current->type == 24125 || ctx->current->type == 31805))
         {
             preprocessor_diagnostic(1140, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -638,7 +715,7 @@ static void pre_expression(struct preprocessor_ctx * ctx, struct pre_expression_
         pre_assignment_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         while (ctx->current && ctx->current->type == 44)
         {
@@ -646,11 +723,11 @@ static void pre_expression(struct preprocessor_ctx * ctx, struct pre_expression_
             pre_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -659,10 +736,10 @@ static void pre_primary_expression(struct preprocessor_ctx * ctx, struct pre_exp
 {
     if (1) /*try*/
     {
-        if (ctx->current == 0U)
+        if (ctx->current == 0)
         {
             pre_unexpected_end_of_file(ctx->input_list.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (ctx->current->type == 131)
         {
@@ -672,7 +749,7 @@ static void pre_primary_expression(struct preprocessor_ctx * ctx, struct pre_exp
 
             p = ctx->current->lexeme + 1;
             _cake_zmem(&errmsg, 200);
-            v = char_constant_to_value(p, errmsg, 200U, ctx->options.target);
+            v = char_constant_to_value(p, errmsg, 200, ctx->options.target);
             if (errmsg[0] != 0)
             {
                 preprocessor_diagnostic(650, ctx, ctx->current, "%s", errmsg);
@@ -696,24 +773,24 @@ static void pre_primary_expression(struct preprocessor_ctx * ctx, struct pre_exp
                     pre_expression(ctx, ectx);
                     if (ctx->n_errors > 0)
                     {
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     if (ctx->current && ctx->current->type != 41)
                     {
                         preprocessor_diagnostic(650, ctx, ctx->current, "expected )");
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     pre_match(ctx);
                 }
                 else
                 {
                     preprocessor_diagnostic(1140, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -725,10 +802,10 @@ static void pre_postfix_expression(struct preprocessor_ctx * ctx, struct pre_exp
         pre_primary_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -740,11 +817,11 @@ static void pre_unary_expression(struct preprocessor_ctx * ctx, struct pre_expre
         if (ctx->current && (ctx->current->type == 11051 || ctx->current->type == 11565))
         {
             preprocessor_diagnostic(1140, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         else
         {
-            if (ctx->current != 0U && (ctx->current->type == 38 || ctx->current->type == 42 || ctx->current->type == 43 || ctx->current->type == 45 || ctx->current->type == 126 || ctx->current->type == 33))
+            if (ctx->current != 0 && (ctx->current->type == 38 || ctx->current->type == 42 || ctx->current->type == 43 || ctx->current->type == 45 || ctx->current->type == 126 || ctx->current->type == 33))
             {
                 struct token * p_old;
                 int op;
@@ -755,7 +832,7 @@ static void pre_unary_expression(struct preprocessor_ctx * ctx, struct pre_expre
                 pre_cast_expression(ctx, ectx);
                 if (ctx->n_errors > 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 if (op == 33)
                 {
@@ -807,7 +884,7 @@ static void pre_unary_expression(struct preprocessor_ctx * ctx, struct pre_expre
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -824,9 +901,9 @@ static void pre_multiplicative_expression(struct preprocessor_ctx * ctx, struct 
         pre_cast_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 42 || ctx->current->type == 47 || ctx->current->type == 37))
+        while (ctx->current != 0 && (ctx->current->type == 42 || ctx->current->type == 47 || ctx->current->type == 37))
         {
             struct token * op_token;
             int op;
@@ -839,7 +916,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx * ctx, struct 
             pre_cast_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (op == 42)
             {
@@ -852,7 +929,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx * ctx, struct 
                     if (ectx->value == 0)
                     {
                         preprocessor_diagnostic(1330, ctx, op_token, "division by zero");
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     else
                     {
@@ -869,7 +946,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx * ctx, struct 
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -881,25 +958,25 @@ static void pre_additive_expression(struct preprocessor_ctx * ctx, struct pre_ex
         pre_multiplicative_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 43 || ctx->current->type == 45))
+        while (ctx->current != 0 && (ctx->current->type == 43 || ctx->current->type == 45))
         {
             struct token * p_op_token;
             long long left_value;
 
             p_op_token = ctx->current;
             pre_match(ctx);
-            if (ctx->current == 0U)
+            if (ctx->current == 0)
             {
                 pre_unexpected_end_of_file(ctx->input_list.tail, ctx);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             left_value = ectx->value;
             pre_multiplicative_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (p_op_token->type == 43)
             {
@@ -913,12 +990,12 @@ static void pre_additive_expression(struct preprocessor_ctx * ctx, struct pre_ex
                 }
                 else
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -930,9 +1007,9 @@ static void pre_shift_expression(struct preprocessor_ctx * ctx, struct pre_expre
         pre_additive_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 15934 || ctx->current->type == 15420))
+        while (ctx->current != 0 && (ctx->current->type == 15934 || ctx->current->type == 15420))
         {
             int op;
             long long left_value;
@@ -943,7 +1020,7 @@ static void pre_shift_expression(struct preprocessor_ctx * ctx, struct pre_expre
             pre_multiplicative_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (op == 15934)
             {
@@ -958,7 +1035,7 @@ static void pre_shift_expression(struct preprocessor_ctx * ctx, struct pre_expre
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -970,9 +1047,9 @@ static void pre_relational_expression(struct preprocessor_ctx * ctx, struct pre_
         pre_shift_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 62 || ctx->current->type == 60 || ctx->current->type == 15933 || ctx->current->type == 15421))
+        while (ctx->current != 0 && (ctx->current->type == 62 || ctx->current->type == 60 || ctx->current->type == 15933 || ctx->current->type == 15421))
         {
             int op;
             long long left_value;
@@ -983,7 +1060,7 @@ static void pre_relational_expression(struct preprocessor_ctx * ctx, struct pre_
             pre_shift_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (op == 62)
             {
@@ -1012,7 +1089,7 @@ static void pre_relational_expression(struct preprocessor_ctx * ctx, struct pre_
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -1024,9 +1101,9 @@ static void pre_equality_expression(struct preprocessor_ctx * ctx, struct pre_ex
         pre_relational_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 15677 || ctx->current->type == 8509))
+        while (ctx->current != 0 && (ctx->current->type == 15677 || ctx->current->type == 8509))
         {
             int op;
             long long left_value;
@@ -1037,7 +1114,7 @@ static void pre_equality_expression(struct preprocessor_ctx * ctx, struct pre_ex
             pre_multiplicative_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (op == 15677)
             {
@@ -1052,7 +1129,7 @@ static void pre_equality_expression(struct preprocessor_ctx * ctx, struct pre_ex
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -1064,9 +1141,9 @@ static void pre_and_expression(struct preprocessor_ctx * ctx, struct pre_express
         pre_equality_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 38))
+        while (ctx->current != 0 && (ctx->current->type == 38))
         {
             long long left_value;
 
@@ -1075,12 +1152,12 @@ static void pre_and_expression(struct preprocessor_ctx * ctx, struct pre_express
             pre_equality_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             ectx->value = left_value & ectx->value;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -1092,9 +1169,9 @@ static void pre_exclusive_or_expression(struct preprocessor_ctx * ctx, struct pr
         pre_and_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 94))
+        while (ctx->current != 0 && (ctx->current->type == 94))
         {
             long long left_value;
 
@@ -1103,12 +1180,12 @@ static void pre_exclusive_or_expression(struct preprocessor_ctx * ctx, struct pr
             pre_and_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             ectx->value = left_value ^ ectx->value;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -1120,9 +1197,9 @@ static void pre_inclusive_or_expression(struct preprocessor_ctx * ctx, struct pr
         pre_exclusive_or_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 124))
+        while (ctx->current != 0 && (ctx->current->type == 124))
         {
             long long left_value;
 
@@ -1131,12 +1208,12 @@ static void pre_inclusive_or_expression(struct preprocessor_ctx * ctx, struct pr
             pre_exclusive_or_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             ectx->value = left_value | ectx->value;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -1148,9 +1225,9 @@ static void pre_logical_and_expression(struct preprocessor_ctx * ctx, struct pre
         pre_inclusive_or_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 9766))
+        while (ctx->current != 0 && (ctx->current->type == 9766))
         {
             long long left_value;
 
@@ -1159,12 +1236,12 @@ static void pre_logical_and_expression(struct preprocessor_ctx * ctx, struct pre
             pre_inclusive_or_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             ectx->value = left_value && ectx->value;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -1176,9 +1253,9 @@ static void pre_logical_or_expression(struct preprocessor_ctx * ctx, struct pre_
         pre_logical_and_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        while (ctx->current != 0U && (ctx->current->type == 31868))
+        while (ctx->current != 0 && (ctx->current->type == 31868))
         {
             long long left_value;
 
@@ -1187,12 +1264,12 @@ static void pre_logical_or_expression(struct preprocessor_ctx * ctx, struct pre_
             pre_logical_and_expression(ctx, ectx);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             ectx->value = left_value || ectx->value;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -1204,7 +1281,7 @@ static void pre_conditional_expression(struct preprocessor_ctx * ctx, struct pre
         pre_logical_or_expression(ctx, ectx);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (ctx->current && ctx->current->type == 63)
         {
@@ -1216,14 +1293,14 @@ static void pre_conditional_expression(struct preprocessor_ctx * ctx, struct pre
                 pre_expression(ctx, ectx);
                 if (ctx->n_errors > 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 pre_match(ctx);
                 _cake_zmem(&temp, 8);
                 pre_conditional_expression(ctx, &temp);
                 if (ctx->n_errors > 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
             }
             else
@@ -1234,18 +1311,18 @@ static void pre_conditional_expression(struct preprocessor_ctx * ctx, struct pre
                 pre_expression(ctx, &temp);
                 if (ctx->n_errors > 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 pre_match(ctx);
                 pre_conditional_expression(ctx, ectx);
                 if (ctx->n_errors > 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }

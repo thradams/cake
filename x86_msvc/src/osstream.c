@@ -1,4 +1,8 @@
-// Cake 0.12.05 target=x86_msvc
+/* Cake 0.12.26 x86_msvc */
+struct __crt_locale_data;
+
+struct __crt_multibyte_data;
+
 struct __crt_locale_pointers {
     struct __crt_locale_data * locinfo;
     struct __crt_multibyte_data * mbcinfo;
@@ -11,9 +15,11 @@ struct osstream {
 };
 
 
-static void _cake_zmem(void *dest, register unsigned int len)
+static void _cake_zmem(void *dest, unsigned int len)
 {
-  register unsigned char *ptr = (unsigned char*)dest;
+  unsigned char *ptr;
+
+  ptr = (unsigned char*)dest;
   while (len-- > 0) *ptr++ = 0;
 }
 
@@ -48,7 +54,7 @@ void ss_close(struct osstream * stream)
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList);
 int __cdecl __stdio_common_vsprintf(unsigned long long _Options, char * _Buffer, unsigned int _BufferCount, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 static unsigned long long *__cdecl __local_stdio_printf_options(void);
-static unsigned long long __Ck0__OptionsStorage;
+static unsigned long long __c0__OptionsStorage;
 static int reserve(struct osstream * stream, int size);
 void *realloc(void * ptr, unsigned int size);
 int *__cdecl _errno(void);
@@ -65,7 +71,7 @@ int ss_vafprintf(struct osstream * stream, char * fmt, char * args)
     _cake_zmem(&tmpa, 4);
     ((tmpa) = (args));
     size = vsnprintf(stream->c_str + stream->size, stream->capacity - stream->size, fmt, tmpa);
-    ((void)(tmpa = 0U));
+    ((void)(tmpa = (char *)0));
     if (size < 0)
     {
         return -1;
@@ -86,14 +92,14 @@ int ss_vafprintf(struct osstream * stream, char * fmt, char * args)
 
 static unsigned long long *__cdecl __local_stdio_printf_options(void)
 {
-    return &__Ck0__OptionsStorage;
+    return &__c0__OptionsStorage;
 }
 
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList)
 {
     int _Result;
 
-    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0U, _ArgList);
+    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0, _ArgList);
     return _Result < 0 ? -1 : _Result;
 }
 
@@ -106,7 +112,7 @@ static int reserve(struct osstream * stream, int size)
     {
         void * pnew;
 
-        pnew = realloc(stream->c_str, (size + 1) * 1U);
+        pnew = realloc(stream->c_str, (size + 1) * 1);
         if (pnew)
         {
             stream->c_str = pnew;
@@ -132,7 +138,7 @@ static int __cdecl _vsnprintf_l(char * _Buffer, unsigned int _BufferCount, char 
 
 static int __cdecl vsprintf(char * _Buffer, char * _Format, char * _ArgList)
 {
-    return _vsnprintf_l(_Buffer, 4294967295U, _Format, 0U, _ArgList);
+    return _vsnprintf_l(_Buffer, 4294967295, _Format, 0, _ArgList);
 }
 int ss_putc(char ch, struct osstream * stream)
 {
@@ -152,9 +158,9 @@ int ss_fprintf(struct osstream * stream, char * fmt, ...)
     int size;
 
     _cake_zmem(&args, 4);
-    ((void)(args = (char *)(&(fmt)) + 4U));
+    ((void)(args = (char *)(&(fmt)) + 4));
     size = ss_vafprintf(stream, fmt, args);
-    ((void)(args = 0U));
+    ((void)(args = (char *)0));
     return size;
 }
 

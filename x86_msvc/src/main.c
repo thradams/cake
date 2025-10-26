@@ -1,29 +1,35 @@
-// Cake 0.12.05 target=x86_msvc
-struct report {
-    int no_files;
-    double cpu_time_used_sec;
-    int error_count;
-    int warnings_count;
-    int info_count;
-    unsigned char test_mode;
-    int test_failed;
-    int test_succeeded;
-    unsigned char ignore_this_report;
-};
-
+/* Cake 0.12.26 x86_msvc */
 struct _iobuf {
     void * _Placeholder;
 };
+
+struct __crt_multibyte_data;
+
+struct __crt_locale_data;
 
 struct __crt_locale_pointers {
     struct __crt_locale_data * locinfo;
     struct __crt_multibyte_data * mbcinfo;
 };
 
+struct report {
+    int no_files;
+    double cpu_time_used_sec;
+    int error_count;
+    int warnings_count;
+    int info_count;
+    unsigned char  test_mode;
+    int test_failed;
+    int test_succeeded;
+    unsigned char  ignore_this_report;
+};
 
-static void _cake_zmem(void *dest, register unsigned int len)
+
+static void _cake_zmem(void *dest, unsigned int len)
 {
-  register unsigned char *ptr = (unsigned char*)dest;
+  unsigned char *ptr;
+
+  ptr = (unsigned char*)dest;
   while (len-- > 0) *ptr++ = 0;
 }
 
@@ -33,18 +39,18 @@ static int __cdecl printf(char * _Format, ...);
 static int __cdecl _vfprintf_l(struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 int __cdecl __stdio_common_vfprintf(unsigned long long _Options, struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 static unsigned long long *__cdecl __local_stdio_printf_options(void);
-static unsigned long long __Ck0__OptionsStorage;
+static unsigned long long __c0__OptionsStorage;
 struct _iobuf *__cdecl __acrt_iob_func(unsigned int _Ix);
 void print_help();
 int compile(int argc, char ** argv, struct report * error);
-static void print_report(struct report * report, unsigned char no_colors);
+static void print_report(struct report * report, unsigned char  no_colors);
 
 int main(int argc, char ** argv)
 {
     struct report  report;
 
     enable_vt_mode();
-    printf("Cake 0.12.05 ");
+    printf("Cake 0.12.26 ");
     printf("(MSVC ");
     printf("x86");
     printf(")");
@@ -71,7 +77,7 @@ int main(int argc, char ** argv)
 
 static unsigned long long *__cdecl __local_stdio_printf_options(void)
 {
-    return &__Ck0__OptionsStorage;
+    return &__c0__OptionsStorage;
 }
 
 static int __cdecl _vfprintf_l(struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList)
@@ -84,13 +90,13 @@ static int __cdecl printf(char * _Format, ...)
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
-    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0U, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
+    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0, _ArgList);
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 
-static void print_report(struct report * report, unsigned char no_colors)
+static void print_report(struct report * report, unsigned char  no_colors)
 {
     printf("\n");
     printf(" %d files in %.2f seconds\n", report->no_files, report->cpu_time_used_sec);

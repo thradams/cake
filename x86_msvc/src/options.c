@@ -1,6 +1,15 @@
-// Cake 0.12.05 target=x86_msvc
-struct _iobuf {
-    void * _Placeholder;
+/* Cake 0.12.26 x86_msvc */
+struct __crt_locale_data;
+struct __crt_multibyte_data;
+
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
+};
+
+struct diagnostic_id_stack {
+    int size;
+    int stack[10];
 };
 
 struct diagnostic {
@@ -19,43 +28,51 @@ struct options {
     int target;
     struct diagnostic_stack  diagnostic_stack;
     int style;
-    unsigned char show_includes;
-    unsigned char disable_assert;
-    unsigned char flow_analysis;
-    unsigned char test_mode;
-    unsigned char null_checks_enabled;
-    unsigned char ownership_enabled;
-    unsigned char preprocess_only;
-    unsigned char preprocess_def_macro;
-    unsigned char clear_error_at_end;
-    unsigned char sarif_output;
-    unsigned char no_output;
-    unsigned char const_literal;
-    unsigned char visual_studio_ouput_format;
-    unsigned char disable_colors;
-    unsigned char dump_tokens;
-    unsigned char dump_pptokens;
-    unsigned char auto_config;
-    unsigned char do_static_debug;
+    unsigned char  show_includes;
+    unsigned char  disable_assert;
+    unsigned char  flow_analysis;
+    unsigned char  test_mode;
+    unsigned char  null_checks_enabled;
+    unsigned char  ownership_enabled;
+    unsigned char  preprocess_only;
+    unsigned char  preprocess_def_macro;
+    unsigned char  clear_error_at_end;
+    unsigned char  sarif_output;
+    unsigned char  no_output;
+    unsigned char  const_literal;
+    unsigned char  visual_studio_ouput_format;
+    unsigned char  disable_colors;
+    unsigned char  dump_tokens;
+    unsigned char  dump_pptokens;
+    unsigned char  auto_config;
+    unsigned char  do_static_debug;
     int static_debug_lines;
     char output[200];
     char sarifpath[200];
 };
+
+struct _iobuf {
+    void * _Placeholder;
+};
+
+struct __crt_multibyte_data;
+
+struct __crt_locale_data;
 
 struct w {
     int w;
     char * name;
 };
 
-struct diagnostic_id_stack {
-    int size;
-    int stack[10];
-};
 
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
-};
+unsigned char is_diagnostic_enabled(struct options * options, int w)
+{
+    if (w > 63)
+    {
+        return 1;
+    }
+    return ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors & (1ULL << w)) != 0) || ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings & (1ULL << w)) != 0) || ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
+}
 
 
 unsigned char is_diagnostic_note(int id)
@@ -88,7 +105,7 @@ unsigned char is_diagnostic_configurable(int id)
 
 int diagnostic_id_stack_push(struct diagnostic_id_stack * diagnostic_stack, int id)
 {
-    if (diagnostic_stack->size < 10U)
+    if (diagnostic_stack->size < 10)
     {
         diagnostic_stack->stack[diagnostic_stack->size] = id;
         diagnostic_stack->size++;
@@ -136,7 +153,7 @@ void diagnostic_stack_pop(struct diagnostic_stack * diagnostic_stack)
 }
 
 
-struct diagnostic  default_diagnostic = {0, 9223371993905100731ULL, 0};
+struct diagnostic  default_diagnostic = {0,9223371993905100731ULL,0};
 void diagnostic_remove(struct diagnostic * d, int w)
 {
     if (!is_diagnostic_configurable(w))
@@ -195,41 +212,41 @@ int get_diagnostic_phase(int w)
 {
     /*switch*/
     {
-        register int __Ck0_temp = w;
-        if (__Ck0_temp == 35) goto _CKL1; /*case 35*/
-        if (__Ck0_temp == 29) goto _CKL2; /*case 29*/
-        if (__Ck0_temp == 30) goto _CKL3; /*case 30*/
-        if (__Ck0_temp == 32) goto _CKL4; /*case 32*/
-        if (__Ck0_temp == 33) goto _CKL5; /*case 33*/
-        if (__Ck0_temp == 34) goto _CKL6; /*case 34*/
-        if (__Ck0_temp == 28) goto _CKL7; /*case 28*/
-        if (__Ck0_temp == 31) goto _CKL8; /*case 31*/
-        if (__Ck0_temp == 36) goto _CKL9; /*case 36*/
-        goto _CKL10;/*default*/
+        int __v0 = w;
+        if (__v0 == 35) goto __L1; /*case 35*/
+        if (__v0 == 29) goto __L2; /*case 29*/
+        if (__v0 == 30) goto __L3; /*case 30*/
+        if (__v0 == 32) goto __L4; /*case 32*/
+        if (__v0 == 33) goto __L5; /*case 33*/
+        if (__v0 == 34) goto __L6; /*case 34*/
+        if (__v0 == 28) goto __L7; /*case 28*/
+        if (__v0 == 31) goto __L8; /*case 31*/
+        if (__v0 == 36) goto __L9; /*case 36*/
+        goto __L10; /* default */
 
         {
-            _CKL1: /*case 35*/ 
-            _CKL2: /*case 29*/ 
-            _CKL3: /*case 30*/ 
-            _CKL4: /*case 32*/ 
-            _CKL5: /*case 33*/ 
-            _CKL6: /*case 34*/ 
-            _CKL7: /*case 28*/ 
-            _CKL8: /*case 31*/ 
-            _CKL9: /*case 36*/ 
+            __L1: /*case 35*/ 
+            __L2: /*case 29*/ 
+            __L3: /*case 30*/ 
+            __L4: /*case 32*/ 
+            __L5: /*case 33*/ 
+            __L6: /*case 34*/ 
+            __L7: /*case 28*/ 
+            __L8: /*case 31*/ 
+            __L9: /*case 36*/ 
             return 2;
-            _CKL10: /*default*/ 
-            goto _CKL0; /*break*/
+            __L10: /* default */ 
+            goto __L0; /* break */
 
         }
-        _CKL0:;
+        __L0:;
     }
     return 0;
 }
 
 
 int __cdecl strncmp(char * _Str1, char * _Str2, unsigned int _MaxCount);
-static struct w s_warnings[57] = {2, "unused-variable", 57, "unused-function", 3, "deprecated", 4, "enum-conversion", 5, "address", 6, "unused-parameter", 7, "hide-declarator", 8, "typeof-parameter", 9, "attributes", 10, "unused-value", 11, "style", 12, "comment", 13, "line-slicing", 45, "switch", 46, "unusual-null", 15, "discarded-qualifiers", 17, "uninitialized", 18, "return-local-addr", 37, "div-by-zero", 38, "constant-value", 47, "sizeof-array-argument", 14, "string-slicing", 16, "declarator-state", 21, "missing-owner-qualifier", 22, "not-owner", 23, "temp-owner", 24, "non-owner-move", 25, "non-owner-to-owner-move", 26, "discard-owner", 27, "non-owner-move", 36, "flow-div-by-zero", 28, "flow-not-null", 29, "missing-destructor", 32, "using-moved-object", 30, "analyzer-maybe-uninitialized", 33, "analyzer-null-dereference", 34, "analyzer-non-opt-arg", 31, "lifetime-ended", 35, "nullable-to-non-nullable", 19, "must-use-address-of", 39, "null-as-array", 40, "incompatible-enum", 41, "multi-char", 20, "array-indirection", 42, "out-of-bounds", 43, "array-parameter-assignment", 44, "conditional-constant", 48, "const-init", 49, "null-conversion", 58, "bool-comparison", 50, "implicitly-unsigned-literal", 51, "overflow", 52, "array-size", 53, "empty-statement", 54, "incompatible-types", 55, "unused-label", 60, "null-non-null"};
+static struct w s_warnings[57] = {2,"unused-variable",57,"unused-function",3,"deprecated",4,"enum-conversion",5,"address",6,"unused-parameter",7,"hide-declarator",8,"typeof-parameter",9,"attributes",10,"unused-value",11,"style",12,"comment",13,"line-slicing",45,"switch",46,"unusual-null",15,"discarded-qualifiers",17,"uninitialized",18,"return-local-addr",37,"div-by-zero",38,"constant-value",47,"sizeof-array-argument",14,"string-slicing",16,"declarator-state",21,"missing-owner-qualifier",22,"not-owner",23,"temp-owner",24,"non-owner-move",25,"non-owner-to-owner-move",26,"discard-owner",27,"non-owner-move",36,"flow-div-by-zero",28,"flow-not-null",29,"missing-destructor",32,"using-moved-object",30,"analyzer-maybe-uninitialized",33,"analyzer-null-dereference",34,"analyzer-non-opt-arg",31,"lifetime-ended",35,"nullable-to-non-nullable",19,"must-use-address-of",39,"null-as-array",40,"incompatible-enum",41,"multi-char",20,"array-indirection",42,"out-of-bounds",43,"array-parameter-assignment",44,"conditional-constant",48,"const-init",49,"null-conversion",58,"bool-comparison",50,"implicitly-unsigned-literal",51,"overflow",52,"array-size",53,"empty-statement",54,"incompatible-types",55,"unused-label",60,"null-non-null"};
 
 unsigned int __cdecl strlen(char * _Str);
 int __cdecl atoi(char * _String);
@@ -246,7 +263,7 @@ int get_warning(char * wname)
             int j;
 
             j = 0;
-            for (; j < 57U; j++)
+            for (; j < 57; j++)
             {
                 if (strncmp(s_warnings[j].name, wname + 2, strlen(s_warnings[j].name)) == 0)
                 {
@@ -271,7 +288,7 @@ int get_warning(char * wname)
 
 unsigned long long get_warning_bit_mask(char * wname)
 {
-    unsigned char disable_warning;
+    unsigned char  disable_warning;
     char * final_name;
 
     disable_warning = wname[2] == 110 && wname[3] == 111;
@@ -281,7 +298,7 @@ unsigned long long get_warning_bit_mask(char * wname)
         int j;
 
         j = 0;
-        for (; j < 57U; j++)
+        for (; j < 57; j++)
         {
             if (strncmp(s_warnings[j].name, final_name, strlen(s_warnings[j].name)) == 0)
             {
@@ -297,7 +314,7 @@ static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _F
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList);
 int __cdecl __stdio_common_vsprintf(unsigned long long _Options, char * _Buffer, unsigned int _BufferCount, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 static unsigned long long *__cdecl __local_stdio_printf_options(void);
-static unsigned long long __Ck1__OptionsStorage;
+static unsigned long long __c0__OptionsStorage;
 
 int get_warning_name(int w, int n, char buffer[])
 {
@@ -307,7 +324,7 @@ int get_warning_name(int w, int n, char buffer[])
             int j;
 
             j = 0;
-            for (; j < 57U; j++)
+            for (; j < 57; j++)
             {
                 if (s_warnings[j].w == w)
                 {
@@ -329,14 +346,14 @@ int get_warning_name(int w, int n, char buffer[])
 
 static unsigned long long *__cdecl __local_stdio_printf_options(void)
 {
-    return &__Ck1__OptionsStorage;
+    return &__c0__OptionsStorage;
 }
 
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList)
 {
     int _Result;
 
-    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0U, _ArgList);
+    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0, _ArgList);
     return _Result < 0 ? -1 : _Result;
 }
 
@@ -345,9 +362,9 @@ static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _F
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
     _Result = vsnprintf(_Buffer, _BufferCount, _Format, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 int get_warning_name_and_number(int w, int n, char buffer[])
@@ -358,7 +375,7 @@ int get_warning_name_and_number(int w, int n, char buffer[])
             int j;
 
             j = 0;
-            for (; j < 57U; j++)
+            for (; j < 57; j++)
             {
                 if (s_warnings[j].w == w)
                 {
@@ -568,7 +585,7 @@ int fill_options(struct options * options, int argc, char ** argv)
             {
                 int r;
 
-                r = parse_target(argv[i], &options->target);
+                r = parse_target(argv[i] + 8, &options->target);
                 if (r != 0)
                 {
                     printf("Invalid target. Options: ");
@@ -589,7 +606,7 @@ int fill_options(struct options * options, int argc, char ** argv)
             }
             if (argv[i][1] == 87)
             {
-                unsigned char disable_warning;
+                unsigned char  disable_warning;
                 unsigned long long w;
 
                 if (strcmp(argv[i], "-Wall") == 0)
@@ -663,9 +680,9 @@ static int __cdecl printf(char * _Format, ...)
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
-    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0U, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
+    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0, _ArgList);
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 void print_help()

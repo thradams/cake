@@ -1,4 +1,23 @@
-// Cake 0.12.05 target=x86_msvc
+/* Cake 0.12.26 x86_msvc */
+struct _iobuf {
+    void * _Placeholder;
+};
+
+struct token;
+
+struct token_list {
+    struct token * head;
+    struct token * tail;
+};
+
+struct macro_argument;
+
+struct macro_argument_list {
+    struct token_list  tokens;
+    struct macro_argument * head;
+    struct macro_argument * tail;
+};
+
 struct diagnostic {
     unsigned long long errors;
     unsigned long long warnings;
@@ -15,28 +34,30 @@ struct options {
     int target;
     struct diagnostic_stack  diagnostic_stack;
     int style;
-    unsigned char show_includes;
-    unsigned char disable_assert;
-    unsigned char flow_analysis;
-    unsigned char test_mode;
-    unsigned char null_checks_enabled;
-    unsigned char ownership_enabled;
-    unsigned char preprocess_only;
-    unsigned char preprocess_def_macro;
-    unsigned char clear_error_at_end;
-    unsigned char sarif_output;
-    unsigned char no_output;
-    unsigned char const_literal;
-    unsigned char visual_studio_ouput_format;
-    unsigned char disable_colors;
-    unsigned char dump_tokens;
-    unsigned char dump_pptokens;
-    unsigned char auto_config;
-    unsigned char do_static_debug;
+    unsigned char  show_includes;
+    unsigned char  disable_assert;
+    unsigned char  flow_analysis;
+    unsigned char  test_mode;
+    unsigned char  null_checks_enabled;
+    unsigned char  ownership_enabled;
+    unsigned char  preprocess_only;
+    unsigned char  preprocess_def_macro;
+    unsigned char  clear_error_at_end;
+    unsigned char  sarif_output;
+    unsigned char  no_output;
+    unsigned char  const_literal;
+    unsigned char  visual_studio_ouput_format;
+    unsigned char  disable_colors;
+    unsigned char  dump_tokens;
+    unsigned char  dump_pptokens;
+    unsigned char  auto_config;
+    unsigned char  do_static_debug;
     int static_debug_lines;
     char output[200];
     char sarifpath[200];
 };
+
+struct map_entry;
 
 struct hash_map {
     struct map_entry ** table;
@@ -44,14 +65,11 @@ struct hash_map {
     int size;
 };
 
+struct include_dir;
+
 struct include_dir_list {
     struct include_dir * head;
     struct include_dir * tail;
-};
-
-struct token_list {
-    struct token * head;
-    struct token * tail;
 };
 
 struct preprocessor_ctx {
@@ -63,77 +81,20 @@ struct preprocessor_ctx {
     struct token * current;
     struct token_list  input_list;
     unsigned int count_macro_value;
-    unsigned char conditional_inclusion;
+    unsigned char  conditional_inclusion;
     int n_warnings;
     int n_errors;
 };
 
-struct osstream {
-    char * c_str;
-    int size;
-    int capacity;
-};
+struct enum_specifier;
+struct enumerator;
+struct struct_or_union_specifier;
+struct declarator;
+struct init_declarator;
+struct macro;
+struct struct_entry;
 
-struct macro_expanded {
-    char * name;
-    struct macro_expanded * p_previous;
-};
-
-struct macro_argument_list {
-    struct token_list  tokens;
-    struct macro_argument * head;
-    struct macro_argument * tail;
-};
-
-struct marker {
-    char * file;
-    int line;
-    int start_col;
-    int end_col;
-    struct token * p_token_caret;
-    struct token * p_token_begin;
-    struct token * p_token_end;
-};
-
-struct macro_parameter {
-    char * name;
-    struct macro_parameter * next;
-    struct token_list  expanded_list;
-    unsigned char already_expanded;
-};
-
-struct stream {
-    char * source;
-    char * current;
-    int line;
-    int col;
-    int line_continuation_count;
-    char * path;
-};
-
-struct tm {
-    int tm_sec;
-    int tm_min;
-    int tm_hour;
-    int tm_mday;
-    int tm_mon;
-    int tm_year;
-    int tm_wday;
-    int tm_yday;
-    int tm_isdst;
-};
-
-struct tokenizer_ctx {
-    struct options  options;
-    int n_warnings;
-    int n_errors;
-};
-
-struct _iobuf {
-    void * _Placeholder;
-};
-
-union _struct_tag_5 {
+union __tag5 {
     unsigned int number;
     struct enum_specifier * p_enum_specifier;
     struct enumerator * p_enumerator;
@@ -149,8 +110,101 @@ struct map_entry {
     unsigned int hash;
     char * key;
     int type;
-    union _struct_tag_5  data;
+    union __tag5  data;
 };
+
+struct tm {
+    int tm_sec;
+    int tm_min;
+    int tm_hour;
+    int tm_mday;
+    int tm_mon;
+    int tm_year;
+    int tm_wday;
+    int tm_yday;
+    int tm_isdst;
+};
+
+struct osstream {
+    char * c_str;
+    int size;
+    int capacity;
+};
+
+struct enumerator;
+
+struct enum_specifier;
+
+struct declarator;
+
+struct marker {
+    char * file;
+    int line;
+    int start_col;
+    int end_col;
+    struct token * p_token_caret;
+    struct token * p_token_begin;
+    struct token * p_token_end;
+};
+
+struct macro_expanded {
+    char * name;
+    struct macro_expanded * p_previous;
+};
+
+struct __crt_multibyte_data;
+
+struct __crt_locale_data;
+
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
+};
+
+struct tokenizer_ctx {
+    struct options  options;
+    int n_warnings;
+    int n_errors;
+};
+
+struct hash_item_set {
+    unsigned int number;
+    struct enum_specifier * p_enum_specifier;
+    struct enumerator * p_enumerator;
+    struct struct_or_union_specifier * p_struct_or_union_specifier;
+    struct declarator * p_declarator;
+    struct init_declarator * p_init_declarator;
+    struct macro * p_macro;
+    struct struct_entry * p_struct_entry;
+};
+
+struct macro_parameter;
+
+struct macro_argument {
+    struct macro_parameter * macro_parameter;
+    struct token_list  tokens;
+    struct macro_argument * next;
+};
+
+struct stream {
+    char * source;
+    char * current;
+    int line;
+    int col;
+    int line_continuation_count;
+    char * path;
+};
+
+struct include_dir {
+    char * path;
+    struct include_dir * next;
+};
+
+struct struct_or_union_specifier;
+
+struct init_declarator;
+
+struct struct_entry;
 
 struct token {
     int type;
@@ -165,20 +219,11 @@ struct token {
     struct token * prev;
 };
 
-struct hash_item_set {
-    unsigned int number;
-    struct enum_specifier * p_enum_specifier;
-    struct enumerator * p_enumerator;
-    struct struct_or_union_specifier * p_struct_or_union_specifier;
-    struct declarator * p_declarator;
-    struct init_declarator * p_init_declarator;
-    struct macro * p_macro;
-    struct struct_entry * p_struct_entry;
-};
-
-struct include_dir {
-    char * path;
-    struct include_dir * next;
+struct macro_parameter {
+    char * name;
+    struct macro_parameter * next;
+    struct token_list  expanded_list;
+    unsigned char  already_expanded;
 };
 
 struct macro {
@@ -186,34 +231,28 @@ struct macro {
     char * name;
     struct token_list  replacement_list;
     struct macro_parameter * parameters;
-    unsigned char is_function;
+    unsigned char  is_function;
     int usage;
-    unsigned char def_macro;
-};
-
-struct macro_argument {
-    struct macro_parameter * macro_parameter;
-    struct token_list  tokens;
-    struct macro_argument * next;
-};
-
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
+    unsigned char  def_macro;
 };
 
 
-static void _cake_zmem(void *dest, register unsigned int len)
+static void _cake_zmem(void *dest, unsigned int len)
 {
-  register unsigned char *ptr = (unsigned char*)dest;
+  unsigned char *ptr;
+
+  ptr = (unsigned char*)dest;
   while (len-- > 0) *ptr++ = 0;
 }
 
 static void _cake_memcpy(void * dest, const void * src, unsigned int n)
 {
-  char *csrc = (char *)src;
-  char *cdest = (char *)dest;
+  char *csrc;
+  char *cdest;
   unsigned int i; 
+
+  csrc = (char *)src;
+  cdest = (char *)dest;
   for (i = 0; i < n; i++) cdest[i] = csrc[i]; 
 }
 
@@ -256,29 +295,29 @@ void pre_unexpected_end_of_file(struct token * p_token, struct preprocessor_ctx 
 }
 
 
-void print_position(char * path, int line, int col, unsigned char msvc_format);
+void print_position(char * path, int line, int col, unsigned char  msvc_format);
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList);
 int __cdecl __stdio_common_vsprintf(unsigned long long _Options, char * _Buffer, unsigned int _BufferCount, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 static unsigned long long *__cdecl __local_stdio_printf_options(void);
-static unsigned long long __Ck0__OptionsStorage;
+static unsigned long long __c0__OptionsStorage;
 static int __cdecl printf(char * _Format, ...);
 static int __cdecl _vfprintf_l(struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 int __cdecl __stdio_common_vfprintf(unsigned long long _Options, struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 struct _iobuf *__cdecl __acrt_iob_func(unsigned int _Ix);
-void print_line_and_token(struct marker * p_marker, unsigned char visual_studio_ouput_format);
+void print_line_and_token(struct marker * p_marker, unsigned char  visual_studio_ouput_format);
 
 unsigned char preprocessor_diagnostic(int w, struct preprocessor_ctx * ctx, struct token * p_token_opt, char * fmt, ...)
 {
     struct marker  marker;
-    unsigned char included_file_location;
-    unsigned char is_error;
-    unsigned char is_warning;
-    unsigned char is_note;
+    unsigned char  included_file_location;
+    unsigned char  is_error;
+    unsigned char  is_warning;
+    unsigned char  is_note;
     char buffer[200];
     char * args;
 
     _cake_zmem(&marker, 28);
-    if (p_token_opt == 0U)
+    if (p_token_opt == 0)
     {
         return 0;
     }
@@ -329,9 +368,9 @@ unsigned char preprocessor_diagnostic(int w, struct preprocessor_ctx * ctx, stru
     print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
     _cake_zmem(&buffer, 200);
     _cake_zmem(&args, 4);
-    ((void)(args = (char *)(&(fmt)) + 4U));
-    vsnprintf(buffer, 200U, fmt, args);
-    ((void)(args = 0U));
+    ((void)(args = (char *)(&(fmt)) + 4));
+    vsnprintf(buffer, 200, fmt, args);
+    ((void)(args = (char *)0));
     if (ctx->options.visual_studio_ouput_format)
     {
         if (is_warning)
@@ -383,14 +422,14 @@ unsigned char preprocessor_diagnostic(int w, struct preprocessor_ctx * ctx, stru
 
 static unsigned long long *__cdecl __local_stdio_printf_options(void)
 {
-    return &__Ck0__OptionsStorage;
+    return &__c0__OptionsStorage;
 }
 
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList)
 {
     int _Result;
 
-    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0U, _ArgList);
+    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0, _ArgList);
     return _Result < 0 ? -1 : _Result;
 }
 
@@ -404,9 +443,9 @@ static int __cdecl printf(char * _Format, ...)
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
-    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0U, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
+    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0, _ArgList);
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 void *calloc(unsigned int nmemb, unsigned int size);
@@ -419,12 +458,12 @@ struct include_dir *include_dir_add(struct include_dir_list * list, char * path)
     if (1) /*try*/
     {
         struct include_dir * p_new_include_dir;
-        int len;
+        unsigned int len;
 
-        p_new_include_dir = calloc(1, 8U);
-        if (p_new_include_dir == 0U)
+        p_new_include_dir = calloc(1, 8);
+        if (p_new_include_dir == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         len = strlen(path);
         if (path[len - 1] == 92)
@@ -432,10 +471,10 @@ struct include_dir *include_dir_add(struct include_dir_list * list, char * path)
             char * temp;
 
             temp = strdup(path);
-            if (temp == 0U)
+            if (temp == 0)
             {
                 free(p_new_include_dir);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             p_new_include_dir->path = temp;
         }
@@ -445,11 +484,11 @@ struct include_dir *include_dir_add(struct include_dir_list * list, char * path)
             {
                 char * temp;
 
-                temp = calloc(len + 2, 1U);
-                if (temp == 0U)
+                temp = calloc(len + 2, 1);
+                if (temp == 0)
                 {
                     free(p_new_include_dir);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_include_dir->path = temp;
                 snprintf((char *)p_new_include_dir->path, len + 2, "%s/", path);
@@ -459,15 +498,15 @@ struct include_dir *include_dir_add(struct include_dir_list * list, char * path)
                 char * temp;
 
                 temp = strdup(path);
-                if (temp == 0U)
+                if (temp == 0)
                 {
                     free(p_new_include_dir);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_include_dir->path = temp;
             }
         }
-        if (list->head == 0U)
+        if (list->head == 0)
         {
             list->head = p_new_include_dir;
             list->tail = p_new_include_dir;
@@ -481,10 +520,10 @@ struct include_dir *include_dir_add(struct include_dir_list * list, char * path)
         }
         return list->tail;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -494,19 +533,19 @@ static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _F
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
     _Result = vsnprintf(_Buffer, _BufferCount, _Format, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 unsigned char path_is_absolute(char * path);
 void path_normalize(char * path);
 static unsigned char pragma_once_already_included(struct preprocessor_ctx * ctx, char * path);
 struct map_entry *hashmap_find(struct hash_map * map, char * key);
-char *read_file(char * path, unsigned char append_newline);
+char *read_file(char * path, unsigned char  append_newline);
 char *realpath(char * path, char * resolved_path);
 
-char *find_and_read_include_file(struct preprocessor_ctx * ctx, char * path, char * current_file_dir, unsigned char is_angle_bracket_form, unsigned char * p_already_included, char full_path_out[], int full_path_out_size, unsigned char include_next)
+char *find_and_read_include_file(struct preprocessor_ctx * ctx, char * path, char * current_file_dir, unsigned char  is_angle_bracket_form, unsigned char * p_already_included, char full_path_out[], int full_path_out_size, unsigned char  include_next)
 {
     char newpath[200];
     char * content;
@@ -518,25 +557,25 @@ char *find_and_read_include_file(struct preprocessor_ctx * ctx, char * path, cha
     {
         char * content;
 
-        snprintf(newpath, 200U, "%s", path);
+        snprintf(newpath, 200, "%s", path);
         path_normalize(newpath);
         if (pragma_once_already_included(ctx, newpath))
         {
             *p_already_included = 1;
-            return 0U;
+            return 0;
         }
         content = read_file(newpath, 1);
-        if (content != 0U)
+        if (content != 0)
         {
             snprintf(full_path_out, full_path_out_size, "%s", path);
             return content;
         }
-        return 0U;
+        return 0;
     }
-    content = 0U;
+    content = 0;
     if (!is_angle_bracket_form)
     {
-        snprintf(newpath, 200U, "%s/%s", current_file_dir, path);
+        snprintf(newpath, 200, "%s/%s", current_file_dir, path);
         if (!realpath(newpath, full_path_out))
         {
             full_path_out[0] = 0;
@@ -545,13 +584,13 @@ char *find_and_read_include_file(struct preprocessor_ctx * ctx, char * path, cha
         if (pragma_once_already_included(ctx, full_path_out))
         {
             *p_already_included = 1;
-            return 0U;
+            return 0;
         }
         if (full_path_out[0] != 0)
         {
             content = read_file(full_path_out, 1);
         }
-        if (content != 0U)
+        if (content != 0)
         {
             return content;
         }
@@ -559,7 +598,7 @@ char *find_and_read_include_file(struct preprocessor_ctx * ctx, char * path, cha
     current = ctx->include_dir.head;
     while (current)
     {
-        int len;
+        unsigned int len;
 
         len = strlen(current->path);
         if (current->path[len - 1] == 47)
@@ -574,15 +613,15 @@ char *find_and_read_include_file(struct preprocessor_ctx * ctx, char * path, cha
         if (pragma_once_already_included(ctx, full_path_out))
         {
             *p_already_included = 1;
-            return 0U;
+            return 0;
         }
         content = read_file(full_path_out, 1);
-        if (content != 0U)
+        if (content != 0)
         {
             if (include_next)
             {
                 free(content);
-                content = 0U;
+                content = 0;
                 include_next = 0;
             }
             else
@@ -593,14 +632,14 @@ char *find_and_read_include_file(struct preprocessor_ctx * ctx, char * path, cha
         current = current->next;
     }
     full_path_out[0] = 0;
-    return 0U;
+    return 0;
 }
 
 
 
 static unsigned char pragma_once_already_included(struct preprocessor_ctx * ctx, char * path)
 {
-    return hashmap_find(&ctx->pragma_once_map, path) != 0U;
+    return hashmap_find(&ctx->pragma_once_map, path) != 0;
 }
 int hashmap_set(struct hash_map * map, char * key, struct hash_item_set * item);
 void hash_item_set_destroy(struct hash_item_set * p);
@@ -614,15 +653,15 @@ void add_macro(struct preprocessor_ctx * ctx, char * name)
         struct hash_item_set  item;
 
         name_local = strdup(name);
-        if (name_local == 0U)
+        if (name_local == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        macro = calloc(1, 32U);
-        if (macro == 0U)
+        macro = calloc(1, 32);
+        if (macro == 0)
         {
             free(name_local);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         macro->name = name_local;
         item.number = 0;
@@ -636,7 +675,7 @@ void add_macro(struct preprocessor_ctx * ctx, char * name)
         hashmap_set(&ctx->macros, name, &item);
         hash_item_set_destroy(&item);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -650,7 +689,7 @@ struct token_list copy_argument_list_tokens(struct token_list * list)
 {
     struct token_list  r;
     struct token * current;
-    unsigned char is_first;
+    unsigned char  is_first;
 
     _cake_zmem(&r, 8);
     current = list->head;
@@ -718,21 +757,21 @@ struct token_list copy_argument_list(struct macro_argument * p_macro_argument)
         struct token_list  list;
 
         list = copy_argument_list_tokens(&p_macro_argument->tokens);
-        if (list.head == 0U)
+        if (list.head == 0)
         {
             struct token * p_new_token;
             char * temp;
 
-            p_new_token = calloc(1, 40U);
-            if (p_new_token == 0U)
+            p_new_token = calloc(1, 40);
+            if (p_new_token == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             temp = strdup("");
-            if (temp == 0U)
+            if (temp == 0)
             {
                 token_delete(p_new_token);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             p_new_token->lexeme = temp;
             p_new_token->type = 142;
@@ -740,7 +779,7 @@ struct token_list copy_argument_list(struct macro_argument * p_macro_argument)
         }
         return list;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     _cake_zmem(&empty, 8);
@@ -759,7 +798,7 @@ void macro_argument_list_destroy(struct macro_argument_list * list)
         struct macro_argument * next;
 
         next = p->next;
-        p->next = 0U;
+        p->next = 0;
         macro_argument_delete(p);
         p = next;
     }
@@ -800,14 +839,14 @@ struct macro_argument *find_macro_argument_by_name(struct macro_argument_list * 
         }
         p_macro_argument = p_macro_argument->next;
     }
-    return 0U;
+    return 0;
 }
 
 
 void argument_list_add(struct macro_argument_list * list, struct macro_argument * pnew)
 {
     ;
-    if (list->head == 0U)
+    if (list->head == 0)
     {
         list->head = pnew;
         ;
@@ -897,7 +936,7 @@ unsigned char macro_is_same(struct macro * macro_a, struct macro * macro_b)
         p_a = p_a->next;
         p_b = p_b->next;
     }
-    return p_a == 0U && p_b == 0U;
+    return p_a == 0 && p_b == 0;
 }
 
 
@@ -930,9 +969,9 @@ struct macro *find_macro(struct preprocessor_ctx * ctx, char * name)
     struct map_entry * p_entry;
 
     p_entry = hashmap_find(&ctx->macros, name);
-    if (p_entry == 0U)
+    if (p_entry == 0)
     {
-        return 0U;
+        return 0;
     }
     return p_entry->data.p_macro;
 }
@@ -1034,76 +1073,76 @@ int is_punctuator(struct stream * stream)
     type = 0;
     /*switch*/
     {
-        register char __Ck1_temp = stream->current[0];
-        if (__Ck1_temp == 91) goto _CKL1; /*case 91*/
-        if (__Ck1_temp == 93) goto _CKL2; /*case 93*/
-        if (__Ck1_temp == 40) goto _CKL3; /*case 40*/
-        if (__Ck1_temp == 41) goto _CKL4; /*case 41*/
-        if (__Ck1_temp == 123) goto _CKL5; /*case 123*/
-        if (__Ck1_temp == 125) goto _CKL6; /*case 125*/
-        if (__Ck1_temp == 59) goto _CKL7; /*case 59*/
-        if (__Ck1_temp == 44) goto _CKL8; /*case 44*/
-        if (__Ck1_temp == 33) goto _CKL9; /*case 33*/
-        if (__Ck1_temp == 58) goto _CKL11; /*case 58*/
-        if (__Ck1_temp == 126) goto _CKL13; /*case 126*/
-        if (__Ck1_temp == 63) goto _CKL14; /*case 63*/
-        if (__Ck1_temp == 47) goto _CKL15; /*case 47*/
-        if (__Ck1_temp == 42) goto _CKL17; /*case 42*/
-        if (__Ck1_temp == 37) goto _CKL19; /*case 37*/
-        if (__Ck1_temp == 45) goto _CKL21; /*case 45*/
-        if (__Ck1_temp == 124) goto _CKL25; /*case 124*/
-        if (__Ck1_temp == 43) goto _CKL28; /*case 43*/
-        if (__Ck1_temp == 61) goto _CKL31; /*case 61*/
-        if (__Ck1_temp == 94) goto _CKL33; /*case 94*/
-        if (__Ck1_temp == 38) goto _CKL35; /*case 38*/
-        if (__Ck1_temp == 62) goto _CKL38; /*case 62*/
-        if (__Ck1_temp == 60) goto _CKL42; /*case 60*/
-        if (__Ck1_temp == 35) goto _CKL46; /*case 35*/
-        if (__Ck1_temp == 46) goto _CKL48; /*case 46*/
-        goto _CKL0;
+        char __v0 = stream->current[0];
+        if (__v0 == 91) goto __L1; /*case 91*/
+        if (__v0 == 93) goto __L2; /*case 93*/
+        if (__v0 == 40) goto __L3; /*case 40*/
+        if (__v0 == 41) goto __L4; /*case 41*/
+        if (__v0 == 123) goto __L5; /*case 123*/
+        if (__v0 == 125) goto __L6; /*case 125*/
+        if (__v0 == 59) goto __L7; /*case 59*/
+        if (__v0 == 44) goto __L8; /*case 44*/
+        if (__v0 == 33) goto __L9; /*case 33*/
+        if (__v0 == 58) goto __L11; /*case 58*/
+        if (__v0 == 126) goto __L13; /*case 126*/
+        if (__v0 == 63) goto __L14; /*case 63*/
+        if (__v0 == 47) goto __L15; /*case 47*/
+        if (__v0 == 42) goto __L17; /*case 42*/
+        if (__v0 == 37) goto __L19; /*case 37*/
+        if (__v0 == 45) goto __L21; /*case 45*/
+        if (__v0 == 124) goto __L25; /*case 124*/
+        if (__v0 == 43) goto __L28; /*case 43*/
+        if (__v0 == 61) goto __L31; /*case 61*/
+        if (__v0 == 94) goto __L33; /*case 94*/
+        if (__v0 == 38) goto __L35; /*case 38*/
+        if (__v0 == 62) goto __L38; /*case 62*/
+        if (__v0 == 60) goto __L42; /*case 60*/
+        if (__v0 == 35) goto __L46; /*case 35*/
+        if (__v0 == 46) goto __L48; /*case 46*/
+        goto __L0;
 
         {
-            _CKL1: /*case 91*/ 
+            __L1: /*case 91*/ 
             type = 91;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL2: /*case 93*/ 
+            __L2: /*case 93*/ 
             type = 93;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL3: /*case 40*/ 
+            __L3: /*case 40*/ 
             type = 40;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL4: /*case 41*/ 
+            __L4: /*case 41*/ 
             type = 41;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL5: /*case 123*/ 
+            __L5: /*case 123*/ 
             type = 123;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL6: /*case 125*/ 
+            __L6: /*case 125*/ 
             type = 125;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL7: /*case 59*/ 
+            __L7: /*case 59*/ 
             type = 59;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL8: /*case 44*/ 
+            __L8: /*case 44*/ 
             type = 44;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL9: /*case 33*/ 
+            __L9: /*case 33*/ 
             type = 33;
             stream_match(stream);
             if (stream->current[0] == 61)
@@ -1111,9 +1150,9 @@ int is_punctuator(struct stream * stream)
                 type = 8509;
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL11: /*case 58*/ 
+            __L11: /*case 58*/ 
             type = 58;
             stream_match(stream);
             if (stream->current[0] == 58)
@@ -1121,19 +1160,19 @@ int is_punctuator(struct stream * stream)
                 type = 14906;
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL13: /*case 126*/ 
+            __L13: /*case 126*/ 
             type = 126;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL14: /*case 63*/ 
+            __L14: /*case 63*/ 
             type = 63;
             stream_match(stream);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL15: /*case 47*/ 
+            __L15: /*case 47*/ 
             type = 47;
             stream_match(stream);
             if (stream->current[0] == 61)
@@ -1141,9 +1180,9 @@ int is_punctuator(struct stream * stream)
                 type = 12093;
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL17: /*case 42*/ 
+            __L17: /*case 42*/ 
             type = 42;
             stream_match(stream);
             if (stream->current[0] == 61)
@@ -1151,9 +1190,9 @@ int is_punctuator(struct stream * stream)
                 type = 10813;
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL19: /*case 37*/ 
+            __L19: /*case 37*/ 
             type = 37;
             stream_match(stream);
             if (stream->current[0] == 61)
@@ -1161,9 +1200,9 @@ int is_punctuator(struct stream * stream)
                 type = 9533;
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL21: /*case 45*/ 
+            __L21: /*case 45*/ 
             type = 45;
             stream_match(stream);
             if (stream->current[0] == 62)
@@ -1187,9 +1226,9 @@ int is_punctuator(struct stream * stream)
                     }
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL25: /*case 124*/ 
+            __L25: /*case 124*/ 
             type = 124;
             stream_match(stream);
             if (stream->current[0] == 124)
@@ -1205,9 +1244,9 @@ int is_punctuator(struct stream * stream)
                     stream_match(stream);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL28: /*case 43*/ 
+            __L28: /*case 43*/ 
             type = 43;
             stream_match(stream);
             if (stream->current[0] == 43)
@@ -1223,9 +1262,9 @@ int is_punctuator(struct stream * stream)
                     stream_match(stream);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL31: /*case 61*/ 
+            __L31: /*case 61*/ 
             type = 61;
             stream_match(stream);
             if (stream->current[0] == 61)
@@ -1233,9 +1272,9 @@ int is_punctuator(struct stream * stream)
                 type = 15677;
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL33: /*case 94*/ 
+            __L33: /*case 94*/ 
             type = 94;
             stream_match(stream);
             if (stream->current[0] == 61)
@@ -1243,9 +1282,9 @@ int is_punctuator(struct stream * stream)
                 type = 24125;
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL35: /*case 38*/ 
+            __L35: /*case 38*/ 
             type = 38;
             stream_match(stream);
             if (stream->current[0] == 38)
@@ -1261,9 +1300,9 @@ int is_punctuator(struct stream * stream)
                     stream_match(stream);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL38: /*case 62*/ 
+            __L38: /*case 62*/ 
             type = 62;
             stream_match(stream);
             if (stream->current[0] == 62)
@@ -1284,9 +1323,9 @@ int is_punctuator(struct stream * stream)
                     stream_match(stream);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL42: /*case 60*/ 
+            __L42: /*case 60*/ 
             type = 60;
             stream_match(stream);
             if (stream->current[0] == 60)
@@ -1307,9 +1346,9 @@ int is_punctuator(struct stream * stream)
                     stream_match(stream);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL46: /*case 35*/ 
+            __L46: /*case 35*/ 
             type = 35;
             stream_match(stream);
             if (stream->current[0] == 35)
@@ -1317,9 +1356,9 @@ int is_punctuator(struct stream * stream)
                 type = 8995;
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL48: /*case 46*/ 
+            __L48: /*case 46*/ 
             type = 46;
             stream_match(stream);
             if (stream->current[0] == 46 && stream->current[1] == 46)
@@ -1328,10 +1367,10 @@ int is_punctuator(struct stream * stream)
                 stream_match(stream);
                 stream_match(stream);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
         }
-        _CKL0:;
+        __L0:;
     }
     return type;
 }
@@ -1343,31 +1382,31 @@ struct token *new_token(char * lexeme_head, char * lexeme_tail, int type)
 {
     struct token * p_new_token;
 
-    p_new_token = 0U;
+    p_new_token = 0;
     if (1) /*try*/
     {
         unsigned int sz;
         char * temp;
 
-        p_new_token = calloc(1, 40U);
-        if (p_new_token == 0U)
+        p_new_token = calloc(1, 40);
+        if (p_new_token == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         sz = lexeme_tail - lexeme_head;
-        temp = calloc(sz + 1, 1U);
-        if (temp == 0U)
+        temp = calloc(sz + 1, 1);
+        if (temp == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         p_new_token->lexeme = temp;
         p_new_token->type = type;
         strncpy(p_new_token->lexeme, lexeme_head, sz);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
         token_delete(p_new_token);
-        p_new_token = 0U;
+        p_new_token = 0;
     }
     return p_new_token;
 }
@@ -1447,9 +1486,9 @@ static void tokenizer_set_warning(struct tokenizer_ctx * ctx, struct stream * st
     ctx->n_warnings++;
     _cake_zmem(&buffer, 200);
     _cake_zmem(&args, 4);
-    ((void)(args = (char *)(&(fmt)) + 4U));
-    vsnprintf(buffer, 200U, fmt, args);
-    ((void)(args = 0U));
+    ((void)(args = (char *)(&(fmt)) + 4));
+    vsnprintf(buffer, 200, fmt, args);
+    ((void)(args = (char *)0));
     print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format);
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -1467,7 +1506,7 @@ struct token *string_literal(struct tokenizer_ctx * ctx, struct stream * stream)
     struct token * p_new_token;
     char * start;
 
-    p_new_token = 0U;
+    p_new_token = 0;
     start = stream->current;
     if (1) /*try*/
     {
@@ -1492,7 +1531,7 @@ struct token *string_literal(struct tokenizer_ctx * ctx, struct stream * stream)
             if (stream->current[0] == 0 || stream->current[0] == 10)
             {
                 tokenizer_set_error(ctx, stream, "missing terminating \" character");
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (stream->current[0] == 92)
             {
@@ -1507,7 +1546,7 @@ struct token *string_literal(struct tokenizer_ctx * ctx, struct stream * stream)
         stream_match(stream);
         p_new_token = new_token(start, stream->current, 130);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return p_new_token;
@@ -1523,9 +1562,9 @@ static void tokenizer_set_error(struct tokenizer_ctx * ctx, struct stream * stre
     ctx->n_errors++;
     _cake_zmem(&buffer, 200);
     _cake_zmem(&args, 4);
-    ((void)(args = (char *)(&(fmt)) + 4U));
-    vsnprintf(buffer, 200U, fmt, args);
-    ((void)(args = 0U));
+    ((void)(args = (char *)(&(fmt)) + 4));
+    vsnprintf(buffer, 200, fmt, args);
+    ((void)(args = (char *)0));
     print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format);
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -1536,95 +1575,6 @@ static void tokenizer_set_error(struct tokenizer_ctx * ctx, struct stream * stre
         printf("\x1b[91merror: \x1b[97m%s\n", buffer);
     }
 }
-int get_char_type(char * s)
-{
-    if (s[0] == 76)
-    {
-        return 2;
-    }
-    return 1;
-}
-
-
-int string_literal_char_byte_size(char * s)
-{
-    if (s[0] == 117)
-    {
-    }
-    else
-    {
-        if (s[0] == 85 || s[0] == 76)
-        {
-            return 2;
-        }
-    }
-    return 1;
-}
-
-
-int string_literal_byte_size_not_zero_included(char * s)
-{
-    struct stream  stream;
-    int size;
-    int charsize;
-
-    stream.source = s;
-    stream.current = 0;
-    stream.line = 0;
-    stream.col = 0;
-    stream.line_continuation_count = 0;
-    stream.path = 0;
-    stream.current = s;
-    stream.line = 1;
-    stream.col = 1;
-    stream.path = "";
-    size = 0;
-    charsize = string_literal_char_byte_size(s);
-    if (1) /*try*/
-    {
-        if (stream.current[0] == 117)
-        {
-            stream_match(&stream);
-            if (stream.current[0] == 56)
-            {
-                stream_match(&stream);
-            }
-        }
-        else
-        {
-            if (stream.current[0] == 85 || stream.current[0] == 76)
-            {
-                stream_match(&stream);
-            }
-        }
-        stream_match(&stream);
-        while (stream.current[0] != 34)
-        {
-            if (stream.current[0] == 0 || stream.current[0] == 10)
-            {
-                goto _CKL0;/*throw*/
-            }
-            if (stream.current[0] == 92)
-            {
-                stream_match(&stream);
-                stream_match(&stream);
-                size++;
-            }
-            else
-            {
-                stream_match(&stream);
-                size++;
-            }
-        }
-        stream_match(&stream);
-    }
-    else _CKL0: /*catch*/ 
-    {
-    }
-    return size * charsize;
-}
-
-
 struct _iobuf *fopen(char * _FileName, char * _Mode);
 unsigned int fread(void * _Buffer, unsigned int _ElementSize, unsigned int _ElementCount, struct _iobuf * _Stream);
 int fclose(struct _iobuf * _Stream);
@@ -1633,13 +1583,13 @@ struct token_list embed_tokenizer(struct preprocessor_ctx * ctx, struct token * 
 {
     struct token_list  list;
     struct _iobuf * file;
-    unsigned char b_first;
+    unsigned char  b_first;
     int line;
     int col;
     int count;
 
     _cake_zmem(&list, 8);
-    file = 0U;
+    file = 0;
     b_first = 1;
     line = 1;
     col = 1;
@@ -1651,10 +1601,10 @@ struct token_list embed_tokenizer(struct preprocessor_ctx * ctx, struct token * 
         struct token * p_new_token;
 
         file = (struct _iobuf *)fopen(filename_opt, "rb");
-        if (file == 0U)
+        if (file == 0)
         {
             preprocessor_diagnostic(1150, ctx, position, "file '%s' not found", filename_opt);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         ch = 0;
         while (fread(&ch, 1, 1, file))
@@ -1674,13 +1624,13 @@ struct token_list embed_tokenizer(struct preprocessor_ctx * ctx, struct token * 
 
                 _cake_memcpy(b, ",", 2);
                 p_new_token = new_token(b, &b[1], 44);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= addflags;
                 p_new_token->level = level;
-                p_new_token->token_origin = 0U;
+                p_new_token->token_origin = 0;
                 p_new_token->line = line;
                 p_new_token->col = col;
                 token_list_add(&list, p_new_token);
@@ -1691,27 +1641,27 @@ struct token_list embed_tokenizer(struct preprocessor_ctx * ctx, struct token * 
 
                     _cake_memcpy(newline, "\n", 2);
                     p_new3 = new_token(newline, &newline[1], 10);
-                    if (p_new3 == 0U)
+                    if (p_new3 == 0)
                     {
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     p_new3->level = level;
-                    p_new3->token_origin = 0U;
+                    p_new3->token_origin = 0;
                     p_new3->line = line;
                     p_new3->col = col;
                     token_list_add(&list, p_new3);
                 }
             }
             _cake_zmem(&buffer, 30);
-            c = snprintf(buffer, 30U, "%d", (int)ch);
+            c = snprintf(buffer, 30, "%d", (int)ch);
             p_new_token = new_token(buffer, &buffer[c], 134);
-            if (p_new_token == 0U)
+            if (p_new_token == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             p_new_token->flags |= addflags;
             p_new_token->level = level;
-            p_new_token->token_origin = 0U;
+            p_new_token->token_origin = 0;
             p_new_token->line = line;
             p_new_token->col = col;
             token_list_add(&list, p_new_token);
@@ -1719,18 +1669,18 @@ struct token_list embed_tokenizer(struct preprocessor_ctx * ctx, struct token * 
         }
         _cake_memcpy(newline, "\n", 2);
         p_new_token = new_token(newline, &newline[1], 10);
-        if (p_new_token == 0U)
+        if (p_new_token == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         p_new_token->level = level;
-        p_new_token->token_origin = 0U;
+        p_new_token->token_origin = 0;
         p_new_token->line = line;
         p_new_token->col = col;
         token_list_add(&list, p_new_token);
         ;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     if (file)
@@ -1762,11 +1712,11 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
     if (1) /*try*/
     {
         struct token * p_first;
-        unsigned char new_line;
-        unsigned char has_space;
+        unsigned char  new_line;
+        unsigned char  has_space;
 
-        p_first = 0U;
-        if (filename_opt != 0U)
+        p_first = 0;
+        if (filename_opt != 0)
         {
             char * begin;
             char * end;
@@ -1775,9 +1725,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
             begin = filename_opt;
             end = filename_opt + strlen(filename_opt);
             p_new = new_token(begin, end, 8998);
-            if (p_new == 0U)
+            if (p_new == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             path_normalize(p_new->lexeme);
             p_new->level = level;
@@ -1805,9 +1755,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                 struct token * p_new_token;
 
                 p_new_token = ppnumber(&stream);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -1828,9 +1778,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                 struct token * p_new_token;
 
                 p_new_token = string_literal(ctx, &stream);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -1851,9 +1801,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                 struct token * p_new_token;
 
                 p_new_token = character_constant(ctx, &stream);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -1873,9 +1823,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                 struct token * p_new_token;
 
                 p_new_token = identifier(&stream);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -1904,9 +1854,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                     stream_match(&stream);
                 }
                 p_new_token = new_token(start, stream.current, 143);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -1937,9 +1887,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                     }
                 }
                 p_new_token = new_token(start, stream.current, 132);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -1988,9 +1938,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                     }
                 }
                 p_new_token = new_token(start, stream.current, 133);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -2012,9 +1962,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                 start = stream.current;
                 stream_match(&stream);
                 p_new_token = new_token(start, stream.current, 35);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -2046,9 +1996,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                 }
                 _cake_memcpy(newline, "\n", 2);
                 p_new_token = new_token(newline, newline + 1, 10);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -2070,9 +2020,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
                 struct token * p_new_token;
 
                 p_new_token = new_token(start, stream.current, t);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -2093,9 +2043,9 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
 
                 stream_match(&stream);
                 p_new_token = new_token(start, stream.current, 135);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->flags |= has_space ? 4 : 0;
                 p_new_token->flags |= new_line ? 8 : 0;
@@ -2113,7 +2063,7 @@ struct token_list tokenizer(struct tokenizer_ctx * ctx, char * text, char * file
             break;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     ;
@@ -2204,7 +2154,7 @@ static unsigned char set_sliced_flag(struct stream * stream, struct token * p_ne
         p_new_token->flags |= 1024;
         if (stream->line_continuation_count == 1)
         {
-            int l;
+            unsigned int l;
 
             l = strlen(p_new_token->lexeme);
             if (p_new_token->lexeme[l - 1] == 10)
@@ -2236,7 +2186,7 @@ int __cdecl feof(struct _iobuf * _Stream);
 
 unsigned char fread2(void * buffer, unsigned int size, unsigned int count, struct _iobuf * stream, unsigned int * sz)
 {
-    unsigned char result;
+    unsigned char  result;
     unsigned int n;
 
     *sz = 0;
@@ -2264,10 +2214,10 @@ unsigned char fread2(void * buffer, unsigned int size, unsigned int count, struc
 
 unsigned char token_list_is_empty(struct token_list * p);
 unsigned char preprocessor_token_ahead_is_identifier(struct token * p, char * lexeme);
-struct token_list group_part(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level);
+struct token_list group_part(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level);
 void token_list_append_list(struct token_list * dest, struct token_list * source);
 
-struct token_list group_opt(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+struct token_list group_opt(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
@@ -2294,12 +2244,12 @@ struct token_list group_opt(struct preprocessor_ctx * ctx, struct token_list * i
                 token_list_destroy(&r2);
                 if (ctx->n_errors > 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -2336,7 +2286,7 @@ unsigned char preprocessor_token_ahead_is(struct token * p, int t)
     struct token * p_token;
 
     p_token = preprocessor_look_ahead_core(p);
-    if (p_token != 0U && p_token->type == t)
+    if (p_token != 0 && p_token->type == t)
     {
         return 1;
     }
@@ -2350,7 +2300,7 @@ unsigned char preprocessor_token_ahead_is_identifier(struct token * p, char * le
 
     ;
     p_token = preprocessor_look_ahead_core(p);
-    if (p_token != 0U && p_token->type == 8996)
+    if (p_token != 0 && p_token->type == 8996)
     {
         return strcmp(p_token->lexeme, lexeme) == 0;
     }
@@ -2402,21 +2352,21 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
     _cake_zmem(&r, 8);
     if (1) /*try*/
     {
-        while (input_list->head != 0U)
+        while (input_list->head != 0)
         {
             if (input_list->head->type == 8996 && strcmp(input_list->head->lexeme, "defined") == 0)
             {
-                unsigned char has_parentesis;
+                unsigned char  has_parentesis;
                 struct macro * macro;
                 struct token * p_new_token;
                 char * temp;
 
                 token_list_pop_front(input_list);
                 skip_blanks(ctx, &r, input_list);
-                if (input_list->head == 0U)
+                if (input_list->head == 0)
                 {
                     pre_unexpected_end_of_file(r.tail, ctx);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 has_parentesis = 0;
                 if (input_list->head->type == 40)
@@ -2425,19 +2375,19 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
                     has_parentesis = 1;
                 }
                 skip_blanks(ctx, &r, input_list);
-                if (input_list->head == 0U)
+                if (input_list->head == 0)
                 {
                     pre_unexpected_end_of_file(r.tail, ctx);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 macro = find_macro(ctx, input_list->head->lexeme);
                 p_new_token = token_list_pop_front_get(input_list);
-                if (p_new_token == 0U)
+                if (p_new_token == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_new_token->type = 134;
-                temp = 0U;
+                temp = 0;
                 if (macro)
                 {
                     temp = strdup("1");
@@ -2446,24 +2396,24 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
                 {
                     temp = strdup("0");
                 }
-                if (temp == 0U)
+                if (temp == 0)
                 {
                     token_delete(p_new_token);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 free(p_new_token->lexeme);
                 p_new_token->lexeme = temp;
                 token_list_add(&r, p_new_token);
                 if (has_parentesis)
                 {
-                    if (input_list->head == 0U)
+                    if (input_list->head == 0)
                     {
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     if (input_list->head->type != 41)
                     {
                         preprocessor_diagnostic(1160, ctx, input_list->head, "missing )");
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     token_list_pop_front(input_list);
                 }
@@ -2473,12 +2423,12 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
                 if (input_list->head->type == 8996 && (strcmp(input_list->head->lexeme, "__has_include") == 0 || strcmp(input_list->head->lexeme, "__has_embed") == 0))
                 {
                     char path[100];
-                    unsigned char is_angle_bracket_form;
+                    unsigned char  is_angle_bracket_form;
                     char fullpath[300];
                     char full_path_result[200];
-                    unsigned char already_included;
+                    unsigned char  already_included;
                     char * s;
-                    unsigned char has_include;
+                    unsigned char  has_include;
                     struct token * p_new_token;
                     char * temp;
 
@@ -2488,10 +2438,10 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
                     skip_blanks(ctx, &r, input_list);
                     _cake_zmem(&path, 100);
                     is_angle_bracket_form = 0;
-                    if (input_list->head == 0U)
+                    if (input_list->head == 0)
                     {
                         pre_unexpected_end_of_file(r.tail, ctx);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     if (input_list->head->type == 130)
                     {
@@ -2502,19 +2452,19 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
                     {
                         is_angle_bracket_form = 1;
                         token_list_pop_front(input_list);
-                        if (input_list->head == 0U)
+                        if (input_list->head == 0)
                         {
                             pre_unexpected_end_of_file(r.tail, ctx);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         while (input_list->head->type != 62)
                         {
                             strcat(path, input_list->head->lexeme);
                             token_list_pop_front(input_list);
-                            if (input_list->head == 0U)
+                            if (input_list->head == 0)
                             {
                                 pre_unexpected_end_of_file(r.tail, ctx);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                         }
                         token_list_pop_front(input_list);
@@ -2522,20 +2472,20 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
                     _cake_zmem(&fullpath, 300);
                     _cake_zmem(&full_path_result, 200);
                     already_included = 0;
-                    s = find_and_read_include_file(ctx, path, fullpath, is_angle_bracket_form, &already_included, full_path_result, 200U, 0);
-                    has_include = s != 0U;
+                    s = find_and_read_include_file(ctx, path, fullpath, is_angle_bracket_form, &already_included, full_path_result, 200, 0);
+                    has_include = s != 0;
                     free((void *)s);
-                    p_new_token = calloc(1, 40U);
-                    if (p_new_token == 0U)
+                    p_new_token = calloc(1, 40);
+                    if (p_new_token == 0)
                     {
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     p_new_token->type = 134;
                     temp = strdup(has_include ? "1" : "0");
-                    if (temp == 0U)
+                    if (temp == 0)
                     {
                         token_delete(p_new_token);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     p_new_token->lexeme = temp;
                     p_new_token->flags |= 1;
@@ -2555,20 +2505,20 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
                         skip_blanks(ctx, &r, input_list);
                         token_list_pop_front(input_list);
                         skip_blanks(ctx, &r, input_list);
-                        if (input_list->head == 0U)
+                        if (input_list->head == 0)
                         {
                             pre_unexpected_end_of_file(r.tail, ctx);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         _cake_zmem(&path, 100);
                         while (input_list->head->type != 41)
                         {
                             strcat(path, input_list->head->lexeme);
                             token_list_pop_front(input_list);
-                            if (input_list->head == 0U)
+                            if (input_list->head == 0)
                             {
                                 pre_unexpected_end_of_file(r.tail, ctx);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                         }
                         token_list_pop_front(input_list);
@@ -2610,17 +2560,17 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
                                 }
                             }
                         }
-                        p_new_token = calloc(1, 40U);
-                        if (p_new_token == 0U)
+                        p_new_token = calloc(1, 40);
+                        if (p_new_token == 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         p_new_token->type = 134;
                         temp = strdup(has_c_attribute_value);
-                        if (temp == 0U)
+                        if (temp == 0)
                         {
                             token_delete(p_new_token);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         p_new_token->lexeme = temp;
                         p_new_token->flags |= 1;
@@ -2641,7 +2591,7 @@ struct token_list process_defined(struct preprocessor_ctx * ctx, struct token_li
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -2672,7 +2622,7 @@ struct token_list process_identifiers(struct preprocessor_ctx * ctx, struct toke
     _cake_zmem(&list2, 8);
     if (1) /*try*/
     {
-        while (list->head != 0U)
+        while (list->head != 0)
         {
             if (list->head->type == 8996 || list->head->type == 8997)
             {
@@ -2698,10 +2648,10 @@ struct token_list process_identifiers(struct preprocessor_ctx * ctx, struct toke
                         char * temp;
 
                         temp = strdup("0");
-                        if (temp == 0U)
+                        if (temp == 0)
                         {
                             token_delete(p_new_token);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         free(p_new_token->lexeme);
                         p_new_token->lexeme = temp;
@@ -2720,7 +2670,7 @@ struct token_list process_identifiers(struct preprocessor_ctx * ctx, struct toke
         }
         ;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return list2;
@@ -2779,7 +2729,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx * ctx, struct
     list2 = preprocessor(ctx, &list1, 1);
     ctx->flags = flags;
     value = 0;
-    if (list2.head == 0U)
+    if (list2.head == 0)
     {
         preprocessor_diagnostic(1170, ctx, first, "empty expression");
     }
@@ -2829,31 +2779,31 @@ void match_level(struct token_list * dest, struct token_list * input_list, int l
 }
 
 
-char *get_token_name(int tk);
+char *get_diagnostic_friendly_token_name(int tk);
 
 int match_token_level(struct token_list * dest, struct token_list * input_list, int type, int level, struct preprocessor_ctx * ctx)
 {
     if (1) /*try*/
     {
-        if (input_list->head == 0U || input_list->head->type != type)
+        if (input_list->head == 0 || input_list->head->type != type)
         {
-            if (type == 10 && input_list->head == 0U)
+            if (type == 10 && input_list->head == 0)
             {
             }
             else
             {
                 if (input_list->head)
                 {
-                    preprocessor_diagnostic(970, ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
+                    preprocessor_diagnostic(970, ctx, input_list->head, "expected token '%s', got '%s'\n", get_diagnostic_friendly_token_name(type), get_diagnostic_friendly_token_name(input_list->head->type));
                 }
                 else
                 {
                     preprocessor_diagnostic(970, ctx, dest->tail, "expected EOF \n");
                 }
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
         }
-        if (input_list->head != 0U)
+        if (input_list->head != 0)
         {
             if (1)
             {
@@ -2865,7 +2815,7 @@ int match_token_level(struct token_list * dest, struct token_list * input_list, 
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return ctx->n_errors > 0;
@@ -2874,7 +2824,7 @@ int match_token_level(struct token_list * dest, struct token_list * input_list, 
 
 static void skip_blanks_level(struct preprocessor_ctx * ctx, struct token_list * dest, struct token_list * input_list, int level);
 
-struct token_list if_group(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level, unsigned char * p_result)
+struct token_list if_group(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level, unsigned char * p_result)
 {
     struct token_list  r;
 
@@ -2887,26 +2837,26 @@ struct token_list if_group(struct preprocessor_ctx * ctx, struct token_list * in
 
         match_token_level(&r, input_list, 127, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         ;
         if (strcmp(input_list->head->lexeme, "ifdef") == 0)
         {
             match_token_level(&r, input_list, 8996, level, ctx);
             skip_blanks_level(ctx, &r, input_list, level);
-            if (input_list->head == 0U)
+            if (input_list->head == 0)
             {
                 pre_unexpected_end_of_file(r.tail, ctx);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (is_active)
             {
                 struct macro * macro;
 
                 macro = find_macro(ctx, input_list->head->lexeme);
-                *p_result = (((macro != 0U) ? 1 : 0) != 0);
+                *p_result = (((macro != 0) ? 1 : 0) != 0);
             }
             match_token_level(&r, input_list, 8996, level, ctx);
             skip_blanks_level(ctx, &r, input_list, level);
@@ -2918,17 +2868,17 @@ struct token_list if_group(struct preprocessor_ctx * ctx, struct token_list * in
             {
                 match_token_level(&r, input_list, 8996, level, ctx);
                 skip_blanks_level(ctx, &r, input_list, level);
-                if (input_list->head == 0U)
+                if (input_list->head == 0)
                 {
                     pre_unexpected_end_of_file(r.tail, ctx);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 if (is_active)
                 {
                     struct macro * macro;
 
                     macro = find_macro(ctx, input_list->head->lexeme);
-                    *p_result = (((macro == 0U) ? 1 : 0) != 0);
+                    *p_result = (((macro == 0) ? 1 : 0) != 0);
                 }
                 match_token_level(&r, input_list, 8996, level, ctx);
                 skip_blanks_level(ctx, &r, input_list, level);
@@ -2962,7 +2912,7 @@ struct token_list if_group(struct preprocessor_ctx * ctx, struct token_list * in
                 else
                 {
                     preprocessor_diagnostic(650, ctx, input_list->head, "unexpected");
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
             }
         }
@@ -2971,7 +2921,7 @@ struct token_list if_group(struct preprocessor_ctx * ctx, struct token_list * in
         ;
         ;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -3001,7 +2951,7 @@ static void skip_blanks_level(struct preprocessor_ctx * ctx, struct token_list *
         }
     }
 }
-struct token_list elif_group(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level, unsigned char * p_elif_result)
+struct token_list elif_group(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level, unsigned char * p_elif_result)
 {
     struct token_list  r;
 
@@ -3015,9 +2965,9 @@ struct token_list elif_group(struct preprocessor_ctx * ctx, struct token_list * 
 
         match_token_level(&r, input_list, 127, level, ctx);
         skip_blanks(ctx, &r, input_list);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         result = 0;
         if (strcmp(input_list->head->lexeme, "elif") == 0)
@@ -3048,13 +2998,13 @@ struct token_list elif_group(struct preprocessor_ctx * ctx, struct token_list * 
             {
                 match_token_level(&r, input_list, 8996, level, ctx);
                 skip_blanks(ctx, &r, input_list);
-                if (input_list->head == 0U)
+                if (input_list->head == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 if (is_active)
                 {
-                    result = (hashmap_find(&ctx->macros, input_list->head->lexeme) != 0U) ? 1 : 0;
+                    result = (hashmap_find(&ctx->macros, input_list->head->lexeme) != 0) ? 1 : 0;
                 }
                 match_token_level(&r, input_list, 8996, level, ctx);
             }
@@ -3064,13 +3014,13 @@ struct token_list elif_group(struct preprocessor_ctx * ctx, struct token_list * 
                 {
                     match_token_level(&r, input_list, 8996, level, ctx);
                     skip_blanks(ctx, &r, input_list);
-                    if (input_list->head == 0U)
+                    if (input_list->head == 0)
                     {
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     if (is_active)
                     {
-                        result = (hashmap_find(&ctx->macros, input_list->head->lexeme) == 0U) ? 1 : 0;
+                        result = (hashmap_find(&ctx->macros, input_list->head->lexeme) == 0) ? 1 : 0;
                     }
                     match_token_level(&r, input_list, 8996, level, ctx);
                 }
@@ -3083,14 +3033,14 @@ struct token_list elif_group(struct preprocessor_ctx * ctx, struct token_list * 
         token_list_append_list(&r, &r2);
         token_list_destroy(&r2);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
 }
 
 
-struct token_list elif_groups(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level, unsigned char * pelif_result)
+struct token_list elif_groups(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level, unsigned char * pelif_result)
 {
     struct token_list  r;
 
@@ -3098,17 +3048,17 @@ struct token_list elif_groups(struct preprocessor_ctx * ctx, struct token_list *
     _cake_zmem(&r, 8);
     if (1) /*try*/
     {
-        unsigned char already_found_elif_true;
-        unsigned char elif_result;
+        unsigned char  already_found_elif_true;
+        unsigned char  elif_result;
         struct token_list  r2;
 
         already_found_elif_true = 0;
         elif_result = 0;
         r2 = elif_group(ctx, input_list, is_active, level, &elif_result);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             token_list_destroy(&r2);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         token_list_append_list(&r, &r2);
         if (elif_result)
@@ -3130,14 +3080,14 @@ struct token_list elif_groups(struct preprocessor_ctx * ctx, struct token_list *
         *pelif_result = already_found_elif_true;
         token_list_destroy(&r2);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
 }
 
 
-struct token_list else_group(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+struct token_list else_group(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
@@ -3150,7 +3100,7 @@ struct token_list else_group(struct preprocessor_ctx * ctx, struct token_list * 
         skip_blanks_level(ctx, &r, input_list, level);
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         match_token_level(&r, input_list, 8996, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
@@ -3159,7 +3109,7 @@ struct token_list else_group(struct preprocessor_ctx * ctx, struct token_list * 
         token_list_append_list(&r, &r2);
         token_list_destroy(&r2);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -3184,7 +3134,7 @@ static unsigned char is_builtin_macro(char * name);
 struct token_list identifier_list(struct preprocessor_ctx * ctx, struct macro * macro, struct token_list * input_list, int level);
 void naming_convention_macro(struct preprocessor_ctx * ctx, struct token * token);
 
-struct token_list def_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level, struct macro ** pp_macro)
+struct token_list def_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level, struct macro ** pp_macro)
 {
     struct token_list  r;
 
@@ -3196,73 +3146,73 @@ struct token_list def_line(struct preprocessor_ctx * ctx, struct token_list * in
         char * temp;
         struct hash_item_set  item;
 
-        macro = calloc(1, 32U);
-        if (macro == 0U)
+        macro = calloc(1, 32);
+        if (macro == 0)
         {
             preprocessor_diagnostic(650, ctx, ctx->current, "out of mem");
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         macro->def_macro = 1;
         match_token_level(&r, input_list, 127, level, ctx);
         match_token_level(&r, input_list, 8996, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             macro_delete(macro);
             pre_unexpected_end_of_file(r.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         macro_name_token = input_list->head;
         if (is_builtin_macro(macro_name_token->lexeme))
         {
-            preprocessor_diagnostic(56, ctx, input_list->head, "redefining builtin macro");
+            preprocessor_diagnostic(56, ctx, input_list->head, "redefining built-in macro");
         }
-        if (hashmap_find(&ctx->macros, input_list->head->lexeme) != 0U)
+        if (hashmap_find(&ctx->macros, input_list->head->lexeme) != 0)
         {
         }
         temp = strdup(input_list->head->lexeme);
-        if (temp == 0U)
+        if (temp == 0)
         {
             macro_delete(macro);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         ;
         macro->name = temp;
         match_token_level(&r, input_list, 8996, level, ctx);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             macro_delete(macro);
             pre_unexpected_end_of_file(r.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (input_list->head->type == 40)
         {
             macro->is_function = 1;
             match_token_level(&r, input_list, 40, level, ctx);
             skip_blanks_level(ctx, &r, input_list, level);
-            if (input_list->head == 0U)
+            if (input_list->head == 0)
             {
                 macro_delete(macro);
                 pre_unexpected_end_of_file(r.tail, ctx);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (input_list->head->type == 3026478)
             {
                 struct macro_parameter * p_macro_parameter;
                 char * temp2;
 
-                p_macro_parameter = calloc(1, 20U);
-                if (p_macro_parameter == 0U)
+                p_macro_parameter = calloc(1, 20);
+                if (p_macro_parameter == 0)
                 {
                     macro_delete(macro);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 temp2 = strdup("__VA_ARGS__");
-                if (temp2 == 0U)
+                if (temp2 == 0)
                 {
                     macro_delete(macro);
                     macro_parameters_delete(p_macro_parameter);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_macro_parameter->name = temp2;
                 macro->parameters = p_macro_parameter;
@@ -3285,11 +3235,11 @@ struct token_list def_line(struct preprocessor_ctx * ctx, struct token_list * in
                     token_list_append_list(&r, &r3);
                     token_list_destroy(&r3);
                     skip_blanks_level(ctx, &r, input_list, level);
-                    if (input_list->head == 0U)
+                    if (input_list->head == 0)
                     {
                         macro_delete(macro);
                         pre_unexpected_end_of_file(r.tail, ctx);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     if (input_list->head->type == 3026478)
                     {
@@ -3297,18 +3247,18 @@ struct token_list def_line(struct preprocessor_ctx * ctx, struct token_list * in
                         char * temp3;
                         struct macro_parameter * p_last;
 
-                        p_macro_parameter = calloc(1, 20U);
-                        if (p_macro_parameter == 0U)
+                        p_macro_parameter = calloc(1, 20);
+                        if (p_macro_parameter == 0)
                         {
                             macro_delete(macro);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         temp3 = strdup("__VA_ARGS__");
-                        if (temp3 == 0U)
+                        if (temp3 == 0)
                         {
                             macro_delete(macro);
                             macro_parameters_delete(p_macro_parameter);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         p_macro_parameter->name = temp3;
                         p_last = macro->parameters;
@@ -3330,11 +3280,11 @@ struct token_list def_line(struct preprocessor_ctx * ctx, struct token_list * in
             macro->is_function = 0;
         }
         skip_blanks_level(ctx, &r, input_list, level);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             macro_delete(macro);
             pre_unexpected_end_of_file(r.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         naming_convention_macro(ctx, macro_name_token);
         _cake_zmem(&item, 32);
@@ -3343,7 +3293,7 @@ struct token_list def_line(struct preprocessor_ctx * ctx, struct token_list * in
         hash_item_set_destroy(&item);
         *pp_macro = macro;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -3363,7 +3313,7 @@ static unsigned char is_builtin_macro(char * name)
     }
     return 0;
 }
-struct token_list replacement_group(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+struct token_list replacement_group(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
@@ -3372,10 +3322,10 @@ struct token_list replacement_group(struct preprocessor_ctx * ctx, struct token_
     {
         for (; ; )
         {
-            if (input_list->head == 0U)
+            if (input_list->head == 0)
             {
                 preprocessor_diagnostic(650, ctx, r.tail, "missing #enddef");
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (input_list->head->type == 127 && (preprocessor_token_ahead_is_identifier(input_list->head, "enddef")))
             {
@@ -3384,24 +3334,24 @@ struct token_list replacement_group(struct preprocessor_ctx * ctx, struct token_
             prematch_level(&r, input_list, level);
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
 }
 
 
-struct token_list enddef_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+struct token_list enddef_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
     _cake_zmem(&r, 8);
     if (1) /*try*/
     {
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             pre_unexpected_end_of_file(r.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         match_token_level(&r, input_list, 127, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
@@ -3409,14 +3359,14 @@ struct token_list enddef_line(struct preprocessor_ctx * ctx, struct token_list *
         skip_blanks_level(ctx, &r, input_list, level);
         match_token_level(&r, input_list, 10, level, ctx);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
 }
 
 
-struct token_list def_section(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+struct token_list def_section(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
@@ -3429,20 +3379,20 @@ struct token_list def_section(struct preprocessor_ctx * ctx, struct token_list *
         struct token_list  copy;
         struct token_list  r4;
 
-        p_macro = 0U;
+        p_macro = 0;
         r2 = def_line(ctx, input_list, is_active, level, &p_macro);
         token_list_append_list(&r, &r2);
-        if (ctx->n_errors > 0 || p_macro == 0U)
+        if (ctx->n_errors > 0 || p_macro == 0)
         {
             token_list_destroy(&r2);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         r3 = replacement_group(ctx, input_list, is_active, level);
         if (ctx->n_errors > 0)
         {
             token_list_destroy(&r2);
             token_list_destroy(&r3);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         copy = copy_replacement_list(ctx, &r3);
         token_list_append_list(&p_macro->replacement_list, &copy);
@@ -3454,14 +3404,14 @@ struct token_list def_section(struct preprocessor_ctx * ctx, struct token_list *
         token_list_destroy(&r4);
         token_list_destroy(&copy);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
 }
 
 
-struct token_list if_section(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+struct token_list if_section(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
@@ -3469,9 +3419,9 @@ struct token_list if_section(struct preprocessor_ctx * ctx, struct token_list * 
     _cake_zmem(&r, 8);
     if (1) /*try*/
     {
-        unsigned char if_result;
+        unsigned char  if_result;
         struct token_list  r2;
-        unsigned char elif_result;
+        unsigned char  elif_result;
         struct token_list  r5;
 
         if_result = 0;
@@ -3479,12 +3429,12 @@ struct token_list if_section(struct preprocessor_ctx * ctx, struct token_list * 
         if (ctx->n_errors > 0)
         {
             token_list_destroy(&r2);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             token_list_destroy(&r2);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         token_list_append_list(&r, &r2);
         elif_result = 0;
@@ -3496,11 +3446,11 @@ struct token_list if_section(struct preprocessor_ctx * ctx, struct token_list * 
             token_list_append_list(&r, &r3);
             token_list_destroy(&r3);
         }
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             token_list_destroy(&r2);
             pre_unexpected_end_of_file(r.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (input_list->head->type == 127 && preprocessor_token_ahead_is_identifier(input_list->head, "else"))
         {
@@ -3513,14 +3463,14 @@ struct token_list if_section(struct preprocessor_ctx * ctx, struct token_list * 
         if (ctx->n_errors > 0)
         {
             token_list_destroy(&r2);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         r5 = endif_line(ctx, input_list, level);
         token_list_append_list(&r, &r5);
         token_list_destroy(&r5);
         token_list_destroy(&r2);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -3540,20 +3490,20 @@ struct token_list identifier_list(struct preprocessor_ctx * ctx, struct macro * 
         struct macro_parameter * p_last_parameter;
 
         skip_blanks(ctx, &r, input_list);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
-        p_macro_parameter = calloc(1, 20U);
-        if (p_macro_parameter == 0U)
+        p_macro_parameter = calloc(1, 20);
+        if (p_macro_parameter == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         temp = strdup(input_list->head->lexeme);
-        if (temp == 0U)
+        if (temp == 0)
         {
             macro_parameters_delete(p_macro_parameter);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         p_macro_parameter->name = temp;
         ;
@@ -3561,9 +3511,9 @@ struct token_list identifier_list(struct preprocessor_ctx * ctx, struct macro * 
         p_last_parameter = macro->parameters;
         match_token_level(&r, input_list, 8996, level, ctx);
         skip_blanks(ctx, &r, input_list);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         while (input_list->head->type == 44)
         {
@@ -3572,24 +3522,24 @@ struct token_list identifier_list(struct preprocessor_ctx * ctx, struct macro * 
 
             match_token_level(&r, input_list, 44, level, ctx);
             skip_blanks(ctx, &r, input_list);
-            if (input_list->head == 0U)
+            if (input_list->head == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (input_list->head->type == 3026478)
             {
                 break;
             }
-            p_new_macro_parameter = calloc(1, 20U);
-            if (p_new_macro_parameter == 0U)
+            p_new_macro_parameter = calloc(1, 20);
+            if (p_new_macro_parameter == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             temp2 = strdup(input_list->head->lexeme);
-            if (temp2 == 0U)
+            if (temp2 == 0)
             {
                 macro_parameters_delete(p_new_macro_parameter);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             p_new_macro_parameter->name = temp2;
             ;
@@ -3597,13 +3547,13 @@ struct token_list identifier_list(struct preprocessor_ctx * ctx, struct macro * 
             p_last_parameter = p_last_parameter->next;
             match_token_level(&r, input_list, 8996, level, ctx);
             skip_blanks(ctx, &r, input_list);
-            if (input_list->head == 0U)
+            if (input_list->head == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -3619,15 +3569,15 @@ struct token_list replacement_list(struct preprocessor_ctx * ctx, struct macro *
     {
         struct token_list  copy;
 
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
-            pre_unexpected_end_of_file(0U, ctx);
-            goto _CKL0;/*throw*/
+            pre_unexpected_end_of_file(0, ctx);
+            goto __L0; /* throw */
         }
         while (input_list->head->type != 10)
         {
             match_level(&r, input_list, level);
-            if (input_list->head == 0U)
+            if (input_list->head == 0)
             {
                 break;
             }
@@ -3637,7 +3587,7 @@ struct token_list replacement_list(struct preprocessor_ctx * ctx, struct macro *
         token_list_append_list(&macro->replacement_list, &copy);
         token_list_destroy(&copy);
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -3661,9 +3611,8 @@ char *dirname(char * path);
 static unsigned char is_empty_assert(struct token_list * replacement_list);
 void *hashmap_remove(struct hash_map * map, char * key, int * p_type_opt);
 static void pragma_once_add(struct preprocessor_ctx * ctx, char * path);
-unsigned long long get_warning_bit_mask(char * wname);
 
-struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
@@ -3680,35 +3629,35 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
             token_list_destroy(&r7);
             return r;
         }
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             pre_unexpected_end_of_file(r.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         match_token_level(&r, input_list, 127, level, ctx);
         skip_blanks_level(ctx, &r, input_list, level);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             pre_unexpected_end_of_file(r.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (strcmp(input_list->head->lexeme, "include") == 0 || strcmp(input_list->head->lexeme, "include_next") == 0)
         {
-            unsigned char include_next;
+            unsigned char  include_next;
             char path[100];
-            unsigned char is_angle_bracket_form;
+            unsigned char  is_angle_bracket_form;
             char current_file_dir[300];
             char full_path_result[200];
-            unsigned char already_included;
+            unsigned char  already_included;
             char * content;
 
             include_next = strcmp(input_list->head->lexeme, "include_next") == 0;
             match_token_level(&r, input_list, 8996, level, ctx);
             skip_blanks_level(ctx, &r, input_list, level);
-            if (input_list->head == 0U)
+            if (input_list->head == 0)
             {
                 pre_unexpected_end_of_file(r.tail, ctx);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             _cake_zmem(&path, 100);
             is_angle_bracket_form = 0;
@@ -3724,10 +3673,10 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                 {
                     strcat(path, input_list->head->lexeme);
                     prematch_level(&r, input_list, level);
-                    if (input_list->head == 0U)
+                    if (input_list->head == 0)
                     {
                         pre_unexpected_end_of_file(r.tail, ctx);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                 }
                 strcat(path, input_list->head->lexeme);
@@ -3736,21 +3685,21 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
             while (input_list->head->type != 10)
             {
                 prematch_level(&r, input_list, level);
-                if (input_list->head == 0U)
+                if (input_list->head == 0)
                 {
                     pre_unexpected_end_of_file(r.tail, ctx);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
             }
             match_token_level(&r, input_list, 10, level, ctx);
             path[strlen(path) - 1] = 0;
             _cake_zmem(&current_file_dir, 300);
-            snprintf(current_file_dir, 300U, "%s", r.tail->token_origin->lexeme);
+            snprintf(current_file_dir, 300, "%s", r.tail->token_origin->lexeme);
             dirname(current_file_dir);
             _cake_zmem(&full_path_result, 200);
             already_included = 0;
-            content = find_and_read_include_file(ctx, path + 1, current_file_dir, is_angle_bracket_form, &already_included, full_path_result, 200U, include_next);
-            if (content != 0U)
+            content = find_and_read_include_file(ctx, path + 1, current_file_dir, is_angle_bracket_form, &already_included, full_path_result, 200, include_next);
+            if (content != 0)
             {
                 struct tokenizer_ctx  tctx;
                 struct token_list  list;
@@ -3813,9 +3762,9 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                 p_embed_token = input_list->head;
                 match_token_level(p_list, input_list, 8996, level, ctx);
                 skip_blanks_level(ctx, p_list, input_list, level);
-                if (input_list->head == 0U)
+                if (input_list->head == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 _cake_zmem(&path, 100);
                 if (input_list->head->type == 130)
@@ -3829,9 +3778,9 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                     {
                         strcat(path, input_list->head->lexeme);
                         prematch_level(p_list, input_list, level);
-                        if (input_list->head == 0U)
+                        if (input_list->head == 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                     }
                     strcat(path, input_list->head->lexeme);
@@ -3842,17 +3791,17 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                     while (input_list->head->type != 10)
                     {
                         prematch_level(p_list, input_list, level);
-                        if (input_list->head == 0U)
+                        if (input_list->head == 0)
                         {
                             pre_unexpected_end_of_file(p_list->tail, ctx);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                     }
                 }
                 match_token_level(p_list, input_list, 10, level, ctx);
                 _cake_zmem(&fullpath, 300);
                 path[strlen(path) - 1] = 0;
-                snprintf(fullpath, 300U, "%s", path + 1);
+                snprintf(fullpath, 300, "%s", path + 1);
                 nlevel = level;
                 f = 0;
                 f = 1;
@@ -3861,7 +3810,7 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                 if (ctx->n_errors > 0)
                 {
                     token_list_destroy(&list);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 token_list_append_list(&r, &list);
                 token_list_destroy(&list);
@@ -3877,69 +3826,69 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                     struct token_list  r4;
                     struct macro * existing_macro;
 
-                    macro = calloc(1, 32U);
-                    if (macro == 0U)
+                    macro = calloc(1, 32);
+                    if (macro == 0)
                     {
                         preprocessor_diagnostic(650, ctx, ctx->current, "out of mem");
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     match_token_level(&r, input_list, 8996, level, ctx);
                     skip_blanks_level(ctx, &r, input_list, level);
-                    if (input_list->head == 0U)
+                    if (input_list->head == 0)
                     {
                         macro_delete(macro);
                         pre_unexpected_end_of_file(r.tail, ctx);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     macro_name_token = input_list->head;
                     if (is_builtin_macro(macro_name_token->lexeme))
                     {
-                        preprocessor_diagnostic(56, ctx, input_list->head, "redefining builtin macro");
+                        preprocessor_diagnostic(56, ctx, input_list->head, "redefining built-in macro");
                     }
                     macro->p_name_token = macro_name_token;
                     temp = strdup(input_list->head->lexeme);
-                    if (temp == 0U)
+                    if (temp == 0)
                     {
                         macro_delete(macro);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     ;
                     macro->name = temp;
                     match_token_level(&r, input_list, 8996, level, ctx);
-                    if (input_list->head == 0U)
+                    if (input_list->head == 0)
                     {
                         macro_delete(macro);
                         pre_unexpected_end_of_file(r.tail, ctx);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     if (input_list->head->type == 40)
                     {
                         macro->is_function = 1;
                         match_token_level(&r, input_list, 40, level, ctx);
                         skip_blanks_level(ctx, &r, input_list, level);
-                        if (input_list->head == 0U)
+                        if (input_list->head == 0)
                         {
                             macro_delete(macro);
                             pre_unexpected_end_of_file(r.tail, ctx);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         if (input_list->head->type == 3026478)
                         {
                             struct macro_parameter * p_macro_parameter;
                             char * temp2;
 
-                            p_macro_parameter = calloc(1, 20U);
-                            if (p_macro_parameter == 0U)
+                            p_macro_parameter = calloc(1, 20);
+                            if (p_macro_parameter == 0)
                             {
                                 macro_delete(macro);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             temp2 = strdup("__VA_ARGS__");
-                            if (temp2 == 0U)
+                            if (temp2 == 0)
                             {
                                 macro_delete(macro);
                                 macro_parameters_delete(p_macro_parameter);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             p_macro_parameter->name = temp2;
                             macro->parameters = p_macro_parameter;
@@ -3962,11 +3911,11 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                                 token_list_append_list(&r, &r3);
                                 token_list_destroy(&r3);
                                 skip_blanks_level(ctx, &r, input_list, level);
-                                if (input_list->head == 0U)
+                                if (input_list->head == 0)
                                 {
                                     macro_delete(macro);
                                     pre_unexpected_end_of_file(r.tail, ctx);
-                                    goto _CKL0;/*throw*/
+                                    goto __L0; /* throw */
                                 }
                                 if (input_list->head->type == 3026478)
                                 {
@@ -3974,18 +3923,18 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                                     char * temp3;
                                     struct macro_parameter * p_last;
 
-                                    p_macro_parameter = calloc(1, 20U);
-                                    if (p_macro_parameter == 0U)
+                                    p_macro_parameter = calloc(1, 20);
+                                    if (p_macro_parameter == 0)
                                     {
                                         macro_delete(macro);
-                                        goto _CKL0;/*throw*/
+                                        goto __L0; /* throw */
                                     }
                                     temp3 = strdup("__VA_ARGS__");
-                                    if (temp3 == 0U)
+                                    if (temp3 == 0)
                                     {
                                         macro_delete(macro);
                                         macro_parameters_delete(p_macro_parameter);
-                                        goto _CKL0;/*throw*/
+                                        goto __L0; /* throw */
                                     }
                                     p_macro_parameter->name = temp3;
                                     p_last = macro->parameters;
@@ -4007,11 +3956,11 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                         macro->is_function = 0;
                     }
                     skip_blanks_level(ctx, &r, input_list, level);
-                    if (input_list->head == 0U)
+                    if (input_list->head == 0)
                     {
                         macro_delete(macro);
                         pre_unexpected_end_of_file(r.tail, ctx);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     r4 = replacement_list(ctx, macro, input_list, level);
                     token_list_append_list(&r, &r4);
@@ -4026,24 +3975,24 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                             struct tokenizer_ctx  tctx;
 
                             macro_parameters_delete(macro->parameters);
-                            p_macro_parameter = calloc(1, 20U);
-                            if (p_macro_parameter == 0U)
+                            p_macro_parameter = calloc(1, 20);
+                            if (p_macro_parameter == 0)
                             {
                                 macro_delete(macro);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             temp2 = strdup("__VA_ARGS__");
-                            if (temp2 == 0U)
+                            if (temp2 == 0)
                             {
                                 macro_delete(macro);
                                 macro_parameters_delete(p_macro_parameter);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             p_macro_parameter->name = temp2;
                             macro->parameters = p_macro_parameter;
                             token_list_destroy(&macro->replacement_list);
                             _cake_zmem(&tctx, 696);
-                            macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", 0U, level, 0);
+                            macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", 0, level, 0);
                         }
                     }
                     naming_convention_macro(ctx, macro_name_token);
@@ -4055,7 +4004,7 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                             preprocessor_diagnostic(1820, ctx, macro->p_name_token, "macro redefinition");
                             preprocessor_diagnostic(63, ctx, existing_macro->p_name_token, "previous definition");
                             macro_delete(macro);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         macro_delete(macro);
                     }
@@ -4077,12 +4026,12 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
 
                         match_token_level(&r, input_list, 8996, level, ctx);
                         skip_blanks_level(ctx, &r, input_list, level);
-                        if (input_list->head == 0U)
+                        if (input_list->head == 0)
                         {
                             pre_unexpected_end_of_file(r.tail, ctx);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
-                        macro = (struct macro *)hashmap_remove(&ctx->macros, input_list->head->lexeme, 0U);
+                        macro = (struct macro *)hashmap_remove(&ctx->macros, input_list->head->lexeme, 0);
                         ;
                         if (macro)
                         {
@@ -4147,153 +4096,52 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                                             r.tail->flags |= 1;
                                         }
                                         skip_blanks_level(ctx, &r, input_list, level);
-                                        if (input_list->head == 0U)
+                                        if (input_list->head == 0)
                                         {
                                             pre_unexpected_end_of_file(r.tail, ctx);
-                                            goto _CKL0;/*throw*/
+                                            goto __L0; /* throw */
                                         }
-                                        if (input_list->head->type == 8996)
+                                        if (input_list->head->type == 8996 && (strcmp(input_list->head->lexeme, "CAKE") == 0 || strcmp(input_list->head->lexeme, "cake") == 0))
                                         {
-                                            if (strcmp(input_list->head->lexeme, "CAKE") == 0)
+                                            match_token_level(&r, input_list, 8996, level, ctx);
+                                            if (r.tail)
                                             {
-                                                match_token_level(&r, input_list, 8996, level, ctx);
-                                                if (r.tail)
-                                                {
-                                                    r.tail->flags |= 1;
-                                                }
-                                                skip_blanks_level(ctx, &r, input_list, level);
-                                            }
-                                            if (input_list->head == 0U)
-                                            {
-                                                pre_unexpected_end_of_file(r.tail, ctx);
-                                                goto _CKL0;/*throw*/
-                                            }
-                                            if (strcmp(input_list->head->lexeme, "once") == 0)
-                                            {
-                                                pragma_once_add(ctx, input_list->head->token_origin->lexeme);
-                                                match_token_level(&r, input_list, 8996, level, ctx);
-                                                if (r.tail)
-                                                {
-                                                    r.tail->flags |= 1;
-                                                }
-                                            }
-                                            else
-                                            {
-                                                if (strcmp(input_list->head->lexeme, "dir") == 0)
-                                                {
-                                                    char path[200];
-
-                                                    match_token_level(&r, input_list, 8996, level, ctx);
-                                                    skip_blanks_level(ctx, &r, input_list, level);
-                                                    if (input_list->head == 0U)
-                                                    {
-                                                        pre_unexpected_end_of_file(r.tail, ctx);
-                                                        goto _CKL0;/*throw*/
-                                                    }
-                                                    if (input_list->head->type != 130)
-                                                    {
-                                                        preprocessor_diagnostic(650, ctx, input_list->head, "expected string");
-                                                        goto _CKL0;/*throw*/
-                                                    }
-                                                    _cake_zmem(&path, 200);
-                                                    strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
-                                                    include_dir_add(&ctx->include_dir, path);
-                                                    match_token_level(&r, input_list, 130, level, ctx);
-                                                    if (r.tail)
-                                                    {
-                                                        r.tail->flags |= 1;
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    if (strcmp(input_list->head->lexeme, "nullchecks") == 0)
-                                                    {
-                                                        ;
-                                                        match_token_level(&r, input_list, 8996, level, ctx);
-                                                        ;
-                                                        r.tail->flags |= 1;
-                                                        skip_blanks_level(ctx, &r, input_list, level);
-                                                        ctx->options.null_checks_enabled = 1;
-                                                    }
-                                                }
-                                            }
-                                            if (input_list->head == 0U)
-                                            {
-                                                pre_unexpected_end_of_file(r.tail, ctx);
-                                                goto _CKL0;/*throw*/
-                                            }
-                                            if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
-                                            {
-                                                match_token_level(&r, input_list, 8996, level, ctx);
-                                                ;
                                                 r.tail->flags |= 1;
+                                            }
+                                            skip_blanks_level(ctx, &r, input_list, level);
+                                        }
+                                        if (input_list->head == 0)
+                                        {
+                                            pre_unexpected_end_of_file(r.tail, ctx);
+                                            goto __L0; /* throw */
+                                        }
+                                        if (strcmp(input_list->head->lexeme, "once") == 0)
+                                        {
+                                            pragma_once_add(ctx, input_list->head->token_origin->lexeme);
+                                            match_token_level(&r, input_list, 8996, level, ctx);
+                                        }
+                                        else
+                                        {
+                                            if (strcmp(input_list->head->lexeme, "dir") == 0)
+                                            {
+                                                char path[200];
+
+                                                match_token_level(&r, input_list, 8996, level, ctx);
                                                 skip_blanks_level(ctx, &r, input_list, level);
-                                                if (input_list->head == 0U)
+                                                if (input_list->head == 0)
                                                 {
                                                     pre_unexpected_end_of_file(r.tail, ctx);
-                                                    goto _CKL0;/*throw*/
+                                                    goto __L0; /* throw */
                                                 }
-                                                if (strcmp(input_list->head->lexeme, "push") == 0)
+                                                if (input_list->head->type != 130)
                                                 {
-                                                    match_token_level(&r, input_list, 8996, level, ctx);
-                                                    ;
-                                                    r.tail->flags |= 1;
-                                                    if (ctx->options.diagnostic_stack.top_index < 10U)
-                                                    {
-                                                        ctx->options.diagnostic_stack.top_index++;
-                                                        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
-                                                    }
+                                                    preprocessor_diagnostic(650, ctx, input_list->head, "expected string");
+                                                    goto __L0; /* throw */
                                                 }
-                                                else
-                                                {
-                                                    if (strcmp(input_list->head->lexeme, "pop") == 0)
-                                                    {
-                                                        match_token_level(&r, input_list, 8996, level, ctx);
-                                                        ;
-                                                        r.tail->flags |= 1;
-                                                        if (ctx->options.diagnostic_stack.top_index > 0)
-                                                        {
-                                                            ctx->options.diagnostic_stack.top_index--;
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        if (strcmp(input_list->head->lexeme, "warning") == 0)
-                                                        {
-                                                            match_token_level(&r, input_list, 8996, level, ctx);
-                                                            ;
-                                                            r.tail->flags |= 1;
-                                                            skip_blanks_level(ctx, &r, input_list, level);
-                                                            if (input_list->head && input_list->head->type == 130)
-                                                            {
-                                                                unsigned long long w;
-
-                                                                w = get_warning_bit_mask(input_list->head->lexeme + 1);
-                                                                match_token_level(&r, input_list, 130, level, ctx);
-                                                                ;
-                                                                r.tail->flags |= 1;
-                                                                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
-                                                            }
-                                                        }
-                                                        else
-                                                        {
-                                                            if (strcmp(input_list->head->lexeme, "ignored") == 0)
-                                                            {
-                                                                match_token_level(&r, input_list, 8996, level, ctx);
-                                                                ;
-                                                                r.tail->flags |= 1;
-                                                                skip_blanks_level(ctx, &r, input_list, level);
-                                                                if (input_list->head && input_list->head->type == 130)
-                                                                {
-                                                                    unsigned long long w;
-
-                                                                    w = get_warning_bit_mask(input_list->head->lexeme + 1);
-                                                                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
+                                                _cake_zmem(&path, 200);
+                                                strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
+                                                include_dir_add(&ctx->include_dir, path);
+                                                match_token_level(&r, input_list, 130, level, ctx);
                                             }
                                         }
                                         r7 = pp_tokens_opt(ctx, input_list, level);
@@ -4314,7 +4162,7 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
                                         else
                                         {
                                             preprocessor_diagnostic(970, ctx, input_list->head, "unexpected\n");
-                                            goto _CKL0;/*throw*/
+                                            goto __L0; /* throw */
                                         }
                                     }
                                 }
@@ -4325,7 +4173,7 @@ struct token_list control_line(struct preprocessor_ctx * ctx, struct token_list 
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -4338,7 +4186,7 @@ static unsigned char is_empty_assert(struct token_list * replacement_list)
     struct token * token;
 
     token = replacement_list->head;
-    if (token == 0U)
+    if (token == 0)
     {
         return 0;
     }
@@ -4347,7 +4195,7 @@ static unsigned char is_empty_assert(struct token_list * replacement_list)
         return 0;
     }
     token = token->next;
-    if (token == 0U)
+    if (token == 0)
     {
         return 0;
     }
@@ -4356,7 +4204,7 @@ static unsigned char is_empty_assert(struct token_list * replacement_list)
         return 0;
     }
     token = token->next;
-    if (token == 0U)
+    if (token == 0)
     {
         return 0;
     }
@@ -4365,7 +4213,7 @@ static unsigned char is_empty_assert(struct token_list * replacement_list)
         return 0;
     }
     token = token->next;
-    if (token == 0U)
+    if (token == 0)
     {
         return 0;
     }
@@ -4374,7 +4222,7 @@ static unsigned char is_empty_assert(struct token_list * replacement_list)
         return 0;
     }
     token = token->next;
-    if (token == 0U)
+    if (token == 0)
     {
         return 0;
     }
@@ -4383,7 +4231,7 @@ static unsigned char is_empty_assert(struct token_list * replacement_list)
         return 0;
     }
     token = token->next;
-    if (token == 0U)
+    if (token == 0)
     {
         return 0;
     }
@@ -4392,7 +4240,7 @@ static unsigned char is_empty_assert(struct token_list * replacement_list)
         return 0;
     }
     token = token->next;
-    if (token != 0U)
+    if (token != 0)
     {
         return 0;
     }
@@ -4412,7 +4260,7 @@ static struct token_list concatenate(struct preprocessor_ctx * ctx, struct token
 int ss_fprintf(struct osstream * stream, char * fmt, ...);
 void ss_close(struct osstream * stream);
 void token_list_pop_back(struct token_list * list);
-static struct token_list operator_pragma(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level);
+static struct token_list operator_pragma(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level);
 static char *decode_pragma_string(char * literal);
 void *malloc(unsigned int size);
 void token_list_clear(struct token_list * list);
@@ -4431,7 +4279,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx * ctx, 
         struct token_list  new_list;
 
         new_list = concatenate(ctx, oldlist);
-        while (new_list.head != 0U)
+        while (new_list.head != 0)
         {
             struct macro * macro;
 
@@ -4443,24 +4291,24 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx * ctx, 
                 token_list_append_list(&new_list, &list);
                 continue;
             }
-            macro = 0U;
+            macro = 0;
             if (new_list.head->type == 8996)
             {
                 macro = find_macro(ctx, new_list.head->lexeme);
                 if (macro && macro->is_function && !preprocessor_token_ahead_is(new_list.head, 40))
                 {
-                    macro = 0U;
+                    macro = 0;
                 }
                 if (macro && macro_already_expanded(p_list, new_list.head->lexeme))
                 {
                     new_list.head->type = 8997;
-                    macro = 0U;
+                    macro = 0;
                 }
                 if (ctx->conditional_inclusion)
                 {
                     if (r.tail && r.tail->type == 8996 && strcmp(r.tail->lexeme, "defined") == 0)
                     {
-                        macro = 0U;
+                        macro = 0;
                     }
                     else
                     {
@@ -4469,9 +4317,9 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx * ctx, 
                             struct token * previous;
 
                             previous = r.tail->prev;
-                            if (previous != 0U && previous->type == 8996 && strcmp(previous->lexeme, "defined") == 0)
+                            if (previous != 0 && previous->type == 8996 && strcmp(previous->lexeme, "defined") == 0)
                             {
-                                macro = 0U;
+                                macro = 0;
                             }
                         }
                     }
@@ -4489,7 +4337,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx * ctx, 
                 {
                     macro_argument_list_destroy(&arguments);
                     token_list_destroy(&new_list);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 r3 = expand_macro(ctx, p_list, macro, &arguments, level, origin);
                 if (ctx->n_errors > 0)
@@ -4497,7 +4345,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx * ctx, 
                     token_list_destroy(&new_list);
                     token_list_destroy(&r3);
                     macro_argument_list_destroy(&arguments);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 if (r3.head)
                 {
@@ -4515,7 +4363,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx * ctx, 
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -4539,7 +4387,7 @@ static struct token_list concatenate(struct preprocessor_ctx * ctx, struct token
                 struct tokenizer_ctx  tctx;
                 struct token_list  newlist;
 
-                if (r.tail == 0U)
+                if (r.tail == 0)
                 {
                     preprocessor_diagnostic(1210, ctx, input_list->head, "missing macro argument (should be checked before)");
                     break;
@@ -4558,9 +4406,9 @@ static struct token_list concatenate(struct preprocessor_ctx * ctx, struct token
                 token_list_pop_front(input_list);
                 _cake_zmem(&tctx, 696);
                 _cake_zmem(&newlist, 8);
-                if (ss.c_str != 0U)
+                if (ss.c_str != 0)
                 {
-                    newlist = tokenizer(&tctx, ss.c_str, 0U, level, 0);
+                    newlist = tokenizer(&tctx, ss.c_str, 0, level, 0);
                 }
                 if (newlist.head)
                 {
@@ -4571,18 +4419,18 @@ static struct token_list concatenate(struct preprocessor_ctx * ctx, struct token
                     struct token * p_new_token;
                     char * temp;
 
-                    p_new_token = calloc(1, 40U);
-                    if (p_new_token == 0U)
+                    p_new_token = calloc(1, 40);
+                    if (p_new_token == 0)
                     {
                         ss_close(&ss);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     temp = strdup("");
-                    if (temp == 0U)
+                    if (temp == 0)
                     {
                         ss_close(&ss);
                         token_delete(p_new_token);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     p_new_token->lexeme = temp;
                     p_new_token->type = 142;
@@ -4594,7 +4442,7 @@ static struct token_list concatenate(struct preprocessor_ctx * ctx, struct token
                 token_list_append_list(&r, &newlist);
                 ss_close(&ss);
                 token_list_destroy(&newlist);
-                if (input_list->head == 0U)
+                if (input_list->head == 0)
                 {
                     break;
                 }
@@ -4605,7 +4453,7 @@ static struct token_list concatenate(struct preprocessor_ctx * ctx, struct token
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -4631,20 +4479,20 @@ static char *decode_pragma_string(char * literal)
             p++;
             /*switch*/
             {
-                register char __Ck2_temp = *p;
-                if (__Ck2_temp == 34) goto _CKL2; /*case 34*/
-                if (__Ck2_temp == 92) goto _CKL3; /*case 92*/
-                goto _CKL4;/*default*/
+                char __v0 = *p;
+                if (__v0 == 34) goto __L2; /*case 34*/
+                if (__v0 == 92) goto __L3; /*case 92*/
+                goto __L4; /* default */
 
                 {
-                    _CKL2: /*case 34*/ 
-                    _CKL3: /*case 92*/ 
-                    goto _CKL1; /*break*/
+                    __L2: /*case 34*/ 
+                    __L3: /*case 92*/ 
+                    goto __L1; /* break */
 
-                    _CKL4: /*default*/ 
+                    __L4: /* default */ 
                     len++;
                 }
-                _CKL1:;
+                __L1:;
             }
         }
         len++;
@@ -4653,7 +4501,7 @@ static char *decode_pragma_string(char * literal)
     result = (char *)malloc(len + 1);
     if (!result)
     {
-        return 0U;
+        return 0;
     }
     out = result;
     p = literal;
@@ -4664,22 +4512,22 @@ static char *decode_pragma_string(char * literal)
             p++;
             /*switch*/
             {
-                register char __Ck3_temp = *p;
-                if (__Ck3_temp == 34) goto _CKL8; /*case 34*/
-                if (__Ck3_temp == 92) goto _CKL9; /*case 92*/
-                goto _CKL10;/*default*/
+                char __v1 = *p;
+                if (__v1 == 34) goto __L8; /*case 34*/
+                if (__v1 == 92) goto __L9; /*case 92*/
+                goto __L10; /* default */
 
                 {
-                    _CKL8: /*case 34*/ 
-                    _CKL9: /*case 92*/ 
-                    goto _CKL7; /*break*/
+                    __L8: /*case 34*/ 
+                    __L9: /*case 92*/ 
+                    goto __L7; /* break */
 
-                    _CKL10: /*default*/ 
+                    __L10: /* default */ 
                     *out++ = 92;
-                    goto _CKL7; /*break*/
+                    goto __L7; /* break */
 
                 }
-                _CKL7:;
+                __L7:;
             }
         }
         *out++ = *p;
@@ -4689,7 +4537,7 @@ static char *decode_pragma_string(char * literal)
     return result;
 }
 
-static struct token_list operator_pragma(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+static struct token_list operator_pragma(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
@@ -4702,7 +4550,7 @@ static struct token_list operator_pragma(struct preprocessor_ctx * ctx, struct t
 
         if (input_list->head->type != 8996)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         prematch(&r, input_list);
         r.tail->type = 128;
@@ -4711,19 +4559,19 @@ static struct token_list operator_pragma(struct preprocessor_ctx * ctx, struct t
         if (input_list->head->type != 40)
         {
             preprocessor_diagnostic(970, ctx, input_list->head, "expected (");
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         token_list_pop_front(input_list);
         skip_blanks_level(ctx, &r, input_list, level);
         if (input_list->head->type != 130)
         {
             preprocessor_diagnostic(970, ctx, input_list->head, "expected string");
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         line = decode_pragma_string(input_list->head->lexeme);
-        if (line == 0U)
+        if (line == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         token_list_pop_front(input_list);
         _cake_zmem(&tctx, 696);
@@ -4735,13 +4583,13 @@ static struct token_list operator_pragma(struct preprocessor_ctx * ctx, struct t
         if (input_list->head->type != 41)
         {
             preprocessor_diagnostic(970, ctx, input_list->head, "expected (");
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         prematch(&r, input_list);
         r.tail->type = 129;
         r.tail->flags |= 1;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
         token_list_clear(&r);
     }
@@ -4776,9 +4624,9 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         struct macro_parameter * p_current_parameter;
         struct macro_argument * p_argument;
 
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         ;
         macro_name_token = input_list->head;
@@ -4791,22 +4639,22 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
         match_token_level(&macro_argument_list.tokens, input_list, 40, level, ctx);
         skip_blanks(ctx, &macro_argument_list.tokens, input_list);
-        if (input_list->head == 0U)
+        if (input_list->head == 0)
         {
             pre_unexpected_end_of_file(macro_argument_list.tokens.tail, ctx);
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (input_list->head->type == 41)
         {
-            if (macro->parameters != 0U)
+            if (macro->parameters != 0)
             {
                 struct macro_argument * p_argument;
                 struct macro_parameter * p_current_parameter;
 
-                p_argument = calloc(1, 16U);
-                if (p_argument == 0U)
+                p_argument = calloc(1, 16);
+                if (p_argument == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_current_parameter = macro->parameters;
                 p_argument->macro_parameter = p_current_parameter;
@@ -4815,19 +4663,19 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             match_token_level(&macro_argument_list.tokens, input_list, 41, level, ctx);
             return macro_argument_list;
         }
-        if (macro->parameters == 0U)
+        if (macro->parameters == 0)
         {
             preprocessor_diagnostic(1191, ctx, macro_name_token, "too many arguments provided to function-like macro invocation\n");
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         p_current_parameter = macro->parameters;
-        p_argument = calloc(1, 16U);
-        if (p_argument == 0U)
+        p_argument = calloc(1, 16);
+        if (p_argument == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         p_argument->macro_parameter = p_current_parameter;
-        while (input_list->head != 0U)
+        while (input_list->head != 0)
         {
             if (input_list->head->type == 40)
             {
@@ -4844,25 +4692,25 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     {
                         match_token_level(&macro_argument_list.tokens, input_list, 41, level, ctx);
                         argument_list_add(&macro_argument_list, p_argument);
-                        p_argument = 0U;
-                        if (p_current_parameter->next != 0U)
+                        p_argument = 0;
+                        if (p_current_parameter->next != 0)
                         {
                             p_current_parameter = p_current_parameter->next;
                             if (strcmp(p_current_parameter->name, "__VA_ARGS__") == 0)
                             {
-                                p_argument = calloc(1, 16U);
-                                if (p_argument == 0U)
+                                p_argument = calloc(1, 16);
+                                if (p_argument == 0)
                                 {
-                                    goto _CKL0;/*throw*/
+                                    goto __L0; /* throw */
                                 }
                                 p_argument->macro_parameter = p_current_parameter;
                                 argument_list_add(&macro_argument_list, p_argument);
-                                p_argument = 0U;
+                                p_argument = 0;
                             }
                             else
                             {
                                 preprocessor_diagnostic(1190, ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                         }
                         break;
@@ -4886,18 +4734,18 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         {
                             match_token_level(&macro_argument_list.tokens, input_list, 44, level, ctx);
                             argument_list_add(&macro_argument_list, p_argument);
-                            p_argument = 0U;
-                            p_argument = calloc(1, 16U);
-                            if (p_argument == 0U)
+                            p_argument = 0;
+                            p_argument = calloc(1, 16);
+                            if (p_argument == 0)
                             {
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
-                            if (p_current_parameter->next == 0U)
+                            if (p_current_parameter->next == 0)
                             {
                                 preprocessor_diagnostic(1191, ctx, macro_argument_list.tokens.tail, "too many arguments provided to function-like macro invocation\n");
                                 macro_argument_delete(p_argument);
-                                p_argument = 0U;
-                                goto _CKL0;/*throw*/
+                                p_argument = 0;
+                                goto __L0; /* throw */
                             }
                             p_current_parameter = p_current_parameter->next;
                             p_argument->macro_parameter = p_current_parameter;
@@ -4913,7 +4761,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         }
         ;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return macro_argument_list;
@@ -4987,11 +4835,11 @@ void remove_line_continuation(char * s)
 }
 
 
-struct token_list copy_replacement_list_core(struct preprocessor_ctx * ctx, struct token_list * list, unsigned char new_line_is_space)
+struct token_list copy_replacement_list_core(struct preprocessor_ctx * ctx, struct token_list * list, unsigned char  new_line_is_space)
 {
     struct token_list  r;
     struct token * current;
-    unsigned char is_first;
+    unsigned char  is_first;
 
     _cake_zmem(&r, 8);
     current = list->head;
@@ -5086,10 +4934,10 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx * ctx, str
         _cake_zmem(&tctx, 696);
         _cake_zmem(&line, 50);
         ;
-        snprintf(line, 50U, "%d", origin->line);
+        snprintf(line, 50, "%d", origin->line);
         r = tokenizer(&tctx, line, "", 0, 0);
         token_list_pop_front(&r);
-        if (r.head != 0U)
+        if (r.head != 0)
         {
             r.head->flags = 0;
         }
@@ -5104,7 +4952,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx * ctx, str
             struct token_list  r;
 
             _cake_zmem(&buffer, 300);
-            if (stringify(origin->token_origin->lexeme, 300U, buffer) < 0)
+            if (stringify(origin->token_origin->lexeme, 300, buffer) < 0)
             {
             }
             _cake_zmem(&tctx, 696);
@@ -5125,12 +4973,12 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx * ctx, str
                 struct token_list  r;
 
                 _cake_zmem(&line, 50);
-                snprintf(line, 50U, "%d", ctx->count_macro_value);
+                snprintf(line, 50, "%d", ctx->count_macro_value);
                 ctx->count_macro_value++;
                 _cake_zmem(&tctx, 696);
                 r = tokenizer(&tctx, line, "", 0, 0);
                 token_list_pop_front(&r);
-                if (r.head != 0U)
+                if (r.head != 0)
                 {
                     r.head->flags = 0;
                 }
@@ -5145,7 +4993,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx * ctx, str
 static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, struct macro_expanded * p_list, struct token_list * input_list, struct macro_argument_list * arguments, struct token * origin);
 static unsigned char has_argument_list_empty_substitution(struct preprocessor_ctx * ctx, struct macro_expanded * p_list, struct macro_argument_list * p_macro_argument_list, struct token * origin);
 void token_list_remove(struct token_list * list, struct token * first, struct token * last);
-char *token_list_join_tokens(struct token_list * list, unsigned char bliteral);
+char *token_list_join_tokens(struct token_list * list, unsigned char  bliteral);
 char *print_preprocessed_to_string2(struct token * p_token);
 
 struct token_list expand_macro(struct preprocessor_ctx * ctx, struct macro_expanded * p_list_of_macro_expanded_opt, struct macro * macro, struct macro_argument_list * arguments, int level, struct token * origin)
@@ -5156,20 +5004,19 @@ struct token_list expand_macro(struct preprocessor_ctx * ctx, struct macro_expan
     _cake_zmem(&r, 8);
     if (1) /*try*/
     {
-        struct macro_expanded  macro_expanded;
-
         ;
-        _cake_zmem(&macro_expanded, 8);
-        macro_expanded.name = macro->name;
-        macro_expanded.p_previous = p_list_of_macro_expanded_opt;
         if (macro->is_function)
         {
             struct token_list  copy;
             struct token_list  copy2;
+            struct macro_expanded  macro_expanded;
             struct token_list  r2;
 
             copy = macro_copy_replacement_list(ctx, macro, origin);
-            copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments, origin);
+            copy2 = replace_macro_arguments(ctx, p_list_of_macro_expanded_opt, &copy, arguments, origin);
+            _cake_zmem(&macro_expanded, 8);
+            macro_expanded.name = macro->name;
+            macro_expanded.p_previous = p_list_of_macro_expanded_opt;
             r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level, origin);
             token_list_append_list(&r, &r2);
             token_list_destroy(&copy);
@@ -5177,21 +5024,25 @@ struct token_list expand_macro(struct preprocessor_ctx * ctx, struct macro_expan
             token_list_destroy(&r2);
             if (ctx->n_errors > 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
         }
         else
         {
             struct token_list  copy;
+            struct macro_expanded  macro_expanded;
             struct token_list  r3;
 
             copy = macro_copy_replacement_list(ctx, macro, origin);
+            _cake_zmem(&macro_expanded, 8);
+            macro_expanded.name = macro->name;
+            macro_expanded.p_previous = p_list_of_macro_expanded_opt;
             r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level, origin);
             if (ctx->n_errors > 0)
             {
                 token_list_destroy(&copy);
                 token_list_destroy(&r3);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             token_list_append_list(&r, &r3);
             token_list_destroy(&copy);
@@ -5199,7 +5050,7 @@ struct token_list expand_macro(struct preprocessor_ctx * ctx, struct macro_expan
         }
         if (ctx->n_errors > 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (ctx->options.preprocess_def_macro && macro->def_macro)
         {
@@ -5223,7 +5074,7 @@ struct token_list expand_macro(struct preprocessor_ctx * ctx, struct macro_expan
             token_list_destroy(&list3);
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -5235,7 +5086,7 @@ static unsigned char has_argument_list_empty_substitution(struct preprocessor_ct
 {
     struct macro_argument * p_va_args_argument;
 
-    if (p_macro_argument_list->head == 0U)
+    if (p_macro_argument_list->head == 0)
     {
         return 1;
     }
@@ -5244,15 +5095,15 @@ static unsigned char has_argument_list_empty_substitution(struct preprocessor_ct
     {
         struct token_list  argumentlist;
         struct token_list  r4;
-        unsigned char results_in_empty_substituition;
+        unsigned char  results_in_empty_substituition;
 
-        if (p_va_args_argument->tokens.head == 0U)
+        if (p_va_args_argument->tokens.head == 0)
         {
             return 1;
         }
         argumentlist = copy_argument_list(p_va_args_argument);
         r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0, origin);
-        results_in_empty_substituition = (r4.head == 0U || r4.head->type == 142);
+        results_in_empty_substituition = (r4.head == 0 || r4.head->type == 142);
         token_list_destroy(&r4);
         token_list_destroy(&argumentlist);
         return results_in_empty_substituition;
@@ -5289,13 +5140,13 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
             ;
             ;
             ;
-            p_argument = 0U;
+            p_argument = 0;
             if (input_list->head->type == 8996)
             {
                 if (strcmp(input_list->head->lexeme, "__VA_OPT__") == 0)
                 {
                     int parenteses_count;
-                    unsigned char discard_va_opt;
+                    unsigned char  discard_va_opt;
 
                     token_list_pop_front(input_list);
                     token_list_pop_front(input_list);
@@ -5354,7 +5205,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
             }
             if (p_argument)
             {
-                if (r.tail != 0U && r.tail->type == 35)
+                if (r.tail != 0 && r.tail->type == 35)
                 {
                     int flags;
                     struct token_list  argumentlist;
@@ -5370,18 +5221,18 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
                     token_list_pop_back(&r);
                     argumentlist = copy_argument_list(p_argument);
                     s = token_list_join_tokens(&argumentlist, 1);
-                    if (s == 0U)
+                    if (s == 0)
                     {
                         token_list_destroy(&argumentlist);
                         preprocessor_diagnostic(650, ctx, input_list->head, "unexpected");
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
-                    p_new_token = calloc(1, 40U);
-                    if (p_new_token == 0U)
+                    p_new_token = calloc(1, 40);
+                    if (p_new_token == 0)
                     {
                         free(s);
                         token_list_destroy(&argumentlist);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     p_new_token->lexeme = s;
                     p_new_token->type = 130;
@@ -5392,7 +5243,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
                 }
                 else
                 {
-                    if (r.tail != 0U && r.tail->type == 8995)
+                    if (r.tail != 0 && r.tail->type == 8995)
                     {
                         struct token_list  argumentlist;
 
@@ -5411,7 +5262,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
                             flags = input_list->head->flags;
                             token_list_pop_front(input_list);
                             argumentlist = copy_argument_list(p_argument);
-                            if (argumentlist.head != 0U)
+                            if (argumentlist.head != 0)
                             {
                                 argumentlist.head->flags = flags;
                             }
@@ -5426,9 +5277,9 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
 
                             flags = input_list->head->flags;
                             token_list_pop_front(input_list);
-                            if (p_argument->macro_parameter == 0U)
+                            if (p_argument->macro_parameter == 0)
                             {
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             if (!p_argument->macro_parameter->already_expanded)
                             {
@@ -5450,7 +5301,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
                             token_list_destroy(&copy_list);
                             if (ctx->n_errors > 0)
                             {
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                         }
                     }
@@ -5462,16 +5313,16 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx * ctx, 
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
 }
 static struct token_list non_directive(struct preprocessor_ctx * ctx, struct token_list * input_list, int level);
-static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level);
+static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level);
 void token_list_set_file(struct token_list * list, struct token * filetoken, int line, int col);
 
-struct token_list group_part(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+struct token_list group_part(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     ;
     if (input_list->head->type == 127)
@@ -5523,7 +5374,7 @@ static struct token_list non_directive(struct preprocessor_ctx * ctx, struct tok
     return r;
 }
 
-static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char is_active, int level)
+static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
 {
     struct token_list  r;
 
@@ -5536,9 +5387,9 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
             struct token * start_token;
             struct token * origin;
 
-            macro = 0U;
+            macro = 0;
             start_token = input_list->head;
-            origin = 0U;
+            origin = 0;
             if (input_list->head->type == 8996 && strcmp(input_list->head->lexeme, "_Pragma") == 0)
             {
                 struct token_list  r0;
@@ -5553,13 +5404,13 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
                 macro = find_macro(ctx, input_list->head->lexeme);
                 if (macro && macro->is_function && !preprocessor_token_ahead_is(input_list->head, 40))
                 {
-                    macro = 0U;
+                    macro = 0;
                 }
                 if (ctx->conditional_inclusion)
                 {
                     if (r.tail && r.tail->type == 8996 && strcmp(r.tail->lexeme, "defined") == 0)
                     {
-                        macro = 0U;
+                        macro = 0;
                     }
                     else
                     {
@@ -5568,9 +5419,9 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
                             struct token * previous;
 
                             previous = r.tail->prev;
-                            if (previous != 0U && previous->type == 8996 && strcmp(previous->lexeme, "defined") == 0)
+                            if (previous != 0 && previous->type == 8996 && strcmp(previous->lexeme, "defined") == 0)
                             {
-                                macro = 0U;
+                                macro = 0;
                             }
                         }
                     }
@@ -5587,9 +5438,9 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
                 if (ctx->n_errors > 0)
                 {
                     macro_argument_list_destroy(&arguments);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
-                start_macro = expand_macro(ctx, 0U, macro, &arguments, level, origin);
+                start_macro = expand_macro(ctx, 0, macro, &arguments, level, origin);
                 if (start_macro.head)
                 {
                     start_macro.head->flags |= flags;
@@ -5608,13 +5459,13 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
                 }
                 while (macro)
                 {
-                    macro = 0U;
+                    macro = 0;
                     if (input_list->head && input_list->head->type == 8996)
                     {
                         macro = find_macro(ctx, input_list->head->lexeme);
                         if (macro && macro->is_function && !preprocessor_token_ahead_is(input_list->head, 40))
                         {
-                            macro = 0U;
+                            macro = 0;
                         }
                         if (macro)
                         {
@@ -5629,7 +5480,7 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
                                 macro_argument_list_destroy(&arguments2);
                                 macro_argument_list_destroy(&arguments);
                                 token_list_destroy(&start_macro);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             if (ctx->flags & 1)
                             {
@@ -5641,14 +5492,14 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
                                     token_list_append_list(&r, &arguments2.tokens);
                                 }
                             }
-                            r3 = expand_macro(ctx, 0U, macro, &arguments2, level, origin);
+                            r3 = expand_macro(ctx, 0, macro, &arguments2, level, origin);
                             if (ctx->n_errors > 0)
                             {
                                 macro_argument_list_destroy(&arguments2);
                                 token_list_destroy(&r3);
                                 macro_argument_list_destroy(&arguments);
                                 token_list_destroy(&start_macro);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             token_list_set_file(&r3, start_token->token_origin, start_token->line, start_token->col);
                             if (r3.head)
@@ -5667,8 +5518,8 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
             }
             else
             {
-                unsigned char blanks;
-                unsigned char is_final;
+                unsigned char  blanks;
+                unsigned char  is_final;
 
                 if (input_list->head->flags & 1024 && !(input_list->head->flags & 2))
                 {
@@ -5745,7 +5596,7 @@ static struct token_list text_line(struct preprocessor_ctx * ctx, struct token_l
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -5756,7 +5607,7 @@ struct token_list preprocessor(struct preprocessor_ctx * ctx, struct token_list 
     struct token_list  g;
 
     _cake_zmem(&r, 8);
-    if (input_list->head == 0U)
+    if (input_list->head == 0)
     {
         return r;
     }
@@ -5773,7 +5624,7 @@ struct token_list preprocessor(struct preprocessor_ctx * ctx, struct token_list 
 
 void check_unused_macros(struct hash_map * map)
 {
-    if (map->table != 0U)
+    if (map->table != 0)
     {
         {
             int i;
@@ -5784,7 +5635,7 @@ void check_unused_macros(struct hash_map * map)
                 struct map_entry * pentry;
 
                 pentry = map->table[i];
-                while (pentry != 0U)
+                while (pentry != 0)
                 {
                     struct macro * macro;
 
@@ -5807,23 +5658,23 @@ static void mark_macros_as_used(struct hash_map * map);
 
 int include_config_header(struct preprocessor_ctx * ctx, char * file_name)
 {
-    char local_cakeconfig_path[260];
+    char local_cakeconfig_path[500];
     char * str;
     int w;
     struct tokenizer_ctx  tctx;
     struct token_list  l;
     struct token_list  l10;
 
-    _cake_zmem(&local_cakeconfig_path, 260);
-    snprintf(local_cakeconfig_path, 260U, "%s", file_name);
+    _cake_zmem(&local_cakeconfig_path, 500);
+    snprintf(local_cakeconfig_path, 500, "%s", file_name);
     dirname(local_cakeconfig_path);
-    snprintf(local_cakeconfig_path, 260U, "%s/cakeconfig.h", local_cakeconfig_path);
+    snprintf(local_cakeconfig_path, 500, "%s/cakeconfig.h", local_cakeconfig_path);
     str = read_file(local_cakeconfig_path, 1);
     if (str && ctx->options.show_includes)
     {
         printf(".%s\n", local_cakeconfig_path);
     }
-    while (str == 0U)
+    while (str == 0)
     {
         dirname(local_cakeconfig_path);
         dirname(local_cakeconfig_path);
@@ -5837,23 +5688,23 @@ int include_config_header(struct preprocessor_ctx * ctx, char * file_name)
             printf(".%s\n", local_cakeconfig_path);
         }
     }
-    if (str == 0U)
+    if (str == 0)
     {
-        char executable_path[246];
-        char root_cakeconfig_path[260];
+        char executable_path[486];
+        char root_cakeconfig_path[500];
 
-        _cake_zmem(&executable_path, 246);
-        get_self_path(executable_path, 246U);
+        _cake_zmem(&executable_path, 486);
+        get_self_path(executable_path, 486);
         dirname(executable_path);
-        _cake_zmem(&root_cakeconfig_path, 260);
-        snprintf(root_cakeconfig_path, 260U, "%s/cakeconfig.h", executable_path);
+        _cake_zmem(&root_cakeconfig_path, 500);
+        snprintf(root_cakeconfig_path, 500, "%s/cakeconfig.h", executable_path);
         str = read_file(root_cakeconfig_path, 1);
         if (str && ctx->options.show_includes)
         {
             printf(".%s\n", root_cakeconfig_path);
         }
     }
-    if (str == 0U)
+    if (str == 0)
     {
         if (ctx->options.show_includes)
         {
@@ -5877,7 +5728,7 @@ int include_config_header(struct preprocessor_ctx * ctx, char * file_name)
 
 static void mark_macros_as_used(struct hash_map * map)
 {
-    if (map->table != 0U)
+    if (map->table != 0)
     {
         {
             int i;
@@ -5888,7 +5739,7 @@ static void mark_macros_as_used(struct hash_map * map)
                 struct map_entry * pentry;
 
                 pentry = map->table[i];
-                while (pentry != 0U)
+                while (pentry != 0)
                 {
                     struct macro * macro;
 
@@ -5905,18 +5756,14 @@ static long long __cdecl time(long long * _Time);
 long long __cdecl _time64(long long * _Time);
 static struct tm *__cdecl localtime(long long * _Time);
 struct tm *__cdecl _localtime64(long long * _Time);
-static char __Ck5_mon[12][4] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+static char __c1_mon[12][4] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
 
-extern char * TARGET_X86_X64_GCC_PREDEFINED_MACROS;
-extern char * TARGET_X86_MSVC_PREDEFINED_MACROS;
-extern char * TARGET_X64_MSVC_PREDEFINED_MACROS;
-extern char * TARGET_CCU8_PREDEFINED_MACROS;
-extern char * TARGET_CATALINA_PREDEFINED_MACROS;
+char *target_get_predefined_macros(int e);
 
 void add_standard_macros(struct preprocessor_ctx * ctx, int target)
 {
     struct diagnostic  w;
-    struct diagnostic  __Ck4_compound_lit;
+    struct diagnostic  __v0;
     long long now;
     struct tm * tm;
     struct tokenizer_ctx  tctx;
@@ -5931,60 +5778,26 @@ void add_standard_macros(struct preprocessor_ctx * ctx, int target)
     struct token_list  l10;
 
     w = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
-    __Ck4_compound_lit.errors = 0;
-    __Ck4_compound_lit.warnings = 0;
-    __Ck4_compound_lit.notes = 0;
-    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = __Ck4_compound_lit;
-    now = time(0U);
+    __v0.errors = 0;
+    __v0.warnings = 0;
+    __v0.notes = 0;
+    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = __v0;
+    now = time(0);
     tm = localtime(&now);
     _cake_zmem(&tctx, 696);
     _cake_zmem(&datastr, 100);
-    snprintf(datastr, 100U, "#define __DATE__ \"%s %2d %d\"\n", __Ck5_mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
+    snprintf(datastr, 100, "#define __DATE__ \"%s %2d %d\"\n", __c1_mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
     l1 = tokenizer(&tctx, datastr, "__DATE__ macro inclusion", 0, 0);
     tl1 = preprocessor(ctx, &l1, 0);
     token_list_destroy(&tl1);
     token_list_destroy(&l1);
     _cake_zmem(&timestr, 100);
-    snprintf(timestr, 100U, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
+    snprintf(timestr, 100, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
     l2 = tokenizer(&tctx, timestr, "__TIME__ macro inclusion", 0, 0);
     tl2 = preprocessor(ctx, &l2, 0);
     token_list_destroy(&tl2);
     token_list_destroy(&l2);
-    pre_defined_macros_text = 0U;
-    /*switch*/
-    {
-        register int __Ck6_temp = target;
-        if (__Ck6_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck6_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck6_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck6_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck6_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            pre_defined_macros_text = TARGET_X86_X64_GCC_PREDEFINED_MACROS;
-            goto _CKL0; /*break*/
-
-            _CKL2: /*case 1*/ 
-            pre_defined_macros_text = TARGET_X86_MSVC_PREDEFINED_MACROS;
-            goto _CKL0; /*break*/
-
-            _CKL3: /*case 2*/ 
-            pre_defined_macros_text = TARGET_X64_MSVC_PREDEFINED_MACROS;
-            goto _CKL0; /*break*/
-
-            _CKL4: /*case 3*/ 
-            pre_defined_macros_text = TARGET_CCU8_PREDEFINED_MACROS;
-            goto _CKL0; /*break*/
-
-            _CKL5: /*case 4*/ 
-            pre_defined_macros_text = TARGET_CATALINA_PREDEFINED_MACROS;
-            goto _CKL0; /*break*/
-
-        }
-        _CKL0:;
-    }
+    pre_defined_macros_text = target_get_predefined_macros(target);
     l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, 0);
     l10 = preprocessor(ctx, &l, 0);
     mark_macros_as_used(&ctx->macros);
@@ -6008,524 +5821,1052 @@ char *get_token_name(int tk)
 {
     /*switch*/
     {
-        register int __Ck7_temp = tk;
-        if (__Ck7_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck7_temp == 10) goto _CKL2; /*case 10*/
-        if (__Ck7_temp == 32) goto _CKL3; /*case 32*/
-        if (__Ck7_temp == 33) goto _CKL4; /*case 33*/
-        if (__Ck7_temp == 34) goto _CKL5; /*case 34*/
-        if (__Ck7_temp == 35) goto _CKL6; /*case 35*/
-        if (__Ck7_temp == 36) goto _CKL7; /*case 36*/
-        if (__Ck7_temp == 37) goto _CKL8; /*case 37*/
-        if (__Ck7_temp == 38) goto _CKL9; /*case 38*/
-        if (__Ck7_temp == 39) goto _CKL10; /*case 39*/
-        if (__Ck7_temp == 40) goto _CKL11; /*case 40*/
-        if (__Ck7_temp == 41) goto _CKL12; /*case 41*/
-        if (__Ck7_temp == 42) goto _CKL13; /*case 42*/
-        if (__Ck7_temp == 43) goto _CKL14; /*case 43*/
-        if (__Ck7_temp == 44) goto _CKL15; /*case 44*/
-        if (__Ck7_temp == 45) goto _CKL16; /*case 45*/
-        if (__Ck7_temp == 46) goto _CKL17; /*case 46*/
-        if (__Ck7_temp == 47) goto _CKL18; /*case 47*/
-        if (__Ck7_temp == 58) goto _CKL19; /*case 58*/
-        if (__Ck7_temp == 59) goto _CKL20; /*case 59*/
-        if (__Ck7_temp == 60) goto _CKL21; /*case 60*/
-        if (__Ck7_temp == 61) goto _CKL22; /*case 61*/
-        if (__Ck7_temp == 62) goto _CKL23; /*case 62*/
-        if (__Ck7_temp == 63) goto _CKL24; /*case 63*/
-        if (__Ck7_temp == 64) goto _CKL25; /*case 64*/
-        if (__Ck7_temp == 91) goto _CKL26; /*case 91*/
-        if (__Ck7_temp == 12079) goto _CKL27; /*case 12079*/
-        if (__Ck7_temp == 93) goto _CKL28; /*case 93*/
-        if (__Ck7_temp == 94) goto _CKL29; /*case 94*/
-        if (__Ck7_temp == 95) goto _CKL30; /*case 95*/
-        if (__Ck7_temp == 96) goto _CKL31; /*case 96*/
-        if (__Ck7_temp == 123) goto _CKL32; /*case 123*/
-        if (__Ck7_temp == 124) goto _CKL33; /*case 124*/
-        if (__Ck7_temp == 125) goto _CKL34; /*case 125*/
-        if (__Ck7_temp == 126) goto _CKL35; /*case 126*/
-        if (__Ck7_temp == 127) goto _CKL36; /*case 127*/
-        if (__Ck7_temp == 128) goto _CKL37; /*case 128*/
-        if (__Ck7_temp == 130) goto _CKL38; /*case 130*/
-        if (__Ck7_temp == 131) goto _CKL39; /*case 131*/
-        if (__Ck7_temp == 132) goto _CKL40; /*case 132*/
-        if (__Ck7_temp == 133) goto _CKL41; /*case 133*/
-        if (__Ck7_temp == 134) goto _CKL42; /*case 134*/
-        if (__Ck7_temp == 9047) goto _CKL43; /*case 9047*/
-        if (__Ck7_temp == 9048) goto _CKL44; /*case 9048*/
-        if (__Ck7_temp == 9056) goto _CKL45; /*case 9056*/
-        if (__Ck7_temp == 9057) goto _CKL46; /*case 9057*/
-        if (__Ck7_temp == 135) goto _CKL47; /*case 135*/
-        if (__Ck7_temp == 136) goto _CKL48; /*case 136*/
-        if (__Ck7_temp == 137) goto _CKL49; /*case 137*/
-        if (__Ck7_temp == 138) goto _CKL50; /*case 138*/
-        if (__Ck7_temp == 139) goto _CKL51; /*case 139*/
-        if (__Ck7_temp == 140) goto _CKL52; /*case 140*/
-        if (__Ck7_temp == 141) goto _CKL53; /*case 141*/
-        if (__Ck7_temp == 142) goto _CKL54; /*case 142*/
-        if (__Ck7_temp == 143) goto _CKL55; /*case 143*/
-        if (__Ck7_temp == 11051) goto _CKL56; /*case 11051*/
-        if (__Ck7_temp == 11565) goto _CKL57; /*case 11565*/
-        if (__Ck7_temp == 11582) goto _CKL58; /*case 11582*/
-        if (__Ck7_temp == 15420) goto _CKL59; /*case 15420*/
-        if (__Ck7_temp == 15934) goto _CKL60; /*case 15934*/
-        if (__Ck7_temp == 31868) goto _CKL61; /*case 31868*/
-        if (__Ck7_temp == 9766) goto _CKL62; /*case 9766*/
-        if (__Ck7_temp == 8995) goto _CKL63; /*case 8995*/
-        if (__Ck7_temp == 8996) goto _CKL64; /*case 8996*/
-        if (__Ck7_temp == 8997) goto _CKL65; /*case 8997*/
-        if (__Ck7_temp == 8998) goto _CKL66; /*case 8998*/
-        if (__Ck7_temp == 8999) goto _CKL67; /*case 8999*/
-        if (__Ck7_temp == 9001) goto _CKL68; /*case 9001*/
-        if (__Ck7_temp == 9002) goto _CKL69; /*case 9002*/
-        if (__Ck7_temp == 9003) goto _CKL70; /*case 9003*/
-        if (__Ck7_temp == 9004) goto _CKL71; /*case 9004*/
-        if (__Ck7_temp == 9005) goto _CKL72; /*case 9005*/
-        if (__Ck7_temp == 9006) goto _CKL73; /*case 9006*/
-        if (__Ck7_temp == 9007) goto _CKL74; /*case 9007*/
-        if (__Ck7_temp == 9008) goto _CKL75; /*case 9008*/
-        if (__Ck7_temp == 9009) goto _CKL76; /*case 9009*/
-        if (__Ck7_temp == 9010) goto _CKL77; /*case 9010*/
-        if (__Ck7_temp == 9011) goto _CKL78; /*case 9011*/
-        if (__Ck7_temp == 9012) goto _CKL79; /*case 9012*/
-        if (__Ck7_temp == 9013) goto _CKL80; /*case 9013*/
-        if (__Ck7_temp == 9014) goto _CKL81; /*case 9014*/
-        if (__Ck7_temp == 9015) goto _CKL82; /*case 9015*/
-        if (__Ck7_temp == 9016) goto _CKL83; /*case 9016*/
-        if (__Ck7_temp == 9017) goto _CKL84; /*case 9017*/
-        if (__Ck7_temp == 9018) goto _CKL85; /*case 9018*/
-        if (__Ck7_temp == 9019) goto _CKL86; /*case 9019*/
-        if (__Ck7_temp == 9020) goto _CKL87; /*case 9020*/
-        if (__Ck7_temp == 9021) goto _CKL88; /*case 9021*/
-        if (__Ck7_temp == 9022) goto _CKL89; /*case 9022*/
-        if (__Ck7_temp == 9023) goto _CKL90; /*case 9023*/
-        if (__Ck7_temp == 9024) goto _CKL91; /*case 9024*/
-        if (__Ck7_temp == 9025) goto _CKL92; /*case 9025*/
-        if (__Ck7_temp == 9026) goto _CKL93; /*case 9026*/
-        if (__Ck7_temp == 9027) goto _CKL94; /*case 9027*/
-        if (__Ck7_temp == 9028) goto _CKL95; /*case 9028*/
-        if (__Ck7_temp == 9029) goto _CKL96; /*case 9029*/
-        if (__Ck7_temp == 9030) goto _CKL97; /*case 9030*/
-        if (__Ck7_temp == 9031) goto _CKL98; /*case 9031*/
-        if (__Ck7_temp == 9033) goto _CKL99; /*case 9033*/
-        if (__Ck7_temp == 9034) goto _CKL100; /*case 9034*/
-        if (__Ck7_temp == 9035) goto _CKL101; /*case 9035*/
-        if (__Ck7_temp == 9036) goto _CKL102; /*case 9036*/
-        if (__Ck7_temp == 9037) goto _CKL103; /*case 9037*/
-        if (__Ck7_temp == 9038) goto _CKL104; /*case 9038*/
-        if (__Ck7_temp == 9039) goto _CKL105; /*case 9039*/
-        if (__Ck7_temp == 9040) goto _CKL106; /*case 9040*/
-        if (__Ck7_temp == 9041) goto _CKL107; /*case 9041*/
-        if (__Ck7_temp == 9042) goto _CKL108; /*case 9042*/
-        if (__Ck7_temp == 9043) goto _CKL109; /*case 9043*/
-        if (__Ck7_temp == 9044) goto _CKL110; /*case 9044*/
-        if (__Ck7_temp == 9045) goto _CKL111; /*case 9045*/
-        if (__Ck7_temp == 9046) goto _CKL112; /*case 9046*/
-        if (__Ck7_temp == 9058) goto _CKL113; /*case 9058*/
-        if (__Ck7_temp == 9059) goto _CKL114; /*case 9059*/
-        if (__Ck7_temp == 9060) goto _CKL115; /*case 9060*/
-        if (__Ck7_temp == 9061) goto _CKL116; /*case 9061*/
-        if (__Ck7_temp == 9062) goto _CKL117; /*case 9062*/
-        if (__Ck7_temp == 9063) goto _CKL118; /*case 9063*/
-        if (__Ck7_temp == 9064) goto _CKL119; /*case 9064*/
-        if (__Ck7_temp == 9065) goto _CKL120; /*case 9065*/
-        if (__Ck7_temp == 9066) goto _CKL121; /*case 9066*/
-        if (__Ck7_temp == 9067) goto _CKL122; /*case 9067*/
-        if (__Ck7_temp == 9068) goto _CKL123; /*case 9068*/
-        if (__Ck7_temp == 9069) goto _CKL124; /*case 9069*/
-        if (__Ck7_temp == 9070) goto _CKL125; /*case 9070*/
-        if (__Ck7_temp == 9071) goto _CKL126; /*case 9071*/
-        if (__Ck7_temp == 9072) goto _CKL127; /*case 9072*/
-        if (__Ck7_temp == 9073) goto _CKL128; /*case 9073*/
-        if (__Ck7_temp == 9074) goto _CKL129; /*case 9074*/
-        if (__Ck7_temp == 9075) goto _CKL130; /*case 9075*/
-        if (__Ck7_temp == 9076) goto _CKL131; /*case 9076*/
-        if (__Ck7_temp == 9077) goto _CKL132; /*case 9077*/
-        if (__Ck7_temp == 9078) goto _CKL133; /*case 9078*/
-        if (__Ck7_temp == 9079) goto _CKL134; /*case 9079*/
-        if (__Ck7_temp == 9080) goto _CKL135; /*case 9080*/
-        if (__Ck7_temp == 9081) goto _CKL136; /*case 9081*/
-        if (__Ck7_temp == 9082) goto _CKL137; /*case 9082*/
-        if (__Ck7_temp == 9083) goto _CKL138; /*case 9083*/
-        if (__Ck7_temp == 9084) goto _CKL139; /*case 9084*/
-        if (__Ck7_temp == 9085) goto _CKL140; /*case 9085*/
-        if (__Ck7_temp == 9086) goto _CKL141; /*case 9086*/
-        if (__Ck7_temp == 9087) goto _CKL142; /*case 9087*/
-        if (__Ck7_temp == 9088) goto _CKL143; /*case 9088*/
-        if (__Ck7_temp == 9089) goto _CKL144; /*case 9089*/
-        if (__Ck7_temp == 9090) goto _CKL145; /*case 9090*/
-        if (__Ck7_temp == 9091) goto _CKL146; /*case 9091*/
-        if (__Ck7_temp == 9092) goto _CKL147; /*case 9092*/
-        if (__Ck7_temp == 9093) goto _CKL148; /*case 9093*/
-        if (__Ck7_temp == 9094) goto _CKL149; /*case 9094*/
-        if (__Ck7_temp == 9095) goto _CKL150; /*case 9095*/
-        if (__Ck7_temp == 9096) goto _CKL151; /*case 9096*/
-        if (__Ck7_temp == 9097) goto _CKL152; /*case 9097*/
-        if (__Ck7_temp == 9098) goto _CKL153; /*case 9098*/
-        if (__Ck7_temp == 129) goto _CKL154; /*case 129*/
-        if (__Ck7_temp == 9032) goto _CKL155; /*case 9032*/
-        if (__Ck7_temp == 11069) goto _CKL156; /*case 11069*/
-        if (__Ck7_temp == 11581) goto _CKL157; /*case 11581*/
-        if (__Ck7_temp == 10813) goto _CKL158; /*case 10813*/
-        if (__Ck7_temp == 12093) goto _CKL159; /*case 12093*/
-        if (__Ck7_temp == 9533) goto _CKL160; /*case 9533*/
-        if (__Ck7_temp == 3947581) goto _CKL161; /*case 3947581*/
-        if (__Ck7_temp == 4079165) goto _CKL162; /*case 4079165*/
-        if (__Ck7_temp == 9789) goto _CKL163; /*case 9789*/
-        if (__Ck7_temp == 31805) goto _CKL164; /*case 31805*/
-        if (__Ck7_temp == 24125) goto _CKL165; /*case 24125*/
-        if (__Ck7_temp == 9049) goto _CKL166; /*case 9049*/
-        if (__Ck7_temp == 9050) goto _CKL167; /*case 9050*/
-        if (__Ck7_temp == 9051) goto _CKL168; /*case 9051*/
-        if (__Ck7_temp == 9052) goto _CKL169; /*case 9052*/
-        if (__Ck7_temp == 9053) goto _CKL170; /*case 9053*/
-        goto _CKL0;
+        int __v0 = tk;
+        if (__v0 == 0) goto __L1; /*case 0*/
+        if (__v0 == 10) goto __L2; /*case 10*/
+        if (__v0 == 32) goto __L3; /*case 32*/
+        if (__v0 == 33) goto __L4; /*case 33*/
+        if (__v0 == 34) goto __L5; /*case 34*/
+        if (__v0 == 35) goto __L6; /*case 35*/
+        if (__v0 == 36) goto __L7; /*case 36*/
+        if (__v0 == 37) goto __L8; /*case 37*/
+        if (__v0 == 38) goto __L9; /*case 38*/
+        if (__v0 == 39) goto __L10; /*case 39*/
+        if (__v0 == 40) goto __L11; /*case 40*/
+        if (__v0 == 41) goto __L12; /*case 41*/
+        if (__v0 == 42) goto __L13; /*case 42*/
+        if (__v0 == 43) goto __L14; /*case 43*/
+        if (__v0 == 44) goto __L15; /*case 44*/
+        if (__v0 == 45) goto __L16; /*case 45*/
+        if (__v0 == 46) goto __L17; /*case 46*/
+        if (__v0 == 47) goto __L18; /*case 47*/
+        if (__v0 == 58) goto __L19; /*case 58*/
+        if (__v0 == 59) goto __L20; /*case 59*/
+        if (__v0 == 60) goto __L21; /*case 60*/
+        if (__v0 == 61) goto __L22; /*case 61*/
+        if (__v0 == 62) goto __L23; /*case 62*/
+        if (__v0 == 63) goto __L24; /*case 63*/
+        if (__v0 == 64) goto __L25; /*case 64*/
+        if (__v0 == 91) goto __L26; /*case 91*/
+        if (__v0 == 12079) goto __L27; /*case 12079*/
+        if (__v0 == 93) goto __L28; /*case 93*/
+        if (__v0 == 94) goto __L29; /*case 94*/
+        if (__v0 == 95) goto __L30; /*case 95*/
+        if (__v0 == 96) goto __L31; /*case 96*/
+        if (__v0 == 123) goto __L32; /*case 123*/
+        if (__v0 == 124) goto __L33; /*case 124*/
+        if (__v0 == 125) goto __L34; /*case 125*/
+        if (__v0 == 126) goto __L35; /*case 126*/
+        if (__v0 == 127) goto __L36; /*case 127*/
+        if (__v0 == 128) goto __L37; /*case 128*/
+        if (__v0 == 130) goto __L38; /*case 130*/
+        if (__v0 == 131) goto __L39; /*case 131*/
+        if (__v0 == 132) goto __L40; /*case 132*/
+        if (__v0 == 133) goto __L41; /*case 133*/
+        if (__v0 == 134) goto __L42; /*case 134*/
+        if (__v0 == 9046) goto __L43; /*case 9046*/
+        if (__v0 == 9047) goto __L44; /*case 9047*/
+        if (__v0 == 9053) goto __L45; /*case 9053*/
+        if (__v0 == 9054) goto __L46; /*case 9054*/
+        if (__v0 == 135) goto __L47; /*case 135*/
+        if (__v0 == 136) goto __L48; /*case 136*/
+        if (__v0 == 137) goto __L49; /*case 137*/
+        if (__v0 == 138) goto __L50; /*case 138*/
+        if (__v0 == 139) goto __L51; /*case 139*/
+        if (__v0 == 140) goto __L52; /*case 140*/
+        if (__v0 == 141) goto __L53; /*case 141*/
+        if (__v0 == 142) goto __L54; /*case 142*/
+        if (__v0 == 143) goto __L55; /*case 143*/
+        if (__v0 == 11051) goto __L56; /*case 11051*/
+        if (__v0 == 11565) goto __L57; /*case 11565*/
+        if (__v0 == 11582) goto __L58; /*case 11582*/
+        if (__v0 == 15420) goto __L59; /*case 15420*/
+        if (__v0 == 15934) goto __L60; /*case 15934*/
+        if (__v0 == 31868) goto __L61; /*case 31868*/
+        if (__v0 == 9766) goto __L62; /*case 9766*/
+        if (__v0 == 8995) goto __L63; /*case 8995*/
+        if (__v0 == 8996) goto __L64; /*case 8996*/
+        if (__v0 == 8997) goto __L65; /*case 8997*/
+        if (__v0 == 8998) goto __L66; /*case 8998*/
+        if (__v0 == 8999) goto __L67; /*case 8999*/
+        if (__v0 == 9000) goto __L68; /*case 9000*/
+        if (__v0 == 9001) goto __L69; /*case 9001*/
+        if (__v0 == 9002) goto __L70; /*case 9002*/
+        if (__v0 == 9003) goto __L71; /*case 9003*/
+        if (__v0 == 9004) goto __L72; /*case 9004*/
+        if (__v0 == 9005) goto __L73; /*case 9005*/
+        if (__v0 == 9006) goto __L74; /*case 9006*/
+        if (__v0 == 9007) goto __L75; /*case 9007*/
+        if (__v0 == 9008) goto __L76; /*case 9008*/
+        if (__v0 == 9009) goto __L77; /*case 9009*/
+        if (__v0 == 9010) goto __L78; /*case 9010*/
+        if (__v0 == 9011) goto __L79; /*case 9011*/
+        if (__v0 == 9012) goto __L80; /*case 9012*/
+        if (__v0 == 9013) goto __L81; /*case 9013*/
+        if (__v0 == 9014) goto __L82; /*case 9014*/
+        if (__v0 == 9015) goto __L83; /*case 9015*/
+        if (__v0 == 9016) goto __L84; /*case 9016*/
+        if (__v0 == 9017) goto __L85; /*case 9017*/
+        if (__v0 == 9018) goto __L86; /*case 9018*/
+        if (__v0 == 9019) goto __L87; /*case 9019*/
+        if (__v0 == 9020) goto __L88; /*case 9020*/
+        if (__v0 == 9021) goto __L89; /*case 9021*/
+        if (__v0 == 9022) goto __L90; /*case 9022*/
+        if (__v0 == 9023) goto __L91; /*case 9023*/
+        if (__v0 == 9024) goto __L92; /*case 9024*/
+        if (__v0 == 9025) goto __L93; /*case 9025*/
+        if (__v0 == 9026) goto __L94; /*case 9026*/
+        if (__v0 == 9027) goto __L95; /*case 9027*/
+        if (__v0 == 9028) goto __L96; /*case 9028*/
+        if (__v0 == 9029) goto __L97; /*case 9029*/
+        if (__v0 == 9030) goto __L98; /*case 9030*/
+        if (__v0 == 9032) goto __L99; /*case 9032*/
+        if (__v0 == 9033) goto __L100; /*case 9033*/
+        if (__v0 == 9034) goto __L101; /*case 9034*/
+        if (__v0 == 9035) goto __L102; /*case 9035*/
+        if (__v0 == 9036) goto __L103; /*case 9036*/
+        if (__v0 == 9037) goto __L104; /*case 9037*/
+        if (__v0 == 9038) goto __L105; /*case 9038*/
+        if (__v0 == 9039) goto __L106; /*case 9039*/
+        if (__v0 == 9040) goto __L107; /*case 9040*/
+        if (__v0 == 9041) goto __L108; /*case 9041*/
+        if (__v0 == 9042) goto __L109; /*case 9042*/
+        if (__v0 == 9043) goto __L110; /*case 9043*/
+        if (__v0 == 9044) goto __L111; /*case 9044*/
+        if (__v0 == 9045) goto __L112; /*case 9045*/
+        if (__v0 == 9055) goto __L113; /*case 9055*/
+        if (__v0 == 9056) goto __L114; /*case 9056*/
+        if (__v0 == 9057) goto __L115; /*case 9057*/
+        if (__v0 == 9058) goto __L116; /*case 9058*/
+        if (__v0 == 9059) goto __L117; /*case 9059*/
+        if (__v0 == 9060) goto __L118; /*case 9060*/
+        if (__v0 == 9061) goto __L119; /*case 9061*/
+        if (__v0 == 9062) goto __L120; /*case 9062*/
+        if (__v0 == 9063) goto __L121; /*case 9063*/
+        if (__v0 == 9064) goto __L122; /*case 9064*/
+        if (__v0 == 9065) goto __L123; /*case 9065*/
+        if (__v0 == 9066) goto __L124; /*case 9066*/
+        if (__v0 == 9067) goto __L125; /*case 9067*/
+        if (__v0 == 9068) goto __L126; /*case 9068*/
+        if (__v0 == 9069) goto __L127; /*case 9069*/
+        if (__v0 == 9070) goto __L128; /*case 9070*/
+        if (__v0 == 9071) goto __L129; /*case 9071*/
+        if (__v0 == 9072) goto __L130; /*case 9072*/
+        if (__v0 == 9073) goto __L131; /*case 9073*/
+        if (__v0 == 9074) goto __L132; /*case 9074*/
+        if (__v0 == 9075) goto __L133; /*case 9075*/
+        if (__v0 == 9076) goto __L134; /*case 9076*/
+        if (__v0 == 9077) goto __L135; /*case 9077*/
+        if (__v0 == 9078) goto __L136; /*case 9078*/
+        if (__v0 == 9079) goto __L137; /*case 9079*/
+        if (__v0 == 9080) goto __L138; /*case 9080*/
+        if (__v0 == 9081) goto __L139; /*case 9081*/
+        if (__v0 == 9082) goto __L140; /*case 9082*/
+        if (__v0 == 9083) goto __L141; /*case 9083*/
+        if (__v0 == 9084) goto __L142; /*case 9084*/
+        if (__v0 == 9085) goto __L143; /*case 9085*/
+        if (__v0 == 9086) goto __L144; /*case 9086*/
+        if (__v0 == 9087) goto __L145; /*case 9087*/
+        if (__v0 == 9088) goto __L146; /*case 9088*/
+        if (__v0 == 9089) goto __L147; /*case 9089*/
+        if (__v0 == 9090) goto __L148; /*case 9090*/
+        if (__v0 == 9091) goto __L149; /*case 9091*/
+        if (__v0 == 9092) goto __L150; /*case 9092*/
+        if (__v0 == 9093) goto __L151; /*case 9093*/
+        if (__v0 == 9094) goto __L152; /*case 9094*/
+        if (__v0 == 9095) goto __L153; /*case 9095*/
+        if (__v0 == 129) goto __L154; /*case 129*/
+        if (__v0 == 9031) goto __L155; /*case 9031*/
+        if (__v0 == 11069) goto __L156; /*case 11069*/
+        if (__v0 == 11581) goto __L157; /*case 11581*/
+        if (__v0 == 10813) goto __L158; /*case 10813*/
+        if (__v0 == 12093) goto __L159; /*case 12093*/
+        if (__v0 == 9533) goto __L160; /*case 9533*/
+        if (__v0 == 3947581) goto __L161; /*case 3947581*/
+        if (__v0 == 4079165) goto __L162; /*case 4079165*/
+        if (__v0 == 9789) goto __L163; /*case 9789*/
+        if (__v0 == 31805) goto __L164; /*case 31805*/
+        if (__v0 == 24125) goto __L165; /*case 24125*/
+        if (__v0 == 9048) goto __L166; /*case 9048*/
+        if (__v0 == 9049) goto __L167; /*case 9049*/
+        if (__v0 == 9050) goto __L168; /*case 9050*/
+        if (__v0 == 9051) goto __L169; /*case 9051*/
+        if (__v0 == 9052) goto __L170; /*case 9052*/
+        goto __L0;
 
         {
-            _CKL1: /*case 0*/ 
+            __L1: /*case 0*/ 
             return "TK_NONE";
-            _CKL2: /*case 10*/ 
+            __L2: /*case 10*/ 
             return "TK_NEWLINE";
-            _CKL3: /*case 32*/ 
+            __L3: /*case 32*/ 
             return "TK_WHITE_SPACE";
-            _CKL4: /*case 33*/ 
+            __L4: /*case 33*/ 
             return "TK_EXCLAMATION_MARK";
-            _CKL5: /*case 34*/ 
+            __L5: /*case 34*/ 
             return "TK_QUOTATION_MARK";
-            _CKL6: /*case 35*/ 
+            __L6: /*case 35*/ 
             return "TK_NUMBER_SIGN";
-            _CKL7: /*case 36*/ 
+            __L7: /*case 36*/ 
             return "TK_DOLLAR_SIGN";
-            _CKL8: /*case 37*/ 
+            __L8: /*case 37*/ 
             return "TK_PERCENT_SIGN";
-            _CKL9: /*case 38*/ 
+            __L9: /*case 38*/ 
             return "TK_AMPERSAND";
-            _CKL10: /*case 39*/ 
+            __L10: /*case 39*/ 
             return "TK_APOSTROPHE";
-            _CKL11: /*case 40*/ 
+            __L11: /*case 40*/ 
             return "TK_LEFT_PARENTHESIS";
-            _CKL12: /*case 41*/ 
+            __L12: /*case 41*/ 
             return "TK_RIGHT_PARENTHESIS";
-            _CKL13: /*case 42*/ 
+            __L13: /*case 42*/ 
             return "TK_ASTERISK";
-            _CKL14: /*case 43*/ 
+            __L14: /*case 43*/ 
             return "TK_PLUS_SIGN";
-            _CKL15: /*case 44*/ 
+            __L15: /*case 44*/ 
             return "TK_COMMA";
-            _CKL16: /*case 45*/ 
+            __L16: /*case 45*/ 
             return "TK_HYPHEN_MINUS";
-            _CKL17: /*case 46*/ 
+            __L17: /*case 46*/ 
             return "TK_FULL_STOP";
-            _CKL18: /*case 47*/ 
+            __L18: /*case 47*/ 
             return "TK_SOLIDUS";
-            _CKL19: /*case 58*/ 
+            __L19: /*case 58*/ 
             return "TK_COLON";
-            _CKL20: /*case 59*/ 
+            __L20: /*case 59*/ 
             return "TK_SEMICOLON";
-            _CKL21: /*case 60*/ 
+            __L21: /*case 60*/ 
             return "TK_LESS_THAN_SIGN";
-            _CKL22: /*case 61*/ 
+            __L22: /*case 61*/ 
             return "TK_EQUALS_SIGN";
-            _CKL23: /*case 62*/ 
+            __L23: /*case 62*/ 
             return "TK_GREATER_THAN_SIGN";
-            _CKL24: /*case 63*/ 
+            __L24: /*case 63*/ 
             return "TK_QUESTION_MARK";
-            _CKL25: /*case 64*/ 
+            __L25: /*case 64*/ 
             return "TK_COMMERCIAL_AT";
-            _CKL26: /*case 91*/ 
+            __L26: /*case 91*/ 
             return "TK_LEFT_SQUARE_BRACKET";
-            _CKL27: /*case 12079*/ 
+            __L27: /*case 12079*/ 
             return "TK_REVERSE_SOLIDUS";
-            _CKL28: /*case 93*/ 
+            __L28: /*case 93*/ 
             return "TK_RIGHT_SQUARE_BRACKET";
-            _CKL29: /*case 94*/ 
+            __L29: /*case 94*/ 
             return "TK_CIRCUMFLEX_ACCENT";
-            _CKL30: /*case 95*/ 
+            __L30: /*case 95*/ 
             return "TK_FLOW_LINE";
-            _CKL31: /*case 96*/ 
+            __L31: /*case 96*/ 
             return "TK_GRAVE_ACCENT";
-            _CKL32: /*case 123*/ 
+            __L32: /*case 123*/ 
             return "TK_LEFT_CURLY_BRACKET";
-            _CKL33: /*case 124*/ 
+            __L33: /*case 124*/ 
             return "TK_VERTICAL_LINE";
-            _CKL34: /*case 125*/ 
+            __L34: /*case 125*/ 
             return "TK_RIGHT_CURLY_BRACKET";
-            _CKL35: /*case 126*/ 
+            __L35: /*case 126*/ 
             return "TK_TILDE";
-            _CKL36: /*case 127*/ 
+            __L36: /*case 127*/ 
             return "TK_PREPROCESSOR_LINE";
-            _CKL37: /*case 128*/ 
+            __L37: /*case 128*/ 
             return "TK_PRAGMA";
-            _CKL38: /*case 130*/ 
+            __L38: /*case 130*/ 
             return "TK_STRING_LITERAL";
-            _CKL39: /*case 131*/ 
+            __L39: /*case 131*/ 
             return "TK_CHAR_CONSTANT";
-            _CKL40: /*case 132*/ 
+            __L40: /*case 132*/ 
             return "TK_LINE_COMMENT";
-            _CKL41: /*case 133*/ 
+            __L41: /*case 133*/ 
             return "TK_COMMENT";
-            _CKL42: /*case 134*/ 
+            __L42: /*case 134*/ 
             return "TK_PPNUMBER";
-            _CKL43: /*case 9047*/ 
+            __L43: /*case 9046*/ 
             return "TK_KEYWORD_GCC__ATTRIBUTE";
-            _CKL44: /*case 9048*/ 
+            __L44: /*case 9047*/ 
             return "TK_KEYWORD_GCC__BUILTIN_VA_LIST";
-            _CKL45: /*case 9056*/ 
+            __L45: /*case 9053*/ 
             return "TK_KEYWORD_MSVC__PTR32";
-            _CKL46: /*case 9057*/ 
+            __L46: /*case 9054*/ 
             return "TK_KEYWORD_MSVC__PTR64";
-            _CKL47: /*case 135*/ 
+            __L47: /*case 135*/ 
             return "ANY_OTHER_PP_TOKEN";
-            _CKL48: /*case 136*/ 
+            __L48: /*case 136*/ 
             return "TK_COMPILER_DECIMAL_CONSTANT";
-            _CKL49: /*case 137*/ 
+            __L49: /*case 137*/ 
             return "TK_COMPILER_OCTAL_CONSTANT";
-            _CKL50: /*case 138*/ 
+            __L50: /*case 138*/ 
             return "TK_COMPILER_HEXADECIMAL_CONSTANT";
-            _CKL51: /*case 139*/ 
+            __L51: /*case 139*/ 
             return "TK_COMPILER_BINARY_CONSTANT";
-            _CKL52: /*case 140*/ 
+            __L52: /*case 140*/ 
             return "TK_COMPILER_DECIMAL_FLOATING_CONSTANT";
-            _CKL53: /*case 141*/ 
+            __L53: /*case 141*/ 
             return "TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT";
-            _CKL54: /*case 142*/ 
+            __L54: /*case 142*/ 
             return "TK_PLACEMARKER";
-            _CKL55: /*case 143*/ 
+            __L55: /*case 143*/ 
             return "TK_BLANKS";
-            _CKL56: /*case 11051*/ 
+            __L56: /*case 11051*/ 
             return "TK_PLUSPLUS";
-            _CKL57: /*case 11565*/ 
+            __L57: /*case 11565*/ 
             return "TK_MINUSMINUS";
-            _CKL58: /*case 11582*/ 
+            __L58: /*case 11582*/ 
             return "TK_ARROW";
-            _CKL59: /*case 15420*/ 
+            __L59: /*case 15420*/ 
             return "TK_SHIFTLEFT";
-            _CKL60: /*case 15934*/ 
+            __L60: /*case 15934*/ 
             return "TK_SHIFTRIGHT";
-            _CKL61: /*case 31868*/ 
+            __L61: /*case 31868*/ 
             return "TK_LOGICAL_OPERATOR_OR";
-            _CKL62: /*case 9766*/ 
+            __L62: /*case 9766*/ 
             return "TK_LOGICAL_OPERATOR_AND";
-            _CKL63: /*case 8995*/ 
+            __L63: /*case 8995*/ 
             return "TK_MACRO_CONCATENATE_OPERATOR";
-            _CKL64: /*case 8996*/ 
+            __L64: /*case 8996*/ 
             return "TK_IDENTIFIER";
-            _CKL65: /*case 8997*/ 
+            __L65: /*case 8997*/ 
             return "TK_IDENTIFIER_RECURSIVE_MACRO";
-            _CKL66: /*case 8998*/ 
+            __L66: /*case 8998*/ 
             return "TK_BEGIN_OF_FILE";
-            _CKL67: /*case 8999*/ 
+            __L67: /*case 8999*/ 
             return "TK_KEYWORD_AUTO";
-            _CKL68: /*case 9001*/ 
+            __L68: /*case 9000*/ 
             return "TK_KEYWORD_BREAK";
-            _CKL69: /*case 9002*/ 
+            __L69: /*case 9001*/ 
             return "TK_KEYWORD_CASE";
-            _CKL70: /*case 9003*/ 
+            __L70: /*case 9002*/ 
             return "TK_KEYWORD_CONSTEXPR";
-            _CKL71: /*case 9004*/ 
+            __L71: /*case 9003*/ 
             return "TK_KEYWORD_CHAR";
-            _CKL72: /*case 9005*/ 
+            __L72: /*case 9004*/ 
             return "TK_KEYWORD_CONST";
-            _CKL73: /*case 9006*/ 
+            __L73: /*case 9005*/ 
             return "TK_KEYWORD_CONTINUE";
-            _CKL74: /*case 9007*/ 
+            __L74: /*case 9006*/ 
             return "TK_KEYWORD_CAKE_CATCH";
-            _CKL75: /*case 9008*/ 
+            __L75: /*case 9007*/ 
             return "TK_KEYWORD_DEFAULT";
-            _CKL76: /*case 9009*/ 
+            __L76: /*case 9008*/ 
             return "TK_KEYWORD_DO";
-            _CKL77: /*case 9010*/ 
+            __L77: /*case 9009*/ 
             return "TK_KEYWORD_DEFER";
-            _CKL78: /*case 9011*/ 
+            __L78: /*case 9010*/ 
             return "TK_KEYWORD_DOUBLE";
-            _CKL79: /*case 9012*/ 
+            __L79: /*case 9011*/ 
             return "TK_KEYWORD_ELSE";
-            _CKL80: /*case 9013*/ 
+            __L80: /*case 9012*/ 
             return "TK_KEYWORD_ENUM";
-            _CKL81: /*case 9014*/ 
+            __L81: /*case 9013*/ 
             return "TK_KEYWORD_EXTERN";
-            _CKL82: /*case 9015*/ 
+            __L82: /*case 9014*/ 
             return "TK_KEYWORD_FLOAT";
-            _CKL83: /*case 9016*/ 
+            __L83: /*case 9015*/ 
             return "TK_KEYWORD_FOR";
-            _CKL84: /*case 9017*/ 
+            __L84: /*case 9016*/ 
             return "TK_KEYWORD_GOTO";
-            _CKL85: /*case 9018*/ 
+            __L85: /*case 9017*/ 
             return "TK_KEYWORD_IF";
-            _CKL86: /*case 9019*/ 
+            __L86: /*case 9018*/ 
             return "TK_KEYWORD_INLINE";
-            _CKL87: /*case 9020*/ 
+            __L87: /*case 9019*/ 
             return "TK_KEYWORD_INT";
-            _CKL88: /*case 9021*/ 
+            __L88: /*case 9020*/ 
             return "TK_KEYWORD_LONG";
-            _CKL89: /*case 9022*/ 
+            __L89: /*case 9021*/ 
             return "TK_KEYWORD_MSVC__INT8";
-            _CKL90: /*case 9023*/ 
+            __L90: /*case 9022*/ 
             return "TK_KEYWORD_MSVC__INT16";
-            _CKL91: /*case 9024*/ 
+            __L91: /*case 9023*/ 
             return "TK_KEYWORD_MSVC__INT32";
-            _CKL92: /*case 9025*/ 
+            __L92: /*case 9024*/ 
             return "TK_KEYWORD_MSVC__INT64";
-            _CKL93: /*case 9026*/ 
+            __L93: /*case 9025*/ 
             return "TK_KEYWORD_REGISTER";
-            _CKL94: /*case 9027*/ 
+            __L94: /*case 9026*/ 
             return "TK_KEYWORD_RESTRICT";
-            _CKL95: /*case 9028*/ 
+            __L95: /*case 9027*/ 
             return "TK_KEYWORD_RETURN";
-            _CKL96: /*case 9029*/ 
+            __L96: /*case 9028*/ 
             return "TK_KEYWORD_SHORT";
-            _CKL97: /*case 9030*/ 
+            __L97: /*case 9029*/ 
             return "TK_KEYWORD_SIGNED";
-            _CKL98: /*case 9031*/ 
+            __L98: /*case 9030*/ 
             return "TK_KEYWORD_SIZEOF";
-            _CKL99: /*case 9033*/ 
+            __L99: /*case 9032*/ 
             return "TK_KEYWORD_STATIC";
-            _CKL100: /*case 9034*/ 
+            __L100: /*case 9033*/ 
             return "TK_KEYWORD_STRUCT";
-            _CKL101: /*case 9035*/ 
+            __L101: /*case 9034*/ 
             return "TK_KEYWORD_SWITCH";
-            _CKL102: /*case 9036*/ 
+            __L102: /*case 9035*/ 
             return "TK_KEYWORD_TYPEDEF";
-            _CKL103: /*case 9037*/ 
+            __L103: /*case 9036*/ 
             return "TK_KEYWORD_CAKE_TRY";
-            _CKL104: /*case 9038*/ 
+            __L104: /*case 9037*/ 
             return "TK_KEYWORD_CAKE_THROW";
-            _CKL105: /*case 9039*/ 
+            __L105: /*case 9038*/ 
             return "TK_KEYWORD_UNION";
-            _CKL106: /*case 9040*/ 
+            __L106: /*case 9039*/ 
             return "TK_KEYWORD_UNSIGNED";
-            _CKL107: /*case 9041*/ 
+            __L107: /*case 9040*/ 
             return "TK_KEYWORD_VOID";
-            _CKL108: /*case 9042*/ 
+            __L108: /*case 9041*/ 
             return "TK_KEYWORD_VOLATILE";
-            _CKL109: /*case 9043*/ 
+            __L109: /*case 9042*/ 
             return "TK_KEYWORD_WHILE";
-            _CKL110: /*case 9044*/ 
+            __L110: /*case 9043*/ 
             return "TK_KEYWORD__ALIGNAS";
-            _CKL111: /*case 9045*/ 
+            __L111: /*case 9044*/ 
             return "TK_KEYWORD__ALIGNOF";
-            _CKL112: /*case 9046*/ 
+            __L112: /*case 9045*/ 
             return "TK_KEYWORD__ATOMIC";
-            _CKL113: /*case 9058*/ 
+            __L113: /*case 9055*/ 
             return "TK_KEYWORD_MSVC__FASTCALL";
-            _CKL114: /*case 9059*/ 
+            __L114: /*case 9056*/ 
             return "TK_KEYWORD_MSVC__STDCALL";
-            _CKL115: /*case 9060*/ 
+            __L115: /*case 9057*/ 
             return "TK_KEYWORD_MSVC__CDECL";
-            _CKL116: /*case 9061*/ 
+            __L116: /*case 9058*/ 
             return "TK_KEYWORD_MSVC__DECLSPEC";
-            _CKL117: /*case 9062*/ 
-            return "TK_KEYWORD_MSVC__ASM";
-            _CKL118: /*case 9063*/ 
+            __L117: /*case 9059*/ 
+            return "TK_KEYWORD__ASM";
+            __L118: /*case 9060*/ 
             return "TK_KEYWORD__BOOL";
-            _CKL119: /*case 9064*/ 
+            __L119: /*case 9061*/ 
             return "TK_KEYWORD__COMPLEX";
-            _CKL120: /*case 9065*/ 
+            __L120: /*case 9062*/ 
             return "TK_KEYWORD__DECIMAL128";
-            _CKL121: /*case 9066*/ 
+            __L121: /*case 9063*/ 
             return "TK_KEYWORD__DECIMAL32";
-            _CKL122: /*case 9067*/ 
+            __L122: /*case 9064*/ 
             return "TK_KEYWORD__DECIMAL64";
-            _CKL123: /*case 9068*/ 
+            __L123: /*case 9065*/ 
             return "TK_KEYWORD__GENERIC";
-            _CKL124: /*case 9069*/ 
+            __L124: /*case 9066*/ 
             return "TK_KEYWORD__IMAGINARY";
-            _CKL125: /*case 9070*/ 
+            __L125: /*case 9067*/ 
             return "TK_KEYWORD__NORETURN";
-            _CKL126: /*case 9071*/ 
+            __L126: /*case 9068*/ 
             return "TK_KEYWORD__STATIC_ASSERT";
-            _CKL127: /*case 9072*/ 
+            __L127: /*case 9069*/ 
             return "TK_KEYWORD_ASSERT";
-            _CKL128: /*case 9073*/ 
+            __L128: /*case 9070*/ 
             return "TK_KEYWORD__THREAD_LOCAL";
-            _CKL129: /*case 9074*/ 
+            __L129: /*case 9071*/ 
             return "TK_KEYWORD_TYPEOF";
-            _CKL130: /*case 9075*/ 
+            __L130: /*case 9072*/ 
             return "TK_KEYWORD_TRUE";
-            _CKL131: /*case 9076*/ 
+            __L131: /*case 9073*/ 
             return "TK_KEYWORD_FALSE";
-            _CKL132: /*case 9077*/ 
+            __L132: /*case 9074*/ 
             return "TK_KEYWORD_NULLPTR";
-            _CKL133: /*case 9078*/ 
+            __L133: /*case 9075*/ 
             return "TK_KEYWORD_TYPEOF_UNQUAL";
-            _CKL134: /*case 9079*/ 
+            __L134: /*case 9076*/ 
             return "TK_KEYWORD__BITINT";
-            _CKL135: /*case 9080*/ 
+            __L135: /*case 9077*/ 
             return "TK_KEYWORD_CAKE_OWNER";
-            _CKL136: /*case 9081*/ 
+            __L136: /*case 9078*/ 
             return "TK_KEYWORD__OUT";
-            _CKL137: /*case 9082*/ 
+            __L137: /*case 9079*/ 
             return "TK_KEYWORD__OBJ_OWNER";
-            _CKL138: /*case 9083*/ 
+            __L138: /*case 9080*/ 
             return "TK_KEYWORD_CAKE_VIEW";
-            _CKL139: /*case 9084*/ 
+            __L139: /*case 9081*/ 
             return "TK_KEYWORD_CAKE_OPT";
-            _CKL140: /*case 9085*/ 
+            __L140: /*case 9082*/ 
             return "TK_KEYWORD_CAKE_STATIC_DEBUG";
-            _CKL141: /*case 9086*/ 
+            __L141: /*case 9083*/ 
             return "TK_KEYWORD_CAKE_STATIC_DEBUG_EX";
-            _CKL142: /*case 9087*/ 
+            __L142: /*case 9084*/ 
             return "TK_KEYWORD_STATIC_STATE";
-            _CKL143: /*case 9088*/ 
+            __L143: /*case 9085*/ 
             return "TK_KEYWORD_STATIC_SET";
-            _CKL144: /*case 9089*/ 
+            __L144: /*case 9086*/ 
             return "TK_KEYWORD_IS_POINTER";
-            _CKL145: /*case 9090*/ 
+            __L145: /*case 9087*/ 
             return "TK_KEYWORD_IS_LVALUE";
-            _CKL146: /*case 9091*/ 
+            __L146: /*case 9088*/ 
             return "TK_KEYWORD_IS_CONST";
-            _CKL147: /*case 9092*/ 
+            __L147: /*case 9089*/ 
             return "TK_KEYWORD_IS_OWNER";
-            _CKL148: /*case 9093*/ 
+            __L148: /*case 9090*/ 
             return "TK_KEYWORD_IS_ARRAY";
-            _CKL149: /*case 9094*/ 
+            __L149: /*case 9091*/ 
             return "TK_KEYWORD_IS_FUNCTION";
-            _CKL150: /*case 9095*/ 
+            __L150: /*case 9092*/ 
             return "TK_KEYWORD_IS_SCALAR";
-            _CKL151: /*case 9096*/ 
+            __L151: /*case 9093*/ 
             return "TK_KEYWORD_IS_ARITHMETIC";
-            _CKL152: /*case 9097*/ 
+            __L152: /*case 9094*/ 
             return "TK_KEYWORD_IS_FLOATING_POINT";
-            _CKL153: /*case 9098*/ 
+            __L153: /*case 9095*/ 
             return "TK_KEYWORD_IS_INTEGRAL";
-            _CKL154: /*case 129*/ 
+            __L154: /*case 129*/ 
             return "TK_PRAGMA_END";
-            _CKL155: /*case 9032*/ 
+            __L155: /*case 9031*/ 
             return "TK_KEYWORD__COUNTOF";
-            _CKL156: /*case 11069*/ 
+            __L156: /*case 11069*/ 
             return "TK_PLUS_ASSIGN";
-            _CKL157: /*case 11581*/ 
+            __L157: /*case 11581*/ 
             return "TK_MINUS_ASSIGN";
-            _CKL158: /*case 10813*/ 
+            __L158: /*case 10813*/ 
             return "TK_MULTI_ASSIGN";
-            _CKL159: /*case 12093*/ 
+            __L159: /*case 12093*/ 
             return "TK_DIV_ASSIGN";
-            _CKL160: /*case 9533*/ 
+            __L160: /*case 9533*/ 
             return "TK_MOD_ASSIGN";
-            _CKL161: /*case 3947581*/ 
+            __L161: /*case 3947581*/ 
             return "TK_SHIFT_LEFT_ASSIGN";
-            _CKL162: /*case 4079165*/ 
+            __L162: /*case 4079165*/ 
             return "TK_SHIFT_RIGHT_ASSIGN";
-            _CKL163: /*case 9789*/ 
+            __L163: /*case 9789*/ 
             return "TK_AND_ASSIGN";
-            _CKL164: /*case 31805*/ 
+            __L164: /*case 31805*/ 
             return "TK_OR_ASSIGN";
-            _CKL165: /*case 24125*/ 
+            __L165: /*case 24125*/ 
             return "TK_NOT_ASSIGN";
-            _CKL166: /*case 9049*/ 
+            __L166: /*case 9048*/ 
             return "TK_KEYWORD_GCC__BUILTIN_VA_END";
-            _CKL167: /*case 9050*/ 
+            __L167: /*case 9049*/ 
             return "TK_KEYWORD_GCC__BUILTIN_VA_ARG";
-            _CKL168: /*case 9051*/ 
+            __L168: /*case 9050*/ 
             return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
-            _CKL169: /*case 9052*/ 
+            __L169: /*case 9051*/ 
             return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
-            _CKL170: /*case 9053*/ 
+            __L170: /*case 9052*/ 
             return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
         }
-        _CKL0:;
+        __L0:;
     }
     return "TK_X_MISSING_NAME";
+}
+
+
+char *get_diagnostic_friendly_token_name(int tk)
+{
+    /*switch*/
+    {
+        int __v0 = tk;
+        if (__v0 == 0) goto __L1; /*case 0*/
+        if (__v0 == 10) goto __L2; /*case 10*/
+        if (__v0 == 32) goto __L3; /*case 32*/
+        if (__v0 == 33) goto __L4; /*case 33*/
+        if (__v0 == 34) goto __L5; /*case 34*/
+        if (__v0 == 35) goto __L6; /*case 35*/
+        if (__v0 == 36) goto __L7; /*case 36*/
+        if (__v0 == 37) goto __L8; /*case 37*/
+        if (__v0 == 38) goto __L9; /*case 38*/
+        if (__v0 == 39) goto __L10; /*case 39*/
+        if (__v0 == 40) goto __L11; /*case 40*/
+        if (__v0 == 41) goto __L12; /*case 41*/
+        if (__v0 == 42) goto __L13; /*case 42*/
+        if (__v0 == 43) goto __L14; /*case 43*/
+        if (__v0 == 44) goto __L15; /*case 44*/
+        if (__v0 == 45) goto __L16; /*case 45*/
+        if (__v0 == 46) goto __L17; /*case 46*/
+        if (__v0 == 47) goto __L18; /*case 47*/
+        if (__v0 == 58) goto __L19; /*case 58*/
+        if (__v0 == 59) goto __L20; /*case 59*/
+        if (__v0 == 60) goto __L21; /*case 60*/
+        if (__v0 == 61) goto __L22; /*case 61*/
+        if (__v0 == 62) goto __L23; /*case 62*/
+        if (__v0 == 63) goto __L24; /*case 63*/
+        if (__v0 == 64) goto __L25; /*case 64*/
+        if (__v0 == 91) goto __L26; /*case 91*/
+        if (__v0 == 12079) goto __L27; /*case 12079*/
+        if (__v0 == 93) goto __L28; /*case 93*/
+        if (__v0 == 94) goto __L29; /*case 94*/
+        if (__v0 == 95) goto __L30; /*case 95*/
+        if (__v0 == 96) goto __L31; /*case 96*/
+        if (__v0 == 123) goto __L32; /*case 123*/
+        if (__v0 == 124) goto __L33; /*case 124*/
+        if (__v0 == 125) goto __L34; /*case 125*/
+        if (__v0 == 126) goto __L35; /*case 126*/
+        if (__v0 == 127) goto __L36; /*case 127*/
+        if (__v0 == 128) goto __L37; /*case 128*/
+        if (__v0 == 130) goto __L38; /*case 130*/
+        if (__v0 == 131) goto __L39; /*case 131*/
+        if (__v0 == 132) goto __L40; /*case 132*/
+        if (__v0 == 133) goto __L41; /*case 133*/
+        if (__v0 == 134) goto __L42; /*case 134*/
+        if (__v0 == 9046) goto __L43; /*case 9046*/
+        if (__v0 == 9047) goto __L44; /*case 9047*/
+        if (__v0 == 9053) goto __L45; /*case 9053*/
+        if (__v0 == 9054) goto __L46; /*case 9054*/
+        if (__v0 == 135) goto __L47; /*case 135*/
+        if (__v0 == 136) goto __L48; /*case 136*/
+        if (__v0 == 137) goto __L49; /*case 137*/
+        if (__v0 == 138) goto __L50; /*case 138*/
+        if (__v0 == 139) goto __L51; /*case 139*/
+        if (__v0 == 140) goto __L52; /*case 140*/
+        if (__v0 == 141) goto __L53; /*case 141*/
+        if (__v0 == 142) goto __L54; /*case 142*/
+        if (__v0 == 143) goto __L55; /*case 143*/
+        if (__v0 == 11051) goto __L56; /*case 11051*/
+        if (__v0 == 11565) goto __L57; /*case 11565*/
+        if (__v0 == 11582) goto __L58; /*case 11582*/
+        if (__v0 == 15420) goto __L59; /*case 15420*/
+        if (__v0 == 15934) goto __L60; /*case 15934*/
+        if (__v0 == 31868) goto __L61; /*case 31868*/
+        if (__v0 == 9766) goto __L62; /*case 9766*/
+        if (__v0 == 8995) goto __L63; /*case 8995*/
+        if (__v0 == 8996) goto __L64; /*case 8996*/
+        if (__v0 == 8997) goto __L65; /*case 8997*/
+        if (__v0 == 8998) goto __L66; /*case 8998*/
+        if (__v0 == 8999) goto __L67; /*case 8999*/
+        if (__v0 == 9000) goto __L68; /*case 9000*/
+        if (__v0 == 9001) goto __L69; /*case 9001*/
+        if (__v0 == 9002) goto __L70; /*case 9002*/
+        if (__v0 == 9003) goto __L71; /*case 9003*/
+        if (__v0 == 9004) goto __L72; /*case 9004*/
+        if (__v0 == 9005) goto __L73; /*case 9005*/
+        if (__v0 == 9006) goto __L74; /*case 9006*/
+        if (__v0 == 9007) goto __L75; /*case 9007*/
+        if (__v0 == 9008) goto __L76; /*case 9008*/
+        if (__v0 == 9009) goto __L77; /*case 9009*/
+        if (__v0 == 9010) goto __L78; /*case 9010*/
+        if (__v0 == 9011) goto __L79; /*case 9011*/
+        if (__v0 == 9012) goto __L80; /*case 9012*/
+        if (__v0 == 9013) goto __L81; /*case 9013*/
+        if (__v0 == 9014) goto __L82; /*case 9014*/
+        if (__v0 == 9015) goto __L83; /*case 9015*/
+        if (__v0 == 9016) goto __L84; /*case 9016*/
+        if (__v0 == 9017) goto __L85; /*case 9017*/
+        if (__v0 == 9018) goto __L86; /*case 9018*/
+        if (__v0 == 9019) goto __L87; /*case 9019*/
+        if (__v0 == 9020) goto __L88; /*case 9020*/
+        if (__v0 == 9021) goto __L89; /*case 9021*/
+        if (__v0 == 9022) goto __L90; /*case 9022*/
+        if (__v0 == 9023) goto __L91; /*case 9023*/
+        if (__v0 == 9024) goto __L92; /*case 9024*/
+        if (__v0 == 9025) goto __L93; /*case 9025*/
+        if (__v0 == 9026) goto __L94; /*case 9026*/
+        if (__v0 == 9027) goto __L95; /*case 9027*/
+        if (__v0 == 9028) goto __L96; /*case 9028*/
+        if (__v0 == 9029) goto __L97; /*case 9029*/
+        if (__v0 == 9030) goto __L98; /*case 9030*/
+        if (__v0 == 9032) goto __L99; /*case 9032*/
+        if (__v0 == 9033) goto __L100; /*case 9033*/
+        if (__v0 == 9034) goto __L101; /*case 9034*/
+        if (__v0 == 9035) goto __L102; /*case 9035*/
+        if (__v0 == 9036) goto __L103; /*case 9036*/
+        if (__v0 == 9037) goto __L104; /*case 9037*/
+        if (__v0 == 9038) goto __L105; /*case 9038*/
+        if (__v0 == 9039) goto __L106; /*case 9039*/
+        if (__v0 == 9040) goto __L107; /*case 9040*/
+        if (__v0 == 9041) goto __L108; /*case 9041*/
+        if (__v0 == 9042) goto __L109; /*case 9042*/
+        if (__v0 == 9043) goto __L110; /*case 9043*/
+        if (__v0 == 9044) goto __L111; /*case 9044*/
+        if (__v0 == 9045) goto __L112; /*case 9045*/
+        if (__v0 == 9055) goto __L113; /*case 9055*/
+        if (__v0 == 9056) goto __L114; /*case 9056*/
+        if (__v0 == 9057) goto __L115; /*case 9057*/
+        if (__v0 == 9058) goto __L116; /*case 9058*/
+        if (__v0 == 9059) goto __L117; /*case 9059*/
+        if (__v0 == 9060) goto __L118; /*case 9060*/
+        if (__v0 == 9061) goto __L119; /*case 9061*/
+        if (__v0 == 9062) goto __L120; /*case 9062*/
+        if (__v0 == 9063) goto __L121; /*case 9063*/
+        if (__v0 == 9064) goto __L122; /*case 9064*/
+        if (__v0 == 9065) goto __L123; /*case 9065*/
+        if (__v0 == 9066) goto __L124; /*case 9066*/
+        if (__v0 == 9067) goto __L125; /*case 9067*/
+        if (__v0 == 9068) goto __L126; /*case 9068*/
+        if (__v0 == 9069) goto __L127; /*case 9069*/
+        if (__v0 == 9070) goto __L128; /*case 9070*/
+        if (__v0 == 9071) goto __L129; /*case 9071*/
+        if (__v0 == 9072) goto __L130; /*case 9072*/
+        if (__v0 == 9073) goto __L131; /*case 9073*/
+        if (__v0 == 9074) goto __L132; /*case 9074*/
+        if (__v0 == 9075) goto __L133; /*case 9075*/
+        if (__v0 == 9076) goto __L134; /*case 9076*/
+        if (__v0 == 9077) goto __L135; /*case 9077*/
+        if (__v0 == 9078) goto __L136; /*case 9078*/
+        if (__v0 == 9079) goto __L137; /*case 9079*/
+        if (__v0 == 9080) goto __L138; /*case 9080*/
+        if (__v0 == 9081) goto __L139; /*case 9081*/
+        if (__v0 == 9082) goto __L140; /*case 9082*/
+        if (__v0 == 9083) goto __L141; /*case 9083*/
+        if (__v0 == 9084) goto __L142; /*case 9084*/
+        if (__v0 == 9085) goto __L143; /*case 9085*/
+        if (__v0 == 9086) goto __L144; /*case 9086*/
+        if (__v0 == 9087) goto __L145; /*case 9087*/
+        if (__v0 == 9088) goto __L146; /*case 9088*/
+        if (__v0 == 9089) goto __L147; /*case 9089*/
+        if (__v0 == 9090) goto __L148; /*case 9090*/
+        if (__v0 == 9091) goto __L149; /*case 9091*/
+        if (__v0 == 9092) goto __L150; /*case 9092*/
+        if (__v0 == 9093) goto __L151; /*case 9093*/
+        if (__v0 == 9094) goto __L152; /*case 9094*/
+        if (__v0 == 9095) goto __L153; /*case 9095*/
+        if (__v0 == 129) goto __L154; /*case 129*/
+        if (__v0 == 9031) goto __L155; /*case 9031*/
+        if (__v0 == 11069) goto __L156; /*case 11069*/
+        if (__v0 == 11581) goto __L157; /*case 11581*/
+        if (__v0 == 10813) goto __L158; /*case 10813*/
+        if (__v0 == 12093) goto __L159; /*case 12093*/
+        if (__v0 == 9533) goto __L160; /*case 9533*/
+        if (__v0 == 3947581) goto __L161; /*case 3947581*/
+        if (__v0 == 4079165) goto __L162; /*case 4079165*/
+        if (__v0 == 9789) goto __L163; /*case 9789*/
+        if (__v0 == 31805) goto __L164; /*case 31805*/
+        if (__v0 == 24125) goto __L165; /*case 24125*/
+        if (__v0 == 9048) goto __L166; /*case 9048*/
+        if (__v0 == 9049) goto __L167; /*case 9049*/
+        if (__v0 == 9050) goto __L168; /*case 9050*/
+        if (__v0 == 9051) goto __L169; /*case 9051*/
+        if (__v0 == 9052) goto __L170; /*case 9052*/
+        goto __L171; /* default */
+
+        {
+            __L1: /*case 0*/ 
+            return "?";
+            __L2: /*case 10*/ 
+            return "new line";
+            __L3: /*case 32*/ 
+            return "white space";
+            __L4: /*case 33*/ 
+            return "!";
+            __L5: /*case 34*/ 
+            return "\"";
+            __L6: /*case 35*/ 
+            return "#";
+            __L7: /*case 36*/ 
+            return "$";
+            __L8: /*case 37*/ 
+            return "%";
+            __L9: /*case 38*/ 
+            return "&";
+            __L10: /*case 39*/ 
+            return "\'";
+            __L11: /*case 40*/ 
+            return "(";
+            __L12: /*case 41*/ 
+            return ")";
+            __L13: /*case 42*/ 
+            return "*";
+            __L14: /*case 43*/ 
+            return "+";
+            __L15: /*case 44*/ 
+            return ",";
+            __L16: /*case 45*/ 
+            return "-";
+            __L17: /*case 46*/ 
+            return ",";
+            __L18: /*case 47*/ 
+            return "/";
+            __L19: /*case 58*/ 
+            return ":";
+            __L20: /*case 59*/ 
+            return ";";
+            __L21: /*case 60*/ 
+            return "<";
+            __L22: /*case 61*/ 
+            return "=";
+            __L23: /*case 62*/ 
+            return ">";
+            __L24: /*case 63*/ 
+            return "?";
+            __L25: /*case 64*/ 
+            return "@";
+            __L26: /*case 91*/ 
+            return "[";
+            __L27: /*case 12079*/ 
+            return "//";
+            __L28: /*case 93*/ 
+            return "]";
+            __L29: /*case 94*/ 
+            return "^";
+            __L30: /*case 95*/ 
+            return "_";
+            __L31: /*case 96*/ 
+            return "`";
+            __L32: /*case 123*/ 
+            return "{";
+            __L33: /*case 124*/ 
+            return "|";
+            __L34: /*case 125*/ 
+            return "}";
+            __L35: /*case 126*/ 
+            return "~";
+            __L36: /*case 127*/ 
+            return "# preprocessor line";
+            __L37: /*case 128*/ 
+            return "pragma";
+            __L38: /*case 130*/ 
+            return "\"literal-string\"";
+            __L39: /*case 131*/ 
+            return "'char-constant'";
+            __L40: /*case 132*/ 
+            return "//comment";
+            __L41: /*case 133*/ 
+            return "/*comment*/";
+            __L42: /*case 134*/ 
+            return "pp-number";
+            __L43: /*case 9046*/ 
+            return "__attribute";
+            __L44: /*case 9047*/ 
+            return "__builtin_va_list";
+            __L45: /*case 9053*/ 
+            return "__ptr32";
+            __L46: /*case 9054*/ 
+            return "__ptr64";
+            __L47: /*case 135*/ 
+            return "any_other_pp_token";
+            __L48: /*case 136*/ 
+            return "decimal_constant";
+            __L49: /*case 137*/ 
+            return "octal_constant";
+            __L50: /*case 138*/ 
+            return "hexadecimal_constant";
+            __L51: /*case 139*/ 
+            return "binary_constant";
+            __L52: /*case 140*/ 
+            return "decimal_floating_constant";
+            __L53: /*case 141*/ 
+            return "hexadecimal_floating_constant";
+            __L54: /*case 142*/ 
+            return "place-marker";
+            __L55: /*case 143*/ 
+            return "blanks";
+            __L56: /*case 11051*/ 
+            return "++";
+            __L57: /*case 11565*/ 
+            return "--";
+            __L58: /*case 11582*/ 
+            return "->";
+            __L59: /*case 15420*/ 
+            return "<<";
+            __L60: /*case 15934*/ 
+            return ">>";
+            __L61: /*case 31868*/ 
+            return "||";
+            __L62: /*case 9766*/ 
+            return "&&";
+            __L63: /*case 8995*/ 
+            return "TK_MACRO_CONCATENATE_OPERATOR";
+            __L64: /*case 8996*/ 
+            return "identifier";
+            __L65: /*case 8997*/ 
+            return "recursive-macro";
+            __L66: /*case 8998*/ 
+            return "begin-of-file";
+            __L67: /*case 8999*/ 
+            return "auto";
+            __L68: /*case 9000*/ 
+            return "break";
+            __L69: /*case 9001*/ 
+            return "case";
+            __L70: /*case 9002*/ 
+            return "constexpr";
+            __L71: /*case 9003*/ 
+            return "char";
+            __L72: /*case 9004*/ 
+            return "const";
+            __L73: /*case 9005*/ 
+            return "continue";
+            __L74: /*case 9006*/ 
+            return "catch";
+            __L75: /*case 9007*/ 
+            return "default";
+            __L76: /*case 9008*/ 
+            return "do";
+            __L77: /*case 9009*/ 
+            return "defer";
+            __L78: /*case 9010*/ 
+            return "double";
+            __L79: /*case 9011*/ 
+            return "else";
+            __L80: /*case 9012*/ 
+            return "enum";
+            __L81: /*case 9013*/ 
+            return "extern";
+            __L82: /*case 9014*/ 
+            return "float";
+            __L83: /*case 9015*/ 
+            return "for";
+            __L84: /*case 9016*/ 
+            return "goto";
+            __L85: /*case 9017*/ 
+            return "if";
+            __L86: /*case 9018*/ 
+            return "inline";
+            __L87: /*case 9019*/ 
+            return "int";
+            __L88: /*case 9020*/ 
+            return "long";
+            __L89: /*case 9021*/ 
+            return "__int8";
+            __L90: /*case 9022*/ 
+            return "__int16";
+            __L91: /*case 9023*/ 
+            return "__int32";
+            __L92: /*case 9024*/ 
+            return "__int64";
+            __L93: /*case 9025*/ 
+            return "register";
+            __L94: /*case 9026*/ 
+            return "restrict";
+            __L95: /*case 9027*/ 
+            return "return";
+            __L96: /*case 9028*/ 
+            return "short";
+            __L97: /*case 9029*/ 
+            return "signed";
+            __L98: /*case 9030*/ 
+            return "sizeof";
+            __L99: /*case 9032*/ 
+            return "static";
+            __L100: /*case 9033*/ 
+            return "struct";
+            __L101: /*case 9034*/ 
+            return "switch";
+            __L102: /*case 9035*/ 
+            return "typedef";
+            __L103: /*case 9036*/ 
+            return "try";
+            __L104: /*case 9037*/ 
+            return "throw";
+            __L105: /*case 9038*/ 
+            return "union";
+            __L106: /*case 9039*/ 
+            return "unsigned";
+            __L107: /*case 9040*/ 
+            return "void";
+            __L108: /*case 9041*/ 
+            return "volatile";
+            __L109: /*case 9042*/ 
+            return "while";
+            __L110: /*case 9043*/ 
+            return "alignas";
+            __L111: /*case 9044*/ 
+            return "alingof";
+            __L112: /*case 9045*/ 
+            return "atomic";
+            __L113: /*case 9055*/ 
+            return "fastcall";
+            __L114: /*case 9056*/ 
+            return "stdcall";
+            __L115: /*case 9057*/ 
+            return "__cdecl";
+            __L116: /*case 9058*/ 
+            return "__declspec";
+            __L117: /*case 9059*/ 
+            return "__ASM";
+            __L118: /*case 9060*/ 
+            return "bool";
+            __L119: /*case 9061*/ 
+            return "__COMPLEX";
+            __L120: /*case 9062*/ 
+            return "_DECIMAL128";
+            __L121: /*case 9063*/ 
+            return "_DECIMAL32";
+            __L122: /*case 9064*/ 
+            return "_DECIMAL64";
+            __L123: /*case 9065*/ 
+            return "_Generic";
+            __L124: /*case 9066*/ 
+            return "_IMAGINARY";
+            __L125: /*case 9067*/ 
+            return "_Noreturn";
+            __L126: /*case 9068*/ 
+            return "static_assert";
+            __L127: /*case 9069*/ 
+            return "assert";
+            __L128: /*case 9070*/ 
+            return "_THREAD_LOCAL";
+            __L129: /*case 9071*/ 
+            return "typeof";
+            __L130: /*case 9072*/ 
+            return "true";
+            __L131: /*case 9073*/ 
+            return "false";
+            __L132: /*case 9074*/ 
+            return "nullptr";
+            __L133: /*case 9075*/ 
+            return "typeof_unqual";
+            __L134: /*case 9076*/ 
+            return "_BitInt";
+            __L135: /*case 9077*/ 
+            return "_Owner";
+            __L136: /*case 9078*/ 
+            return "Out";
+            __L137: /*case 9079*/ 
+            return "_OBJ_OWNER";
+            __L138: /*case 9080*/ 
+            return "_view";
+            __L139: /*case 9081*/ 
+            return "_Opt";
+            __L140: /*case 9082*/ 
+            return "static_debugex";
+            __L141: /*case 9083*/ 
+            return "static_debug_ex";
+            __L142: /*case 9084*/ 
+            return "static_state";
+            __L143: /*case 9085*/ 
+            return "static_set";
+            __L144: /*case 9086*/ 
+            return "IS_POINTER";
+            __L145: /*case 9087*/ 
+            return "IS_LVALUE";
+            __L146: /*case 9088*/ 
+            return "IS_CONST";
+            __L147: /*case 9089*/ 
+            return "IS_OWNER";
+            __L148: /*case 9090*/ 
+            return "_is_array";
+            __L149: /*case 9091*/ 
+            return "_is_function";
+            __L150: /*case 9092*/ 
+            return "_is_scalar";
+            __L151: /*case 9093*/ 
+            return "_is_arithmetic";
+            __L152: /*case 9094*/ 
+            return "is_floating_point";
+            __L153: /*case 9095*/ 
+            return "_is_integral";
+            __L154: /*case 129*/ 
+            return "pragma-end";
+            __L155: /*case 9031*/ 
+            return "_Countof";
+            __L156: /*case 11069*/ 
+            return "+=";
+            __L157: /*case 11581*/ 
+            return "-=";
+            __L158: /*case 10813*/ 
+            return "*=";
+            __L159: /*case 12093*/ 
+            return "/=";
+            __L160: /*case 9533*/ 
+            return "%=";
+            __L161: /*case 3947581*/ 
+            return "<<=";
+            __L162: /*case 4079165*/ 
+            return ">>=";
+            __L163: /*case 9789*/ 
+            return "&=";
+            __L164: /*case 31805*/ 
+            return "|=";
+            __L165: /*case 24125*/ 
+            return "^=";
+            __L166: /*case 9048*/ 
+            return "__builtin_va_end";
+            __L167: /*case 9049*/ 
+            return "__builtin_va_arg";
+            __L168: /*case 9050*/ 
+            return "__builtin_c23_va_start";
+            __L169: /*case 9051*/ 
+            return "__builtin_va_copy";
+            __L170: /*case 9052*/ 
+            return "__builtin_offsetof";
+            __L171: /* default */ 
+            goto __L0; /* break */
+
+        }
+        __L0:;
+    }
+    return get_token_name(tk);
 }
 
 
@@ -6581,7 +6922,7 @@ int stringify(char * input, int n, char output[])
 
 void print_literal(char * s)
 {
-    if (s == 0U)
+    if (s == 0)
     {
         printf("\"");
         printf("\"");
@@ -6592,19 +6933,19 @@ void print_literal(char * s)
     {
         /*switch*/
         {
-            register char __Ck8_temp = *s;
-            if (__Ck8_temp == 10) goto _CKL2; /*case 10*/
-            goto _CKL3;/*default*/
+            char __v0 = *s;
+            if (__v0 == 10) goto __L2; /*case 10*/
+            goto __L3; /* default */
 
             {
-                _CKL2: /*case 10*/ 
+                __L2: /*case 10*/ 
                 printf("\\n");
-                goto _CKL1; /*break*/
+                goto __L1; /* break */
 
-                _CKL3: /*default*/ 
+                __L3: /* default */ 
                 printf("%c", *s);
             }
-            _CKL1:;
+            __L1:;
         }
         s++;
     }
@@ -6638,17 +6979,17 @@ char *get_code_as_we_see_plus_macros(struct token_list * list)
         current = current->next;
     }
     cstr = ss.c_str;
-    ss.c_str = 0U;
+    ss.c_str = 0;
     ss_close(&ss);
     return cstr;
 }
 
 
-void print_code_as_we_see(struct token_list * list, unsigned char remove_comments)
+void print_code_as_we_see(struct token_list * list, unsigned char  remove_comments)
 {
     struct token * current;
 
-    if (list->head == 0U || list->tail == 0U)
+    if (list->head == 0 || list->tail == 0)
     {
         return;
     }
@@ -6657,7 +6998,7 @@ void print_code_as_we_see(struct token_list * list, unsigned char remove_comment
     {
         if (current->level == 0 && !(current->flags & 2) && !(current->flags & 64) && current->type != 8998)
         {
-            if ((current->flags & 4) && (current->prev != 0U && current->prev->type != 143))
+            if ((current->flags & 4) && (current->prev != 0 && current->prev->type != 143))
             {
                 printf(" ");
             }
@@ -6689,15 +7030,15 @@ void print_code_as_we_see(struct token_list * list, unsigned char remove_comment
 }
 
 
-char *get_code_as_we_see(struct token_list * list, unsigned char remove_comments)
+char *get_code_as_we_see(struct token_list * list, unsigned char  remove_comments)
 {
     struct osstream  ss;
     struct token * current;
     char * cstr;
 
-    if (list->head == 0U || list->tail == 0U)
+    if (list->head == 0 || list->tail == 0)
     {
-        return 0U;
+        return 0;
     }
     _cake_zmem(&ss, 12);
     current = list->head;
@@ -6705,7 +7046,7 @@ char *get_code_as_we_see(struct token_list * list, unsigned char remove_comments
     {
         if (current->level == 0 && !(current->flags & 2) && !(current->flags & 64) && current->type != 8998)
         {
-            if ((current->flags & 4) && (current->prev != 0U && current->prev->type != 143))
+            if ((current->flags & 4) && (current->prev != 0 && current->prev->type != 143))
             {
                 ss_fprintf(&ss, " ");
             }
@@ -6735,7 +7076,7 @@ char *get_code_as_we_see(struct token_list * list, unsigned char remove_comments
         current = current->next;
     }
     cstr = ss.c_str;
-    ss.c_str = 0U;
+    ss.c_str = 0;
     ss_close(&ss);
     return cstr;
 }
@@ -6746,9 +7087,9 @@ char *get_code_as_compiler_see(struct token_list * list)
     struct osstream  ss;
     struct token * current;
 
-    if (list->head == 0U || list->tail == 0U)
+    if (list->head == 0 || list->tail == 0)
     {
-        return 0U;
+        return 0;
     }
     _cake_zmem(&ss, 12);
     current = list->head;
@@ -6791,7 +7132,7 @@ char *print_preprocessed_to_string2(struct token * p_token)
     struct osstream  ss;
     struct token * current;
 
-    if (p_token == 0U)
+    if (p_token == 0)
     {
         return strdup("(null)");
     }
@@ -6869,14 +7210,14 @@ char *print_preprocessed_to_string(struct token * p_token)
 {
     struct osstream  ss;
     struct token * current;
-    unsigned char first;
+    unsigned char  first;
 
     _cake_zmem(&ss, 12);
     current = p_token;
     while (!(current->flags & 1) || current->type == 143 || current->type == 133 || current->type == 132 || current->type == 10 || current->type == 127)
     {
         current = current->next;
-        if (current == 0U)
+        if (current == 0)
         {
             return ss.c_str;
         }
@@ -6940,7 +7281,7 @@ void print_all_macros(struct preprocessor_ctx * prectx)
             struct token * token;
 
             entry = prectx->macros.table[i];
-            if (entry == 0U)
+            if (entry == 0)
             {
                 continue;
             }
@@ -6981,10 +7322,15 @@ void print_all_macros(struct preprocessor_ctx * prectx)
 }
 
 
+unsigned char is_diagnostic_enabled(struct options * options, int w);
 static unsigned char is_screaming_case(char * text);
 
 void naming_convention_macro(struct preprocessor_ctx * ctx, struct token * token)
 {
+    if (!is_diagnostic_enabled(&ctx->options, 11) || token->level != 0)
+    {
+        return;
+    }
     if (!is_screaming_case(token->lexeme))
     {
         preprocessor_diagnostic(63, ctx, token, "use SCREAMING_CASE for macros");
@@ -6995,7 +7341,7 @@ void naming_convention_macro(struct preprocessor_ctx * ctx, struct token * token
 
 static unsigned char is_screaming_case(char * text)
 {
-    unsigned char screaming_case;
+    unsigned char  screaming_case;
 
     screaming_case = 0;
     while (*text)

@@ -1,35 +1,5 @@
-// Cake 0.12.05 target=x86_msvc
-struct scope_list {
-    struct scope * head;
-    struct scope * tail;
-};
-
-struct flow_objects_view {
-    struct flow_object ** data;
-    int size;
-    int capacity;
-};
-
-struct flow_object_state {
-    char * dbg_name;
-    int state_number;
-    struct flow_object * pointed;
-    int state;
-    struct flow_objects_view  alternatives;
-    struct flow_object_state * next;
-};
-
-struct osstream {
-    char * c_str;
-    int size;
-    int capacity;
-};
-
-struct attribute_list {
-    int attributes_flags;
-    struct attribute * head;
-    struct attribute * tail;
-};
+/* Cake 0.12.26 x86_msvc */
+struct map_entry;
 
 struct hash_map {
     struct map_entry ** table;
@@ -37,41 +7,79 @@ struct hash_map {
     int size;
 };
 
-struct init_declarator_list {
-    struct init_declarator * head;
-    struct init_declarator * tail;
+struct scope {
+    int scope_level;
+    struct hash_map  tags;
+    struct hash_map  variables;
+    struct scope * next;
+    struct scope * previous;
 };
 
-struct defer_list {
-    struct defer_list_item * head;
-    struct defer_list_item * tail;
+struct token;
+
+struct function_specifier {
+    int flags;
+    struct token * token;
 };
 
-struct declaration {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct static_assert_declaration * static_assert_declaration;
-    struct pragma_declaration * pragma_declaration;
-    struct declaration_specifiers * declaration_specifiers;
-    struct init_declarator_list  init_declarator_list;
-    struct compound_statement * function_body;
-    struct defer_list  defer_list;
-    struct declarator * contract_declarator;
+struct type_name;
+
+struct atomic_type_specifier {
+    struct token * token;
+    struct type_name * type_name;
+};
+
+struct enumerator;
+
+struct enumerator_list {
+    struct enumerator * head;
+    struct enumerator * tail;
+};
+
+struct expression;
+
+struct typeof_specifier_argument {
+    struct expression * expression;
+    struct type_name * type_name;
+};
+
+struct macro;
+
+struct struct_entry;
+
+struct initializer_list;
+
+struct braced_initializer {
     struct token * first_token;
     struct token * last_token;
-    struct declaration * next;
+    struct initializer_list * initializer_list;
 };
 
-struct label_list {
-    struct label_list_item * head;
-    struct label_list_item * tail;
+struct argument_expression {
+    struct expression * expression;
+    struct argument_expression * next;
+    unsigned char  set_unkown;
 };
+
+struct expression_statement;
+struct simple_declaration;
+
+struct init_statement {
+    struct expression_statement * p_expression_statement;
+    struct simple_declaration * p_simple_declaration;
+};
+
+struct param;
 
 struct param_list {
-    unsigned char is_var_args;
-    unsigned char is_void;
+    unsigned char  is_var_args;
+    unsigned char  is_void;
     struct param * head;
     struct param * tail;
 };
+
+struct struct_or_union_specifier;
+struct enum_specifier;
 
 struct type {
     int category;
@@ -86,11 +94,57 @@ struct type {
     struct enum_specifier * enum_specifier;
     struct expression * array_num_elements_expression;
     unsigned int num_of_elements;
-    unsigned char has_static_array_size;
-    unsigned char address_of;
+    unsigned char  has_static_array_size;
+    unsigned char  address_of;
     struct param_list  params;
     struct type * next;
 };
+
+struct generic_association;
+
+struct generic_assoc_list {
+    struct generic_association * head;
+    struct generic_association * tail;
+};
+
+struct generic_selection {
+    struct expression * expression;
+    struct type_name * type_name;
+    struct expression * p_view_selected_expression;
+    struct generic_assoc_list  generic_assoc_list;
+    struct token * first_token;
+    struct token * last_token;
+};
+
+struct label;
+
+struct case_label_list {
+    struct label * head;
+    struct label * tail;
+};
+
+struct attribute_specifier_sequence;
+struct primary_block;
+struct jump_statement;
+
+struct unlabeled_statement {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct expression_statement * expression_statement;
+    struct primary_block * primary_block;
+    struct jump_statement * jump_statement;
+};
+
+struct marker {
+    char * file;
+    int line;
+    int start_col;
+    int end_col;
+    struct token * p_token_caret;
+    struct token * p_token_begin;
+    struct token * p_token_end;
+};
+
+struct attribute_specifier;
 
 struct attribute_specifier_sequence {
     struct token * first_token;
@@ -101,53 +155,9 @@ struct attribute_specifier_sequence {
     struct attribute_specifier * tail;
 };
 
-struct declaration_specifier {
-    struct storage_class_specifier * storage_class_specifier;
-    struct type_specifier_qualifier * type_specifier_qualifier;
-    struct function_specifier * function_specifier;
-    struct alignment_specifier * alignment_specifier;
-    struct declaration_specifier * next;
-};
-
-struct static_assert_declaration {
-    struct token * first_token;
-    struct token * last_token;
-    struct expression * constant_expression;
-    struct token * string_literal_opt;
-};
-
-struct secondary_block {
-    struct token * first_token;
-    struct token * last_token;
-    struct statement * statement;
-};
-
-struct declaration_list {
-    struct declaration * head;
-    struct declaration * tail;
-};
-
-struct array_declarator {
-    struct direct_declarator * direct_declarator;
-    struct expression * assignment_expression;
-    struct expression * expression;
-    struct type_qualifier_list * type_qualifier_list_opt;
-    struct token * token;
-    struct token * static_token_opt;
-};
-
-struct scope {
-    int scope_level;
-    struct hash_map  tags;
-    struct hash_map  variables;
-    struct scope * next;
-    struct scope * previous;
-};
-
-struct function_declarator {
-    struct direct_declarator * direct_declarator;
-    struct scope  parameters_scope;
-    struct parameter_type_list * parameter_type_list_opt;
+struct diagnostic_id_stack {
+    int size;
+    int stack[10];
 };
 
 struct diagnostic {
@@ -166,33 +176,59 @@ struct options {
     int target;
     struct diagnostic_stack  diagnostic_stack;
     int style;
-    unsigned char show_includes;
-    unsigned char disable_assert;
-    unsigned char flow_analysis;
-    unsigned char test_mode;
-    unsigned char null_checks_enabled;
-    unsigned char ownership_enabled;
-    unsigned char preprocess_only;
-    unsigned char preprocess_def_macro;
-    unsigned char clear_error_at_end;
-    unsigned char sarif_output;
-    unsigned char no_output;
-    unsigned char const_literal;
-    unsigned char visual_studio_ouput_format;
-    unsigned char disable_colors;
-    unsigned char dump_tokens;
-    unsigned char dump_pptokens;
-    unsigned char auto_config;
-    unsigned char do_static_debug;
+    unsigned char  show_includes;
+    unsigned char  disable_assert;
+    unsigned char  flow_analysis;
+    unsigned char  test_mode;
+    unsigned char  null_checks_enabled;
+    unsigned char  ownership_enabled;
+    unsigned char  preprocess_only;
+    unsigned char  preprocess_def_macro;
+    unsigned char  clear_error_at_end;
+    unsigned char  sarif_output;
+    unsigned char  no_output;
+    unsigned char  const_literal;
+    unsigned char  visual_studio_ouput_format;
+    unsigned char  disable_colors;
+    unsigned char  dump_tokens;
+    unsigned char  dump_pptokens;
+    unsigned char  auto_config;
+    unsigned char  do_static_debug;
     int static_debug_lines;
     char output[200];
     char sarifpath[200];
+};
+
+struct parameter_declaration;
+
+struct parameter_list {
+    struct parameter_declaration * head;
+    struct parameter_declaration * tail;
+};
+
+struct scope_list {
+    struct scope * head;
+    struct scope * tail;
+};
+
+struct label_list_item;
+
+struct label_list {
+    struct label_list_item * head;
+    struct label_list_item * tail;
 };
 
 struct token_list {
     struct token * head;
     struct token * tail;
 };
+
+struct declarator;
+struct try_statement;
+struct defer_statement;
+struct selection_statement;
+struct _iobuf;
+struct report;
 
 struct parser_ctx {
     struct options  options;
@@ -209,145 +245,133 @@ struct parser_ctx {
     struct token_list  input_list;
     struct token * current;
     struct token * previous;
-    unsigned char inside_generic_association;
+    unsigned char  inside_generic_association;
     int label_id;
+    unsigned int unique_tag_id;
+    int anonymous_struct_count;
     struct report * p_report;
 };
 
-union _struct_tag_12 {
-    signed char signed_int8;
-    unsigned char unsigned_int8;
-    short signed_int16;
-    unsigned short unsigned_int16;
-    int signed_int32;
-    unsigned int unsigned_int32;
-    long long signed_int64;
-    long long unsigned_int64;
-    float float32;
-    double float64;
+union __tag12 {
+    signed long long host_long_long;
+    unsigned long long host_u_long_long;
+    float host_float;
+    double host_double;
+    long double long_double_val;
+};
+
+struct object;
+
+struct object_list {
+    struct object * head;
+    struct object * tail;
+    unsigned int count;
 };
 
 struct object {
     int state;
     int value_type;
     struct type  type;
-    char * debug_name;
-    union _struct_tag_12  value;
+    char * member_designator;
+    union __tag12  value;
     struct object * parent;
     struct object * p_ref;
     struct expression * p_init_expression;
-    struct object * members;
+    struct object_list  members;
     struct object * next;
 };
 
-struct enumerator {
-    unsigned char has_shared_ownership;
-    struct token * token;
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct expression * constant_expression_opt;
-    struct enum_specifier * enum_specifier;
-    struct enumerator * next;
-    struct object  value;
+struct argument_expression_list {
+    struct argument_expression * head;
+    struct argument_expression * tail;
 };
 
-struct object_name_list {
-    char * name;
-    struct object_name_list * previous;
-};
+struct compound_statement;
+struct init_declarator;
 
-struct try_statement {
-    struct secondary_block * secondary_block;
-    struct secondary_block * catch_secondary_block_opt;
-    struct token * first_token;
-    struct token * last_token;
-    struct token * catch_token_opt;
-    int catch_label_id;
-};
-
-struct balanced_token {
-    struct token * token;
-    struct balanced_token * next;
-};
-
-struct case_label_list {
-    struct label * head;
-    struct label * tail;
-};
-
-struct member_declarator_list {
-    struct member_declarator * head;
-    struct member_declarator * tail;
-};
-
-struct type_qualifier_list {
-    int flags;
-    struct type_qualifier * head;
-    struct type_qualifier * tail;
-};
-
-struct parameter_list {
-    struct parameter_declaration * head;
-    struct parameter_declaration * tail;
-};
-
-union _struct_tag_0 {
-    unsigned int number;
-    struct enum_specifier * p_enum_specifier;
-    struct enumerator * p_enumerator;
-    struct struct_or_union_specifier * p_struct_or_union_specifier;
-    struct declarator * p_declarator;
-    struct init_declarator * p_init_declarator;
-    struct macro * p_macro;
-    struct struct_entry * p_struct_entry;
-};
-
-struct generic_assoc_list {
-    struct generic_association * head;
-    struct generic_association * tail;
-};
-
-struct generic_selection {
-    struct expression * expression;
+struct expression {
+    int expression_type;
+    struct type  type;
+    struct object  object;
     struct type_name * type_name;
-    struct expression * p_view_selected_expression;
-    struct generic_assoc_list  generic_assoc_list;
+    struct braced_initializer * braced_initializer;
+    struct compound_statement * compound_statement;
+    struct generic_selection * generic_selection;
     struct token * first_token;
     struct token * last_token;
-};
-
-struct labeled_statement {
-    struct label * label;
-    struct statement * statement;
-};
-
-struct true_false_set_item {
-    struct expression * p_expression;
-    int true_branch_state;
-    int false_branch_state;
-};
-
-struct defer_list_item {
+    struct token * offsetof_member_designator;
     struct declarator * declarator;
-    struct defer_statement * defer_statement;
-    struct defer_list_item * next;
+    struct init_declarator * p_init_declarator;
+    int member_index;
+    struct argument_expression_list  argument_expression_list;
+    struct expression * condition_expr;
+    struct expression * left;
+    struct expression * right;
+    unsigned char  is_assignment_expression;
 };
 
-struct init_declarator {
-    unsigned char has_shared_ownership;
-    struct declarator * p_declarator;
+struct specifier_qualifier_list;
+struct member_declarator_list;
+struct static_assert_declaration;
+struct pragma_declaration;
+
+struct member_declaration {
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct member_declarator_list * member_declarator_list_opt;
+    struct static_assert_declaration * static_assert_declaration;
+    struct pragma_declaration * pragma_declaration;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct member_declaration * next;
+};
+
+struct designation;
+struct initializer;
+
+struct initializer_list_item {
+    struct designation * designation;
     struct initializer * initializer;
-    struct init_declarator * next;
+    struct initializer_list_item * next;
 };
 
-struct block_item_list {
-    struct block_item * head;
-    struct block_item * tail;
+struct declaration_specifiers;
+
+struct parameter_declaration {
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct declaration_specifiers * declaration_specifiers;
+    struct declarator * declarator;
+    struct parameter_declaration * next;
 };
 
-struct designation {
-    struct designator_list * designator_list;
-    struct token * token;
+struct flow_object;
+
+struct flow_objects_view {
+    struct flow_object ** data;
+    int size;
+    int capacity;
 };
+
+struct flow_object_state {
+    char * dbg_name;
+    int state_number;
+    struct flow_object * pointed;
+    int state;
+    struct flow_objects_view  alternatives;
+    struct flow_object_state * next;
+};
+
+struct flow_object {
+    unsigned int visit_number;
+    struct flow_object * parent;
+    struct declarator * p_declarator_origin;
+    struct expression * p_expression_origin;
+    struct flow_objects_view  members;
+    struct flow_object_state  current;
+    int id;
+    unsigned char  is_temporary;
+};
+
+struct typeof_specifier;
+struct declaration_specifier;
 
 struct declaration_specifiers {
     int attributes_flags;
@@ -368,71 +392,157 @@ struct declaration_specifiers {
     struct declaration_specifier * tail;
 };
 
-struct member_declaration {
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct member_declarator_list * member_declarator_list_opt;
-    struct static_assert_declaration * static_assert_declaration;
-    struct pragma_declaration * pragma_declaration;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct member_declaration * next;
+struct initializer {
+    struct token * first_token;
+    struct braced_initializer * braced_initializer;
+    struct expression * assignment_expression;
 };
 
-struct enumerator_list {
-    struct enumerator * head;
-    struct enumerator * tail;
+struct balanced_token;
+
+struct balanced_token_sequence {
+    struct balanced_token * head;
+    struct balanced_token * tail;
 };
 
-struct attribute_argument_clause {
-    struct balanced_token_sequence * p_balanced_token_sequence;
+struct balanced_token {
     struct token * token;
+    struct balanced_token * next;
 };
 
-struct init_statement {
-    struct expression_statement * p_expression_statement;
-    struct simple_declaration * p_simple_declaration;
-};
-
-struct expression_statement {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct expression * expression_opt;
-};
-
-struct argument_expression_list {
-    struct argument_expression * head;
-    struct argument_expression * tail;
-};
-
-struct function_specifier {
+struct storage_class_specifier {
     int flags;
     struct token * token;
 };
 
-struct typeof_specifier {
-    struct token * first_token;
-    struct token * last_token;
-    struct typeof_specifier_argument * typeof_specifier_argument;
-    struct type  type;
+struct attribute;
+
+struct attribute_list {
+    int attributes_flags;
+    struct attribute * head;
+    struct attribute * tail;
 };
 
-struct expression {
-    int expression_type;
+struct member_declarator {
+    struct declarator * declarator;
+    struct expression * constant_expression;
+    struct member_declarator * next;
+};
+
+struct enum_specifier {
+    unsigned char  has_shared_ownership;
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    char tag_name[200];
+    struct enumerator_list  enumerator_list;
+    struct token * tag_token;
+    struct token * first_token;
+    struct enum_specifier * p_complete_enum_specifier;
+};
+
+struct declaration;
+
+struct declaration_list {
+    struct declaration * head;
+    struct declaration * tail;
+};
+
+struct ast {
+    struct token_list  token_list;
+    struct declaration_list  declaration_list;
+};
+
+struct member_declarator_list {
+    struct member_declarator * head;
+    struct member_declarator * tail;
+};
+
+struct _iobuf {
+    void * _Placeholder;
+};
+
+struct __crt_multibyte_data;
+
+struct __crt_locale_data;
+
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
+};
+
+struct generic_association {
     struct type  type;
-    struct object  object;
-    struct type_name * type_name;
-    struct braced_initializer * braced_initializer;
-    struct compound_statement * compound_statement;
-    struct generic_selection * generic_selection;
+    struct type_name * p_type_name;
+    struct expression * expression;
     struct token * first_token;
     struct token * last_token;
-    struct token * offsetof_member_designator;
-    struct declarator * declarator;
-    struct init_declarator * p_init_declarator;
-    int member_index;
-    struct argument_expression_list  argument_expression_list;
-    struct expression * condition_expr;
-    struct expression * left;
-    struct expression * right;
-    unsigned char is_assignment_expression;
+    struct generic_association * next;
+};
+
+struct init_declarator_list {
+    struct init_declarator * head;
+    struct init_declarator * tail;
+};
+
+struct param {
+    struct type  type;
+    struct param * next;
+};
+
+struct defer_list_item;
+
+struct defer_list {
+    struct defer_list_item * head;
+    struct defer_list_item * tail;
+};
+
+struct condition;
+struct secondary_block;
+
+struct selection_statement {
+    struct init_statement * p_init_statement;
+    struct condition * condition;
+    struct secondary_block * secondary_block;
+    struct secondary_block * else_secondary_block_opt;
+    struct token * open_parentesis_token;
+    struct token * close_parentesis_token;
+    struct case_label_list  label_list;
+    struct token * first_token;
+    struct token * last_token;
+    struct token * else_token_opt;
+    struct defer_list  defer_list;
+    int label_id;
+};
+
+struct pointer;
+struct direct_declarator;
+
+struct declarator {
+    unsigned char  has_shared_ownership;
+    struct token * first_token_opt;
+    struct token * last_token_opt;
+    struct pointer * pointer;
+    struct direct_declarator * direct_declarator;
+    struct declaration_specifiers * declaration_specifiers;
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct token * name_opt;
+    struct compound_statement * function_body;
+    struct declarator * p_complete_declarator;
+    int num_uses;
+    struct object  object;
+    struct flow_object * p_flow_object;
+    struct expression * p_expression_true;
+    struct expression * p_expression_false;
+    struct expression * p_alias_of_expression;
+    struct type  type;
+    unsigned char  declarator_renamed;
+};
+
+struct designator;
+
+struct designator_list {
+    struct designator * head;
+    struct designator * tail;
 };
 
 struct member_declaration_list {
@@ -443,20 +553,125 @@ struct member_declaration_list {
 };
 
 struct struct_or_union_specifier {
-    unsigned char has_shared_ownership;
+    unsigned char  has_shared_ownership;
     struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
     struct member_declaration_list  member_declaration_list;
     struct token * first_token;
     struct token * last_token;
-    unsigned char is_owner;
+    unsigned char  is_owner;
     struct token * tagtoken;
+    unsigned int unique_id;
     char tag_name[200];
-    unsigned char has_anonymous_tag;
-    unsigned char show_anonymous_tag;
+    unsigned char  has_anonymous_tag;
+    unsigned char  show_anonymous_tag;
     int scope_level;
     int visit_moved;
     struct struct_or_union_specifier * complete_struct_or_union_specifier_indirection;
 };
+
+struct jump_statement {
+    struct token * label;
+    struct token * first_token;
+    struct token * last_token;
+    struct expression * expression_opt;
+    int label_id;
+    struct defer_list  defer_list;
+};
+
+struct report {
+    int no_files;
+    double cpu_time_used_sec;
+    int error_count;
+    int warnings_count;
+    int info_count;
+    unsigned char  test_mode;
+    int test_failed;
+    int test_succeeded;
+    unsigned char  ignore_this_report;
+};
+
+struct enumerator {
+    unsigned char  has_shared_ownership;
+    struct token * token;
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct expression * constant_expression_opt;
+    struct enum_specifier * enum_specifier;
+    struct enumerator * next;
+    struct object  value;
+};
+
+union __tag0 {
+    unsigned int number;
+    struct enum_specifier * p_enum_specifier;
+    struct enumerator * p_enumerator;
+    struct struct_or_union_specifier * p_struct_or_union_specifier;
+    struct declarator * p_declarator;
+    struct init_declarator * p_init_declarator;
+    struct macro * p_macro;
+    struct struct_entry * p_struct_entry;
+};
+
+struct map_entry {
+    struct map_entry * next;
+    unsigned int hash;
+    char * key;
+    int type;
+    union __tag0  data;
+};
+
+struct pragma_declaration {
+    struct token * first_token;
+    struct token * last_token;
+};
+
+struct static_assert_declaration {
+    struct token * first_token;
+    struct token * last_token;
+    struct expression * constant_expression;
+    struct token * string_literal_opt;
+};
+
+struct array_declarator;
+struct function_declarator;
+
+struct direct_declarator {
+    struct token * name_opt;
+    struct token * p_calling_convention;
+    struct declarator * declarator;
+    struct array_declarator * array_declarator;
+    struct function_declarator * function_declarator;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+};
+
+struct alignment_specifier {
+    int flags;
+    struct type_name * type_name;
+    struct expression * constant_expression;
+    struct token * token;
+};
+
+struct block_item;
+
+struct block_item_list {
+    struct block_item * head;
+    struct block_item * tail;
+};
+
+struct declaration {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct static_assert_declaration * static_assert_declaration;
+    struct pragma_declaration * pragma_declaration;
+    struct declaration_specifiers * declaration_specifiers;
+    struct init_declarator_list  init_declarator_list;
+    struct compound_statement * function_body;
+    struct defer_list  defer_list;
+    struct declarator * contract_declarator;
+    struct token * first_token;
+    struct token * last_token;
+    struct declaration * next;
+};
+
+struct iteration_statement;
 
 struct primary_block {
     struct compound_statement * compound_statement;
@@ -474,320 +689,24 @@ struct compound_statement {
     struct defer_list  defer_list;
 };
 
-struct attribute_specifier {
-    int ack;
+struct statement;
+
+struct secondary_block {
     struct token * first_token;
     struct token * last_token;
-    struct attribute_list * attribute_list;
-    struct attribute_specifier * next;
+    struct statement * statement;
 };
 
-struct map_entry {
-    struct map_entry * next;
-    unsigned int hash;
-    char * key;
-    int type;
-    union _struct_tag_0  data;
-};
-
-struct direct_declarator {
-    struct token * name_opt;
-    struct token * p_calling_convention;
-    struct declarator * declarator;
-    struct array_declarator * array_declarator;
-    struct function_declarator * function_declarator;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-};
-
-struct marker {
-    char * file;
-    int line;
-    int start_col;
-    int end_col;
-    struct token * p_token_caret;
-    struct token * p_token_begin;
-    struct token * p_token_end;
-};
-
-struct initializer_list_item {
-    struct designation * designation;
-    struct initializer * initializer;
-    struct initializer_list_item * next;
-};
-
-struct generic_association {
-    struct type  type;
-    struct type_name * p_type_name;
-    struct expression * expression;
-    struct token * first_token;
-    struct token * last_token;
-    struct generic_association * next;
-};
-
-struct declarator {
-    unsigned char has_shared_ownership;
-    struct token * first_token_opt;
-    struct token * last_token_opt;
-    struct pointer * pointer;
-    struct direct_declarator * direct_declarator;
-    struct declaration_specifiers * declaration_specifiers;
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct token * name_opt;
-    struct compound_statement * function_body;
-    struct declarator * p_complete_declarator;
-    int num_uses;
-    struct object  object;
-    struct flow_object * p_flow_object;
-    struct expression * p_expression_true;
-    struct expression * p_expression_false;
-    struct expression * p_alias_of_expression;
-    struct type  type;
-    unsigned char declarator_renamed;
-};
-
-struct simple_declaration {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct declaration_specifiers * p_declaration_specifiers;
-    struct init_declarator_list  init_declarator_list;
-    struct token * first_token;
-    struct token * last_token;
-};
-
-struct storage_class_specifier {
-    int flags;
-    struct token * token;
+struct osstream {
+    char * c_str;
+    int size;
+    int capacity;
 };
 
 struct flow_objects {
     struct flow_object ** data;
     int size;
     int capacity;
-};
-
-struct selection_statement {
-    struct init_statement * p_init_statement;
-    struct condition * condition;
-    struct secondary_block * secondary_block;
-    struct secondary_block * else_secondary_block_opt;
-    struct token * open_parentesis_token;
-    struct token * close_parentesis_token;
-    struct case_label_list  label_list;
-    struct token * first_token;
-    struct token * last_token;
-    struct token * else_token_opt;
-    struct defer_list  defer_list;
-    int label_id;
-};
-
-struct braced_initializer {
-    struct token * first_token;
-    struct token * last_token;
-    struct initializer_list * initializer_list;
-};
-
-struct argument_expression {
-    struct expression * expression;
-    struct argument_expression * next;
-    unsigned char set_unkown;
-};
-
-struct alignment_specifier {
-    int flags;
-    struct type_name * type_name;
-    struct expression * constant_expression;
-    struct token * token;
-};
-
-struct type_qualifier {
-    int flags;
-    struct token * token;
-    struct type_qualifier * next;
-};
-
-struct pointer {
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct type_qualifier_list * type_qualifier_list_opt;
-    struct token * calling_convention;
-    struct pointer * pointer;
-};
-
-struct type_name {
-    struct token * first_token;
-    struct token * last_token;
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct declarator * abstract_declarator;
-    struct type  type;
-};
-
-struct designator {
-    struct expression * constant_expression_opt;
-    struct token * token;
-    struct designator * next;
-};
-
-struct balanced_token_sequence {
-    struct balanced_token * head;
-    struct balanced_token * tail;
-};
-
-struct enum_specifier {
-    unsigned char has_shared_ownership;
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    char tag_name[200];
-    struct enumerator_list  enumerator_list;
-    struct token * tag_token;
-    struct token * first_token;
-    struct enum_specifier * p_complete_enum_specifier;
-};
-
-struct type_specifier {
-    int flags;
-    struct token * token;
-    struct struct_or_union_specifier * struct_or_union_specifier;
-    struct typeof_specifier * typeof_specifier;
-    struct enum_specifier * enum_specifier;
-    struct declarator * typedef_declarator;
-    struct atomic_type_specifier * atomic_type_specifier;
-};
-
-struct atomic_type_specifier {
-    struct token * token;
-    struct type_name * type_name;
-};
-
-struct designator_list {
-    struct designator * head;
-    struct designator * tail;
-};
-
-struct iteration_statement {
-    struct token * first_token;
-    struct token * second_token;
-    struct secondary_block * secondary_block;
-    struct expression * expression1;
-    struct expression * expression2;
-    struct expression * expression0;
-    struct declaration * declaration;
-    struct defer_list  defer_list;
-};
-
-struct initializer {
-    struct token * first_token;
-    struct braced_initializer * braced_initializer;
-    struct expression * assignment_expression;
-};
-
-struct initializer_list {
-    struct token * first_token;
-    struct initializer_list_item * head;
-    struct initializer_list_item * tail;
-    int size;
-};
-
-struct parameter_type_list {
-    unsigned char is_var_args;
-    unsigned char is_void;
-    struct parameter_list * parameter_list;
-};
-
-struct object_visitor {
-    int member_index;
-    struct type * p_type;
-    struct flow_object * p_object;
-};
-
-struct label {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct expression * constant_expression;
-    struct expression * constant_expression_end;
-    struct token * p_identifier_opt;
-    struct token * p_first_token;
-    struct label * next;
-    int label_id;
-};
-
-struct condition {
-    struct expression * expression;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct declaration_specifiers * p_declaration_specifiers;
-    struct init_declarator * p_init_declarator;
-    struct token * first_token;
-    struct token * last_token;
-};
-
-struct label_state {
-    char * label_name;
-    int state_number;
-};
-
-struct diagnostic_id_stack {
-    int size;
-    int stack[10];
-};
-
-struct jump_statement {
-    struct token * label;
-    struct token * first_token;
-    struct token * last_token;
-    struct expression * expression_opt;
-    int label_id;
-    struct defer_list  defer_list;
-};
-
-struct ast {
-    struct token_list  token_list;
-    struct declaration_list  declaration_list;
-};
-
-struct unlabeled_statement {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct expression_statement * expression_statement;
-    struct primary_block * primary_block;
-    struct jump_statement * jump_statement;
-};
-
-struct param {
-    struct type  type;
-    struct param * next;
-};
-
-struct report {
-    int no_files;
-    double cpu_time_used_sec;
-    int error_count;
-    int warnings_count;
-    int info_count;
-    unsigned char test_mode;
-    int test_failed;
-    int test_succeeded;
-    unsigned char ignore_this_report;
-};
-
-struct parameter_declaration {
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct declaration_specifiers * declaration_specifiers;
-    struct declarator * declarator;
-    struct parameter_declaration * next;
-};
-
-struct true_false_set {
-    struct true_false_set_item * data;
-    int size;
-    int capacity;
-};
-
-struct typeof_specifier_argument {
-    struct expression * expression;
-    struct type_name * type_name;
-};
-
-struct attribute {
-    int msvc_declspec_flags;
-    int attributes_flags;
-    struct attribute_argument_clause * attribute_argument_clause;
-    struct token * attribute_token;
-    struct attribute * next;
 };
 
 struct token {
@@ -801,6 +720,180 @@ struct token {
     struct token * token_origin;
     struct token * next;
     struct token * prev;
+};
+
+struct true_false_set_item {
+    struct expression * p_expression;
+    int true_branch_state;
+    int false_branch_state;
+};
+
+struct type_qualifier_list;
+
+struct pointer {
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct type_qualifier_list * type_qualifier_list_opt;
+    struct token * calling_convention;
+    struct pointer * pointer;
+};
+
+struct type_specifier {
+    int flags;
+    struct token * token;
+    struct struct_or_union_specifier * struct_or_union_specifier;
+    struct typeof_specifier * typeof_specifier;
+    struct enum_specifier * enum_specifier;
+    struct declarator * typedef_declarator;
+    struct atomic_type_specifier * atomic_type_specifier;
+};
+
+struct typeof_specifier {
+    struct token * first_token;
+    struct token * last_token;
+    struct typeof_specifier_argument * typeof_specifier_argument;
+    struct type  type;
+};
+
+struct parameter_type_list {
+    unsigned char  is_var_args;
+    unsigned char  is_void;
+    struct parameter_list * parameter_list;
+};
+
+struct type_qualifier {
+    int flags;
+    struct token * token;
+    struct type_qualifier * next;
+};
+
+struct condition {
+    struct expression * expression;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct declaration_specifiers * p_declaration_specifiers;
+    struct init_declarator * p_init_declarator;
+    struct token * first_token;
+    struct token * last_token;
+};
+
+struct designator {
+    struct expression * constant_expression_opt;
+    struct token * token;
+    struct designator * next;
+};
+
+struct type_specifier_qualifier {
+    struct type_specifier * type_specifier;
+    struct type_qualifier * type_qualifier;
+    struct alignment_specifier * alignment_specifier;
+    struct type_specifier_qualifier * next;
+};
+
+struct iteration_statement {
+    struct token * first_token;
+    struct token * second_token;
+    struct secondary_block * secondary_block;
+    struct expression * expression1;
+    struct expression * expression2;
+    struct expression * expression0;
+    struct declaration * declaration;
+    struct defer_list  defer_list;
+};
+
+struct declaration_specifier {
+    struct storage_class_specifier * storage_class_specifier;
+    struct type_specifier_qualifier * type_specifier_qualifier;
+    struct function_specifier * function_specifier;
+    struct alignment_specifier * alignment_specifier;
+    struct declaration_specifier * next;
+};
+
+struct init_declarator {
+    unsigned char  has_shared_ownership;
+    struct declarator * p_declarator;
+    struct initializer * initializer;
+    struct init_declarator * next;
+};
+
+struct object_name_list {
+    char * name;
+    struct object_name_list * previous;
+};
+
+struct array_declarator {
+    struct direct_declarator * direct_declarator;
+    struct expression * assignment_expression;
+    struct expression * expression;
+    struct type_qualifier_list * type_qualifier_list_opt;
+    struct token * token;
+    struct token * static_token_opt;
+};
+
+struct true_false_set {
+    struct true_false_set_item * data;
+    int size;
+    int capacity;
+};
+
+struct attribute_specifier {
+    int ack;
+    struct token * first_token;
+    struct token * last_token;
+    struct attribute_list * attribute_list;
+    struct attribute_specifier * next;
+};
+
+struct type_qualifier_list {
+    int flags;
+    struct type_qualifier * head;
+    struct type_qualifier * tail;
+};
+
+struct label_state {
+    char * label_name;
+    int state_number;
+};
+
+struct flow_visit_ctx {
+    struct secondary_block * catch_secondary_block_opt;
+    struct parser_ctx * ctx;
+    struct ast  ast;
+    struct type * p_return_type;
+    int parameter_list;
+    int state_number_generator;
+    unsigned char  expression_is_not_evaluated;
+    unsigned char  inside_assert;
+    unsigned char  inside_contract;
+    unsigned char  inside_loop;
+    int throw_join_state;
+    int break_join_state;
+    int initial_state;
+    struct flow_objects  arena;
+    struct label_state labels[100];
+    int labels_size;
+};
+
+struct attribute_argument_clause;
+
+struct attribute {
+    int msvc_declspec_flags;
+    int attributes_flags;
+    struct attribute_argument_clause * attribute_argument_clause;
+    struct token * attribute_token;
+    struct attribute * next;
+};
+
+struct label_list_item {
+    struct token * p_last_usage;
+    struct token * p_defined;
+    struct label_list_item * next;
+};
+
+struct simple_declaration {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct declaration_specifiers * p_declaration_specifiers;
+    struct init_declarator_list  init_declarator_list;
+    struct token * first_token;
+    struct token * last_token;
 };
 
 struct specifier_qualifier_list {
@@ -818,15 +911,29 @@ struct specifier_qualifier_list {
     struct attribute_specifier_sequence * p_attribute_specifier_sequence;
 };
 
-struct defer_statement {
+struct try_statement {
+    struct secondary_block * secondary_block;
+    struct secondary_block * catch_secondary_block_opt;
     struct token * first_token;
     struct token * last_token;
-    struct secondary_block * secondary_block;
+    struct token * catch_token_opt;
+    int catch_label_id;
 };
 
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
+struct defer_list_item {
+    struct declarator * declarator;
+    struct defer_statement * defer_statement;
+    struct defer_list_item * next;
+};
+
+struct labeled_statement {
+    struct label * label;
+    struct statement * statement;
+};
+
+struct statement {
+    struct labeled_statement * labeled_statement;
+    struct unlabeled_statement * unlabeled_statement;
 };
 
 struct block_item {
@@ -837,73 +944,70 @@ struct block_item {
     struct block_item * next;
 };
 
-struct flow_visit_ctx {
-    struct secondary_block * catch_secondary_block_opt;
-    struct parser_ctx * ctx;
-    struct ast  ast;
-    struct type * p_return_type;
-    int parameter_list;
-    int state_number_generator;
-    unsigned char expression_is_not_evaluated;
-    unsigned char inside_assert;
-    unsigned char inside_contract;
-    unsigned char inside_loop;
-    int throw_join_state;
-    int break_join_state;
-    int initial_state;
-    struct flow_objects  arena;
-    struct label_state labels[100];
-    int labels_size;
+struct expression_statement {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct expression * expression_opt;
 };
 
-struct label_list_item {
-    struct token * p_last_usage;
-    struct token * p_defined;
-    struct label_list_item * next;
+struct function_declarator {
+    struct direct_declarator * direct_declarator;
+    struct scope  parameters_scope;
+    struct parameter_type_list * parameter_type_list_opt;
 };
 
-struct member_declarator {
-    struct declarator * declarator;
+struct attribute_argument_clause {
+    struct balanced_token_sequence * p_balanced_token_sequence;
+    struct token * token;
+};
+
+struct label {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
     struct expression * constant_expression;
-    struct member_declarator * next;
+    struct expression * constant_expression_end;
+    struct token * p_identifier_opt;
+    struct token * p_first_token;
+    struct label * next;
+    int label_id;
 };
 
-struct flow_object {
-    unsigned int visit_number;
-    struct flow_object * parent;
-    struct declarator * p_declarator_origin;
-    struct expression * p_expression_origin;
-    struct flow_objects_view  members;
-    struct flow_object_state  current;
-    int id;
-    unsigned char is_temporary;
+struct object_visitor {
+    int member_index;
+    struct type * p_type;
+    struct flow_object * p_object;
 };
 
-struct type_specifier_qualifier {
-    struct type_specifier * type_specifier;
-    struct type_qualifier * type_qualifier;
-    struct alignment_specifier * alignment_specifier;
-    struct type_specifier_qualifier * next;
-};
-
-struct _iobuf {
-    void * _Placeholder;
-};
-
-struct statement {
-    struct labeled_statement * labeled_statement;
-    struct unlabeled_statement * unlabeled_statement;
-};
-
-struct pragma_declaration {
+struct defer_statement {
     struct token * first_token;
     struct token * last_token;
+    struct secondary_block * secondary_block;
+};
+
+struct initializer_list {
+    struct token * first_token;
+    struct initializer_list_item * head;
+    struct initializer_list_item * tail;
+    int size;
+};
+
+struct type_name {
+    struct token * first_token;
+    struct token * last_token;
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct declarator * abstract_declarator;
+    struct type  type;
+};
+
+struct designation {
+    struct designator_list * designator_list;
+    struct token * token;
 };
 
 
-static void _cake_zmem(void *dest, register unsigned int len)
+static void _cake_zmem(void *dest, unsigned int len)
 {
-  register unsigned char *ptr = (unsigned char*)dest;
+  unsigned char *ptr;
+
+  ptr = (unsigned char*)dest;
   while (len-- > 0) *ptr++ = 0;
 }
 
@@ -1037,7 +1141,7 @@ static int __cdecl printf(char * _Format, ...);
 static int __cdecl _vfprintf_l(struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 int __cdecl __stdio_common_vfprintf(unsigned long long _Options, struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 static unsigned long long *__cdecl __local_stdio_printf_options(void);
-static unsigned long long __Ck0__OptionsStorage;
+static unsigned long long __c0__OptionsStorage;
 struct _iobuf *__cdecl __acrt_iob_func(unsigned int _Ix);
 
 void flow_object_print_state(struct flow_object * p)
@@ -1049,7 +1153,7 @@ void flow_object_print_state(struct flow_object * p)
 
 static unsigned long long *__cdecl __local_stdio_printf_options(void)
 {
-    return &__Ck0__OptionsStorage;
+    return &__c0__OptionsStorage;
 }
 
 static int __cdecl _vfprintf_l(struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList)
@@ -1062,15 +1166,15 @@ static int __cdecl printf(char * _Format, ...)
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
-    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0U, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
+    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0, _ArgList);
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 
 static void object_state_to_string_core(int e)
 {
-    unsigned char first;
+    unsigned char  first;
 
     first = 1;
     printf("\"");
@@ -1175,8 +1279,8 @@ unsigned char flow_object_is_expansible(struct flow_object * p_object)
 struct type type_remove_pointer(struct type * p_type);
 unsigned char type_is_void(struct type * p_type);
 struct flow_object *make_flow_object(struct flow_visit_ctx * ctx, struct type * p_type, struct declarator * p_declarator_opt, struct expression * p_expression_origin);
-unsigned char type_is_opt(struct type * p_type, unsigned char nullable_enabled);
-void flow_object_set_unknown(struct type * p_type, unsigned char t_is_nullable, struct flow_object * p_object, unsigned char nullable_enabled);
+unsigned char type_is_opt(struct type * p_type, unsigned char  nullable_enabled);
+void flow_object_set_unknown(struct type * p_type, unsigned char  t_is_nullable, struct flow_object * p_object, unsigned char  nullable_enabled);
 void object_set_pointer(struct flow_object * p_object, struct flow_object * p_object2);
 void flow_object_push_states_from(struct flow_object * p_object_from, struct flow_object * p_object_to);
 void type_destroy(struct type * p_type);
@@ -1186,7 +1290,7 @@ void flow_object_expand_pointer(struct flow_visit_ctx * ctx, struct type * p_typ
     ;
     if (flow_object_is_expansible(p_object))
     {
-        unsigned char nullable_enabled;
+        unsigned char  nullable_enabled;
         struct type  t2;
 
         nullable_enabled = ctx->ctx->options.null_checks_enabled;
@@ -1198,7 +1302,7 @@ void flow_object_expand_pointer(struct flow_visit_ctx * ctx, struct type * p_typ
             p_object2 = make_flow_object(ctx, &t2, p_object->p_declarator_origin, p_object->p_expression_origin);
             if (p_object2)
             {
-                unsigned char is_nullable;
+                unsigned char  is_nullable;
 
                 is_nullable = type_is_opt(&t2, nullable_enabled);
                 flow_object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
@@ -1253,7 +1357,7 @@ void flow_object_destroy(struct flow_object * p)
         struct flow_object_state * temp;
 
         temp = p_flow_object_state->next;
-        p_flow_object_state->next = 0U;
+        p_flow_object_state->next = 0;
         flow_object_state_delete(p_flow_object_state);
         p_flow_object_state = temp;
     }
@@ -1327,12 +1431,12 @@ int objects_view_reserve(struct flow_objects_view * p, int n)
     {
         void * pnew;
 
-        if ((unsigned int)n > 1073741823U)
+        if ((unsigned int)n > 1073741823)
         {
             return 132;
         }
-        pnew = realloc(p->data, n * 4U);
-        if (pnew == 0U)
+        pnew = realloc(p->data, n * 4);
+        if (pnew == 0)
         {
             return 12;
         }
@@ -1474,12 +1578,12 @@ int objects_reserve(struct flow_objects * p, int n)
     {
         void * pnew;
 
-        if ((unsigned int)n > 1073741823U)
+        if ((unsigned int)n > 1073741823)
         {
             return 132;
         }
-        pnew = realloc(p->data, n * 4U);
-        if (pnew == 0U)
+        pnew = realloc(p->data, n * 4);
+        if (pnew == 0)
         {
             return 12;
         }
@@ -1504,7 +1608,7 @@ struct flow_object *flow_objects_find(struct flow_objects * p_objects, struct fl
             }
         }
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -1574,18 +1678,18 @@ struct flow_object *make_object_core(struct flow_visit_ctx * ctx, struct type * 
 {
     struct flow_object * p_object;
 
-    if (p_declarator_opt == 0U)
+    if (p_declarator_opt == 0)
     {
     }
-    if (p_expression_origin == 0U)
+    if (p_expression_origin == 0)
     {
     }
     p_object = arena_new_object(ctx);
     if (1) /*try*/
     {
-        if (p_object == 0U)
+        if (p_object == 0)
         {
-            goto _CKL2;/*throw*/
+            goto __L2; /* throw */
         }
         p_object->p_expression_origin = p_expression_origin;
         p_object->p_declarator_origin = p_declarator_opt;
@@ -1616,7 +1720,7 @@ struct flow_object *make_object_core(struct flow_visit_ctx * ctx, struct type * 
                             {
                                 char * tag;
 
-                                tag = 0U;
+                                tag = 0;
                                 if (p_member_declarator->declarator->type.struct_or_union_specifier)
                                 {
                                     tag = p_member_declarator->declarator->type.struct_or_union_specifier->tag_name;
@@ -1633,9 +1737,9 @@ struct flow_object *make_object_core(struct flow_visit_ctx * ctx, struct type * 
                                     struct flow_object * member_obj;
 
                                     member_obj = arena_new_object(ctx);
-                                    if (member_obj == 0U)
+                                    if (member_obj == 0)
                                     {
-                                        goto _CKL2;/*throw*/
+                                        goto __L2; /* throw */
                                     }
                                     member_obj->parent = p_object;
                                     member_obj->p_expression_origin = p_expression_origin;
@@ -1648,9 +1752,9 @@ struct flow_object *make_object_core(struct flow_visit_ctx * ctx, struct type * 
                                     struct flow_object * p_member_obj;
 
                                     p_member_obj = make_object_core(ctx, &p_member_declarator->declarator->type, &l, p_declarator_opt, p_expression_origin);
-                                    if (p_member_obj == 0U)
+                                    if (p_member_obj == 0)
                                     {
-                                        goto _CKL2;/*throw*/
+                                        goto __L2; /* throw */
                                     }
                                     p_member_obj->parent = p_object;
                                     objects_view_push_back(&p_object->members, p_member_obj);
@@ -1661,7 +1765,7 @@ struct flow_object *make_object_core(struct flow_visit_ctx * ctx, struct type * 
                     }
                     else
                     {
-                        if (p_member_declaration->specifier_qualifier_list != 0U)
+                        if (p_member_declaration->specifier_qualifier_list != 0)
                         {
                             if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                             {
@@ -1673,10 +1777,10 @@ struct flow_object *make_object_core(struct flow_visit_ctx * ctx, struct type * 
                                 t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                                 t.type_specifier_flags = 32768;
                                 member_obj = make_object_core(ctx, &t, &l, p_declarator_opt, p_expression_origin);
-                                if (member_obj == 0U)
+                                if (member_obj == 0)
                                 {
                                     type_destroy(&t);
-                                    goto _CKL2;/*throw*/
+                                    goto __L2; /* throw */
                                 }
                                 {
                                     int k;
@@ -1685,7 +1789,7 @@ struct flow_object *make_object_core(struct flow_visit_ctx * ctx, struct type * 
                                     for (; k < member_obj->members.size; k++)
                                     {
                                         objects_view_push_back(&p_object->members, member_obj->members.data[k]);
-                                        member_obj->members.data[k] = 0U;
+                                        member_obj->members.data[k] = 0;
                                     }
                                 }
                                 type_destroy(&t);
@@ -1707,9 +1811,9 @@ struct flow_object *make_object_core(struct flow_visit_ctx * ctx, struct type * 
         }
         p_object->current.state = 1;
     }
-    else _CKL2: /*catch*/ 
+    else __L2: /*catch*/ 
     {
-        p_object = 0U;
+        p_object = 0;
     }
     return p_object;
 }
@@ -1737,7 +1841,7 @@ struct token *flow_object_get_token(struct flow_object * object)
     {
         return object->p_expression_origin->first_token;
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -1747,8 +1851,8 @@ void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object * o
 {
     struct flow_object_state * pnew;
 
-    pnew = calloc(1, 32U);
-    if (pnew == 0U)
+    pnew = calloc(1, 32);
+    if (pnew == 0)
     {
         return;
     }
@@ -1774,7 +1878,7 @@ void flow_object_remove_state(struct flow_object * object, int state_number)
             struct flow_object_state * p_it_next;
 
             p_it_next = it->next;
-            it->next = 0U;
+            it->next = 0;
             flow_object_state_delete(previous->next);
             previous->next = p_it_next;
             break;
@@ -1790,7 +1894,7 @@ static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _
 int __cdecl __stdio_common_vsprintf(unsigned long long _Options, char * _Buffer, unsigned int _BufferCount, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 unsigned char type_is_pointer(struct type * p_type);
 
-void print_object_core(int ident, struct object_visitor * p_visitor, char * previous_names, unsigned char is_pointer, unsigned char short_version, unsigned int visit_number)
+void print_object_core(int ident, struct object_visitor * p_visitor, char * previous_names, unsigned char  is_pointer, unsigned char  short_version, unsigned int visit_number)
 {
     if (p_visitor->p_object->visit_number == visit_number)
     {
@@ -1829,11 +1933,11 @@ void print_object_core(int ident, struct object_visitor * p_visitor, char * prev
                             _cake_zmem(&buffer, 200);
                             if (is_pointer)
                             {
-                                snprintf(buffer, 200U, "%s->%s", previous_names, name);
+                                snprintf(buffer, 200, "%s->%s", previous_names, name);
                             }
                             else
                             {
-                                snprintf(buffer, 200U, "%s.%s", previous_names, name);
+                                snprintf(buffer, 200, "%s.%s", previous_names, name);
                             }
                             _cake_zmem(&visitor, 12);
                             visitor.p_type = &p_member_declarator->declarator->type;
@@ -1846,7 +1950,7 @@ void print_object_core(int ident, struct object_visitor * p_visitor, char * prev
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                         struct type  t;
                         struct type * temp;
@@ -1895,7 +1999,7 @@ void print_object_core(int ident, struct object_visitor * p_visitor, char * prev
                     else
                     {
                         printf(" -> ");
-                        if (p_visitor->p_object->current.pointed != 0U)
+                        if (p_visitor->p_object->current.pointed != 0)
                         {
                             printf(" #%02d", p_visitor->p_object->current.pointed->id);
                         }
@@ -1967,7 +2071,7 @@ static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _
 {
     int _Result;
 
-    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0U, _ArgList);
+    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0, _ArgList);
     return _Result < 0 ? -1 : _Result;
 }
 
@@ -1976,9 +2080,9 @@ static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _F
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
     _Result = vsnprintf(_Buffer, _BufferCount, _Format, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 void flow_object_merge_state(struct flow_object * pdest, struct flow_object * object1, struct flow_object * object2)
@@ -2082,13 +2186,13 @@ int object_merge_current_state_with_state_number_core(struct flow_object * objec
 
 void object_get_name(struct type * p_type, struct flow_object * p_object, char * outname, int out_size);
 
-void print_flow_object(struct type * p_type, struct flow_object * p_object, unsigned char short_version)
+void print_flow_object(struct type * p_type, struct flow_object * p_object, unsigned char  short_version)
 {
     char name[100];
     struct object_visitor  visitor;
 
     _cake_zmem(&name, 100);
-    object_get_name(p_type, p_object, name, 100U);
+    object_get_name(p_type, p_object, name, 100);
     _cake_zmem(&visitor, 12);
     visitor.p_type = p_type;
     visitor.p_object = p_object;
@@ -2135,7 +2239,7 @@ void object_set_uninitialized_core(struct object_visitor * p_visitor)
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                         if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                         {
@@ -2190,7 +2294,7 @@ void checked_empty(struct flow_visit_ctx * ctx, struct type * p_type, struct flo
     char name[100];
 
     _cake_zmem(&name, 100);
-    object_get_name(p_type, p_object, name, 100U);
+    object_get_name(p_type, p_object, name, 100);
     checked_empty_core(ctx, p_type, p_object, name, p_marker);
 }
 
@@ -2205,7 +2309,7 @@ static void checked_empty_core(struct flow_visit_ctx * ctx, struct type * p_type
         int member_index;
 
         p_struct_or_union_specifier = get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-        p_member_declaration = p_struct_or_union_specifier ? p_struct_or_union_specifier->member_declaration_list.head : 0U;
+        p_member_declaration = p_struct_or_union_specifier ? p_struct_or_union_specifier->member_declaration_list.head : 0;
         member_index = 0;
         while (p_member_declaration)
         {
@@ -2225,11 +2329,11 @@ static void checked_empty_core(struct flow_visit_ctx * ctx, struct type * p_type
                         _cake_zmem(&buffer, 200);
                         if (type_is_pointer(p_type))
                         {
-                            snprintf(buffer, 200U, "%s->%s", previous_names, name);
+                            snprintf(buffer, 200, "%s->%s", previous_names, name);
                         }
                         else
                         {
-                            snprintf(buffer, 200U, "%s.%s", previous_names, name);
+                            snprintf(buffer, 200, "%s.%s", previous_names, name);
                         }
                         checked_empty_core(ctx, &p_member_declarator->declarator->type, p_object->members.data[member_index], name, p_marker);
                         member_index++;
@@ -2239,7 +2343,7 @@ static void checked_empty_core(struct flow_visit_ctx * ctx, struct type * p_type
             }
             else
             {
-                if (p_member_declaration->specifier_qualifier_list != 0U)
+                if (p_member_declaration->specifier_qualifier_list != 0)
                 {
                 }
             }
@@ -2254,7 +2358,7 @@ static void checked_empty_core(struct flow_visit_ctx * ctx, struct type * p_type
         }
         else
         {
-            compiler_diagnostic(29, ctx->ctx, 0U, p_marker, "object '%s' may not be empty", previous_names);
+            compiler_diagnostic(29, ctx->ctx, 0, p_marker, "object '%s' may not be empty", previous_names);
         }
     }
 }
@@ -2311,7 +2415,7 @@ static void object_set_moved_core(struct object_visitor * p_visitor)
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                         if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                         {
@@ -2344,10 +2448,10 @@ static void object_set_moved_core(struct object_visitor * p_visitor)
         p_visitor->p_object->current.state = 8;
     }
 }
-static void object_set_unknown_core(struct object_visitor * p_visitor, unsigned char t_is_nullable, unsigned int visit_number, unsigned char nullable_enabled);
+static void object_set_unknown_core(struct object_visitor * p_visitor, unsigned char  t_is_nullable, unsigned int visit_number, unsigned char  nullable_enabled);
 unsigned char type_is_struct_or_union(struct type * p_type);
 
-void flow_object_set_unknown(struct type * p_type, unsigned char t_is_nullable, struct flow_object * p_object, unsigned char nullable_enabled)
+void flow_object_set_unknown(struct type * p_type, unsigned char  t_is_nullable, struct flow_object * p_object, unsigned char  nullable_enabled)
 {
     struct object_visitor  visitor;
 
@@ -2359,7 +2463,7 @@ void flow_object_set_unknown(struct type * p_type, unsigned char t_is_nullable, 
 
 
 
-static void object_set_unknown_core(struct object_visitor * p_visitor, unsigned char t_is_nullable, unsigned int visit_number, unsigned char nullable_enabled)
+static void object_set_unknown_core(struct object_visitor * p_visitor, unsigned char  t_is_nullable, unsigned int visit_number, unsigned char  nullable_enabled)
 {
     if (p_visitor->p_object->visit_number == visit_number)
     {
@@ -2406,7 +2510,7 @@ static void object_set_unknown_core(struct object_visitor * p_visitor, unsigned 
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                         if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                         {
@@ -2451,7 +2555,7 @@ static void object_set_unknown_core(struct object_visitor * p_visitor, unsigned 
         if (pointed)
         {
             struct type  t2;
-            unsigned char t2_is_nullable;
+            unsigned char  t2_is_nullable;
             struct object_visitor  visitor;
 
             t2 = type_remove_pointer(p_visitor->p_type);
@@ -2577,7 +2681,7 @@ static void object_set_deleted_core(struct type * p_type, struct flow_object * p
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                     }
                 }
@@ -2638,7 +2742,7 @@ void object_set_zero_core(struct object_visitor * p_visitor)
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                         if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                         {
@@ -2724,7 +2828,7 @@ void object_set_end_of_lifetime_core(struct object_visitor * p_visitor)
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                         if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                         {
@@ -2787,9 +2891,9 @@ unsigned char object_check(struct type * p_type, struct flow_object * p_object)
             int member_index;
 
             p_struct_or_union_specifier = get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-            if (p_struct_or_union_specifier == 0U)
+            if (p_struct_or_union_specifier == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             p_member_declaration = p_struct_or_union_specifier->member_declaration_list.head;
             possible_need_destroy_count = 0;
@@ -2821,7 +2925,7 @@ unsigned char object_check(struct type * p_type, struct flow_object * p_object)
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                     }
                 }
@@ -2831,7 +2935,7 @@ unsigned char object_check(struct type * p_type, struct flow_object * p_object)
         }
         else
         {
-            unsigned char should_had_been_moved;
+            unsigned char  should_had_been_moved;
 
             should_had_been_moved = 0;
             if (type_is_pointer(p_type))
@@ -2851,7 +2955,7 @@ unsigned char object_check(struct type * p_type, struct flow_object * p_object)
             return should_had_been_moved;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return 0;
@@ -2879,9 +2983,9 @@ void object_get_name_core(struct type * p_type, struct flow_object * p_object, s
             int member_index;
 
             p_struct_or_union_specifier = get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-            if (p_struct_or_union_specifier == 0U)
+            if (p_struct_or_union_specifier == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             p_member_declaration = p_struct_or_union_specifier->member_declaration_list.head;
             member_index = 0;
@@ -2903,11 +3007,11 @@ void object_get_name_core(struct type * p_type, struct flow_object * p_object, s
                             _cake_zmem(&buffer, 200);
                             if (type_is_pointer(p_type))
                             {
-                                snprintf(buffer, 200U, "%s->%s", previous_names, name);
+                                snprintf(buffer, 200, "%s->%s", previous_names, name);
                             }
                             else
                             {
-                                snprintf(buffer, 200U, "%s.%s", previous_names, name);
+                                snprintf(buffer, 200, "%s.%s", previous_names, name);
                             }
                             object_get_name_core(&p_member_declarator->declarator->type, p_object->members.data[member_index], p_object_target, buffer, outname, out_size, visit_number);
                             member_index++;
@@ -2917,7 +3021,7 @@ void object_get_name_core(struct type * p_type, struct flow_object * p_object, s
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                     }
                 }
@@ -2929,7 +3033,7 @@ void object_get_name_core(struct type * p_type, struct flow_object * p_object, s
             snprintf(outname, out_size, "%s", previous_names);
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -3000,17 +3104,17 @@ void object_get_name(struct type * p_type, struct flow_object * p_object, char *
 }
 
 
-static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_visitor * p_visitor, unsigned char is_nullable, struct token * position_token_opt, struct marker * p_marker_opt, unsigned char check_pointed_object, char * previous_names, unsigned int visit_number);
+static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_visitor * p_visitor, unsigned char  is_nullable, struct token * position_token_opt, struct marker * p_marker_opt, unsigned char  check_pointed_object, char * previous_names, unsigned int visit_number);
 
-void checked_read_object(struct flow_visit_ctx * ctx, struct type * p_type, unsigned char is_nullable, struct flow_object * p_object, struct token * position_token, struct marker * p_marker_opt, unsigned char check_pointed_object)
+void checked_read_object(struct flow_visit_ctx * ctx, struct type * p_type, unsigned char  is_nullable, struct flow_object * p_object, struct token * position_token, struct marker * p_marker_opt, unsigned char  check_pointed_object)
 {
     char * s;
     char name[200];
     struct object_visitor  visitor;
 
-    s = 0U;
+    s = 0;
     _cake_zmem(&name, 200);
-    object_get_name(p_type, p_object, name, 200U);
+    object_get_name(p_type, p_object, name, 200);
     _cake_zmem(&visitor, 12);
     visitor.p_object = p_object;
     visitor.p_type = p_type;
@@ -3020,7 +3124,7 @@ void checked_read_object(struct flow_visit_ctx * ctx, struct type * p_type, unsi
 
 
 
-static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_visitor * p_visitor, unsigned char is_nullable, struct token * position_token_opt, struct marker * p_marker_opt, unsigned char check_pointed_object, char * previous_names, unsigned int visit_number)
+static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_visitor * p_visitor, unsigned char  is_nullable, struct token * position_token_opt, struct marker * p_marker_opt, unsigned char  check_pointed_object, char * previous_names, unsigned int visit_number)
 {
     ;
     if (p_visitor->p_object->visit_number == visit_number)
@@ -3034,7 +3138,7 @@ static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_
         struct member_declaration * p_member_declaration;
 
         p_struct_or_union_specifier = get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
-        p_member_declaration = p_struct_or_union_specifier ? p_struct_or_union_specifier->member_declaration_list.head : 0U;
+        p_member_declaration = p_struct_or_union_specifier ? p_struct_or_union_specifier->member_declaration_list.head : 0;
         while (p_member_declaration)
         {
             if (p_member_declaration->member_declarator_list_opt)
@@ -3054,11 +3158,11 @@ static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_
                         _cake_zmem(&buffer, 200);
                         if (type_is_pointer(p_visitor->p_type))
                         {
-                            snprintf(buffer, 200U, "%s->%s", previous_names, name);
+                            snprintf(buffer, 200, "%s->%s", previous_names, name);
                         }
                         else
                         {
-                            snprintf(buffer, 200U, "%s.%s", previous_names, name);
+                            snprintf(buffer, 200, "%s.%s", previous_names, name);
                         }
                         _cake_zmem(&visitor, 12);
                         visitor.p_type = &p_member_declarator->declarator->type;
@@ -3085,11 +3189,11 @@ static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_
                     _cake_zmem(&buffer, 200);
                     if (type_is_pointer(p_visitor->p_type))
                     {
-                        snprintf(buffer, 200U, "%s->", previous_names);
+                        snprintf(buffer, 200, "%s->", previous_names);
                     }
                     else
                     {
-                        snprintf(buffer, 200U, "%s.", previous_names);
+                        snprintf(buffer, 200, "%s.", previous_names);
                     }
                     temp = p_visitor->p_type;
                     p_visitor->p_type = &t;
@@ -3109,7 +3213,7 @@ static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_
     {
         if (type_is_pointer(p_visitor->p_type) && !is_nullable && !type_is_opt(p_visitor->p_type, ctx->ctx->options.null_checks_enabled) && flow_object_can_be_null(p_visitor->p_object))
         {
-            compiler_diagnostic(33, ctx->ctx, 0U, p_marker_opt, "non-nullable pointer '%s' may be null", previous_names);
+            compiler_diagnostic(33, ctx->ctx, 0, p_marker_opt, "non-nullable pointer '%s' may be null", previous_names);
         }
         if (type_is_pointer(p_visitor->p_type) && check_pointed_object && flow_object_can_be_not_null_or_moved(p_visitor->p_object))
         {
@@ -3142,11 +3246,11 @@ static void checked_read_object_core(struct flow_visit_ctx * ctx, struct object_
         }
     }
 }
-static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct object_visitor * p_visitor, unsigned char b_type_is_view, struct token * position_token, char * previous_names, unsigned int visit_number);
+static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct object_visitor * p_visitor, unsigned char  b_type_is_view, struct token * position_token, char * previous_names, unsigned int visit_number);
 unsigned char type_is_view(struct type * p_type);
 unsigned char type_is_pointed_dtor(struct type * p_type);
 
-void flow_end_of_block_visit(struct flow_visit_ctx * ctx, struct type * p_type, unsigned char type_is_view, struct flow_object * p_object, struct token * position_token, char * previous_names)
+void flow_end_of_block_visit(struct flow_visit_ctx * ctx, struct type * p_type, unsigned char  type_is_view, struct flow_object * p_object, struct token * position_token, char * previous_names)
 {
     struct object_visitor  visitor;
 
@@ -3158,7 +3262,7 @@ void flow_end_of_block_visit(struct flow_visit_ctx * ctx, struct type * p_type, 
 
 
 
-static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct object_visitor * p_visitor, unsigned char b_type_is_view, struct token * position_token, char * previous_names, unsigned int visit_number)
+static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct object_visitor * p_visitor, unsigned char  b_type_is_view, struct token * position_token, char * previous_names, unsigned int visit_number)
 {
     if (p_visitor->p_object->visit_number == visit_number)
     {
@@ -3171,7 +3275,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
         struct member_declaration * p_member_declaration;
 
         p_struct_or_union_specifier = get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
-        if (p_struct_or_union_specifier == 0U)
+        if (p_struct_or_union_specifier == 0)
         {
             return;
         }
@@ -3181,11 +3285,11 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
             struct token * name;
 
             name = flow_object_get_token(p_visitor->p_object);
-            if (compiler_diagnostic(29, ctx->ctx, name, 0U, "members of '%s' were not released.", previous_names))
+            if (compiler_diagnostic(29, ctx->ctx, name, 0, "members of '%s' were not released.", previous_names))
             {
                 if (p_visitor->p_object->p_declarator_origin)
                 {
-                    compiler_diagnostic(62, ctx->ctx, position_token, 0U, "end of '%s' scope", previous_names);
+                    compiler_diagnostic(62, ctx->ctx, position_token, 0, "end of '%s' scope", previous_names);
                 }
             }
         }
@@ -3204,18 +3308,18 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
                         {
                             char * name;
                             char buffer[200];
-                            unsigned char member_is_view;
+                            unsigned char  member_is_view;
                             struct object_visitor  visitor;
 
                             name = p_member_declarator->declarator->name_opt ? p_member_declarator->declarator->name_opt->lexeme : "?";
                             _cake_zmem(&buffer, 200);
                             if (type_is_pointer(p_visitor->p_type))
                             {
-                                snprintf(buffer, 200U, "%s->%s", previous_names, name);
+                                snprintf(buffer, 200, "%s->%s", previous_names, name);
                             }
                             else
                             {
-                                snprintf(buffer, 200U, "%s.%s", previous_names, name);
+                                snprintf(buffer, 200, "%s.%s", previous_names, name);
                             }
                             member_is_view = type_is_view(&p_member_declarator->declarator->type);
                             _cake_zmem(&visitor, 12);
@@ -3229,11 +3333,11 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list != 0U)
+                    if (p_member_declaration->specifier_qualifier_list != 0)
                     {
                         struct type  t;
                         struct type * temp;
-                        unsigned char member_is_view;
+                        unsigned char  member_is_view;
                         int visit_number0;
 
                         _cake_zmem(&t, 68);
@@ -3261,7 +3365,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
         struct token * position;
 
         name = previous_names;
-        position = 0U;
+        position = 0;
         if (p_visitor->p_object->p_declarator_origin)
         {
             position = p_visitor->p_object->p_declarator_origin->name_opt ? p_visitor->p_object->p_declarator_origin->name_opt : p_visitor->p_object->p_declarator_origin->first_token_opt;
@@ -3283,7 +3387,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
         }
         if (type_is_pointer(p_visitor->p_type) && !b_type_is_view && type_is_owner(p_visitor->p_type) && p_visitor->p_object->current.state & 4)
         {
-            unsigned char show_warning;
+            unsigned char  show_warning;
 
             show_warning = 1;
             if (p_visitor->p_object->p_declarator_origin && p_visitor->p_object->p_declarator_origin->direct_declarator && p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence)
@@ -3296,9 +3400,9 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
                     show_warning = 0;
                 }
             }
-            if (show_warning && compiler_diagnostic(29, ctx->ctx, position, 0U, "object pointed by '%s' was not released.", previous_names))
+            if (show_warning && compiler_diagnostic(29, ctx->ctx, position, 0, "object pointed by '%s' was not released.", previous_names))
             {
-                compiler_diagnostic(62, ctx->ctx, position_token, 0U, "end of '%s' lifetime", previous_names);
+                compiler_diagnostic(62, ctx->ctx, position_token, 0, "end of '%s' lifetime", previous_names);
             }
         }
         else
@@ -3309,7 +3413,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
                 struct type  t2;
 
                 _cake_zmem(&buffer, 100);
-                snprintf(buffer, 100U, "%s", previous_names);
+                snprintf(buffer, 100, "%s", previous_names);
                 t2 = type_remove_pointer(p_visitor->p_type);
                 if (p_visitor->p_object->current.pointed)
                 {
@@ -3331,7 +3435,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
                     }
                     else
                     {
-                        unsigned char show_warning;
+                        unsigned char  show_warning;
 
                         show_warning = 1;
                         if (p_visitor->p_object->p_declarator_origin && p_visitor->p_object->p_declarator_origin->direct_declarator && p_visitor->p_object->p_declarator_origin->direct_declarator->p_attribute_specifier_sequence)
@@ -3344,9 +3448,9 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
                                 show_warning = 0;
                             }
                         }
-                        if (show_warning && compiler_diagnostic(29, ctx->ctx, position, 0U, "object pointed by '%s' was not released.", previous_names))
+                        if (show_warning && compiler_diagnostic(29, ctx->ctx, position, 0, "object pointed by '%s' was not released.", previous_names))
                         {
-                            compiler_diagnostic(62, ctx->ctx, position_token, 0U, "end of '%s' lifetime", previous_names);
+                            compiler_diagnostic(62, ctx->ctx, position_token, 0, "end of '%s' lifetime", previous_names);
                         }
                     }
                 }
@@ -3369,7 +3473,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx * ctx, struct obj
                                     struct token * name_token;
 
                                     name_token = p_visitor->p_object->p_declarator_origin->name_opt ? p_visitor->p_object->p_declarator_origin->name_opt : p_visitor->p_object->p_declarator_origin->first_token_opt;
-                                    checked_read_object(ctx, &t2, 0, p_visitor->p_object->current.pointed, name_token, 0U, 1);
+                                    checked_read_object(ctx, &t2, 0, p_visitor->p_object->current.pointed, name_token, 0, 1);
                                 }
                                 type_destroy(&t2);
                             }
@@ -3391,9 +3495,9 @@ unsigned char flow_object_is_zero_or_null(struct flow_object * p_object)
 
 unsigned char is_automatic_variable(int f);
 unsigned char object_has_constant_value(struct object * a);
-unsigned char object_to_bool(struct object * a);
+unsigned char object_is_true(struct object * a);
 
-struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, struct expression * p_expression, unsigned char nullable_enabled)
+struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, struct expression * p_expression, unsigned char  nullable_enabled)
 {
     if (1) /*try*/
     {
@@ -3410,12 +3514,12 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                 if (p_expression->declarator->declaration_specifiers && !is_automatic_variable(p_expression->declarator->declaration_specifiers->storage_class_specifier_flags))
                 {
                     ;
-                    if (flow_objects_find(&ctx->arena, p_expression->declarator->p_flow_object) == 0U)
+                    if (flow_objects_find(&ctx->arena, p_expression->declarator->p_flow_object) == 0)
                     {
-                        p_expression->declarator->p_flow_object = make_flow_object(ctx, &p_expression->declarator->type, p_expression->declarator, 0U);
-                        if (p_expression->declarator->p_flow_object == 0U)
+                        p_expression->declarator->p_flow_object = make_flow_object(ctx, &p_expression->declarator->type, p_expression->declarator, 0);
+                        if (p_expression->declarator->p_flow_object == 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         flow_object_set_unknown(&p_expression->declarator->type, type_is_opt(&p_expression->declarator->type, ctx->ctx->options.null_checks_enabled), p_expression->declarator->p_flow_object, ctx->ctx->options.null_checks_enabled);
                     }
@@ -3431,10 +3535,10 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                 struct flow_object * p_object_pointed;
 
                 ;
-                p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                if (p_object == 0U)
+                p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                if (p_object == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_object_pointed = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
                 if (p_object_pointed)
@@ -3494,7 +3598,7 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                 }
                                 else
                                 {
-                                    return 0U;
+                                    return 0;
                                 }
                             }
                         }
@@ -3508,7 +3612,7 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                 p_obj = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
                                 if (p_obj)
                                 {
-                                    if (p_obj->current.pointed == 0U)
+                                    if (p_obj->current.pointed == 0)
                                     {
                                         flow_object_expand_pointer(ctx, &p_expression->left->type, p_obj);
                                     }
@@ -3520,7 +3624,7 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                         return pointed;
                                     }
                                 }
-                                return 0U;
+                                return 0;
                             }
                             else
                             {
@@ -3540,16 +3644,16 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                             flow_object_expand_pointer(ctx, &p_expression->left->type, p_obj);
                                         }
                                         pointed = p_obj->current.pointed;
-                                        if (pointed == 0U || p_expression->member_index >= pointed->members.size)
+                                        if (pointed == 0 || p_expression->member_index >= pointed->members.size)
                                         {
-                                            return 0U;
+                                            return 0;
                                         }
                                         p_obj2 = pointed->members.data[p_expression->member_index];
-                                        p_obj2->p_declarator_origin = 0U;
+                                        p_obj2->p_declarator_origin = 0;
                                         p_obj2->p_expression_origin = p_expression;
                                         return p_obj2;
                                     }
-                                    return 0U;
+                                    return 0;
                                 }
                                 else
                                 {
@@ -3561,11 +3665,11 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                         p_obj = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
                                         if (p_obj)
                                         {
-                                            if (p_obj->current.pointed == 0U)
+                                            if (p_obj->current.pointed == 0)
                                             {
                                                 flow_object_expand_pointer(ctx, &p_expression->right->type, p_obj);
                                             }
-                                            if (p_obj->current.pointed != 0U)
+                                            if (p_obj->current.pointed != 0)
                                             {
                                                 return p_obj->current.pointed;
                                             }
@@ -3577,12 +3681,12 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                         if (p_expression->expression_type == 12)
                                         {
                                             struct flow_object * p_object;
-                                            unsigned char is_nullable;
+                                            unsigned char  is_nullable;
 
-                                            p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                                            if (p_object == 0U)
+                                            p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                                            if (p_object == 0)
                                             {
-                                                goto _CKL0;/*throw*/
+                                                goto __L0; /* throw */
                                             }
                                             is_nullable = type_is_opt(&p_expression->type, nullable_enabled);
                                             flow_object_set_unknown(&p_expression->type, is_nullable, p_object, nullable_enabled);
@@ -3606,10 +3710,10 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                                 {
                                                     struct flow_object * p_object;
 
-                                                    p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                                                    if (p_object == 0U)
+                                                    p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                                                    if (p_object == 0)
                                                     {
-                                                        goto _CKL0;/*throw*/
+                                                        goto __L0; /* throw */
                                                     }
                                                     p_object->current.state = 4;
                                                     return p_object;
@@ -3620,10 +3724,10 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                                     {
                                                         struct flow_object * p_object;
 
-                                                        p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                                                        if (p_object == 0U)
+                                                        p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                                                        if (p_object == 0)
                                                         {
-                                                            goto _CKL0;/*throw*/
+                                                            goto __L0; /* throw */
                                                         }
                                                         if (p_expression->type.type_specifier_flags == 16777216)
                                                         {
@@ -3633,9 +3737,9 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                                         {
                                                             if (object_has_constant_value(&p_expression->object))
                                                             {
-                                                                unsigned char not_zero;
+                                                                unsigned char  not_zero;
 
-                                                                not_zero = object_to_bool(&p_expression->object);
+                                                                not_zero = object_is_true(&p_expression->object);
                                                                 p_object->current.state = not_zero ? 64 : 32;
                                                             }
                                                         }
@@ -3661,10 +3765,10 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
 
                                                                 ;
                                                                 ;
-                                                                p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                                                                if (p_object == 0U)
+                                                                p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                                                                if (p_object == 0)
                                                                 {
-                                                                    goto _CKL0;/*throw*/
+                                                                    goto __L0; /* throw */
                                                                 }
                                                                 p_obj1 = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
                                                                 p_obj2 = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
@@ -3680,16 +3784,16 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                                                 {
                                                                     struct flow_object * p_object;
 
-                                                                    p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                                                                    if (p_object == 0U)
+                                                                    p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                                                                    if (p_object == 0)
                                                                     {
-                                                                        goto _CKL0;/*throw*/
+                                                                        goto __L0; /* throw */
                                                                     }
                                                                     if (object_has_constant_value(&p_expression->object))
                                                                     {
-                                                                        unsigned char not_zero;
+                                                                        unsigned char  not_zero;
 
-                                                                        not_zero = object_to_bool(&p_expression->object);
+                                                                        not_zero = object_is_true(&p_expression->object);
                                                                         p_object->current.state = not_zero ? 64 : 32;
                                                                     }
                                                                     else
@@ -3704,10 +3808,10 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                                                     {
                                                                         struct flow_object * p_object;
 
-                                                                        p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                                                                        if (p_object == 0U)
+                                                                        p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                                                                        if (p_object == 0)
                                                                         {
-                                                                            goto _CKL0;/*throw*/
+                                                                            goto __L0; /* throw */
                                                                         }
                                                                         if (type_is_pointer(&p_expression->type))
                                                                         {
@@ -3717,9 +3821,9 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                                                         {
                                                                             if (object_has_constant_value(&p_expression->object))
                                                                             {
-                                                                                unsigned char not_zero;
+                                                                                unsigned char  not_zero;
 
-                                                                                not_zero = object_to_bool(&p_expression->object);
+                                                                                not_zero = object_is_true(&p_expression->object);
                                                                                 p_object->current.state = not_zero ? 4 : 2;
                                                                             }
                                                                             else
@@ -3738,10 +3842,10 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
 
                                                                             ;
                                                                             p_obj_right = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
-                                                                            p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                                                                            if (p_object == 0U)
+                                                                            p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                                                                            if (p_object == 0)
                                                                             {
-                                                                                goto _CKL0;/*throw*/
+                                                                                goto __L0; /* throw */
                                                                             }
                                                                             if (p_obj_right)
                                                                             {
@@ -3753,18 +3857,18 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                                                         {
                                                                             struct flow_object * p_object;
 
-                                                                            p_object = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-                                                                            if (p_object == 0U)
+                                                                            p_object = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+                                                                            if (p_object == 0)
                                                                             {
-                                                                                goto _CKL0;/*throw*/
+                                                                                goto __L0; /* throw */
                                                                             }
                                                                             if (type_is_pointer(&p_expression->type))
                                                                             {
                                                                                 if (object_has_constant_value(&p_expression->object))
                                                                                 {
-                                                                                    unsigned char not_zero;
+                                                                                    unsigned char  not_zero;
 
-                                                                                    not_zero = object_to_bool(&p_expression->object);
+                                                                                    not_zero = object_is_true(&p_expression->object);
                                                                                     p_object->current.state = not_zero ? 4 : 2;
                                                                                 }
                                                                                 else
@@ -3776,9 +3880,9 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
                                                                             {
                                                                                 if (object_has_constant_value(&p_expression->object))
                                                                                 {
-                                                                                    unsigned char not_zero;
+                                                                                    unsigned char  not_zero;
 
-                                                                                    not_zero = object_to_bool(&p_expression->object);
+                                                                                    not_zero = object_is_true(&p_expression->object);
                                                                                     p_object->current.state = not_zero ? 64 : 32;
                                                                                 }
                                                                                 else
@@ -3805,14 +3909,14 @@ struct flow_object *expression_get_flow_object(struct flow_visit_ctx * ctx, stru
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
-    return 0U;
+    return 0;
 }
 
 
-static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * error_position, struct marker * p_a_marker, struct marker * p_b_marker, int assigment_type, unsigned char check_uninitialized_b, unsigned char a_type_is_view, unsigned char a_type_is_nullable, struct object_visitor * p_visitor_a, struct object_visitor * p_visitor_b, unsigned char * set_argument_to_unkown);
+static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * error_position, struct marker * p_a_marker, struct marker * p_b_marker, int assigment_type, unsigned char  check_uninitialized_b, unsigned char  a_type_is_view, unsigned char  a_type_is_nullable, struct object_visitor * p_visitor_a, struct object_visitor * p_visitor_b, unsigned char * set_argument_to_unkown);
 struct type get_array_item_type(struct type * p_type);
 unsigned char type_is_ctor(struct type * p_type);
 unsigned char type_is_const(struct type * p_type);
@@ -3820,7 +3924,7 @@ unsigned char type_is_nullptr_t(struct type * p_type);
 unsigned char type_is_integer(struct type * p_type);
 unsigned char type_is_void_ptr(struct type * p_type);
 
-void flow_check_assignment(struct flow_visit_ctx * ctx, struct token * error_position, struct marker * p_a_marker, struct marker * p_b_marker, int assigment_type, unsigned char check_uninitialized_b, unsigned char a_type_is_view, unsigned char a_type_is_nullable, struct type * p_a_type, struct flow_object * p_a_object, struct type * p_b_type, struct flow_object * p_b_object, unsigned char * set_argument_to_unkown)
+void flow_check_assignment(struct flow_visit_ctx * ctx, struct token * error_position, struct marker * p_a_marker, struct marker * p_b_marker, int assigment_type, unsigned char  check_uninitialized_b, unsigned char  a_type_is_view, unsigned char  a_type_is_nullable, struct type * p_a_type, struct flow_object * p_a_object, struct type * p_b_type, struct flow_object * p_b_object, unsigned char * set_argument_to_unkown)
 {
     struct object_visitor  visitor_a;
     struct object_visitor  visitor_b;
@@ -3839,7 +3943,7 @@ void flow_check_assignment(struct flow_visit_ctx * ctx, struct token * error_pos
 
 
 
-static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * error_position, struct marker * p_a_marker, struct marker * p_b_marker, int assigment_type, unsigned char check_uninitialized_b, unsigned char a_type_is_view, unsigned char a_type_is_nullable, struct object_visitor * p_visitor_a, struct object_visitor * p_visitor_b, unsigned char * set_argument_to_unkown)
+static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * error_position, struct marker * p_a_marker, struct marker * p_b_marker, int assigment_type, unsigned char  check_uninitialized_b, unsigned char  a_type_is_view, unsigned char  a_type_is_nullable, struct object_visitor * p_visitor_a, struct object_visitor * p_visitor_b, unsigned char * set_argument_to_unkown)
 {
     if (check_uninitialized_b && flow_object_can_be_uninitialized(p_visitor_b->p_object))
     {
@@ -3848,7 +3952,7 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
             if (assigment_type == 1)
             {
                 struct type  item_type;
-                unsigned char cannot_be_uninitialized;
+                unsigned char  cannot_be_uninitialized;
 
                 _cake_zmem(&item_type, 68);
                 if (type_is_array(p_visitor_a->p_type))
@@ -3865,8 +3969,8 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
                     char b_object_name[100];
 
                     _cake_zmem(&b_object_name, 100);
-                    object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, 100U);
-                    compiler_diagnostic(30, ctx->ctx, 0U, p_b_marker, "uninitialized object '%s' passed to non-optional parameter", b_object_name);
+                    object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, 100);
+                    compiler_diagnostic(30, ctx->ctx, 0, p_b_marker, "uninitialized object '%s' passed to non-optional parameter", b_object_name);
                 }
                 type_destroy(&item_type);
             }
@@ -3876,20 +3980,20 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
             char b_object_name[100];
 
             _cake_zmem(&b_object_name, 100);
-            object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, 100U);
+            object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, b_object_name, 100);
             if (assigment_type == 1)
             {
-                compiler_diagnostic(30, ctx->ctx, 0U, p_b_marker, "passing an uninitialized argument '%s' object", b_object_name);
+                compiler_diagnostic(30, ctx->ctx, 0, p_b_marker, "passing an uninitialized argument '%s' object", b_object_name);
             }
             else
             {
                 if (assigment_type == 0)
                 {
-                    compiler_diagnostic(30, ctx->ctx, 0U, p_b_marker, "returning an uninitialized '%s' object", b_object_name);
+                    compiler_diagnostic(30, ctx->ctx, 0, p_b_marker, "returning an uninitialized '%s' object", b_object_name);
                 }
                 else
                 {
-                    compiler_diagnostic(30, ctx->ctx, 0U, p_b_marker, "reading an uninitialized '%s' object", b_object_name);
+                    compiler_diagnostic(30, ctx->ctx, 0, p_b_marker, "reading an uninitialized '%s' object", b_object_name);
                 }
             }
         }
@@ -3900,8 +4004,8 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
         char buffer[100];
 
         _cake_zmem(&buffer, 100);
-        object_get_name(p_visitor_a->p_type, p_visitor_a->p_object, buffer, 100U);
-        compiler_diagnostic(31, ctx->ctx, 0U, p_a_marker, "The object '%s' may have been deleted or its lifetime have ended.", buffer);
+        object_get_name(p_visitor_a->p_type, p_visitor_a->p_object, buffer, 100);
+        compiler_diagnostic(31, ctx->ctx, 0, p_a_marker, "The object '%s' may have been deleted or its lifetime have ended.", buffer);
         return;
     }
     if (type_is_pointer(p_visitor_a->p_type) && (!type_is_opt(p_visitor_a->p_type, ctx->ctx->options.null_checks_enabled)) && flow_object_can_be_null(p_visitor_b->p_object))
@@ -3911,20 +4015,20 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
             char buffer[100];
 
             _cake_zmem(&buffer, 100);
-            object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, buffer, 100U);
+            object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, buffer, 100);
             if (assigment_type == 1)
             {
-                compiler_diagnostic(35, ctx->ctx, 0U, p_b_marker, "passing a possible null pointer '%s' to non-nullable pointer parameter", buffer);
+                compiler_diagnostic(35, ctx->ctx, 0, p_b_marker, "passing a possible null pointer '%s' to non-nullable pointer parameter", buffer);
             }
             else
             {
                 if (assigment_type == 0)
                 {
-                    compiler_diagnostic(35, ctx->ctx, 0U, p_b_marker, "returning a possible null pointer '%s' to non-nullable pointer", buffer);
+                    compiler_diagnostic(35, ctx->ctx, 0, p_b_marker, "returning a possible null pointer '%s' to non-nullable pointer", buffer);
                 }
                 else
                 {
-                    compiler_diagnostic(35, ctx->ctx, 0U, p_b_marker, "assignment of possible null pointer '%s' to non-nullable pointer", buffer);
+                    compiler_diagnostic(35, ctx->ctx, 0, p_b_marker, "assignment of possible null pointer '%s' to non-nullable pointer", buffer);
                 }
             }
         }
@@ -3969,14 +4073,14 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
 
             if (flow_object_can_be_moved(p_visitor_b->p_object))
             {
-                compiler_diagnostic(32, ctx->ctx, 0U, p_b_marker, "object may be already moved");
+                compiler_diagnostic(32, ctx->ctx, 0, p_b_marker, "object may be already moved");
             }
             t = type_remove_pointer(p_visitor_b->p_type);
-            if (p_visitor_b->p_object->current.pointed == 0U)
+            if (p_visitor_b->p_object->current.pointed == 0)
             {
                 if (flow_object_is_expansible(p_visitor_b->p_object) && type_is_owner(&t))
                 {
-                    compiler_diagnostic(29, ctx->ctx, 0U, p_a_marker, "pointed object may be not empty");
+                    compiler_diagnostic(29, ctx->ctx, 0, p_a_marker, "pointed object may be not empty");
                 }
             }
             else
@@ -4000,8 +4104,8 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
     if (type_is_pointer(p_visitor_a->p_type) && type_is_pointer(p_visitor_b->p_type))
     {
         struct type  t;
-        unsigned char checked_pointed_object_read;
-        unsigned char is_nullable;
+        unsigned char  checked_pointed_object_read;
+        unsigned char  is_nullable;
 
         p_visitor_a->p_object->current.state = p_visitor_b->p_object->current.state;
         p_visitor_a->p_object->current.pointed = p_visitor_b->p_object->current.pointed;
@@ -4014,7 +4118,7 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
         {
             if (flow_object_can_be_moved(p_visitor_b->p_object))
             {
-                compiler_diagnostic(32, ctx->ctx, error_position, 0U, "source object has already been moved");
+                compiler_diagnostic(32, ctx->ctx, error_position, 0, "source object has already been moved");
             }
             if (assigment_type == 1)
             {
@@ -4125,7 +4229,7 @@ static void flow_assignment_core(struct flow_visit_ctx * ctx, struct token * err
         struct struct_or_union_specifier * p_b_struct_or_union_specifier;
 
         p_a_struct_or_union_specifier = get_complete_struct_or_union_specifier(p_visitor_a->p_type->struct_or_union_specifier);
-        if (p_visitor_b->p_type->struct_or_union_specifier == 0U)
+        if (p_visitor_b->p_type->struct_or_union_specifier == 0)
         {
             return;
         }
@@ -4219,7 +4323,7 @@ void ss_close(struct osstream * stream);
 
 void print_object_state_to_str(int e, char str[], int sz)
 {
-    unsigned char first;
+    unsigned char  first;
     struct osstream  ss;
 
     first = 1;
@@ -4324,7 +4428,7 @@ void flow_object_state_print(struct flow_object_state * p_state)
 
     _cake_zmem(&ss, 12);
     _cake_zmem(&temp, 200);
-    print_object_state_to_str(p_state->state, temp, 200U);
+    print_object_state_to_str(p_state->state, temp, 200);
     ss_fprintf(&ss, "%d %s", p_state->state_number, temp);
     if (p_state->pointed)
     {
@@ -4560,8 +4664,8 @@ static void flow_clear_alias(struct expression * p_expression);
 static void flow_expression_bind(struct flow_visit_ctx * ctx, struct expression * p_expression, struct param_list * p_param_list, struct argument_expression_list * p_argument_expression_list);
 static struct argument_expression *param_list_find_argument_by_name(struct param_list * p_param_list, struct argument_expression_list * list, char * name);
 unsigned char type_is_scalar(struct type * p_type);
-static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char nullable_enabled);
-static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char nullable_enabled, unsigned char true_branch);
+static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char  nullable_enabled);
+static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char  nullable_enabled, unsigned char  true_branch);
 static int find_item_index_by_expression(struct true_false_set * a, struct expression * p_expression);
 static void flow_visit_compound_statement(struct flow_visit_ctx * ctx, struct compound_statement * p_compound_statement);
 static void flow_visit_block_item_list(struct flow_visit_ctx * ctx, struct block_item_list * p_block_item_list);
@@ -4585,7 +4689,7 @@ void diagnostic_stack_pop(struct diagnostic_stack * diagnostic_stack);
 static void flow_exit_block_visit_defer_list(struct flow_visit_ctx * ctx, struct defer_list * p_defer_list, struct token * position_token);
 static void flow_exit_block_visit_defer_item(struct flow_visit_ctx * ctx, struct defer_list_item * p_item, struct token * position_token);
 unsigned char secondary_block_ends_with_jump(struct secondary_block * p_secondary_block);
-static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char nullable_enabled);
+static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char  nullable_enabled);
 static void arena_merge_current_state_with_state_number(struct flow_visit_ctx * ctx, int number_state);
 static int flow_object_merge_current_with_state(struct flow_visit_ctx * ctx, struct flow_object * object, int state_number);
 static void flow_defer_list_set_end_of_lifetime(struct flow_visit_ctx * ctx, struct defer_list * p_defer_list, struct token * position_token);
@@ -4637,7 +4741,7 @@ static int parse_string_state(char * s, unsigned char * invalid);
 int __cdecl isalpha(int _C);
 int __cdecl strncmp(char * _Str1, char * _Str2, unsigned int _MaxCount);
 static void flow_visit_pragma_declaration(struct flow_visit_ctx * ctx, struct pragma_declaration * p_pragma_declaration);
-void execute_pragma(struct parser_ctx * ctx, struct pragma_declaration * p_pragma, unsigned char on_flow_analysis);
+void execute_pragma(struct parser_ctx * ctx, struct pragma_declaration * p_pragma, unsigned char  on_flow_analysis);
 static unsigned char flow_is_last_item_return(struct compound_statement * p_compound_statement);
 
 void flow_visit_declaration(struct flow_visit_ctx * ctx, struct declaration * p_declaration)
@@ -4663,7 +4767,7 @@ void flow_visit_declaration(struct flow_visit_ctx * ctx, struct declaration * p_
         }
         else
         {
-            flow_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, 0U);
+            flow_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, 0);
         }
     }
     if (p_declaration->init_declarator_list.head)
@@ -4679,7 +4783,7 @@ void flow_visit_declaration(struct flow_visit_ctx * ctx, struct declaration * p_
         ctx->p_return_type = &type;
         flow_visit_compound_statement(ctx, p_declaration->function_body);
         type_destroy(&type);
-        ctx->p_return_type = 0U;
+        ctx->p_return_type = 0;
     }
     if (p_declaration->function_body && !flow_is_last_item_return(p_declaration->function_body))
     {
@@ -4693,7 +4797,7 @@ void flow_visit_declaration(struct flow_visit_ctx * ctx, struct declaration * p_
 static void true_false_set_clear(struct true_false_set * p)
 {
     free(p->data);
-    p->data = 0U;
+    p->data = 0;
     p->size = 0;
     p->capacity = 0;
 }
@@ -4704,12 +4808,12 @@ static int true_false_set_reserve(struct true_false_set * p, int n)
     {
         void * pnew;
 
-        if ((unsigned int)n > 357913941U)
+        if ((unsigned int)n > 357913941)
         {
             return 132;
         }
-        pnew = realloc(p->data, n * 12U);
-        if (pnew == 0U)
+        pnew = realloc(p->data, n * 12);
+        if (pnew == 0)
         {
             return 12;
         }
@@ -4756,7 +4860,7 @@ static int true_false_set_push_back(struct true_false_set * p, struct true_false
 
 static void check_uninitialized(struct flow_visit_ctx * ctx, struct expression * p_expression)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
     struct flow_object * p_object;
 
     if (p_expression->is_assignment_expression)
@@ -4775,11 +4879,11 @@ static void check_uninitialized(struct flow_visit_ctx * ctx, struct expression *
         {
             if (p_expression->expression_type == 2 && p_expression->declarator && p_expression->declarator->name_opt)
             {
-                compiler_diagnostic(30, ctx->ctx, p_expression->first_token, 0U, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
+                compiler_diagnostic(30, ctx->ctx, p_expression->first_token, 0, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
             }
             else
             {
-                compiler_diagnostic(30, ctx->ctx, p_expression->first_token, 0U, "using a uninitialized object");
+                compiler_diagnostic(30, ctx->ctx, p_expression->first_token, 0, "using a uninitialized object");
             }
         }
         else
@@ -4790,11 +4894,11 @@ static void check_uninitialized(struct flow_visit_ctx * ctx, struct expression *
                 {
                     if (p_expression->declarator && p_expression->declarator->name_opt)
                     {
-                        compiler_diagnostic(30, ctx->ctx, p_expression->first_token, 0U, "object '%s' can be uninitialized ", p_expression->declarator->name_opt->lexeme);
+                        compiler_diagnostic(30, ctx->ctx, p_expression->first_token, 0, "object '%s' can be uninitialized ", p_expression->declarator->name_opt->lexeme);
                     }
                     else
                     {
-                        compiler_diagnostic(30, ctx->ctx, p_expression->first_token, 0U, "maybe using a uninitialized object");
+                        compiler_diagnostic(30, ctx->ctx, p_expression->first_token, 0, "maybe using a uninitialized object");
                     }
                 }
             }
@@ -4818,16 +4922,16 @@ static void flow_compare_function_arguments(struct flow_visit_ctx * ctx, struct 
 {
     if (1) /*try*/
     {
-        unsigned char nullable_enabled;
+        unsigned char  nullable_enabled;
         struct param_list * p_param_list;
         struct param * p_current_parameter_type;
         struct argument_expression * p_current_argument;
 
         nullable_enabled = ctx->ctx->options.null_checks_enabled;
         p_param_list = type_get_func_or_func_ptr_params(p_type);
-        if (p_param_list == 0U)
+        if (p_param_list == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         p_current_parameter_type = p_param_list->head;
         p_current_argument = p_argument_expression_list->head;
@@ -4850,10 +4954,10 @@ static void flow_compare_function_arguments(struct flow_visit_ctx * ctx, struct 
                 struct marker  a_marker;
                 struct marker  b_marker;
 
-                parameter_object = make_flow_object(ctx, &p_current_parameter_type->type, 0U, p_current_argument->expression);
-                if (parameter_object == 0U)
+                parameter_object = make_flow_object(ctx, &p_current_parameter_type->type, 0, p_current_argument->expression);
+                if (parameter_object == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 flow_object_set_uninitialized(&p_current_parameter_type->type, parameter_object);
                 a_marker.file = 0;
@@ -4911,7 +5015,7 @@ static void flow_compare_function_arguments(struct flow_visit_ctx * ctx, struct 
                 p_argument_object = expression_get_flow_object(ctx, p_current_argument->expression, nullable_enabled);
                 if (p_argument_object)
                 {
-                    unsigned char argument_type_is_nullable;
+                    unsigned char  argument_type_is_nullable;
 
                     argument_type_is_nullable = type_is_opt(&pointed_type, ctx->ctx->options.null_checks_enabled);
                     if (p_argument_object->current.pointed)
@@ -4941,7 +5045,7 @@ static void flow_compare_function_arguments(struct flow_visit_ctx * ctx, struct 
             p_current_argument = p_current_argument->next;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -4952,7 +5056,7 @@ static void flow_clear_alias(struct expression * p_expression)
 
     if (p_expression->declarator)
     {
-        p_expression->declarator->p_alias_of_expression = 0U;
+        p_expression->declarator->p_alias_of_expression = 0;
     }
     p = p_expression->argument_expression_list.head;
     while (p)
@@ -4986,7 +5090,7 @@ static struct argument_expression *param_list_find_argument_by_name(struct param
         p_argument_expression = p_argument_expression->next;
         p_param = p_param->next;
     }
-    return 0U;
+    return 0;
 }
 
 static void flow_expression_bind(struct flow_visit_ctx * ctx, struct expression * p_expression, struct param_list * p_param_list, struct argument_expression_list * p_argument_expression_list)
@@ -5029,7 +5133,7 @@ static void flow_expression_bind(struct flow_visit_ctx * ctx, struct expression 
     }
 }
 
-static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char nullable_enabled, unsigned char true_branch)
+static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char  nullable_enabled, unsigned char  true_branch)
 {
     {
         int i;
@@ -5074,7 +5178,7 @@ static void true_false_set_set_objects_to_core_branch(struct flow_visit_ctx * ct
     }
 }
 
-static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char nullable_enabled)
+static void true_false_set_set_objects_to_true_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char  nullable_enabled)
 {
     true_false_set_set_objects_to_core_branch(ctx, a, nullable_enabled, 1);
 }
@@ -5134,7 +5238,7 @@ static int arena_add_empty_state(struct flow_visit_ctx * ctx, char * name)
             struct flow_object_state * p_flow_object_state;
 
             p_object = ctx->arena.data[i];
-            p_flow_object_state = calloc(1, 32U);
+            p_flow_object_state = calloc(1, 32);
             if (p_flow_object_state)
             {
                 p_flow_object_state->dbg_name = name;
@@ -5245,7 +5349,7 @@ static void flow_exit_block_visit_defer_item(struct flow_visit_ctx * ctx, struct
         flow_visit_secondary_block(ctx, p_item->defer_statement->secondary_block);
         if (error_count != ctx->ctx->p_report->error_count || warnings_count != ctx->ctx->p_report->warnings_count || info_count != ctx->ctx->p_report->info_count)
         {
-            compiler_diagnostic(62, ctx->ctx, position_token, 0U, "defer end of scope");
+            compiler_diagnostic(62, ctx->ctx, position_token, 0, "defer end of scope");
         }
     }
     else
@@ -5281,7 +5385,7 @@ static void flow_exit_block_visit_defer_list(struct flow_visit_ctx * ctx, struct
     }
 }
 
-static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char nullable_enabled)
+static void true_false_set_set_objects_to_false_branch(struct flow_visit_ctx * ctx, struct true_false_set * a, unsigned char  nullable_enabled)
 {
     true_false_set_set_objects_to_core_branch(ctx, a, nullable_enabled, 0);
 }
@@ -5298,17 +5402,17 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx * ctx, str
             if (it->state_number == state_number)
             {
                 it->state |= object->current.state;
-                if (object->current.pointed == 0U && it->pointed == 0U)
+                if (object->current.pointed == 0 && it->pointed == 0)
                 {
                 }
                 else
                 {
-                    if (object->current.pointed == 0U && it->pointed != 0U)
+                    if (object->current.pointed == 0 && it->pointed != 0)
                     {
                     }
                     else
                     {
-                        if (object->current.pointed != 0U && it->pointed == 0U)
+                        if (object->current.pointed != 0 && it->pointed == 0)
                         {
                             it->pointed = object->current.pointed;
                         }
@@ -5324,14 +5428,14 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx * ctx, str
                                 ;
                                 ;
                                 p_new_object = arena_new_object(ctx);
-                                if (p_new_object == 0U)
+                                if (p_new_object == 0)
                                 {
-                                    goto _CKL0;/*throw*/
+                                    goto __L0; /* throw */
                                 }
-                                p_new_state = calloc(1, 32U);
-                                if (p_new_state == 0U)
+                                p_new_state = calloc(1, 32);
+                                if (p_new_state == 0)
                                 {
-                                    goto _CKL0;/*throw*/
+                                    goto __L0; /* throw */
                                 }
                                 p_new_state->dbg_name = "merged";
                                 p_new_state->state_number = state_number;
@@ -5354,17 +5458,17 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx * ctx, str
                                             struct flow_object_state * p_child_new_state;
 
                                             p_new_child = arena_new_object(ctx);
-                                            if (p_new_child == 0U)
+                                            if (p_new_child == 0)
                                             {
-                                                goto _CKL0;/*throw*/
+                                                goto __L0; /* throw */
                                             }
                                             p_new_child->parent = p_new_object;
                                             child1 = object->current.pointed->members.data[j];
                                             child2 = it->pointed->members.data[j];
-                                            p_child_new_state = calloc(1, 32U);
-                                            if (p_child_new_state == 0U)
+                                            p_child_new_state = calloc(1, 32);
+                                            if (p_child_new_state == 0)
                                             {
-                                                goto _CKL0;/*throw*/
+                                                goto __L0; /* throw */
                                             }
                                             p_child_new_state->dbg_name = "merged";
                                             p_child_new_state->state_number = state_number;
@@ -5389,7 +5493,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx * ctx, str
             it = it->next;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return 0;
@@ -5459,15 +5563,15 @@ static void arena_remove_state(struct flow_visit_ctx * ctx, int state_number)
 
 static void flow_visit_while_statement(struct flow_visit_ctx * ctx, struct iteration_statement * p_iteration_statement)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
     int old_initial_state;
     int old_break_join_state;
     struct true_false_set  true_false_set;
     struct true_false_set  true_false_set2;
-    unsigned char was_last_statement_inside_true_branch_return;
+    unsigned char  was_last_statement_inside_true_branch_return;
 
     ;
-    if (p_iteration_statement->expression1 == 0U)
+    if (p_iteration_statement->expression1 == 0)
     {
         return;
     }
@@ -5510,34 +5614,27 @@ static void flow_visit_while_statement(struct flow_visit_ctx * ctx, struct itera
 
 static void flow_visit_do_while_statement(struct flow_visit_ctx * ctx, struct iteration_statement * p_iteration_statement)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
     struct true_false_set  true_false_set;
+    unsigned char  was_last_statement_inside_true_branch_return;
 
     ;
     nullable_enabled = ctx->ctx->options.null_checks_enabled;
     _cake_zmem(&true_false_set, 12);
-    if (1) /*try*/
+    if (p_iteration_statement->expression1)
     {
-        unsigned char was_last_statement_inside_true_branch_return;
-
-        if (p_iteration_statement->expression1)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
-        }
-        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-        flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-        was_last_statement_inside_true_branch_return = secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-        if (was_last_statement_inside_true_branch_return)
-        {
-        }
-        else
-        {
-            true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
-        }
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     }
-    else _CKL0: /*catch*/ 
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+    flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+    flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+    was_last_statement_inside_true_branch_return = secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+    if (was_last_statement_inside_true_branch_return)
     {
+    }
+    else
+    {
+        true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
     }
     true_false_set_destroy(&true_false_set);
 }
@@ -5662,7 +5759,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx * ctx, struct dir
     {
         struct parameter_declaration * parameter;
 
-        parameter = 0U;
+        parameter = 0;
         if (p_direct_declarator->function_declarator->parameter_type_list_opt && p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
         {
             parameter = p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
@@ -5697,7 +5794,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx * ctx, struct dir
 
 static void flow_visit_declarator(struct flow_visit_ctx * ctx, struct declarator * p_declarator)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
 
     nullable_enabled = ctx->ctx->options.null_checks_enabled;
     if (1) /*try*/
@@ -5708,10 +5805,10 @@ static void flow_visit_declarator(struct flow_visit_ctx * ctx, struct declarator
             {
                 return;
             }
-            p_declarator->p_flow_object = make_flow_object(ctx, &p_declarator->type, p_declarator, 0U);
-            if (p_declarator->p_flow_object == 0U)
+            p_declarator->p_flow_object = make_flow_object(ctx, &p_declarator->type, p_declarator, 0);
+            if (p_declarator->p_flow_object == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             flow_object_set_uninitialized(&p_declarator->type, p_declarator->p_flow_object);
             if (p_declarator->declaration_specifiers && p_declarator->declaration_specifiers->storage_class_specifier_flags & 2048)
@@ -5732,11 +5829,11 @@ static void flow_visit_declarator(struct flow_visit_ctx * ctx, struct declarator
                         struct flow_object * po;
 
                         t = type_remove_pointer(&p_declarator->type);
-                        po = make_flow_object(ctx, &t, p_declarator, 0U);
-                        if (po == 0U)
+                        po = make_flow_object(ctx, &t, p_declarator, 0);
+                        if (po == 0)
                         {
                             type_destroy(&t);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         flow_object_set_uninitialized(&t, po);
                         object_set_pointer(p_declarator->p_flow_object, po);
@@ -5748,14 +5845,14 @@ static void flow_visit_declarator(struct flow_visit_ctx * ctx, struct declarator
                         {
                             struct type  t;
                             struct flow_object * po;
-                            unsigned char t_is_nullable;
+                            unsigned char  t_is_nullable;
 
                             t = type_remove_pointer(&p_declarator->type);
-                            po = make_flow_object(ctx, &t, p_declarator, 0U);
-                            if (po == 0U)
+                            po = make_flow_object(ctx, &t, p_declarator, 0);
+                            if (po == 0)
                             {
                                 type_destroy(&t);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                             t_is_nullable = type_is_opt(&t, ctx->ctx->options.null_checks_enabled);
                             flow_object_set_unknown(&t, t_is_nullable, po, nullable_enabled);
@@ -5768,7 +5865,7 @@ static void flow_visit_declarator(struct flow_visit_ctx * ctx, struct declarator
                 {
                     if (type_is_struct_or_union(&p_declarator->type))
                     {
-                        unsigned char is_nullable;
+                        unsigned char  is_nullable;
 
                         is_nullable = type_is_opt(&p_declarator->type, nullable_enabled);
                         flow_object_set_unknown(&p_declarator->type, is_nullable, p_declarator->p_flow_object, nullable_enabled);
@@ -5792,7 +5889,7 @@ static void flow_visit_declarator(struct flow_visit_ctx * ctx, struct declarator
             flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -5836,7 +5933,7 @@ static void flow_visit_initializer_list(struct flow_visit_ctx * ctx, struct init
 
 static void flow_visit_bracket_initializer_list(struct flow_visit_ctx * ctx, struct braced_initializer * p_bracket_initializer_list)
 {
-    if (p_bracket_initializer_list->initializer_list == 0U)
+    if (p_bracket_initializer_list->initializer_list == 0)
     {
     }
     else
@@ -5847,7 +5944,7 @@ static void flow_visit_bracket_initializer_list(struct flow_visit_ctx * ctx, str
 
 static void braced_initializer_flow_core(struct flow_visit_ctx * ctx, struct object * obj, struct flow_object * flow_obj)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
 
     nullable_enabled = ctx->ctx->options.null_checks_enabled;
     if (obj->p_init_expression)
@@ -5868,7 +5965,7 @@ static void braced_initializer_flow_core(struct flow_visit_ctx * ctx, struct obj
             b_marker.p_token_caret = 0;
             b_marker.p_token_begin = obj->p_init_expression->first_token;
             b_marker.p_token_end = obj->p_init_expression->last_token;
-            flow_check_assignment(ctx, obj->p_init_expression->first_token, &a_marker, &b_marker, 2, 0, type_is_view(&obj->type), type_is_opt(&obj->type, ctx->ctx->options.null_checks_enabled), &obj->type, flow_obj, &obj->p_init_expression->type, p_right_object, 0U);
+            flow_check_assignment(ctx, obj->p_init_expression->first_token, &a_marker, &b_marker, 2, 0, type_is_view(&obj->type), type_is_opt(&obj->type, ctx->ctx->options.null_checks_enabled), &obj->type, flow_obj, &obj->p_init_expression->type, p_right_object, 0);
         }
     }
     else
@@ -5881,7 +5978,7 @@ static void braced_initializer_flow_core(struct flow_visit_ctx * ctx, struct obj
         struct object * m;
 
         i = 0;
-        m = obj->members;
+        m = obj->members.head;
         while (m)
         {
             braced_initializer_flow_core(ctx, m, flow_obj->members.data[i]);
@@ -5896,19 +5993,19 @@ static void braced_initializer_flow(struct flow_visit_ctx * ctx, struct object *
     if (1) /*try*/
     {
         braced_initializer_flow_core(ctx, obj, flow_obj);
-        if (flow_obj->p_declarator_origin == 0U)
+        if (flow_obj->p_declarator_origin == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
 
 static void flow_visit_init_declarator(struct flow_visit_ctx * ctx, struct init_declarator * p_init_declarator)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
 
     nullable_enabled = ctx->ctx->options.null_checks_enabled;
     if (1) /*try*/
@@ -5963,7 +6060,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx * ctx, struct init_
                     b_marker.p_token_begin = p_init_declarator->initializer->assignment_expression->first_token;
                     b_marker.p_token_end = p_init_declarator->initializer->assignment_expression->last_token;
                     ;
-                    flow_check_assignment(ctx, p_init_declarator->initializer->assignment_expression->first_token, &a_marker, &b_marker, 2, 0, type_is_view(&p_init_declarator->p_declarator->type), type_is_opt(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled), &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator->p_flow_object, &p_init_declarator->initializer->assignment_expression->type, p_right_object, 0U);
+                    flow_check_assignment(ctx, p_init_declarator->initializer->assignment_expression->first_token, &a_marker, &b_marker, 2, 0, type_is_view(&p_init_declarator->p_declarator->type), type_is_opt(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled), &p_init_declarator->p_declarator->type, p_init_declarator->p_declarator->p_flow_object, &p_init_declarator->initializer->assignment_expression->type, p_right_object, 0);
                 }
                 if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
                 {
@@ -5972,11 +6069,11 @@ static void flow_visit_init_declarator(struct flow_visit_ctx * ctx, struct init_
 
                     ;
                     t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                    po = make_flow_object(ctx, &t, p_init_declarator->p_declarator, 0U);
-                    if (po == 0U)
+                    po = make_flow_object(ctx, &t, p_init_declarator->p_declarator, 0);
+                    if (po == 0)
                     {
                         type_destroy(&t);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     object_set_pointer(p_init_declarator->p_declarator->p_flow_object, po);
                     type_destroy(&t);
@@ -5991,11 +6088,11 @@ static void flow_visit_init_declarator(struct flow_visit_ctx * ctx, struct init_
 
                         ;
                         t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                        pointed_calloc_object = make_flow_object(ctx, &t, p_init_declarator->p_declarator, 0U);
-                        if (pointed_calloc_object == 0U)
+                        pointed_calloc_object = make_flow_object(ctx, &t, p_init_declarator->p_declarator, 0);
+                        if (pointed_calloc_object == 0)
                         {
                             type_destroy(&t);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         flow_object_set_zero(&t, pointed_calloc_object);
                         object_set_pointer(p_init_declarator->p_declarator->p_flow_object, pointed_calloc_object);
@@ -6027,7 +6124,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx * ctx, struct init_
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -6046,7 +6143,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx * ctx, struct 
 
 static void flow_check_pointer_used_as_bool(struct flow_visit_ctx * ctx, struct expression * p_expression)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
 
     nullable_enabled = ctx->ctx->options.null_checks_enabled;
     if (type_is_pointer(&p_expression->type))
@@ -6067,13 +6164,13 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx * ctx, struct 
             marker.p_token_end = p_expression->last_token;
             if (!ctx->inside_loop && flow_object_is_null(p_object))
             {
-                compiler_diagnostic(28, ctx->ctx, 0U, &marker, "pointer is always null");
+                compiler_diagnostic(28, ctx->ctx, 0, &marker, "pointer is always null");
             }
             else
             {
                 if (!ctx->inside_loop && flow_object_is_not_null(p_object))
                 {
-                    compiler_diagnostic(28, ctx->ctx, 0U, &marker, "pointer is always not-null");
+                    compiler_diagnostic(28, ctx->ctx, 0, &marker, "pointer is always not-null");
                 }
             }
         }
@@ -6083,80 +6180,73 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx * ctx, struct 
 static void flow_visit_for_statement(struct flow_visit_ctx * ctx, struct iteration_statement * p_iteration_statement)
 {
     struct true_false_set  d;
+    unsigned char  b_secondary_block_ends_with_jump;
 
     ;
     _cake_zmem(&d, 12);
-    if (1) /*try*/
+    if (p_iteration_statement->declaration && p_iteration_statement->declaration->init_declarator_list.head)
     {
-        unsigned char b_secondary_block_ends_with_jump;
-
-        if (p_iteration_statement->declaration && p_iteration_statement->declaration->init_declarator_list.head)
-        {
-            flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
-        }
-        if (p_iteration_statement->expression0)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
-        }
-        if (p_iteration_statement->expression1)
-        {
-            flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
-            flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
-        }
-        diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
-        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-        diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
-        if (p_iteration_statement->expression2)
-        {
-            flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
-        }
-        b_secondary_block_ends_with_jump = secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-        if (!b_secondary_block_ends_with_jump)
-        {
-            flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-            flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-            flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
-        }
+        flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
     }
-    else _CKL0: /*catch*/ 
+    if (p_iteration_statement->expression0)
     {
+        flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
+    }
+    if (p_iteration_statement->expression1)
+    {
+        flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
+    }
+    diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
+    flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+    diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
+    if (p_iteration_statement->expression2)
+    {
+        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
+    }
+    b_secondary_block_ends_with_jump = secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+    if (!b_secondary_block_ends_with_jump)
+    {
+        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
+        flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list, p_iteration_statement->secondary_block->last_token);
     }
     true_false_set_destroy(&d);
 }
 
 static void flow_visit_iteration_statement(struct flow_visit_ctx * ctx, struct iteration_statement * p_iteration_statement)
 {
-    unsigned char inside_loop;
+    unsigned char  inside_loop;
 
     inside_loop = ctx->inside_loop;
     ctx->inside_loop = 1;
     /*switch*/
     {
-        register int __Ck2_temp = p_iteration_statement->first_token->type;
-        if (__Ck2_temp == 9043) goto _CKL1; /*case 9043*/
-        if (__Ck2_temp == 9009) goto _CKL2; /*case 9009*/
-        if (__Ck2_temp == 9016) goto _CKL3; /*case 9016*/
-        goto _CKL4;/*default*/
+        int __v0 = p_iteration_statement->first_token->type;
+        if (__v0 == 9042) goto __L1; /*case 9042*/
+        if (__v0 == 9008) goto __L2; /*case 9008*/
+        if (__v0 == 9015) goto __L3; /*case 9015*/
+        goto __L4; /* default */
 
         {
-            _CKL1: /*case 9043*/ 
+            __L1: /*case 9042*/ 
             flow_visit_while_statement(ctx, p_iteration_statement);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL2: /*case 9009*/ 
+            __L2: /*case 9008*/ 
             flow_visit_do_while_statement(ctx, p_iteration_statement);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL3: /*case 9016*/ 
+            __L3: /*case 9015*/ 
             flow_visit_for_statement(ctx, p_iteration_statement);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL4: /*default*/ 
+            __L4: /* default */ 
             ;
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
         }
-        _CKL0:;
+        __L0:;
     }
     ctx->inside_loop = inside_loop;
 }
@@ -6180,19 +6270,19 @@ static void flow_visit_expression_statement(struct flow_visit_ctx * ctx, struct 
 
 static void flow_visit_simple_declaration(struct flow_visit_ctx * ctx, struct simple_declaration * p_simple_declaration)
 {
-    flow_visit_declaration_specifiers(ctx, p_simple_declaration->p_declaration_specifiers, 0U);
+    flow_visit_declaration_specifiers(ctx, p_simple_declaration->p_declaration_specifiers, 0);
     flow_visit_init_declarator_list(ctx, &p_simple_declaration->init_declarator_list);
 }
 
 static void flow_visit_if_statement(struct flow_visit_ctx * ctx, struct selection_statement * p_selection_statement)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
     struct expression  hidden_expression;
     struct true_false_set  true_false_set;
     int before_if_state_number;
-    unsigned char true_branch_ends_with_jump;
+    unsigned char  true_branch_ends_with_jump;
     int left_true_branch_state_number;
-    unsigned char else_ends_with_jump;
+    unsigned char  else_ends_with_jump;
 
     nullable_enabled = ctx->ctx->options.null_checks_enabled;
     if (p_selection_statement->p_init_statement && p_selection_statement->p_init_statement->p_expression_statement)
@@ -6203,7 +6293,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx * ctx, struct selectio
     {
         flow_visit_simple_declaration(ctx, p_selection_statement->p_init_statement->p_simple_declaration);
     }
-    _cake_zmem(&hidden_expression, 248);
+    _cake_zmem(&hidden_expression, 256);
     _cake_zmem(&true_false_set, 12);
     if (p_selection_statement->condition && p_selection_statement->condition->expression)
     {
@@ -6214,7 +6304,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx * ctx, struct selectio
     {
         flow_visit_init_declarator(ctx, p_selection_statement->condition->p_init_declarator);
     }
-    if (p_selection_statement->condition && p_selection_statement->condition->expression == 0U && p_selection_statement->condition->p_init_declarator != 0U)
+    if (p_selection_statement->condition && p_selection_statement->condition->expression == 0 && p_selection_statement->condition->p_init_declarator != 0)
     {
         hidden_expression.expression_type = 2;
         hidden_expression.declarator = p_selection_statement->condition->p_init_declarator->p_declarator;
@@ -6272,7 +6362,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx * ctx, struct sele
 {
     int old_initial_state;
     int old_break_join_state;
-    unsigned char reached_the_end;
+    unsigned char  reached_the_end;
 
     old_initial_state = ctx->initial_state;
     old_break_join_state = ctx->break_join_state;
@@ -6294,13 +6384,13 @@ static void flow_visit_switch_statement(struct flow_visit_ctx * ctx, struct sele
 
 static void flow_visit_selection_statement(struct flow_visit_ctx * ctx, struct selection_statement * p_selection_statement)
 {
-    if (p_selection_statement->first_token->type == 9018)
+    if (p_selection_statement->first_token->type == 9017)
     {
         flow_visit_if_statement(ctx, p_selection_statement);
     }
     else
     {
-        if (p_selection_statement->first_token->type == 9035)
+        if (p_selection_statement->first_token->type == 9034)
         {
             flow_visit_switch_statement(ctx, p_selection_statement);
         }
@@ -6345,54 +6435,48 @@ static void arena_set_state_from_current(struct flow_visit_ctx * ctx, int number
 
 static void flow_visit_try_statement(struct flow_visit_ctx * ctx, struct try_statement * p_try_statement)
 {
-    if (1) /*try*/
-    {
-        int throw_join_state_old;
-        struct secondary_block * catch_secondary_block_old;
-        int original_state_number;
-        unsigned char try_reached_the_end;
-        unsigned char catch_reached_the_end;
+    int throw_join_state_old;
+    struct secondary_block * catch_secondary_block_old;
+    int original_state_number;
+    unsigned char  try_reached_the_end;
+    unsigned char  catch_reached_the_end;
 
-        throw_join_state_old = ctx->throw_join_state;
-        catch_secondary_block_old = ctx->catch_secondary_block_opt;
-        ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
-        ctx->throw_join_state = arena_add_empty_state(ctx, "try");
-        original_state_number = arena_add_copy_of_current_state(ctx, "original");
-        flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-        arena_set_state_from_current(ctx, original_state_number);
-        if (p_try_statement->catch_secondary_block_opt)
+    throw_join_state_old = ctx->throw_join_state;
+    catch_secondary_block_old = ctx->catch_secondary_block_opt;
+    ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
+    ctx->throw_join_state = arena_add_empty_state(ctx, "try");
+    original_state_number = arena_add_copy_of_current_state(ctx, "original");
+    flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
+    arena_set_state_from_current(ctx, original_state_number);
+    if (p_try_statement->catch_secondary_block_opt)
+    {
+        arena_restore_current_state_from(ctx, ctx->throw_join_state);
+        flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
+    }
+    try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
+    catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
+    if (try_reached_the_end && catch_reached_the_end)
+    {
+        arena_merge_current_state_with_state_number(ctx, original_state_number);
+        arena_restore_current_state_from(ctx, original_state_number);
+    }
+    else
+    {
+        if (try_reached_the_end)
         {
-            arena_restore_current_state_from(ctx, ctx->throw_join_state);
-            flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
-        }
-        try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
-        catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
-        if (try_reached_the_end && catch_reached_the_end)
-        {
-            arena_merge_current_state_with_state_number(ctx, original_state_number);
             arena_restore_current_state_from(ctx, original_state_number);
         }
         else
         {
-            if (try_reached_the_end)
+            if (catch_reached_the_end)
             {
-                arena_restore_current_state_from(ctx, original_state_number);
-            }
-            else
-            {
-                if (catch_reached_the_end)
-                {
-                }
             }
         }
-        arena_remove_state(ctx, original_state_number);
-        arena_remove_state(ctx, ctx->throw_join_state);
-        ctx->throw_join_state = throw_join_state_old;
-        ctx->catch_secondary_block_opt = catch_secondary_block_old;
     }
-    else _CKL0: /*catch*/ 
-    {
-    }
+    arena_remove_state(ctx, original_state_number);
+    arena_remove_state(ctx, ctx->throw_join_state);
+    ctx->throw_join_state = throw_join_state_old;
+    ctx->catch_secondary_block_opt = catch_secondary_block_old;
 }
 
 static void flow_visit_primary_block(struct flow_visit_ctx * ctx, struct primary_block * p_primary_block)
@@ -6433,23 +6517,23 @@ static void flow_visit_primary_block(struct flow_visit_ctx * ctx, struct primary
 
 static void flow_visit_jump_statement(struct flow_visit_ctx * ctx, struct jump_statement * p_jump_statement)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
 
     nullable_enabled = ctx->ctx->options.null_checks_enabled;
     if (1) /*try*/
     {
-        if (p_jump_statement->first_token->type == 9038)
+        if (p_jump_statement->first_token->type == 9037)
         {
             arena_merge_current_state_with_state_number(ctx, ctx->throw_join_state);
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
         }
         else
         {
-            if (p_jump_statement->first_token->type == 9028)
+            if (p_jump_statement->first_token->type == 9027)
             {
-                if (ctx->p_return_type == 0U)
+                if (ctx->p_return_type == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 if (p_jump_statement->expression_opt)
                 {
@@ -6472,10 +6556,10 @@ static void flow_visit_jump_statement(struct flow_visit_ctx * ctx, struct jump_s
                         int state_before_return;
 
                         ;
-                        p_dest_object = make_flow_object(ctx, ctx->p_return_type, 0U, p_jump_statement->expression_opt);
-                        if (p_dest_object == 0U)
+                        p_dest_object = make_flow_object(ctx, ctx->p_return_type, 0, p_jump_statement->expression_opt);
+                        if (p_dest_object == 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         ;
                         flow_object_set_zero(ctx->p_return_type, p_dest_object);
@@ -6494,14 +6578,14 @@ static void flow_visit_jump_statement(struct flow_visit_ctx * ctx, struct jump_s
                         b_marker.p_token_begin = p_jump_statement->expression_opt->first_token;
                         b_marker.p_token_end = p_jump_statement->expression_opt->last_token;
                         ;
-                        flow_check_assignment(ctx, p_jump_statement->expression_opt->first_token, &a_marker, &b_marker, 0, 1, type_is_view(ctx->p_return_type), type_is_opt(ctx->p_return_type, ctx->ctx->options.null_checks_enabled), ctx->p_return_type, p_dest_object, &p_jump_statement->expression_opt->type, p_object, 0U);
+                        flow_check_assignment(ctx, p_jump_statement->expression_opt->first_token, &a_marker, &b_marker, 0, 1, type_is_view(ctx->p_return_type), type_is_opt(ctx->p_return_type, ctx->ctx->options.null_checks_enabled), ctx->p_return_type, p_dest_object, &p_jump_statement->expression_opt->type, p_object, 0);
                         state_before_return = arena_add_copy_of_current_state(ctx, "before-return");
                         flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
-                        if (ctx->p_return_type == 0U)
+                        if (ctx->p_return_type == 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
-                        checked_read_object(ctx, ctx->p_return_type, type_is_opt(ctx->p_return_type, ctx->ctx->options.null_checks_enabled), p_dest_object, 0U, &a_marker, 1);
+                        checked_read_object(ctx, ctx->p_return_type, type_is_opt(ctx->p_return_type, ctx->ctx->options.null_checks_enabled), p_dest_object, 0, &a_marker, 1);
                         arena_restore_current_state_from(ctx, state_before_return);
                     }
                     if (p_object && p_object->is_temporary)
@@ -6513,20 +6597,20 @@ static void flow_visit_jump_statement(struct flow_visit_ctx * ctx, struct jump_s
             }
             else
             {
-                if (p_jump_statement->first_token->type == 9006)
+                if (p_jump_statement->first_token->type == 9005)
                 {
                     flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
                 }
                 else
                 {
-                    if (p_jump_statement->first_token->type == 9001)
+                    if (p_jump_statement->first_token->type == 9000)
                     {
                         arena_merge_current_state_with_state_number(ctx, ctx->break_join_state);
                         flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
                     }
                     else
                     {
-                        if (p_jump_statement->first_token->type == 9017)
+                        if (p_jump_statement->first_token->type == 9016)
                         {
                             int label_state_number;
 
@@ -6563,7 +6647,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx * ctx, struct jump_s
             }
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -6778,96 +6862,96 @@ static void true_false_set_merge(struct true_false_set * result, struct true_fal
 
 static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression * p_expression, struct true_false_set * expr_true_false_set)
 {
-    unsigned char nullable_enabled;
+    unsigned char  nullable_enabled;
 
     true_false_set_clear(expr_true_false_set);
     nullable_enabled = ctx->ctx->options.null_checks_enabled;
     /*switch*/
     {
-        register int __Ck1_temp = p_expression->expression_type;
-        if (__Ck1_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck1_temp == 4) goto _CKL2; /*case 4*/
-        if (__Ck1_temp == 1) goto _CKL3; /*case 1*/
-        if (__Ck1_temp == 2) goto _CKL4; /*case 2*/
-        if (__Ck1_temp == 9) goto _CKL6; /*case 9*/
-        if (__Ck1_temp == 3) goto _CKL7; /*case 3*/
-        if (__Ck1_temp == 5) goto _CKL8; /*case 5*/
-        if (__Ck1_temp == 8) goto _CKL9; /*case 8*/
-        if (__Ck1_temp == 6) goto _CKL10; /*case 6*/
-        if (__Ck1_temp == 7) goto _CKL11; /*case 7*/
-        if (__Ck1_temp == 14) goto _CKL12; /*case 14*/
-        if (__Ck1_temp == 15) goto _CKL13; /*case 15*/
-        if (__Ck1_temp == 16) goto _CKL23; /*case 16*/
-        if (__Ck1_temp == 17) goto _CKL24; /*case 17*/
-        if (__Ck1_temp == 13) goto _CKL28; /*case 13*/
-        if (__Ck1_temp == 12) goto _CKL29; /*case 12*/
-        if (__Ck1_temp == 10) goto _CKL36; /*case 10*/
-        if (__Ck1_temp == 11) goto _CKL37; /*case 11*/
-        if (__Ck1_temp == 30) goto _CKL40; /*case 30*/
-        if (__Ck1_temp == 29) goto _CKL42; /*case 29*/
-        if (__Ck1_temp == 31) goto _CKL43; /*case 31*/
-        if (__Ck1_temp == 18) goto _CKL45; /*case 18*/
-        if (__Ck1_temp == 37) goto _CKL47; /*case 37*/
-        if (__Ck1_temp == 38) goto _CKL48; /*case 38*/
-        if (__Ck1_temp == 35) goto _CKL49; /*case 35*/
-        if (__Ck1_temp == 19) goto _CKL50; /*case 19*/
-        if (__Ck1_temp == 20) goto _CKL51; /*case 20*/
-        if (__Ck1_temp == 33) goto _CKL52; /*case 33*/
-        if (__Ck1_temp == 34) goto _CKL53; /*case 34*/
-        if (__Ck1_temp == 36) goto _CKL54; /*case 36*/
-        if (__Ck1_temp == 40) goto _CKL55; /*case 40*/
-        if (__Ck1_temp == 39) goto _CKL56; /*case 39*/
-        if (__Ck1_temp == 60) goto _CKL61; /*case 60*/
-        if (__Ck1_temp == 61) goto _CKL62; /*case 61*/
-        if (__Ck1_temp == 62) goto _CKL63; /*case 62*/
-        if (__Ck1_temp == 63) goto _CKL64; /*case 63*/
-        if (__Ck1_temp == 64) goto _CKL65; /*case 64*/
-        if (__Ck1_temp == 65) goto _CKL66; /*case 65*/
-        if (__Ck1_temp == 66) goto _CKL67; /*case 66*/
-        if (__Ck1_temp == 67) goto _CKL68; /*case 67*/
-        if (__Ck1_temp == 68) goto _CKL69; /*case 68*/
-        if (__Ck1_temp == 69) goto _CKL70; /*case 69*/
-        if (__Ck1_temp == 70) goto _CKL71; /*case 70*/
-        if (__Ck1_temp == 43) goto _CKL77; /*case 43*/
-        if (__Ck1_temp == 41) goto _CKL80; /*case 41*/
-        if (__Ck1_temp == 42) goto _CKL81; /*case 42*/
-        if (__Ck1_temp == 44) goto _CKL82; /*case 44*/
-        if (__Ck1_temp == 45) goto _CKL83; /*case 45*/
-        if (__Ck1_temp == 46) goto _CKL84; /*case 46*/
-        if (__Ck1_temp == 47) goto _CKL85; /*case 47*/
-        if (__Ck1_temp == 48) goto _CKL86; /*case 48*/
-        if (__Ck1_temp == 51) goto _CKL89; /*case 51*/
-        if (__Ck1_temp == 52) goto _CKL90; /*case 52*/
-        if (__Ck1_temp == 49) goto _CKL91; /*case 49*/
-        if (__Ck1_temp == 50) goto _CKL92; /*case 50*/
-        if (__Ck1_temp == 54) goto _CKL99; /*case 54*/
-        if (__Ck1_temp == 53) goto _CKL100; /*case 53*/
-        if (__Ck1_temp == 58) goto _CKL125; /*case 58*/
-        if (__Ck1_temp == 59) goto _CKL128; /*case 59*/
-        if (__Ck1_temp == 57) goto _CKL130; /*case 57*/
-        if (__Ck1_temp == 55) goto _CKL131; /*case 55*/
-        if (__Ck1_temp == 56) goto _CKL132; /*case 56*/
-        if (__Ck1_temp == 26) goto _CKL133; /*case 26*/
-        if (__Ck1_temp == 27) goto _CKL134; /*case 27*/
-        if (__Ck1_temp == 28) goto _CKL135; /*case 28*/
-        if (__Ck1_temp == 71) goto _CKL136; /*case 71*/
-        if (__Ck1_temp == 72) goto _CKL137; /*case 72*/
-        goto _CKL0;
+        int __v0 = p_expression->expression_type;
+        if (__v0 == 0) goto __L1; /*case 0*/
+        if (__v0 == 4) goto __L2; /*case 4*/
+        if (__v0 == 1) goto __L3; /*case 1*/
+        if (__v0 == 2) goto __L4; /*case 2*/
+        if (__v0 == 9) goto __L6; /*case 9*/
+        if (__v0 == 3) goto __L7; /*case 3*/
+        if (__v0 == 5) goto __L8; /*case 5*/
+        if (__v0 == 8) goto __L9; /*case 8*/
+        if (__v0 == 6) goto __L10; /*case 6*/
+        if (__v0 == 7) goto __L11; /*case 7*/
+        if (__v0 == 14) goto __L12; /*case 14*/
+        if (__v0 == 15) goto __L13; /*case 15*/
+        if (__v0 == 16) goto __L23; /*case 16*/
+        if (__v0 == 17) goto __L24; /*case 17*/
+        if (__v0 == 13) goto __L28; /*case 13*/
+        if (__v0 == 12) goto __L29; /*case 12*/
+        if (__v0 == 10) goto __L36; /*case 10*/
+        if (__v0 == 11) goto __L37; /*case 11*/
+        if (__v0 == 30) goto __L40; /*case 30*/
+        if (__v0 == 29) goto __L42; /*case 29*/
+        if (__v0 == 31) goto __L43; /*case 31*/
+        if (__v0 == 18) goto __L45; /*case 18*/
+        if (__v0 == 37) goto __L47; /*case 37*/
+        if (__v0 == 38) goto __L48; /*case 38*/
+        if (__v0 == 35) goto __L49; /*case 35*/
+        if (__v0 == 19) goto __L50; /*case 19*/
+        if (__v0 == 20) goto __L51; /*case 20*/
+        if (__v0 == 33) goto __L52; /*case 33*/
+        if (__v0 == 34) goto __L53; /*case 34*/
+        if (__v0 == 36) goto __L54; /*case 36*/
+        if (__v0 == 40) goto __L55; /*case 40*/
+        if (__v0 == 39) goto __L56; /*case 39*/
+        if (__v0 == 60) goto __L61; /*case 60*/
+        if (__v0 == 61) goto __L62; /*case 61*/
+        if (__v0 == 62) goto __L63; /*case 62*/
+        if (__v0 == 63) goto __L64; /*case 63*/
+        if (__v0 == 64) goto __L65; /*case 64*/
+        if (__v0 == 65) goto __L66; /*case 65*/
+        if (__v0 == 66) goto __L67; /*case 66*/
+        if (__v0 == 67) goto __L68; /*case 67*/
+        if (__v0 == 68) goto __L69; /*case 68*/
+        if (__v0 == 69) goto __L70; /*case 69*/
+        if (__v0 == 70) goto __L71; /*case 70*/
+        if (__v0 == 43) goto __L77; /*case 43*/
+        if (__v0 == 41) goto __L80; /*case 41*/
+        if (__v0 == 42) goto __L81; /*case 42*/
+        if (__v0 == 44) goto __L82; /*case 44*/
+        if (__v0 == 45) goto __L83; /*case 45*/
+        if (__v0 == 46) goto __L84; /*case 46*/
+        if (__v0 == 47) goto __L85; /*case 47*/
+        if (__v0 == 48) goto __L86; /*case 48*/
+        if (__v0 == 51) goto __L89; /*case 51*/
+        if (__v0 == 52) goto __L90; /*case 52*/
+        if (__v0 == 49) goto __L91; /*case 49*/
+        if (__v0 == 50) goto __L92; /*case 50*/
+        if (__v0 == 54) goto __L99; /*case 54*/
+        if (__v0 == 53) goto __L100; /*case 53*/
+        if (__v0 == 58) goto __L125; /*case 58*/
+        if (__v0 == 59) goto __L128; /*case 59*/
+        if (__v0 == 57) goto __L130; /*case 57*/
+        if (__v0 == 55) goto __L131; /*case 55*/
+        if (__v0 == 56) goto __L132; /*case 56*/
+        if (__v0 == 26) goto __L133; /*case 26*/
+        if (__v0 == 27) goto __L134; /*case 27*/
+        if (__v0 == 28) goto __L135; /*case 28*/
+        if (__v0 == 71) goto __L136; /*case 71*/
+        if (__v0 == 72) goto __L137; /*case 72*/
+        goto __L0;
 
         {
             struct flow_object * temp2;
 
-            _CKL1: /*case 0*/ 
+            __L1: /*case 0*/ 
             ;
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL2: /*case 4*/ 
-            goto _CKL0; /*break*/
+            __L2: /*case 4*/ 
+            goto __L0; /* break */
 
-            _CKL3: /*case 1*/ 
-            goto _CKL0; /*break*/
+            __L3: /*case 1*/ 
+            goto __L0; /* break */
 
-            _CKL4: /*case 2*/ 
+            __L4: /*case 2*/ 
             {
                 ;
                 if (p_expression->declarator->p_alias_of_expression)
@@ -6886,25 +6970,25 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     check_uninitialized(ctx, p_expression);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL6: /*case 9*/ 
+            __L6: /*case 9*/ 
             ;
             flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL7: /*case 3*/ 
-            _CKL8: /*case 5*/ 
-            _CKL9: /*case 8*/ 
-            _CKL10: /*case 6*/ 
-            goto _CKL0; /*break*/
+            __L7: /*case 3*/ 
+            __L8: /*case 5*/ 
+            __L9: /*case 8*/ 
+            __L10: /*case 6*/ 
+            goto __L0; /* break */
 
-            _CKL11: /*case 7*/ 
+            __L11: /*case 7*/ 
             ;
             flow_visit_generic_selection(ctx, p_expression->generic_selection);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL12: /*case 14*/ 
+            __L12: /*case 14*/ 
             {
                 struct true_false_set  left_set;
                 struct true_false_set_item  item;
@@ -6918,9 +7002,9 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 item.false_branch_state = 2;
                 true_false_set_push_back(expr_true_false_set, &item);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL13: /*case 15*/ 
+            __L13: /*case 15*/ 
             {
                 struct true_false_set  left_set;
                 struct flow_object * p_object;
@@ -6931,7 +7015,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 flow_visit_expression(ctx, p_expression->left, &left_set);
                 true_false_set_destroy(&left_set);
                 p_object = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
-                if (p_object != 0U)
+                if (p_object != 0)
                 {
                     if (flow_object_can_be_null(p_object))
                     {
@@ -6945,7 +7029,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                             _cake_zmem(&marker, 28);
                             marker.p_token_begin = p_expression->left->first_token;
                             marker.p_token_end = p_expression->left->last_token;
-                            compiler_diagnostic(33, ctx->ctx, 0U, &marker, "pointer may be null");
+                            compiler_diagnostic(33, ctx->ctx, 0, &marker, "pointer may be null");
                         }
                     }
                     else
@@ -6957,7 +7041,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                             }
                             else
                             {
-                                compiler_diagnostic(33, ctx->ctx, p_expression->left->first_token, 0U, "object is possibly uninitialized");
+                                compiler_diagnostic(33, ctx->ctx, p_expression->left->first_token, 0, "object is possibly uninitialized");
                             }
                         }
                         else
@@ -6969,7 +7053,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                                 }
                                 else
                                 {
-                                    compiler_diagnostic(31, ctx->ctx, p_expression->left->first_token, 0U, "object lifetime ended");
+                                    compiler_diagnostic(31, ctx->ctx, p_expression->left->first_token, 0, "object lifetime ended");
                                 }
                             }
                         }
@@ -6991,7 +7075,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                         marker.p_token_caret = 0;
                         marker.p_token_begin = p_expression->first_token;
                         marker.p_token_end = p_expression->last_token;
-                        compiler_diagnostic(31, ctx->ctx, 0U, &marker, "object lifetime ended");
+                        compiler_diagnostic(31, ctx->ctx, 0, &marker, "object lifetime ended");
                     }
                 }
                 item.p_expression = p_expression;
@@ -6999,10 +7083,10 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 item.false_branch_state = 2;
                 true_false_set_push_back(expr_true_false_set, &item);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL23: /*case 16*/ 
-            _CKL24: /*case 17*/ 
+            __L23: /*case 16*/ 
+            __L24: /*case 17*/ 
             {
                 struct flow_object * p_object;
 
@@ -7024,9 +7108,9 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 }
                 flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL28: /*case 13*/ 
+            __L28: /*case 13*/ 
             {
                 struct true_false_set_item  item;
 
@@ -7040,9 +7124,9 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 item.false_branch_state = 2;
                 true_false_set_push_back(expr_true_false_set, &item);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL29: /*case 12*/ 
+            __L29: /*case 12*/ 
             {
                 if (!ctx->inside_contract)
                 {
@@ -7069,7 +7153,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                         if (type_is_scalar(&return_type))
                         {
                             struct true_false_set  local;
-                            unsigned char inside_contract;
+                            unsigned char  inside_contract;
 
                             _cake_zmem(&local, 12);
                             inside_contract = ctx->inside_contract;
@@ -7095,8 +7179,8 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                         else
                         {
                             struct true_false_set  true_false_set4;
-                            unsigned char old;
-                            unsigned char inside_contract;
+                            unsigned char  old;
+                            unsigned char  inside_contract;
 
                             _cake_zmem(&true_false_set4, 12);
                             old = ctx->inside_assert;
@@ -7114,7 +7198,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     {
                         struct expression * p_expression_false;
                         struct true_false_set  local;
-                        unsigned char inside_contract;
+                        unsigned char  inside_contract;
 
                         p_expression_false = p_expression->left->declarator->p_expression_false;
                         flow_clear_alias(p_expression_false);
@@ -7153,21 +7237,21 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     type_destroy(&return_type);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL36: /*case 10*/ 
+            __L36: /*case 10*/ 
             ;
             flow_visit_compound_statement(ctx, p_expression->compound_statement);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL37: /*case 11*/ 
+            __L37: /*case 11*/ 
             ;
             ;
             ;
             ;
             flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
-            temp2 = make_flow_object(ctx, &p_expression->type, 0U, p_expression);
-            if (temp2 == 0U)
+            temp2 = make_flow_object(ctx, &p_expression->type, 0, p_expression);
+            if (temp2 == 0)
             {
                 return;
             }
@@ -7176,23 +7260,23 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 flow_object_swap(temp2, p_expression->type_name->abstract_declarator->p_flow_object);
                 flow_object_set_zero(&p_expression->type, p_expression->type_name->abstract_declarator->p_flow_object);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL40: /*case 30*/ 
+            __L40: /*case 30*/ 
             if (p_expression->right)
             {
                 flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL42: /*case 29*/ 
-            goto _CKL0; /*break*/
+            __L42: /*case 29*/ 
+            goto __L0; /* break */
 
-            _CKL43: /*case 31*/ 
+            __L43: /*case 31*/ 
             if (p_expression->right)
             {
                 struct true_false_set  true_false_set4;
-                unsigned char old;
+                unsigned char  old;
 
                 _cake_zmem(&true_false_set4, 12);
                 old = ctx->inside_assert;
@@ -7202,42 +7286,42 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 true_false_set_set_objects_to_true_branch(ctx, &true_false_set4, nullable_enabled);
                 true_false_set_destroy(&true_false_set4);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL45: /*case 18*/ 
+            __L45: /*case 18*/ 
             if (p_expression->right)
             {
-                unsigned char t2;
+                unsigned char  t2;
 
                 t2 = ctx->expression_is_not_evaluated;
                 ctx->expression_is_not_evaluated = 1;
                 flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
                 ctx->expression_is_not_evaluated = t2;
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL47: /*case 37*/ 
-            _CKL48: /*case 38*/ 
+            __L47: /*case 37*/ 
+            __L48: /*case 38*/ 
             ;
             flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL49: /*case 35*/ 
+            __L49: /*case 35*/ 
             ;
             flow_check_pointer_used_as_bool(ctx, p_expression->right);
             flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
             true_false_set_invert(expr_true_false_set);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL50: /*case 19*/ 
-            _CKL51: /*case 20*/ 
-            _CKL52: /*case 33*/ 
-            _CKL53: /*case 34*/ 
-            _CKL54: /*case 36*/ 
-            _CKL55: /*case 40*/ 
-            goto _CKL0; /*break*/
+            __L50: /*case 19*/ 
+            __L51: /*case 20*/ 
+            __L52: /*case 33*/ 
+            __L53: /*case 34*/ 
+            __L54: /*case 36*/ 
+            __L55: /*case 40*/ 
+            goto __L0; /* break */
 
-            _CKL56: /*case 39*/ 
+            __L56: /*case 39*/ 
             {
                 struct flow_object * p_object0;
                 struct true_false_set  local_true_false;
@@ -7253,7 +7337,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                         _cake_zmem(&marker, 28);
                         marker.p_token_begin = p_expression->right->first_token;
                         marker.p_token_end = p_expression->right->last_token;
-                        compiler_diagnostic(30, ctx->ctx, 0U, &marker, "using a uninitialized object");
+                        compiler_diagnostic(30, ctx->ctx, 0, &marker, "using a uninitialized object");
                     }
                 }
                 else
@@ -7262,7 +7346,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     {
                         if (!ctx->expression_is_not_evaluated)
                         {
-                            compiler_diagnostic(33, ctx->ctx, p_expression->right->first_token, 0U, "dereference a NULL object");
+                            compiler_diagnostic(33, ctx->ctx, p_expression->right->first_token, 0, "dereference a NULL object");
                         }
                     }
                 }
@@ -7270,19 +7354,19 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 flow_visit_expression(ctx, p_expression->right, &local_true_false);
                 true_false_set_destroy(&local_true_false);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL61: /*case 60*/ 
-            _CKL62: /*case 61*/ 
-            _CKL63: /*case 62*/ 
-            _CKL64: /*case 63*/ 
-            _CKL65: /*case 64*/ 
-            _CKL66: /*case 65*/ 
-            _CKL67: /*case 66*/ 
-            _CKL68: /*case 67*/ 
-            _CKL69: /*case 68*/ 
-            _CKL70: /*case 69*/ 
-            _CKL71: /*case 70*/ 
+            __L61: /*case 60*/ 
+            __L62: /*case 61*/ 
+            __L63: /*case 62*/ 
+            __L64: /*case 63*/ 
+            __L65: /*case 64*/ 
+            __L66: /*case 65*/ 
+            __L67: /*case 66*/ 
+            __L68: /*case 67*/ 
+            __L69: /*case 68*/ 
+            __L70: /*case 69*/ 
+            __L71: /*case 70*/ 
             {
                 struct true_false_set  left_set;
                 struct true_false_set  right_set;
@@ -7302,7 +7386,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 true_false_set_destroy(&right_set);
                 p_right_object = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
                 p_dest_object = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
-                if (p_dest_object == 0U || p_right_object == 0U)
+                if (p_dest_object == 0 || p_right_object == 0)
                 {
                     return;
                 }
@@ -7320,7 +7404,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 b_marker.p_token_caret = 0;
                 b_marker.p_token_begin = p_expression->right->first_token;
                 b_marker.p_token_end = p_expression->right->last_token;
-                flow_check_assignment(ctx, p_expression->left->first_token, &a_marker, &b_marker, 2, 1, type_is_view(&p_expression->left->type), type_is_opt(&p_expression->left->type, ctx->ctx->options.null_checks_enabled), &p_expression->left->type, p_dest_object, &p_expression->right->type, p_right_object, 0U);
+                flow_check_assignment(ctx, p_expression->left->first_token, &a_marker, &b_marker, 2, 1, type_is_view(&p_expression->left->type), type_is_opt(&p_expression->left->type, ctx->ctx->options.null_checks_enabled), &p_expression->left->type, p_dest_object, &p_expression->right->type, p_right_object, 0);
                 arena_broadcast_change(ctx, p_dest_object);
                 if (expression_is_malloc(p_expression->right))
                 {
@@ -7328,8 +7412,8 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     struct flow_object * po;
 
                     t = type_remove_pointer(&p_expression->left->type);
-                    po = make_flow_object(ctx, &t, 0U, p_expression->left);
-                    if (po == 0U)
+                    po = make_flow_object(ctx, &t, 0, p_expression->left);
+                    if (po == 0)
                     {
                         type_destroy(&t);
                         return;
@@ -7346,8 +7430,8 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                         struct flow_object * po;
 
                         t = type_remove_pointer(&p_expression->left->type);
-                        po = make_flow_object(ctx, &t, 0U, p_expression->left);
-                        if (po == 0U)
+                        po = make_flow_object(ctx, &t, 0, p_expression->left);
+                        if (po == 0)
                         {
                             type_destroy(&t);
                             return;
@@ -7359,9 +7443,9 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     }
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL77: /*case 43*/ 
+            __L77: /*case 43*/ 
             {
                 struct true_false_set  left_set;
                 struct true_false_set  right_set;
@@ -7377,7 +7461,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 {
                     if (flow_object_can_be_zero(p_object))
                     {
-                        compiler_diagnostic(36, ctx->ctx, p_expression->right->first_token, 0U, "possible division by zero");
+                        compiler_diagnostic(36, ctx->ctx, p_expression->right->first_token, 0, "possible division by zero");
                     }
                 }
                 flow_visit_expression(ctx, p_expression->right, &right_set);
@@ -7385,15 +7469,15 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 true_false_set_destroy(&left_set);
                 true_false_set_destroy(&right_set);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL80: /*case 41*/ 
-            _CKL81: /*case 42*/ 
-            _CKL82: /*case 44*/ 
-            _CKL83: /*case 45*/ 
-            _CKL84: /*case 46*/ 
-            _CKL85: /*case 47*/ 
-            _CKL86: /*case 48*/ 
+            __L80: /*case 41*/ 
+            __L81: /*case 42*/ 
+            __L82: /*case 44*/ 
+            __L83: /*case 45*/ 
+            __L84: /*case 46*/ 
+            __L85: /*case 47*/ 
+            __L86: /*case 48*/ 
             {
                 if (p_expression->left)
                 {
@@ -7412,15 +7496,15 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     true_false_set_destroy(&right_set);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL89: /*case 51*/ 
-            _CKL90: /*case 52*/ 
-            _CKL91: /*case 49*/ 
-            _CKL92: /*case 50*/ 
+            __L89: /*case 51*/ 
+            __L90: /*case 52*/ 
+            __L91: /*case 49*/ 
+            __L92: /*case 50*/ 
             {
-                unsigned char left_is_constant;
-                unsigned char right_is_constant;
+                unsigned char  left_is_constant;
+                unsigned char  right_is_constant;
 
                 ;
                 ;
@@ -7499,10 +7583,10 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     }
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL99: /*case 54*/ 
-            _CKL100: /*case 53*/ 
+            __L99: /*case 54*/ 
+            __L100: /*case 53*/ 
             {
                 long long value;
                 struct expression * p_comp_expression;
@@ -7510,7 +7594,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 ;
                 ;
                 value = 0;
-                p_comp_expression = 0U;
+                p_comp_expression = 0;
                 if (object_has_constant_value(&p_expression->left->object) && !object_has_constant_value(&p_expression->right->object))
                 {
                     value = object_to_signed_long_long(&p_expression->left->object);
@@ -7556,14 +7640,14 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                                     {
                                         if (!ctx->inside_loop)
                                         {
-                                            compiler_diagnostic(28, ctx->ctx, 0U, &marker, "pointer is always null");
+                                            compiler_diagnostic(28, ctx->ctx, 0, &marker, "pointer is always null");
                                         }
                                     }
                                     else
                                     {
                                         if (!ctx->inside_loop)
                                         {
-                                            compiler_diagnostic(28, ctx->ctx, 0U, &marker, "value is always zero");
+                                            compiler_diagnostic(28, ctx->ctx, 0, &marker, "value is always zero");
                                         }
                                     }
                                 }
@@ -7574,11 +7658,11 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                                 {
                                     if (type_is_pointer(&p_comp_expression->type))
                                     {
-                                        compiler_diagnostic(28, ctx->ctx, 0U, &marker, "pointer is always null");
+                                        compiler_diagnostic(28, ctx->ctx, 0, &marker, "pointer is always null");
                                     }
                                     else
                                     {
-                                        compiler_diagnostic(28, ctx->ctx, 0U, &marker, "value is always zero");
+                                        compiler_diagnostic(28, ctx->ctx, 0, &marker, "value is always zero");
                                     }
                                 }
                             }
@@ -7593,14 +7677,14 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                                     {
                                         if (!ctx->inside_loop)
                                         {
-                                            compiler_diagnostic(28, ctx->ctx, 0U, &marker, "pointer is always non-null");
+                                            compiler_diagnostic(28, ctx->ctx, 0, &marker, "pointer is always non-null");
                                         }
                                     }
                                     else
                                     {
                                         if (!ctx->inside_loop)
                                         {
-                                            compiler_diagnostic(28, ctx->ctx, 0U, &marker, "value is always non-zero");
+                                            compiler_diagnostic(28, ctx->ctx, 0, &marker, "value is always non-zero");
                                         }
                                     }
                                 }
@@ -7617,14 +7701,14 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                                             {
                                                 if (!ctx->inside_loop)
                                                 {
-                                                    compiler_diagnostic(28, ctx->ctx, 0U, &marker, "pointer is always non-null");
+                                                    compiler_diagnostic(28, ctx->ctx, 0, &marker, "pointer is always non-null");
                                                 }
                                             }
                                             else
                                             {
                                                 if (!ctx->inside_loop)
                                                 {
-                                                    compiler_diagnostic(28, ctx->ctx, 0U, &marker, "value is always non-zero");
+                                                    compiler_diagnostic(28, ctx->ctx, 0, &marker, "value is always non-zero");
                                                 }
                                             }
                                         }
@@ -7657,9 +7741,9 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                     true_false_set_destroy(&true_false_set);
                 }
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL125: /*case 58*/ 
+            __L125: /*case 58*/ 
             {
                 struct true_false_set  left_set;
 
@@ -7669,7 +7753,7 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 flow_check_pointer_used_as_bool(ctx, p_expression->right);
                 _cake_zmem(&left_set, 12);
                 flow_visit_expression(ctx, p_expression->left, &left_set);
-                if (object_has_constant_value(&p_expression->left->object) && object_to_bool(&p_expression->left->object) == 1)
+                if (object_has_constant_value(&p_expression->left->object) && object_is_true(&p_expression->left->object) == 1)
                 {
                 }
                 else
@@ -7725,9 +7809,9 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 }
                 true_false_set_destroy(&left_set);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL128: /*case 59*/ 
+            __L128: /*case 59*/ 
             {
                 struct true_false_set  left_set;
                 int original_state_number;
@@ -7792,9 +7876,9 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 true_false_set_destroy(&left_set);
                 true_false_set_destroy(&right_set);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL130: /*case 57*/ 
+            __L130: /*case 57*/ 
             {
                 struct true_false_set  true_false_set;
 
@@ -7805,29 +7889,29 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 flow_visit_expression(ctx, p_expression->right, &true_false_set);
                 true_false_set_destroy(&true_false_set);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL131: /*case 55*/ 
-            _CKL132: /*case 56*/ 
+            __L131: /*case 55*/ 
+            __L132: /*case 56*/ 
             ;
             ;
             flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
             flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL133: /*case 26*/ 
-            goto _CKL0; /*break*/
+            __L133: /*case 26*/ 
+            goto __L0; /* break */
 
-            _CKL134: /*case 27*/ 
-            goto _CKL0; /*break*/
+            __L134: /*case 27*/ 
+            goto __L0; /* break */
 
-            _CKL135: /*case 28*/ 
-            goto _CKL0; /*break*/
+            __L135: /*case 28*/ 
+            goto __L0; /* break */
 
-            _CKL136: /*case 71*/ 
-            goto _CKL0; /*break*/
+            __L136: /*case 71*/ 
+            goto __L0; /* break */
 
-            _CKL137: /*case 72*/ 
+            __L137: /*case 72*/ 
             {
                 struct true_false_set  true_false_set;
                 int before_if_state_number;
@@ -7858,10 +7942,10 @@ static void flow_visit_expression(struct flow_visit_ctx * ctx, struct expression
                 arena_remove_state(ctx, left_true_branch_state_number);
                 true_false_set_destroy(&true_false_set);
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
         }
-        _CKL0:;
+        __L0:;
     }
 }
 
@@ -7956,8 +8040,8 @@ static int parse_string_state(char * s, unsigned char * invalid)
 
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, struct static_assert_declaration * p_static_assert_declaration)
 {
-    unsigned char t2;
-    unsigned char nullable_enabled;
+    unsigned char  t2;
+    unsigned char  nullable_enabled;
     struct true_false_set  a;
 
     t2 = ctx->expression_is_not_evaluated;
@@ -7966,13 +8050,13 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
     _cake_zmem(&a, 12);
     flow_visit_expression(ctx, p_static_assert_declaration->constant_expression, &a);
     ctx->expression_is_not_evaluated = t2;
-    if (p_static_assert_declaration->first_token->type == 9085 || p_static_assert_declaration->first_token->type == 9086)
+    if (p_static_assert_declaration->first_token->type == 9082 || p_static_assert_declaration->first_token->type == 9083)
     {
-        unsigned char ex;
+        unsigned char  ex;
         struct flow_object * p_obj;
 
-        ex = p_static_assert_declaration->first_token->type == 9086;
-        compiler_diagnostic(62, ctx->ctx, p_static_assert_declaration->first_token, 0U, "static_debug");
+        ex = p_static_assert_declaration->first_token->type == 9083;
+        compiler_diagnostic(62, ctx->ctx, p_static_assert_declaration->first_token, 0, "static_debug");
         p_obj = expression_get_flow_object(ctx, p_static_assert_declaration->constant_expression, nullable_enabled);
         if (p_obj)
         {
@@ -7989,9 +8073,9 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
     }
     else
     {
-        if (p_static_assert_declaration->first_token->type == 9087)
+        if (p_static_assert_declaration->first_token->type == 9084)
         {
-            unsigned char is_invalid;
+            unsigned char  is_invalid;
             int e;
 
             is_invalid = 0;
@@ -8002,7 +8086,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
             }
             if (is_invalid)
             {
-                compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0U, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
             }
             else
             {
@@ -8013,7 +8097,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
                 {
                     if (e != p_obj->current.state)
                     {
-                        compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0U, "static_state failed");
+                        compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0, "static_state failed");
                         if (p_static_assert_declaration->string_literal_opt)
                         {
                             printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
@@ -8027,7 +8111,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
                 {
                     if (e != 0)
                     {
-                        compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0U, "static_state failed");
+                        compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0, "static_state failed");
                     }
                 }
                 if (p_obj && p_obj->is_temporary)
@@ -8038,7 +8122,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
         }
         else
         {
-            if (p_static_assert_declaration->first_token->type == 9088)
+            if (p_static_assert_declaration->first_token->type == 9085)
             {
                 struct flow_object * p_obj;
 
@@ -8056,7 +8140,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
                         }
                         else
                         {
-                            unsigned char is_invalid;
+                            unsigned char  is_invalid;
                             int e;
 
                             is_invalid = 0;
@@ -8065,13 +8149,13 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
                             {
                                 if (p_obj->members.size > 0)
                                 {
-                                    compiler_diagnostic(1070, ctx->ctx, p_static_assert_declaration->first_token, 0U, "use only for non agregates");
+                                    compiler_diagnostic(1070, ctx->ctx, p_static_assert_declaration->first_token, 0, "use only for non agregates");
                                 }
                                 p_obj->current.state = e;
                             }
                             else
                             {
-                                compiler_diagnostic(1070, ctx->ctx, p_static_assert_declaration->first_token, 0U, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                                compiler_diagnostic(1070, ctx->ctx, p_static_assert_declaration->first_token, 0, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                             }
                         }
                     }
@@ -8093,7 +8177,7 @@ static void flow_visit_pragma_declaration(struct flow_visit_ctx * ctx, struct pr
 
 static unsigned char flow_is_last_item_return(struct compound_statement * p_compound_statement)
 {
-    if (p_compound_statement && p_compound_statement->block_item_list.tail && p_compound_statement->block_item_list.tail->unlabeled_statement && p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement && p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token && p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token->type == 9028)
+    if (p_compound_statement && p_compound_statement->block_item_list.tail && p_compound_statement->block_item_list.tail->unlabeled_statement && p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement && p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token && p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token->type == 9027)
     {
         return 1;
     }
@@ -8120,14 +8204,14 @@ struct flow_object *arena_new_object(struct flow_visit_ctx * ctx)
 {
     struct flow_object * p;
 
-    p = calloc(1, 68U);
-    if (p != 0U)
+    p = calloc(1, 68);
+    if (p != 0)
     {
         p->current.dbg_name = "current";
         p->id = ctx->arena.size + 1;
         if (flow_objects_push_back(&ctx->arena, p) != 0)
         {
-            p = 0U;
+            p = 0;
         }
     }
     return (struct flow_object *)p;

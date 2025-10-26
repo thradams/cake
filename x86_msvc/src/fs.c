@@ -1,5 +1,23 @@
-// Cake 0.12.05 target=x86_msvc
-struct _stat64i32 {
+/* Cake 0.12.26 x86_msvc */
+struct _FILETIME {
+    unsigned long dwLowDateTime;
+    unsigned long dwHighDateTime;
+};
+
+struct _WIN32_FIND_DATAA {
+    unsigned long dwFileAttributes;
+    struct _FILETIME  ftCreationTime;
+    struct _FILETIME  ftLastAccessTime;
+    struct _FILETIME  ftLastWriteTime;
+    unsigned long nFileSizeHigh;
+    unsigned long nFileSizeLow;
+    unsigned long dwReserved0;
+    unsigned long dwReserved1;
+    char cFileName[260];
+    char cAlternateFileName[14];
+};
+
+struct stat {
     unsigned int st_dev;
     unsigned short st_ino;
     unsigned short st_mode;
@@ -13,11 +31,7 @@ struct _stat64i32 {
     long long st_ctime;
 };
 
-struct HINSTANCE__ {
-    int unused;
-};
-
-struct stat {
+struct _stat64i32 {
     unsigned int st_dev;
     unsigned short st_ino;
     unsigned short st_mode;
@@ -39,42 +53,34 @@ struct dirent {
     char d_name[256];
 };
 
-struct _iobuf {
-    void * _Placeholder;
+struct TAGDIR {
+    void * handle;
+    struct dirent  dirent;
 };
 
-struct _FILETIME {
-    unsigned long dwLowDateTime;
-    unsigned long dwHighDateTime;
-};
+struct __crt_multibyte_data;
 
-struct _WIN32_FIND_DATAA {
-    unsigned long dwFileAttributes;
-    struct _FILETIME  ftCreationTime;
-    struct _FILETIME  ftLastAccessTime;
-    struct _FILETIME  ftLastWriteTime;
-    unsigned long nFileSizeHigh;
-    unsigned long nFileSizeLow;
-    unsigned long dwReserved0;
-    unsigned long dwReserved1;
-    char cFileName[260];
-    char cAlternateFileName[14];
-};
+struct __crt_locale_data;
 
 struct __crt_locale_pointers {
     struct __crt_locale_data * locinfo;
     struct __crt_multibyte_data * mbcinfo;
 };
 
-struct TAGDIR {
-    void * handle;
-    struct dirent  dirent;
+struct _iobuf {
+    void * _Placeholder;
+};
+
+struct HINSTANCE__ {
+    int unused;
 };
 
 
-static void _cake_zmem(void *dest, register unsigned int len)
+static void _cake_zmem(void *dest, unsigned int len)
 {
-  register unsigned char *ptr = (unsigned char*)dest;
+  unsigned char *ptr;
+
+  ptr = (unsigned char*)dest;
   while (len-- > 0) *ptr++ = 0;
 }
 
@@ -163,20 +169,20 @@ unsigned long __stdcall GetLastError(void);
 struct TAGDIR *opendir(char * name)
 {
     struct _WIN32_FIND_DATAA  fdfile;
-    char path[260];
+    char path[500];
     void * handle;
 
     ;
     _cake_zmem(&fdfile, 320);
-    _cake_zmem(&path, 260);
+    _cake_zmem(&path, 500);
     strcat(path, name);
     strcat(path, "\\*.*");
     handle = FindFirstFileA(path, &fdfile);
-    if (handle != ((void *)-1))
+    if (handle != ((void *)-1L))
     {
         struct TAGDIR * p;
 
-        p = calloc(1, 272U);
+        p = calloc(1, 272);
         if (p)
         {
             p->handle = handle;
@@ -191,7 +197,7 @@ struct TAGDIR *opendir(char * name)
     {
         (*_errno()) = windows_error_to_posix(GetLastError());
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -218,7 +224,7 @@ struct dirent *readdir(struct TAGDIR * dirp)
     b = FindNextFileA(dirp->handle, &fdfile);
     if (b)
     {
-        memset(&dirp->dirent, 0, 268U);
+        memset(&dirp->dirent, 0, 268);
         if (fdfile.dwFileAttributes & 16)
         {
             dirp->dirent.d_type |= 4;
@@ -230,7 +236,7 @@ struct dirent *readdir(struct TAGDIR * dirp)
     {
         (*_errno()) = windows_error_to_posix(GetLastError());
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -240,7 +246,7 @@ char *realpath(char * path, char * resolved_path)
 {
     char * p;
 
-    p = _fullpath(resolved_path, path, 260);
+    p = _fullpath(resolved_path, path, 500);
     if (p)
     {
         char * p2;
@@ -272,18 +278,18 @@ int copy_file(char * pathfrom, char * pathto)
     unsigned int nread;
 
     fd_from = fopen(pathfrom, "rb");
-    if (fd_from == 0U)
+    if (fd_from == 0)
     {
         return -1;
     }
     fd_to = fopen(pathto, "wb");
-    if (fd_to == 0U)
+    if (fd_to == 0)
     {
         fclose(fd_from);
         return -1;
     }
     _cake_zmem(&buf, 4096);
-    while (nread = fread(buf, 1U, 4096U, fd_from), nread > 0)
+    while (nread = fread(buf, 1, 4096, fd_from), nread > 0)
     {
         char * out_ptr;
         unsigned int nwritten;
@@ -291,7 +297,7 @@ int copy_file(char * pathfrom, char * pathto)
         out_ptr = buf;
         do
         {
-            nwritten = fwrite(out_ptr, 1U, nread, fd_to);
+            nwritten = fwrite(out_ptr, 1, nread, fd_to);
             nread -= nwritten;
             out_ptr += nwritten;
         }
@@ -315,7 +321,7 @@ static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _F
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList);
 int __cdecl __stdio_common_vsprintf(unsigned long long _Options, char * _Buffer, unsigned int _BufferCount, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 static unsigned long long *__cdecl __local_stdio_printf_options(void);
-static unsigned long long __Ck0__OptionsStorage;
+static unsigned long long __c0__OptionsStorage;
 
 int copy_folder(char * from, char * to)
 {
@@ -329,23 +335,23 @@ int copy_folder(char * from, char * to)
         return errcode;
     }
     dir = opendir(from);
-    if (dir == 0U)
+    if (dir == 0)
     {
         return (*_errno());
     }
-    while ((dp = readdir(dir)) != 0U)
+    while ((dp = readdir(dir)) != 0)
     {
-        char fromlocal[260];
-        char tolocal[260];
+        char fromlocal[500];
+        char tolocal[500];
 
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
         {
             continue;
         }
-        _cake_zmem(&fromlocal, 260);
-        snprintf(fromlocal, 260, "%s/%s", from, dp->d_name);
-        _cake_zmem(&tolocal, 260);
-        snprintf(tolocal, 260, "%s/%s", to, dp->d_name);
+        _cake_zmem(&fromlocal, 500);
+        snprintf(fromlocal, 500, "%s/%s", from, dp->d_name);
+        _cake_zmem(&tolocal, 500);
+        snprintf(tolocal, 500, "%s/%s", to, dp->d_name);
         if (dp->d_type & 4)
         {
             errcode = copy_folder(fromlocal, tolocal);
@@ -367,14 +373,14 @@ int copy_folder(char * from, char * to)
 
 static unsigned long long *__cdecl __local_stdio_printf_options(void)
 {
-    return &__Ck0__OptionsStorage;
+    return &__c0__OptionsStorage;
 }
 
 static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList)
 {
     int _Result;
 
-    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0U, _ArgList);
+    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0, _ArgList);
     return _Result < 0 ? -1 : _Result;
 }
 
@@ -383,9 +389,9 @@ static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _F
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
     _Result = vsnprintf(_Buffer, _BufferCount, _Format, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 unsigned long __stdcall GetModuleFileNameA(struct HINSTANCE__ * hModule, char * lpFilename, unsigned long nSize);
@@ -394,7 +400,7 @@ int get_self_path(char * buffer, int maxsize)
 {
     unsigned long r;
 
-    r = GetModuleFileNameA(0U, buffer, maxsize);
+    r = GetModuleFileNameA(0, buffer, maxsize);
     return r;
 }
 
@@ -404,7 +410,7 @@ char *strrchr_ex(char * s, int c1, int c2)
     char * last;
     char * p;
 
-    last = 0U;
+    last = 0;
     p = s;
     while (*p)
     {
@@ -420,7 +426,7 @@ char *strrchr_ex(char * s, int c1, int c2)
 
 void remove_file_extension(char * filename, int n, char out[])
 {
-    unsigned int last_dot_index;
+    int last_dot_index;
     char * p;
     int count;
 
@@ -492,37 +498,37 @@ int __cdecl _stat64i32(char * _FileName, struct _stat64i32 * _Stat);
 void *malloc(unsigned int size);
 int __cdecl feof(struct _iobuf * _Stream);
 
-char *read_file(char * path, unsigned char append_newline)
+char *read_file(char * path, unsigned char  append_newline)
 {
     char * data;
     struct _iobuf * file;
     struct stat  info;
-    int mem_size_bytes;
+    unsigned int mem_size_bytes;
     unsigned int bytes_read;
     unsigned int bytes_read_part2;
 
-    data = 0U;
-    file = 0U;
+    data = 0;
+    file = 0;
     _cake_zmem(&info, 48);
     if (stat(path, &info) != 0)
     {
-        return 0U;
+        return 0;
     }
-    mem_size_bytes = 1U * info.st_size + 1 + 1;
+    mem_size_bytes = 1 * info.st_size + 1 + 1;
     if (mem_size_bytes < 4)
     {
         mem_size_bytes = 4;
     }
     data = malloc(mem_size_bytes);
-    if (data == 0U)
+    if (data == 0)
     {
-        return 0U;
+        return 0;
     }
     file = fopen(path, "r");
-    if (file == 0U)
+    if (file == 0)
     {
         free(data);
-        return 0U;
+        return 0;
     }
     bytes_read = fread(data, 1, 3, file);
     if (bytes_read < 3)
@@ -535,7 +541,7 @@ char *read_file(char * path, unsigned char append_newline)
         }
         free(data);
         fclose(file);
-        return 0U;
+        return 0;
     }
     bytes_read_part2 = 0;
     if ((unsigned char)data[0] == 239 && (unsigned char)data[1] == 187 && (unsigned char)data[2] == 191)

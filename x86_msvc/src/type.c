@@ -1,22 +1,104 @@
-// Cake 0.12.05 target=x86_msvc
-struct scope_list {
-    struct scope * head;
-    struct scope * tail;
+/* Cake 0.12.26 x86_msvc */
+struct token;
+
+struct token_list {
+    struct token * head;
+    struct token * tail;
 };
 
-struct defer_list {
-    struct defer_list_item * head;
-    struct defer_list_item * tail;
+struct expression_statement;
+struct simple_declaration;
+
+struct init_statement {
+    struct expression_statement * p_expression_statement;
+    struct simple_declaration * p_simple_declaration;
 };
 
-struct jump_statement {
-    struct token * label;
+struct storage_class_specifier {
+    int flags;
+    struct token * token;
+};
+
+struct type_name;
+
+struct atomic_type_specifier {
+    struct token * token;
+    struct type_name * type_name;
+};
+
+struct expression;
+struct attribute_specifier_sequence;
+struct declaration_specifiers;
+struct init_declarator;
+
+struct condition {
+    struct expression * expression;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct declaration_specifiers * p_declaration_specifiers;
+    struct init_declarator * p_init_declarator;
     struct token * first_token;
     struct token * last_token;
-    struct expression * expression_opt;
-    int label_id;
-    struct defer_list  defer_list;
 };
+
+struct generic_association;
+
+struct generic_assoc_list {
+    struct generic_association * head;
+    struct generic_association * tail;
+};
+
+struct param;
+
+struct param_list {
+    unsigned char  is_var_args;
+    unsigned char  is_void;
+    struct param * head;
+    struct param * tail;
+};
+
+struct struct_or_union_specifier;
+struct enum_specifier;
+
+struct type {
+    int category;
+    int attributes_flags;
+    int msvc_declspec_flags;
+    int alignment_specifier_flags;
+    int type_specifier_flags;
+    int type_qualifier_flags;
+    int storage_class_specifier_flags;
+    char * name_opt;
+    struct struct_or_union_specifier * struct_or_union_specifier;
+    struct enum_specifier * enum_specifier;
+    struct expression * array_num_elements_expression;
+    unsigned int num_of_elements;
+    unsigned char  has_static_array_size;
+    unsigned char  address_of;
+    struct param_list  params;
+    struct type * next;
+};
+
+struct specifier_qualifier_list;
+struct declarator;
+
+struct type_name {
+    struct token * first_token;
+    struct token * last_token;
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct declarator * abstract_declarator;
+    struct type  type;
+};
+
+struct generic_association {
+    struct type  type;
+    struct type_name * p_type_name;
+    struct expression * expression;
+    struct token * first_token;
+    struct token * last_token;
+    struct generic_association * next;
+};
+
+struct secondary_block;
 
 struct try_statement {
     struct secondary_block * secondary_block;
@@ -27,11 +109,431 @@ struct try_statement {
     int catch_label_id;
 };
 
+struct defer_statement;
+
+struct defer_list_item {
+    struct declarator * declarator;
+    struct defer_statement * defer_statement;
+    struct defer_list_item * next;
+};
+
+struct statement;
+
+struct secondary_block {
+    struct token * first_token;
+    struct token * last_token;
+    struct statement * statement;
+};
+
+struct osstream {
+    char * c_str;
+    int size;
+    int capacity;
+};
+
+struct flow_object;
+
+struct pragma_declaration {
+    struct token * first_token;
+    struct token * last_token;
+};
+
+struct platform {
+    char * name;
+    char * thread_local_attr;
+    char * alignas_fmt_must_have_one_percent_d;
+    int bool_n_bits;
+    int bool_aligment;
+    int bool_type;
+    int char_n_bits;
+    int char_t_type;
+    int char_aligment;
+    int short_n_bits;
+    int short_aligment;
+    int int_n_bits;
+    int int_aligment;
+    int long_n_bits;
+    int long_aligment;
+    int long_long_n_bits;
+    int long_long_aligment;
+    int float_n_bits;
+    int float_aligment;
+    int double_n_bits;
+    int double_aligment;
+    int long_double_n_bits;
+    int long_double_aligment;
+    int pointer_n_bits;
+    int pointer_aligment;
+    int wchar_t_type;
+    int int8_type;
+    int int16_type;
+    int int32_type;
+    int int64_type;
+    int size_t_type;
+    int ptrdiff_type;
+};
+
+struct map_entry;
+
+struct hash_map {
+    struct map_entry ** table;
+    int capacity;
+    int size;
+};
+
+struct diagnostic {
+    unsigned long long errors;
+    unsigned long long warnings;
+    unsigned long long notes;
+};
+
+struct diagnostic_stack {
+    int top_index;
+    struct diagnostic stack[10];
+};
+
+struct parameter_list;
+
+struct parameter_type_list {
+    unsigned char  is_var_args;
+    unsigned char  is_void;
+    struct parameter_list * parameter_list;
+};
+
+struct type_qualifier_list;
+
 struct pointer {
     struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
     struct type_qualifier_list * type_qualifier_list_opt;
     struct token * calling_convention;
     struct pointer * pointer;
+};
+
+struct label_list_item;
+
+struct label_list {
+    struct label_list_item * head;
+    struct label_list_item * tail;
+};
+
+struct generic_selection {
+    struct expression * expression;
+    struct type_name * type_name;
+    struct expression * p_view_selected_expression;
+    struct generic_assoc_list  generic_assoc_list;
+    struct token * first_token;
+    struct token * last_token;
+};
+
+struct enumerator;
+
+struct enumerator_list {
+    struct enumerator * head;
+    struct enumerator * tail;
+};
+
+struct enum_specifier {
+    unsigned char  has_shared_ownership;
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    char tag_name[200];
+    struct enumerator_list  enumerator_list;
+    struct token * tag_token;
+    struct token * first_token;
+    struct enum_specifier * p_complete_enum_specifier;
+};
+
+struct type_qualifier {
+    int flags;
+    struct token * token;
+    struct type_qualifier * next;
+};
+
+struct designator {
+    struct expression * constant_expression_opt;
+    struct token * token;
+    struct designator * next;
+};
+
+struct parameter_declaration;
+
+struct parameter_list {
+    struct parameter_declaration * head;
+    struct parameter_declaration * tail;
+};
+
+struct label;
+
+struct case_label_list {
+    struct label * head;
+    struct label * tail;
+};
+
+struct defer_list {
+    struct defer_list_item * head;
+    struct defer_list_item * tail;
+};
+
+struct selection_statement {
+    struct init_statement * p_init_statement;
+    struct condition * condition;
+    struct secondary_block * secondary_block;
+    struct secondary_block * else_secondary_block_opt;
+    struct token * open_parentesis_token;
+    struct token * close_parentesis_token;
+    struct case_label_list  label_list;
+    struct token * first_token;
+    struct token * last_token;
+    struct token * else_token_opt;
+    struct defer_list  defer_list;
+    int label_id;
+};
+
+struct type_specifier_qualifier;
+struct function_specifier;
+struct alignment_specifier;
+
+struct declaration_specifier {
+    struct storage_class_specifier * storage_class_specifier;
+    struct type_specifier_qualifier * type_specifier_qualifier;
+    struct function_specifier * function_specifier;
+    struct alignment_specifier * alignment_specifier;
+    struct declaration_specifier * next;
+};
+
+struct initializer;
+
+struct init_declarator {
+    unsigned char  has_shared_ownership;
+    struct declarator * p_declarator;
+    struct initializer * initializer;
+    struct init_declarator * next;
+};
+
+struct balanced_token_sequence;
+
+struct attribute_argument_clause {
+    struct balanced_token_sequence * p_balanced_token_sequence;
+    struct token * token;
+};
+
+struct diagnostic_id_stack {
+    int size;
+    int stack[10];
+};
+
+struct options {
+    int input;
+    int target;
+    struct diagnostic_stack  diagnostic_stack;
+    int style;
+    unsigned char  show_includes;
+    unsigned char  disable_assert;
+    unsigned char  flow_analysis;
+    unsigned char  test_mode;
+    unsigned char  null_checks_enabled;
+    unsigned char  ownership_enabled;
+    unsigned char  preprocess_only;
+    unsigned char  preprocess_def_macro;
+    unsigned char  clear_error_at_end;
+    unsigned char  sarif_output;
+    unsigned char  no_output;
+    unsigned char  const_literal;
+    unsigned char  visual_studio_ouput_format;
+    unsigned char  disable_colors;
+    unsigned char  dump_tokens;
+    unsigned char  dump_pptokens;
+    unsigned char  auto_config;
+    unsigned char  do_static_debug;
+    int static_debug_lines;
+    char output[200];
+    char sarifpath[200];
+};
+
+union __tag17 {
+    signed long long host_long_long;
+    unsigned long long host_u_long_long;
+    float host_float;
+    double host_double;
+    long double long_double_val;
+};
+
+struct object;
+
+struct object_list {
+    struct object * head;
+    struct object * tail;
+    unsigned int count;
+};
+
+struct object {
+    int state;
+    int value_type;
+    struct type  type;
+    char * member_designator;
+    union __tag17  value;
+    struct object * parent;
+    struct object * p_ref;
+    struct expression * p_init_expression;
+    struct object_list  members;
+    struct object * next;
+};
+
+struct attribute_list;
+
+struct attribute_specifier {
+    int ack;
+    struct token * first_token;
+    struct token * last_token;
+    struct attribute_list * attribute_list;
+    struct attribute_specifier * next;
+};
+
+struct label {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct expression * constant_expression;
+    struct expression * constant_expression_end;
+    struct token * p_identifier_opt;
+    struct token * p_first_token;
+    struct label * next;
+    int label_id;
+};
+
+struct member_declarator_list;
+struct static_assert_declaration;
+
+struct member_declaration {
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct member_declarator_list * member_declarator_list_opt;
+    struct static_assert_declaration * static_assert_declaration;
+    struct pragma_declaration * pragma_declaration;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct member_declaration * next;
+};
+
+struct attribute {
+    int msvc_declspec_flags;
+    int attributes_flags;
+    struct attribute_argument_clause * attribute_argument_clause;
+    struct token * attribute_token;
+    struct attribute * next;
+};
+
+struct _iobuf {
+    void * _Placeholder;
+};
+
+struct __crt_multibyte_data;
+
+struct __crt_locale_data;
+
+struct __crt_locale_pointers {
+    struct __crt_locale_data * locinfo;
+    struct __crt_multibyte_data * mbcinfo;
+};
+
+struct argument_expression;
+
+struct argument_expression_list {
+    struct argument_expression * head;
+    struct argument_expression * tail;
+};
+
+struct typeof_specifier;
+
+struct type_specifier {
+    int flags;
+    struct token * token;
+    struct struct_or_union_specifier * struct_or_union_specifier;
+    struct typeof_specifier * typeof_specifier;
+    struct enum_specifier * enum_specifier;
+    struct declarator * typedef_declarator;
+    struct atomic_type_specifier * atomic_type_specifier;
+};
+
+struct param {
+    struct type  type;
+    struct param * next;
+};
+
+struct member_declaration_list {
+    struct token * first_token;
+    struct token * last_token;
+    struct member_declaration * head;
+    struct member_declaration * tail;
+};
+
+struct labeled_statement {
+    struct label * label;
+    struct statement * statement;
+};
+
+struct braced_initializer;
+
+struct initializer {
+    struct token * first_token;
+    struct braced_initializer * braced_initializer;
+    struct expression * assignment_expression;
+};
+
+struct unlabeled_statement;
+
+struct statement {
+    struct labeled_statement * labeled_statement;
+    struct unlabeled_statement * unlabeled_statement;
+};
+
+struct attribute_list {
+    int attributes_flags;
+    struct attribute * head;
+    struct attribute * tail;
+};
+
+struct scope {
+    int scope_level;
+    struct hash_map  tags;
+    struct hash_map  variables;
+    struct scope * next;
+    struct scope * previous;
+};
+
+struct struct_entry;
+
+struct static_assert_declaration {
+    struct token * first_token;
+    struct token * last_token;
+    struct expression * constant_expression;
+    struct token * string_literal_opt;
+};
+
+struct macro;
+
+struct array_declarator;
+struct function_declarator;
+
+struct direct_declarator {
+    struct token * name_opt;
+    struct token * p_calling_convention;
+    struct declarator * declarator;
+    struct array_declarator * array_declarator;
+    struct function_declarator * function_declarator;
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+};
+
+struct function_declarator {
+    struct direct_declarator * direct_declarator;
+    struct scope  parameters_scope;
+    struct parameter_type_list * parameter_type_list_opt;
+};
+
+struct marker {
+    char * file;
+    int line;
+    int start_col;
+    int end_col;
+    struct token * p_token_caret;
+    struct token * p_token_begin;
+    struct token * p_token_end;
 };
 
 struct specifier_qualifier_list {
@@ -54,124 +556,37 @@ struct init_declarator_list {
     struct init_declarator * tail;
 };
 
-struct simple_declaration {
+struct compound_statement;
+
+struct declaration {
     struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct declaration_specifiers * p_declaration_specifiers;
+    struct static_assert_declaration * static_assert_declaration;
+    struct pragma_declaration * pragma_declaration;
+    struct declaration_specifiers * declaration_specifiers;
     struct init_declarator_list  init_declarator_list;
+    struct compound_statement * function_body;
+    struct defer_list  defer_list;
+    struct declarator * contract_declarator;
     struct token * first_token;
     struct token * last_token;
+    struct declaration * next;
 };
 
-struct param_list {
-    unsigned char is_var_args;
-    unsigned char is_void;
-    struct param * head;
-    struct param * tail;
+struct block_item;
+
+struct block_item_list {
+    struct block_item * head;
+    struct block_item * tail;
 };
 
-struct type {
-    int category;
-    int attributes_flags;
-    int msvc_declspec_flags;
-    int alignment_specifier_flags;
-    int type_specifier_flags;
-    int type_qualifier_flags;
-    int storage_class_specifier_flags;
-    char * name_opt;
-    struct struct_or_union_specifier * struct_or_union_specifier;
-    struct enum_specifier * enum_specifier;
-    struct expression * array_num_elements_expression;
-    unsigned int num_of_elements;
-    unsigned char has_static_array_size;
-    unsigned char address_of;
-    struct param_list  params;
-    struct type * next;
-};
+struct iteration_statement;
 
-struct param {
-    struct type  type;
-    struct param * next;
-};
-
-struct case_label_list {
-    struct label * head;
-    struct label * tail;
-};
-
-struct declaration_specifier {
-    struct storage_class_specifier * storage_class_specifier;
-    struct type_specifier_qualifier * type_specifier_qualifier;
-    struct function_specifier * function_specifier;
-    struct alignment_specifier * alignment_specifier;
-    struct declaration_specifier * next;
-};
-
-struct type_specifier {
-    int flags;
-    struct token * token;
-    struct struct_or_union_specifier * struct_or_union_specifier;
-    struct typeof_specifier * typeof_specifier;
-    struct enum_specifier * enum_specifier;
-    struct declarator * typedef_declarator;
-    struct atomic_type_specifier * atomic_type_specifier;
-};
-
-union _struct_tag_17 {
-    signed char signed_int8;
-    unsigned char unsigned_int8;
-    short signed_int16;
-    unsigned short unsigned_int16;
-    int signed_int32;
-    unsigned int unsigned_int32;
-    long long signed_int64;
-    long long unsigned_int64;
-    float float32;
-    double float64;
-};
-
-struct direct_declarator {
-    struct token * name_opt;
-    struct token * p_calling_convention;
-    struct declarator * declarator;
-    struct array_declarator * array_declarator;
-    struct function_declarator * function_declarator;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-};
-
-struct hash_map {
-    struct map_entry ** table;
-    int capacity;
-    int size;
-};
-
-struct scope {
-    int scope_level;
-    struct hash_map  tags;
-    struct hash_map  variables;
-    struct scope * next;
-    struct scope * previous;
-};
-
-struct member_declarator_list {
-    struct member_declarator * head;
-    struct member_declarator * tail;
-};
-
-struct iteration_statement {
-    struct token * first_token;
-    struct token * second_token;
-    struct secondary_block * secondary_block;
-    struct expression * expression1;
-    struct expression * expression2;
-    struct expression * expression0;
-    struct declaration * declaration;
-    struct defer_list  defer_list;
-};
-
-struct attribute_list {
-    int attributes_flags;
-    struct attribute * head;
-    struct attribute * tail;
+struct primary_block {
+    struct compound_statement * compound_statement;
+    struct selection_statement * selection_statement;
+    struct iteration_statement * iteration_statement;
+    struct defer_statement * defer_statement;
+    struct try_statement * try_statement;
 };
 
 struct balanced_token {
@@ -179,16 +594,9 @@ struct balanced_token {
     struct balanced_token * next;
 };
 
-struct report {
-    int no_files;
-    double cpu_time_used_sec;
-    int error_count;
-    int warnings_count;
-    int info_count;
-    unsigned char test_mode;
-    int test_failed;
-    int test_succeeded;
-    unsigned char ignore_this_report;
+struct balanced_token_sequence {
+    struct balanced_token * head;
+    struct balanced_token * tail;
 };
 
 struct token {
@@ -204,43 +612,52 @@ struct token {
     struct token * prev;
 };
 
-struct generic_association {
+struct scope_list {
+    struct scope * head;
+    struct scope * tail;
+};
+
+struct report;
+
+struct parser_ctx {
+    struct options  options;
+    struct diagnostic_id_stack * p_diagnostic_id_stack;
+    struct scope_list  scopes;
+    struct declarator * p_current_function_opt;
+    struct scope * p_current_function_scope_opt;
+    struct label_list  label_list;
+    struct try_statement * p_current_try_statement_opt;
+    struct defer_statement * p_current_defer_statement_opt;
+    struct selection_statement * p_current_selection_statement;
+    struct _iobuf * sarif_file;
+    unsigned int sarif_entries;
+    struct token_list  input_list;
+    struct token * current;
+    struct token * previous;
+    unsigned char  inside_generic_association;
+    int label_id;
+    unsigned int unique_tag_id;
+    int anonymous_struct_count;
+    struct report * p_report;
+};
+
+struct typeof_specifier_argument;
+
+struct typeof_specifier {
+    struct token * first_token;
+    struct token * last_token;
+    struct typeof_specifier_argument * typeof_specifier_argument;
     struct type  type;
-    struct type_name * p_type_name;
+};
+
+struct typeof_specifier_argument {
     struct expression * expression;
-    struct token * first_token;
-    struct token * last_token;
-    struct generic_association * next;
+    struct type_name * type_name;
 };
 
-union _struct_tag_5 {
-    unsigned int number;
-    struct enum_specifier * p_enum_specifier;
-    struct enumerator * p_enumerator;
-    struct struct_or_union_specifier * p_struct_or_union_specifier;
-    struct declarator * p_declarator;
-    struct init_declarator * p_init_declarator;
-    struct macro * p_macro;
-    struct struct_entry * p_struct_entry;
-};
-
-struct map_entry {
-    struct map_entry * next;
-    unsigned int hash;
-    char * key;
-    int type;
-    union _struct_tag_5  data;
-};
-
-struct __crt_locale_pointers {
-    struct __crt_locale_data * locinfo;
-    struct __crt_multibyte_data * mbcinfo;
-};
-
-struct secondary_block {
-    struct token * first_token;
-    struct token * last_token;
-    struct statement * statement;
+struct function_specifier {
+    int flags;
+    struct token * token;
 };
 
 struct alignment_specifier {
@@ -250,50 +667,90 @@ struct alignment_specifier {
     struct token * token;
 };
 
-struct member_declaration_list {
+struct initializer_list;
+
+struct braced_initializer {
     struct token * first_token;
     struct token * last_token;
-    struct member_declaration * head;
-    struct member_declaration * tail;
+    struct initializer_list * initializer_list;
 };
 
-struct object {
-    int state;
-    int value_type;
-    struct type  type;
-    char * debug_name;
-    union _struct_tag_17  value;
-    struct object * parent;
-    struct object * p_ref;
-    struct expression * p_init_expression;
-    struct object * members;
-    struct object * next;
+struct argument_expression {
+    struct expression * expression;
+    struct argument_expression * next;
+    unsigned char  set_unkown;
 };
 
-struct initializer_list_item {
-    struct designation * designation;
-    struct initializer * initializer;
-    struct initializer_list_item * next;
+struct simple_declaration {
+    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
+    struct declaration_specifiers * p_declaration_specifiers;
+    struct init_declarator_list  init_declarator_list;
+    struct token * first_token;
+    struct token * last_token;
 };
 
-struct selection_statement {
-    struct init_statement * p_init_statement;
-    struct condition * condition;
+struct type_list {
+    struct type * head;
+    struct type * tail;
+};
+
+struct block_item {
+    struct token * first_token;
+    struct declaration * declaration;
+    struct unlabeled_statement * unlabeled_statement;
+    struct label * label;
+    struct block_item * next;
+};
+
+struct iteration_statement {
+    struct token * first_token;
+    struct token * second_token;
     struct secondary_block * secondary_block;
-    struct secondary_block * else_secondary_block_opt;
-    struct token * open_parentesis_token;
-    struct token * close_parentesis_token;
-    struct case_label_list  label_list;
-    struct token * first_token;
-    struct token * last_token;
-    struct token * else_token_opt;
+    struct expression * expression1;
+    struct expression * expression2;
+    struct expression * expression0;
+    struct declaration * declaration;
     struct defer_list  defer_list;
-    int label_id;
 };
 
-struct argument_expression_list {
-    struct argument_expression * head;
-    struct argument_expression * tail;
+struct attribute_specifier_sequence {
+    struct token * first_token;
+    struct token * last_token;
+    int msvc_declspec_flags;
+    int attributes_flags;
+    struct attribute_specifier * head;
+    struct attribute_specifier * tail;
+};
+
+struct designator_list;
+
+struct designation {
+    struct designator_list * designator_list;
+    struct token * token;
+};
+
+struct type_qualifier_list {
+    int flags;
+    struct type_qualifier * head;
+    struct type_qualifier * tail;
+};
+
+struct label_list_item {
+    struct token * p_last_usage;
+    struct token * p_defined;
+    struct label_list_item * next;
+};
+
+struct report {
+    int no_files;
+    double cpu_time_used_sec;
+    int error_count;
+    int warnings_count;
+    int info_count;
+    unsigned char  test_mode;
+    int test_failed;
+    int test_succeeded;
+    unsigned char  ignore_this_report;
 };
 
 struct expression {
@@ -314,152 +771,31 @@ struct expression {
     struct expression * condition_expr;
     struct expression * left;
     struct expression * right;
-    unsigned char is_assignment_expression;
+    unsigned char  is_assignment_expression;
 };
 
-struct designator {
-    struct expression * constant_expression_opt;
-    struct token * token;
-    struct designator * next;
+struct type_specifier_qualifier {
+    struct type_specifier * type_specifier;
+    struct type_qualifier * type_qualifier;
+    struct alignment_specifier * alignment_specifier;
+    struct type_specifier_qualifier * next;
 };
 
-struct parameter_declaration {
+struct struct_or_union_specifier {
+    unsigned char  has_shared_ownership;
     struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct declaration_specifiers * declaration_specifiers;
-    struct declarator * declarator;
-    struct parameter_declaration * next;
-};
-
-struct diagnostic {
-    unsigned long long errors;
-    unsigned long long warnings;
-    unsigned long long notes;
-};
-
-struct diagnostic_stack {
-    int top_index;
-    struct diagnostic stack[10];
-};
-
-struct options {
-    int input;
-    int target;
-    struct diagnostic_stack  diagnostic_stack;
-    int style;
-    unsigned char show_includes;
-    unsigned char disable_assert;
-    unsigned char flow_analysis;
-    unsigned char test_mode;
-    unsigned char null_checks_enabled;
-    unsigned char ownership_enabled;
-    unsigned char preprocess_only;
-    unsigned char preprocess_def_macro;
-    unsigned char clear_error_at_end;
-    unsigned char sarif_output;
-    unsigned char no_output;
-    unsigned char const_literal;
-    unsigned char visual_studio_ouput_format;
-    unsigned char disable_colors;
-    unsigned char dump_tokens;
-    unsigned char dump_pptokens;
-    unsigned char auto_config;
-    unsigned char do_static_debug;
-    int static_debug_lines;
-    char output[200];
-    char sarifpath[200];
-};
-
-struct label_list {
-    struct label_list_item * head;
-    struct label_list_item * tail;
-};
-
-struct token_list {
-    struct token * head;
-    struct token * tail;
-};
-
-struct parser_ctx {
-    struct options  options;
-    struct diagnostic_id_stack * p_diagnostic_id_stack;
-    struct scope_list  scopes;
-    struct declarator * p_current_function_opt;
-    struct scope * p_current_function_scope_opt;
-    struct label_list  label_list;
-    struct try_statement * p_current_try_statement_opt;
-    struct defer_statement * p_current_defer_statement_opt;
-    struct selection_statement * p_current_selection_statement;
-    struct _iobuf * sarif_file;
-    unsigned int sarif_entries;
-    struct token_list  input_list;
-    struct token * current;
-    struct token * previous;
-    unsigned char inside_generic_association;
-    int label_id;
-    struct report * p_report;
-};
-
-struct typeof_specifier {
+    struct member_declaration_list  member_declaration_list;
     struct token * first_token;
     struct token * last_token;
-    struct typeof_specifier_argument * typeof_specifier_argument;
-    struct type  type;
-};
-
-struct parameter_list {
-    struct parameter_declaration * head;
-    struct parameter_declaration * tail;
-};
-
-struct generic_assoc_list {
-    struct generic_association * head;
-    struct generic_association * tail;
-};
-
-struct generic_selection {
-    struct expression * expression;
-    struct type_name * type_name;
-    struct expression * p_view_selected_expression;
-    struct generic_assoc_list  generic_assoc_list;
-    struct token * first_token;
-    struct token * last_token;
-};
-
-struct diagnostic_id_stack {
-    int size;
-    int stack[10];
-};
-
-struct unlabeled_statement {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct expression_statement * expression_statement;
-    struct primary_block * primary_block;
-    struct jump_statement * jump_statement;
-};
-
-struct member_declaration {
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct member_declarator_list * member_declarator_list_opt;
-    struct static_assert_declaration * static_assert_declaration;
-    struct pragma_declaration * pragma_declaration;
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct member_declaration * next;
-};
-
-struct enumerator {
-    unsigned char has_shared_ownership;
-    struct token * token;
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct expression * constant_expression_opt;
-    struct enum_specifier * enum_specifier;
-    struct enumerator * next;
-    struct object  value;
-};
-
-struct initializer {
-    struct token * first_token;
-    struct braced_initializer * braced_initializer;
-    struct expression * assignment_expression;
+    unsigned char  is_owner;
+    struct token * tagtoken;
+    unsigned int unique_id;
+    char tag_name[200];
+    unsigned char  has_anonymous_tag;
+    unsigned char  show_anonymous_tag;
+    int scope_level;
+    int visit_moved;
+    struct struct_or_union_specifier * complete_struct_or_union_specifier_indirection;
 };
 
 struct defer_statement {
@@ -468,159 +804,13 @@ struct defer_statement {
     struct secondary_block * secondary_block;
 };
 
-struct enumerator_list {
-    struct enumerator * head;
-    struct enumerator * tail;
-};
+struct jump_statement;
 
-struct enum_specifier {
-    unsigned char has_shared_ownership;
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    char tag_name[200];
-    struct enumerator_list  enumerator_list;
-    struct token * tag_token;
-    struct token * first_token;
-    struct enum_specifier * p_complete_enum_specifier;
-};
-
-struct statement {
-    struct labeled_statement * labeled_statement;
-    struct unlabeled_statement * unlabeled_statement;
-};
-
-struct osstream {
-    char * c_str;
-    int size;
-    int capacity;
-};
-
-struct labeled_statement {
-    struct label * label;
-    struct statement * statement;
-};
-
-struct function_specifier {
-    int flags;
-    struct token * token;
-};
-
-struct declarator {
-    unsigned char has_shared_ownership;
-    struct token * first_token_opt;
-    struct token * last_token_opt;
-    struct pointer * pointer;
-    struct direct_declarator * direct_declarator;
-    struct declaration_specifiers * declaration_specifiers;
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct token * name_opt;
-    struct compound_statement * function_body;
-    struct declarator * p_complete_declarator;
-    int num_uses;
-    struct object  object;
-    struct flow_object * p_flow_object;
-    struct expression * p_expression_true;
-    struct expression * p_expression_false;
-    struct expression * p_alias_of_expression;
-    struct type  type;
-    unsigned char declarator_renamed;
-};
-
-struct condition {
-    struct expression * expression;
+struct unlabeled_statement {
     struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct declaration_specifiers * p_declaration_specifiers;
-    struct init_declarator * p_init_declarator;
-    struct token * first_token;
-    struct token * last_token;
-};
-
-struct defer_list_item {
-    struct declarator * declarator;
-    struct defer_statement * defer_statement;
-    struct defer_list_item * next;
-};
-
-struct type_list {
-    struct type * head;
-    struct type * tail;
-};
-
-struct designator_list {
-    struct designator * head;
-    struct designator * tail;
-};
-
-struct type_qualifier_list {
-    int flags;
-    struct type_qualifier * head;
-    struct type_qualifier * tail;
-};
-
-struct block_item_list {
-    struct block_item * head;
-    struct block_item * tail;
-};
-
-struct compound_statement {
-    struct token * first_token;
-    struct token * last_token;
-    struct block_item_list  block_item_list;
-    struct diagnostic  diagnostic_flags;
-    struct defer_list  defer_list;
-};
-
-struct attribute_argument_clause {
-    struct balanced_token_sequence * p_balanced_token_sequence;
-    struct token * token;
-};
-
-struct label {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct expression * constant_expression;
-    struct expression * constant_expression_end;
-    struct token * p_identifier_opt;
-    struct token * p_first_token;
-    struct label * next;
-    int label_id;
-};
-
-struct type_name {
-    struct token * first_token;
-    struct token * last_token;
-    struct specifier_qualifier_list * specifier_qualifier_list;
-    struct declarator * abstract_declarator;
-    struct type  type;
-};
-
-struct storage_class_specifier {
-    int flags;
-    struct token * token;
-};
-
-struct struct_or_union_specifier {
-    unsigned char has_shared_ownership;
-    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
-    struct member_declaration_list  member_declaration_list;
-    struct token * first_token;
-    struct token * last_token;
-    unsigned char is_owner;
-    struct token * tagtoken;
-    char tag_name[200];
-    unsigned char has_anonymous_tag;
-    unsigned char show_anonymous_tag;
-    int scope_level;
-    int visit_moved;
-    struct struct_or_union_specifier * complete_struct_or_union_specifier_indirection;
-};
-
-struct _iobuf {
-    void * _Placeholder;
-};
-
-struct atomic_type_specifier {
-    struct token * token;
-    struct type_name * type_name;
+    struct expression_statement * expression_statement;
+    struct primary_block * primary_block;
+    struct jump_statement * jump_statement;
 };
 
 struct expression_statement {
@@ -628,62 +818,32 @@ struct expression_statement {
     struct expression * expression_opt;
 };
 
-struct function_declarator {
-    struct direct_declarator * direct_declarator;
-    struct scope  parameters_scope;
-    struct parameter_type_list * parameter_type_list_opt;
-};
-
-struct parameter_type_list {
-    unsigned char is_var_args;
-    unsigned char is_void;
-    struct parameter_list * parameter_list;
-};
-
-struct initializer_list {
-    struct token * first_token;
-    struct initializer_list_item * head;
-    struct initializer_list_item * tail;
-    int size;
-};
-
-struct balanced_token_sequence {
-    struct balanced_token * head;
-    struct balanced_token * tail;
-};
-
-struct label_list_item {
-    struct token * p_last_usage;
-    struct token * p_defined;
-    struct label_list_item * next;
-};
-
-struct type_qualifier {
-    int flags;
-    struct token * token;
-    struct type_qualifier * next;
-};
-
-struct declaration {
-    struct attribute_specifier_sequence * p_attribute_specifier_sequence;
-    struct static_assert_declaration * static_assert_declaration;
-    struct pragma_declaration * pragma_declaration;
-    struct declaration_specifiers * declaration_specifiers;
-    struct init_declarator_list  init_declarator_list;
-    struct compound_statement * function_body;
-    struct defer_list  defer_list;
-    struct declarator * contract_declarator;
+struct jump_statement {
+    struct token * label;
     struct token * first_token;
     struct token * last_token;
-    struct declaration * next;
+    struct expression * expression_opt;
+    int label_id;
+    struct defer_list  defer_list;
 };
 
-struct attribute {
-    int msvc_declspec_flags;
-    int attributes_flags;
-    struct attribute_argument_clause * attribute_argument_clause;
-    struct token * attribute_token;
-    struct attribute * next;
+union __tag5 {
+    unsigned int number;
+    struct enum_specifier * p_enum_specifier;
+    struct enumerator * p_enumerator;
+    struct struct_or_union_specifier * p_struct_or_union_specifier;
+    struct declarator * p_declarator;
+    struct init_declarator * p_init_declarator;
+    struct macro * p_macro;
+    struct struct_entry * p_struct_entry;
+};
+
+struct map_entry {
+    struct map_entry * next;
+    unsigned int hash;
+    char * key;
+    int type;
+    union __tag5  data;
 };
 
 struct declaration_specifiers {
@@ -705,102 +865,6 @@ struct declaration_specifiers {
     struct declaration_specifier * tail;
 };
 
-struct init_declarator {
-    unsigned char has_shared_ownership;
-    struct declarator * p_declarator;
-    struct initializer * initializer;
-    struct init_declarator * next;
-};
-
-struct typeof_specifier_argument {
-    struct expression * expression;
-    struct type_name * type_name;
-};
-
-struct attribute_specifier_sequence {
-    struct token * first_token;
-    struct token * last_token;
-    int msvc_declspec_flags;
-    int attributes_flags;
-    struct attribute_specifier * head;
-    struct attribute_specifier * tail;
-};
-
-struct attribute_specifier {
-    int ack;
-    struct token * first_token;
-    struct token * last_token;
-    struct attribute_list * attribute_list;
-    struct attribute_specifier * next;
-};
-
-struct static_assert_declaration {
-    struct token * first_token;
-    struct token * last_token;
-    struct expression * constant_expression;
-    struct token * string_literal_opt;
-};
-
-struct block_item {
-    struct token * first_token;
-    struct declaration * declaration;
-    struct unlabeled_statement * unlabeled_statement;
-    struct label * label;
-    struct block_item * next;
-};
-
-struct argument_expression {
-    struct expression * expression;
-    struct argument_expression * next;
-    unsigned char set_unkown;
-};
-
-struct braced_initializer {
-    struct token * first_token;
-    struct token * last_token;
-    struct initializer_list * initializer_list;
-};
-
-struct primary_block {
-    struct compound_statement * compound_statement;
-    struct selection_statement * selection_statement;
-    struct iteration_statement * iteration_statement;
-    struct defer_statement * defer_statement;
-    struct try_statement * try_statement;
-};
-
-struct pragma_declaration {
-    struct token * first_token;
-    struct token * last_token;
-};
-
-struct marker {
-    char * file;
-    int line;
-    int start_col;
-    int end_col;
-    struct token * p_token_caret;
-    struct token * p_token_begin;
-    struct token * p_token_end;
-};
-
-struct init_statement {
-    struct expression_statement * p_expression_statement;
-    struct simple_declaration * p_simple_declaration;
-};
-
-struct designation {
-    struct designator_list * designator_list;
-    struct token * token;
-};
-
-struct type_specifier_qualifier {
-    struct type_specifier * type_specifier;
-    struct type_qualifier * type_qualifier;
-    struct alignment_specifier * alignment_specifier;
-    struct type_specifier_qualifier * next;
-};
-
 struct array_declarator {
     struct direct_declarator * direct_declarator;
     struct expression * assignment_expression;
@@ -810,841 +874,95 @@ struct array_declarator {
     struct token * static_token_opt;
 };
 
+struct enumerator {
+    unsigned char  has_shared_ownership;
+    struct token * token;
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct expression * constant_expression_opt;
+    struct enum_specifier * enum_specifier;
+    struct enumerator * next;
+    struct object  value;
+};
+
+struct member_declarator;
+
+struct member_declarator_list {
+    struct member_declarator * head;
+    struct member_declarator * tail;
+};
+
 struct member_declarator {
     struct declarator * declarator;
     struct expression * constant_expression;
     struct member_declarator * next;
 };
 
+struct compound_statement {
+    struct token * first_token;
+    struct token * last_token;
+    struct block_item_list  block_item_list;
+    struct diagnostic  diagnostic_flags;
+    struct defer_list  defer_list;
+};
 
-static void _cake_zmem(void *dest, register unsigned int len)
+struct initializer_list_item;
+
+struct initializer_list {
+    struct token * first_token;
+    struct initializer_list_item * head;
+    struct initializer_list_item * tail;
+    int size;
+};
+
+struct initializer_list_item {
+    struct designation * designation;
+    struct initializer * initializer;
+    struct initializer_list_item * next;
+};
+
+struct parameter_declaration {
+    struct attribute_specifier_sequence * attribute_specifier_sequence_opt;
+    struct declaration_specifiers * declaration_specifiers;
+    struct declarator * declarator;
+    struct parameter_declaration * next;
+};
+
+struct designator_list {
+    struct designator * head;
+    struct designator * tail;
+};
+
+struct declarator {
+    unsigned char  has_shared_ownership;
+    struct token * first_token_opt;
+    struct token * last_token_opt;
+    struct pointer * pointer;
+    struct direct_declarator * direct_declarator;
+    struct declaration_specifiers * declaration_specifiers;
+    struct specifier_qualifier_list * specifier_qualifier_list;
+    struct token * name_opt;
+    struct compound_statement * function_body;
+    struct declarator * p_complete_declarator;
+    int num_uses;
+    struct object  object;
+    struct flow_object * p_flow_object;
+    struct expression * p_expression_true;
+    struct expression * p_expression_false;
+    struct expression * p_alias_of_expression;
+    struct type  type;
+    unsigned char  declarator_renamed;
+};
+
+
+static void _cake_zmem(void *dest, unsigned int len)
 {
-  register unsigned char *ptr = (unsigned char*)dest;
+  unsigned char *ptr;
+
+  ptr = (unsigned char*)dest;
   while (len-- > 0) *ptr++ = 0;
 }
 
 __declspec(selectany) int _Avx2WmemEnabledWeakValue = 0;
-unsigned int get_align_void_ptr(int target)
-{
-    /*switch*/
-    {
-        register int __Ck0_temp = target;
-        if (__Ck0_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck0_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck0_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck0_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck0_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            _CKL2: /*case 1*/ 
-            return 4;
-            _CKL3: /*case 2*/ 
-            return 8;
-            _CKL4: /*case 3*/ 
-            return 2;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_void_ptr(int target)
-{
-    /*switch*/
-    {
-        register int __Ck1_temp = target;
-        if (__Ck1_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck1_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck1_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck1_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck1_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            _CKL2: /*case 1*/ 
-            return 4;
-            _CKL3: /*case 2*/ 
-            return 8;
-            _CKL4: /*case 3*/ 
-            return 2;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_char(int target)
-{
-    /*switch*/
-    {
-        register int __Ck2_temp = target;
-        if (__Ck2_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck2_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck2_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck2_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck2_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 1;
-            _CKL2: /*case 1*/ 
-            return 1;
-            _CKL3: /*case 2*/ 
-            return 1;
-            _CKL4: /*case 3*/ 
-            return 1;
-            _CKL5: /*case 4*/ 
-            return 1;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_char(int target)
-{
-    /*switch*/
-    {
-        register int __Ck3_temp = target;
-        if (__Ck3_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck3_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck3_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck3_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck3_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 1;
-            _CKL2: /*case 1*/ 
-            return 1;
-            _CKL3: /*case 2*/ 
-            return 1;
-            _CKL4: /*case 3*/ 
-            return 1;
-            _CKL5: /*case 4*/ 
-            return 1;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_bool(int target)
-{
-    /*switch*/
-    {
-        register int __Ck4_temp = target;
-        if (__Ck4_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck4_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck4_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck4_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck4_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 1;
-            _CKL2: /*case 1*/ 
-            return 1;
-            _CKL3: /*case 2*/ 
-            return 1;
-            _CKL4: /*case 3*/ 
-            return 1;
-            _CKL5: /*case 4*/ 
-            return 1;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_bool(int target)
-{
-    /*switch*/
-    {
-        register int __Ck5_temp = target;
-        if (__Ck5_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck5_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck5_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck5_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck5_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 1;
-            _CKL2: /*case 1*/ 
-            return 1;
-            _CKL3: /*case 2*/ 
-            return 1;
-            _CKL4: /*case 3*/ 
-            return 1;
-            _CKL5: /*case 4*/ 
-            return 1;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_short(int target)
-{
-    /*switch*/
-    {
-        register int __Ck6_temp = target;
-        if (__Ck6_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck6_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck6_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck6_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck6_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 2;
-            _CKL2: /*case 1*/ 
-            return 2;
-            _CKL3: /*case 2*/ 
-            return 2;
-            _CKL4: /*case 3*/ 
-            return 2;
-            _CKL5: /*case 4*/ 
-            return 2;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_short(int target)
-{
-    /*switch*/
-    {
-        register int __Ck7_temp = target;
-        if (__Ck7_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck7_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck7_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck7_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck7_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 2;
-            _CKL2: /*case 1*/ 
-            return 2;
-            _CKL3: /*case 2*/ 
-            return 2;
-            _CKL4: /*case 3*/ 
-            return 2;
-            _CKL5: /*case 4*/ 
-            return 2;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_int(int target)
-{
-    /*switch*/
-    {
-        register int __Ck8_temp = target;
-        if (__Ck8_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck8_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck8_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck8_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck8_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 4;
-            _CKL2: /*case 1*/ 
-            return 4;
-            _CKL3: /*case 2*/ 
-            return 4;
-            _CKL4: /*case 3*/ 
-            return 2;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_int(int target)
-{
-    /*switch*/
-    {
-        register int __Ck9_temp = target;
-        if (__Ck9_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck9_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck9_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck9_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck9_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 4;
-            _CKL2: /*case 1*/ 
-            return 4;
-            _CKL3: /*case 2*/ 
-            return 4;
-            _CKL4: /*case 3*/ 
-            return 2;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_long(int target)
-{
-    /*switch*/
-    {
-        register int __Ck10_temp = target;
-        if (__Ck10_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck10_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck10_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck10_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck10_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            _CKL2: /*case 1*/ 
-            return 4;
-            _CKL3: /*case 2*/ 
-            return 4;
-            _CKL4: /*case 3*/ 
-            return 4;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_long(int target)
-{
-    /*switch*/
-    {
-        register int __Ck11_temp = target;
-        if (__Ck11_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck11_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck11_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck11_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck11_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            _CKL2: /*case 1*/ 
-            return 4;
-            _CKL3: /*case 2*/ 
-            return 4;
-            _CKL4: /*case 3*/ 
-            return 4;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_long_long(int target)
-{
-    /*switch*/
-    {
-        register int __Ck12_temp = target;
-        if (__Ck12_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck12_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck12_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck12_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck12_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            _CKL2: /*case 1*/ 
-            return 8;
-            _CKL3: /*case 2*/ 
-            return 8;
-            _CKL4: /*case 3*/ 
-            return 4;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_long_long(int target)
-{
-    /*switch*/
-    {
-        register int __Ck13_temp = target;
-        if (__Ck13_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck13_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck13_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck13_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck13_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            _CKL2: /*case 1*/ 
-            return 8;
-            _CKL3: /*case 2*/ 
-            return 8;
-            _CKL4: /*case 3*/ 
-            return 4;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_float(int target)
-{
-    /*switch*/
-    {
-        register int __Ck14_temp = target;
-        if (__Ck14_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck14_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck14_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck14_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck14_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 4;
-            _CKL2: /*case 1*/ 
-            return 4;
-            _CKL3: /*case 2*/ 
-            return 4;
-            _CKL4: /*case 3*/ 
-            return 4;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_float(int target)
-{
-    /*switch*/
-    {
-        register int __Ck15_temp = target;
-        if (__Ck15_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck15_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck15_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck15_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck15_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 4;
-            _CKL2: /*case 1*/ 
-            return 4;
-            _CKL3: /*case 2*/ 
-            return 4;
-            _CKL4: /*case 3*/ 
-            return 4;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_double(int target)
-{
-    /*switch*/
-    {
-        register int __Ck16_temp = target;
-        if (__Ck16_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck16_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck16_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck16_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck16_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            _CKL2: /*case 1*/ 
-            return 8;
-            _CKL3: /*case 2*/ 
-            return 8;
-            _CKL4: /*case 3*/ 
-            return 8;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_double(int target)
-{
-    /*switch*/
-    {
-        register int __Ck17_temp = target;
-        if (__Ck17_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck17_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck17_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck17_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck17_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            _CKL2: /*case 1*/ 
-            return 8;
-            _CKL3: /*case 2*/ 
-            return 8;
-            _CKL4: /*case 3*/ 
-            return 8;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_align_long_double(int target)
-{
-    /*switch*/
-    {
-        register int __Ck18_temp = target;
-        if (__Ck18_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck18_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck18_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck18_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck18_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 16;
-            _CKL2: /*case 1*/ 
-            return 8;
-            _CKL3: /*case 2*/ 
-            return 8;
-            _CKL4: /*case 3*/ 
-            return 8;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-unsigned int get_size_long_double(int target)
-{
-    /*switch*/
-    {
-        register int __Ck19_temp = target;
-        if (__Ck19_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck19_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck19_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck19_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck19_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 16;
-            _CKL2: /*case 1*/ 
-            return 8;
-            _CKL3: /*case 2*/ 
-            return 8;
-            _CKL4: /*case 3*/ 
-            return 8;
-            _CKL5: /*case 4*/ 
-            return 4;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-int get_wchar_type_specifier(int target)
-{
-    /*switch*/
-    {
-        register int __Ck20_temp = target;
-        if (__Ck20_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck20_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck20_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck20_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck20_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 8;
-            goto _CKL0; /*break*/
-
-            _CKL2: /*case 1*/ 
-            _CKL3: /*case 2*/ 
-            return 260;
-            goto _CKL0; /*break*/
-
-            _CKL4: /*case 3*/ 
-            return 258;
-            goto _CKL0; /*break*/
-
-            _CKL5: /*case 4*/ 
-            return 258;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-int get_intN_type_specifier(int target, int nbits)
-{
-    ;
-    /*switch*/
-    {
-        register int __Ck21_temp = target;
-        if (__Ck21_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck21_temp == 1) goto _CKL7; /*case 1*/
-        if (__Ck21_temp == 2) goto _CKL8; /*case 2*/
-        if (__Ck21_temp == 3) goto _CKL13; /*case 3*/
-        if (__Ck21_temp == 4) goto _CKL18; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            if (nbits == 8)
-            {
-                return 2;
-            }
-            if (nbits == 16)
-            {
-                return 4;
-            }
-            if (nbits == 32)
-            {
-                return 8;
-            }
-            if (nbits == 64)
-            {
-                return 16;
-            }
-            if (nbits == 128)
-            {
-                return 4194304;
-            }
-            goto _CKL0; /*break*/
-
-            _CKL7: /*case 1*/ 
-            _CKL8: /*case 2*/ 
-            if (nbits == 8)
-            {
-                return 2;
-            }
-            if (nbits == 16)
-            {
-                return 4;
-            }
-            if (nbits == 32)
-            {
-                return 8;
-            }
-            if (nbits == 64)
-            {
-                return 4194304;
-            }
-            goto _CKL0; /*break*/
-
-            _CKL13: /*case 3*/ 
-            if (nbits == 8)
-            {
-                return 2;
-            }
-            if (nbits == 16)
-            {
-                return 8;
-            }
-            if (nbits == 32)
-            {
-                return 16;
-            }
-            if (nbits == 64)
-            {
-                return 4194304;
-            }
-            goto _CKL0; /*break*/
-
-            _CKL18: /*case 4*/ 
-            if (nbits == 8)
-            {
-                return 2;
-            }
-            if (nbits == 16)
-            {
-                return 4;
-            }
-            if (nbits == 32)
-            {
-                return 8;
-            }
-            if (nbits == 64)
-            {
-                return 4194304;
-            }
-            goto _CKL0; /*break*/
-
-        }
-        _CKL0:;
-    }
-    ;
-    return 4194304;
-}
-
-
-int get_ptrdiff_t_specifier(int target)
-{
-    /*switch*/
-    {
-        register int __Ck22_temp = target;
-        if (__Ck22_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck22_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck22_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck22_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck22_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 16;
-            _CKL2: /*case 1*/ 
-            return 8;
-            _CKL3: /*case 2*/ 
-            return 4194304;
-            _CKL4: /*case 3*/ 
-            return 8;
-            _CKL5: /*case 4*/ 
-            return 8;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
-int get_size_t_specifier(int target)
-{
-    /*switch*/
-    {
-        register int __Ck23_temp = target;
-        if (__Ck23_temp == 0) goto _CKL1; /*case 0*/
-        if (__Ck23_temp == 1) goto _CKL2; /*case 1*/
-        if (__Ck23_temp == 2) goto _CKL3; /*case 2*/
-        if (__Ck23_temp == 3) goto _CKL4; /*case 3*/
-        if (__Ck23_temp == 4) goto _CKL5; /*case 4*/
-        goto _CKL0;
-
-        {
-            _CKL1: /*case 0*/ 
-            return 272;
-            _CKL2: /*case 1*/ 
-            return 264;
-            _CKL3: /*case 2*/ 
-            return 4194560;
-            _CKL4: /*case 3*/ 
-            return 8;
-            _CKL5: /*case 4*/ 
-            return 264;
-        }
-        _CKL0:;
-    }
-    ;
-    return 0;
-}
-
-
 unsigned char is_automatic_variable(int f)
 {
     if (f & 2)
@@ -1680,119 +998,88 @@ void print_item(struct osstream * ss, unsigned char * first, char * item)
 }
 
 
+struct platform *get_platform(int target);
+static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, ...);
+static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList);
+int __cdecl __stdio_common_vsprintf(unsigned long long _Options, char * _Buffer, unsigned int _BufferCount, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
+static unsigned long long *__cdecl __local_stdio_printf_options(void);
+static unsigned long long __c0__OptionsStorage;
+
 unsigned char print_type_alignment_flags(struct osstream * ss, unsigned char * first, int flags, int target)
 {
-    /*switch*/
+    int align;
+
+    align = 0;
+    if (flags & 1)
     {
-        register int __Ck24_temp = target;
-        if (__Ck24_temp == 1) goto _CKL1; /*case 1*/
-        if (__Ck24_temp == 2) goto _CKL2; /*case 2*/
-        if (__Ck24_temp == 0) goto _CKL8; /*case 0*/
-        if (__Ck24_temp == 3) goto _CKL14; /*case 3*/
-        if (__Ck24_temp == 4) goto _CKL20; /*case 4*/
-        goto _CKL0;
-
+        align = 8;
+    }
+    else
+    {
+        if (flags & 2)
         {
-            _CKL1: /*case 1*/ 
-            _CKL2: /*case 2*/ 
-            if (flags & 1)
-            {
-                print_item(ss, first, "__declspec(align(8))");
-            }
-            if (flags & 2)
-            {
-                print_item(ss, first, "__declspec(align(16))");
-            }
-            if (flags & 4)
-            {
-                print_item(ss, first, "__declspec(align(32))");
-            }
-            if (flags & 8)
-            {
-                print_item(ss, first, "__declspec(align(64))");
-            }
-            if (flags & 16)
-            {
-                print_item(ss, first, "__declspec(align(128))");
-            }
-            goto _CKL0; /*break*/
-
-            _CKL8: /*case 0*/ 
-            if (flags & 1)
-            {
-                print_item(ss, first, "__attribute__((aligned(8)))");
-            }
-            if (flags & 2)
-            {
-                print_item(ss, first, "__attribute__((aligned(16)))");
-            }
-            if (flags & 4)
-            {
-                print_item(ss, first, "__attribute__((aligned(32)))");
-            }
-            if (flags & 8)
-            {
-                print_item(ss, first, "__attribute__((aligned(64)))");
-            }
-            if (flags & 16)
-            {
-                print_item(ss, first, "__attribute__((aligned(128)))");
-            }
-            goto _CKL0; /*break*/
-
-            _CKL14: /*case 3*/ 
-            if (flags & 1)
-            {
-                print_item(ss, first, "/*alignas(8)*/");
-            }
-            if (flags & 2)
-            {
-                print_item(ss, first, "/*alignas(16)*/");
-            }
-            if (flags & 4)
-            {
-                print_item(ss, first, "/*alignas(32)*/");
-            }
-            if (flags & 8)
-            {
-                print_item(ss, first, "/*alignas(64)*/");
-            }
-            if (flags & 16)
-            {
-                print_item(ss, first, "/*alignas(128)*/");
-            }
-            goto _CKL0; /*break*/
-
-            _CKL20: /*case 4*/ 
-            if (flags & 1)
-            {
-                print_item(ss, first, "__attribute__((aligned(8)))");
-            }
-            if (flags & 2)
-            {
-                print_item(ss, first, "__attribute__((aligned(16)))");
-            }
-            if (flags & 4)
-            {
-                print_item(ss, first, "__attribute__((aligned(32)))");
-            }
-            if (flags & 8)
-            {
-                print_item(ss, first, "__attribute__((aligned(32)))");
-            }
-            if (flags & 16)
-            {
-                print_item(ss, first, "__attribute__((aligned(32)))");
-            }
-            goto _CKL0; /*break*/
-
+            align = 16;
         }
-        _CKL0:;
+        else
+        {
+            if (flags & 4)
+            {
+                align = 32;
+            }
+            else
+            {
+                if (flags & 8)
+                {
+                    align = 64;
+                }
+                else
+                {
+                    if (flags & 16)
+                    {
+                        align = 128;
+                    }
+                }
+            }
+        }
+    }
+    if (align != 0)
+    {
+        char * fmt;
+        char buffer[50];
+
+        fmt = get_platform(target)->alignas_fmt_must_have_one_percent_d;
+        _cake_zmem(&buffer, 50);
+        snprintf(buffer, 50, fmt, align);
+        print_item(ss, first, buffer);
     }
     return *first;
 }
 
 
+
+static unsigned long long *__cdecl __local_stdio_printf_options(void)
+{
+    return &__c0__OptionsStorage;
+}
+
+static int __cdecl vsnprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, char * _ArgList)
+{
+    int _Result;
+
+    _Result = __stdio_common_vsprintf((*__local_stdio_printf_options()) | 2ULL, _Buffer, _BufferCount, _Format, 0, _ArgList);
+    return _Result < 0 ? -1 : _Result;
+}
+
+static int __cdecl snprintf(char * _Buffer, unsigned int _BufferCount, char * _Format, ...)
+{
+    int _Result;
+    char * _ArgList;
+
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
+    _Result = vsnprintf(_Buffer, _BufferCount, _Format, _ArgList);
+    ((void)(_ArgList = (char *)0));
+    return _Result;
+}
 unsigned char print_type_specifier_flags(struct osstream * ss, unsigned char * first, int e_type_specifier_flags)
 {
     if (e_type_specifier_flags & 1)
@@ -2011,7 +1298,7 @@ void print_msvc_declspec(struct osstream * ss, unsigned char * first, int msvc_d
 
 void print_type_qualifier_specifiers(struct osstream * ss, struct type * type, int target)
 {
-    unsigned char first;
+    unsigned char  first;
 
     first = 1;
     print_type_qualifier_flags(ss, &first, type->type_qualifier_flags);
@@ -2071,12 +1358,12 @@ void type_remove_qualifiers(struct type * p_type)
 
 
 int type_get_category(struct type * p_type);
-struct type type_add_pointer(struct type * p_type, unsigned char null_checks_enabled);
+struct type type_add_pointer(struct type * p_type, unsigned char  null_checks_enabled);
 struct type get_array_item_type(struct type * p_type);
 void type_destroy(struct type * p_type);
 struct type type_dup(struct type * p_type);
 
-struct type type_lvalue_conversion(struct type * p_type, unsigned char nullchecks_enabled)
+struct type type_lvalue_conversion(struct type * p_type, unsigned char  nullchecks_enabled)
 {
     int category;
     struct type  t;
@@ -2084,15 +1371,15 @@ struct type type_lvalue_conversion(struct type * p_type, unsigned char nullcheck
     category = type_get_category(p_type);
     /*switch*/
     {
-        register int __Ck25_temp = category;
-        if (__Ck25_temp == 1) goto _CKL1; /*case 1*/
-        if (__Ck25_temp == 2) goto _CKL2; /*case 2*/
-        if (__Ck25_temp == 3) goto _CKL3; /*case 3*/
-        if (__Ck25_temp == 0) goto _CKL4; /*case 0*/
-        goto _CKL5;/*default*/
+        int __v0 = category;
+        if (__v0 == 1) goto __L1; /*case 1*/
+        if (__v0 == 2) goto __L2; /*case 2*/
+        if (__v0 == 3) goto __L3; /*case 3*/
+        if (__v0 == 0) goto __L4; /*case 0*/
+        goto __L5; /* default */
 
         {
-            _CKL1: /*case 1*/ 
+            __L1: /*case 1*/ 
             {
                 struct type  t;
 
@@ -2102,9 +1389,9 @@ struct type type_lvalue_conversion(struct type * p_type, unsigned char nullcheck
                 t.category = t.category;
                 return t;
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL2: /*case 2*/ 
+            __L2: /*case 2*/ 
             {
                 struct type  t;
                 struct type  t2;
@@ -2116,17 +1403,17 @@ struct type type_lvalue_conversion(struct type * p_type, unsigned char nullcheck
                 t2.storage_class_specifier_flags &= -2049;
                 return t2;
             }
-            goto _CKL0; /*break*/
+            goto __L0; /* break */
 
-            _CKL3: /*case 3*/ 
-            goto _CKL0; /*break*/
+            __L3: /*case 3*/ 
+            goto __L0; /* break */
 
-            _CKL4: /*case 0*/ 
-            _CKL5: /*default*/ 
-            goto _CKL0; /*break*/
+            __L4: /*case 0*/ 
+            __L5: /* default */ 
+            goto __L0; /* break */
 
         }
-        _CKL0:;
+        __L0:;
     }
     t = type_dup(p_type);
     type_remove_qualifiers(&t);
@@ -2162,34 +1449,34 @@ void ss_swap(struct osstream * a, struct osstream * b);
 void ss_close(struct osstream * stream);
 void print_type(struct osstream * ss, struct type * type, int target);
 
-void print_type_core(struct osstream * ss, struct type * p_type, unsigned char onlydeclarator, unsigned char printname, int target)
+void print_type_core(struct osstream * ss, struct type * p_type, unsigned char  onlydeclarator, unsigned char  printname, int target)
 {
     struct type * p;
 
     p = p_type;
     while (p)
     {
-        if (onlydeclarator && p->next == 0U)
+        if (onlydeclarator && p->next == 0)
         {
             break;
         }
         /*switch*/
         {
-            register int __Ck26_temp = p->category;
-            if (__Ck26_temp == 0) goto _CKL2; /*case 0*/
-            if (__Ck26_temp == 2) goto _CKL9; /*case 2*/
-            if (__Ck26_temp == 1) goto _CKL14; /*case 1*/
-            if (__Ck26_temp == 3) goto _CKL17; /*case 3*/
-            goto _CKL1;
+            int __v0 = p->category;
+            if (__v0 == 0) goto __L2; /*case 0*/
+            if (__v0 == 2) goto __L9; /*case 2*/
+            if (__v0 == 1) goto __L14; /*case 1*/
+            if (__v0 == 3) goto __L17; /*case 3*/
+            goto __L1;
 
             {
-                unsigned char b;
+                unsigned char  b;
                 struct param * pa;
 
-                _CKL2: /*case 0*/ 
+                __L2: /*case 0*/ 
                 {
                     struct osstream  local;
-                    unsigned char first;
+                    unsigned char  first;
                     struct osstream  local2;
 
                     _cake_zmem(&local, 12);
@@ -2241,9 +1528,9 @@ void print_type_core(struct osstream * ss, struct type * p_type, unsigned char o
                     ss_close(&local);
                     ss_close(&local2);
                 }
-                goto _CKL1; /*break*/
+                goto __L1; /* break */
 
-                _CKL9: /*case 2*/ 
+                __L9: /*case 2*/ 
                 if (printname && p->name_opt)
                 {
                     ss_fprintf(ss, "%s", p->name_opt);
@@ -2265,9 +1552,9 @@ void print_type_core(struct osstream * ss, struct type * p_type, unsigned char o
                     ss_fprintf(ss, "%d", p->num_of_elements);
                 }
                 ss_fprintf(ss, "]");
-                goto _CKL1; /*break*/
+                goto __L1; /* break */
 
-                _CKL14: /*case 1*/ 
+                __L14: /*case 1*/ 
                 if (printname && p->name_opt)
                 {
                     ss_fprintf(ss, "%s", p->name_opt);
@@ -2289,15 +1576,15 @@ void print_type_core(struct osstream * ss, struct type * p_type, unsigned char o
                     pa = pa->next;
                 }
                 ss_fprintf(ss, ")");
-                goto _CKL1; /*break*/
+                goto __L1; /* break */
 
-                _CKL17: /*case 3*/ 
+                __L17: /*case 3*/ 
                 {
                     struct osstream  local;
-                    unsigned char first;
+                    unsigned char  first;
 
                     _cake_zmem(&local, 12);
-                    if (p->next && ((p->next->category == 1 || p->next->category == 2)))
+                    if (p->next && (p->next->category == 1 || p->next->category == 2))
                     {
                         ss_fprintf(&local, "(");
                     }
@@ -2324,10 +1611,10 @@ void print_type_core(struct osstream * ss, struct type * p_type, unsigned char o
                     ss_swap(ss, &local);
                     ss_close(&local);
                 }
-                goto _CKL1; /*break*/
+                goto __L1; /* break */
 
             }
-            _CKL1:;
+            __L1:;
         }
         p = p->next;
     }
@@ -2355,8 +1642,6 @@ void print_type_declarator(struct osstream * ss, struct type * p_type, int targe
 static int __cdecl printf(char * _Format, ...);
 static int __cdecl _vfprintf_l(struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
 int __cdecl __stdio_common_vfprintf(unsigned long long _Options, struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList);
-static unsigned long long *__cdecl __local_stdio_printf_options(void);
-static unsigned long long __Ck27__OptionsStorage;
 struct _iobuf *__cdecl __acrt_iob_func(unsigned int _Ix);
 
 void type_print(struct type * a, int target)
@@ -2371,11 +1656,6 @@ void type_print(struct type * a, int target)
 
 
 
-static unsigned long long *__cdecl __local_stdio_printf_options(void)
-{
-    return &__Ck27__OptionsStorage;
-}
-
 static int __cdecl _vfprintf_l(struct _iobuf * _Stream, char * _Format, struct __crt_locale_pointers * _Locale, char * _ArgList)
 {
     return __stdio_common_vfprintf((*__local_stdio_printf_options()), _Stream, _Format, _Locale, _ArgList);
@@ -2386,9 +1666,9 @@ static int __cdecl printf(char * _Format, ...)
     int _Result;
     char * _ArgList;
 
-    ((void)(_ArgList = (char *)(&(_Format)) + 4U));
-    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0U, _ArgList);
-    ((void)(_ArgList = 0U));
+    ((void)(_ArgList = (char *)(&(_Format)) + 4));
+    _Result = _vfprintf_l((__acrt_iob_func(1)), _Format, 0, _ArgList);
+    ((void)(_ArgList = (char *)0));
     return _Result;
 }
 int __cdecl puts(char * _Buffer);
@@ -2408,7 +1688,7 @@ int type_get_category(struct type * p_type)
 
 void param_list_add(struct param_list * list, struct param * p_item)
 {
-    if (list->head == 0U)
+    if (list->head == 0)
     {
         list->head = p_item;
     }
@@ -2461,7 +1741,7 @@ void type_destroy(struct type * p_type)
         struct type * next;
 
         next = item->next;
-        item->next = 0U;
+        item->next = 0;
         type_destroy_one(item);
         free(item);
         item = next;
@@ -2490,14 +1770,14 @@ unsigned char type_has_attribute(struct type * p_type, int attributes)
     {
         return 1;
     }
-    p_attribute_specifier_sequence = 0U;
+    p_attribute_specifier_sequence = 0;
     if (p_type->struct_or_union_specifier)
     {
         struct struct_or_union_specifier * p_complete;
 
         p_attribute_specifier_sequence = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
         p_complete = get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-        if (p_attribute_specifier_sequence == 0U && p_complete)
+        if (p_attribute_specifier_sequence == 0 && p_complete)
         {
             p_attribute_specifier_sequence = p_complete->attribute_specifier_sequence_opt;
         }
@@ -2510,7 +1790,7 @@ unsigned char type_has_attribute(struct type * p_type, int attributes)
 
             p_complete_enum_specifier = get_complete_enum_specifier(p_type->enum_specifier);
             p_attribute_specifier_sequence = p_type->enum_specifier->attribute_specifier_sequence_opt;
-            if (p_attribute_specifier_sequence == 0U && p_complete_enum_specifier)
+            if (p_attribute_specifier_sequence == 0 && p_complete_enum_specifier)
             {
                 p_attribute_specifier_sequence = p_complete_enum_specifier->attribute_specifier_sequence_opt;
             }
@@ -2567,7 +1847,7 @@ unsigned char type_is_owner_or_pointer_to_dtor(struct type * p_type)
 
 unsigned char type_is_pointer_to_owner(struct type * p_type)
 {
-    if (p_type->next == 0U)
+    if (p_type->next == 0)
     {
         return 0;
     }
@@ -2614,7 +1894,7 @@ unsigned char type_is_owner(struct type * p_type)
 }
 
 
-unsigned char type_is_opt(struct type * p_type, unsigned char nullable_enabled)
+unsigned char type_is_opt(struct type * p_type, unsigned char  nullable_enabled)
 {
     if (nullable_enabled)
     {
@@ -2702,7 +1982,7 @@ unsigned char type_is_nullptr_t(struct type * p_type)
 
 unsigned char type_is_pointer_to_out(struct type * p_type)
 {
-    if (p_type->next == 0U)
+    if (p_type->next == 0)
     {
         return 0;
     }
@@ -2750,11 +2030,11 @@ unsigned char type_is_union(struct type * p_type)
     {
         return 0;
     }
-    if (p_type->struct_or_union_specifier == 0U)
+    if (p_type->struct_or_union_specifier == 0)
     {
         return 0;
     }
-    return p_type->struct_or_union_specifier->first_token->type == 9039;
+    return p_type->struct_or_union_specifier->first_token->type == 9038;
 }
 
 
@@ -3009,7 +2289,7 @@ struct param_list *type_get_func_or_func_ptr_params(struct type * p_type)
             }
         }
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -3019,13 +2299,13 @@ struct type type_remove_pointer(struct type * p_type);
 
 void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx * ctx, struct argument_expression * current_argument, struct type * paramer_type, int param_num)
 {
-    unsigned char paramer_is_obj_owner;
-    unsigned char paramer_is_owner;
-    unsigned char paramer_is_view;
+    unsigned char  paramer_is_obj_owner;
+    unsigned char  paramer_is_owner;
+    unsigned char  paramer_is_view;
     struct type * argument_type;
-    unsigned char argument_is_owner;
-    unsigned char argument_is_obj_owner;
-    unsigned char argument_is_view;
+    unsigned char  argument_is_owner;
+    unsigned char  argument_is_obj_owner;
+    unsigned char  argument_is_view;
 
     paramer_is_obj_owner = type_is_pointed_dtor(paramer_type);
     paramer_is_owner = type_is_owner(paramer_type);
@@ -3048,14 +2328,14 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx * ct
             {
                 if (current_argument->expression->type.storage_class_specifier_flags & 8192)
                 {
-                    compiler_diagnostic(23, ctx, current_argument->expression->first_token, 0U, "passing a temporary owner to a view");
+                    compiler_diagnostic(23, ctx, current_argument->expression->first_token, 0, "passing a temporary owner to a view");
                 }
             }
             else
             {
                 if (argument_is_obj_owner && paramer_is_owner)
                 {
-                    compiler_diagnostic(24, ctx, current_argument->expression->first_token, 0U, "cannot move _Dtor to _Owner");
+                    compiler_diagnostic(24, ctx, current_argument->expression->first_token, 0, "cannot move _Dtor to _Owner");
                 }
                 else
                 {
@@ -3068,7 +2348,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx * ct
                         {
                             if (current_argument->expression->type.storage_class_specifier_flags & 8192)
                             {
-                                compiler_diagnostic(23, ctx, current_argument->expression->first_token, 0U, "passing a temporary owner to a view");
+                                compiler_diagnostic(23, ctx, current_argument->expression->first_token, 0, "passing a temporary owner to a view");
                             }
                         }
                         else
@@ -3077,7 +2357,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx * ct
                             {
                                 if (!expression_is_null_pointer_constant(current_argument->expression))
                                 {
-                                    compiler_diagnostic(24, ctx, current_argument->expression->first_token, 0U, "passing a _View argument to a _Owner parameter");
+                                    compiler_diagnostic(24, ctx, current_argument->expression->first_token, 0, "passing a _View argument to a _Owner parameter");
                                 }
                             }
                             else
@@ -3091,13 +2371,13 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx * ct
                                         t2 = type_remove_pointer(argument_type);
                                         if (!type_is_owner(&t2))
                                         {
-                                            compiler_diagnostic(24, ctx, current_argument->expression->first_token, 0U, "pointed object is not _Owner");
+                                            compiler_diagnostic(24, ctx, current_argument->expression->first_token, 0, "pointed object is not _Owner");
                                         }
                                         else
                                         {
                                             if (!argument_type->address_of)
                                             {
-                                                compiler_diagnostic(19, ctx, current_argument->expression->first_token, 0U, "_Dtor pointer must be created using address of operator &");
+                                                compiler_diagnostic(19, ctx, current_argument->expression->first_token, 0, "_Dtor pointer must be created using address of operator &");
                                             }
                                         }
                                         type_destroy(&t2);
@@ -3106,7 +2386,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx * ct
                                     {
                                         if (!expression_is_null_pointer_constant(current_argument->expression))
                                         {
-                                            compiler_diagnostic(24, ctx, current_argument->expression->first_token, 0U, "passing a _View argument to a _Dtor parameter");
+                                            compiler_diagnostic(24, ctx, current_argument->expression->first_token, 0, "passing a _View argument to a _Dtor parameter");
                                         }
                                     }
                                 }
@@ -3127,13 +2407,13 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx * ct
 
 
 unsigned char expression_is_subjected_to_lvalue_conversion(struct expression *);
-unsigned char type_is_same(struct type * a, struct type * b, unsigned char compare_qualifiers);
+unsigned char type_is_same(struct type * a, struct type * b, unsigned char  compare_qualifiers);
 unsigned char type_is_pointer_or_array(struct type * p_type);
 
 void check_argument_and_parameter(struct parser_ctx * ctx, struct argument_expression * current_argument, struct type * paramer_type, int param_num)
 {
     struct type * argument_type;
-    unsigned char is_null_pointer_constant;
+    unsigned char  is_null_pointer_constant;
     struct type  parameter_type_converted;
     struct type  argument_type_converted;
 
@@ -3145,12 +2425,12 @@ void check_argument_and_parameter(struct parser_ctx * ctx, struct argument_expre
             {
                 if (type_is_pointer(&current_argument->expression->type) && !type_is_pointer_to_owner(&current_argument->expression->type))
                 {
-                    compiler_diagnostic(22, ctx, current_argument->expression->first_token, 0U, "parameter %d requires a pointer to _Owner object", param_num);
+                    compiler_diagnostic(22, ctx, current_argument->expression->first_token, 0, "parameter %d requires a pointer to _Owner object", param_num);
                 }
             }
             else
             {
-                compiler_diagnostic(22, ctx, current_argument->expression->first_token, 0U, "parameter %d requires a pointer to _Owner type", param_num);
+                compiler_diagnostic(22, ctx, current_argument->expression->first_token, 0, "parameter %d requires a pointer to _Owner type", param_num);
             }
         }
     }
@@ -3162,7 +2442,7 @@ void check_argument_and_parameter(struct parser_ctx * ctx, struct argument_expre
     {
         if (!type_is_same(argument_type, paramer_type, 0))
         {
-            compiler_diagnostic(950, ctx, current_argument->expression->first_token, 0U, " incompatible types at argument %d", param_num);
+            compiler_diagnostic(950, ctx, current_argument->expression->first_token, 0, " incompatible types at argument %d", param_num);
         }
         check_ownership_qualifiers_of_argument_and_parameter(ctx, current_argument, paramer_type, param_num);
         type_destroy(&parameter_type_converted);
@@ -3185,7 +2465,7 @@ void check_argument_and_parameter(struct parser_ctx * ctx, struct argument_expre
     }
     if (is_null_pointer_constant && type_is_array(paramer_type))
     {
-        compiler_diagnostic(28, ctx, current_argument->expression->first_token, 0U, " passing null as array");
+        compiler_diagnostic(28, ctx, current_argument->expression->first_token, 0, " passing null as array");
         check_ownership_qualifiers_of_argument_and_parameter(ctx, current_argument, paramer_type, param_num);
         type_destroy(&parameter_type_converted);
         type_destroy(&argument_type_converted);
@@ -3219,14 +2499,14 @@ void check_argument_and_parameter(struct parser_ctx * ctx, struct argument_expre
                 argument_array_size = argument_type->num_of_elements;
                 if (parameter_array_size != 0 && argument_array_size < parameter_array_size)
                 {
-                    compiler_diagnostic(1130, ctx, current_argument->expression->first_token, 0U, " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
+                    compiler_diagnostic(1130, ctx, current_argument->expression->first_token, 0, " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
                 }
             }
             else
             {
                 if (is_null_pointer_constant || type_is_nullptr_t(argument_type))
                 {
-                    compiler_diagnostic(39, ctx, current_argument->expression->first_token, 0U, " passing null as array");
+                    compiler_diagnostic(39, ctx, current_argument->expression->first_token, 0, " passing null as array");
                 }
             }
         }
@@ -3234,7 +2514,7 @@ void check_argument_and_parameter(struct parser_ctx * ctx, struct argument_expre
         {
             type_print(&argument_type_converted, ctx->options.target);
             type_print(&parameter_type_converted, ctx->options.target);
-            compiler_diagnostic(950, ctx, current_argument->expression->first_token, 0U, " incompatible types at argument %d", param_num);
+            compiler_diagnostic(950, ctx, current_argument->expression->first_token, 0, " incompatible types at argument %d", param_num);
         }
         if (type_is_pointer(&argument_type_converted) && type_is_pointer(&parameter_type_converted))
         {
@@ -3245,7 +2525,7 @@ void check_argument_and_parameter(struct parser_ctx * ctx, struct argument_expre
             parameter_pointer_to = type_remove_pointer(&parameter_type_converted);
             if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to) && !type_is_owner_or_pointer_to_dtor(&parameter_pointer_to))
             {
-                compiler_diagnostic(15, ctx, current_argument->expression->first_token, 0U, " discarding const at argument %d", param_num);
+                compiler_diagnostic(15, ctx, current_argument->expression->first_token, 0, " discarding const at argument %d", param_num);
             }
             type_destroy(&argument_pointer_to);
             type_destroy(&parameter_pointer_to);
@@ -3272,7 +2552,7 @@ unsigned char type_is_function_or_function_pointer(struct type * p_type)
     if (type_is_pointer(p_type))
     {
         struct type  t;
-        unsigned char r;
+        unsigned char  r;
 
         t = type_remove_pointer(p_type);
         r = type_is_function(&t);
@@ -3291,7 +2571,7 @@ unsigned char type_is_empty(struct type * p_type)
 
 void *calloc(unsigned int nmemb, unsigned int size);
 
-struct type type_add_pointer(struct type * p_type, unsigned char null_checks_enabled)
+struct type type_add_pointer(struct type * p_type, unsigned char  null_checks_enabled)
 {
     struct type  r;
 
@@ -3299,39 +2579,39 @@ struct type type_add_pointer(struct type * p_type, unsigned char null_checks_ena
     if (1) /*try*/
     {
         struct type * p;
-        struct type  __Ck28_compound_lit;
+        struct type  __v0;
 
-        p = calloc(1, 68U);
-        if (p == 0U)
+        p = calloc(1, 68);
+        if (p == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         *p = r;
-        __Ck28_compound_lit.category = 0;
-        __Ck28_compound_lit.attributes_flags = 0;
-        __Ck28_compound_lit.msvc_declspec_flags = 0;
-        __Ck28_compound_lit.alignment_specifier_flags = 0;
-        __Ck28_compound_lit.type_specifier_flags = 0;
-        __Ck28_compound_lit.type_qualifier_flags = 0;
-        __Ck28_compound_lit.storage_class_specifier_flags = 0;
-        __Ck28_compound_lit.name_opt = 0;
-        __Ck28_compound_lit.struct_or_union_specifier = 0;
-        __Ck28_compound_lit.enum_specifier = 0;
-        __Ck28_compound_lit.array_num_elements_expression = 0;
-        __Ck28_compound_lit.num_of_elements = 0;
-        __Ck28_compound_lit.has_static_array_size = 0;
-        __Ck28_compound_lit.address_of = 0;
-        __Ck28_compound_lit.params.is_var_args = 0;
-        __Ck28_compound_lit.params.is_void = 0;
-        __Ck28_compound_lit.params.head = 0;
-        __Ck28_compound_lit.params.tail = 0;
-        __Ck28_compound_lit.next = 0;
-        r = __Ck28_compound_lit;
+        __v0.category = 0;
+        __v0.attributes_flags = 0;
+        __v0.msvc_declspec_flags = 0;
+        __v0.alignment_specifier_flags = 0;
+        __v0.type_specifier_flags = 0;
+        __v0.type_qualifier_flags = 0;
+        __v0.storage_class_specifier_flags = 0;
+        __v0.name_opt = 0;
+        __v0.struct_or_union_specifier = 0;
+        __v0.enum_specifier = 0;
+        __v0.array_num_elements_expression = 0;
+        __v0.num_of_elements = 0;
+        __v0.has_static_array_size = 0;
+        __v0.address_of = 0;
+        __v0.params.is_var_args = 0;
+        __v0.params.is_void = 0;
+        __v0.params.head = 0;
+        __v0.params.tail = 0;
+        __v0.next = 0;
+        r = __v0;
         r.next = p;
         r.category = 3;
         r.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return r;
@@ -3353,7 +2633,7 @@ struct type type_remove_pointer(struct type * p_type)
 
         next = *r.next;
         free(r.next);
-        r.next = 0U;
+        r.next = 0;
         type_destroy_one(&r);
         r = next;
     }
@@ -3387,7 +2667,7 @@ struct type get_array_item_type(struct type * p_type)
 }
 
 
-struct type type_param_array_to_pointer(struct type * p_type, unsigned char null_checks_enabled)
+struct type type_param_array_to_pointer(struct type * p_type, unsigned char  null_checks_enabled)
 {
     struct type  t;
     struct type  t2;
@@ -3657,14 +2937,14 @@ struct type type_dup(struct type * p_type)
         {
             struct type * p_new;
 
-            p_new = calloc(1, 68U);
-            if (p_new == 0U)
+            p_new = calloc(1, 68);
+            if (p_new == 0)
             {
                 type_list_destroy(&l);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             *p_new = *p;
-            p_new->next = 0U;
+            p_new->next = 0;
             if (p->name_opt)
             {
                 p_new->name_opt = strdup(p->name_opt);
@@ -3673,19 +2953,19 @@ struct type type_dup(struct type * p_type)
             {
                 struct param * p_param;
 
-                p_new->params.head = 0U;
-                p_new->params.tail = 0U;
+                p_new->params.head = 0;
+                p_new->params.tail = 0;
                 p_param = p->params.head;
                 while (p_param)
                 {
                     struct param * p_new_param;
 
-                    p_new_param = calloc(1, 72U);
-                    if (p_new_param == 0U)
+                    p_new_param = calloc(1, 72);
+                    if (p_new_param == 0)
                     {
                         type_list_destroy(&l);
                         type_delete(p_new);
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     p_new_param->type = type_dup(&p_param->type);
                     param_list_add(&p_new->params, p_new_param);
@@ -3695,15 +2975,15 @@ struct type type_dup(struct type * p_type)
             type_list_push_back(&l, p_new);
             p = p->next;
         }
-        if (l.head == 0U)
+        if (l.head == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         r = *l.head;
         free(l.head);
         return r;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     _cake_zmem(&empty, 68);
@@ -3716,11 +2996,11 @@ unsigned int type_get_alignof(struct type * p_type, int target);
 int get_sizeof_struct(struct struct_or_union_specifier * complete_struct_or_union_specifier, unsigned int * sz, int target)
 {
     int sizeof_error;
-    unsigned char is_union;
+    unsigned char  is_union;
     unsigned int size;
 
     sizeof_error = 0;
-    is_union = (complete_struct_or_union_specifier->first_token->type == 9039);
+    is_union = (complete_struct_or_union_specifier->first_token->type == 9038);
     size = 0;
     if (1) /*try*/
     {
@@ -3758,7 +3038,7 @@ int get_sizeof_struct(struct struct_or_union_specifier * complete_struct_or_unio
                         sizeof_error = type_get_sizeof(&md->declarator->type, &item_size, target);
                         if (sizeof_error != 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         if (is_union)
                         {
@@ -3775,7 +3055,7 @@ int get_sizeof_struct(struct struct_or_union_specifier * complete_struct_or_unio
                     else
                     {
                         sizeof_error = 3;
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     md = md->next;
                 }
@@ -3807,7 +3087,7 @@ int get_sizeof_struct(struct struct_or_union_specifier * complete_struct_or_unio
                         sizeof_error = type_get_sizeof(&t, &item_size, target);
                         if (sizeof_error != 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         if (is_union)
                         {
@@ -3825,7 +3105,7 @@ int get_sizeof_struct(struct struct_or_union_specifier * complete_struct_or_unio
                     else
                     {
                         sizeof_error = 3;
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                 }
             }
@@ -3841,10 +3121,10 @@ int get_sizeof_struct(struct struct_or_union_specifier * complete_struct_or_unio
         else
         {
             sizeof_error = 3;
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
         return sizeof_error;
     }
@@ -3927,13 +3207,13 @@ unsigned int type_get_alignof(struct type * p_type, int target)
     category = type_get_category(p_type);
     if (category == 3)
     {
-        align = get_align_void_ptr(target);
+        align = get_platform(target)->pointer_aligment;
     }
     else
     {
         if (category == 1)
         {
-            align = -1;
+            align = -2;
         }
         else
         {
@@ -3971,19 +3251,19 @@ unsigned int type_get_alignof(struct type * p_type, int target)
                                 {
                                     if (p_type->type_specifier_flags & 2)
                                     {
-                                        align = get_align_char(target);
+                                        align = get_platform(target)->char_aligment;
                                     }
                                     else
                                     {
                                         if (p_type->type_specifier_flags & 512)
                                         {
-                                            align = get_align_bool(target);
+                                            align = get_platform(target)->bool_aligment;
                                         }
                                         else
                                         {
                                             if (p_type->type_specifier_flags & 4)
                                             {
-                                                align = get_align_short(target);
+                                                align = get_platform(target)->short_aligment;
                                             }
                                             else
                                             {
@@ -4001,50 +3281,50 @@ unsigned int type_get_alignof(struct type * p_type, int target)
                                                     }
                                                     else
                                                     {
-                                                        align = get_align_int(target);
+                                                        align = get_platform(target)->int_aligment;
                                                     }
                                                 }
                                                 else
                                                 {
-                                                    if (p_type->type_specifier_flags & 16)
+                                                    if (p_type->type_specifier_flags == 80)
                                                     {
-                                                        align = get_align_long(target);
+                                                        align = get_platform(target)->long_double_aligment;
                                                     }
                                                     else
                                                     {
-                                                        if (p_type->type_specifier_flags & 4194304)
+                                                        if (p_type->type_specifier_flags & 16)
                                                         {
-                                                            align = get_align_long_long(target);
+                                                            align = get_platform(target)->long_aligment;
                                                         }
                                                         else
                                                         {
-                                                            if (p_type->type_specifier_flags & 8)
+                                                            if (p_type->type_specifier_flags & 4194304)
                                                             {
-                                                                align = get_align_int(target);
+                                                                align = get_platform(target)->long_long_aligment;
                                                             }
                                                             else
                                                             {
-                                                                if (p_type->type_specifier_flags & 32)
+                                                                if (p_type->type_specifier_flags & 8)
                                                                 {
-                                                                    align = get_align_float(target);
+                                                                    align = get_platform(target)->int_aligment;
                                                                 }
                                                                 else
                                                                 {
-                                                                    if (p_type->type_specifier_flags & 64)
+                                                                    if (p_type->type_specifier_flags & 32)
                                                                     {
-                                                                        align = get_align_double(target);
+                                                                        align = get_platform(target)->float_aligment;
                                                                     }
                                                                     else
                                                                     {
-                                                                        if (p_type->type_specifier_flags & 80)
+                                                                        if (p_type->type_specifier_flags & 64)
                                                                         {
-                                                                            align = get_align_long_double(target);
+                                                                            align = get_platform(target)->double_aligment;
                                                                         }
                                                                         else
                                                                         {
                                                                             if (p_type->type_specifier_flags & 33554432)
                                                                             {
-                                                                                align = get_align_void_ptr(target);
+                                                                                align = get_platform(target)->pointer_aligment;
                                                                             }
                                                                             else
                                                                             {
@@ -4062,12 +3342,12 @@ unsigned int type_get_alignof(struct type * p_type, int target)
                                                                                         }
                                                                                         else
                                                                                         {
-                                                                                            align = -2;
+                                                                                            align = -3;
                                                                                         }
                                                                                     }
                                                                                     else
                                                                                     {
-                                                                                        align = -2;
+                                                                                        align = -3;
                                                                                         ;
                                                                                     }
                                                                                 }
@@ -4075,7 +3355,7 @@ unsigned int type_get_alignof(struct type * p_type, int target)
                                                                                 {
                                                                                     if (p_type->type_specifier_flags == 0)
                                                                                     {
-                                                                                        align = -3;
+                                                                                        align = -4;
                                                                                     }
                                                                                     else
                                                                                     {
@@ -4085,7 +3365,14 @@ unsigned int type_get_alignof(struct type * p_type, int target)
                                                                                         }
                                                                                         else
                                                                                         {
-                                                                                            ;
+                                                                                            if (p_type->type_specifier_flags == 16777216)
+                                                                                            {
+                                                                                                align = get_platform(target)->pointer_aligment;
+                                                                                            }
+                                                                                            else
+                                                                                            {
+                                                                                                ;
+                                                                                            }
                                                                                         }
                                                                                     }
                                                                                 }
@@ -4136,19 +3423,19 @@ int type_get_offsetof(struct type * p_type, char * member, unsigned int * size, 
     category = type_get_category(p_type);
     if (category != 0)
     {
-        *size = 4U;
+        *size = 4;
         return 4;
     }
     if (!(p_type->type_specifier_flags & 32768))
     {
         return 3;
     }
-    if (p_type->struct_or_union_specifier == 0U)
+    if (p_type->struct_or_union_specifier == 0)
     {
         return 3;
     }
     p_complete = get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-    if (p_complete == 0U)
+    if (p_complete == 0)
     {
         return 3;
     }
@@ -4160,11 +3447,11 @@ int type_get_offsetof(struct type * p_type, char * member, unsigned int * size, 
 static int get_offsetof_struct(struct struct_or_union_specifier * complete_struct_or_union_specifier, char * member, unsigned int * sz, int target)
 {
     int sizeof_error;
-    unsigned char is_union;
+    unsigned char  is_union;
     unsigned int size;
 
     sizeof_error = 0;
-    is_union = (complete_struct_or_union_specifier->first_token->type == 9039);
+    is_union = (complete_struct_or_union_specifier->first_token->type == 9038);
     size = 0;
     if (1) /*try*/
     {
@@ -4208,7 +3495,7 @@ static int get_offsetof_struct(struct struct_or_union_specifier * complete_struc
                         sizeof_error = type_get_sizeof(&md->declarator->type, &item_size, target);
                         if (sizeof_error != 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         if (is_union)
                         {
@@ -4225,7 +3512,7 @@ static int get_offsetof_struct(struct struct_or_union_specifier * complete_struc
                     else
                     {
                         sizeof_error = 3;
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     md = md->next;
                 }
@@ -4257,7 +3544,7 @@ static int get_offsetof_struct(struct struct_or_union_specifier * complete_struc
                         sizeof_error = type_get_sizeof(&t, &item_size, target);
                         if (sizeof_error != 0)
                         {
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         if (is_union)
                         {
@@ -4275,7 +3562,7 @@ static int get_offsetof_struct(struct struct_or_union_specifier * complete_struc
                     else
                     {
                         sizeof_error = 3;
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                 }
             }
@@ -4291,10 +3578,10 @@ static int get_offsetof_struct(struct struct_or_union_specifier * complete_struc
         else
         {
             sizeof_error = 3;
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
         return sizeof_error;
     }
@@ -4311,7 +3598,7 @@ int type_get_sizeof(struct type * p_type, unsigned int * size, int target)
     category = type_get_category(p_type);
     if (category == 3)
     {
-        *size = get_size_void_ptr(target);
+        *size = get_platform(target)->pointer_n_bits / 8;
         return 0;
     }
     if (category == 1)
@@ -4322,7 +3609,7 @@ int type_get_sizeof(struct type * p_type, unsigned int * size, int target)
     {
         if (p_type->storage_class_specifier_flags & 2048)
         {
-            *size = get_size_void_ptr(target);
+            *size = get_platform(target)->pointer_n_bits / 8;
             return 0;
         }
         else
@@ -4353,12 +3640,12 @@ int type_get_sizeof(struct type * p_type, unsigned int * size, int target)
                 unsigned long long SIZE_MAX_WORKAROUND;
 
                 SIZE_MAX_WORKAROUND = 0;
-                SIZE_MAX_WORKAROUND = 4294967295U;
+                SIZE_MAX_WORKAROUND = 4294967295L;
                 if (result > SIZE_MAX_WORKAROUND)
                 {
                     return 1;
                 }
-                if (result > 4294967295U)
+                if (result > 4294967295L)
                 {
                     return 1;
                 }
@@ -4374,67 +3661,67 @@ int type_get_sizeof(struct type * p_type, unsigned int * size, int target)
     ;
     if (p_type->type_specifier_flags & 2)
     {
-        *size = get_size_char(target);
+        *size = get_platform(target)->char_n_bits / 8;
         return 0;
     }
     if (p_type->type_specifier_flags & 512)
     {
-        *size = get_size_bool(target);
+        *size = get_platform(target)->bool_n_bits / 8;
         return 0;
     }
     if (p_type->type_specifier_flags & 4)
     {
-        *size = get_size_short(target);
+        *size = get_platform(target)->short_n_bits / 8;
         return 0;
     }
     else
     {
         if (p_type->type_specifier_flags & 33554432)
         {
-            *size = get_size_void_ptr(target);
+            *size = get_platform(target)->pointer_n_bits / 8;
             return 0;
         }
     }
+    if (p_type->type_specifier_flags == 80)
+    {
+        *size = get_platform(target)->long_double_n_bits / 8;
+        return 0;
+    }
     if (p_type->type_specifier_flags & 16)
     {
-        *size = get_size_long(target);
+        *size = get_platform(target)->long_n_bits / 8;
         return 0;
     }
     if (p_type->type_specifier_flags & 4194304)
     {
-        *size = get_size_long_long(target);
+        *size = get_platform(target)->long_long_n_bits / 8;
         return 0;
     }
     if (p_type->type_specifier_flags & 8)
     {
-        *size = get_size_int(target);
+        *size = get_platform(target)->int_n_bits / 8;
         return 0;
     }
     if (p_type->type_specifier_flags & 32)
     {
-        *size = get_size_float(target);
+        *size = get_platform(target)->float_n_bits / 8;
         return 0;
     }
     if (p_type->type_specifier_flags & 64)
     {
-        *size = get_size_double(target);
-        return 0;
-    }
-    if (p_type->type_specifier_flags & 80)
-    {
-        *size = get_size_long_double(target);
+        *size = get_platform(target)->double_n_bits / 8;
         return 0;
     }
     if (p_type->type_specifier_flags & 32768)
     {
         struct struct_or_union_specifier * p_complete;
 
-        if (p_type->struct_or_union_specifier == 0U)
+        if (p_type->struct_or_union_specifier == 0)
         {
             return 3;
         }
         p_complete = get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-        if (p_complete == 0U)
+        if (p_complete == 0)
         {
             return 3;
         }
@@ -4456,7 +3743,7 @@ int type_get_sizeof(struct type * p_type, unsigned int * size, int target)
         }
         else
         {
-            *size = get_size_int(target);
+            *size = get_platform(target)->int_n_bits / 8;
         }
         return 0;
     }
@@ -4472,7 +3759,7 @@ int type_get_sizeof(struct type * p_type, unsigned int * size, int target)
     }
     if (p_type->type_specifier_flags == 16777216)
     {
-        *size = get_size_void_ptr(target);
+        *size = get_platform(target)->pointer_n_bits / 8;
         return 0;
     }
     if (p_type->type_specifier_flags == 2048)
@@ -4514,7 +3801,7 @@ struct type get_function_return_type(struct type * p_type);
 unsigned char function_returns_void(struct type * p_type)
 {
     struct type  t;
-    unsigned char r;
+    unsigned char  r;
 
     t = get_function_return_type(p_type);
     r = type_is_void(&t);
@@ -4531,17 +3818,17 @@ struct type get_function_return_type(struct type * p_type)
     {
         struct type  r;
 
-        if (p_type->next == 0U)
+        if (p_type->next == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (type_is_pointer(p_type))
         {
             struct type  r;
 
-            if (p_type->next->next == 0U)
+            if (p_type->next->next == 0)
             {
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             r = type_dup(p_type->next->next);
             return r;
@@ -4549,7 +3836,7 @@ struct type get_function_return_type(struct type * p_type)
         r = type_dup(p_type->next);
         return r;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     _cake_zmem(&empty, 68);
@@ -4586,9 +3873,9 @@ struct type type_get_enum_type(struct type * p_type)
         struct enum_specifier * p_complete_enum_specifier;
         struct type  t;
 
-        if (p_type->enum_specifier == 0U)
+        if (p_type->enum_specifier == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         p_complete_enum_specifier = get_complete_enum_specifier(p_type->enum_specifier);
         if (p_complete_enum_specifier && p_complete_enum_specifier->specifier_qualifier_list)
@@ -4604,7 +3891,7 @@ struct type type_get_enum_type(struct type * p_type)
         t.type_specifier_flags = 8;
         return t;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     _cake_zmem(&empty, 68);
@@ -4645,12 +3932,14 @@ struct type type_make_float()
 }
 
 
+int object_type_to_type_specifier(int type);
+
 struct type type_make_ptrdiff_t(int target)
 {
     struct type  t;
 
     _cake_zmem(&t, 68);
-    t.type_specifier_flags = get_ptrdiff_t_specifier(target);
+    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->ptrdiff_type);
     t.category = 0;
     return t;
 }
@@ -4661,7 +3950,7 @@ struct type type_make_size_t(int target)
     struct type  t;
 
     _cake_zmem(&t, 68);
-    t.type_specifier_flags = get_size_t_specifier(target);
+    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->size_t_type);
     t.category = 0;
     return t;
 }
@@ -4676,17 +3965,17 @@ struct type make_void_ptr_type()
     {
         struct type * p;
 
-        p = calloc(1, 68U);
-        if (p == 0U)
+        p = calloc(1, 68);
+        if (p == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         t.category = 3;
         p->category = 0;
         p->type_specifier_flags = 1;
         t.next = p;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return t;
@@ -4732,7 +4021,7 @@ struct type make_size_t_type(int target)
     struct type  t;
 
     _cake_zmem(&t, 68);
-    t.type_specifier_flags = get_size_t_specifier(target);
+    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->size_t_type);
     t.category = 0;
     return t;
 }
@@ -4749,7 +4038,7 @@ struct type type_make_int()
 }
 
 
-struct type type_make_literal_string(int size_in_bytes, int chartype, int qualifiers, int target)
+struct type type_make_literal_string2(int number_of_chars_including_zero, int chartype, int qualifiers, int target)
 {
     struct type  t;
 
@@ -4758,35 +4047,23 @@ struct type type_make_literal_string(int size_in_bytes, int chartype, int qualif
     {
         struct type * p2;
         struct type  char_type;
-        unsigned int char_size;
 
-        p2 = calloc(1, 68U);
-        if (p2 == 0U)
+        p2 = calloc(1, 68);
+        if (p2 == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         _cake_zmem(&char_type, 68);
         char_type.category = 0;
         char_type.type_specifier_flags = chartype;
-        char_size = 0;
-        if (type_get_sizeof(&char_type, &char_size, target) != 0)
-        {
-            type_delete(p2);
-            goto _CKL0;/*throw*/
-        }
-        if (char_size == 0)
-        {
-            char_size = 1;
-        }
-        type_destroy(&char_type);
         t.category = 2;
-        t.num_of_elements = size_in_bytes / char_size;
+        t.num_of_elements = number_of_chars_including_zero;
         p2->category = 0;
         p2->type_specifier_flags = chartype;
         p2->type_qualifier_flags = qualifiers;
         t.next = p2;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     return t;
@@ -4802,7 +4079,7 @@ unsigned char struct_or_union_specifier_is_same(struct struct_or_union_specifier
 
         p_complete_a = get_complete_struct_or_union_specifier(a);
         p_complete_b = get_complete_struct_or_union_specifier(b);
-        if (p_complete_a != 0U && p_complete_b != 0U)
+        if (p_complete_a != 0 && p_complete_b != 0)
         {
             if (p_complete_a != p_complete_b)
             {
@@ -4812,7 +4089,7 @@ unsigned char struct_or_union_specifier_is_same(struct struct_or_union_specifier
         }
         else
         {
-            if (a->tagtoken != 0U && b->tagtoken != 0U)
+            if (a->tagtoken != 0 && b->tagtoken != 0)
             {
                 if (strcmp(a->tagtoken->lexeme, b->tagtoken->lexeme) == 0)
                 {
@@ -4820,9 +4097,9 @@ unsigned char struct_or_union_specifier_is_same(struct struct_or_union_specifier
                 }
             }
         }
-        return p_complete_a == 0U && p_complete_b == 0U;
+        return p_complete_a == 0 && p_complete_b == 0;
     }
-    return a == 0U && b == 0U;
+    return a == 0 && b == 0;
 }
 
 
@@ -4838,22 +4115,22 @@ unsigned char enum_specifier_is_same(struct enum_specifier * a, struct enum_spec
             }
             return 1;
         }
-        return get_complete_enum_specifier(a) == 0U && get_complete_enum_specifier(b) == 0U;
+        return get_complete_enum_specifier(a) == 0 && get_complete_enum_specifier(b) == 0;
     }
-    return a == 0U && b == 0U;
+    return a == 0 && b == 0;
 }
 
 
-static unsigned char type_is_same_core(struct type * a, struct type * b, unsigned char compare_qualifiers);
+static unsigned char type_is_same_core(struct type * a, struct type * b, unsigned char  compare_qualifiers);
 
-unsigned char type_is_same(struct type * a, struct type * b, unsigned char compare_qualifiers)
+unsigned char type_is_same(struct type * a, struct type * b, unsigned char  compare_qualifiers)
 {
     return type_is_same_core(a, b, compare_qualifiers);
 }
 
 
 
-static unsigned char type_is_same_core(struct type * a, struct type * b, unsigned char compare_qualifiers)
+static unsigned char type_is_same_core(struct type * a, struct type * b, unsigned char  compare_qualifiers)
 {
     struct type * pa;
     struct type * pb;
@@ -4911,7 +4188,7 @@ static unsigned char type_is_same_core(struct type * a, struct type * b, unsigne
                 p_param_a = p_param_a->next;
                 p_param_b = p_param_b->next;
             }
-            return p_param_a == 0U && p_param_b == 0U;
+            return p_param_a == 0 && p_param_b == 0;
         }
         if (pa->struct_or_union_specifier && pb->struct_or_union_specifier)
         {
@@ -4956,7 +4233,7 @@ static unsigned char type_is_same_core(struct type * a, struct type * b, unsigne
         pa = pa->next;
         pb = pb->next;
     }
-    return pa == 0U && pb == 0U;
+    return pa == 0 && pb == 0;
 }
 unsigned char type_is_compatible(struct type * a, struct type * b)
 {
@@ -4986,7 +4263,7 @@ void type_swap(struct type * a, struct type * b)
 
 void type_visit_to_mark_anonymous(struct type * p_type)
 {
-    if (p_type->struct_or_union_specifier != 0U && p_type->struct_or_union_specifier->has_anonymous_tag)
+    if (p_type->struct_or_union_specifier != 0 && p_type->struct_or_union_specifier->has_anonymous_tag)
     {
         if (p_type->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
         {
@@ -5116,7 +4393,7 @@ void type_set_attributes_using_declarator(struct type * p_type, struct declarato
 void type_list_push_front(struct type_list * books, struct type * new_book)
 {
     ;
-    if (books->head == 0U)
+    if (books->head == 0)
     {
         books->head = new_book;
         books->tail = new_book;
@@ -5139,7 +4416,7 @@ void type_list_destroy(struct type_list * p_type_list)
         struct type * next;
 
         next = item->next;
-        item->next = 0U;
+        item->next = 0;
         type_destroy_one(item);
         free(item);
         item = next;
@@ -5149,7 +4426,7 @@ void type_list_destroy(struct type_list * p_type_list)
 
 void type_list_push_back(struct type_list * type_list, struct type * new_book)
 {
-    if (type_list->tail == 0U)
+    if (type_list->tail == 0)
     {
         ;
         type_list->head = new_book;
@@ -5184,10 +4461,10 @@ void make_type_using_direct_declarator(struct parser_ctx * ctx, struct direct_de
                 {
                     make_type_using_direct_declarator(ctx, pdirectdeclarator->function_declarator->direct_declarator, ppname, list);
                 }
-                p_func = calloc(1, 68U);
-                if (p_func == 0U)
+                p_func = calloc(1, 68);
+                if (p_func == 0)
                 {
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p_func->category = 1;
                 ;
@@ -5215,7 +4492,7 @@ void make_type_using_direct_declarator(struct parser_ctx * ctx, struct direct_de
                             else
                             {
                                 type_delete(p_func);
-                                goto _CKL0;/*throw*/
+                                goto __L0; /* throw */
                             }
                         }
                     }
@@ -5234,16 +4511,16 @@ void make_type_using_direct_declarator(struct parser_ctx * ctx, struct direct_de
                     {
                         struct param * p_new_param;
 
-                        if (p->declarator == 0U)
+                        if (p->declarator == 0)
                         {
                             type_delete(p_func);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
-                        p_new_param = calloc(1, 72U);
-                        if (p_new_param == 0U)
+                        p_new_param = calloc(1, 72);
+                        if (p_new_param == 0)
                         {
                             type_delete(p_func);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                         p_new_param->type = type_dup(&p->declarator->type);
                         param_list_add(&p_func->params, p_new_param);
@@ -5262,10 +4539,10 @@ void make_type_using_direct_declarator(struct parser_ctx * ctx, struct direct_de
                     {
                         make_type_using_direct_declarator(ctx, pdirectdeclarator->array_declarator->direct_declarator, ppname, list);
                     }
-                    p = calloc(1, 68U);
-                    if (p == 0U)
+                    p = calloc(1, 68);
+                    if (p == 0)
                     {
-                        goto _CKL0;/*throw*/
+                        goto __L0; /* throw */
                     }
                     p->category = 2;
                     p->num_of_elements = array_declarator_get_size(pdirectdeclarator->array_declarator);
@@ -5287,7 +4564,7 @@ void make_type_using_direct_declarator(struct parser_ctx * ctx, struct direct_de
             *ppname = pdirectdeclarator->name_opt->lexeme;
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -5306,11 +4583,11 @@ void make_type_using_declarator_core(struct parser_ctx * ctx, struct declarator 
         {
             struct type * p_flat;
 
-            p_flat = calloc(1, 68U);
-            if (p_flat == 0U)
+            p_flat = calloc(1, 68);
+            if (p_flat == 0)
             {
                 type_list_destroy(&pointers);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             if (pointer->type_qualifier_list_opt)
             {
@@ -5346,7 +4623,7 @@ void make_type_using_declarator_core(struct parser_ctx * ctx, struct declarator 
                         {
                             type_list_destroy(&pointers);
                             type_delete(p_flat);
-                            goto _CKL0;/*throw*/
+                            goto __L0; /* throw */
                         }
                     }
                 }
@@ -5371,11 +4648,11 @@ void make_type_using_declarator_core(struct parser_ctx * ctx, struct declarator 
 
             p = pointers.head;
             pointers.head = p->next;
-            p->next = 0U;
+            p->next = 0;
             type_list_push_back(list, p);
         }
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
 }
@@ -5391,7 +4668,7 @@ struct enum_specifier *declarator_get_enum_specifier(struct declarator * pdeclar
     {
         return pdeclarator->specifier_qualifier_list->enum_specifier;
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -5405,7 +4682,7 @@ struct struct_or_union_specifier *declarator_get_struct_or_union_specifier(struc
     {
         return pdeclarator->specifier_qualifier_list->struct_or_union_specifier;
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -5422,7 +4699,7 @@ struct typeof_specifier *declarator_get_typeof_specifier(struct declarator * pde
             return pdeclarator->specifier_qualifier_list->typeof_specifier;
         }
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -5439,7 +4716,7 @@ struct declarator *declarator_get_typedef_declarator(struct declarator * pdeclar
             return pdeclarator->specifier_qualifier_list->typedef_declarator;
         }
     }
-    return 0U;
+    return 0;
 }
 
 
@@ -5456,22 +4733,22 @@ struct type make_type_using_declarator(struct parser_ctx * ctx, struct declarato
         struct type  r;
 
         _cake_zmem(&list, 8);
-        name = 0U;
+        name = 0;
         make_type_using_declarator_core(ctx, pdeclarator, &name, &list);
         if (declarator_get_typeof_specifier(pdeclarator))
         {
             struct type * p_nt;
             struct type  nt;
 
-            p_nt = calloc(1, 68U);
-            if (p_nt == 0U)
+            p_nt = calloc(1, 68);
+            if (p_nt == 0)
             {
                 type_list_destroy(&list);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             nt = type_dup(&declarator_get_typeof_specifier(pdeclarator)->type);
             *p_nt = nt;
-            if (list.head != 0U)
+            if (list.head != 0)
             {
                 type_set_qualifiers_using_declarator(list.head, pdeclarator);
             }
@@ -5494,18 +4771,24 @@ struct type make_type_using_declarator(struct parser_ctx * ctx, struct declarato
                 struct type * p_nt;
 
                 p_typedef_declarator = declarator_get_typedef_declarator(pdeclarator);
-                if (p_typedef_declarator == 0U)
+                if (p_typedef_declarator == 0)
                 {
                     type_list_destroy(&list);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 nt = type_dup(&p_typedef_declarator->type);
-                p_nt = calloc(1, 68U);
-                if (p_nt == 0U)
+                free((void *)nt.name_opt);
+                nt.name_opt = 0;
+                if (pdeclarator->name_opt)
+                {
+                    nt.name_opt = strdup(pdeclarator->name_opt->lexeme);
+                }
+                p_nt = calloc(1, 68);
+                if (p_nt == 0)
                 {
                     type_list_destroy(&list);
                     type_destroy(&nt);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 *p_nt = nt;
                 type_merge_qualifiers_using_declarator(p_nt, pdeclarator);
@@ -5523,11 +4806,11 @@ struct type make_type_using_declarator(struct parser_ctx * ctx, struct declarato
             {
                 struct type * p;
 
-                p = calloc(1, 68U);
-                if (p == 0U)
+                p = calloc(1, 68);
+                if (p == 0)
                 {
                     type_list_destroy(&list);
-                    goto _CKL0;/*throw*/
+                    goto __L0; /* throw */
                 }
                 p->category = 0;
                 type_set_specifiers_using_declarator(p, pdeclarator);
@@ -5545,19 +4828,19 @@ struct type make_type_using_declarator(struct parser_ctx * ctx, struct declarato
                 }
             }
         }
-        if (list.head == 0U)
+        if (list.head == 0)
         {
-            goto _CKL0;/*throw*/
+            goto __L0; /* throw */
         }
         if (pdeclarator->name_opt)
         {
             char * temp;
 
             temp = strdup(pdeclarator->name_opt->lexeme);
-            if (temp == 0U)
+            if (temp == 0)
             {
                 type_list_destroy(&list);
-                goto _CKL0;/*throw*/
+                goto __L0; /* throw */
             }
             free((void *)list.head->name_opt);
             list.head->name_opt = temp;
@@ -5577,7 +4860,7 @@ struct type make_type_using_declarator(struct parser_ctx * ctx, struct declarato
         }
         return r;
     }
-    else _CKL0: /*catch*/ 
+    else __L0: /*catch*/ 
     {
     }
     _cake_zmem(&empty, 68);
@@ -5590,7 +4873,7 @@ static unsigned char is_valid_type(struct parser_ctx * ctx, struct token * p_tok
 {
     struct type * p;
 
-    if (p_token == 0U)
+    if (p_token == 0)
     {
         p_token = ctx->current;
     }
@@ -5601,14 +4884,14 @@ static unsigned char is_valid_type(struct parser_ctx * ctx, struct token * p_tok
         {
             if (p->next && p->next->category == 1)
             {
-                compiler_diagnostic(1410, ctx, p_token, 0U, "function returning function");
+                compiler_diagnostic(1410, ctx, p_token, 0, "function returning function");
                 return 0;
             }
             else
             {
                 if (p->next && p->next->category == 2)
                 {
-                    compiler_diagnostic(1420, ctx, p_token, 0U, "function returning array");
+                    compiler_diagnostic(1420, ctx, p_token, 0, "function returning array");
                     return 0;
                 }
             }
@@ -5617,7 +4900,7 @@ static unsigned char is_valid_type(struct parser_ctx * ctx, struct token * p_tok
         {
             if (p->category == 0 && p->type_specifier_flags == 0)
             {
-                compiler_diagnostic(860, ctx, p_token, 0U, "invalid type");
+                compiler_diagnostic(860, ctx, p_token, 0, "invalid type");
                 return 0;
             }
         }
@@ -5635,7 +4918,7 @@ void type_remove_names(struct type * p_type)
         if (p->name_opt)
         {
             free((void *)p->name_opt);
-            p->name_opt = 0U;
+            p->name_opt = 0;
         }
         p = p->next;
     }

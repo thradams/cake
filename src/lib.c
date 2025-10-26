@@ -3427,8 +3427,16 @@ void c_gotoxy(int x, int y)
 */
 
 //#pragma once
- 
 
+
+#if defined(PATH_MAX)
+#define FS_MAX_PATH PATH_MAX // Linux uses this in realpath
+#elif defined(MAX_PATH)
+#define FS_MAX_PATH MAX_PATH // Some systems define this
+#else
+#define FS_MAX_PATH 500 
+
+#endif
 #ifdef _WIN32 
 
 
@@ -3440,14 +3448,6 @@ void c_gotoxy(int x, int y)
 #ifdef __CAKE__
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wstyle"
-#endif
-
-#if defined(PATH_MAX)
-#define FS_MAX_PATH PATH_MAX // Linux uses this in realpath
-#elif defined(MAX_PATH)
-#define FS_MAX_PATH MAX_PATH // Some systems define this
-#else
-#define FS_MAX_PATH 500 
 #endif
 
 //https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?_View=msvc-160
@@ -3463,7 +3463,6 @@ void c_gotoxy(int x, int y)
  opendir,  readdir closedir for windows.
  include dirent.h on linux
 */
-
 
 
 enum
@@ -21671,6 +21670,8 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
+    const unsigned long long unsigned_int_max_value = 
+        object_type_get_signed_max(ctx->options.target, TYPE_UNSIGNED_INT);
 
     const unsigned long long signed_int_max_value = 
         object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_INT);
@@ -21774,7 +21775,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         if (suffix[0] == 'U')
         {
             /*fixing the type that fits the size*/
-            if (value <= UINT_MAX && suffix[1] != 'L')
+            if (value <= unsigned_int_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_unsigned_int(ctx->options.target, (unsigned int)value);
@@ -21804,14 +21805,14 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 p_expression_node->object = object_make_signed_int(ctx->options.target, (int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
-            else if (value <= signed_int_max_value && suffix[1] != 'L')
+            else if (value <= signed_long_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
                 p_expression_node->object = object_make_signed_long(target, (int)value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
             else if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
-                      (value <= (unsigned long long) unsigned_long_max_value) &&
+                      (value <= unsigned_long_max_value) &&
                       suffix[1] != 'L' /*!= LL*/)
             {
                 // ONLY MSVC, NON STANDARD,  uses unsigned long instead of next big signed int
@@ -54227,7 +54228,7 @@ static struct platform platform_catalina =
   .bool_aligment = 1,
 
   .char_n_bits = 8,
-  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_t_type = TYPE_UNSIGNED_CHAR,
   .char_aligment = 1,
 
 
@@ -54251,14 +54252,15 @@ static struct platform platform_catalina =
 
   .long_long_n_bits = 32,
   .long_long_aligment = 4,
+  
   .float_n_bits = 32,
   .float_aligment = 32,
 
-  .double_n_bits = 64,
-  .double_aligment = 8,
+  .double_n_bits = 32,
+  .double_aligment = 4,
 
-  .long_double_n_bits = 64,
-  .long_double_aligment = 8,
+  .long_double_n_bits = 32,
+  .long_double_aligment = 4,
 };
 
 static struct platform* platforms[NUMBER_OF_TARGETS] = {
