@@ -6,8 +6,16 @@
 #pragma once
 #include "ownership.h"
 #include <stdbool.h>
- 
 
+
+#if defined(PATH_MAX)
+#define FS_MAX_PATH PATH_MAX // Linux uses this in realpath
+#elif defined(MAX_PATH)
+#define FS_MAX_PATH MAX_PATH // Some systems define this
+#else
+#define FS_MAX_PATH 500 
+
+#endif
 #ifdef _WIN32 
 #include <direct.h>
 #include <sys/types.h>
@@ -16,14 +24,6 @@
 #ifdef __CAKE__
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wstyle"
-#endif
-
-#if defined(PATH_MAX)
-#define FS_MAX_PATH PATH_MAX // Linux uses this in realpath
-#elif defined(MAX_PATH)
-#define FS_MAX_PATH MAX_PATH // Some systems define this
-#else
-#define FS_MAX_PATH 500 
 #endif
 
 //https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?_View=msvc-160
@@ -39,7 +39,6 @@
  opendir,  readdir closedir for windows.
  include dirent.h on linux
 */
-
 
 
 enum
