@@ -598,17 +598,28 @@ int get_num_of_bits(enum target target, enum object_type type)
         return get_platform(target)->short_n_bits;
 
     case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
     case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
         return get_platform(target)->int_n_bits;
-
+    
+    case TYPE_SIGNED_LONG:
+    case TYPE_UNSIGNED_LONG:
+        return get_platform(target)->long_n_bits;
+        
     case TYPE_SIGNED_LONG_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
         return get_platform(target)->long_long_n_bits;
 
+    case TYPE_FLOAT:
+            return get_platform(target)->float_n_bits;
+
+    case TYPE_DOUBLE:
+            return get_platform(target)->double_n_bits;
+
+    case TYPE_LONG_DOUBLE:
+        return get_platform(target)->long_double_n_bits;
     }
 
+    assert(false);
     return 0;
 }
 

@@ -455,9 +455,11 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
         snprintf(str, n, "%lld", a->value.host_long_long);
         break;
         break;
+    
     case TYPE_SIGNED_LONG:
         snprintf(str, n, "%lldL", a->value.host_long_long);
         break;
+
     case TYPE_SIGNED_LONG_LONG:
         snprintf(str, n, "%lldLL", a->value.host_long_long);
         break;
@@ -1001,7 +1003,11 @@ int get_rank(enum object_type t)
     {
         return 80;
     }
-
+    else if (t == TYPE_SIGNED_LONG ||
+             t == TYPE_UNSIGNED_LONG)
+    {
+        return 60;
+    }
     else if (t == TYPE_SIGNED_INT ||
              t == TYPE_UNSIGNED_INT)
     {
@@ -1021,31 +1027,9 @@ int get_rank(enum object_type t)
 }
 
 
-int get_size(enum object_type t)
+int get_size(enum target target, enum object_type t)
 {
-    if (t == TYPE_SIGNED_LONG_LONG ||
-        t == TYPE_UNSIGNED_LONG_LONG)
-    {
-        return sizeof(long long);
-    }
-
-    else if (t == TYPE_SIGNED_INT ||
-             t == TYPE_UNSIGNED_INT)
-    {
-        return sizeof(int);
-    }
-    else if (t == TYPE_SIGNED_SHORT ||
-             t == TYPE_UNSIGNED_SHORT)
-    {
-        return sizeof(short);
-    }
-    else if (t == TYPE_SIGNED_CHAR ||
-             t == TYPE_UNSIGNED_CHAR)
-    {
-        return sizeof(char);
-    }
-
-    return 1;
+    return get_num_of_bits(target, t) / 8;
 }
 
 bool is_signed(enum object_type t)
@@ -1771,7 +1755,7 @@ bool object_is_promoted(const struct object* a)
     return false;
 }
 
-enum object_type object_common(const struct object* a, const struct object* b)
+enum object_type object_common(enum target target, const struct object* a, const struct object* b)
 {
 
     enum object_type a_type = a->value_type;
@@ -1897,7 +1881,7 @@ enum object_type object_common(const struct object* a, const struct object* b)
       integer type is converted to the type of the operand with signed integer type
     */
 
-    if (get_size(signed_promoted) > get_size(unsigned_promoted))
+    if (get_size(target, signed_promoted) > get_size(target, unsigned_promoted))
     {
         return signed_promoted;
     }
@@ -1974,6 +1958,7 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
     case TYPE_SIGNED_INT:
         ss_fprintf(ss, "%lld", a->value.host_long_long);
         break;
+
     case TYPE_SIGNED_LONG:
         ss_fprintf(ss, "%lldL", a->value.host_long_long);
         break;
@@ -2064,7 +2049,7 @@ struct object object_equal(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2119,7 +2104,7 @@ struct object object_not_equal(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2175,7 +2160,7 @@ struct object object_greater_than_or_equal(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2230,7 +2215,7 @@ struct object object_greater_than(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2284,7 +2269,7 @@ struct object object_smaller_than_or_equal(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2339,7 +2324,7 @@ struct object object_smaller_than(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2394,7 +2379,7 @@ struct object object_add(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2481,7 +2466,7 @@ struct object object_sub(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2569,7 +2554,7 @@ struct object object_mul(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2657,7 +2642,7 @@ struct object object_div(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -2723,7 +2708,7 @@ struct object object_mod(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -3009,7 +2994,7 @@ struct object object_bitwise_xor(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -3059,7 +3044,7 @@ struct object object_bitwise_or(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -3110,7 +3095,7 @@ struct object object_bitwise_and(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -3160,7 +3145,7 @@ struct object object_shift_left(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };
@@ -3211,7 +3196,7 @@ struct object object_shift_right(enum target target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(a, b);
+    enum object_type common_type = object_common(target, a, b);
     struct object a0 = object_cast(target, common_type, a);
     struct object b0 = object_cast(target, common_type, b);
     struct object r = { 0 };

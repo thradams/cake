@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+#pragma safety enable
 
 #include "ownership.h"
 
@@ -1406,6 +1406,7 @@ static struct token* _Opt pragma_match(const struct token* p_current)
     }
     return p_token;
 }
+
 
 static void parser_skip_blanks(struct parser_ctx* ctx)
 {
