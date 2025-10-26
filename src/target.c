@@ -510,7 +510,7 @@ static struct platform platform_catalina =
   .bool_aligment = 1,
 
   .char_n_bits = 8,
-  .char_t_type = TYPE_SIGNED_CHAR,
+  .char_t_type = TYPE_UNSIGNED_CHAR,
   .char_aligment = 1,
 
 
@@ -534,14 +534,15 @@ static struct platform platform_catalina =
 
   .long_long_n_bits = 32,
   .long_long_aligment = 4,
+  
   .float_n_bits = 32,
   .float_aligment = 32,
 
-  .double_n_bits = 64,
-  .double_aligment = 8,
+  .double_n_bits = 32,
+  .double_aligment = 4,
 
-  .long_double_n_bits = 64,
-  .long_double_aligment = 8,
+  .long_double_n_bits = 32,
+  .long_double_aligment = 4,
 };
 
 static struct platform* platforms[NUMBER_OF_TARGETS] = {
