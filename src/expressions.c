@@ -5903,8 +5903,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             }
             else
             {
-                compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types??");
-                assert(false);
+                compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL, "incompatible types");
             }
             p_expression_node = p_conditional_expression;
         }

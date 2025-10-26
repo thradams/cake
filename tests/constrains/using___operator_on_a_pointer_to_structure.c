@@ -1,5 +1,4 @@
 // Test 5: Using . operator on a pointer to structure
-#include <stdio.h>
 
 struct Point {
     int x, y;

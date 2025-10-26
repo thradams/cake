@@ -2601,7 +2601,7 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
             else
             {
                 if (input_list->head)
-                    preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token '%s' got '%s'\n", get_diagnostic_friendly_token_name(type), get_diagnostic_friendly_token_name(input_list->head->type));
+                    preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token '%s', got '%s'\n", get_diagnostic_friendly_token_name(type), get_diagnostic_friendly_token_name(input_list->head->type));
                 else
                     preprocessor_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, dest->tail, "expected EOF \n");
 
@@ -2964,7 +2964,7 @@ struct token_list def_line(struct preprocessor_ctx* ctx, struct token_list* inpu
             preprocessor_diagnostic(W_REDEFINING_BUITIN_MACRO,
                 ctx,
                 input_list->head,
-                "redefining builtin macro");
+                "redefining built-in macro");
         }
 
         if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
@@ -3749,7 +3749,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 preprocessor_diagnostic(W_REDEFINING_BUITIN_MACRO,
                     ctx,
                     input_list->head,
-                    "redefining builtin macro");
+                    "redefining built-in macro");
             }
 
             macro->p_name_token = macro_name_token;
@@ -5653,7 +5653,7 @@ void check_unused_macros(const struct hash_map* map)
 
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
 {
-    char local_cakeconfig_path[MAX_PATH] = { 0 };
+    char local_cakeconfig_path[FS_MAX_PATH] = { 0 };
     snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s", file_name);
     dirname(local_cakeconfig_path);
 
@@ -5683,10 +5683,10 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     {
         //Search cakeconfig at cake executable dir
 
-        char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
+        char executable_path[FS_MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
         get_self_path(executable_path, sizeof(executable_path));
         dirname(executable_path);
-        char root_cakeconfig_path[MAX_PATH] = { 0 };
+        char root_cakeconfig_path[FS_MAX_PATH] = { 0 };
         snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
         str = read_file(root_cakeconfig_path, true);
         if (str && ctx->options.show_includes)

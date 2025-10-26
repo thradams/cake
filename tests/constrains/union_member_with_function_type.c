@@ -1,5 +1,4 @@
 // Test 4: Union member with function type
-#include <stdio.h>
 
 union TestUnion {
     int value;

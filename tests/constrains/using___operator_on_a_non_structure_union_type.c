@@ -1,5 +1,4 @@
 // Test 1: Using . operator on a non-structure/union type
-#include <stdio.h>
 
 int main() {
     int x = 10;

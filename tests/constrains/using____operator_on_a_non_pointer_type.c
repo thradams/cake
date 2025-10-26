@@ -1,5 +1,4 @@
 // Test 3: Using -> operator on a non-pointer type
-#include <stdio.h>
 
 struct Point {
     int x, y;

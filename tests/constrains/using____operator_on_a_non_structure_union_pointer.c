@@ -1,5 +1,4 @@
 // Test 6: Using -> operator on a non-structure/union pointer
-#include <stdio.h>
 
 int main() {
     int x = 10;

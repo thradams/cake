@@ -137,7 +137,7 @@ DIR* _Owner _Opt opendir(const char* name)
     assert(name != 0);
     WIN32_FIND_DATAA fdfile = { 0 };
 
-    char path[MAX_PATH] = { 0 };
+    char path[FS_MAX_PATH] = { 0 };
     strcat(path, name);
     strcat(path, "\\*.*");
 
@@ -221,7 +221,7 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
     */
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wflow-not-null"
-    char* _Opt p = _fullpath(resolved_path, path, MAX_PATH);
+    char* _Opt p = _fullpath(resolved_path, path, FS_MAX_PATH);
     if (p)
     {
         char* p2 = resolved_path;
@@ -309,11 +309,11 @@ int copy_folder(const char* from, const char* to)
             continue;
         }
 
-        char fromlocal[MAX_PATH] = { 0 };
-        snprintf(fromlocal, MAX_PATH, "%s/%s", from, dp->d_name);
+        char fromlocal[FS_MAX_PATH] = { 0 };
+        snprintf(fromlocal, FS_MAX_PATH, "%s/%s", from, dp->d_name);
 
-        char tolocal[MAX_PATH] = { 0 };
-        snprintf(tolocal, MAX_PATH, "%s/%s", to, dp->d_name);
+        char tolocal[FS_MAX_PATH] = { 0 };
+        snprintf(tolocal, FS_MAX_PATH, "%s/%s", to, dp->d_name);
 
         if (dp->d_type & DT_DIR)
         {

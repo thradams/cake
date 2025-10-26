@@ -18,6 +18,13 @@
 #pragma cake diagnostic ignored "-Wstyle"
 #endif
 
+#if defined(PATH_MAX)
+#define FS_MAX_PATH PATH_MAX // Linux uses this in realpath
+#elif defined(MAX_PATH)
+#define FS_MAX_PATH MAX_PATH // Some systems define this
+#else
+#define FS_MAX_PATH 500 
+#endif
 
 //https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?_View=msvc-160
 #define mkdir(a, b) _mkdir(a)
@@ -82,7 +89,6 @@ struct dirent* _Opt readdir(DIR* dirp);
 //int closedir(DIR* _Owner dirp);
 
 
-#define MAX_PATH 500
 
 //https://man7.org/linux/man-pages/man2/mkdir.2.html
 #include <sys/types.h>

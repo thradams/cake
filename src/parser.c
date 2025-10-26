@@ -37,11 +37,6 @@
 #include "visit_il.h"
 #include <time.h>
 
-#ifdef PATH_MAX
-#define MYMAX_PATH PATH_MAX // Linux uses it in realpath
-#else
-#define MYMAX_PATH MAX_PATH
-#endif
 
 #include <stddef.h>  // for NULL
 
@@ -11081,10 +11076,10 @@ int compile_one_file(const char* file_name,
     if (ctx.options.test_mode)
     {
         //lets check if the generated file is the expected
-        char file_name_no_ext[MYMAX_PATH] = { 0 };
+        char file_name_no_ext[FS_MAX_PATH] = { 0 };
         remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
 
-        char buf[MYMAX_PATH] = { 0 };
+        char buf[FS_MAX_PATH] = { 0 };
         snprintf(buf, sizeof buf, "%s_%s.out", file_name_no_ext, get_platform(ctx.options.target)->name);
 
         char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/);
@@ -11160,7 +11155,7 @@ static int compile_many_files(const char* file_name,
 
     int num_files = 0;
 
-    char path[MYMAX_PATH] = { 0 };
+    char path[FS_MAX_PATH] = { 0 };
     snprintf(path, sizeof path, "%s", file_name);
     dirname(path);
     DIR* _Owner _Opt dir = opendir(path);
@@ -11196,13 +11191,13 @@ static int compile_many_files(const char* file_name,
                 strcmp(file_name_extension, file_extension) == 0)
             {
                 //Fixes the output file name replacing the current name
-                char out_file_name_final[MYMAX_PATH] = { 0 };
+                char out_file_name_final[FS_MAX_PATH] = { 0 };
                 strcpy(out_file_name_final, out_file_name);
                 dirname(out_file_name_final);
                 strcat(out_file_name_final, "/");
                 strcat(out_file_name_final, file_name_iter);
 
-                char in_file_name_final[MYMAX_PATH] = { 0 };
+                char in_file_name_final[FS_MAX_PATH] = { 0 };
                 strcpy(in_file_name_final, file_name);
                 dirname(in_file_name_final);
                 strcat(in_file_name_final, "/");
@@ -11234,7 +11229,7 @@ static int compile_many_files(const char* file_name,
     return num_files;
 }
 
-static void longest_common_path(int argc, const char** argv, char root_dir[MYMAX_PATH])
+static void longest_common_path(int argc, const char** argv, char root_dir[FS_MAX_PATH])
 {
     /*
      find the longest common path
@@ -11244,12 +11239,12 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MYMAX
         if (argv[i][0] == '-')
             continue;
 
-        char fullpath_i[MYMAX_PATH] = { 0 };
+        char fullpath_i[FS_MAX_PATH] = { 0 };
         realpath(argv[i], fullpath_i);
         strcpy(root_dir, fullpath_i);
         dirname(root_dir);
 
-        for (int k = 0; k < MYMAX_PATH; k++)
+        for (int k = 0; k < FS_MAX_PATH; k++)
         {
             const char ch = fullpath_i[k];
             for (int j = 2; j < argc; j++)
@@ -11257,7 +11252,7 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MYMAX
                 if (argv[j][0] == '-')
                     continue;
 
-                char fullpath_j[MYMAX_PATH] = { 0 };
+                char fullpath_j[FS_MAX_PATH] = { 0 };
                 realpath(argv[j], fullpath_j);
                 if (fullpath_j[k] != ch)
                 {
@@ -11291,7 +11286,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
             continue;
         }
 
-        char temp[MYMAX_PATH] = { 0 };
+        char temp[FS_MAX_PATH] = { 0 };
         strncpy(temp, outdir, p - outdir);
 
         int er = mkdir(temp, 0777);
@@ -11327,10 +11322,10 @@ int compile(int argc, const char** argv, struct report* report)
         printf("emulating %s\n", get_platform(options.target)->name);
     }
 
-    char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
+    char executable_path[FS_MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);
-    char cakeconfig_path[MAX_PATH] = { 0 };
+    char cakeconfig_path[FS_MAX_PATH] = { 0 };
     snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
 
     if (options.auto_config) //-autoconfig
@@ -11344,7 +11339,7 @@ int compile(int argc, const char** argv, struct report* report)
     clock_t begin_clock = clock();
     int no_files = 0;
 
-    char root_dir[MYMAX_PATH] = { 0 };
+    char root_dir[FS_MAX_PATH] = { 0 };
 
     if (!options.no_output)
     {
@@ -11368,7 +11363,7 @@ int compile(int argc, const char** argv, struct report* report)
             continue;
 
         no_files++;
-        char output_file[MYMAX_PATH] = { 0 };
+        char output_file[FS_MAX_PATH] = { 0 };
 
         if (!options.no_output)
         {
@@ -11382,7 +11377,7 @@ int compile(int argc, const char** argv, struct report* report)
             }
             else
             {
-                char fullpath[MYMAX_PATH] = { 0 };
+                char fullpath[FS_MAX_PATH] = { 0 };
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
@@ -11391,7 +11386,7 @@ int compile(int argc, const char** argv, struct report* report)
 
                 strcat(output_file, fullpath + root_dir_len);
 
-                char outdir[MYMAX_PATH] = { 0 };
+                char outdir[FS_MAX_PATH] = { 0 };
                 strcpy(outdir, output_file);
                 dirname(outdir);
                 if (create_multiple_paths(root_dir, outdir) != 0)
@@ -11401,7 +11396,7 @@ int compile(int argc, const char** argv, struct report* report)
             }
         }
 
-        char fullpath[MYMAX_PATH] = { 0 };
+        char fullpath[FS_MAX_PATH] = { 0 };
         realpath(argv[i], fullpath);
 
         const char* file_extension = basename(fullpath);

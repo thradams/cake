@@ -1,5 +1,4 @@
 // Test 5: Use of defined operator in limit constant expression
-#include <stdio.h>
 
 #define MAX_SIZE 10
 #embed "resource.txt" limit(defined(MAX_SIZE)) // Error: defined operator not allowed in limit constant expression
