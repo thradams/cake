@@ -21797,7 +21797,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
             else if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
-                      (value <= (unsigned long long) unsigned_long_max_value) &&
+                      (value <= unsigned_long_max_value) &&
                       suffix[1] != 'L' /*!= LL*/)
             {
                 // ONLY MSVC, NON STANDARD,  uses unsigned long instead of next big signed int
@@ -28765,7 +28765,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.26"
+#define CAKE_VERSION "0.12.27"
 
 
 
@@ -39567,7 +39567,7 @@ int generate_config_file(const char* configpath)
         int in_include_section = 0;
 
         // Open the command for reading
-        FILE* fp = fopen(command, "r");
+        FILE* fp = popen(command, "r");
         if (fp == NULL)
         {
             fprintf(stderr, "Failed to run command\n");
