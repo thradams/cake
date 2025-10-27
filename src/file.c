@@ -1,1 +1,14 @@
-long r =  0xffffffffffffffffUL - 1;
+
+
+inline void g() {
+
+}
+
+void f() {
+    int i;
+    i = 1;
+}
+int main()
+{
+    f();
+}

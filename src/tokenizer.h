@@ -69,7 +69,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 struct token_list copy_replacement_list(struct preprocessor_ctx* ctx, const struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, _Dtor struct token_list* source);
-void print_list(struct token_list* list);
+void print_list(bool color_enabled, struct token_list* list);
 void token_list_destroy(_Opt _Dtor struct token_list* list);
 bool token_is_blank(const struct token* p);
 void token_list_pop_back(struct token_list* list);
@@ -90,10 +90,10 @@ struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const cha
 
 void print_code_as_we_see(const struct token_list* list, bool remove_comments);
 const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list);
-const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* list);
+
 const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool remove_comments);
 
-void print_tokens(const struct token* _Opt p_token);
+void print_tokens(bool color_enabled, const struct token* _Opt p_token);
 void print_preprocessed(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);

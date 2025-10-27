@@ -147,6 +147,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 
 static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
+    const bool color_enabled = !ctx->options.color_disabled;
     ctx->n_errors++;
 
     char buffer[200] = { 0 };
@@ -164,20 +165,25 @@ static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream
 
 #pragma CAKE diagnostic pop
 
-    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format);
+    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)
     {
         printf("error: "  "%s\n", buffer);
     }
     else
     {
-        printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+        if (color_enabled)
+            printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+        else
+            printf("error: " "%s\n", buffer);
     }
 }
 
 
 static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
+    const bool color_enabled = !ctx->options.color_disabled;
+
     ctx->n_warnings++;
 
 
@@ -195,14 +201,17 @@ static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stre
 
 #pragma CAKE diagnostic pop
 
-    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format);
+    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)
     {
         printf("warning: " "%s\n", buffer);
     }
     else
     {
-        printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+        if (color_enabled)
+            printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+        else
+            printf("warning: " "%s\n", buffer);
     }
 
 }
@@ -218,6 +227,8 @@ void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_
 
 bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token_opt, const char* fmt, ...)
 {
+  
+
     struct marker marker = { 0 };
 
     if (p_token_opt == NULL) return false;
@@ -274,7 +285,8 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         return false;
     }
 
-    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
+    const bool color_enabled = !ctx->options.color_disabled;
+    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format, color_enabled);
 
     char buffer[200] = { 0 };
 
@@ -303,11 +315,26 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     else
     {
         if (is_error)
-            printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+        {
+            if (color_enabled)
+                printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+            else
+                printf("error: " "%s\n", buffer);
+        }
         else if (is_warning)
-            printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+        {
+            if (color_enabled)
+                printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+            else
+                printf("warning: " "%s\n", buffer);
+        }
         else if (is_note)
-            printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+        {
+            if (color_enabled)
+                printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+            else
+                printf("note: "  "%s\n", buffer);
+        }
 
         print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
 
@@ -681,7 +708,7 @@ void macro_argument_list_destroy(_Dtor struct macro_argument_list* list)
     }
 }
 
-void print_macro_arguments(struct macro_argument_list* arguments)
+void print_macro_arguments(bool color_enabled, struct macro_argument_list* arguments)
 {
     struct macro_argument* _Opt p_argument = arguments->head;
     while (p_argument)
@@ -689,7 +716,7 @@ void print_macro_arguments(struct macro_argument_list* arguments)
         if (p_argument->macro_parameter)
             printf("%s:", p_argument->macro_parameter->name);
 
-        print_list(&p_argument->tokens);
+        print_list(color_enabled, &p_argument->tokens);
         p_argument = p_argument->next;
     }
 }
@@ -730,7 +757,7 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
     }
 }
 
-void print_macro(struct macro* macro)
+void print_macro(bool color_enabled, struct macro* macro)
 {
     printf("%s", macro->name);
     if (macro->is_function)
@@ -745,7 +772,7 @@ void print_macro(struct macro* macro)
     }
     if (macro->is_function)
         printf(") ");
-    print_list(&macro->replacement_list);
+    print_list(color_enabled, &macro->replacement_list);
 }
 
 void macro_parameters_delete(struct macro_parameter* _Owner _Opt parameters)
@@ -6285,34 +6312,6 @@ void print_literal(const char* _Opt s)
     printf("\"");
 }
 
-
-const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* list)
-{
-    struct osstream ss = { 0 };
-    struct token* _Opt current = list->head;
-    while (current)
-    {
-        if (current->level == 0 &&
-            current->type != TK_BEGIN_OF_FILE)
-        {
-            if (current->flags & TK_FLAG_MACRO_EXPANDED)
-                ss_fprintf(&ss, LIGHTCYAN);
-            else
-                ss_fprintf(&ss, WHITE);
-            ss_fprintf(&ss, "%s", current->lexeme);
-            ss_fprintf(&ss, RESET);
-        }
-        current = current->next;
-    }
-
-    const char* _Owner _Opt cstr = ss.c_str;
-    ss.c_str = NULL; /*MOVED*/
-
-    ss_close(&ss);
-
-    return cstr;
-}
-
 /*useful to debug visit.c*/
 void print_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
@@ -6710,7 +6709,7 @@ void show_all(struct token* p_token)
                 printf(BLACK);
         }
         printf("%s", current->lexeme);
-        printf(RESET);
+        printf(COLOR_RESET);
         current = current->next;
     }
 }
@@ -6732,7 +6731,7 @@ void print_preprocessed_to_file(struct token* p_token, const char* filename)
 
 void show_visible(struct token* p_token)
 {
-    printf(WHITE "visible used   / " LIGHTGRAY "visible ignored\n" RESET);
+    printf(WHITE "visible used   / " LIGHTGRAY "visible ignored\n" COLOR_RESET);
     struct token* current = p_token;
     while (current)
     {
@@ -6751,15 +6750,15 @@ void show_visible(struct token* p_token)
                 printf(BLACK);
         }
         printf("%s", current->lexeme);
-        printf(RESET);
+        printf(COLOR_RESET);
         current = current->next;
     }
 }
 
 void show_visible_and_invisible(struct token* p_token)
 {
-    printf(LIGHTGREEN "visible used   / " LIGHTGRAY "visible ignored\n" RESET);
-    printf(LIGHTBLUE  "invisible used / " BROWN     "invisible ignored\n" RESET);
+    printf(LIGHTGREEN "visible used   / " LIGHTGRAY "visible ignored\n" COLOR_RESET);
+    printf(LIGHTBLUE  "invisible used / " BROWN     "invisible ignored\n" COLOR_RESET);
     struct token* current = p_token;
     while (current)
     {
@@ -6778,7 +6777,7 @@ void show_visible_and_invisible(struct token* p_token)
                 printf(BROWN);
         }
         printf("%s", current->lexeme);
-        printf(RESET);
+        printf(COLOR_RESET);
         current = current->next;
     }
 }
@@ -6798,7 +6797,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
         printf("expected\n%s", output);
         printf("HAS\n%s", s);
         printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
-        print_tokens(r.head);
+        print_tokens(false, r.head);
         printf("TEST 0 FAILED\n");
         return 1;
     }

@@ -25,8 +25,8 @@ struct parser_ctx;
 
 
 
-long long object_type_get_signed_max(enum  target target, enum object_type type);
-unsigned long long object_type_get_unsigned_max(enum  target target, enum object_type type);
+long long target_signed_max(enum  target target, enum object_type type);
+unsigned long long target_unsigned_max(enum  target target, enum object_type type);
 
 
 enum object_value_state
@@ -91,7 +91,7 @@ struct object            object_make_nullptr(enum target target);
 struct object      object_make_unsigned_char(enum target target, unsigned char value);
 
 struct object         object_make_signed_int(enum target target, long long value);
-struct object       object_make_unsigned_int(enum target target, unsigned int value);
+struct object       object_make_unsigned_int(enum target target, unsigned long long  value);
 
 struct object        object_make_signed_long(enum target target, signed long long value);
 struct object      object_make_unsigned_long(enum target target, unsigned long long value);

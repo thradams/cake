@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -22,27 +22,26 @@
 
 
 
-static void print_report(struct report* report, bool no_colors)
+static void print_report(struct report* report)
 {
-    printf("\n");
-    printf(" %d files in %.2f seconds\n", report->no_files, report->cpu_time_used_sec);
-    if (no_colors)
+    if (report->error_count != 0 || report->warnings_count != 0 || report->info_count != 0)
     {
+        printf("\n");
         printf(" %d"   " errors ", report->error_count);
         printf("%d"  " warnings ", report->warnings_count);
         printf("%d"     " notes ", report->info_count);
-    }
-    else
-    {
-        printf(" %d" LIGHTRED  " errors " RESET, report->error_count);
-        printf("%d" LIGHTMAGENTA " warnings " RESET, report->warnings_count);
-        printf("%d" LIGHTCYAN    " notes " RESET, report->info_count);
     }
 
     if (report->test_mode)
     {
         printf("\n");
-        printf(" %d tests of %d failed\n", report->test_failed, (report->test_failed + report->test_succeeded));
+        printf(" %d files in %.2f seconds\n", report->no_files, report->cpu_time_used_sec);
+
+        printf("\n");
+        if (report->test_failed > 0)
+            printf(" %d tests of %d failed\n", report->test_failed, (report->test_failed + report->test_succeeded));
+        else
+            printf(" all tests (%d) succeeded\n", report->test_succeeded);
     }
 
     printf("\n");
@@ -56,12 +55,12 @@ int main(int argc, char** argv)
 {
     enable_vt_mode();
 
-    
+
 
 #if 0
     //Help debug emscript on desktop 
     //MOCKFILES needs to be defined
-    const char* source = 
+    const char* source =
         "#include <stdio.h>\n";
 
     char* _Owner _Opt r =
@@ -113,7 +112,7 @@ int main(int argc, char** argv)
 
     if (!report.ignore_this_report)
     {
-        print_report(&report, true);
+        print_report(&report);
     }
 
     if (report.test_mode)

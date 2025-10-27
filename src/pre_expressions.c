@@ -61,19 +61,19 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
 {
 
     //const long long signed_int_max_value = 
-      //  object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+      //  target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
 
     const long long signed_long_max_value =
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
 
     const unsigned long long unsigned_long_max_value =
-        object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
 
     const long long signed_long_long_max_value =
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
 
     //const unsigned long long unsigned_long_long_max_value = 
-      //  object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
+      //  target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
@@ -224,7 +224,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
     const unsigned char* _Opt p = (const unsigned char*)s;
     const unsigned long long
-        wchar_max_value = object_type_get_unsigned_max(target, get_platform(target)->wchar_t_type);
+        wchar_max_value = target_unsigned_max(target, get_platform(target)->wchar_t_type);
 
 
     try

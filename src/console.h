@@ -49,7 +49,7 @@ bool enable_vt_mode(void);
 #define BK_WHITE             "\x1b[47;1m"
 #define BK_BLINK "\x1b[40m"
 
-#define RESET "\x1b[0m"
+#define COLOR_RESET "\x1b[0m"
 
 
 int c_kbhit(void);

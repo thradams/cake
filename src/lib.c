@@ -180,7 +180,7 @@ bool enable_vt_mode(void);
 #define BK_WHITE             "\x1b[47;1m"
 #define BK_BLINK "\x1b[40m"
 
-#define RESET "\x1b[0m"
+#define COLOR_RESET "\x1b[0m"
 
 
 int c_kbhit(void);
@@ -638,7 +638,7 @@ struct marker
 
 void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format);
 
-void print_position(const char* path, int line, int col, bool msvc_format);
+void print_position(const char* path, int line, int col, bool msvc_format, bool  color_enabled);
 
 struct stream
 {
@@ -795,11 +795,14 @@ struct platform
 int parse_target(const char* targetstr, enum target* target);
 void print_target_options();
 struct platform* get_platform(enum  target target);
-int get_num_of_bits(enum target target, enum object_type type);
+int target_get_num_of_bits(enum target target, enum object_type type);
 int parse_target(const char* targetstr, enum target* target);
 void print_target_options();
 const char* target_get_predefined_macros(enum target e);
 
+
+long long target_signed_max(enum  target target, enum object_type type);
+unsigned long long target_unsigned_max(enum  target target, enum object_type type);
 
 
 #if defined(_WIN32) && defined(_WIN64)
@@ -1176,7 +1179,7 @@ struct options
     /*
       -fdiagnostics-color=never
     */
-    bool disable_colors;
+    bool color_disabled;
 
     /*
       -dump-tokens
@@ -1275,7 +1278,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 struct token_list copy_replacement_list(struct preprocessor_ctx* ctx, const struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, _Dtor struct token_list* source);
-void print_list(struct token_list* list);
+void print_list(bool color_enabled, struct token_list* list);
 void token_list_destroy(_Opt _Dtor struct token_list* list);
 bool token_is_blank(const struct token* p);
 void token_list_pop_back(struct token_list* list);
@@ -1296,10 +1299,10 @@ struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const cha
 
 void print_code_as_we_see(const struct token_list* list, bool remove_comments);
 const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list);
-const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* list);
+
 const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool remove_comments);
 
-void print_tokens(const struct token* _Opt p_token);
+void print_tokens(bool color_enabled, const struct token* _Opt p_token);
 void print_preprocessed(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
@@ -1977,7 +1980,7 @@ bool token_list_is_empty(struct token_list* p)
     return p->head == NULL;
 }
 
-void print_list(struct token_list* list)
+void print_list(bool color_enabled, struct token_list* list)
 {
     struct token* _Opt current = list->head;
     while (current)
@@ -1988,7 +1991,10 @@ void print_list(struct token_list* list)
             //printf("`");
         }
         print_literal2(current->lexeme);
-        printf(RESET);
+
+        if (color_enabled)
+            printf(COLOR_RESET);
+
         if (current == list->tail)
         {
             //printf("`");
@@ -2016,23 +2022,30 @@ void print_literal2(const char* s)
 }
 
 
-void print_token(const struct token* p_token)
+void print_token(bool color_enabled, const struct token* p_token)
 {
     for (int i = 0; i < p_token->level; i++)
     {
         printf("  ");
     }
     if (p_token->flags & TK_FLAG_FINAL)
-        printf(LIGHTGREEN);
+    {
+        if (color_enabled)
+            printf(LIGHTGREEN);
+    }
     else
-        printf(LIGHTGRAY);
+    {
+        if (color_enabled)
+            printf(LIGHTGRAY);
+    }
     char buffer0[50] = { 0 };
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
-        printf(LIGHTCYAN);
+        if (color_enabled)
+            printf(LIGHTCYAN);
     }
     char buffer[50] = { 0 };
     strcat(buffer, "[");
@@ -2060,21 +2073,28 @@ void print_token(const struct token* p_token)
     printf("%-20s ", buffer);
     print_literal2(p_token->lexeme);
     printf("\n");
-    printf(RESET);
+    if (color_enabled)
+        printf(COLOR_RESET);
 }
 
-void print_tokens(const struct token* _Opt p_token)
+void print_tokens(bool color_enabled, const struct token* _Opt p_token)
 {
-    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
+    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+
+    if (color_enabled)
+        printf(COLOR_RESET);
+
     const struct token* _Opt current = p_token;
     while (current)
     {
-        print_token(current);
+        print_token(color_enabled, current);
         current = current->next;
     }
     printf("\n");
-    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    printf(RESET);
+    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+
+    if (color_enabled)
+        printf(COLOR_RESET);
 }
 
 
@@ -2165,7 +2185,7 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");
 }
 
-void print_position(const char* path, int line, int col, bool visual_studio_ouput_format)
+void print_position(const char* path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
 {
 
     if (visual_studio_ouput_format)
@@ -2176,13 +2196,16 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     else
     {
         //GCC format
-        printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+        if (color_enabled)
+            printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+        else
+            printf("%s:%d:%d: ", path ? path : "<>", line, col);
     }
 }
 
-void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format)
+void print_line_and_token(struct marker* p_marker, bool color_enabled)
 {
-
+    
     try
     {
         const struct token* _Opt p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
@@ -2192,8 +2215,8 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
 
         const int line = p_marker->line;
 
-        if (!visual_studio_ouput_format)
-            printf(RESET);
+        if (color_enabled)
+            printf(COLOR_RESET);
 
         char nbuffer[20] = { 0 };
         int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
@@ -2218,13 +2241,13 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         //only expand macros if the error is inside
         const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
-        if (!visual_studio_ouput_format)
+        if (color_enabled)
             printf(LIGHTBLUE);
 
         const struct token* _Opt p_item = p_line_begin;
         while (p_item)
         {
-            if (!visual_studio_ouput_format)
+            if (color_enabled)
             {
                 if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
                 {
@@ -2252,9 +2275,9 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
                 }
             }
 
-            if (!visual_studio_ouput_format)
+            if (color_enabled)
             {
-                printf(RESET);
+                printf(COLOR_RESET);
             }
 
             if (p_item->type == TK_NEWLINE)
@@ -2262,8 +2285,8 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             p_item = p_item->next;
         }
 
-        if (!visual_studio_ouput_format)
-            printf(RESET);
+        if (color_enabled)
+            printf(COLOR_RESET);
 
         if (p_item == NULL) printf("\n");
 
@@ -2277,7 +2300,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         {
             if (p_item == p_token_begin)
             {
-                if (!visual_studio_ouput_format)
+                if (color_enabled)
                     printf(LIGHTGREEN);
                 onoff = true;
                 end_col = start_col;
@@ -2310,15 +2333,15 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             {
                 complete = true;
                 onoff = false;
-                if (!visual_studio_ouput_format)
-                    printf(RESET);
+                if (color_enabled)
+                    printf(COLOR_RESET);
             }
 
             p_item = p_item->next;
         }
 
-        if (!visual_studio_ouput_format)
-            printf(RESET);
+        if (color_enabled)
+            printf(COLOR_RESET);
 
         printf("\n");
         p_marker->start_col = start_col;
@@ -3637,6 +3660,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 
 static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
+    const bool color_enabled = !ctx->options.color_disabled;
     ctx->n_errors++;
 
     char buffer[200] = { 0 };
@@ -3654,20 +3678,25 @@ static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream
 
 #pragma CAKE diagnostic pop
 
-    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format);
+    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)
     {
         printf("error: "  "%s\n", buffer);
     }
     else
     {
-        printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+        if (color_enabled)
+            printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+        else
+            printf("error: " "%s\n", buffer);
     }
 }
 
 
 static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
+    const bool color_enabled = !ctx->options.color_disabled;
+
     ctx->n_warnings++;
 
 
@@ -3685,14 +3714,17 @@ static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stre
 
 #pragma CAKE diagnostic pop
 
-    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format);
+    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)
     {
         printf("warning: " "%s\n", buffer);
     }
     else
     {
-        printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+        if (color_enabled)
+            printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+        else
+            printf("warning: " "%s\n", buffer);
     }
 
 }
@@ -3708,6 +3740,8 @@ void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_
 
 bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token_opt, const char* fmt, ...)
 {
+  
+
     struct marker marker = { 0 };
 
     if (p_token_opt == NULL) return false;
@@ -3764,7 +3798,8 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         return false;
     }
 
-    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
+    const bool color_enabled = !ctx->options.color_disabled;
+    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format, color_enabled);
 
     char buffer[200] = { 0 };
 
@@ -3793,11 +3828,26 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     else
     {
         if (is_error)
-            printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+        {
+            if (color_enabled)
+                printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+            else
+                printf("error: " "%s\n", buffer);
+        }
         else if (is_warning)
-            printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+        {
+            if (color_enabled)
+                printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+            else
+                printf("warning: " "%s\n", buffer);
+        }
         else if (is_note)
-            printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+        {
+            if (color_enabled)
+                printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+            else
+                printf("note: "  "%s\n", buffer);
+        }
 
         print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
 
@@ -4171,7 +4221,7 @@ void macro_argument_list_destroy(_Dtor struct macro_argument_list* list)
     }
 }
 
-void print_macro_arguments(struct macro_argument_list* arguments)
+void print_macro_arguments(bool color_enabled, struct macro_argument_list* arguments)
 {
     struct macro_argument* _Opt p_argument = arguments->head;
     while (p_argument)
@@ -4179,7 +4229,7 @@ void print_macro_arguments(struct macro_argument_list* arguments)
         if (p_argument->macro_parameter)
             printf("%s:", p_argument->macro_parameter->name);
 
-        print_list(&p_argument->tokens);
+        print_list(color_enabled, &p_argument->tokens);
         p_argument = p_argument->next;
     }
 }
@@ -4220,7 +4270,7 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
     }
 }
 
-void print_macro(struct macro* macro)
+void print_macro(bool color_enabled, struct macro* macro)
 {
     printf("%s", macro->name);
     if (macro->is_function)
@@ -4235,7 +4285,7 @@ void print_macro(struct macro* macro)
     }
     if (macro->is_function)
         printf(") ");
-    print_list(&macro->replacement_list);
+    print_list(color_enabled, &macro->replacement_list);
 }
 
 void macro_parameters_delete(struct macro_parameter* _Owner _Opt parameters)
@@ -9775,34 +9825,6 @@ void print_literal(const char* _Opt s)
     printf("\"");
 }
 
-
-const char* _Owner _Opt get_code_as_we_see_plus_macros(const struct token_list* list)
-{
-    struct osstream ss = { 0 };
-    struct token* _Opt current = list->head;
-    while (current)
-    {
-        if (current->level == 0 &&
-            current->type != TK_BEGIN_OF_FILE)
-        {
-            if (current->flags & TK_FLAG_MACRO_EXPANDED)
-                ss_fprintf(&ss, LIGHTCYAN);
-            else
-                ss_fprintf(&ss, WHITE);
-            ss_fprintf(&ss, "%s", current->lexeme);
-            ss_fprintf(&ss, RESET);
-        }
-        current = current->next;
-    }
-
-    const char* _Owner _Opt cstr = ss.c_str;
-    ss.c_str = NULL; /*MOVED*/
-
-    ss_close(&ss);
-
-    return cstr;
-}
-
 /*useful to debug visit.c*/
 void print_code_as_we_see(const struct token_list* list, bool remove_comments)
 {
@@ -10241,7 +10263,7 @@ void show_all(struct token* p_token)
                 printf(BLACK);
         }
         printf("%s", current->lexeme);
-        printf(RESET);
+        printf(COLOR_RESET);
         current = current->next;
     }
 }
@@ -10263,7 +10285,7 @@ void print_preprocessed_to_file(struct token* p_token, const char* filename)
 
 void show_visible(struct token* p_token)
 {
-    printf(WHITE "visible used   / " LIGHTGRAY "visible ignored\n" RESET);
+    printf(WHITE "visible used   / " LIGHTGRAY "visible ignored\n" COLOR_RESET);
     struct token* current = p_token;
     while (current)
     {
@@ -10282,15 +10304,15 @@ void show_visible(struct token* p_token)
                 printf(BLACK);
         }
         printf("%s", current->lexeme);
-        printf(RESET);
+        printf(COLOR_RESET);
         current = current->next;
     }
 }
 
 void show_visible_and_invisible(struct token* p_token)
 {
-    printf(LIGHTGREEN "visible used   / " LIGHTGRAY "visible ignored\n" RESET);
-    printf(LIGHTBLUE  "invisible used / " BROWN     "invisible ignored\n" RESET);
+    printf(LIGHTGREEN "visible used   / " LIGHTGRAY "visible ignored\n" COLOR_RESET);
+    printf(LIGHTBLUE  "invisible used / " BROWN     "invisible ignored\n" COLOR_RESET);
     struct token* current = p_token;
     while (current)
     {
@@ -10309,7 +10331,7 @@ void show_visible_and_invisible(struct token* p_token)
                 printf(BROWN);
         }
         printf("%s", current->lexeme);
-        printf(RESET);
+        printf(COLOR_RESET);
         current = current->next;
     }
 }
@@ -10329,7 +10351,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
         printf("expected\n%s", output);
         printf("HAS\n%s", s);
         printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
-        print_tokens(r.head);
+        print_tokens(false, r.head);
         printf("TEST 0 FAILED\n");
         return 1;
     }
@@ -14752,7 +14774,7 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-fdiagnostics-color=never") == 0)
             {
-                options->disable_colors = true;
+                options->color_disabled = true;
                 continue;
             }
 
@@ -14913,61 +14935,61 @@ int fill_options(struct options* options,
 
 void print_help()
 {
-#define CAKE LIGHTCYAN "cake " RESET 
+#define CAKE LIGHTCYAN "cake " COLOR_RESET 
 
     const char* options =
-        LIGHTGREEN "Usage :" RESET CAKE LIGHTBLUE "[OPTIONS] source1.c source2.c ...\n" RESET
+        LIGHTGREEN "Usage :" COLOR_RESET CAKE LIGHTBLUE "[OPTIONS] source1.c source2.c ...\n" COLOR_RESET
         "\n"
-        LIGHTGREEN "Samples:\n" RESET
+        LIGHTGREEN "Samples:\n" COLOR_RESET
         "\n"
-        WHITE "    " CAKE " source.c\n" RESET
+        WHITE "    " CAKE " source.c\n" COLOR_RESET
         "    Compiles source.c and outputs /out/source.c\n"
         "\n"
-        WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
+        WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" COLOR_RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
-        WHITE "    " CAKE " file.c -direct-compilation -o file.cc && cl file.cc\n" RESET
+        WHITE "    " CAKE " file.c -direct-compilation -o file.cc && cl file.cc\n" COLOR_RESET
         "    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc\n"
         "\n"
-        LIGHTGREEN "Options:\n" RESET
+        LIGHTGREEN "Options:\n" COLOR_RESET
         "\n"
-        LIGHTCYAN "  -I                   " RESET " Adds a directory to the list of directories searched for include files \n"
+        LIGHTCYAN "  -I                   " COLOR_RESET " Adds a directory to the list of directories searched for include files \n"
         "                        (On windows, if you run cake at the visual studio command prompt cake \n"
         "                        uses the same include files used by msvc )\n"
         "\n"
-        LIGHTCYAN "  -auto-config           " RESET "Generates cakeconfig.h with include directories\n"
+        LIGHTCYAN "  -auto-config           " COLOR_RESET "Generates cakeconfig.h with include directories\n"
         "\n"
-        LIGHTCYAN "  -no-output            " RESET "Cake will not generate output\n"
+        LIGHTCYAN "  -no-output            " COLOR_RESET "Cake will not generate output\n"
         "\n"
-        LIGHTCYAN "  -D                    " RESET "Defines a preprocessing symbol for a source file \n"
+        LIGHTCYAN "  -D                    " COLOR_RESET "Defines a preprocessing symbol for a source file \n"
         "\n"
-        LIGHTCYAN "  -E                    " RESET "Copies preprocessor output to standard output \n"
+        LIGHTCYAN "  -E                    " COLOR_RESET "Copies preprocessor output to standard output \n"
         "\n"
-        LIGHTCYAN "  -o name.c             " RESET "Defines the output name when compiling one file\n"
+        LIGHTCYAN "  -o name.c             " COLOR_RESET "Defines the output name when compiling one file\n"
         "\n"
-        LIGHTCYAN "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
+        LIGHTCYAN "  -no-discard           " COLOR_RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
-        LIGHTCYAN "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
+        LIGHTCYAN "  -Wname -Wno-name      " COLOR_RESET "Enables or disable warning\n"
         "\n"
-        LIGHTCYAN "  -fanalyzer            " RESET "Runs flow analysis -  required for ownership\n"
+        LIGHTCYAN "  -fanalyzer            " COLOR_RESET "Runs flow analysis -  required for ownership\n"
         "\n"
-        LIGHTCYAN "  -sarif                " RESET "Generates sarif files\n"
+        LIGHTCYAN "  -sarif                " COLOR_RESET "Generates sarif files\n"
         "\n"
-        LIGHTCYAN "  -H                    " RESET "Print the name of each header file used\n"
+        LIGHTCYAN "  -H                    " COLOR_RESET "Print the name of each header file used\n"
         "\n"
-        LIGHTCYAN "  -sarif-path           " RESET "Set sarif output dir\n"
+        LIGHTCYAN "  -sarif-path           " COLOR_RESET "Set sarif output dir\n"
         "\n"
-        LIGHTCYAN "  -msvc-output          " RESET "Output is compatible with visual studio\n"
+        LIGHTCYAN "  -msvc-output          " COLOR_RESET "Output is compatible with visual studio\n"
         "\n"
-        LIGHTCYAN "  -dump-tokens          " RESET "Output tokens before preprocessor\n"
+        LIGHTCYAN "  -dump-tokens          " COLOR_RESET "Output tokens before preprocessor\n"
         "\n"
-        LIGHTCYAN "  -dump-pp-tokens       " RESET "Output tokens after preprocessor\n"
+        LIGHTCYAN "  -dump-pp-tokens       " COLOR_RESET "Output tokens after preprocessor\n"
         "\n"
-        LIGHTCYAN "  -disable-assert       " RESET "disables built-in assert\n"
+        LIGHTCYAN "  -disable-assert       " COLOR_RESET "disables built-in assert\n"
         "\n"
-        LIGHTCYAN "  -const-literal        " RESET "literal string becomes const\n"
+        LIGHTCYAN "  -const-literal        " COLOR_RESET "literal string becomes const\n"
         "\n"
-        LIGHTCYAN "  -preprocess-def-macro " RESET "preprocess def macros after expansion\n"
+        LIGHTCYAN "  -preprocess-def-macro " COLOR_RESET "preprocess def macros after expansion\n"
 
         "More details at http://thradams.com/cake/manual.html\n"
         ;
@@ -15447,8 +15469,8 @@ struct parser_ctx;
 
 
 
-long long object_type_get_signed_max(enum  target target, enum object_type type);
-unsigned long long object_type_get_unsigned_max(enum  target target, enum object_type type);
+long long target_signed_max(enum  target target, enum object_type type);
+unsigned long long target_unsigned_max(enum  target target, enum object_type type);
 
 
 enum object_value_state
@@ -15513,7 +15535,7 @@ struct object            object_make_nullptr(enum target target);
 struct object      object_make_unsigned_char(enum target target, unsigned char value);
 
 struct object         object_make_signed_int(enum target target, long long value);
-struct object       object_make_unsigned_int(enum target target, unsigned int value);
+struct object       object_make_unsigned_int(enum target target, unsigned long long  value);
 
 struct object        object_make_signed_long(enum target target, signed long long value);
 struct object      object_make_unsigned_long(enum target target, unsigned long long value);
@@ -17664,7 +17686,6 @@ void warn_unrecognized_warnings(struct parser_ctx* ctx,
 
 #include <math.h>
 
-//static int get_num_of_bits(enum target target, enum object_type type);
 
 static enum object_type to_unsigned(enum object_type t)
 {
@@ -17680,18 +17701,6 @@ static enum object_type to_unsigned(enum object_type t)
     return t;
 }
 
-
-long long object_type_get_signed_max(enum  target target, enum object_type type)
-{
-    int bits = get_num_of_bits(target, type);
-    return (1LL << (bits - 1)) - 1; // 2^(bits-1) - 1    
-}
-
-unsigned long long object_type_get_unsigned_max(enum  target target, enum object_type type)
-{
-    int bits = get_num_of_bits(target, type);
-    return (1ULL << bits) - 1; // 2^bits - 1
-}
 
 static bool object_type_is_signed_integer(enum object_type type)
 {
@@ -18025,7 +18034,7 @@ struct object object_make_size_t(enum target target, uint64_t value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = get_platform(target)->size_t_type;
-    const unsigned long long bits = get_num_of_bits(target, r.value_type);
+    const unsigned long long bits = target_get_num_of_bits(target, r.value_type);
     r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, bits);
     return r;
 }
@@ -18035,7 +18044,7 @@ struct object object_make_nullptr(enum target target)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = get_platform(target)->size_t_type;
-    const unsigned long long bits = get_num_of_bits(target, r.value_type);
+    const unsigned long long bits = target_get_num_of_bits(target, r.value_type);
     r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(0, bits);
     return r;
 }
@@ -18063,7 +18072,7 @@ struct object object_make_wchar_t(enum target target, int value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = get_platform(target)->wchar_t_type;
-    unsigned long long bits = get_num_of_bits(target, r.value_type);
+    unsigned long long bits = target_get_num_of_bits(target, r.value_type);
     r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, bits);
     return r;
 }
@@ -18193,7 +18202,7 @@ void object_increment_value(enum target target, struct object* a)
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
 
-        a->value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(a->value.host_long_long + 1, get_num_of_bits(target, a->value_type));
+        a->value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(a->value.host_long_long + 1, target_get_num_of_bits(target, a->value_type));
         break;
 
     case TYPE_UNSIGNED_CHAR:
@@ -18201,7 +18210,7 @@ void object_increment_value(enum target target, struct object* a)
     case TYPE_UNSIGNED_INT:
     case TYPE_UNSIGNED_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
-        a->value.host_u_long_long = CAKE_CAST_TO_N_BITS_SIGNED(a->value.host_u_long_long + 1, get_num_of_bits(target, a->value_type));
+        a->value.host_u_long_long = CAKE_CAST_TO_N_BITS_SIGNED(a->value.host_u_long_long + 1, target_get_num_of_bits(target, a->value_type));
         break;
 
     case TYPE_FLOAT:
@@ -18269,7 +18278,7 @@ struct object object_make_signed_int(enum  target target, long long value)
     return r;
 }
 
-struct object object_make_unsigned_int(enum target target, unsigned int value)
+struct object object_make_unsigned_int(enum target target, unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -18294,7 +18303,7 @@ struct object object_make_unsigned_long(enum target target, unsigned long long v
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG;
-    r.value.host_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, get_platform(target)->long_n_bits);
+    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, get_platform(target)->long_n_bits);
     return r;
 }
 
@@ -18442,7 +18451,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = dest_type; /*dest type*/
-    const int dest_n_bits = get_num_of_bits(target, dest_type);
+    const int dest_n_bits = target_get_num_of_bits(target, dest_type);
 
 
     if (object_type_is_signed_integer(source_type))
@@ -18476,11 +18485,11 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(v->value.host_u_long_long, get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(v->value.host_u_long_long, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(v->value.host_u_long_long, get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(v->value.host_u_long_long, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (dest_type == TYPE_FLOAT)
         {
@@ -18503,11 +18512,11 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.host_float, get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.host_float, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.host_float, get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.host_float, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (dest_type == TYPE_FLOAT)
         {
@@ -18530,11 +18539,11 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.host_double, get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.host_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.host_double, get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.host_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (dest_type == TYPE_FLOAT)
         {
@@ -18557,11 +18566,11 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.long_double_val, get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.long_double_val, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.long_double_val, get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.long_double_val, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (dest_type == TYPE_FLOAT)
         {
@@ -18673,9 +18682,9 @@ int get_rank(enum object_type t)
 }
 
 
-int get_size(enum target target, enum object_type t)
+int target_sizeof(enum target target, enum object_type t)
 {
-    return get_num_of_bits(target, t) / 8;
+    return target_get_num_of_bits(target, t) / 8;
 }
 
 bool is_signed(enum object_type t)
@@ -19391,9 +19400,9 @@ bool object_is_promoted(const struct object* a)
     /*
       types smaller than int are promoted to int
     */
-    if ((a->value_type == TYPE_SIGNED_CHAR) ||
-        (a->value_type == TYPE_UNSIGNED_CHAR) ||
-        (a->value_type == TYPE_SIGNED_SHORT) ||
+    if (a->value_type == TYPE_SIGNED_CHAR   ||
+        a->value_type == TYPE_UNSIGNED_CHAR ||
+        a->value_type == TYPE_SIGNED_SHORT  ||
         a->value_type == TYPE_UNSIGNED_SHORT)
     {
         return true;
@@ -19527,7 +19536,7 @@ enum object_type object_common(enum target target, const struct object* a, const
       integer type is converted to the type of the operand with signed integer type
     */
 
-    if (get_size(target, signed_promoted) > get_size(target, unsigned_promoted))
+    if (target_sizeof(target, signed_promoted) > target_sizeof(target, unsigned_promoted))
     {
         return signed_promoted;
     }
@@ -19711,7 +19720,7 @@ struct object object_equal(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long == b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long == b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -19722,7 +19731,7 @@ struct object object_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long == b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long == b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -19766,7 +19775,7 @@ struct object object_not_equal(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long != b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long != b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -19777,7 +19786,7 @@ struct object object_not_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long != b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long != b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -19822,7 +19831,7 @@ struct object object_greater_than_or_equal(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long >= b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long >= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -19833,7 +19842,7 @@ struct object object_greater_than_or_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long >= b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long >= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -19877,7 +19886,7 @@ struct object object_greater_than(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long > b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long > b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -19888,7 +19897,7 @@ struct object object_greater_than(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long > b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long > b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -19931,7 +19940,7 @@ struct object object_smaller_than_or_equal(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long <= b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long <= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -19942,7 +19951,7 @@ struct object object_smaller_than_or_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long <= b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long <= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -19986,7 +19995,7 @@ struct object object_smaller_than(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long < b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long < b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -19997,7 +20006,7 @@ struct object object_smaller_than(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long < b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long < b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20041,7 +20050,7 @@ struct object object_add(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long + b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long + b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
         signed long long exact_result;
         if (signed_long_long_add(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
@@ -20069,7 +20078,7 @@ struct object object_add(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long + b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long + b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_add(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -20128,7 +20137,7 @@ struct object object_sub(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long - b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long - b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
         signed long long exact_result;
         if (signed_long_long_sub(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
@@ -20156,7 +20165,7 @@ struct object object_sub(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long - b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long - b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_sub(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -20216,7 +20225,7 @@ struct object object_mul(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long * b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long * b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
         signed long long exact_result;
         if (signed_long_long_mul(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
@@ -20244,7 +20253,7 @@ struct object object_mul(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long * b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long * b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_mul(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -20310,7 +20319,7 @@ struct object object_div(enum target target,
         }
 
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long / b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long / b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20327,7 +20336,7 @@ struct object object_div(enum target target,
         }
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long / b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long / b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20376,7 +20385,7 @@ struct object object_mod(enum target target,
         }
 
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long % b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long % b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20393,7 +20402,7 @@ struct object object_mod(enum target target,
         }
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long % b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long % b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20455,7 +20464,7 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(!a->value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(!a->value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20466,7 +20475,7 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(!a->value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(!a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20504,7 +20513,7 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(~a->value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(~a->value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20515,7 +20524,7 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(~a->value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(~a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20548,7 +20557,7 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(-(a->value.host_long_long), get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(-(a->value.host_long_long), target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20559,7 +20568,7 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(-(a->value.host_u_long_long), get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(-(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20601,7 +20610,7 @@ struct object object_unary_plus(enum target target, const struct object* a, char
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(+(a->value.host_long_long), get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(+(a->value.host_long_long), target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20612,7 +20621,7 @@ struct object object_unary_plus(enum target target, const struct object* a, char
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(+(a->value.host_u_long_long), get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(+(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20656,7 +20665,7 @@ struct object object_bitwise_xor(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long ^ b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long ^ b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20667,7 +20676,7 @@ struct object object_bitwise_xor(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long ^ b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long ^ b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20706,7 +20715,7 @@ struct object object_bitwise_or(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long | b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long | b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20717,7 +20726,7 @@ struct object object_bitwise_or(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long | b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long | b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20757,7 +20766,7 @@ struct object object_bitwise_and(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long & b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long & b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20768,7 +20777,7 @@ struct object object_bitwise_and(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long & b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long & b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20807,7 +20816,7 @@ struct object object_shift_left(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long << b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long << b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20818,7 +20827,7 @@ struct object object_shift_left(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long << b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long << b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -20858,7 +20867,7 @@ struct object object_shift_right(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long >> b0.value.host_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long >> b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -20869,7 +20878,7 @@ struct object object_shift_right(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long >> b0.value.host_u_long_long, get_num_of_bits(target, common_type));
+            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long >> b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -21419,7 +21428,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     struct expression* _Owner _Opt p_expression_node = NULL;
 
     const unsigned long long 
-        wchar_max_value = object_type_get_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
+        wchar_max_value = target_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
 
     try
     {
@@ -21656,22 +21665,22 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
     const unsigned long long unsigned_int_max_value = 
-        object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_INT);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_INT);
 
     const unsigned long long signed_int_max_value = 
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
 
     const unsigned long long signed_long_max_value = 
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
 
     const unsigned long long unsigned_long_max_value = 
-        object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
     
     const unsigned long long signed_long_long_max_value = 
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
 
     const unsigned long long unsigned_long_long_max_value = 
-        object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
 
     if (ctx->current == NULL)
@@ -21763,7 +21772,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             if (value <= unsigned_int_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_unsigned_int(ctx->options.target, (unsigned int)value);
+                p_expression_node->object = object_make_unsigned_int(ctx->options.target,  value);
                 p_expression_node->type.type_specifier_flags = (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED);
             }
             else if (value <= unsigned_long_max_value && suffix[2] != 'L')
@@ -21787,13 +21796,13 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             if (value <= signed_int_max_value && suffix[0] != 'L')
             {
                 object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_signed_int(ctx->options.target, (int)value);
+                p_expression_node->object = object_make_signed_int(ctx->options.target, value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
             else if (value <= signed_int_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_signed_long(target, (int)value);
+                p_expression_node->object = object_make_signed_long(target, value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
             else if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&
@@ -27402,19 +27411,19 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
 {
 
     //const long long signed_int_max_value = 
-      //  object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+      //  target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
 
     const long long signed_long_max_value =
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
 
     const unsigned long long unsigned_long_max_value =
-        object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
 
     const long long signed_long_long_max_value =
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
 
     //const unsigned long long unsigned_long_long_max_value = 
-      //  object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
+      //  target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
@@ -27565,7 +27574,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
 
     const unsigned char* _Opt p = (const unsigned char*)s;
     const unsigned long long
-        wchar_max_value = object_type_get_unsigned_max(target, get_platform(target)->wchar_t_type);
+        wchar_max_value = target_unsigned_max(target, get_platform(target)->wchar_t_type);
 
 
     try
@@ -28642,7 +28651,7 @@ struct flow_visit_ctx;
 struct token;
 
 
-void print_flow_object(struct type* p_type, struct flow_object* p_object, bool short_version);
+void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version);
 
 struct marker;
 
@@ -28765,7 +28774,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.27"
+#define CAKE_VERSION "0.12.28"
 
 
 
@@ -29114,6 +29123,8 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     const char* fmt, ...)
 {
 
+    const bool color_enabled = !ctx->options.color_disabled;
+
     if (ctx->p_diagnostic_id_stack &&
         ctx->p_diagnostic_id_stack->size > 0)
     {
@@ -29225,7 +29236,10 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
 
     char buffer[200] = { 0 };
 
-    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
+    print_position(marker.file, marker.line,
+        marker.start_col,
+        ctx->options.visual_studio_ouput_format,
+        color_enabled);
 
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
@@ -29256,22 +29270,28 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     {
         if (is_error)
         {
-            printf(LIGHTRED "error " WHITE "C%04d: %s\n" RESET, w, buffer);
+            if (color_enabled)
+                printf(LIGHTRED "error " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+            else
+                printf("error "        "C%04d: %s\n", w, buffer);
         }
         else if (is_warning)
         {
-            printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" RESET, w, buffer);
+            if (color_enabled)
+                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+            else
+                printf("warning "  "C%04d: %s\n", w, buffer);
         }
         else if (is_note)
         {
-            if (w == W_LOCATION)
-                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
+            if (color_enabled)
+                printf(LIGHTCYAN "note: " WHITE "%s\n" COLOR_RESET, buffer);
             else
-                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
+                printf("note: " "%s\n", buffer);
         }
     }
 
-    print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
+    print_line_and_token(&marker, color_enabled);
 
 
     if (ctx->sarif_file)
@@ -39693,6 +39713,8 @@ int compile_one_file(const char* file_name,
     const char** argv,
     struct report* report)
 {
+    bool color_enabled = !options->color_disabled;
+
     printf("%s\n", file_name);
     struct preprocessor_ctx prectx = { 0 };
     prectx.options = *options;
@@ -39780,7 +39802,7 @@ int compile_one_file(const char* file_name,
 
         if (options->dump_tokens)
         {
-            print_tokens(tokens.head);
+            print_tokens(color_enabled, tokens.head);
         }
 
         prectx.options.diagnostic_stack.stack[prectx.options.diagnostic_stack.top_index].notes |= (1ULL << W_NOTE);
@@ -39797,7 +39819,7 @@ int compile_one_file(const char* file_name,
         if (options->dump_pptokens)
         {
             if (ast.token_list.head != NULL)
-                print_tokens(ast.token_list.head);
+                print_tokens(color_enabled, ast.token_list.head);
         }
 
         if (options->preprocess_only)
@@ -39897,13 +39919,13 @@ int compile_one_file(const char* file_name,
             printf("-------------------------------------------\n");
             printf("%s", content);
             printf("\n-------------------------------------------\n");
-            if (ctx.options.disable_colors)
+            if (color_enabled)
             {
-                printf("TEST FAILED" " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+                printf(LIGHTRED "TEST FAILED" COLOR_RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
             }
             else
             {
-                printf(LIGHTRED "TEST FAILED" RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+                printf("TEST FAILED" " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
             }
             printf("\n\n");
             report->test_failed++;
@@ -39911,13 +39933,13 @@ int compile_one_file(const char* file_name,
         else
         {
             report->test_succeeded++;
-            if (ctx.options.disable_colors)
+            if (color_enabled)
             {
-                printf("TEST OK\n");
+                printf(LIGHTGREEN "TEST OK\n" COLOR_RESET);
             }
             else
             {
-                printf(LIGHTGREEN "TEST OK\n" RESET);
+                printf("TEST OK\n");
             }
         }
     }
@@ -40368,8 +40390,9 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     /*
       This function is called by the web playground
     */
-    printf(WHITE "Cake " CAKE_VERSION RESET "\n");
+    printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
     printf(WHITE "cake %s main.c\n", pszoptions);
+
     struct report report = { 0 };
     return (char* _Owner _Opt)compile_source(pszoptions, content, &report);
 }
@@ -46533,7 +46556,8 @@ void flow_object_remove_state(struct flow_object* object, int state_number)
 
 }
 
-void print_object_core(int ident,
+void print_object_core(bool color_enabled,
+    int ident,
     struct object_visitor* p_visitor,
     const char* previous_names,
     bool is_pointer,
@@ -46580,7 +46604,7 @@ void print_object_core(int ident,
                             visitor.p_type = &p_member_declarator->declarator->type;
                             visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
-                            print_object_core(ident + 2, &visitor, buffer,
+                            print_object_core(color_enabled, ident + 2, &visitor, buffer,
                                 type_is_pointer(&p_member_declarator->declarator->type), short_version,
                                 visit_number);
 
@@ -46602,7 +46626,8 @@ void print_object_core(int ident,
 
                     int visit_number0 = p_visitor->p_object->visit_number;
                     p_visitor->p_object->visit_number = 0;
-                    print_object_core(ident + 1,
+                    print_object_core(color_enabled,
+                        ident + 1,
                         p_visitor,
                         previous_names,
                         false,
@@ -46657,18 +46682,23 @@ void print_object_core(int ident,
             struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
             while (it)
             {
-                printf(LIGHTCYAN);
+                if (color_enabled)
+                    printf(LIGHTCYAN);
+
                 printf("(#%02d %s)", it->state_number, it->dbg_name);
                 object_state_set_item_print(it);
-                printf(RESET);
+                if (color_enabled)
+                    printf(COLOR_RESET);
                 printf(",");
                 it = it->next;
             }
             //printf("*");
-            printf(LIGHTMAGENTA);
+            if (color_enabled)
+                printf(LIGHTMAGENTA);
             printf("(current)");
             flow_object_print_state(p_visitor->p_object);
-            printf(RESET);
+            if (color_enabled)
+                printf(COLOR_RESET);
             printf("}");
         }
         printf("\n");
@@ -46886,7 +46916,7 @@ void object_get_name(const struct type* p_type,
     int out_size);
 
 
-void print_flow_object(struct type* p_type, struct flow_object* p_object, bool short_version)
+void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version)
 {
     char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
@@ -46894,7 +46924,7 @@ void print_flow_object(struct type* p_type, struct flow_object* p_object, bool s
     _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
-    print_object_core(0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
+    print_object_core(color_enabled, 0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
 }
 
 
@@ -52690,7 +52720,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         if (p_obj)
         {
-            print_flow_object(&p_static_assert_declaration->constant_expression->type, p_obj, !ex);
+            const bool color_enabled = !ctx->ctx->options.color_disabled;
+            print_flow_object(color_enabled,  &p_static_assert_declaration->constant_expression->type, p_obj, !ex);
             if (p_obj->is_temporary)
             {
                 p_obj->current.state = FLOW_OBJECT_STATE_LIFE_TIME_ENDED;
@@ -54232,7 +54263,7 @@ static struct platform platform_catalina =
   .long_long_aligment = 4,
   
   .float_n_bits = 32,
-  .float_aligment = 32,
+  .float_aligment = 4,
 
   .double_n_bits = 32,
   .double_aligment = 4,
@@ -54281,7 +54312,31 @@ struct platform* get_platform(enum  target target)
 }
 
 
-int get_num_of_bits(enum target target, enum object_type type)
+long long target_signed_max(enum  target target, enum object_type type)
+{
+    int bits = target_get_num_of_bits(target, type);
+
+    if (bits >= 64) {
+        return 0x7FFFFFFFFFFFFFFFLL; // (2^(63) - 1)
+    } 
+      
+    
+    return (1LL << (bits - 1)) - 1; // 2^(bits-1) - 1    
+}
+
+unsigned long long target_unsigned_max(enum  target target, enum object_type type)
+{
+    /*
+      2^bits - 1
+    */
+    int bits = target_get_num_of_bits(target, type);
+    if (bits >= 64)
+        return ~0ULL;   // all bits set to 1
+    
+    return (1ULL << bits) - 1;    
+}
+
+int target_get_num_of_bits(enum target target, enum object_type type)
 {
     switch (type)
     {

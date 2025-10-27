@@ -360,7 +360,7 @@ struct options
     /*
       -fdiagnostics-color=never
     */
-    bool disable_colors;
+    bool color_disabled;
 
     /*
       -dump-tokens

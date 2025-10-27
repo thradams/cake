@@ -312,6 +312,8 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     const char* fmt, ...)
 {
 
+    const bool color_enabled = !ctx->options.color_disabled;
+
     if (ctx->p_diagnostic_id_stack &&
         ctx->p_diagnostic_id_stack->size > 0)
     {
@@ -423,7 +425,10 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
 
     char buffer[200] = { 0 };
 
-    print_position(marker.file, marker.line, marker.start_col, ctx->options.visual_studio_ouput_format);
+    print_position(marker.file, marker.line,
+        marker.start_col,
+        ctx->options.visual_studio_ouput_format,
+        color_enabled);
 
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
@@ -454,22 +459,28 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     {
         if (is_error)
         {
-            printf(LIGHTRED "error " WHITE "C%04d: %s\n" RESET, w, buffer);
+            if (color_enabled)
+                printf(LIGHTRED "error " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+            else
+                printf("error "        "C%04d: %s\n", w, buffer);
         }
         else if (is_warning)
         {
-            printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" RESET, w, buffer);
+            if (color_enabled)
+                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+            else
+                printf("warning "  "C%04d: %s\n", w, buffer);
         }
         else if (is_note)
         {
-            if (w == W_LOCATION)
-                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
+            if (color_enabled)
+                printf(LIGHTCYAN "note: " WHITE "%s\n" COLOR_RESET, buffer);
             else
-                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
+                printf("note: " "%s\n", buffer);
         }
     }
 
-    print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
+    print_line_and_token(&marker, color_enabled);
 
 
     if (ctx->sarif_file)
@@ -10891,6 +10902,8 @@ int compile_one_file(const char* file_name,
     const char** argv,
     struct report* report)
 {
+    bool color_enabled = !options->color_disabled;
+
     printf("%s\n", file_name);
     struct preprocessor_ctx prectx = { 0 };
     prectx.options = *options;
@@ -10978,7 +10991,7 @@ int compile_one_file(const char* file_name,
 
         if (options->dump_tokens)
         {
-            print_tokens(tokens.head);
+            print_tokens(color_enabled, tokens.head);
         }
 
         prectx.options.diagnostic_stack.stack[prectx.options.diagnostic_stack.top_index].notes |= (1ULL << W_NOTE);
@@ -10995,7 +11008,7 @@ int compile_one_file(const char* file_name,
         if (options->dump_pptokens)
         {
             if (ast.token_list.head != NULL)
-                print_tokens(ast.token_list.head);
+                print_tokens(color_enabled, ast.token_list.head);
         }
 
         if (options->preprocess_only)
@@ -11095,13 +11108,13 @@ int compile_one_file(const char* file_name,
             printf("-------------------------------------------\n");
             printf("%s", content);
             printf("\n-------------------------------------------\n");
-            if (ctx.options.disable_colors)
+            if (color_enabled)
             {
-                printf("TEST FAILED" " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+                printf(LIGHTRED "TEST FAILED" COLOR_RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
             }
             else
             {
-                printf(LIGHTRED "TEST FAILED" RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+                printf("TEST FAILED" " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
             }
             printf("\n\n");
             report->test_failed++;
@@ -11109,13 +11122,13 @@ int compile_one_file(const char* file_name,
         else
         {
             report->test_succeeded++;
-            if (ctx.options.disable_colors)
+            if (color_enabled)
             {
-                printf("TEST OK\n");
+                printf(LIGHTGREEN "TEST OK\n" COLOR_RESET);
             }
             else
             {
-                printf(LIGHTGREEN "TEST OK\n" RESET);
+                printf("TEST OK\n");
             }
         }
     }
@@ -11566,8 +11579,9 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     /*
       This function is called by the web playground
     */
-    printf(WHITE "Cake " CAKE_VERSION RESET "\n");
+    printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
     printf(WHITE "cake %s main.c\n", pszoptions);
+
     struct report report = { 0 };
     return (char* _Owner _Opt)compile_source(pszoptions, content, &report);
 }

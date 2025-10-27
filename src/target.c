@@ -536,7 +536,7 @@ static struct platform platform_catalina =
   .long_long_aligment = 4,
   
   .float_n_bits = 32,
-  .float_aligment = 32,
+  .float_aligment = 4,
 
   .double_n_bits = 32,
   .double_aligment = 4,
@@ -585,7 +585,31 @@ struct platform* get_platform(enum  target target)
 }
 
 
-int get_num_of_bits(enum target target, enum object_type type)
+long long target_signed_max(enum  target target, enum object_type type)
+{
+    int bits = target_get_num_of_bits(target, type);
+
+    if (bits >= 64) {
+        return 0x7FFFFFFFFFFFFFFFLL; // (2^(63) - 1)
+    } 
+      
+    
+    return (1LL << (bits - 1)) - 1; // 2^(bits-1) - 1    
+}
+
+unsigned long long target_unsigned_max(enum  target target, enum object_type type)
+{
+    /*
+      2^bits - 1
+    */
+    int bits = target_get_num_of_bits(target, type);
+    if (bits >= 64)
+        return ~0ULL;   // all bits set to 1
+    
+    return (1ULL << bits) - 1;    
+}
+
+int target_get_num_of_bits(enum target target, enum object_type type)
 {
     switch (type)
     {

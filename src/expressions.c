@@ -544,7 +544,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     struct expression* _Owner _Opt p_expression_node = NULL;
 
     const unsigned long long 
-        wchar_max_value = object_type_get_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
+        wchar_max_value = target_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
 
     try
     {
@@ -781,22 +781,22 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
     const unsigned long long unsigned_int_max_value = 
-        object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_INT);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_INT);
 
     const unsigned long long signed_int_max_value = 
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
 
     const unsigned long long signed_long_max_value = 
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
 
     const unsigned long long unsigned_long_max_value = 
-        object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
     
     const unsigned long long signed_long_long_max_value = 
-        object_type_get_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
+        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
 
     const unsigned long long unsigned_long_long_max_value = 
-        object_type_get_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
+        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
 
     if (ctx->current == NULL)
@@ -888,7 +888,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             if (value <= unsigned_int_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_unsigned_int(ctx->options.target, (unsigned int)value);
+                p_expression_node->object = object_make_unsigned_int(ctx->options.target,  value);
                 p_expression_node->type.type_specifier_flags = (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED);
             }
             else if (value <= unsigned_long_max_value && suffix[2] != 'L')
@@ -912,13 +912,13 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             if (value <= signed_int_max_value && suffix[0] != 'L')
             {
                 object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_signed_int(ctx->options.target, (int)value);
+                p_expression_node->object = object_make_signed_int(ctx->options.target, value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
             }
             else if (value <= signed_int_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_signed_long(target, (int)value);
+                p_expression_node->object = object_make_signed_long(target, value);
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             }
             else if ((target == TARGET_X86_MSVC || target == TARGET_X64_MSVC) &&

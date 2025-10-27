@@ -752,7 +752,8 @@ void flow_object_remove_state(struct flow_object* object, int state_number)
 
 }
 
-void print_object_core(int ident,
+void print_object_core(bool color_enabled,
+    int ident,
     struct object_visitor* p_visitor,
     const char* previous_names,
     bool is_pointer,
@@ -799,7 +800,7 @@ void print_object_core(int ident,
                             visitor.p_type = &p_member_declarator->declarator->type;
                             visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
-                            print_object_core(ident + 2, &visitor, buffer,
+                            print_object_core(color_enabled, ident + 2, &visitor, buffer,
                                 type_is_pointer(&p_member_declarator->declarator->type), short_version,
                                 visit_number);
 
@@ -821,7 +822,8 @@ void print_object_core(int ident,
 
                     int visit_number0 = p_visitor->p_object->visit_number;
                     p_visitor->p_object->visit_number = 0;
-                    print_object_core(ident + 1,
+                    print_object_core(color_enabled,
+                        ident + 1,
                         p_visitor,
                         previous_names,
                         false,
@@ -876,18 +878,23 @@ void print_object_core(int ident,
             struct flow_object_state* _Opt it = p_visitor->p_object->current.next;
             while (it)
             {
-                printf(LIGHTCYAN);
+                if (color_enabled)
+                    printf(LIGHTCYAN);
+
                 printf("(#%02d %s)", it->state_number, it->dbg_name);
                 object_state_set_item_print(it);
-                printf(RESET);
+                if (color_enabled)
+                    printf(COLOR_RESET);
                 printf(",");
                 it = it->next;
             }
             //printf("*");
-            printf(LIGHTMAGENTA);
+            if (color_enabled)
+                printf(LIGHTMAGENTA);
             printf("(current)");
             flow_object_print_state(p_visitor->p_object);
-            printf(RESET);
+            if (color_enabled)
+                printf(COLOR_RESET);
             printf("}");
         }
         printf("\n");
@@ -1105,7 +1112,7 @@ void object_get_name(const struct type* p_type,
     int out_size);
 
 
-void print_flow_object(struct type* p_type, struct flow_object* p_object, bool short_version)
+void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version)
 {
     char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
@@ -1113,7 +1120,7 @@ void print_flow_object(struct type* p_type, struct flow_object* p_object, bool s
     _Opt struct object_visitor visitor = { 0 };
     visitor.p_type = p_type;
     visitor.p_object = p_object;
-    print_object_core(0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
+    print_object_core(color_enabled, 0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
 }
 
 
@@ -6909,7 +6916,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         if (p_obj)
         {
-            print_flow_object(&p_static_assert_declaration->constant_expression->type, p_obj, !ex);
+            const bool color_enabled = !ctx->ctx->options.color_disabled;
+            print_flow_object(color_enabled,  &p_static_assert_declaration->constant_expression->type, p_obj, !ex);
             if (p_obj->is_temporary)
             {
                 p_obj->current.state = FLOW_OBJECT_STATE_LIFE_TIME_ENDED;

@@ -168,7 +168,7 @@ struct flow_visit_ctx;
 struct token;
 
 
-void print_flow_object(struct type* p_type, struct flow_object* p_object, bool short_version);
+void print_flow_object(bool color_enabled, struct type* p_type, struct flow_object* p_object, bool short_version);
 
 struct marker;
 

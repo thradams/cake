@@ -675,7 +675,7 @@ bool token_list_is_empty(struct token_list* p)
     return p->head == NULL;
 }
 
-void print_list(struct token_list* list)
+void print_list(bool color_enabled, struct token_list* list)
 {
     struct token* _Opt current = list->head;
     while (current)
@@ -686,7 +686,10 @@ void print_list(struct token_list* list)
             //printf("`");
         }
         print_literal2(current->lexeme);
-        printf(RESET);
+
+        if (color_enabled)
+            printf(COLOR_RESET);
+
         if (current == list->tail)
         {
             //printf("`");
@@ -714,23 +717,30 @@ void print_literal2(const char* s)
 }
 
 
-void print_token(const struct token* p_token)
+void print_token(bool color_enabled, const struct token* p_token)
 {
     for (int i = 0; i < p_token->level; i++)
     {
         printf("  ");
     }
     if (p_token->flags & TK_FLAG_FINAL)
-        printf(LIGHTGREEN);
+    {
+        if (color_enabled)
+            printf(LIGHTGREEN);
+    }
     else
-        printf(LIGHTGRAY);
+    {
+        if (color_enabled)
+            printf(LIGHTGRAY);
+    }
     char buffer0[50] = { 0 };
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
-        printf(LIGHTCYAN);
+        if (color_enabled)
+            printf(LIGHTCYAN);
     }
     char buffer[50] = { 0 };
     strcat(buffer, "[");
@@ -758,21 +768,28 @@ void print_token(const struct token* p_token)
     printf("%-20s ", buffer);
     print_literal2(p_token->lexeme);
     printf("\n");
-    printf(RESET);
+    if (color_enabled)
+        printf(COLOR_RESET);
 }
 
-void print_tokens(const struct token* _Opt p_token)
+void print_tokens(bool color_enabled, const struct token* _Opt p_token)
 {
-    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
+    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+
+    if (color_enabled)
+        printf(COLOR_RESET);
+
     const struct token* _Opt current = p_token;
     while (current)
     {
-        print_token(current);
+        print_token(color_enabled, current);
         current = current->next;
     }
     printf("\n");
-    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    printf(RESET);
+    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+
+    if (color_enabled)
+        printf(COLOR_RESET);
 }
 
 
@@ -863,7 +880,7 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");
 }
 
-void print_position(const char* path, int line, int col, bool visual_studio_ouput_format)
+void print_position(const char* path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
 {
 
     if (visual_studio_ouput_format)
@@ -874,13 +891,16 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     else
     {
         //GCC format
-        printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+        if (color_enabled)
+            printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+        else
+            printf("%s:%d:%d: ", path ? path : "<>", line, col);
     }
 }
 
-void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format)
+void print_line_and_token(struct marker* p_marker, bool color_enabled)
 {
-
+    
     try
     {
         const struct token* _Opt p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
@@ -890,8 +910,8 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
 
         const int line = p_marker->line;
 
-        if (!visual_studio_ouput_format)
-            printf(RESET);
+        if (color_enabled)
+            printf(COLOR_RESET);
 
         char nbuffer[20] = { 0 };
         int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
@@ -916,13 +936,13 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         //only expand macros if the error is inside
         const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
-        if (!visual_studio_ouput_format)
+        if (color_enabled)
             printf(LIGHTBLUE);
 
         const struct token* _Opt p_item = p_line_begin;
         while (p_item)
         {
-            if (!visual_studio_ouput_format)
+            if (color_enabled)
             {
                 if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
                 {
@@ -950,9 +970,9 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
                 }
             }
 
-            if (!visual_studio_ouput_format)
+            if (color_enabled)
             {
-                printf(RESET);
+                printf(COLOR_RESET);
             }
 
             if (p_item->type == TK_NEWLINE)
@@ -960,8 +980,8 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             p_item = p_item->next;
         }
 
-        if (!visual_studio_ouput_format)
-            printf(RESET);
+        if (color_enabled)
+            printf(COLOR_RESET);
 
         if (p_item == NULL) printf("\n");
 
@@ -975,7 +995,7 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
         {
             if (p_item == p_token_begin)
             {
-                if (!visual_studio_ouput_format)
+                if (color_enabled)
                     printf(LIGHTGREEN);
                 onoff = true;
                 end_col = start_col;
@@ -1008,15 +1028,15 @@ void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_form
             {
                 complete = true;
                 onoff = false;
-                if (!visual_studio_ouput_format)
-                    printf(RESET);
+                if (color_enabled)
+                    printf(COLOR_RESET);
             }
 
             p_item = p_item->next;
         }
 
-        if (!visual_studio_ouput_format)
-            printf(RESET);
+        if (color_enabled)
+            printf(COLOR_RESET);
 
         printf("\n");
         p_marker->start_col = start_col;
