@@ -5288,7 +5288,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     //print_tokens(r.head);
     return r;
 }
-void print_token(const struct token* p_token);
+void print_token(bool color_enabled, const struct token* p_token);
 
 static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {

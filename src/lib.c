@@ -8801,7 +8801,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     //print_tokens(r.head);
     return r;
 }
-void print_token(const struct token* p_token);
+void print_token(bool color_enabled, const struct token* p_token);
 
 static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -14981,6 +14981,8 @@ void print_help()
         "\n"
         LIGHTCYAN "  -msvc-output          " COLOR_RESET "Output is compatible with visual studio\n"
         "\n"
+        LIGHTCYAN "  -fdiagnostics-color=never " COLOR_RESET "Output will not use colors\n"
+        "\n"        
         LIGHTCYAN "  -dump-tokens          " COLOR_RESET "Output tokens before preprocessor\n"
         "\n"
         LIGHTCYAN "  -dump-pp-tokens       " COLOR_RESET "Output tokens after preprocessor\n"
@@ -28774,7 +28776,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.28"
+#define CAKE_VERSION "0.12.29"
 
 
 

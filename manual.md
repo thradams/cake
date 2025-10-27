@@ -163,6 +163,9 @@ Options: x86\_x64_gcc, x64\_msvc, x64\_msvc, catalina, ccu8
 Output is compatible with Visual Studio IDE. 
 (We can click on the error message and IDE selects the line.) 
 
+#### -fdiagnostics-color=never (same as GCC)
+Output will not use colors
+
 ### -fanalyzer
 This option enables an static analysis of program flow. This is required for some
 ownership checks

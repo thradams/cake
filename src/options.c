@@ -698,6 +698,8 @@ void print_help()
         "\n"
         LIGHTCYAN "  -msvc-output          " COLOR_RESET "Output is compatible with visual studio\n"
         "\n"
+        LIGHTCYAN "  -fdiagnostics-color=never " COLOR_RESET "Output will not use colors\n"
+        "\n"        
         LIGHTCYAN "  -dump-tokens          " COLOR_RESET "Output tokens before preprocessor\n"
         "\n"
         LIGHTCYAN "  -dump-pp-tokens       " COLOR_RESET "Output tokens after preprocessor\n"
