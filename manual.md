@@ -471,6 +471,21 @@ Cake converts hexadecimal floating-point values to decimal
 floating-point representation using strtod followed by snprintf.
 This conversion may introduce precision loss.
 
+
+```
+0x1.234p1 means:
+
+           2       3     4
+r1= 1 +   ---  +  --- + ---   = 1.1376953125 
+            1        2     3
+          16       16     16
+
+                1
+1.1376953125 x 2  = 2.275390625 (final number)
+
+```
+
+
 ### C99 Compound literals
 
 ```c

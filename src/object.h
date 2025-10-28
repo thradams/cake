@@ -17,13 +17,6 @@
 #include <inttypes.h>
 struct parser_ctx;
 
-#ifdef __GNUC__
-#define CAKE_FLOAT128_DEFINED 1
-#endif
-
-
-
-
 
 long long target_signed_max(enum  target target, enum object_type type);
 unsigned long long target_unsigned_max(enum  target target, enum object_type type);
@@ -34,7 +27,8 @@ enum object_value_state
     CONSTANT_VALUE_STATE_UNINITIALIZED,
     CONSTANT_VALUE_STATE_ANY,
     CONSTANT_VALUE_STATE_CONSTANT,
-    //flow analysis
+    
+    /*flow analysis*/
     CONSTANT_VALUE_NOT_EQUAL,
     CONSTANT_VALUE_EQUAL,
 };
@@ -46,7 +40,6 @@ struct object_list
 };
 
 void object_list_push(struct object_list* list, struct object* item);
-
 
 
 struct object
@@ -61,11 +54,9 @@ struct object
     {
         signed long long  host_long_long;
         unsigned long long  host_u_long_long;
-        float host_float;
-        double host_double;
-        long double long_double_val;
-
+        long double host_long_double;
     } value;
+
     struct object* _Opt parent; //to be removed
     struct object* _Opt p_ref;
     struct expression* _Opt p_init_expression;
@@ -80,11 +71,9 @@ void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
 
 
-
-//Make constant value
 struct object            object_make_char(enum target target, int value);
 struct object            object_make_wchar_t(enum target target, int value);
-struct object             object_make_size_t(enum target target, uint64_t value);
+struct object             object_make_size_t(enum target target, unsigned long long value);
 struct object               object_make_bool(enum target target, bool value);
 struct object            object_make_nullptr(enum target target);
 
@@ -98,9 +87,9 @@ struct object      object_make_unsigned_long(enum target target, unsigned long l
 
 struct object   object_make_signed_long_long(enum target target, signed long long value);
 struct object object_make_unsigned_long_long(enum target target, unsigned long long value);
-struct object              object_make_float(float value);
-struct object             object_make_double(double value);
-struct object        object_make_long_double(long double value);
+struct object              object_make_float(enum target target, long double value);
+struct object             object_make_double(enum target target, long double value);
+struct object        object_make_long_double(enum target target, long double value);
 struct object        object_make_reference(struct object* object);
 
 
@@ -150,7 +139,7 @@ struct object object_dup(const struct object* src);
 
 bool object_is_reference(const struct object* p_object);
 bool object_is_derived(const struct object* p_object);
-bool object_is_signed(const struct object* p_object);
+
 void object_set_any(struct object* p_object);
 
 bool object_is_one(const struct object* p_object);

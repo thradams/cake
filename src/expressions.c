@@ -965,33 +965,20 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     {
         if (suffix[0] == 'F')
         {
-#ifdef __TINYC__
-            long double value = strtod(buffer, NULL);
-#else
-
-            float value = strtof(buffer, NULL);
-#endif
+            double value = strtod(buffer, NULL);
             if (isinf(value) && errno == ERANGE)
             {
             }
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
             object_destroy(&p_expression_node->object);
-            p_expression_node->object = object_make_float(value);
+            p_expression_node->object = object_make_float(ctx->options.target, value);
         }
         else if (suffix[0] == 'L')
         {
-#ifdef __TINYC__
             long double value = strtod(buffer, NULL);
-#else
-            long double value = strtold(buffer, NULL);
-#endif
-            if (isinf(value) && errno == ERANGE)
-            {
-            }
-
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
             object_destroy(&p_expression_node->object);
-            p_expression_node->object = object_make_long_double(value);
+            p_expression_node->object = object_make_long_double(ctx->options.target, value);
         }
         else
         {
@@ -1000,7 +987,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
             }
             object_destroy(&p_expression_node->object);
-            p_expression_node->object = object_make_double(value);
+            p_expression_node->object = object_make_double(ctx->options.target, value);
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE;
         }
     }
@@ -1146,7 +1133,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = type_make_literal_string2((int)strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST, ctx->options.target);
+                p_expression_node->type = type_make_literal_string((int)strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST, ctx->options.target);
             }
             else
             {
@@ -1343,7 +1330,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             }
 
             enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
-            p_expression_node->type = type_make_literal_string2(number_of_elements_including_zero, char_type_specifiers, lit_flags, ctx->options.target);
+            p_expression_node->type = type_make_literal_string(number_of_elements_including_zero, char_type_specifiers, lit_flags, ctx->options.target);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {

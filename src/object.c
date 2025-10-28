@@ -18,6 +18,23 @@
 #include <string.h>
 #include <math.h>
 
+/*
+   Integer cast to int N
+*/
+#define CAKE_CREATE_MASK(bits) ((uint64_t)((1ULL << (bits)) - 1))
+
+#define CAKE_CAST_UINT_N(value, bits) ((uint64_t)(((uint64_t)(value)) &  CAKE_CREATE_MASK(bits)))
+
+#define CAKE_SIGN_EXTEND(num, bits) ((int64_t)((((uint64_t)(num)) & (1ULL << ((bits) - 1))) ? \
+    ((num) | ~CAKE_CREATE_MASK(bits)) : (((int64_t)(num)) &  CAKE_CREATE_MASK(bits))))
+
+#define CAKE_CAST_INT_N(value, bits) CAKE_SIGN_EXTEND((int64_t)(((uint64_t)(value)) &  CAKE_CREATE_MASK(bits)), bits)
+
+/*
+   Floating point casts
+*/
+#define CAKE_CAST_FLOAT_N(value, bits)  (((bits) == 32) ? (long double)(float) ((long double)(value)) : ((bits) == 64) ? (long double)(double)((long double)(value)) : (long double) ((long double)(value)))
+
 
 static enum object_type to_unsigned(enum object_type t)
 {
@@ -28,11 +45,16 @@ static enum object_type to_unsigned(enum object_type t)
     case TYPE_SIGNED_INT: return TYPE_UNSIGNED_INT;
     case TYPE_SIGNED_LONG:return TYPE_UNSIGNED_LONG;
     case TYPE_SIGNED_LONG_LONG: return TYPE_UNSIGNED_LONG_LONG;
+
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
+        return t;
+    
     }
     assert(false);
     return t;
 }
-
 
 static bool object_type_is_signed_integer(enum object_type type)
 {
@@ -83,41 +105,6 @@ static bool object_type_is_unsigned_integer(enum object_type type)
     }
     return false;
 }
-
-static bool object_type_is_integer(enum object_type type)
-{
-    switch (type)
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-        return true;
-
-    }
-    return false;
-}
-
-
-#define CAKE_CREATE_MASK(bits) ((uint64_t)((1ULL << (bits)) - 1))
-
-// Macro to emulate casting to N-bit unsigned integer
-#define CAKE_CAST_TO_N_BITS_UNSIGNED(value, bits) ((uint64_t)(((uint64_t)(value)) &  CAKE_CREATE_MASK(bits)))
-
-// Macro to sign-extend a number based on N-bit sign bit
-#define CAKE_SIGN_EXTEND(num, bits) ((int64_t)((((uint64_t)(num)) & (1ULL << ((bits) - 1))) ? \
-    ((num) | ~CAKE_CREATE_MASK(bits)) : (((int64_t)(num)) &  CAKE_CREATE_MASK(bits))))
-
-// Macro to emulate casting to N-bit signed integer
-#define CAKE_CAST_TO_N_BITS_SIGNED(value, bits) CAKE_SIGN_EXTEND((int64_t)(((uint64_t)(value)) &  CAKE_CREATE_MASK(bits)), bits)
-
-
 
 _Attr(nodiscard)
 bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
@@ -361,13 +348,13 @@ bool object_has_constant_value(const struct object* a)
     return a->state == CONSTANT_VALUE_STATE_CONSTANT;
 }
 
-struct object object_make_size_t(enum target target, uint64_t value)
+struct object object_make_size_t(enum target target, unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = get_platform(target)->size_t_type;
     const unsigned long long bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, bits);
+    r.value.host_u_long_long = CAKE_CAST_UINT_N(value, bits);
     return r;
 }
 
@@ -377,7 +364,7 @@ struct object object_make_nullptr(enum target target)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = get_platform(target)->size_t_type;
     const unsigned long long bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(0, bits);
+    r.value.host_u_long_long = CAKE_CAST_UINT_N(0, bits);
     return r;
 }
 
@@ -389,11 +376,11 @@ struct object object_make_char(enum target target, int value)
 
     if (object_type_is_signed_integer(r.value_type))
     {
-        r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(value, get_platform(target)->char_n_bits);
+        r.value.host_long_long = CAKE_CAST_INT_N(value, get_platform(target)->char_n_bits);
     }
     else
     {
-        r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, get_platform(target)->char_n_bits);
+        r.value.host_u_long_long = CAKE_CAST_UINT_N(value, get_platform(target)->char_n_bits);
     }
 
     return r;
@@ -405,7 +392,7 @@ struct object object_make_wchar_t(enum target target, int value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = get_platform(target)->wchar_t_type;
     unsigned long long bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, bits);
+    r.value.host_u_long_long = CAKE_CAST_UINT_N(value, bits);
     return r;
 }
 
@@ -416,17 +403,14 @@ struct object object_make_bool(enum target target, bool value)
     r.value_type = get_platform(target)->bool_type;
     if (object_type_is_signed_integer(r.value_type))
     {
-        r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(value, get_platform(target)->bool_n_bits);
+        r.value.host_long_long = CAKE_CAST_INT_N(value, get_platform(target)->bool_n_bits);
     }
     else
     {
-        r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, get_platform(target)->bool_n_bits);
+        r.value.host_u_long_long = CAKE_CAST_UINT_N(value, get_platform(target)->bool_n_bits);
     }
     return r;
 }
-
-#pragma warning( push )
-#pragma warning( disable : 4244 )
 
 int object_to_str(const struct object* a, int n, char str[/*n*/])
 {
@@ -442,7 +426,7 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
         snprintf(str, n, "%lld", a->value.host_long_long);
         break;
         break;
-    
+
     case TYPE_SIGNED_LONG:
         snprintf(str, n, "%lldL", a->value.host_long_long);
         break;
@@ -462,23 +446,19 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
         break;
 
     case TYPE_UNSIGNED_LONG_LONG:
-
         snprintf(str, n, "%lluULL", a->value.host_u_long_long);
         break;
 
     case TYPE_FLOAT:
+        snprintf(str, n, "%Lff", a->value.host_long_double);
+        break;
     case TYPE_DOUBLE:
-    {
-        snprintf(str, n, "%ff", a->value.host_double);
-    }
-    break;
+        snprintf(str, n, "%Lf", a->value.host_long_double);
+        break;
 
     case TYPE_LONG_DOUBLE:
-    {
-        snprintf(str, n, "%LfLF", a->value.long_double_val);
-    }
-
-    break;
+        snprintf(str, n, "%LfLF", a->value.host_long_double);
+        break;
     }
 
     return 0;
@@ -506,9 +486,10 @@ bool object_is_true(const struct object* a)
     case TYPE_UNSIGNED_LONG_LONG:
         return a->value.host_u_long_long;
 
-    case TYPE_FLOAT: return a->value.host_float;
-    case TYPE_DOUBLE: return a->value.host_double;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_val;
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
+        return a->value.host_long_double;
     }
     assert(0);
     return 0;
@@ -519,7 +500,7 @@ struct object object_make_signed_char(signed char value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_CHAR;
-    r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(value, get_platform(TARGET_X86_MSVC)->char_n_bits);
+    r.value.host_long_long = CAKE_CAST_INT_N(value, get_platform(TARGET_X86_MSVC)->char_n_bits);
     return r;
 }
 
@@ -534,7 +515,7 @@ void object_increment_value(enum target target, struct object* a)
     case TYPE_SIGNED_LONG:
     case TYPE_SIGNED_LONG_LONG:
 
-        a->value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(a->value.host_long_long + 1, target_get_num_of_bits(target, a->value_type));
+        a->value.host_long_long = CAKE_CAST_INT_N(a->value.host_long_long + 1, target_get_num_of_bits(target, a->value_type));
         break;
 
     case TYPE_UNSIGNED_CHAR:
@@ -542,17 +523,14 @@ void object_increment_value(enum target target, struct object* a)
     case TYPE_UNSIGNED_INT:
     case TYPE_UNSIGNED_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
-        a->value.host_u_long_long = CAKE_CAST_TO_N_BITS_SIGNED(a->value.host_u_long_long + 1, target_get_num_of_bits(target, a->value_type));
+        a->value.host_u_long_long = CAKE_CAST_INT_N(a->value.host_u_long_long + 1, target_get_num_of_bits(target, a->value_type));
         break;
 
     case TYPE_FLOAT:
-        a->value.host_float++;
-        break;
     case TYPE_DOUBLE:
-        a->value.host_double++;
-        break;
     case TYPE_LONG_DOUBLE:
-        a->value.long_double_val++;
+        a->value.host_long_double++;
+        a->value.host_long_double = CAKE_CAST_FLOAT_N(a->value.host_long_double, target_get_num_of_bits(target, a->value_type));
         break;
     }
 }
@@ -562,7 +540,7 @@ struct object object_make_unsigned_char(enum target target, unsigned char value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_CHAR;
-    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, get_platform(target)->char_n_bits);
+    r.value.host_u_long_long = CAKE_CAST_UINT_N(value, get_platform(target)->char_n_bits);
     //assert(false);
     return r;
 }
@@ -573,7 +551,7 @@ struct object object_make_signed_short(signed short value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_SHORT;
-    r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(value, 16);
+    r.value.host_long_long = CAKE_CAST_INT_N(value, 16);
     //RTODO
     return r;
 }
@@ -583,21 +561,21 @@ struct object object_make_uint8(enum target target, uint8_t value)
 {
     struct object r = { 0 };
     r.value_type = to_unsigned(get_platform(target)->int8_type);
-    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, 8);
+    r.value.host_u_long_long = CAKE_CAST_UINT_N(value, 8);
     return r;
 }
 struct object object_make_uint16(enum target target, uint16_t value)
 {
     struct object r = { 0 };
     r.value_type = to_unsigned(get_platform(target)->int16_type);
-    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, 16);
+    r.value.host_u_long_long = CAKE_CAST_UINT_N(value, 16);
     return r;
 }
 struct object object_make_uint32(enum target target, uint32_t value)
 {
     struct object r = { 0 };
     r.value_type = to_unsigned(get_platform(target)->int32_type);
-    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, 32);
+    r.value.host_u_long_long = CAKE_CAST_UINT_N(value, 32);
     return r;
 }
 
@@ -606,7 +584,7 @@ struct object object_make_signed_int(enum  target target, long long value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT;
-    r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(value, get_platform(target)->int_n_bits);
+    r.value.host_long_long = CAKE_CAST_INT_N(value, get_platform(target)->int_n_bits);
     return r;
 }
 
@@ -615,7 +593,7 @@ struct object object_make_unsigned_int(enum target target, unsigned long long va
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_INT;
-    r.value.host_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, get_platform(target)->int_n_bits);
+    r.value.host_long_long = CAKE_CAST_UINT_N(value, get_platform(target)->int_n_bits);
     return r;
 }
 
@@ -625,7 +603,7 @@ struct object object_make_signed_long(enum target target, signed long long value
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT; //RTODO
-    r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(value, get_platform(target)->long_n_bits);
+    r.value.host_long_long = CAKE_CAST_INT_N(value, get_platform(target)->long_n_bits);
     return r;
 }
 
@@ -635,7 +613,7 @@ struct object object_make_unsigned_long(enum target target, unsigned long long v
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG;
-    r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(value, get_platform(target)->long_n_bits);
+    r.value.host_u_long_long = CAKE_CAST_UINT_N(value, get_platform(target)->long_n_bits);
     return r;
 }
 
@@ -645,7 +623,7 @@ struct object object_make_signed_long_long(enum target target, signed long long 
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG_LONG;
 
-    r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(value, get_platform(target)->long_long_n_bits);
+    r.value.host_long_long = CAKE_CAST_INT_N(value, get_platform(target)->long_long_n_bits);
     return r;
 }
 
@@ -669,9 +647,10 @@ signed long long object_to_signed_long_long(const struct object* a)
     case TYPE_UNSIGNED_LONG_LONG:
         return a->value.host_u_long_long;
 
-    case TYPE_FLOAT: return a->value.host_float;
-    case TYPE_DOUBLE: return a->value.host_double;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_val;
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
+        return (long long) a->value.host_long_double;
     }
     assert(0);
     return 0;
@@ -706,29 +685,39 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     case TYPE_UNSIGNED_LONG_LONG:
         return a->value.host_u_long_long;
 
-    case TYPE_FLOAT: return a->value.host_float;
-    case TYPE_DOUBLE: return a->value.host_double;
-    case TYPE_LONG_DOUBLE: return a->value.long_double_val;
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
+        return (unsigned long long) a->value.host_long_double;
     }
     assert(0);
     return 0;
 }
 
-struct object object_make_float(float value)
+struct object object_make_float(enum target target, long double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_FLOAT;
-    r.value.host_float = value;
+    r.value.host_long_double = CAKE_CAST_FLOAT_N(value, target_get_num_of_bits(target, TYPE_FLOAT));
     return r;
 }
 
-struct object object_make_double(double value)
+struct object object_make_double(enum target target, long double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_DOUBLE;
-    r.value.host_double = value;
+    r.value.host_long_double = CAKE_CAST_FLOAT_N(value, target_get_num_of_bits(target, TYPE_DOUBLE));
+    return r;
+}
+
+struct object object_make_long_double(enum target target, long double value)
+{
+    struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
+    r.value_type = TYPE_LONG_DOUBLE;
+    r.value.host_long_double = CAKE_CAST_FLOAT_N(value, target_get_num_of_bits(target, TYPE_LONG_DOUBLE));
     return r;
 }
 
@@ -756,20 +745,6 @@ struct object object_make_reference(struct object* object)
     return r;
 }
 
-struct object object_make_long_double(long double value)
-{
-    struct object r = { 0 };
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_LONG_DOUBLE;
-    r.value.long_double_val = value;
-    return r;
-}
-
-
-#pragma warning( pop )
-
-
-
 struct object object_cast(enum target target, enum object_type dest_type, const struct object* v)
 {
     v = object_get_referenced(v);
@@ -790,135 +765,77 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(v->value.host_long_long, dest_n_bits);
+            r.value.host_long_long = CAKE_CAST_INT_N(v->value.host_long_long, dest_n_bits);
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(v->value.host_long_long, dest_n_bits);
-        }
-        else if (dest_type == TYPE_FLOAT)
-        {
-            r.value.host_float = (float)v->value.host_long_long;
-        }
-        else if (dest_type == TYPE_DOUBLE)
-        {
-            r.value.host_double = (double)v->value.host_long_long;
-        }
-        else if (dest_type == TYPE_LONG_DOUBLE)
-        {
-            r.value.long_double_val = (long double)v->value.host_long_long;
+            r.value.host_long_long = CAKE_CAST_UINT_N(v->value.host_long_long, dest_n_bits);
         }
         else
         {
-            assert(false);
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_long, dest_n_bits);
         }
     }
     else if (object_type_is_unsigned_integer(source_type))
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED(v->value.host_u_long_long, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_INT_N(v->value.host_u_long_long, dest_n_bits);
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED(v->value.host_u_long_long, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
-        }
-        else if (dest_type == TYPE_FLOAT)
-        {
-            r.value.host_float = (float)v->value.host_u_long_long;
-        }
-        else if (dest_type == TYPE_DOUBLE)
-        {
-            r.value.host_double = (double)v->value.host_u_long_long;
-        }
-        else if (dest_type == TYPE_LONG_DOUBLE)
-        {
-            r.value.long_double_val = (long double)v->value.host_u_long_long;
+            r.value.host_u_long_long = CAKE_CAST_UINT_N(v->value.host_u_long_long, dest_n_bits);
         }
         else
         {
-            assert(false);
+            r.value.host_long_double = v->value.host_long_double;
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, dest_type));
         }
     }
     else if (source_type == TYPE_FLOAT)
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.host_float, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_INT_N(v->value.host_long_double, dest_n_bits);
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.host_float, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
-        }
-        else if (dest_type == TYPE_FLOAT)
-        {
-            r.value.host_float = (float)v->value.host_float;
-        }
-        else if (dest_type == TYPE_DOUBLE)
-        {
-            r.value.host_double = v->value.host_float;
-        }
-        else if (dest_type == TYPE_LONG_DOUBLE)
-        {
-            r.value.long_double_val = (long double)v->value.host_float;
+            r.value.host_u_long_long = CAKE_CAST_UINT_N(v->value.host_long_double, dest_n_bits);
         }
         else
         {
-            assert(false);
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));            
         }
     }
     else if (source_type == TYPE_DOUBLE)
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.host_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.host_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
-        }
-        else if (dest_type == TYPE_FLOAT)
-        {
-            r.value.host_float = (float)v->value.host_double;
-        }
-        else if (dest_type == TYPE_DOUBLE)
-        {
-            r.value.host_double = (double)v->value.host_double;
-        }
-        else if (dest_type == TYPE_LONG_DOUBLE)
-        {
-            r.value.long_double_val = (long double)v->value.host_double;
+            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
         }
         else
         {
-            assert(false);
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));
         }
     }
     else if (source_type == TYPE_LONG_DOUBLE)
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_TO_N_BITS_SIGNED((long long)v->value.long_double_val, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, target_get_num_of_bits(target, dest_type));
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_TO_N_BITS_UNSIGNED((long long)v->value.long_double_val, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
-        }
-        else if (dest_type == TYPE_FLOAT)
-        {
-            r.value.host_float = (float)v->value.long_double_val;
-        }
-        else if (dest_type == TYPE_DOUBLE)
-        {
-            r.value.host_double = (double)v->value.long_double_val;
-        }
-        else if (dest_type == TYPE_LONG_DOUBLE)
-        {
-            r.value.long_double_val = (long double)v->value.long_double_val;
+            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, target_get_num_of_bits(target, dest_type));
         }
         else
         {
-            assert(false);
+            r.value.host_long_double = v->value.host_long_double;
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));
         }
     }
     else
@@ -1098,9 +1015,10 @@ bool object_is_zero(const struct object* p_object)
     case TYPE_UNSIGNED_LONG_LONG:
         return p_object->value.host_u_long_long == 0;
 
-    case TYPE_FLOAT: return p_object->value.host_float == 0.0;
-    case TYPE_DOUBLE: return p_object->value.host_double == 0.0;
-    case TYPE_LONG_DOUBLE: return p_object->value.long_double_val == 0.0;
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
+        return p_object->value.host_long_double == 0.0;
     }
     assert(0);
     return 0;
@@ -1131,18 +1049,13 @@ bool object_is_one(const struct object* p_object)
     case TYPE_UNSIGNED_LONG_LONG:
         return p_object->value.host_u_long_long == 1;
 
-    case TYPE_FLOAT: return p_object->value.host_float == 1.0;
-    case TYPE_DOUBLE: return p_object->value.host_double == 1.0;
-    case TYPE_LONG_DOUBLE: return p_object->value.long_double_val == 1.0;
+    case TYPE_FLOAT:
+    case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
+        return p_object->value.host_long_double == 1.0;
     }
     assert(0);
     return 0;
-}
-
-bool object_is_signed(const struct object* p_object)
-{
-    p_object = (struct object* _Opt) object_get_referenced(p_object);
-    return is_signed(p_object->value_type);
 }
 
 bool object_is_derived(const struct object* p_object)
@@ -1213,13 +1126,6 @@ int object_set(
                 it_to = it_to->next;
                 it_from = it_from->next;
             }
-            if (it_from != NULL || it_to != NULL)
-            {
-                //TODO  in dev
-              // assert(false);//TODO
-            }
-            //assert(it_from == NULL);
-            //assert(it_to == NULL);
         }
         else
         {
@@ -1611,8 +1517,17 @@ void object_print_value_debug(const struct object* a)
     case TYPE_SIGNED_INT:
         printf("%lld (int)", a->value.host_long_long);
         break;
+
     case TYPE_UNSIGNED_INT:
         printf("%llu (unsigned int)", a->value.host_u_long_long);
+        break;
+
+    case TYPE_SIGNED_LONG:
+        printf("%lld (long)", a->value.host_long_long);
+        break;
+
+    case TYPE_UNSIGNED_LONG:
+        printf("%llu (unsigned long)", a->value.host_u_long_long);
         break;
 
     case TYPE_SIGNED_LONG_LONG:
@@ -1622,15 +1537,15 @@ void object_print_value_debug(const struct object* a)
         printf("%llu (unsigned long long)", a->value.host_u_long_long);
         break;
     case TYPE_FLOAT:
-        printf("%f (float)", a->value.host_float);
+        printf("%Lf (float)", a->value.host_long_double);
         break;
 
     case TYPE_DOUBLE:
-        printf("%lf (double)", a->value.host_double);
+        printf("%Lf (double)", a->value.host_long_double);
         break;
 
     case TYPE_LONG_DOUBLE:
-        printf("%Lf (long double)", a->value.long_double_val);
+        printf("%Lf (long double)", a->value.host_long_double);
         break;
 
     }
@@ -1732,9 +1647,9 @@ bool object_is_promoted(const struct object* a)
     /*
       types smaller than int are promoted to int
     */
-    if (a->value_type == TYPE_SIGNED_CHAR   ||
+    if (a->value_type == TYPE_SIGNED_CHAR ||
         a->value_type == TYPE_UNSIGNED_CHAR ||
-        a->value_type == TYPE_SIGNED_SHORT  ||
+        a->value_type == TYPE_SIGNED_SHORT ||
         a->value_type == TYPE_UNSIGNED_SHORT)
     {
         return true;
@@ -1967,28 +1882,17 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         break;
 
     case TYPE_FLOAT:
-        if (isinf(a->value.host_float))
-        {
-            assert(false); //TODO
-            ss_fprintf(ss, "%f", a->value.host_float);
-        }
-        else
-        {
-            ss_fprintf(ss, "%f", a->value.host_float);
-        }
-        ss_fprintf(ss, "f");
-        break;
-
     case TYPE_DOUBLE:
-        if (isinf(a->value.host_double))
+    case TYPE_LONG_DOUBLE:
+        if (isinf(a->value.host_long_double))
         {
             assert(false);//TODO we dont want inf to be printed.
-            ss_fprintf(ss, "%.17g", a->value.host_double);
+            ss_fprintf(ss, "%.17g", a->value.host_long_double);
         }
         else
         {
             char temp[64] = { 0 };
-            snprintf(temp, sizeof temp, "%.17g", a->value.host_double);
+            snprintf(temp, sizeof temp, "%.17g", a->value.host_long_double);
 
             /*
               This format is good but not adding . in some cases
@@ -2015,13 +1919,12 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
 
             ss_fprintf(ss, "%s", temp);
         }
-        break;
 
-    case TYPE_LONG_DOUBLE:
-        ss_fprintf(ss, "%Lf", a->value.host_double);
-        ss_fprintf(ss, "L");
+        if (a->value_type == TYPE_FLOAT)
+            ss_fprintf(ss, "f");
+        else if (a->value_type == TYPE_LONG_DOUBLE)
+            ss_fprintf(ss, "Lf");
         break;
-
     }
 
 }
@@ -2052,7 +1955,7 @@ struct object object_equal(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long == b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long == b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2063,19 +1966,14 @@ struct object object_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long == b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long == b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_u_long_long = (a0.value.host_float == b0.value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_double == b0.value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.long_double_val == b0.value.long_double_val);
+        r.value.host_u_long_long = (a0.value.host_long_double == b0.value.host_long_double);
         break;
     }
 
@@ -2107,7 +2005,7 @@ struct object object_not_equal(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long != b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long != b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2118,19 +2016,14 @@ struct object object_not_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long != b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long != b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_u_long_long = (a0.value.host_float != b0.value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_double != b0.value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.long_double_val != b0.value.long_double_val);
+        r.value.host_u_long_long = (a0.value.host_long_double != b0.value.host_long_double);
         break;
     }
 
@@ -2163,7 +2056,7 @@ struct object object_greater_than_or_equal(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long >= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long >= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2174,19 +2067,14 @@ struct object object_greater_than_or_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long >= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long >= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_u_long_long = (a0.value.host_float >= b0.value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_double >= b0.value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.long_double_val >= b0.value.long_double_val);
+        r.value.host_u_long_long = (a0.value.host_long_double >= b0.value.host_long_double);
         break;
     }
 
@@ -2218,7 +2106,7 @@ struct object object_greater_than(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long > b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long > b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2229,19 +2117,14 @@ struct object object_greater_than(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long > b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long > b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_u_long_long = (a0.value.host_float > b0.value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_double > b0.value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.long_double_val > b0.value.long_double_val);
+        r.value.host_u_long_long = (a0.value.host_long_double > b0.value.host_long_double);
         break;
     }
 
@@ -2272,7 +2155,7 @@ struct object object_smaller_than_or_equal(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long <= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long <= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2283,19 +2166,14 @@ struct object object_smaller_than_or_equal(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long <= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long <= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_u_long_long = (a0.value.host_float <= b0.value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_double <= b0.value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.long_double_val <= b0.value.long_double_val);
+        r.value.host_u_long_long = (a0.value.host_long_double <= b0.value.host_long_double);
         break;
     }
 
@@ -2327,7 +2205,7 @@ struct object object_smaller_than(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long < b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long < b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2338,19 +2216,14 @@ struct object object_smaller_than(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long < b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long < b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_u_long_long = (a0.value.host_float < b0.value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_double < b0.value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.long_double_val < b0.value.long_double_val);
+        r.value.host_u_long_long = (a0.value.host_long_double < b0.value.host_long_double);
         break;
     }
 
@@ -2382,7 +2255,7 @@ struct object object_add(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long + b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long + b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
         signed long long exact_result;
         if (signed_long_long_add(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
@@ -2410,7 +2283,7 @@ struct object object_add(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long + b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long + b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_add(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -2431,14 +2304,10 @@ struct object object_add(enum target target,
         break;
 
     case TYPE_FLOAT:
-        r.value.host_float = a0.value.host_float + b0.value.host_float;
-        break;
     case TYPE_DOUBLE:
-        r.value.host_double = a0.value.host_float + b0.value.host_double;
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.long_double_val = a0.value.long_double_val + b0.value.long_double_val;
+        r.value.host_long_double = a0.value.host_long_double + b0.value.host_long_double;
+        r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, common_type));
     }
 
     return r;
@@ -2469,7 +2338,7 @@ struct object object_sub(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long - b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long - b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
         signed long long exact_result;
         if (signed_long_long_sub(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
@@ -2497,7 +2366,7 @@ struct object object_sub(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long - b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long - b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_sub(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -2518,14 +2387,10 @@ struct object object_sub(enum target target,
         break;
 
     case TYPE_FLOAT:
-        r.value.host_float = a0.value.host_float - b0.value.host_float;
-        break;
     case TYPE_DOUBLE:
-        r.value.host_double = a0.value.host_float - b0.value.host_double;
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.long_double_val = a0.value.long_double_val - b0.value.long_double_val;
+        r.value.host_long_double = a0.value.host_long_double - b0.value.host_long_double;
+        r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, common_type));
     }
 
     return r;
@@ -2557,7 +2422,7 @@ struct object object_mul(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long * b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long * b0.value.host_long_long, target_get_num_of_bits(target, common_type));
 
         signed long long exact_result;
         if (signed_long_long_mul(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
@@ -2585,7 +2450,7 @@ struct object object_mul(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long * b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long * b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         unsigned long long exact_result;
         if (unsigned_long_long_mul(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
@@ -2606,14 +2471,10 @@ struct object object_mul(enum target target,
         break;
 
     case TYPE_FLOAT:
-        r.value.host_float = a0.value.host_float * b0.value.host_float;
-        break;
     case TYPE_DOUBLE:
-        r.value.host_double = a0.value.host_float * b0.value.host_double;
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.long_double_val = a0.value.long_double_val * b0.value.long_double_val;
+        r.value.host_long_double = a0.value.host_long_double * b0.value.host_long_double;
+        r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, common_type));
     }
 
     return r;
@@ -2651,7 +2512,7 @@ struct object object_div(enum target target,
         }
 
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long / b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long / b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2668,19 +2529,15 @@ struct object object_div(enum target target,
         }
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long / b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long / b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_float = a0.value.host_float / b0.value.host_float;
-        break;
     case TYPE_DOUBLE:
-        r.value.host_double = a0.value.host_float / b0.value.host_double;
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.long_double_val = a0.value.long_double_val / b0.value.long_double_val;
+        r.value.host_long_double = a0.value.host_long_double / b0.value.host_long_double;
+        r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, common_type));
     }
 
     return r;
@@ -2717,7 +2574,7 @@ struct object object_mod(enum target target,
         }
 
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long % b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long % b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2734,7 +2591,7 @@ struct object object_mod(enum target target,
         }
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long % b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long % b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2796,7 +2653,7 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(!a->value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(!a->value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2807,19 +2664,15 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(!a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(!a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_u_long_long = (!a->value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_u_long_long = (!a->value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (!a->value.long_double_val);
+        r.value.host_u_long_long = (!a->value.host_long_double);
+        r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, common_type));
         break;
     }
 
@@ -2845,7 +2698,7 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(~a->value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(~a->value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2856,7 +2709,7 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(~a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(~a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -2889,7 +2742,7 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(-(a->value.host_long_long), target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(-(a->value.host_long_long), target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2900,19 +2753,15 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(-(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(-(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_float = -(a->value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_double = -(a->value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.long_double_val = -(a->value.long_double_val);
+        r.value.host_long_double = -(a->value.host_long_double);
+        r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, common_type));
         break;
     }
 
@@ -2942,7 +2791,7 @@ struct object object_unary_plus(enum target target, const struct object* a, char
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(+(a->value.host_long_long), target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(+(a->value.host_long_long), target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -2953,19 +2802,15 @@ struct object object_unary_plus(enum target target, const struct object* a, char
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(+(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(+(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
 
         break;
 
     case TYPE_FLOAT:
-        r.value.host_float = +(a->value.host_float);
-        break;
     case TYPE_DOUBLE:
-        r.value.host_double = +(a->value.host_double);
-        break;
-
     case TYPE_LONG_DOUBLE:
-        r.value.long_double_val = +(a->value.long_double_val);
+        r.value.host_long_double = +(a->value.host_long_double);
+        r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, common_type));
         break;
     }
 
@@ -2997,7 +2842,7 @@ struct object object_bitwise_xor(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long ^ b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long ^ b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -3008,7 +2853,7 @@ struct object object_bitwise_xor(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long ^ b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long ^ b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3047,7 +2892,7 @@ struct object object_bitwise_or(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long | b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long | b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -3058,7 +2903,7 @@ struct object object_bitwise_or(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long | b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long | b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3098,7 +2943,7 @@ struct object object_bitwise_and(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long & b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long & b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -3109,7 +2954,7 @@ struct object object_bitwise_and(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long & b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long & b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3148,7 +2993,7 @@ struct object object_shift_left(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long << b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long << b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -3159,7 +3004,7 @@ struct object object_shift_left(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long << b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long << b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
@@ -3199,7 +3044,7 @@ struct object object_shift_right(enum target target,
     case TYPE_SIGNED_LONG_LONG:
     {
         r.value.host_long_long =
-            CAKE_CAST_TO_N_BITS_SIGNED(a0.value.host_long_long >> b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_INT_N(a0.value.host_long_long >> b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
     break;
 
@@ -3210,7 +3055,7 @@ struct object object_shift_right(enum target target,
     case TYPE_UNSIGNED_LONG_LONG:
 
         r.value.host_u_long_long =
-            CAKE_CAST_TO_N_BITS_UNSIGNED(a0.value.host_u_long_long >> b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
+            CAKE_CAST_UINT_N(a0.value.host_u_long_long >> b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
 
         break;
 
