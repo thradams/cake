@@ -281,7 +281,7 @@ struct pragma_declaration {
 struct pragma_declaration* _Owner pragma_declaration(struct parser_ctx* ctx);
 void pragma_declaration_delete(struct pragma_declaration* _Owner _Opt p);
 
-void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis);
+void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis);
 
 struct attribute_specifier_sequence
 {

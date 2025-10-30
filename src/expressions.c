@@ -3694,11 +3694,23 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                     }
                     else
                     {
-                        //compiler_diagnostic(W_CAST_TO_SAME_TYPE,
-                        //                     ctx,
-                        //                     p_expression_node->first_token,
-                        //                     NULL,
-                        //                     "casting to the same type");
+                        if (
+                             (p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) ||
+                             (p_expression_node->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+                            )
+                        {
+                            /*
+                            if any of them are typedef, no warning
+                            */
+                        }
+                        else
+                        {
+                            compiler_diagnostic(W_CAST_TO_SAME_TYPE,
+                                                ctx,
+                                                p_expression_node->first_token,
+                                                NULL,
+                                                "casting to the same type");
+                        }
                     }
                 }
 

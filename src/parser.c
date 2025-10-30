@@ -1408,7 +1408,7 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
 }
 
 
-static struct token* _Opt pragma_match(const struct token* p_current)
+static struct token* _Opt pragma_declaration_match(const struct token* p_current)
 {
     struct token* _Opt p_token = p_current->next;
     while (p_token && p_token->type == TK_BLANKS)
@@ -7251,64 +7251,73 @@ void pragma_declaration_delete(struct pragma_declaration* _Owner _Opt p)
     }
 }
 
-void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis)
+void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis)
 {
     struct token* _Opt p_pragma_token = p_pragma->first_token;
 
-    if (p_pragma_token->type != TK_PRAGMA)
+    try
     {
-        assert(false);
-        return;
-    }
+        if (p_pragma_token->type != TK_PRAGMA)
+            throw;
 
-    p_pragma_token = pragma_match(p_pragma_token);
-
-    if (p_pragma_token &&
-        (strcmp(p_pragma_token->lexeme, "CAKE") == 0 ||
+        p_pragma_token = pragma_declaration_match(p_pragma_token);
+        if (p_pragma_token == NULL)
+            throw;
+        
+        if ((strcmp(p_pragma_token->lexeme, "CAKE") == 0 ||
             strcmp(p_pragma_token->lexeme, "cake") == 0))
-    {
-        p_pragma_token = pragma_match(p_pragma_token);
-    }
-
-    if (p_pragma_token && strcmp(p_pragma_token->lexeme, "diagnostic") == 0)
-    {
-        p_pragma_token = pragma_match(p_pragma_token);
-
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "push") == 0)
         {
-            // #pragma GCC diagnostic push
-            if (ctx->options.diagnostic_stack.top_index <
-                sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack.stack[0]))
-            {
-                ctx->options.diagnostic_stack.top_index++;
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
-                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
-            }
-            p_pragma_token = p_pragma_token->next;
+            /*
+               optional
+            */
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
         }
-        else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "pop") == 0)
+
+        if (strcmp(p_pragma_token->lexeme, "diagnostic") == 0)
         {
-            // #pragma CAKE diagnostic pop
-            if (ctx->options.diagnostic_stack.top_index > 0)
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (strcmp(p_pragma_token->lexeme, "push") == 0)
             {
-                ctx->options.diagnostic_stack.top_index--;
+                // #pragma GCC diagnostic push
+                if (ctx->options.diagnostic_stack.top_index <
+                    sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack.stack[0]))
+                {
+                    ctx->options.diagnostic_stack.top_index++;
+                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
+                        ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index - 1];
+                }
+                p_pragma_token = pragma_declaration_match(p_pragma_token);
             }
-            p_pragma_token = pragma_match(p_pragma_token);
-        }
-        else if (p_pragma_token &&
-            (strcmp(p_pragma_token->lexeme, "error") == 0 ||
-                strcmp(p_pragma_token->lexeme, "warning") == 0 ||
-                strcmp(p_pragma_token->lexeme, "note") == 0 ||
-                strcmp(p_pragma_token->lexeme, "ignored") == 0))
-        {
-            const bool is_error = strcmp(p_pragma_token->lexeme, "error") == 0;
-            const bool is_warning = strcmp(p_pragma_token->lexeme, "warning") == 0;
-            const bool is_note = strcmp(p_pragma_token->lexeme, "note") == 0;
-
-            p_pragma_token = pragma_match(p_pragma_token);
-
-            if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
+            else if (strcmp(p_pragma_token->lexeme, "pop") == 0)
             {
+                // #pragma CAKE diagnostic pop
+                if (ctx->options.diagnostic_stack.top_index > 0)
+                {
+                    ctx->options.diagnostic_stack.top_index--;
+                }
+                p_pragma_token = pragma_declaration_match(p_pragma_token);
+            }
+            else if (strcmp(p_pragma_token->lexeme, "error") == 0 ||
+                    strcmp(p_pragma_token->lexeme, "warning") == 0 ||
+                    strcmp(p_pragma_token->lexeme, "note") == 0 ||
+                    strcmp(p_pragma_token->lexeme, "ignored") == 0)
+            {
+                const bool is_error = strcmp(p_pragma_token->lexeme, "error") == 0;
+                const bool is_warning = strcmp(p_pragma_token->lexeme, "warning") == 0;
+                const bool is_note = strcmp(p_pragma_token->lexeme, "note") == 0;
+
+                p_pragma_token = pragma_declaration_match(p_pragma_token);
+                if (p_pragma_token == NULL)
+                    throw;
+
+                if (p_pragma_token->type != TK_STRING_LITERAL)
+                    throw;
 
                 unsigned long long w = get_warning_bit_mask(p_pragma_token->lexeme + 1 /*+ 2*/);
 
@@ -7323,127 +7332,137 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
                 else if (is_note)
                     ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
             }
+            else
+            {
+                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown diagnostic command");
+                throw;
+            }
+        }
+        else if (strcmp(p_pragma_token->lexeme, "nullable") == 0)
+        {
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
+                strcmp(p_pragma_token->lexeme, "disable") != 0)
+            {
+                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                throw;
+            }
+
+            const bool nullable_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
+
+            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+
+            if (nullable_enable)
+            {
+                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
+                ctx->options.null_checks_enabled = true;
+                ctx->options.flow_analysis = true; //also enable flow analysis
+            }
+            else
+            {
+                ctx->options.null_checks_enabled = false;
+            }
+        }
+        else if (strcmp(p_pragma_token->lexeme, "ownership") == 0)
+        {
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
+                strcmp(p_pragma_token->lexeme, "disable") != 0)
+            {
+                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                throw;
+            }
+
+            const bool ownership_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
+            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
+
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+
+            if (ownership_enable)
+            {
+                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
+                ctx->options.ownership_enabled = true;
+                ctx->options.flow_analysis = true; //also enable flow analysis
+            }
+            else
+            {
+                ctx->options.ownership_enabled = false;
+            }
+        }
+        else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "flow") == 0)
+        {
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
+                strcmp(p_pragma_token->lexeme, "disable") != 0)
+            {
+                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                throw;
+            }
+
+            const bool flow_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
+
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+
+            ctx->options.flow_analysis = flow_enable;
+        }
+        else if (strcmp(p_pragma_token->lexeme, "safety") == 0)
+        {
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
+                strcmp(p_pragma_token->lexeme, "disable") != 0)
+            {
+                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                throw;
+            }
+
+            const bool safety_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
+
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+
+            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+
+            if (safety_enable)
+            {
+                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
+                ctx->options.null_checks_enabled = true;
+                ctx->options.flow_analysis = true; //also enable flow analysis
+                ctx->options.ownership_enabled = true;
+            }
+            else
+            {
+                ctx->options.null_checks_enabled = false;
+                ctx->options.ownership_enabled = false;
+                ctx->options.flow_analysis = false;
+            }
         }
         else
         {
-            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "unknown pragma");
+            compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown pragma");
+            throw;
         }
     }
-    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "nullable") == 0)
-    {
-        //see
-        //https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references
-        p_pragma_token = pragma_match(p_pragma_token);
-
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
-        {
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
-            ctx->options.null_checks_enabled = true;
-            ctx->options.flow_analysis = true; //also enable flow analysis
-        }
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
-        {
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
-
-
-            // Dereference warnings : Disabled
-            // Assignment warnings : Disabled
-            // Pointer types : All are nullable
-            ctx->options.null_checks_enabled = false;
-        }
-    }
-    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "ownership") == 0)
-    {
-        //see
-        //https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references
-        p_pragma_token = pragma_match(p_pragma_token);
-
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
-        {
-            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
-
-            ctx->options.ownership_enabled = true;
-            ctx->options.flow_analysis = true; //also enable flow analysis
-
-        }
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
-        {
-            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
-
-            ctx->options.ownership_enabled = false;
-        }
-    }
-    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "flow") == 0)
-    {
-        p_pragma_token = pragma_match(p_pragma_token);
-
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
-        {
-            ctx->options.flow_analysis = true;
-        }
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
-        {
-            ctx->options.flow_analysis = false;
-        }
-    }
-    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "safety") == 0)
-    {
-        p_pragma_token = pragma_match(p_pragma_token);
-
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
-        {
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
-            ctx->options.null_checks_enabled = true;
-            ctx->options.flow_analysis = true; //also enable flow analysis
-
-            ctx->options.ownership_enabled = true;
-        }
-        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
-        {
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
-
-            ctx->options.null_checks_enabled = false;
-            ctx->options.ownership_enabled = false;
-            ctx->options.flow_analysis = false;
-        }
-    }
-    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "target") == 0)
-    {
-        p_pragma_token = pragma_match(p_pragma_token);
-        //ctx->current = ctx->current->next;
-        //pragma_skip_blanks(ctx);
-        if (parse_target(p_pragma_token->lexeme, &ctx->options.target) != 0)
-        {
-            compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unknown target");
-        }
+    catch
+    {     
     }
 }
 
@@ -7478,12 +7497,14 @@ struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx
 
         p_pragma_declaration->last_token = ctx->current;
         parser_match(ctx);
+
+        execute_pragma_declaration(ctx, p_pragma_declaration, false);
     }
     catch
     {
+        
     }
-    if (p_pragma_declaration)
-        execute_pragma(ctx, p_pragma_declaration, false);
+    
 
     return p_pragma_declaration;
 }

@@ -545,7 +545,8 @@ static struct platform platform_catalina =
   .long_double_aligment = 4,
 };
 
-static struct platform* platforms[NUMBER_OF_TARGETS] = {
+static struct platform* platforms[NUMBER_OF_TARGETS] = 
+{
         [TARGET_X86_X64_GCC] = &platform_x86_x64_gcc,
         [TARGET_X86_MSVC] = &platform_x86_msvc,
         [TARGET_X64_MSVC] = &platform_x64_msvc,
@@ -553,6 +554,7 @@ static struct platform* platforms[NUMBER_OF_TARGETS] = {
         [TARGET_LCCU16] = &platform_ccu8,
         [TARGET_CATALINA] = &platform_catalina,
 };
+
 static_assert(NUMBER_OF_TARGETS == 6, "insert platform here");
 
 int parse_target(const char* targetstr, enum target* target)
@@ -652,11 +654,11 @@ const char* target_get_predefined_macros(enum target e)
     switch (e)
     {
     case TARGET_X86_X64_GCC: return TARGET_X86_X64_GCC_PREDEFINED_MACROS;
-    case TARGET_X86_MSVC:return TARGET_X86_MSVC_PREDEFINED_MACROS;
-    case TARGET_X64_MSVC:     return TARGET_X64_MSVC_PREDEFINED_MACROS;
-    case TARGET_CCU8: return TARGET_CCU8_PREDEFINED_MACROS;
-    case TARGET_LCCU16: return TARGET_LCCU16_PREDEFINED_MACROS;
-    case TARGET_CATALINA: return TARGET_CATALINA_PREDEFINED_MACROS;
+    case TARGET_X86_MSVC:    return TARGET_X86_MSVC_PREDEFINED_MACROS;
+    case TARGET_X64_MSVC:    return TARGET_X64_MSVC_PREDEFINED_MACROS;
+    case TARGET_CCU8:        return TARGET_CCU8_PREDEFINED_MACROS;
+    case TARGET_LCCU16:      return TARGET_LCCU16_PREDEFINED_MACROS;
+    case TARGET_CATALINA:    return TARGET_CATALINA_PREDEFINED_MACROS;
     }
     return "";
 };

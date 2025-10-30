@@ -977,6 +977,10 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
 
             if (p_item->type == TK_NEWLINE)
                 break;
+
+            if (p_item->type == TK_PRAGMA_END) /*similar of newline*/
+                break;
+
             p_item = p_item->next;
         }
 

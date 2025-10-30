@@ -6889,7 +6889,7 @@ static enum flow_state parse_string_state(const char* s, bool* invalid)
 
 static void flow_visit_pragma_declaration(struct flow_visit_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
 {
-    execute_pragma(ctx->ctx, p_pragma_declaration, true);
+    execute_pragma_declaration(ctx->ctx, p_pragma_declaration, true);
 }
 
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
