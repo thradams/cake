@@ -14628,9 +14628,7 @@ int fill_options(struct options* options,
 {
 
     options->target = CAKE_COMPILE_TIME_SELECTED_TARGET;
-
    
-
     /*
        default at this moment is same as -Wall
     */
@@ -17711,7 +17709,7 @@ static enum object_type to_unsigned(enum object_type t)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return t;
-    
+
     }
     assert(false);
     return t;
@@ -18311,7 +18309,7 @@ signed long long object_to_signed_long_long(const struct object* a)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        return (long long) a->value.host_long_double;
+        return (long long)a->value.host_long_double;
     }
     assert(0);
     return 0;
@@ -18419,6 +18417,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = dest_type; /*dest type*/
+
     const int dest_n_bits = target_get_num_of_bits(target, dest_type);
 
 
@@ -18436,8 +18435,10 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         {
             r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_long, dest_n_bits);
         }
+        return r;
     }
-    else if (object_type_is_unsigned_integer(source_type))
+
+    if (object_type_is_unsigned_integer(source_type))
     {
         if (object_type_is_signed_integer(dest_type))
         {
@@ -18449,11 +18450,12 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         }
         else
         {
-            r.value.host_long_double = v->value.host_long_double;
-            r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_u_long_long, dest_n_bits);
         }
+        return r;
     }
-    else if (source_type == TYPE_FLOAT)
+
+    if (source_type == TYPE_FLOAT)
     {
         if (object_type_is_signed_integer(dest_type))
         {
@@ -18465,47 +18467,49 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         }
         else
         {
-            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));            
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, dest_n_bits);
         }
+        return r;
     }
-    else if (source_type == TYPE_DOUBLE)
+
+    if (source_type == TYPE_DOUBLE)
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, dest_n_bits);
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, dest_n_bits);
         }
         else
         {
-            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, dest_n_bits);
         }
+        return r;
     }
-    else if (source_type == TYPE_LONG_DOUBLE)
+
+
+    if (source_type == TYPE_LONG_DOUBLE)
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, dest_n_bits);
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, dest_n_bits);
         }
         else
         {
             r.value.host_long_double = v->value.host_long_double;
-            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, dest_n_bits);
         }
+        return r;
     }
-    else
-    {
-        assert(false);
-    }
-
+    
+    assert(false);
     return r;
-
 }
 
 void object_default_initialization(struct object* p_object, bool is_constant)
@@ -24406,19 +24410,21 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                 type_destroy(&p_expression_node->type);
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
 
-                if (type_is_same(&p_expression_node->type, &p_expression_node->left->type, false))
+                if (type_is_same(&p_expression_node->type, &p_expression_node->left->type, true))
                 {
                     if (p_expression_node->first_token->flags & TK_FLAG_MACRO_EXPANDED)
                     {
-                    
+                        /*
+                             not a warning when used inside macros
+                        */
                     }
                     else
                     {
-                        compiler_diagnostic(W_CAST_TO_SAME_TYPE,
-                                             ctx,
-                                             p_expression_node->first_token,
-                                             NULL,
-                                             "casting to the same type");
+                        //compiler_diagnostic(W_CAST_TO_SAME_TYPE,
+                        //                     ctx,
+                        //                     p_expression_node->first_token,
+                        //                     NULL,
+                        //                     "casting to the same type");
                     }
                 }
 
@@ -28572,7 +28578,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.31"
+#define CAKE_VERSION "0.12.32"
 
 
 
@@ -54045,7 +54051,7 @@ static struct platform platform_catalina =
   .int64_type = TYPE_SIGNED_LONG_LONG,
 
   .pointer_n_bits = 32,
-  .pointer_aligment = 8,
+  .pointer_aligment = 4,
 
 
   .wchar_t_type = TYPE_UNSIGNED_SHORT,

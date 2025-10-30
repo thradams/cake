@@ -520,7 +520,7 @@ static struct platform platform_catalina =
   .int64_type = TYPE_SIGNED_LONG_LONG,
 
   .pointer_n_bits = 32,
-  .pointer_aligment = 8,
+  .pointer_aligment = 4,
 
 
   .wchar_t_type = TYPE_UNSIGNED_SHORT,

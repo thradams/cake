@@ -3694,11 +3694,11 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                     }
                     else
                     {
-                        compiler_diagnostic(W_CAST_TO_SAME_TYPE,
-                                             ctx,
-                                             p_expression_node->first_token,
-                                             NULL,
-                                             "casting to the same type");
+                        //compiler_diagnostic(W_CAST_TO_SAME_TYPE,
+                        //                     ctx,
+                        //                     p_expression_node->first_token,
+                        //                     NULL,
+                        //                     "casting to the same type");
                     }
                 }
 
@@ -3748,6 +3748,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
 
     return p_expression_node;
 }
+
 
 
 _Attr(nodiscard)

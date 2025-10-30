@@ -50,7 +50,7 @@ static enum object_type to_unsigned(enum object_type t)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return t;
-    
+
     }
     assert(false);
     return t;
@@ -650,7 +650,7 @@ signed long long object_to_signed_long_long(const struct object* a)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        return (long long) a->value.host_long_double;
+        return (long long)a->value.host_long_double;
     }
     assert(0);
     return 0;
@@ -758,6 +758,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = dest_type; /*dest type*/
+
     const int dest_n_bits = target_get_num_of_bits(target, dest_type);
 
 
@@ -775,8 +776,10 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         {
             r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_long, dest_n_bits);
         }
+        return r;
     }
-    else if (object_type_is_unsigned_integer(source_type))
+
+    if (object_type_is_unsigned_integer(source_type))
     {
         if (object_type_is_signed_integer(dest_type))
         {
@@ -788,11 +791,12 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         }
         else
         {
-            r.value.host_long_double = v->value.host_long_double;
-            r.value.host_long_double = CAKE_CAST_FLOAT_N(r.value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_u_long_long, dest_n_bits);
         }
+        return r;
     }
-    else if (source_type == TYPE_FLOAT)
+
+    if (source_type == TYPE_FLOAT)
     {
         if (object_type_is_signed_integer(dest_type))
         {
@@ -804,47 +808,49 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         }
         else
         {
-            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));            
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, dest_n_bits);
         }
+        return r;
     }
-    else if (source_type == TYPE_DOUBLE)
+
+    if (source_type == TYPE_DOUBLE)
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, dest_n_bits);
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, target_get_num_of_bits(TARGET_X86_MSVC, dest_type));
+            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, dest_n_bits);
         }
         else
         {
-            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, dest_n_bits);
         }
+        return r;
     }
-    else if (source_type == TYPE_LONG_DOUBLE)
+
+
+    if (source_type == TYPE_LONG_DOUBLE)
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_long_long = CAKE_CAST_INT_N((long long)v->value.host_long_double, dest_n_bits);
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_u_long_long = CAKE_CAST_UINT_N((long long)v->value.host_long_double, dest_n_bits);
         }
         else
         {
             r.value.host_long_double = v->value.host_long_double;
-            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, target_get_num_of_bits(target, dest_type));
+            r.value.host_long_double = CAKE_CAST_FLOAT_N(v->value.host_long_double, dest_n_bits);
         }
+        return r;
     }
-    else
-    {
-        assert(false);
-    }
-
+    
+    assert(false);
     return r;
-
 }
 
 void object_default_initialization(struct object* p_object, bool is_constant)
