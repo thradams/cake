@@ -83,7 +83,7 @@ enum diagnostic_id {
     W_BOOL_COMPARISON,
     W_WARNING_DID_NOT_HAPPEN,
     W_NULLABLE_TO_NON_NULLABLE,
-    W_NOT_DEFINED60,
+    W_CAST_TO_SAME_TYPE,
 
     W_LOCATION, /*prints code location*/
     W_NOTE,

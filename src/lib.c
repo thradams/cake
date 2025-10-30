@@ -902,7 +902,7 @@ enum diagnostic_id {
     W_BOOL_COMPARISON,
     W_WARNING_DID_NOT_HAPPEN,
     W_NULLABLE_TO_NON_NULLABLE,
-    W_NOT_DEFINED60,
+    W_CAST_TO_SAME_TYPE,
 
     W_LOCATION, /*prints code location*/
     W_NOTE,
@@ -14629,6 +14629,8 @@ int fill_options(struct options* options,
 
     options->target = CAKE_COMPILE_TIME_SELECTED_TARGET;
 
+   
+
     /*
        default at this moment is same as -Wall
     */
@@ -15405,7 +15407,7 @@ struct type get_array_item_type(const struct type* p_type);
 
 struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled);
 
-struct type type_make_literal_string2(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers, enum target target);
+struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers, enum target target);
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t(enum target target);
@@ -15585,7 +15587,7 @@ struct object object_dup(const struct object* src);
 
 bool object_is_reference(const struct object* p_object);
 bool object_is_derived(const struct object* p_object);
-bool object_is_signed(const struct object* p_object);
+
 void object_set_any(struct object* p_object);
 
 bool object_is_one(const struct object* p_object);
@@ -17765,27 +17767,6 @@ static bool object_type_is_unsigned_integer(enum object_type type)
     return false;
 }
 
-static bool object_type_is_integer(enum object_type type)
-{
-    switch (type)
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-        return true;
-
-    }
-    return false;
-}
-
-
 _Attr(nodiscard)
 bool unsigned_long_long_sub(_Ctor unsigned long long* result, unsigned long long a, unsigned long long b)
 {
@@ -18738,12 +18719,6 @@ bool object_is_one(const struct object* p_object)
     return 0;
 }
 
-bool object_is_signed(const struct object* p_object)
-{
-    p_object = (struct object* _Opt) object_get_referenced(p_object);
-    return is_signed(p_object->value_type);
-}
-
 bool object_is_derived(const struct object* p_object)
 {
     if (p_object->p_ref != NULL)
@@ -19203,8 +19178,17 @@ void object_print_value_debug(const struct object* a)
     case TYPE_SIGNED_INT:
         printf("%lld (int)", a->value.host_long_long);
         break;
+
     case TYPE_UNSIGNED_INT:
         printf("%llu (unsigned int)", a->value.host_u_long_long);
+        break;
+
+    case TYPE_SIGNED_LONG:
+        printf("%lld (long)", a->value.host_long_long);
+        break;
+
+    case TYPE_UNSIGNED_LONG:
+        printf("%llu (unsigned long)", a->value.host_u_long_long);
         break;
 
     case TYPE_SIGNED_LONG_LONG:
@@ -19564,12 +19548,12 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         if (isinf(a->value.host_long_double))
         {
             assert(false);//TODO we dont want inf to be printed.
-            ss_fprintf(ss, "%.17g", a->value.host_long_double);
+            ss_fprintf(ss, "%.17Lg", a->value.host_long_double);
         }
         else
         {
             char temp[64] = { 0 };
-            snprintf(temp, sizeof temp, "%.17g", a->value.host_long_double);
+            snprintf(temp, sizeof temp, "%.17Lg", a->value.host_long_double);
 
             /*
               This format is good but not adding . in some cases
@@ -21281,7 +21265,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 {
     struct expression* _Owner _Opt p_expression_node = NULL;
 
-    const unsigned long long 
+    const unsigned long long
         wchar_max_value = target_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
 
     try
@@ -21449,7 +21433,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     value = c;
                 }
 
-                if (value > (long long) wchar_max_value)
+                if (value > (long long)wchar_max_value)
                 {
                     compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
@@ -21518,22 +21502,22 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, bool disabled, enum target target)
 {
-    const unsigned long long unsigned_int_max_value = 
+    const unsigned long long unsigned_int_max_value =
         target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_INT);
 
-    const unsigned long long signed_int_max_value = 
+    const unsigned long long signed_int_max_value =
         target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
 
-    const unsigned long long signed_long_max_value = 
+    const unsigned long long signed_long_max_value =
         target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
 
-    const unsigned long long unsigned_long_max_value = 
+    const unsigned long long unsigned_long_max_value =
         target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
-    
-    const unsigned long long signed_long_long_max_value = 
+
+    const unsigned long long signed_long_long_max_value =
         target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
 
-    const unsigned long long unsigned_long_long_max_value = 
+    const unsigned long long unsigned_long_long_max_value =
         target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
 
@@ -21626,7 +21610,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             if (value <= unsigned_int_max_value && suffix[1] != 'L')
             {
                 object_destroy(&p_expression_node->object);
-                p_expression_node->object = object_make_unsigned_int(ctx->options.target,  value);
+                p_expression_node->object = object_make_unsigned_int(ctx->options.target, value);
                 p_expression_node->type.type_specifier_flags = (TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED);
             }
             else if (value <= unsigned_long_max_value && suffix[2] != 'L')
@@ -21871,7 +21855,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = type_make_literal_string2((int)strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST, ctx->options.target);
+                p_expression_node->type = type_make_literal_string((int)strlen(func_name) + 1, TYPE_SPECIFIER_CHAR, TYPE_QUALIFIER_CONST, ctx->options.target);
             }
             else
             {
@@ -22068,7 +22052,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             }
 
             enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
-            p_expression_node->type = type_make_literal_string2(number_of_elements_including_zero, char_type_specifiers, lit_flags, ctx->options.target);
+            p_expression_node->type = type_make_literal_string(number_of_elements_including_zero, char_type_specifiers, lit_flags, ctx->options.target);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
@@ -24422,17 +24406,28 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                 type_destroy(&p_expression_node->type);
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
 
+                if (type_is_same(&p_expression_node->type, &p_expression_node->left->type, false))
+                {
+                    if (p_expression_node->first_token->flags & TK_FLAG_MACRO_EXPANDED)
+                    {
+                    
+                    }
+                    else
+                    {
+                        compiler_diagnostic(W_CAST_TO_SAME_TYPE,
+                                             ctx,
+                                             p_expression_node->first_token,
+                                             NULL,
+                                             "casting to the same type");
+                    }
+                }
+
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&p_expression_node->left->object))
                 {
                     enum object_type vt = type_to_object_type(&p_expression_node->type, ctx->options.target);
-
-                    p_expression_node->object =
-                        object_cast(ctx->options.target, vt, &p_expression_node->left->object);
-
+                    p_expression_node->object = object_cast(ctx->options.target, vt, &p_expression_node->left->object);
                 }
-
-
 
                 p_expression_node->type.storage_class_specifier_flags =
                     p_expression_node->left->type.storage_class_specifier_flags;
@@ -24475,13 +24470,14 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
 }
 
 
+
 _Attr(nodiscard)
 errno_t execute_arithmetic(const struct parser_ctx* ctx,
                       const struct expression* new_expression,
                       int op,
                       struct object* result)
 {
-
+    //TODO REMOVE THE USAGE OF THIS FUNCTION 
     try
     {
         if (new_expression->left == NULL || new_expression->right == NULL)
@@ -24600,44 +24596,6 @@ errno_t execute_arithmetic(const struct parser_ctx* ctx,
                                      &new_expression->right->object,
                                      warning_message);
                 warning_id = W_DIVIZION_BY_ZERO;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-
-            if (op == '==')
-            {
-                *result = object_equal(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_DIVIZION_BY_ZERO;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-
-            if (op == '!=')
-            {
-                *result = object_not_equal(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_INTEGER_OVERFLOW;
                 if (warning_message[0] != '\0')
                 {
                     compiler_diagnostic(warning_id,
@@ -25151,7 +25109,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
 
             if (!type_is_integer(&new_expression->right->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
 
@@ -25413,16 +25371,6 @@ void check_diferent_enuns(struct parser_ctx* ctx,
         }
     }
 }
-void expression_evaluate_equal_not_equal(const struct expression* left,
-                                         const struct expression* right,
-                                         struct expression* result,
-                                         int op,
-                                         bool disabled)
-{
-    assert(op == '==' || op == '!=');
-    //result->object =
-        //object_op(&left->object, &right->object, op);
-}
 
 struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
@@ -25454,7 +25402,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum 
                (ctx->current->type == '==' ||
                    ctx->current->type == '!='))
         {
-            struct token* op = ctx->current;
+            struct token* p_token_operator = ctx->current;
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -25488,19 +25436,31 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum 
                 throw;
             }
 
-            check_comparison(ctx, new_expression->left, new_expression->right, op);
+            check_comparison(ctx, new_expression->left, new_expression->right, p_token_operator);
 
             new_expression->last_token = new_expression->right->last_token;
             new_expression->first_token = operator_token;
 
-            //TODO missing general checks described in standard
-            //like pointer, nullptr etc...
-            if (type_is_arithmetic(&new_expression->left->type) &&
-                type_is_arithmetic(&new_expression->right->type))
+            if (object_has_constant_value(&new_expression->left->object) &&
+                object_has_constant_value(&new_expression->right->object))
             {
-                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, operator_token->type, &new_expression->object) != 0)
+                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
                 {
-                    throw;
+                    char warning_message[200] = { 0 };
+                    if (p_token_operator->type == '==')
+                    {
+                        new_expression->object = object_equal(ctx->options.target,
+                         &new_expression->left->object,
+                         &new_expression->right->object,
+                         warning_message);
+                    }
+                    else
+                    {
+                        new_expression->object = object_not_equal(ctx->options.target,
+                                                                  &new_expression->left->object,
+                                                                  &new_expression->right->object,
+                                                                  warning_message);
+                    }
                 }
             }
 
@@ -25571,7 +25531,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
 
             if (!type_is_integer(&new_expression->right->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
 
@@ -25639,6 +25599,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
                 throw;
 
             new_expression->last_token = new_expression->right->last_token;
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
             //Each of the operands shall have integer type.
             if (!type_is_integer(&new_expression->left->type))
@@ -25649,7 +25610,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
 
             if (!type_is_integer(&new_expression->right->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
 
@@ -25738,7 +25699,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, e
 
             if (!type_is_integer(&new_expression->right->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
+                compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
 
@@ -26311,6 +26272,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
                     expression_delete(p_expression_node_new);
                     throw;
                 }
+                p_expression_node_new->object = object_dup(&p_expression_node_new->right->object);
                 p_expression_node_new->left->last_token = p_expression_node_new->right->last_token;
 
                 p_expression_node = p_expression_node_new;
@@ -27251,9 +27213,6 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result, enum target target)
 {
 
-    //const long long signed_int_max_value = 
-      //  target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
-
     const long long signed_long_max_value =
         target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
 
@@ -27263,8 +27222,6 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
     const long long signed_long_long_max_value =
         target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
 
-    //const unsigned long long unsigned_long_long_max_value = 
-      //  target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
@@ -27346,7 +27303,7 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
             }
             else //if (value <= ULLONG_MAX)
             {
-                cv = object_make_unsigned_long_long(ctx->options.target, (unsigned long long)value);
+                cv = object_make_unsigned_long_long(ctx->options.target, value);
             }
         }
         else
@@ -28615,7 +28572,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.30"
+#define CAKE_VERSION "0.12.31"
 
 
 
@@ -55384,7 +55341,7 @@ bool type_is_integer(const struct type* p_type)
 * Integer and floating types are collectively called arithmetic types.
 */
 bool type_is_arithmetic(const struct type* p_type)
-{
+{    
     return type_is_integer(p_type) || type_is_floating_point(p_type);
 }
 
@@ -57229,7 +57186,7 @@ struct type type_make_int()
     return t;
 }
 
-struct type type_make_literal_string2(int number_of_chars_including_zero,
+struct type type_make_literal_string(int number_of_chars_including_zero,
     enum type_specifier_flags chartype,
     enum type_qualifier_flags qualifiers,
     enum target target)
@@ -57240,10 +57197,6 @@ struct type type_make_literal_string2(int number_of_chars_including_zero,
     {
         struct type* _Owner _Opt p2 = calloc(1, sizeof(struct type));
         if (p2 == NULL) throw;
-
-        struct type char_type = { 0 };
-        char_type.category = TYPE_CATEGORY_ITSELF;
-        char_type.type_specifier_flags = chartype;
 
         t.category = TYPE_CATEGORY_ARRAY;
         t.num_of_elements = number_of_chars_including_zero;

@@ -1160,7 +1160,7 @@ bool type_is_integer(const struct type* p_type)
 * Integer and floating types are collectively called arithmetic types.
 */
 bool type_is_arithmetic(const struct type* p_type)
-{
+{    
     return type_is_integer(p_type) || type_is_floating_point(p_type);
 }
 

@@ -60,9 +60,6 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result, enum target target)
 {
 
-    //const long long signed_int_max_value = 
-      //  target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
-
     const long long signed_long_max_value =
         target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
 
@@ -72,8 +69,6 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
     const long long signed_long_long_max_value =
         target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
 
-    //const unsigned long long unsigned_long_long_max_value = 
-      //  target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
     /*copy removing the separators*/
     // um dos maiores buffer necessarios seria 128 bits binario...
@@ -155,7 +150,7 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
             }
             else //if (value <= ULLONG_MAX)
             {
-                cv = object_make_unsigned_long_long(ctx->options.target, (unsigned long long)value);
+                cv = object_make_unsigned_long_long(ctx->options.target, value);
             }
         }
         else

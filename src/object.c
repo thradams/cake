@@ -1887,12 +1887,12 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         if (isinf(a->value.host_long_double))
         {
             assert(false);//TODO we dont want inf to be printed.
-            ss_fprintf(ss, "%.17g", a->value.host_long_double);
+            ss_fprintf(ss, "%.17Lg", a->value.host_long_double);
         }
         else
         {
             char temp[64] = { 0 };
-            snprintf(temp, sizeof temp, "%.17g", a->value.host_long_double);
+            snprintf(temp, sizeof temp, "%.17Lg", a->value.host_long_double);
 
             /*
               This format is good but not adding . in some cases

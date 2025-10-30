@@ -24,24 +24,18 @@
 
 static void print_report(struct report* report)
 {
-    if (report->error_count != 0 || report->warnings_count != 0 || report->info_count != 0)
+    if (report->test_mode ||
+        report->error_count != 0 || 
+        report->warnings_count != 0 || 
+        report->info_count != 0)
     {
+
         printf("\n");
-        printf(" %d"   " errors ", report->error_count);
+        printf("%d"   " errors ", report->error_count);
         printf("%d"  " warnings ", report->warnings_count);
         printf("%d"     " notes ", report->info_count);
-    }
-
-    if (report->test_mode)
-    {
-        printf("\n");
-        printf(" %d files in %.2f seconds\n", report->no_files, report->cpu_time_used_sec);
-
-        printf("\n");
-        if (report->test_failed > 0)
-            printf(" %d tests of %d failed\n", report->test_failed, (report->test_failed + report->test_succeeded));
-        else
-            printf(" all tests (%d) succeeded\n", report->test_succeeded);
+        printf("\n");        
+        printf("%d files in %.2f seconds\n", report->no_files, report->cpu_time_used_sec);
     }
 
     printf("\n");

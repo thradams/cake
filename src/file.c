@@ -1,14 +1,6 @@
-
-
-inline void g() {
-
-}
-
-void f() {
-    int i;
-    i = 1;
-}
+void f(int i);
 int main()
 {
-    f();
+    int i;
+    f((int)i);
 }
