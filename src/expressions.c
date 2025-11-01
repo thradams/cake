@@ -546,6 +546,9 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     const unsigned long long
         wchar_max_value = target_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
 
+    const unsigned long long
+        int_max_value = target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+
     try
     {
         if (ctx->current == NULL)
@@ -659,7 +662,9 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
-            if (c > UINT_MAX)
+            //Official definition (ISO/IEC 10646)
+            //CS codespace — the finite set of code points from 0 to 0x10FFFF (inclusive).
+            if (c > 0x10FFFF || c > UINT32_MAX)
             {
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
@@ -735,7 +740,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
               sequence, its value is the one that results when an object with type char whose value is that of the
               single character or escape sequence is converted to type int.
             */
-            long long value = 0;
+            unsigned long long value = 0;
             while (*p != '\'')
             {
                 unsigned int c = 0;
@@ -752,7 +757,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 }
 
                 value = value * 256 + c;
-                if (value > INT_MAX)
+                if (value > int_max_value)
                 {
                     compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;

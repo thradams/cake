@@ -963,10 +963,22 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
             if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
             {
                 const char* p = p_item->lexeme;
-                while (*p)
+
+                if (p_item->type == TK_LINE_COMMENT)
                 {
-                    putc(*p, stdout);
-                    p++;
+                    while (*p && *p != '\n' && *p != '\r')
+                    {
+                        putc(*p, stdout);
+                        p++;
+                    }
+                }
+                else
+                {
+                    while (*p)
+                    {
+                        putc(*p, stdout);
+                        p++;
+                    }
                 }
             }
 

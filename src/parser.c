@@ -7247,7 +7247,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
         }
 
-        
+
         bool is_standard_pragma = false;
 
         if ((strcmp(p_pragma_token->lexeme, "STDC") == 0))
@@ -7443,10 +7443,10 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 ctx->options.flow_analysis = false;
             }
         }
-        else if (is_standard_pragma && 
+        else if (is_standard_pragma &&
                  (strcmp(p_pragma_token->lexeme, "FP_CONTRACT") == 0 ||
-                 strcmp(p_pragma_token->lexeme, "FENV_ACCESS") == 0 ||
-                 strcmp(p_pragma_token->lexeme, "CX_LIMITED_RANGE") == 0))
+                     strcmp(p_pragma_token->lexeme, "FENV_ACCESS") == 0 ||
+                     strcmp(p_pragma_token->lexeme, "CX_LIMITED_RANGE") == 0))
         {
             p_pragma_token = pragma_declaration_match(p_pragma_token);
             if (p_pragma_token == NULL)
@@ -8873,17 +8873,19 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
             if (p_existing_default_label)
             {
-                compiler_diagnostic(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
+                if (compiler_diagnostic(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
                     ctx,
                     p_label->p_first_token,
                     NULL,
-                    "multiple default labels in one switch");
+                    "multiple default labels in one switch"))
+                {
 
-                compiler_diagnostic(W_NOTE,
-                    ctx,
-                    p_existing_default_label->p_first_token,
-                    NULL,
-                    "previous default");
+                    compiler_diagnostic(W_NOTE,
+                        ctx,
+                        p_existing_default_label->p_first_token,
+                        NULL,
+                        "previous default");
+                }
 
                 throw;
             }

@@ -2268,10 +2268,22 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
             if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
             {
                 const char* p = p_item->lexeme;
-                while (*p)
+
+                if (p_item->type == TK_LINE_COMMENT)
                 {
-                    putc(*p, stdout);
-                    p++;
+                    while (*p && *p != '\n' && *p != '\r')
+                    {
+                        putc(*p, stdout);
+                        p++;
+                    }
+                }
+                else
+                {
+                    while (*p)
+                    {
+                        putc(*p, stdout);
+                        p++;
+                    }
                 }
             }
 
@@ -21279,6 +21291,9 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     const unsigned long long
         wchar_max_value = target_unsigned_max(ctx->options.target, get_platform(ctx->options.target)->wchar_t_type);
 
+    const unsigned long long
+        int_max_value = target_signed_max(ctx->options.target, TYPE_SIGNED_INT);
+
     try
     {
         if (ctx->current == NULL)
@@ -21392,7 +21407,9 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
-            if (c > UINT_MAX)
+            //Official definition (ISO/IEC 10646)
+            //CS codespace — the finite set of code points from 0 to 0x10FFFF (inclusive).
+            if (c > 0x10FFFF || c > UINT32_MAX)
             {
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
@@ -21468,7 +21485,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
               sequence, its value is the one that results when an object with type char whose value is that of the
               single character or escape sequence is converted to type int.
             */
-            long long value = 0;
+            unsigned long long value = 0;
             while (*p != '\'')
             {
                 unsigned int c = 0;
@@ -21485,7 +21502,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 }
 
                 value = value * 256 + c;
-                if (value > INT_MAX)
+                if (value > int_max_value)
                 {
                     compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
@@ -35849,7 +35866,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
         }
 
-        
+
         bool is_standard_pragma = false;
 
         if ((strcmp(p_pragma_token->lexeme, "STDC") == 0))
@@ -36045,10 +36062,10 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 ctx->options.flow_analysis = false;
             }
         }
-        else if (is_standard_pragma && 
+        else if (is_standard_pragma &&
                  (strcmp(p_pragma_token->lexeme, "FP_CONTRACT") == 0 ||
-                 strcmp(p_pragma_token->lexeme, "FENV_ACCESS") == 0 ||
-                 strcmp(p_pragma_token->lexeme, "CX_LIMITED_RANGE") == 0))
+                     strcmp(p_pragma_token->lexeme, "FENV_ACCESS") == 0 ||
+                     strcmp(p_pragma_token->lexeme, "CX_LIMITED_RANGE") == 0))
         {
             p_pragma_token = pragma_declaration_match(p_pragma_token);
             if (p_pragma_token == NULL)
@@ -37475,17 +37492,19 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
             if (p_existing_default_label)
             {
-                compiler_diagnostic(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
+                if (compiler_diagnostic(C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH,
                     ctx,
                     p_label->p_first_token,
                     NULL,
-                    "multiple default labels in one switch");
+                    "multiple default labels in one switch"))
+                {
 
-                compiler_diagnostic(W_NOTE,
-                    ctx,
-                    p_existing_default_label->p_first_token,
-                    NULL,
-                    "previous default");
+                    compiler_diagnostic(W_NOTE,
+                        ctx,
+                        p_existing_default_label->p_first_token,
+                        NULL,
+                        "previous default");
+                }
 
                 throw;
             }
