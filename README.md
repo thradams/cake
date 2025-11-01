@@ -31,7 +31,7 @@ flow analysis, including [object lifetime](ownership.md) checks.
 
 This is the best way to try.
 
-http://thradams.com/cake/playground.html
+http://cakecc.org/playground.html
 
 # Use cases
 
@@ -52,12 +52,12 @@ simplifying the process of writing C backends **dedicated to code generation**.
 
 Previous versions of Cake included a conversion mode to 
 translate code while preserving the preprocessor parts. 
+
 Although useful, this process could not guarantee 100% conversion,
 functioning more as a tool than a compiler. With the new versions 
 of Cake moving toward becoming a more traditional compiler,
 the previous mode has been discontinued at version 0.9.36.
-This version is online here 
-http://thradams.com/cake3/playground.html.
+
 
 # Features
 
@@ -142,18 +142,10 @@ See [Manual](manual.md)
 
 # Road map
 
+* function literal and local functions implementation
 * Making it usable as C89 backend and fixes
 * Flow v2 algorithm was delayed
 
-# References
-
-https://www.c-language.org/
-
-A very nice introduction was written by Al Williams
-
-C23 Programming For Everyone
-
-https://hackaday.com/2022/09/13/c23-programming-for-everyone/
 
 
 # Participating
@@ -170,19 +162,17 @@ DISCORD SERVER
 # How cake is developed?
 
 I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
-the includes of MSVC and it generates the *out* dir after build. 
+the includes of MSVC and it generates the *X\_86\_msvc* dir after build. 
 
-I use Visual Studio code with WSL for testing and compiling the code for Linux.
+I use Visual Studio code with WSL for testing and compiling the code for Linux. 
 
-Cake source code is not using any extension so the output is the same of input. 
+
 This compilation is useful for tracking errors together with the unit tests.
 
 # Cake is not C++
 CFront was the original C++ compiler, designed to translate C++ code into C.
 
-Although CFront was initially compatible with C89, it eventually diverged from C’s evolution.
-
-In contrast, Cake stays true to the core development of C, ensuring full compatibility.
+Although CFront was initially compatible with C89, it eventually diverged from C’s evolution.In contrast, Cake stays true to the core development of C, ensuring full compatibility.
 
 Its extensions aim to preserve the essence of C while allowing developers to experiment and contribute to C’s evolution using an open-source compiler written in C.
 

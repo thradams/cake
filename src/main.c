@@ -40,9 +40,9 @@ static void print_report(struct report* report)
         if (report->test_mode)
         {
             if (report->test_failed > 0)
-                printf(" - TEST FAILED");
+                printf(RED " - TEST FAILED" COLOR_RESET);
             else
-                printf(" - TEST SUCCEEDED");
+                printf(GREEN " - TEST SUCCEEDED" COLOR_RESET);
 
         }
         printf("\n");

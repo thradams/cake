@@ -27,6 +27,7 @@
     " expressions.c "     \
     " pre_expressions.c " \
     " parser.c "          \
+    " compile.c "         \
     " visit_defer.c "     \
     " visit_il.c "        \
     " flow.c "            \
@@ -57,7 +58,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "    <script src=\"highlight.min.js\"></script>\n"
         "    <script>hljs.highlightAll();</script>\n"
         "    <link rel=\"stylesheet\" href=\"style.css\" />\n"
-        "    <title>Cake Playground</title>\n"
+        "    <title>Cake</title>\n"
         "    <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
         "    <script>\n"
         "    function Try(elm)\n"

@@ -247,11 +247,6 @@ bool expression_is_lvalue(const struct expression* expr);
 bool expression_is_one(const struct expression* expression);
 bool expression_is_zero(const struct expression* expression);
 bool expression_is_null_pointer_constant(const struct expression* expression);
-void expression_evaluate_equal_not_equal(const struct expression* left,
-    const struct expression* right,
-    struct expression* result,
-    int op,
-    bool disabled);
 
 void check_diferent_enuns(struct parser_ctx* ctx,
                           const struct token* operator_token,

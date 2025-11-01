@@ -6,7 +6,7 @@
     <script src="highlight.min.js"></script>
     <script>hljs.highlightAll();</script>
     <link rel="stylesheet" href="style.css" />
-    <title>Cake Playground</title>
+    <title>Cake</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <script>
     function Try(elm)
@@ -65,16 +65,13 @@
 <a href="#toc_10">Road map</a>
 </li>
 <li>
-<a href="#toc_11">References</a>
+<a href="#toc_11">Participating</a>
 </li>
 <li>
-<a href="#toc_12">Participating</a>
+<a href="#toc_12">How cake is developed?</a>
 </li>
 <li>
-<a href="#toc_13">How cake is developed?</a>
-</li>
-<li>
-<a href="#toc_14">Cake is not C++</a>
+<a href="#toc_13">Cake is not C++</a>
 </li>
 </ul>
 <p>The C Programming language 1978</p>
@@ -110,7 +107,7 @@ flow analysis, including <a href="ownership.html">object lifetime</a> checks.</p
 
 <p>This is the best way to try.</p>
 
-<p><a href="http://thradams.com/cake/playground.html">http://thradams.com/cake/playground.html</a></p>
+<p><a href="http://cakecc.org/playground.html">http://cakecc.org/playground.html</a></p>
 
 <h1 id="toc_2">Use cases</h1>
 
@@ -130,13 +127,12 @@ compilers that do not yet support the latest language standards.</p>
 simplifying the process of writing C backends <strong>dedicated to code generation</strong>.</p>
 
 <p>Previous versions of Cake included a conversion mode to 
-translate code while preserving the preprocessor parts. 
-Although useful, this process could not guarantee 100% conversion,
+translate code while preserving the preprocessor parts. </p>
+
+<p>Although useful, this process could not guarantee 100% conversion,
 functioning more as a tool than a compiler. With the new versions 
 of Cake moving toward becoming a more traditional compiler,
-the previous mode has been discontinued at version 0.9.36.
-This version is online here 
-<a href="http://thradams.com/cake3/playground.html">http://thradams.com/cake3/playground.html</a>.</p>
+the previous mode has been discontinued at version 0.9.36.</p>
 
 <h1 id="toc_3">Features</h1>
 
@@ -215,21 +211,12 @@ This version is online here
 <h1 id="toc_10">Road map</h1>
 
 <ul>
+<li>function literal and local functions implementation</li>
 <li>Making it usable as C89 backend and fixes</li>
 <li>Flow v2 algorithm was delayed</li>
 </ul>
 
-<h1 id="toc_11">References</h1>
-
-<p><a href="https://www.c-language.org/">https://www.c-language.org/</a></p>
-
-<p>A very nice introduction was written by Al Williams</p>
-
-<p>C23 Programming For Everyone</p>
-
-<p><a href="https://hackaday.com/2022/09/13/c23-programming-for-everyone/">https://hackaday.com/2022/09/13/c23-programming-for-everyone/</a></p>
-
-<h1 id="toc_12">Participating</h1>
+<h1 id="toc_11">Participating</h1>
 
 <p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
 
@@ -239,23 +226,20 @@ This version is online here
 
 <p><a href="https://discord.gg/YRekr2N65S">https://discord.gg/YRekr2N65S</a></p>
 
-<h1 id="toc_13">How cake is developed?</h1>
+<h1 id="toc_12">How cake is developed?</h1>
 
 <p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
-the includes of MSVC and it generates the <em>out</em> dir after build. </p>
+the includes of MSVC and it generates the <em>X_86_msvc</em> dir after build. </p>
 
-<p>I use Visual Studio code with WSL for testing and compiling the code for Linux.</p>
+<p>I use Visual Studio code with WSL for testing and compiling the code for Linux. </p>
 
-<p>Cake source code is not using any extension so the output is the same of input. 
-This compilation is useful for tracking errors together with the unit tests.</p>
+<p>This compilation is useful for tracking errors together with the unit tests.</p>
 
-<h1 id="toc_14">Cake is not C++</h1>
+<h1 id="toc_13">Cake is not C++</h1>
 
 <p>CFront was the original C++ compiler, designed to translate C++ code into C.</p>
 
-<p>Although CFront was initially compatible with C89, it eventually diverged from C’s evolution.</p>
-
-<p>In contrast, Cake stays true to the core development of C, ensuring full compatibility.</p>
+<p>Although CFront was initially compatible with C89, it eventually diverged from C’s evolution.In contrast, Cake stays true to the core development of C, ensuring full compatibility.</p>
 
 <p>Its extensions aim to preserve the essence of C while allowing developers to experiment and contribute to C’s evolution using an open-source compiler written in C.</p>
 </article></body></html>

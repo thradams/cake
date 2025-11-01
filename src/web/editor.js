@@ -84,7 +84,7 @@ function Share()
     var to = -2;// document.getElementById("outtype").value;
     var options = document.getElementById("options").value;
 
-    var link = "http://thradams.com/cake/playground.html?code=" + encodeURIComponent(btoa(source)) +
+    var link = "http://cakecc.org/playground.html?code=" + encodeURIComponent(btoa(source)) +
         "&to=" + encodeURI(to) +
         "&options=" + encodeURI(options);
 

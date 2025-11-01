@@ -27,6 +27,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\compile.c" />
     <ClCompile Include="..\src\console.c" />
     <ClCompile Include="..\src\flow.c" />
     <ClCompile Include="..\src\target.c" />
@@ -47,6 +48,7 @@
     <ClCompile Include="..\src\type.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\compile.h" />
     <ClInclude Include="..\src\console.h" />
     <ClInclude Include="..\src\flow.h" />
     <ClInclude Include="..\src\target.h" />

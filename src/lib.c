@@ -15980,11 +15980,6 @@ bool expression_is_lvalue(const struct expression* expr);
 bool expression_is_one(const struct expression* expression);
 bool expression_is_zero(const struct expression* expression);
 bool expression_is_null_pointer_constant(const struct expression* expression);
-void expression_evaluate_equal_not_equal(const struct expression* left,
-    const struct expression* right,
-    struct expression* result,
-    int op,
-    bool disabled);
 
 void check_diferent_enuns(struct parser_ctx* ctx,
                           const struct token* operator_token,
@@ -17656,7 +17651,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
 
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror);
-const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
+
 
 int initializer_init_new(struct parser_ctx* ctx,
                          struct type* p_current_object_type,
@@ -24435,11 +24430,11 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                         }
                         else
                         {
-                            compiler_diagnostic(W_CAST_TO_SAME_TYPE,
-                                                ctx,
-                                                p_expression_node->first_token,
-                                                NULL,
-                                                "casting to the same type");
+                            //compiler_diagnostic(W_CAST_TO_SAME_TYPE,
+                              //                  ctx,
+                                //                p_expression_node->first_token,
+                                  //              NULL,
+                                    //            "casting to the same type");
                         }
                     }
                 }
@@ -24491,241 +24486,14 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
     return p_expression_node;
 }
 
-
-
-_Attr(nodiscard)
-errno_t execute_arithmetic(const struct parser_ctx* ctx,
-                      const struct expression* new_expression,
-                      int op,
-                      struct object* result)
-{
-    //TODO REMOVE THE USAGE OF THIS FUNCTION 
-    try
-    {
-        if (new_expression->left == NULL || new_expression->right == NULL)
-        {
-            assert(false);
-            throw;
-        }
-
-        //Each of the operands shall have arithmetic type
-        if (!type_is_arithmetic(&new_expression->left->type))
-        {
-            compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an arithmetic type");
-            throw;
-        }
-
-        if (!type_is_arithmetic(&new_expression->right->type))
-        {
-            compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an arithmetic type");
-            throw;
-        }
-
-
-        if (object_has_constant_value(&new_expression->left->object) &&
-            object_has_constant_value(&new_expression->right->object))
-        {
-
-            const struct marker m =
-            {
-                .p_token_begin = new_expression->left->first_token,
-                .p_token_end = new_expression->right->last_token
-            };
-
-
-
-            char warning_message[200] = { 0 };
-            enum diagnostic_id warning_id = 0;
-
-            if (op == '+')
-            {
-                *result = object_add(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_INTEGER_OVERFLOW;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-            if (op == '-')
-            {
-                *result = object_sub(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-
-                warning_id = W_INTEGER_OVERFLOW;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-            if (op == '*')
-            {
-                *result = object_mul(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_INTEGER_OVERFLOW;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-            if (op == '/')
-            {
-                *result = object_div(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_DIVIZION_BY_ZERO;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-
-            if (op == '%')
-            {
-                *result = object_mod(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_DIVIZION_BY_ZERO;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-
-            if (op == '>=')
-            {
-                *result = object_greater_than_or_equal(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_INTEGER_OVERFLOW;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-
-            if (op == '<=')
-            {
-                *result = object_smaller_than_or_equal(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_INTEGER_OVERFLOW;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-
-
-            if (op == '>')
-            {
-                *result = object_greater_than(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_INTEGER_OVERFLOW;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-
-            if (op == '<')
-            {
-                *result = object_smaller_than(ctx->options.target,
-                                     &new_expression->left->object,
-                                     &new_expression->right->object,
-                                     warning_message);
-                warning_id = W_INTEGER_OVERFLOW;
-                if (warning_message[0] != '\0')
-                {
-                    compiler_diagnostic(warning_id,
-                        ctx,
-                        NULL,
-                        &m,
-                        "%s",
-                        warning_message);
-                }
-                return 0;
-            }
-
-        }
-    }
-    catch{
-
-    }
-    struct object empty = { 0 };
-    *result = empty;
-    return 0; //error
-}
-
 struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
-
     /*
      multiplicative-expression:
-    cast-expression
-    multiplicative-expression * cast-expression
-    multiplicative-expression / cast-expression
-    multiplicative-expression % cast-expression
+        cast-expression
+        multiplicative-expression * cast-expression
+        multiplicative-expression / cast-expression
+        multiplicative-expression % cast-expression
     */
     struct expression* _Owner _Opt p_expression_node = NULL;
     try
@@ -24833,10 +24601,70 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
             }
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+            if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
             {
-                expression_delete(new_expression);
-                throw;
+                if (object_has_constant_value(&new_expression->left->object) &&
+                    object_has_constant_value(&new_expression->right->object))
+                {
+                    const struct marker m =
+                    {
+                        .p_token_begin = new_expression->left->first_token,
+                        .p_token_end = new_expression->right->last_token
+                    };
+
+                    char warning_message[200] = { 0 };
+                    if (op == '*')
+                    {
+                        new_expression->object = object_mul(ctx->options.target,
+                                             &new_expression->left->object,
+                                             &new_expression->right->object,
+                                             warning_message);
+
+                        if (warning_message[0] != '\0')
+                        {
+                            compiler_diagnostic(W_INTEGER_OVERFLOW,
+                                ctx,
+                                NULL,
+                                &m,
+                                "%s",
+                                warning_message);
+                        }
+                    }
+                    else if (op == '/')
+                    {
+                        new_expression->object = object_div(ctx->options.target,
+                                             &new_expression->left->object,
+                                             &new_expression->right->object,
+                                             warning_message);
+
+                        if (warning_message[0] != '\0')
+                        {
+                            compiler_diagnostic(W_DIVIZION_BY_ZERO,
+                                ctx,
+                                NULL,
+                                &m,
+                                "%s",
+                                warning_message);
+                        }
+                    }
+                    else if (op == '%')
+                    {
+                        new_expression->object = object_mod(ctx->options.target,
+                                             &new_expression->left->object,
+                                             &new_expression->right->object,
+                                             warning_message);
+
+                        if (warning_message[0] != '\0')
+                        {
+                            compiler_diagnostic(W_DIVIZION_BY_ZERO,
+                                ctx,
+                                NULL,
+                                &m,
+                                "%s",
+                                warning_message);
+                        }
+                    }
+                }
             }
 
             p_expression_node = new_expression;
@@ -24937,10 +24765,34 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                 {
                     new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
                     {
-                        expression_delete(new_expression);
-                        throw;
+                        if (object_has_constant_value(&new_expression->left->object) &&
+                            object_has_constant_value(&new_expression->right->object))
+                        {
+                            const struct marker m =
+                            {
+                                .p_token_begin = new_expression->left->first_token,
+                                .p_token_end = new_expression->right->last_token
+                            };
+
+                            char warning_message[200] = { 0 };
+
+                            new_expression->object = object_add(ctx->options.target,
+                                                 &new_expression->left->object,
+                                                 &new_expression->right->object,
+                                                 warning_message);
+
+                            if (warning_message[0] != '\0')
+                            {
+                                compiler_diagnostic(W_INTEGER_OVERFLOW,
+                                    ctx,
+                                    NULL,
+                                    &m,
+                                    "%s",
+                                    warning_message);
+                            }
+                        }
                     }
                 }
                 else
@@ -25006,10 +24858,35 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                 {
                     new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
                     {
-                        expression_delete(new_expression);
-                        throw;
+
+                        if (object_has_constant_value(&new_expression->left->object) &&
+                            object_has_constant_value(&new_expression->right->object))
+                        {
+                            const struct marker m =
+                            {
+                                .p_token_begin = new_expression->left->first_token,
+                                .p_token_end = new_expression->right->last_token
+                            };
+
+                            char warning_message[200] = { 0 };
+
+                            new_expression->object = object_sub(ctx->options.target,
+                                                 &new_expression->left->object,
+                                                 &new_expression->right->object,
+                                                 warning_message);
+
+                            if (warning_message[0] != '\0')
+                            {
+                                compiler_diagnostic(W_INTEGER_OVERFLOW,
+                                    ctx,
+                                    NULL,
+                                    &m,
+                                    "%s",
+                                    warning_message);
+                            }
+                        }
                     }
                 }
                 else
@@ -25325,11 +25202,97 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
             {
                 new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && execute_arithmetic(ctx, new_expression, op, &new_expression->object) != 0)
+                if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
                 {
-                    expression_delete(new_expression);
-                    new_expression = NULL;
-                    throw;
+                    if (object_has_constant_value(&new_expression->left->object) &&
+                        object_has_constant_value(&new_expression->right->object))
+                    {
+
+                        const struct marker m =
+                        {
+                            .p_token_begin = new_expression->left->first_token,
+                            .p_token_end = new_expression->right->last_token
+                        };
+
+
+
+                        char warning_message[200] = { 0 };
+                        enum diagnostic_id warning_id = 0;
+
+                        if (op == '>=')
+                        {
+                            new_expression->object = object_greater_than_or_equal(ctx->options.target,
+                                                 &new_expression->left->object,
+                                                 &new_expression->right->object,
+                                                 warning_message);
+                            warning_id = W_INTEGER_OVERFLOW;
+                            if (warning_message[0] != '\0')
+                            {
+                                compiler_diagnostic(warning_id,
+                                    ctx,
+                                    NULL,
+                                    &m,
+                                    "%s",
+                                    warning_message);
+                            }
+                           
+                        }
+                        else if (op == '<=')
+                        {
+                            new_expression->object = object_smaller_than_or_equal(ctx->options.target,
+                                                 &new_expression->left->object,
+                                                 &new_expression->right->object,
+                                                 warning_message);
+                            warning_id = W_INTEGER_OVERFLOW;
+                            if (warning_message[0] != '\0')
+                            {
+                                compiler_diagnostic(warning_id,
+                                    ctx,
+                                    NULL,
+                                    &m,
+                                    "%s",
+                                    warning_message);
+                            }
+                          
+                        }
+                        else if (op == '>')
+                        {
+                            new_expression->object= object_greater_than(ctx->options.target,
+                                                 &new_expression->left->object,
+                                                 &new_expression->right->object,
+                                                 warning_message);
+                            warning_id = W_INTEGER_OVERFLOW;
+                            if (warning_message[0] != '\0')
+                            {
+                                compiler_diagnostic(warning_id,
+                                    ctx,
+                                    NULL,
+                                    &m,
+                                    "%s",
+                                    warning_message);
+                            }
+                         
+                        }
+                        else if (op == '<')
+                        {
+                            new_expression->object= object_smaller_than(ctx->options.target,
+                                                 &new_expression->left->object,
+                                                 &new_expression->right->object,
+                                                 warning_message);
+                            warning_id = W_INTEGER_OVERFLOW;
+                            if (warning_message[0] != '\0')
+                            {
+                                compiler_diagnostic(warning_id,
+                                    ctx,
+                                    NULL,
+                                    &m,
+                                    "%s",
+                                    warning_message);
+                            }
+                     
+                        }
+
+                    }
                 }
             }
 
@@ -28676,31 +28639,6 @@ void d_visit_ctx_destroy( _Dtor struct d_visit_ctx* ctx);
 */
 #define CAKE_GENERATED_TAG_PREFIX  "__tag"
 
-char* _Opt strrchr2(const char* s, int c)
-{
-    const char* _Opt last = NULL;
-    unsigned char ch = (unsigned char)c;
-
-    while (*s)
-    {
-        if ((unsigned char)*s == ch)
-        {
-            last = s;  // record last match
-        }
-        s++;
-    }
-
-    // Handle case where c == '\0': return pointer to string terminator
-    if (ch == '\0')
-    {
-        return (char*)s;
-    }
-
-    return (char*)last;
-}
-
-
-
 _Attr(nodiscard)
 int initializer_init_new(struct parser_ctx* ctx,
                        struct type* p_type, /*in (in/out for arrays [])*/
@@ -28721,8 +28659,6 @@ void defer_statement_delete(struct defer_statement* _Owner _Opt p)
 }
 
 
-
-///////////////////////////////////////////////////////////////////////////////
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token);
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token);
 void naming_convention_function(struct parser_ctx* ctx, struct token* token);
@@ -28732,7 +28668,6 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage);
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
-///////////////////////////////////////////////////////////////////////////////
 
 static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
 {
@@ -35894,7 +35829,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
         p_pragma_token = pragma_declaration_match(p_pragma_token);
         if (p_pragma_token == NULL)
             throw;
-        
+
         if ((strcmp(p_pragma_token->lexeme, "CAKE") == 0 ||
             strcmp(p_pragma_token->lexeme, "cake") == 0))
         {
@@ -35905,6 +35840,22 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             if (p_pragma_token == NULL)
                 throw;
         }
+
+        
+        bool is_standard_pragma = false;
+
+        if ((strcmp(p_pragma_token->lexeme, "STDC") == 0))
+        {
+            /*
+               optional
+            */
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+            is_standard_pragma = true;
+        }
+
+
 
         if (strcmp(p_pragma_token->lexeme, "diagnostic") == 0)
         {
@@ -36086,6 +36037,57 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 ctx->options.flow_analysis = false;
             }
         }
+        else if (is_standard_pragma && 
+                 (strcmp(p_pragma_token->lexeme, "FP_CONTRACT") == 0 ||
+                 strcmp(p_pragma_token->lexeme, "FENV_ACCESS") == 0 ||
+                 strcmp(p_pragma_token->lexeme, "CX_LIMITED_RANGE") == 0))
+        {
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (strcmp(p_pragma_token->lexeme, "ON") != 0 &&
+                strcmp(p_pragma_token->lexeme, "OFF") != 0 &&
+                strcmp(p_pragma_token->lexeme, "DEFAULT") != 0)
+            {
+                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected ON OFF DEFAULT");
+                throw;
+            }
+        }
+        else if (is_standard_pragma && strcmp(p_pragma_token->lexeme, "FENV_DEC_ROUND") == 0)
+        {
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (strcmp(p_pragma_token->lexeme, "FE_DEC_DOWNWARD") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_DEC_TONEAREST") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_DEC_TONEARESTFROMZERO") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_DEC_TOWARDZERO") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_DEC_UPWARD") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_DEC_DYNAMIC") != 0)
+            {
+                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected FE_DEC_DOWNWARD FE_DEC_TONEAREST FE_DEC_TONEARESTFROMZERO FE_DEC_TOWARDZERO FE_DEC_UPWARD FE_DEC_DYNAMIC");
+                throw;
+            }
+        }
+        else if (is_standard_pragma && strcmp(p_pragma_token->lexeme, "FENV_ROUND") == 0)
+        {
+            p_pragma_token = pragma_declaration_match(p_pragma_token);
+            if (p_pragma_token == NULL)
+                throw;
+
+            if (strcmp(p_pragma_token->lexeme, "FE_DOWNWARD") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_TONEAREST") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_TONEARESTFROMZERO") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_TOWARDZERO") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_UPWARD") != 0 &&
+                strcmp(p_pragma_token->lexeme, "FE_DYNAMIC") != 0)
+            {
+                compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
+                throw;
+            }
+        }
         else
         {
             compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown pragma");
@@ -36093,7 +36095,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
         }
     }
     catch
-    {     
+    {
     }
 }
 
@@ -36133,9 +36135,9 @@ struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx
     }
     catch
     {
-        
+
     }
-    
+
 
     return p_pragma_declaration;
 }
@@ -39309,6 +39311,1077 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
     return l;
 }
 
+struct ast get_ast(struct options* options,
+    const char* filename,
+    const char* source,
+    struct report* report)
+{
+    struct ast ast = { 0 };
+    struct tokenizer_ctx tctx = { 0 };
+
+    struct token_list list = tokenizer(&tctx, source, filename, 0, TK_FLAG_NONE);
+
+    struct preprocessor_ctx prectx = { 0 };
+
+    _Opt struct parser_ctx ctx = { 0 };
+    ctx.p_report = report;
+
+    try
+    {
+        prectx.options = *options;
+        prectx.macros.capacity = 5000;
+
+        add_standard_macros(&prectx, options->target);
+
+        ast.token_list = preprocessor(&prectx, &list, 0);
+        if (prectx.n_errors != 0)
+            throw;
+
+        ctx.options = *options;
+
+        bool berror = false;
+        ast.declaration_list = parse(&ctx, &ast.token_list, &berror);
+        if (berror)
+            throw;
+    }
+    catch
+    {
+    }
+    parser_ctx_destroy(&ctx);
+    token_list_destroy(&list);
+    preprocessor_ctx_destroy(&prectx);
+
+    return ast;
+}
+
+
+void ast_destroy(_Dtor struct ast* ast)
+{
+    token_list_destroy(&ast->token_list);
+    declaration_list_destroy(&ast->declaration_list);
+}
+
+static bool is_all_upper(const char* text)
+{
+    const char* p = text;
+    while (*p)
+    {
+        if (*p != toupper(*p))
+        {
+            return false;
+        }
+        p++;
+    }
+    return true;
+}
+
+static bool is_snake_case(const char* text)
+{
+    if (!(*text >= 'a' && *text <= 'z'))
+    {
+        return false;
+    }
+
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') ||
+            *text == '_' ||
+            (*text >= '0' && *text <= '9'))
+
+        {
+            // ok
+        }
+        else
+            return false;
+        text++;
+    }
+
+    return true;
+}
+
+static bool is_camel_case(const char* text)
+{
+    if (!(*text >= 'a' && *text <= 'z'))
+    {
+        return false;
+    }
+
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') ||
+            (*text >= 'A' && *text <= 'Z') ||
+            (*text >= '0' && *text <= '9'))
+        {
+            // ok
+        }
+        else
+            return false;
+        text++;
+    }
+
+    return true;
+}
+
+static bool is_pascal_case(const char* text)
+{
+    if (!(text[0] >= 'A' && text[0] <= 'Z'))
+    {
+        /*first letter uppepr case*/
+        return false;
+    }
+
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') ||
+            (*text >= 'A' && *text <= 'Z') ||
+            (*text >= '0' && *text <= '9'))
+        {
+            // ok
+        }
+        else
+            return false;
+        text++;
+    }
+
+    return true;
+}
+
+/*
+ * This naming conventions are not ready yet...
+ * but not dificult to implement.maybe options to choose style
+ */
+void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (ctx->options.style == STYLE_CAKE)
+    {
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct/union tags");
+        }
+    }
+    else if (ctx->options.style == STYLE_MICROSOFT)
+    {
+        if (!is_pascal_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for struct/union tags");
+        }
+    }
+}
+
+void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (ctx->options.style == STYLE_CAKE)
+    {
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for enum tags");
+        }
+    }
+    else if (ctx->options.style == STYLE_MICROSOFT)
+    {
+        if (!is_pascal_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for enum tags");
+        }
+    }
+}
+
+void naming_convention_function(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (ctx->options.style == STYLE_CAKE)
+    {
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for functions");
+        }
+    }
+    else if (ctx->options.style == STYLE_MICROSOFT)
+    {
+        if (!is_pascal_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for functions");
+        }
+    }
+}
+
+void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (!type_is_function_or_function_pointer(type))
+    {
+        if (storage & STORAGE_SPECIFIER_STATIC)
+        {
+            if (type_is_const(type))
+            {
+                //all upper
+            }
+            else
+            {
+                if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
+                {
+                    compiler_diagnostic(W_STYLE, ctx, token, NULL, "use prefix s_ for static global variables");
+                }
+            }
+        }
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case global variables");
+        }
+    }
+}
+
+void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (ctx->options.style == STYLE_CAKE)
+    {
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for local variables");
+        }
+    }
+    else if (ctx->options.style == STYLE_MICROSOFT)
+    {
+        if (!is_camel_case(token->lexeme))
+        {
+            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for local variables");
+        }
+    }
+}
+
+void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (!is_all_upper(token->lexeme))
+    {
+        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use UPPERCASE for enumerators");
+    }
+}
+
+void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (!is_snake_case(token->lexeme))
+    {
+        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct members");
+    }
+}
+
+void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
+{
+    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
+
+    if (!is_snake_case(token->lexeme))
+    {
+        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for arguments");
+    }
+}
+
+static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+
+    if (p_object->members.head == NULL)
+    {
+        *sub_object_of_union = false;
+
+        struct type t = type_dup(&p_object->type);
+        type_swap(&t, p_type_out);
+        type_destroy(&t);
+
+        return p_object; //tODO
+    }
+
+    *sub_object_of_union = type_is_union(&p_object->type);
+    struct type t = type_dup(&p_object->members.head->type);
+    type_swap(&t, p_type_out);
+    type_destroy(&t);
+
+    return p_object->members.head; //tODO
+}
+
+static struct object* _Opt find_first_subobject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
+{
+    return find_first_subobject_old(p_type_not_used, p_object, p_type_out, sub_object_of_union);
+}
+
+static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
+{
+    p_object = (struct object* _Opt) object_get_referenced(p_object);
+
+    if (p_object->members.head == NULL)
+    {
+        struct type t = type_dup(&p_object->type);
+        type_swap(&t, p_type_out);
+        type_destroy(&t);
+        return p_object; //tODO
+    }
+
+    struct object* _Opt it = p_object->members.head;
+
+    while (it)
+    {
+        if (it->next == NULL)
+            return find_last_suboject_of_suboject_old(p_type_not_used, it, p_type_out);
+
+        it = it->next;
+    }
+
+    struct type t = type_dup(&p_object->type);
+    type_swap(&t, p_type_out);
+    type_destroy(&t);
+
+
+    return p_object;
+}
+
+static struct object* _Opt find_last_suboject_of_suboject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
+{
+    return find_last_suboject_of_suboject_old(p_type_not_used, p_object, p_type_out);
+}
+
+
+static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not_used,
+    struct object* current_object,
+    struct object* it,
+    struct type* p_type_out,
+    bool* sub_object_of_union)
+{
+    type_clear(p_type_out);
+
+    if (it == NULL)
+        return NULL;
+
+
+    if (it->members.head)
+    {
+        *sub_object_of_union = type_is_union(&it->type);
+
+        it = it->members.head;
+
+        struct type t = type_dup(&it->type);
+        type_swap(&t, p_type_out);
+        type_destroy(&t);
+
+        return it;
+    }
+
+    for (;;)
+    {
+        if (it == NULL)
+            break;
+
+        struct object* _Opt next = it->next;
+
+        if (next != NULL)
+        {
+            if (it->parent)
+                *sub_object_of_union = type_is_union(&it->parent->type);
+            it = next;
+            break;
+        }
+
+        it = it->parent;
+    }
+
+    if (it != NULL)
+    {
+        struct type t = type_dup(&it->type);
+        type_swap(&t, p_type_out);
+        type_destroy(&t);
+    }
+
+    return it;
+}
+
+
+static struct object* _Opt find_next_subobject(struct type* p_top_object_not_used,
+    struct object* current_object,
+    struct object* it,
+    struct type* p_type_out,
+    bool* sub_object_of_union)
+{
+    return find_next_subobject_old(p_top_object_not_used,
+    current_object,
+    it,
+    p_type_out,
+    sub_object_of_union);
+}
+
+struct find_object_result
+{
+    struct object* _Opt object;
+    struct type type;
+};
+
+
+static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
+    struct type* p_current_object_type,
+    struct object* current_object,
+    struct designator* p_designator,
+    bool is_constant,
+    struct type* p_type_out2,
+    bool not_error,
+    enum target target)
+{
+    try
+    {
+        if (type_is_struct_or_union(p_current_object_type))
+        {
+            assert(p_current_object_type->struct_or_union_specifier);
+
+            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
+                get_complete_struct_or_union_specifier(p_current_object_type->struct_or_union_specifier);
+
+            if (p_struct_or_union_specifier == NULL)
+            {
+                throw;
+            }
+
+            struct member_declaration* _Opt p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            struct member_declarator* _Opt p_member_declarator = NULL;
+
+            const char* name = p_designator->token->lexeme;
+            struct object* _Opt p_member_object = current_object->members.head;
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            if (p_member_declarator->declarator->name_opt &&
+                                strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
+                            {
+                                if (p_designator->next != NULL)
+                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
+                                else
+                                {
+                                    struct type t = type_dup(&p_member_declarator->declarator->type);
+                                    type_swap(&t, p_type_out2);
+                                    type_destroy(&t);
+
+                                    return p_member_object;
+                                }
+                            }
+                        }
+                        p_member_object = p_member_object->next;
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                else if (p_member_declaration->specifier_qualifier_list)
+                {
+                    if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    {
+                        struct struct_or_union_specifier* _Opt p_complete =
+                            get_complete_struct_or_union_specifier(p_member_declaration->specifier_qualifier_list->struct_or_union_specifier);
+
+                        if (p_complete)
+                        {
+                            struct type t = { 0 };
+                            t.category = TYPE_CATEGORY_ITSELF;
+                            t.struct_or_union_specifier = p_complete;
+                            t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                            struct object* _Opt p = find_designated_subobject(ctx,
+                                                                         &t,
+                                                                         p_member_object,
+                                                                         p_designator,
+                                                                         is_constant,
+                                                                         p_type_out2,
+                                                                         true, ctx->options.target);
+                            if (p)
+                            {
+                                type_destroy(&t);
+                                return p;
+                            }
+                            p_member_object = p_member_object->next;
+                            type_destroy(&t);
+                        }
+                    }
+                }
+                else
+                {
+                    //static_assert pragma...
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+
+            if (!not_error)
+            {
+                compiler_diagnostic(
+                                              C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                              ctx,
+                                              p_designator->token,
+                                              NULL,
+                                              "member '%s' not found in '%s'", name, p_struct_or_union_specifier->tag_name);
+            }
+            return NULL;
+        }
+        else if (type_is_array(p_current_object_type))
+        {
+            const bool compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
+            long long index = -1;
+            long long max_index = -1;
+            struct type array_item_type = get_array_item_type(p_current_object_type);
+
+            struct object* _Opt member_obj = current_object->members.head;
+
+            if (p_designator->constant_expression_opt)
+            {
+                index = object_to_signed_long_long(&p_designator->constant_expression_opt->object);
+
+                if (index > max_index)
+                {
+                    max_index = index;
+                    if (compute_array_size)
+                    {
+                        member_obj = object_extend_array_to_index(&array_item_type, current_object, (size_t)max_index, is_constant, target);
+                    }
+                }
+
+                member_obj = object_get_member(current_object, (size_t)index);
+                if (member_obj == NULL)
+                {
+                    if (index < 0)
+                    {
+                        compiler_diagnostic(
+                                                  C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                                  ctx,
+                                                  p_designator->constant_expression_opt->first_token,
+                                                  NULL,
+                                                  "array designator value '%d' is negative", index);
+                    }
+                    else if (index > (int)p_current_object_type->num_of_elements)
+                    {
+                        compiler_diagnostic(
+                                                  C_ERROR_STRUCT_MEMBER_NOT_FOUND,
+                                                  ctx,
+                                                  p_designator->constant_expression_opt->first_token,
+                                                  NULL,
+                                                  "array index '%d' in initializer exceeds array bounds", index);
+                    }
+
+                    type_destroy(&array_item_type);
+                    return NULL;
+                }
+
+
+                if (p_designator->next != NULL)
+                {
+                    struct object* _Opt p =
+                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
+
+                    type_destroy(&array_item_type);
+                    return p;
+                }
+                else
+                {
+                    type_swap(p_type_out2, &array_item_type);
+                    type_destroy(&array_item_type);
+                }
+
+                return member_obj;
+            }
+            else
+            {
+                //oops
+            }
+            type_destroy(&array_item_type);
+        }
+    }
+    catch
+    {
+
+    }
+    return NULL;
+}
+
+int initializer_init_new(struct parser_ctx* ctx,
+                        struct type* p_type, /*in (in/out for arrays [])*/
+                        struct object* object, /*in (in/out for arrays [])*/
+                        struct initializer* initializer, /*rtocar para initializer item??*/
+                        bool is_constant,
+                        bool requires_constant_initialization);
+
+static struct initializer_list_item* _Opt find_innner_initializer_list_item(struct braced_initializer* braced_initializer)
+{
+    assert(braced_initializer->initializer_list);
+
+    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
+
+    while (p_initializer_list_item->initializer->braced_initializer)
+    {
+        //int i = {{1}};
+        p_initializer_list_item = p_initializer_list_item->initializer->braced_initializer->initializer_list->head;
+
+        if (p_initializer_list_item == NULL)
+        {
+            assert(false);
+            return NULL;
+        }
+
+        if (p_initializer_list_item->next == NULL)
+            return p_initializer_list_item;
+
+        p_initializer_list_item = p_initializer_list_item->next;
+    }
+
+    return p_initializer_list_item;
+}
+
+_Attr(nodiscard)
+static int braced_initializer_new(struct parser_ctx* ctx,
+                                  struct type* p_current_object_type,
+                                  struct object* current_object,
+                                  struct braced_initializer* braced_initializer,
+                                  bool is_constant,
+                                  bool requires_constant_initialization)
+{
+    try
+    {
+        if (braced_initializer->initializer_list == NULL)
+        {
+            object_default_initialization(current_object, is_constant);
+            return 0;
+        }
+
+        if (!type_is_union(p_current_object_type))
+        {
+            object_default_initialization(current_object, is_constant);
+        }
+
+        if (type_is_scalar(p_current_object_type))
+        {
+            struct initializer_list_item* _Opt p_initializer_list_item =
+                find_innner_initializer_list_item(braced_initializer);
+
+            if (p_initializer_list_item == NULL)
+            {
+                return 0;
+            }
+
+            if (p_initializer_list_item->initializer->assignment_expression != NULL)
+            {
+                if (object_set(ctx,
+                    current_object, p_initializer_list_item->initializer->assignment_expression,
+                    &p_initializer_list_item->initializer->assignment_expression->object,
+                    is_constant,
+                    requires_constant_initialization) != 0)
+                {
+                    throw;
+                }
+            }
+
+            p_initializer_list_item = p_initializer_list_item->next;
+
+            if (p_initializer_list_item != NULL)
+            {
+                compiler_diagnostic(W_TO_MANY_INITIALIZERS,
+                                            ctx,
+                                            p_initializer_list_item->initializer->first_token,
+                                            NULL,
+                                            "warning: excess elements in initializer");
+            }
+            return 0;
+        }
+
+
+        //TODO Array char
+
+        struct object* const _Opt parent_copy = current_object->parent;
+        current_object->parent = NULL; //to be only here
+        struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
+        ptrdiff_t array_to_expand_index = -1;
+        ptrdiff_t array_to_expand_max_index = -1;
+        bool compute_array_size = false;
+        struct type array_item_type = { 0 };
+        if (type_is_array(p_current_object_type))
+        {
+            array_item_type = get_array_item_type(p_current_object_type);
+            compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
+            if (type_is_char(&array_item_type))
+            {
+                struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
+                if (p_initializer_list_item2 == NULL)
+                {
+                    type_destroy(&array_item_type);
+                    return 0;
+                }
+                if (p_initializer_list_item2->initializer->assignment_expression != NULL)
+                {
+                    if (p_initializer_list_item2->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                    {
+                        size_t num_of_elements =
+                            p_initializer_list_item2->initializer->assignment_expression->type.num_of_elements;
+
+                        if (compute_array_size)
+                        {
+                            object_extend_array_to_index(&array_item_type, current_object, num_of_elements - 1, is_constant, ctx->options.target);
+                        }
+
+                        if (object_set(ctx,
+                            current_object,
+                            p_initializer_list_item2->initializer->assignment_expression,
+                            &p_initializer_list_item2->initializer->assignment_expression->object,
+                            is_constant,
+                            requires_constant_initialization) != 0)
+                        {
+                            type_destroy(&array_item_type);
+                            throw;
+                        }
+                        //current_object->type2.num_of_elements = num_of_elements;
+                        p_current_object_type->num_of_elements = num_of_elements;
+
+                        //printf("\n");
+                        //object_print_to_debug(current_object);
+                        type_destroy(&array_item_type);
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        struct object* _Opt p_subobject = NULL;
+
+        for (;;)
+        {
+            bool is_subobject_of_union = false;
+            struct type subobject_type = { 0 };
+
+            if (p_initializer_list_item == NULL)
+            {
+                break;
+            }
+
+            if (p_initializer_list_item->designation)
+            {
+                if (compute_array_size)
+                {
+                    array_to_expand_index = (ptrdiff_t)object_to_signed_long_long(&p_initializer_list_item->designation->designator_list->head->constant_expression_opt->object);
+
+                    if (array_to_expand_index > array_to_expand_max_index)
+                        array_to_expand_max_index = array_to_expand_index;
+
+                    object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant, ctx->options.target);
+                }
+                is_subobject_of_union = type_is_union(&subobject_type);
+                p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false, ctx->options.target);
+                if (p_subobject == NULL)
+                {
+                    // already have the error, need not say that it was not consumed
+                    p_initializer_list_item = p_initializer_list_item->next;
+                    type_destroy(&subobject_type);
+                    break;
+                }
+            }
+            else
+            {
+                if (compute_array_size)
+                {
+
+                    struct object* _Opt po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                    if (po == NULL)
+                    {
+                        array_to_expand_index++;
+                        if (array_to_expand_index > array_to_expand_max_index)
+                            array_to_expand_max_index = array_to_expand_index;
+
+                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant, ctx->options.target);
+                    }
+                }
+
+                if (p_subobject == NULL)
+                {
+
+                    p_subobject = find_first_subobject(p_current_object_type, current_object, &subobject_type, &is_subobject_of_union);
+                }
+                else
+                {
+                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                }
+            }
+
+            if (p_subobject == NULL)
+            {
+                type_destroy(&subobject_type);
+                break;
+            }
+
+
+
+            if (p_initializer_list_item->initializer->braced_initializer)
+            {
+                if (braced_initializer_new(ctx,
+                    &subobject_type,
+                    p_subobject,
+                    p_initializer_list_item->initializer->braced_initializer,
+                    is_constant,
+                    requires_constant_initialization) != 0)
+                {
+                    type_destroy(&array_item_type);
+                    type_destroy(&subobject_type);
+                    throw;
+                }
+
+                struct type t = { 0 };
+
+                is_subobject_of_union = type_is_union(&subobject_type);
+                p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
+                type_swap(&t, &subobject_type);
+                type_destroy(&t);
+            }
+            else if (p_initializer_list_item->initializer->assignment_expression)
+            {
+                bool entire_object_initialized = false;
+
+                if (type_is_array_of_char(&subobject_type) &&
+                    p_initializer_list_item->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                {
+                    /*
+                    struct X { int i; char text[4]; };
+                    constexpr struct X x = {1, "abc"};
+                    */
+                    entire_object_initialized = true;
+                }
+                else if (type_is_array(&subobject_type))
+                {
+                    while (type_is_array(&subobject_type))
+                    {
+                        /*
+                          struct X { int i[2]; };
+                          int a[2]={};
+                          struct  X b = { a };    //error
+                        */
+                        //sub_object_of_union = false;
+                        p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                    }
+                }
+                else if (type_is_struct_or_union(&subobject_type))
+                {
+                    if (type_is_struct_or_union(&p_initializer_list_item->initializer->assignment_expression->type))
+                    {
+                        //mesmo tipo
+                        entire_object_initialized = true;
+                    }
+                    else
+                    {
+                        p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
+                    }
+                }
+
+                if (object_set(ctx,
+                    p_subobject,
+                    p_initializer_list_item->initializer->assignment_expression,
+                    &p_initializer_list_item->initializer->assignment_expression->object,
+                    is_constant,
+                    requires_constant_initialization) != 0)
+                {
+                    type_destroy(&array_item_type);
+                    type_destroy(&subobject_type);
+                    throw;
+                }
+
+
+                if (is_subobject_of_union)
+                {
+                    assert(p_subobject);
+                    assert(p_subobject->parent);
+                    struct type t = { 0 };
+                    is_subobject_of_union = true;
+                    p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type,
+                                                                 p_subobject->parent,
+                                                                 &t);
+                    type_swap(&t, &subobject_type);
+                    type_destroy(&t);
+                    if (p_subobject)
+                    {
+                        type_destroy(&subobject_type);
+                        subobject_type = type_dup(&p_subobject->type);
+                    }
+
+                }
+                else if (entire_object_initialized)
+                {
+                    assert(p_subobject);
+
+                    struct type t = { 0 };
+                    is_subobject_of_union = type_is_union(p_current_object_type);
+                    p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
+                    type_swap(&t, &subobject_type);
+                    type_destroy(&t);
+                    if (p_subobject)
+                    {
+                        type_destroy(&subobject_type);
+                        subobject_type = type_dup(&p_subobject->type);
+                    }
+                }
+            }
+            p_initializer_list_item = p_initializer_list_item->next;
+            type_destroy(&subobject_type);
+        }
+
+        if (p_initializer_list_item != NULL)
+        {
+            compiler_diagnostic(W_TO_MANY_INITIALIZERS,
+                                        ctx,
+                                        p_initializer_list_item->initializer->first_token,
+                                        NULL,
+                                        "warning: excess elements in initializer");
+
+        }
+        if (compute_array_size)
+        {
+            current_object->type.num_of_elements = array_to_expand_max_index + 1;
+            p_current_object_type->num_of_elements = array_to_expand_max_index + 1;
+        }
+
+        current_object->parent = parent_copy; //restore
+        type_destroy(&array_item_type);
+    }
+    catch
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+int initializer_init_new(struct parser_ctx* ctx,
+                        struct type* p_type,
+                        struct object* object, /*in (in/out for arrays [])*/
+                        struct initializer* initializer, /*rtocar para initializer item??*/
+                        bool is_constant,
+                        bool requires_constant_initialization)
+{
+    try
+    {
+        if (initializer->assignment_expression != NULL)
+        {
+            //types must be compatible
+            if (object_set(ctx,
+                object,
+                initializer->assignment_expression,
+                &initializer->assignment_expression->object,
+                is_constant,
+                requires_constant_initialization) != 0)
+            {
+                throw;
+            }
+        }
+        else if (initializer->braced_initializer)
+        {
+            if (braced_initializer_new(ctx,
+                p_type,
+                object,
+                initializer->braced_initializer,
+                is_constant,
+                requires_constant_initialization) != 0)
+            {
+                throw;
+            }
+        }
+    }
+    catch
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+
+
+
+//#pragma once
+
+
+struct report;
+int compile(int argc, const char** argv, struct report* report);
+const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
+
+/*
+   This function is called by the web version
+*/   
+char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
+
+
+#pragma safety enable
+
+
+
+#ifdef _WIN32
+#endif
+
+#if defined _MSC_VER && !defined __POCC__
+#endif
+
+
+
+static char* _Opt strrchr2(const char* s, int c)
+{
+    const char* _Opt last = NULL;
+    unsigned char ch = (unsigned char)c;
+
+    while (*s)
+    {
+        if ((unsigned char)*s == ch)
+        {
+            last = s;  // record last match
+        }
+        s++;
+    }
+
+    // Handle case where c == '\0': return pointer to string terminator
+    if (ch == '\0')
+    {
+        return (char*)s;
+    }
+
+    return (char*)last;
+}
+
+
 int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx)
 {
     /*first loop used to collect options*/
@@ -40085,54 +41158,12 @@ int compile(int argc, const char** argv, struct report* report)
     return 0;
 }
 
-struct ast get_ast(struct options* options,
-    const char* filename,
-    const char* source,
-    struct report* report)
-{
-    struct ast ast = { 0 };
-    struct tokenizer_ctx tctx = { 0 };
-
-    struct token_list list = tokenizer(&tctx, source, filename, 0, TK_FLAG_NONE);
-
-    struct preprocessor_ctx prectx = { 0 };
-
-    _Opt struct parser_ctx ctx = { 0 };
-    ctx.p_report = report;
-
-    try
-    {
-        prectx.options = *options;
-        prectx.macros.capacity = 5000;
-
-        add_standard_macros(&prectx, options->target);
-
-        ast.token_list = preprocessor(&prectx, &list, 0);
-        if (prectx.n_errors != 0)
-            throw;
-
-        ctx.options = *options;
-
-        bool berror = false;
-        ast.declaration_list = parse(&ctx, &ast.token_list, &berror);
-        if (berror)
-            throw;
-    }
-    catch
-    {
-    }
-    parser_ctx_destroy(&ctx);
-    token_list_destroy(&list);
-    preprocessor_ctx_destroy(&prectx);
-
-    return ast;
-}
 
 /*
 * given a string s, produce argv by modifying the input string
 * return argc
 */
-int strtoargv(char* s, int n, const char* argv[/*n*/])
+static int strtoargv(char* s, int n, const char* argv[/*n*/])
 {
     int argvc = 0;
     char* p = s;
@@ -40238,978 +41269,6 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     return (char* _Owner _Opt)compile_source(pszoptions, content, &report);
 }
 
-void ast_destroy(_Dtor struct ast* ast)
-{
-    token_list_destroy(&ast->token_list);
-    declaration_list_destroy(&ast->declaration_list);
-}
-
-static bool is_all_upper(const char* text)
-{
-    const char* p = text;
-    while (*p)
-    {
-        if (*p != toupper(*p))
-        {
-            return false;
-        }
-        p++;
-    }
-    return true;
-}
-
-static bool is_snake_case(const char* text)
-{
-    if (!(*text >= 'a' && *text <= 'z'))
-    {
-        return false;
-    }
-
-    while (*text)
-    {
-        if ((*text >= 'a' && *text <= 'z') ||
-            *text == '_' ||
-            (*text >= '0' && *text <= '9'))
-
-        {
-            // ok
-        }
-        else
-            return false;
-        text++;
-    }
-
-    return true;
-}
-
-static bool is_camel_case(const char* text)
-{
-    if (!(*text >= 'a' && *text <= 'z'))
-    {
-        return false;
-    }
-
-    while (*text)
-    {
-        if ((*text >= 'a' && *text <= 'z') ||
-            (*text >= 'A' && *text <= 'Z') ||
-            (*text >= '0' && *text <= '9'))
-        {
-            // ok
-        }
-        else
-            return false;
-        text++;
-    }
-
-    return true;
-}
-
-static bool is_pascal_case(const char* text)
-{
-    if (!(text[0] >= 'A' && text[0] <= 'Z'))
-    {
-        /*first letter uppepr case*/
-        return false;
-    }
-
-    while (*text)
-    {
-        if ((*text >= 'a' && *text <= 'z') ||
-            (*text >= 'A' && *text <= 'Z') ||
-            (*text >= '0' && *text <= '9'))
-        {
-            // ok
-        }
-        else
-            return false;
-        text++;
-    }
-
-    return true;
-}
-
-/*
- * This naming conventions are not ready yet...
- * but not dificult to implement.maybe options to choose style
- */
-void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
-{
-    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
-    {
-        return;
-    }
-
-    if (ctx->options.style == STYLE_CAKE)
-    {
-        if (!is_snake_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct/union tags");
-        }
-    }
-    else if (ctx->options.style == STYLE_MICROSOFT)
-    {
-        if (!is_pascal_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for struct/union tags");
-        }
-    }
-}
-
-void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
-{
-    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
-    {
-        return;
-    }
-
-    if (ctx->options.style == STYLE_CAKE)
-    {
-        if (!is_snake_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for enum tags");
-        }
-    }
-    else if (ctx->options.style == STYLE_MICROSOFT)
-    {
-        if (!is_pascal_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for enum tags");
-        }
-    }
-}
-
-void naming_convention_function(struct parser_ctx* ctx, struct token* token)
-{
-    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
-    {
-        return;
-    }
-
-    if (ctx->options.style == STYLE_CAKE)
-    {
-        if (!is_snake_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for functions");
-        }
-    }
-    else if (ctx->options.style == STYLE_MICROSOFT)
-    {
-        if (!is_pascal_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use PascalCase for functions");
-        }
-    }
-}
-
-void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
-{
-    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
-    {
-        return;
-    }
-
-    if (!type_is_function_or_function_pointer(type))
-    {
-        if (storage & STORAGE_SPECIFIER_STATIC)
-        {
-            if (type_is_const(type))
-            {
-                //all upper
-            }
-            else
-            {
-                if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
-                {
-                    compiler_diagnostic(W_STYLE, ctx, token, NULL, "use prefix s_ for static global variables");
-                }
-            }
-        }
-        if (!is_snake_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case global variables");
-        }
-    }
-}
-
-void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
-{
-    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
-    {
-        return;
-    }
-
-    if (ctx->options.style == STYLE_CAKE)
-    {
-        if (!is_snake_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for local variables");
-        }
-    }
-    else if (ctx->options.style == STYLE_MICROSOFT)
-    {
-        if (!is_camel_case(token->lexeme))
-        {
-            compiler_diagnostic(W_STYLE, ctx, token, NULL, "use camelCase for local variables");
-        }
-    }
-}
-
-void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
-{
-    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
-    {
-        return;
-    }
-
-    if (!is_all_upper(token->lexeme))
-    {
-        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use UPPERCASE for enumerators");
-    }
-}
-
-void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
-{
-    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
-    {
-        return;
-    }
-
-    if (!is_snake_case(token->lexeme))
-    {
-        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for struct members");
-    }
-}
-
-void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
-{
-    if (!is_diagnostic_enabled(&ctx->options, W_STYLE) || token->level != 0)
-    {
-        return;
-    }
-
-    if (!is_snake_case(token->lexeme))
-    {
-        compiler_diagnostic(W_STYLE, ctx, token, NULL, "use snake_case for arguments");
-    }
-}
-
-static struct object* _Opt find_first_subobject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
-{
-    p_object = (struct object* _Opt) object_get_referenced(p_object);
-
-    if (p_object->members.head == NULL)
-    {
-        *sub_object_of_union = false;
-
-        struct type t = type_dup(&p_object->type);
-        type_swap(&t, p_type_out);
-        type_destroy(&t);
-
-        return p_object; //tODO
-    }
-
-    *sub_object_of_union = type_is_union(&p_object->type);
-    struct type t = type_dup(&p_object->members.head->type);
-    type_swap(&t, p_type_out);
-    type_destroy(&t);
-
-    return p_object->members.head; //tODO
-}
-
-static struct object* _Opt find_first_subobject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out, bool* sub_object_of_union)
-{
-    return find_first_subobject_old(p_type_not_used, p_object, p_type_out, sub_object_of_union);
-}
-
-static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
-{
-    p_object = (struct object* _Opt) object_get_referenced(p_object);
-
-    if (p_object->members.head == NULL)
-    {
-        struct type t = type_dup(&p_object->type);
-        type_swap(&t, p_type_out);
-        type_destroy(&t);
-        return p_object; //tODO
-    }
-
-    struct object* _Opt it = p_object->members.head;
-
-    while (it)
-    {
-        if (it->next == NULL)
-            return find_last_suboject_of_suboject_old(p_type_not_used, it, p_type_out);
-
-        it = it->next;
-    }
-
-    struct type t = type_dup(&p_object->type);
-    type_swap(&t, p_type_out);
-    type_destroy(&t);
-
-
-    return p_object;
-}
-
-static struct object* _Opt find_last_suboject_of_suboject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
-{
-    return find_last_suboject_of_suboject_old(p_type_not_used, p_object, p_type_out);
-}
-
-
-static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not_used,
-    struct object* current_object,
-    struct object* it,
-    struct type* p_type_out,
-    bool* sub_object_of_union)
-{
-    type_clear(p_type_out);
-
-    if (it == NULL)
-        return NULL;
-
-
-    if (it->members.head)
-    {
-        *sub_object_of_union = type_is_union(&it->type);
-
-        it = it->members.head;
-
-        struct type t = type_dup(&it->type);
-        type_swap(&t, p_type_out);
-        type_destroy(&t);
-
-        return it;
-    }
-
-    for (;;)
-    {
-        if (it == NULL)
-            break;
-
-        struct object* _Opt next = it->next;
-
-        if (next != NULL)
-        {
-            if (it->parent)
-                *sub_object_of_union = type_is_union(&it->parent->type);
-            it = next;
-            break;
-        }
-
-        it = it->parent;
-    }
-
-    if (it != NULL)
-    {
-        struct type t = type_dup(&it->type);
-        type_swap(&t, p_type_out);
-        type_destroy(&t);
-    }
-
-    return it;
-}
-
-
-static struct object* _Opt find_next_subobject(struct type* p_top_object_not_used,
-    struct object* current_object,
-    struct object* it,
-    struct type* p_type_out,
-    bool* sub_object_of_union)
-{
-    return find_next_subobject_old(p_top_object_not_used,
-    current_object,
-    it,
-    p_type_out,
-    sub_object_of_union);
-}
-struct find_object_result
-{
-    struct object* _Opt object;
-    struct type type;
-};
-
-
-static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
-    struct type* p_current_object_type,
-    struct object* current_object,
-    struct designator* p_designator,
-    bool is_constant,
-    struct type* p_type_out2,
-    bool not_error,
-    enum target target)
-{
-    try
-    {
-        if (type_is_struct_or_union(p_current_object_type))
-        {
-            assert(p_current_object_type->struct_or_union_specifier);
-
-            struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-                get_complete_struct_or_union_specifier(p_current_object_type->struct_or_union_specifier);
-
-            if (p_struct_or_union_specifier == NULL)
-            {
-                throw;
-            }
-
-            struct member_declaration* _Opt p_member_declaration =
-                p_struct_or_union_specifier->member_declaration_list.head;
-
-            struct member_declarator* _Opt p_member_declarator = NULL;
-
-            const char* name = p_designator->token->lexeme;
-            struct object* _Opt p_member_object = current_object->members.head;
-            while (p_member_declaration)
-            {
-                if (p_member_declaration->member_declarator_list_opt)
-                {
-                    p_member_declarator = p_member_declaration->member_declarator_list_opt->head;
-
-                    while (p_member_declarator)
-                    {
-                        if (p_member_declarator->declarator)
-                        {
-                            if (p_member_declarator->declarator->name_opt &&
-                                strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
-                            {
-                                if (p_designator->next != NULL)
-                                    return find_designated_subobject(ctx, &p_member_declarator->declarator->type, p_member_object, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
-                                else
-                                {
-                                    struct type t = type_dup(&p_member_declarator->declarator->type);
-                                    type_swap(&t, p_type_out2);
-                                    type_destroy(&t);
-
-                                    return p_member_object;
-                                }
-                            }
-                        }
-                        p_member_object = p_member_object->next;
-                        p_member_declarator = p_member_declarator->next;
-                    }
-                }
-                else if (p_member_declaration->specifier_qualifier_list)
-                {
-                    if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
-                    {
-                        struct struct_or_union_specifier* _Opt p_complete =
-                            get_complete_struct_or_union_specifier(p_member_declaration->specifier_qualifier_list->struct_or_union_specifier);
-
-                        if (p_complete)
-                        {
-                            struct type t = { 0 };
-                            t.category = TYPE_CATEGORY_ITSELF;
-                            t.struct_or_union_specifier = p_complete;
-                            t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-
-                            struct object* _Opt p = find_designated_subobject(ctx,
-                                                                         &t,
-                                                                         p_member_object,
-                                                                         p_designator,
-                                                                         is_constant,
-                                                                         p_type_out2,
-                                                                         true, ctx->options.target);
-                            if (p)
-                            {
-                                type_destroy(&t);
-                                return p;
-                            }
-                            p_member_object = p_member_object->next;
-                            type_destroy(&t);
-                        }
-                    }
-                }
-                else
-                {
-                    //static_assert pragma...
-                }
-                p_member_declaration = p_member_declaration->next;
-            }
-
-            if (!not_error)
-            {
-                compiler_diagnostic(
-                                              C_ERROR_STRUCT_MEMBER_NOT_FOUND,
-                                              ctx,
-                                              p_designator->token,
-                                              NULL,
-                                              "member '%s' not found in '%s'", name, p_struct_or_union_specifier->tag_name);
-            }
-            return NULL;
-        }
-        else if (type_is_array(p_current_object_type))
-        {
-            const bool compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
-            long long index = -1;
-            long long max_index = -1;
-            struct type array_item_type = get_array_item_type(p_current_object_type);
-
-            struct object* _Opt member_obj = current_object->members.head;
-
-            if (p_designator->constant_expression_opt)
-            {
-                index = object_to_signed_long_long(&p_designator->constant_expression_opt->object);
-
-                if (index > max_index)
-                {
-                    max_index = index;
-                    if (compute_array_size)
-                    {
-                        member_obj = object_extend_array_to_index(&array_item_type, current_object, (size_t)max_index, is_constant, target);
-                    }
-                }
-
-                member_obj = object_get_member(current_object, (size_t)index);
-                if (member_obj == NULL)
-                {
-                    if (index < 0)
-                    {
-                        compiler_diagnostic(
-                                                  C_ERROR_STRUCT_MEMBER_NOT_FOUND,
-                                                  ctx,
-                                                  p_designator->constant_expression_opt->first_token,
-                                                  NULL,
-                                                  "array designator value '%d' is negative", index);
-                    }
-                    else if (index > (int)p_current_object_type->num_of_elements)
-                    {
-                        compiler_diagnostic(
-                                                  C_ERROR_STRUCT_MEMBER_NOT_FOUND,
-                                                  ctx,
-                                                  p_designator->constant_expression_opt->first_token,
-                                                  NULL,
-                                                  "array index '%d' in initializer exceeds array bounds", index);
-                    }
-
-                    type_destroy(&array_item_type);
-                    return NULL;
-                }
-
-
-                if (p_designator->next != NULL)
-                {
-                    struct object* _Opt p =
-                        find_designated_subobject(ctx, &array_item_type, member_obj, p_designator->next, is_constant, p_type_out2, false, ctx->options.target);
-
-                    type_destroy(&array_item_type);
-                    return p;
-                }
-                else
-                {
-                    type_swap(p_type_out2, &array_item_type);
-                    type_destroy(&array_item_type);
-                }
-
-                return member_obj;
-            }
-            else
-            {
-                //oops
-            }
-            type_destroy(&array_item_type);
-        }
-    }
-    catch
-    {
-
-    }
-    return NULL;
-}
-
-int initializer_init_new(struct parser_ctx* ctx,
-                        struct type* p_type, /*in (in/out for arrays [])*/
-                        struct object* object, /*in (in/out for arrays [])*/
-                        struct initializer* initializer, /*rtocar para initializer item??*/
-                        bool is_constant,
-                        bool requires_constant_initialization);
-
-static struct initializer_list_item* _Opt find_innner_initializer_list_item(struct braced_initializer* braced_initializer)
-{
-    assert(braced_initializer->initializer_list);
-
-    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
-
-    while (p_initializer_list_item->initializer->braced_initializer)
-    {
-        //int i = {{1}};
-        p_initializer_list_item = p_initializer_list_item->initializer->braced_initializer->initializer_list->head;
-
-        if (p_initializer_list_item == NULL)
-        {
-            assert(false);
-            return NULL;
-        }
-
-        if (p_initializer_list_item->next == NULL)
-            return p_initializer_list_item;
-
-        p_initializer_list_item = p_initializer_list_item->next;
-    }
-
-    return p_initializer_list_item;
-}
-
-_Attr(nodiscard)
-static int braced_initializer_new(struct parser_ctx* ctx,
-                                  struct type* p_current_object_type,
-                                  struct object* current_object,
-                                  struct braced_initializer* braced_initializer,
-                                  bool is_constant,
-                                  bool requires_constant_initialization)
-{
-    try
-    {
-        if (braced_initializer->initializer_list == NULL)
-        {
-            object_default_initialization(current_object, is_constant);
-            return 0;
-        }
-
-        if (!type_is_union(p_current_object_type))
-        {
-            object_default_initialization(current_object, is_constant);
-        }
-
-        if (type_is_scalar(p_current_object_type))
-        {
-            struct initializer_list_item* _Opt p_initializer_list_item =
-                find_innner_initializer_list_item(braced_initializer);
-
-            if (p_initializer_list_item == NULL)
-            {
-                return 0;
-            }
-
-            if (p_initializer_list_item->initializer->assignment_expression != NULL)
-            {
-                if (object_set(ctx,
-                    current_object, p_initializer_list_item->initializer->assignment_expression,
-                    &p_initializer_list_item->initializer->assignment_expression->object,
-                    is_constant,
-                    requires_constant_initialization) != 0)
-                {
-                    throw;
-                }
-            }
-
-            p_initializer_list_item = p_initializer_list_item->next;
-
-            if (p_initializer_list_item != NULL)
-            {
-                compiler_diagnostic(W_TO_MANY_INITIALIZERS,
-                                            ctx,
-                                            p_initializer_list_item->initializer->first_token,
-                                            NULL,
-                                            "warning: excess elements in initializer");
-            }
-            return 0;
-        }
-
-
-        //TODO Array char
-
-        struct object* const _Opt parent_copy = current_object->parent;
-        current_object->parent = NULL; //to be only here
-        struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
-        ptrdiff_t array_to_expand_index = -1;
-        ptrdiff_t array_to_expand_max_index = -1;
-        bool compute_array_size = false;
-        struct type array_item_type = { 0 };
-        if (type_is_array(p_current_object_type))
-        {
-            array_item_type = get_array_item_type(p_current_object_type);
-            compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
-            if (type_is_char(&array_item_type))
-            {
-                struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
-                if (p_initializer_list_item2 == NULL)
-                {
-                    type_destroy(&array_item_type);
-                    return 0;
-                }
-                if (p_initializer_list_item2->initializer->assignment_expression != NULL)
-                {
-                    if (p_initializer_list_item2->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
-                    {
-                        size_t num_of_elements =
-                            p_initializer_list_item2->initializer->assignment_expression->type.num_of_elements;
-
-                        if (compute_array_size)
-                        {
-                            object_extend_array_to_index(&array_item_type, current_object, num_of_elements - 1, is_constant, ctx->options.target);
-                        }
-
-                        if (object_set(ctx,
-                            current_object,
-                            p_initializer_list_item2->initializer->assignment_expression,
-                            &p_initializer_list_item2->initializer->assignment_expression->object,
-                            is_constant,
-                            requires_constant_initialization) != 0)
-                        {
-                            type_destroy(&array_item_type);
-                            throw;
-                        }
-                        //current_object->type2.num_of_elements = num_of_elements;
-                        p_current_object_type->num_of_elements = num_of_elements;
-
-                        //printf("\n");
-                        //object_print_to_debug(current_object);
-                        type_destroy(&array_item_type);
-                        return 0;
-                    }
-                }
-            }
-        }
-
-        struct object* _Opt p_subobject = NULL;
-
-        for (;;)
-        {
-            bool is_subobject_of_union = false;
-            struct type subobject_type = { 0 };
-
-            if (p_initializer_list_item == NULL)
-            {
-                break;
-            }
-
-            if (p_initializer_list_item->designation)
-            {
-                if (compute_array_size)
-                {
-                    array_to_expand_index = (ptrdiff_t)object_to_signed_long_long(&p_initializer_list_item->designation->designator_list->head->constant_expression_opt->object);
-
-                    if (array_to_expand_index > array_to_expand_max_index)
-                        array_to_expand_max_index = array_to_expand_index;
-
-                    object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant, ctx->options.target);
-                }
-                is_subobject_of_union = type_is_union(&subobject_type);
-                p_subobject = find_designated_subobject(ctx, p_current_object_type, current_object, p_initializer_list_item->designation->designator_list->head, is_constant, &subobject_type, false, ctx->options.target);
-                if (p_subobject == NULL)
-                {
-                    // already have the error, need not say that it was not consumed
-                    p_initializer_list_item = p_initializer_list_item->next;
-                    type_destroy(&subobject_type);
-                    break;
-                }
-            }
-            else
-            {
-                if (compute_array_size)
-                {
-
-                    struct object* _Opt po = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
-                    if (po == NULL)
-                    {
-                        array_to_expand_index++;
-                        if (array_to_expand_index > array_to_expand_max_index)
-                            array_to_expand_max_index = array_to_expand_index;
-
-                        object_extend_array_to_index(&array_item_type, current_object, array_to_expand_max_index, is_constant, ctx->options.target);
-                    }
-                }
-
-                if (p_subobject == NULL)
-                {
-
-                    p_subobject = find_first_subobject(p_current_object_type, current_object, &subobject_type, &is_subobject_of_union);
-                }
-                else
-                {
-                    p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
-                }
-            }
-
-            if (p_subobject == NULL)
-            {
-                type_destroy(&subobject_type);
-                break;
-            }
-
-
-
-            if (p_initializer_list_item->initializer->braced_initializer)
-            {
-                if (braced_initializer_new(ctx,
-                    &subobject_type,
-                    p_subobject,
-                    p_initializer_list_item->initializer->braced_initializer,
-                    is_constant,
-                    requires_constant_initialization) != 0)
-                {
-                    type_destroy(&array_item_type);
-                    type_destroy(&subobject_type);
-                    throw;
-                }
-
-                struct type t = { 0 };
-
-                is_subobject_of_union = type_is_union(&subobject_type);
-                p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
-                type_swap(&t, &subobject_type);
-                type_destroy(&t);
-            }
-            else if (p_initializer_list_item->initializer->assignment_expression)
-            {
-                bool entire_object_initialized = false;
-
-                if (type_is_array_of_char(&subobject_type) &&
-                    p_initializer_list_item->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
-                {
-                    /*
-                    struct X { int i; char text[4]; };
-                    constexpr struct X x = {1, "abc"};
-                    */
-                    entire_object_initialized = true;
-                }
-                else if (type_is_array(&subobject_type))
-                {
-                    while (type_is_array(&subobject_type))
-                    {
-                        /*
-                          struct X { int i[2]; };
-                          int a[2]={};
-                          struct  X b = { a };    //error
-                        */
-                        //sub_object_of_union = false;
-                        p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
-                    }
-                }
-                else if (type_is_struct_or_union(&subobject_type))
-                {
-                    if (type_is_struct_or_union(&p_initializer_list_item->initializer->assignment_expression->type))
-                    {
-                        //mesmo tipo
-                        entire_object_initialized = true;
-                    }
-                    else
-                    {
-                        p_subobject = find_next_subobject(p_current_object_type, current_object, p_subobject, &subobject_type, &is_subobject_of_union);
-                    }
-                }
-
-                if (object_set(ctx,
-                    p_subobject,
-                    p_initializer_list_item->initializer->assignment_expression,
-                    &p_initializer_list_item->initializer->assignment_expression->object,
-                    is_constant,
-                    requires_constant_initialization) != 0)
-                {
-                    type_destroy(&array_item_type);
-                    type_destroy(&subobject_type);
-                    throw;
-                }
-
-
-                if (is_subobject_of_union)
-                {
-                    assert(p_subobject);
-                    assert(p_subobject->parent);
-                    struct type t = { 0 };
-                    is_subobject_of_union = true;
-                    p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type,
-                                                                 p_subobject->parent,
-                                                                 &t);
-                    type_swap(&t, &subobject_type);
-                    type_destroy(&t);
-                    if (p_subobject)
-                    {
-                        type_destroy(&subobject_type);
-                        subobject_type = type_dup(&p_subobject->type);
-                    }
-
-                }
-                else if (entire_object_initialized)
-                {
-                    assert(p_subobject);
-
-                    struct type t = { 0 };
-                    is_subobject_of_union = type_is_union(p_current_object_type);
-                    p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
-                    type_swap(&t, &subobject_type);
-                    type_destroy(&t);
-                    if (p_subobject)
-                    {
-                        type_destroy(&subobject_type);
-                        subobject_type = type_dup(&p_subobject->type);
-                    }
-                }
-            }
-            p_initializer_list_item = p_initializer_list_item->next;
-            type_destroy(&subobject_type);
-        }
-
-        if (p_initializer_list_item != NULL)
-        {
-            compiler_diagnostic(W_TO_MANY_INITIALIZERS,
-                                        ctx,
-                                        p_initializer_list_item->initializer->first_token,
-                                        NULL,
-                                        "warning: excess elements in initializer");
-
-        }
-        if (compute_array_size)
-        {
-            current_object->type.num_of_elements = array_to_expand_max_index + 1;
-            p_current_object_type->num_of_elements = array_to_expand_max_index + 1;
-        }
-
-        current_object->parent = parent_copy; //restore
-        type_destroy(&array_item_type);
-    }
-    catch
-    {
-        return 1;
-    }
-
-    return 0;
-}
-
-int initializer_init_new(struct parser_ctx* ctx,
-                        struct type* p_type,
-                        struct object* object, /*in (in/out for arrays [])*/
-                        struct initializer* initializer, /*rtocar para initializer item??*/
-                        bool is_constant,
-                        bool requires_constant_initialization)
-{
-    try
-    {
-        if (initializer->assignment_expression != NULL)
-        {
-            //types must be compatible
-            if (object_set(ctx,
-                object,
-                initializer->assignment_expression,
-                &initializer->assignment_expression->object,
-                is_constant,
-                requires_constant_initialization) != 0)
-            {
-                throw;
-            }
-        }
-        else if (initializer->braced_initializer)
-        {
-            if (braced_initializer_new(ctx,
-                p_type,
-                object,
-                initializer->braced_initializer,
-                is_constant,
-                requires_constant_initialization) != 0)
-            {
-                throw;
-            }
-        }
-    }
-    catch
-    {
-        return 1;
-    }
-
-    return 0;
-}
 
 /*
  *  This file is part of cake compiler
