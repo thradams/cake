@@ -900,7 +900,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
 
 void print_line_and_token(struct marker* p_marker, bool color_enabled)
 {
-    
+
     try
     {
         const struct token* _Opt p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
@@ -1018,7 +1018,15 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                     }
                     else
                     {
-                        putc(' ', stdout);
+                        if (*p == '\t')
+                        {
+                            putc(*p, stdout);
+                        }
+                        else
+                        {
+                            putc(' ', stdout);
+                        }
+
                         if (!complete) start_col++;
                     }
                     p++;

@@ -1104,7 +1104,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                         {
                             compiler_diagnostic(C_ERROR_OUTER_SCOPE,
                                 ctx,
-                                ctx->current,
+                                p_expression_node->first_token,
                                 NULL,
                                 "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
                         }
@@ -1137,7 +1137,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             }
             else
             {
-                compiler_diagnostic(C_ERROR_NOT_FOUND, ctx, ctx->current, NULL, "not found '%s'", ctx->current->lexeme);
+                compiler_diagnostic(C_ERROR_NOT_FOUND, ctx, p_expression_node->first_token, NULL, "identifier '%s' not declared", ctx->current->lexeme);
                 throw;
             }
             parser_match(ctx);

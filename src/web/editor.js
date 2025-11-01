@@ -84,7 +84,7 @@ function ReportIssue()
     var options = document.getElementById("options").value;
 
     var title = "unexpected result";
-    var textbeforecode = "Describe the bug or unexpected behavior you observed.\n";
+    var textbeforecode = "I believe the following code is not producing the expected result or diagnostics.\n";
     var link = "https://github.com/thradams/cake/issues/new?title=" + encodeURIComponent(title) +
         "&body=" + encodeURIComponent(textbeforecode + "\n```c\n" + source + "\n```\n");
                    

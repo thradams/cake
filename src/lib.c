@@ -2205,7 +2205,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
 
 void print_line_and_token(struct marker* p_marker, bool color_enabled)
 {
-    
+
     try
     {
         const struct token* _Opt p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
@@ -2323,7 +2323,15 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                     }
                     else
                     {
-                        putc(' ', stdout);
+                        if (*p == '\t')
+                        {
+                            putc(*p, stdout);
+                        }
+                        else
+                        {
+                            putc(' ', stdout);
+                        }
+
                         if (!complete) start_col++;
                     }
                     p++;
@@ -21829,7 +21837,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                         {
                             compiler_diagnostic(C_ERROR_OUTER_SCOPE,
                                 ctx,
-                                ctx->current,
+                                p_expression_node->first_token,
                                 NULL,
                                 "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
                         }
@@ -21862,7 +21870,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             }
             else
             {
-                compiler_diagnostic(C_ERROR_NOT_FOUND, ctx, ctx->current, NULL, "not found '%s'", ctx->current->lexeme);
+                compiler_diagnostic(C_ERROR_NOT_FOUND, ctx, p_expression_node->first_token, NULL, "identifier '%s' not declared", ctx->current->lexeme);
                 throw;
             }
             parser_match(ctx);
@@ -28557,7 +28565,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.33"
+#define CAKE_VERSION "0.12.34"
 
 
 
