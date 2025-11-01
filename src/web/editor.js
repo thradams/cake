@@ -77,7 +77,20 @@ function validate(model)
     monaco.editor.setModelMarkers(model, "owner", markers);
 }
 
+function ReportIssue()
+{
+    var source = inputEditor.getValue();
+    var to = -2;// document.getElementById("outtype").value;
+    var options = document.getElementById("options").value;
 
+    var title = "unexpected result";
+    var textbeforecode = "Describe the bug or unexpected behavior you observed.\n";
+    var link = "https://github.com/thradams/cake/issues/new?title=" + encodeURIComponent(title) +
+        "&body=" + encodeURIComponent(textbeforecode + "\n```c\n" + source + "\n```\n");
+                   
+
+    window.open(link, '_blank');
+}
 function Share()
 {
     var source = inputEditor.getValue();

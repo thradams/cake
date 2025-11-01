@@ -309,11 +309,11 @@ static struct platform platform_x86_x64_gcc =
 
   .bool_n_bits = 8,
   .bool_type = TYPE_UNSIGNED_CHAR,
-  .bool_aligment = 1,
+  .bool_alignment = 1,
 
   .char_n_bits = 8,
   .char_t_type = TYPE_SIGNED_CHAR,
-  .char_aligment = 1,
+  .char_alignment = 1,
 
 
 
@@ -323,29 +323,29 @@ static struct platform platform_x86_x64_gcc =
   .int64_type = TYPE_SIGNED_LONG,
 
   .pointer_n_bits = 64,
-  .pointer_aligment = 8,
+  .pointer_alignment = 8,
 
 
   .wchar_t_type = TYPE_UNSIGNED_INT,
 
   .short_n_bits = 16,
-  .short_aligment = 2,
+  .short_alignment = 2,
   .int_n_bits = 32,
-  .int_aligment = 4,
+  .int_alignment = 4,
 
   .long_n_bits = 64,
-  .long_aligment = 8,
+  .long_alignment = 8,
 
   .long_long_n_bits = 64,
-  .long_long_aligment = 8,
+  .long_long_alignment = 8,
   .float_n_bits = 32,
-  .float_aligment = 4,
+  .float_alignment = 4,
 
   .double_n_bits = 64,
-  .double_aligment = 8,
+  .double_alignment = 8,
 
   .long_double_n_bits = 128,
-  .long_double_aligment = 168,
+  .long_double_alignment = 168,
 
 };
 
@@ -360,11 +360,11 @@ static struct platform platform_x86_msvc =
 
   .bool_n_bits = 8,
   .bool_type = TYPE_UNSIGNED_CHAR,
-  .bool_aligment = 1,
+  .bool_alignment = 1,
 
   .char_n_bits = 8,
   .char_t_type = TYPE_SIGNED_CHAR,
-  .char_aligment = 1,
+  .char_alignment = 1,
 
 
   .int8_type = TYPE_SIGNED_CHAR,
@@ -373,29 +373,29 @@ static struct platform platform_x86_msvc =
   .int64_type = TYPE_SIGNED_LONG_LONG,
 
   .pointer_n_bits = 32,
-  .pointer_aligment = 4,
+  .pointer_alignment = 4,
 
 
   .wchar_t_type = TYPE_UNSIGNED_SHORT,
 
   .short_n_bits = 16,
-  .short_aligment = 2,
+  .short_alignment = 2,
   .int_n_bits = 32,
-  .int_aligment = 4,
+  .int_alignment = 4,
 
   .long_n_bits = 32,
-  .long_aligment = 4,
+  .long_alignment = 4,
 
   .long_long_n_bits = 64,
-  .long_long_aligment = 8,
+  .long_long_alignment = 8,
   .float_n_bits = 32,
-  .float_aligment = 4,
+  .float_alignment = 4,
 
   .double_n_bits = 64,
-  .double_aligment = 8,
+  .double_alignment = 8,
 
   .long_double_n_bits = 64,
-  .long_double_aligment = 8,
+  .long_double_alignment = 8,
 };
 
 static struct platform platform_x64_msvc =
@@ -409,11 +409,11 @@ static struct platform platform_x64_msvc =
 
   .bool_n_bits = 8,
   .bool_type = TYPE_UNSIGNED_CHAR,
-  .bool_aligment = 1,
+  .bool_alignment = 1,
 
   .char_n_bits = 8,
   .char_t_type = TYPE_SIGNED_CHAR,
-  .char_aligment = 1,
+  .char_alignment = 1,
 
 
   .int8_type = TYPE_SIGNED_CHAR,
@@ -422,29 +422,29 @@ static struct platform platform_x64_msvc =
   .int64_type = TYPE_SIGNED_LONG_LONG,
 
   .pointer_n_bits = 64,
-  .pointer_aligment = 8,
+  .pointer_alignment = 8,
 
 
   .wchar_t_type = TYPE_UNSIGNED_SHORT,
 
   .short_n_bits = 16,
-  .short_aligment = 2,
+  .short_alignment = 2,
   .int_n_bits = 32,
-  .int_aligment = 4,
+  .int_alignment = 4,
 
   .long_n_bits = 32,
-  .long_aligment = 4,
+  .long_alignment = 4,
 
   .long_long_n_bits = 64,
-  .long_long_aligment = 8,
+  .long_long_alignment = 8,
   .float_n_bits = 32,
-  .float_aligment = 4,
+  .float_alignment = 4,
 
   .double_n_bits = 64,
-  .double_aligment = 8,
+  .double_alignment = 8,
 
   .long_double_n_bits = 64,
-  .long_double_aligment = 8,
+  .long_double_alignment = 8,
 };
 
 static struct platform platform_ccu8 =
@@ -458,11 +458,11 @@ static struct platform platform_ccu8 =
 
   .bool_n_bits = 8,
   .bool_type = TYPE_UNSIGNED_CHAR,
-  .bool_aligment = 1,
+  .bool_alignment = 1,
 
   .char_n_bits = 8,
   .char_t_type = TYPE_SIGNED_CHAR,
-  .char_aligment = 1,
+  .char_alignment = 1,
 
 
   .int8_type = TYPE_SIGNED_CHAR,
@@ -471,28 +471,28 @@ static struct platform platform_ccu8 =
   .int64_type = TYPE_SIGNED_LONG_LONG,
 
   .pointer_n_bits = 32,
-  .pointer_aligment = 8,
+  .pointer_alignment = 8,
 
 
   .wchar_t_type = TYPE_UNSIGNED_SHORT,
   .short_n_bits = 16,
-  .short_aligment = 2,
+  .short_alignment = 2,
   .int_n_bits = 16,
-  .int_aligment = 2,
+  .int_alignment = 2,
 
   .long_n_bits = 64,
-  .long_aligment = 4,
+  .long_alignment = 4,
 
   .long_long_n_bits = 64,
-  .long_long_aligment = 8,
+  .long_long_alignment = 8,
   .float_n_bits = 32,
-  .float_aligment = 32,
+  .float_alignment = 32,
 
   .double_n_bits = 64,
-  .double_aligment = 8,
+  .double_alignment = 8,
 
   .long_double_n_bits = 64,
-  .long_double_aligment = 8,
+  .long_double_alignment = 8,
 };
 
 static struct platform platform_catalina =
@@ -507,11 +507,11 @@ static struct platform platform_catalina =
 
   .bool_n_bits = 8,
   .bool_type = TYPE_UNSIGNED_CHAR,
-  .bool_aligment = 1,
+  .bool_alignment = 1,
 
   .char_n_bits = 8,
   .char_t_type = TYPE_UNSIGNED_CHAR,
-  .char_aligment = 1,
+  .char_alignment = 1,
 
 
   .int8_type = TYPE_SIGNED_CHAR,
@@ -520,29 +520,29 @@ static struct platform platform_catalina =
   .int64_type = TYPE_SIGNED_LONG_LONG,
 
   .pointer_n_bits = 32,
-  .pointer_aligment = 4,
+  .pointer_alignment = 4,
 
 
   .wchar_t_type = TYPE_UNSIGNED_SHORT,
   .short_n_bits = 16,
-  .short_aligment = 2,
+  .short_alignment = 2,
   .int_n_bits = 32,
-  .int_aligment = 4,
+  .int_alignment = 4,
 
   .long_n_bits = 32,
-  .long_aligment = 4,
+  .long_alignment = 4,
 
   .long_long_n_bits = 32,
-  .long_long_aligment = 4,
+  .long_long_alignment = 4,
   
   .float_n_bits = 32,
-  .float_aligment = 4,
+  .float_alignment = 4,
 
   .double_n_bits = 32,
-  .double_aligment = 4,
+  .double_alignment = 4,
 
   .long_double_n_bits = 32,
-  .long_double_aligment = 4,
+  .long_double_alignment = 4,
 };
 
 static struct platform* platforms[NUMBER_OF_TARGETS] = 

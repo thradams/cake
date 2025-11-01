@@ -12,7 +12,12 @@ The C Programming language Second Edition 1988
 
 
 
+_C is everywhere. From operating systems to embedded devices, from high-performance apps 
+to essential technology, C powers the technology we rely on every day. Timeless, 
+efficient, and universal._
+
 # 🍰 Cake
+
 
 Cake is a compiler front-end written from scratch in C, adhering to the C23 language 
 specification and beyond.
@@ -22,7 +27,13 @@ including C2Y language proposals, safety enhancements, and extensions such as
 literal functions and defer statements.
 
 The current backend generates C89-compatible code, which can be pipelined with existing 
-compilers to produce executables. 
+or old compilers to produce executables. 
+
+```c
+    [source] ───────────► [preprocessor]  ───────────► [compiler]  
+       │                                           ▲                
+       └─► [cake preprocessor] ──►[cake compiler] ─┘ c89            
+```
 
 Cake aims to enhance C's safety by providing high-quality warning messages and advanced 
 flow analysis, including [object lifetime](ownership.md) checks.
@@ -47,8 +58,6 @@ It can also function as a preprocessor, converting C23 code to C89.
 This allows developers to use modern or experimental features while targeting 
 compilers that do not yet support the latest language standards.
 
-The objective of the C89 generation is to produce low-level C code, 
-simplifying the process of writing C backends **dedicated to code generation**.
 
 Previous versions of Cake included a conversion mode to 
 translate code while preserving the preprocessor parts. 
@@ -161,20 +170,27 @@ DISCORD SERVER
 
 # How cake is developed?
 
-I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
-the includes of MSVC and it generates the *X\_86\_msvc* dir after build. 
+I use Visual Studio 2022 IDE to write and debug the Cake source.
+Cake parses itself using the MSVC includes and generates the X\_86\_msvc 
+directory after the build.
+The Linux version is tested inside WSL, and the macOS version is 
+currently the least tested but is expected to work.
 
-I use Visual Studio code with WSL for testing and compiling the code for Linux. 
+
+# Cake x CFront
+
+CFront was the first C++ compiler, designed to translate C++ source code into C.
+Initially compatible with C89, it diverged as the C and C++ languages evolved 
+independently.
+
+Cake maintains alignment with the standard specifications and ongoing 
+development of C, ensuring full compatibility.
+
+The compiler introduces extensions that preserve the fundamental design 
+of C while supporting experimentation and open contributions to the 
+language's evolution.
 
 
-This compilation is useful for tracking errors together with the unit tests.
-
-# Cake is not C++
-CFront was the original C++ compiler, designed to translate C++ code into C.
-
-Although CFront was initially compatible with C89, it eventually diverged from C’s evolution.In contrast, Cake stays true to the core development of C, ensuring full compatibility.
-
-Its extensions aim to preserve the essence of C while allowing developers to experiment and contribute to C’s evolution using an open-source compiler written in C.
 
 
  

@@ -44,36 +44,36 @@ struct platform
     const char * alignas_fmt_must_have_one_percent_d;
 
     int bool_n_bits;
-    int bool_aligment;
+    int bool_alignment;
     enum object_type bool_type;
 
     int char_n_bits;
     enum object_type char_t_type;
-    int char_aligment;
+    int char_alignment;
     
     int short_n_bits;
-    int short_aligment;
+    int short_alignment;
 
     int int_n_bits;
-    int int_aligment;
+    int int_alignment;
 
     int long_n_bits;
-    int long_aligment;
+    int long_alignment;
 
     int long_long_n_bits;
-    int long_long_aligment;
+    int long_long_alignment;
 
     int float_n_bits;
-    int float_aligment;
+    int float_alignment;
 
     int double_n_bits;
-    int double_aligment;
+    int double_alignment;
 
     int long_double_n_bits;
-    int long_double_aligment;
+    int long_double_alignment;
 
     int pointer_n_bits;
-    int pointer_aligment;
+    int pointer_alignment;
 
     /*typedefs*/
     enum object_type wchar_t_type;

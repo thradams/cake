@@ -81,11 +81,11 @@
         </select>
 
         <select id="target" onchange="OnCompileButton()">
-        <option value="x86_msvc">x86 msvc</option>
-        <option value="x64_msvc">x64 msvc</option>
-        <option value="x86_x64_gcc">x86-64 gcc</option>
-        <option value="ccu8">ccu8</option>
-        <option value="catalina">catalina</option>
+            <option value="x86_msvc">x86 msvc</option>
+            <option value="x64_msvc">x64 msvc</option>
+            <option value="x86_x64_gcc">x86-64 gcc</option>
+            <option value="ccu8">ccu8</option>
+            <option value="catalina">catalina</option>
         </select>
 
         <!--<button onclick="OnCompileButton()">Compile</button>-->
@@ -93,6 +93,7 @@
 
         <input oninput="OnCompileButton()" stype="margin:2px" type="text" id="options" placeholder="Compiler options..." />
 
+        <button style="float: right;" onclick="ReportIssue()">Report Issue</button>
         <button style="float: right;" onclick="Share()">Share</button>
         <button style="float: right;" onclick="Run()">Run</button>
         <input type="text" id="sharelink" style="width:100%;display:none" />

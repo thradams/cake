@@ -6,7 +6,8 @@
     <script src="highlight.min.js"></script>
     <script>hljs.highlightAll();</script>
     <link rel="stylesheet" href="style.css" />
-    <title>Cake</title>
+    <title>Cake C Compiler</title>
+    <meta name="description" content="Cake C Compiler">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <script>
     function Try(elm)
@@ -71,7 +72,7 @@
 <a href="#toc_12">How cake is developed?</a>
 </li>
 <li>
-<a href="#toc_13">Cake is not C++</a>
+<a href="#toc_13">Cake x CFront</a>
 </li>
 </ul>
 <p>The C Programming language 1978</p>
@@ -88,6 +89,10 @@
 <p><em>&quot;As we said in the preface to the first edition, C &quot;wears well as one&#39;s experience with it grows.&quot; With a decade more experience, we still feel that way.&quot;</em></p>
 </blockquote>
 
+<p><em>C is everywhere. From operating systems to embedded devices, from high-performance apps 
+to essential technology, C powers the technology we rely on every day. Timeless, 
+efficient, and universal.</em></p>
+
 <h1 id="toc_0">🍰 Cake</h1>
 
 <p>Cake is a compiler front-end written from scratch in C, adhering to the C23 language 
@@ -98,7 +103,12 @@ including C2Y language proposals, safety enhancements, and extensions such as
 literal functions and defer statements.</p>
 
 <p>The current backend generates C89-compatible code, which can be pipelined with existing 
-compilers to produce executables. </p>
+or old compilers to produce executables. </p>
+
+<pre><code class="language-c">    [source] ───────────► [preprocessor]  ───────────► [compiler]  
+       │                                           ▲                
+       └─► [cake preprocessor] ──►[cake compiler] ─┘ c89            
+</code></pre>
 
 <p>Cake aims to enhance C&#39;s safety by providing high-quality warning messages and advanced 
 flow analysis, including <a href="ownership.html">object lifetime</a> checks.</p>
@@ -122,9 +132,6 @@ seamless integration.</p>
 <p>It can also function as a preprocessor, converting C23 code to C89. 
 This allows developers to use modern or experimental features while targeting 
 compilers that do not yet support the latest language standards.</p>
-
-<p>The objective of the C89 generation is to produce low-level C code, 
-simplifying the process of writing C backends <strong>dedicated to code generation</strong>.</p>
 
 <p>Previous versions of Cake included a conversion mode to 
 translate code while preserving the preprocessor parts. </p>
@@ -228,18 +235,22 @@ the previous mode has been discontinued at version 0.9.36.</p>
 
 <h1 id="toc_12">How cake is developed?</h1>
 
-<p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
-the includes of MSVC and it generates the <em>X_86_msvc</em> dir after build. </p>
+<p>I use Visual Studio 2022 IDE to write and debug the Cake source.
+Cake parses itself using the MSVC includes and generates the X_86_msvc 
+directory after the build.
+The Linux version is tested inside WSL, and the macOS version is 
+currently the least tested but is expected to work.</p>
 
-<p>I use Visual Studio code with WSL for testing and compiling the code for Linux. </p>
+<h1 id="toc_13">Cake x CFront</h1>
 
-<p>This compilation is useful for tracking errors together with the unit tests.</p>
+<p>CFront was the first C++ compiler, designed to translate C++ source code into C.
+Initially compatible with C89, it diverged as the C and C++ languages evolved 
+independently.</p>
 
-<h1 id="toc_13">Cake is not C++</h1>
+<p>Cake maintains alignment with the standard specifications and ongoing 
+development of C, ensuring full compatibility.</p>
 
-<p>CFront was the original C++ compiler, designed to translate C++ code into C.</p>
-
-<p>Although CFront was initially compatible with C89, it eventually diverged from C’s evolution.In contrast, Cake stays true to the core development of C, ensuring full compatibility.</p>
-
-<p>Its extensions aim to preserve the essence of C while allowing developers to experiment and contribute to C’s evolution using an open-source compiler written in C.</p>
+<p>The compiler introduces extensions that preserve the fundamental design 
+of C while supporting experimentation and open contributions to the 
+language&#39;s evolution.</p>
 </article></body></html>

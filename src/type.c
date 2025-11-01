@@ -2403,7 +2403,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        align = get_platform(target)->pointer_aligment;
+        align = get_platform(target)->pointer_alignment;
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
@@ -2434,15 +2434,15 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
-            align = get_platform(target)->char_aligment;
+            align = get_platform(target)->char_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
         {
-            align = get_platform(target)->bool_aligment;
+            align = get_platform(target)->bool_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
-            align = get_platform(target)->short_aligment;
+            align = get_platform(target)->short_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
@@ -2456,32 +2456,32 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
                 type_destroy(&t);
             }
             else
-                align = get_platform(target)->int_aligment;
+                align = get_platform(target)->int_alignment;
         }
         else if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
         {
             //before 
-            align = get_platform(target)->long_double_aligment;
+            align = get_platform(target)->long_double_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
         {
-            align = get_platform(target)->long_aligment;
+            align = get_platform(target)->long_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
-            align = get_platform(target)->long_long_aligment;
+            align = get_platform(target)->long_long_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
-            align = get_platform(target)->int_aligment;
+            align = get_platform(target)->int_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
-            align = get_platform(target)->float_aligment;
+            align = get_platform(target)->float_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
-            align = get_platform(target)->double_aligment;
+            align = get_platform(target)->double_alignment;
         }
 
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
@@ -2489,7 +2489,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
 #if __GNUC__
             align = _Alignof(__builtin_va_list);
 #else
-            align = get_platform(target)->pointer_aligment;
+            align = get_platform(target)->pointer_alignment;
 #endif
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
@@ -2526,7 +2526,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
         {
-            align = get_platform(target)->pointer_aligment;
+            align = get_platform(target)->pointer_alignment;
         }
         else
         {
