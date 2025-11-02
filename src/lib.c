@@ -18230,7 +18230,7 @@ struct object object_make_signed_short(signed short value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_SHORT;
     r.value.host_long_long = CAKE_CAST_INT_N(value, 16);
-    //RTODO
+    
     return r;
 }
 
@@ -18280,7 +18280,7 @@ struct object object_make_signed_long(enum target target, signed long long value
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = TYPE_SIGNED_INT; //RTODO
+    r.value_type = TYPE_SIGNED_LONG;
     r.value.host_long_long = CAKE_CAST_INT_N(value, get_platform(target)->long_n_bits);
     return r;
 }
@@ -28582,7 +28582,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.34"
+#define CAKE_VERSION "0.12.35"
 
 
 
