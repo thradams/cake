@@ -17696,16 +17696,17 @@ void warn_unrecognized_warnings(struct parser_ctx* ctx,
 
 #include <math.h>
 
-#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 201112L)
-//emulating static_assert
-#define static_assert(cond) do { typedef char static_assert_error[(cond) ? 1 : -1]; } while (0)
-#endif
+
+
+#define STATIC_ASSERT(cond) do { typedef char static_assert_error[(cond) ? 1 : -1]; } while (0)
+
 
 
 unsigned long long CAKE_CAST_UINT_N(unsigned long long value, int bits)
 {
     if (bits == 0 || bits >= 64)
         return value;
+
     const unsigned long long mask = (1ULL << bits) - 1;
     return value & mask;
 }
@@ -17733,10 +17734,10 @@ long double CAKE_CAST_FLOAT_N(long double value, int bits)
     switch (bits)
     {
     case 64:
-        static_assert(sizeof(double) == 8);
+        STATIC_ASSERT(sizeof(double) == 8);
         return (double)value;
     case 32:
-        static_assert(sizeof(float) == 4);
+        STATIC_ASSERT(sizeof(float) == 4);
         return (float)value;
     }
     return value;
@@ -28610,7 +28611,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.35"
+#define CAKE_VERSION "0.12.36"
 
 
 

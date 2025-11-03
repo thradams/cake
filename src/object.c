@@ -18,10 +18,10 @@
 #include <string.h>
 #include <math.h>
 
-#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 201112L)
-//emulating static_assert
-#define static_assert(cond) do { typedef char static_assert_error[(cond) ? 1 : -1]; } while (0)
-#endif
+
+
+#define STATIC_ASSERT(cond) do { typedef char static_assert_error[(cond) ? 1 : -1]; } while (0)
+
 
 
 unsigned long long CAKE_CAST_UINT_N(unsigned long long value, int bits)
@@ -56,10 +56,10 @@ long double CAKE_CAST_FLOAT_N(long double value, int bits)
     switch (bits)
     {
     case 64:
-        static_assert(sizeof(double) == 8);
+        STATIC_ASSERT(sizeof(double) == 8);
         return (double)value;
     case 32:
-        static_assert(sizeof(float) == 4);
+        STATIC_ASSERT(sizeof(float) == 4);
         return (float)value;
     }
     return value;
