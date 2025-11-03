@@ -1,1 +1,4 @@
-char executable_path[sizeof("s")] = { 0 };
+#define F(A) A
+
+F
+(1)

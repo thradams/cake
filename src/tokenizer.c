@@ -2085,6 +2085,27 @@ bool preprocessor_token_ahead_is(struct token* p, enum token_type t)
     return false;
 }
 
+static bool preprocessor_token_ahead_skiping_blanks_and_new_line(struct token* p, enum token_type t)
+{
+    /*
+       When preprocessor is inside directives, newline is not blank.
+       In other scenario (when this function is used) newline can be blank.
+    */
+    struct token* _Opt current = p->next;
+
+    while (current &&
+        (current->type == TK_BLANKS ||
+         current->type == TK_NEWLINE ||
+         current->type == TK_PLACEMARKER ||
+         current->type == TK_LINE_COMMENT ||
+         current->type == TK_COMMENT))
+    {
+        current = current->next;
+    }
+
+    return current && current->type == t;
+}
+
 bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
 {
     assert(p != NULL);
@@ -2121,6 +2142,24 @@ static void skip_blanks(struct preprocessor_ctx* ctx, struct token_list* dest, s
     {
         if (!token_is_blank(input_list->head))
             break;
+        struct token* _Owner _Opt p =
+            token_list_pop_front_get(input_list);
+        assert(p != NULL); //because input_list is not empty
+
+        token_list_add(dest, p);
+    }
+}
+
+static void skip_blanks_including_newline(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list)
+{
+    while (input_list->head)
+    {
+        if (!token_is_blank(input_list->head) &&
+            input_list->head->type != TK_NEWLINE)
+        {
+            break;
+        }
+
         struct token* _Owner _Opt p =
             token_list_pop_front_get(input_list);
         assert(p != NULL); //because input_list is not empty
@@ -4177,13 +4216,13 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         int count = 1;
 
         //skip spaces after macro name
-        skip_blanks(ctx, &macro_argument_list.tokens, input_list);
+        skip_blanks_including_newline(ctx, &macro_argument_list.tokens, input_list);
 
         //macro is a function
         match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
 
         //skip spaces after (
-        skip_blanks(ctx, &macro_argument_list.tokens, input_list);
+        skip_blanks_including_newline(ctx, &macro_argument_list.tokens, input_list);
 
         if (input_list->head == NULL)
         {
@@ -4885,7 +4924,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
                 macro = find_macro(ctx, new_list.head->lexeme);
                 if (macro &&
                     macro->is_function &&
-                    !preprocessor_token_ahead_is(new_list.head, '('))
+                    !preprocessor_token_ahead_skiping_blanks_and_new_line(new_list.head, '('))
                 {
                     macro = NULL;
                 }
@@ -5321,7 +5360,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 macro = find_macro(ctx, input_list->head->lexeme);
                 if (macro &&
                     macro->is_function &&
-                    !preprocessor_token_ahead_is(input_list->head, '('))
+                    !preprocessor_token_ahead_skiping_blanks_and_new_line(input_list->head, '('))
                 {
                     macro = NULL;
                 }
@@ -5400,7 +5439,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     {
                         macro = find_macro(ctx, input_list->head->lexeme);
                         if (macro && macro->is_function &&
-                            !preprocessor_token_ahead_is(input_list->head, '('))
+                            !preprocessor_token_ahead_skiping_blanks_and_new_line(input_list->head, '('))
                         {
                             macro = NULL;
                         }
@@ -7855,6 +7894,24 @@ void quasi_recursive_macro()
 
     const char* output =
         "2"
+        ;
+
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+    list;
+}
+
+void newline_macro_func()
+{
+    const char* input =
+        "#define F(A) A\n"
+        "F\n"
+        "(1)\n";
+
+    const char* output =
+        "1"
         ;
 
     struct tokenizer_ctx tctx = { 0 };
