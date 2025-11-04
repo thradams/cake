@@ -1,6 +1,10 @@
-//double d = 1e400; //3.402823466e+38F
-//float f = 1.175494351e-39F;
-//1.7976931348623158e+308
-//2.2250738585072014e-308
-//1.175494351e-38F
-double d = 1.0e-324;
+static inline unsigned short SDL_Swap16(unsigned short x)
+{
+  __asm__("xchgb %b0,%h0": "=abcd"(x):"0"(x));
+    return x;
+}
+
+int main()
+{
+    SDL_Swap16(1);
+}

@@ -1295,6 +1295,9 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("__typeof__", text) == 0)
             return TK_KEYWORD_TYPEOF; /*(C23)*/
 
+        if (strcmp("__asm__", text) == 0 || strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
+            return TK_KEYWORD__ASM;
+
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
         {
             // begin microsoft
@@ -1310,8 +1313,6 @@ enum token_type is_keyword(const char* text, enum target target)
                 return TK_KEYWORD_INLINE;
             if (strcmp("__inline", text) == 0)
                 return TK_KEYWORD_INLINE;
-            if (strcmp("__asm__", text) == 0 || strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-                return TK_KEYWORD__ASM;
             if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
                 return TK_KEYWORD_MSVC__STDCALL;
             if (strcmp("__cdecl", text) == 0)
@@ -9382,7 +9383,7 @@ void asm_statement_delete(struct asm_statement* _Owner _Opt p)
 
 static struct asm_statement* _Owner _Opt msvc_asm_statement(struct parser_ctx* ctx)
 {
-    struct asm_statement* _Owner _Opt p_gcc_asm_statement = NULL;
+    struct asm_statement* _Owner _Opt p_asm_statement = NULL;
     try
     {
         if (ctx->current == NULL)
@@ -9391,11 +9392,11 @@ static struct asm_statement* _Owner _Opt msvc_asm_statement(struct parser_ctx* c
             throw;
         }
 
-        p_gcc_asm_statement = calloc(1, sizeof(struct asm_statement));
-        if (p_gcc_asm_statement == NULL)
+        p_asm_statement = calloc(1, sizeof(struct asm_statement));
+        if (p_asm_statement == NULL)
             throw;
 
-        p_gcc_asm_statement->p_first_token = ctx->current;
+        p_asm_statement->p_first_token = ctx->current;
 
         if (parser_match_tk(ctx, TK_KEYWORD__ASM) != 0)
             throw;
@@ -9431,8 +9432,8 @@ static struct asm_statement* _Owner _Opt msvc_asm_statement(struct parser_ctx* c
                 unexpected_end_of_file(ctx);
                 throw;
             }
-            
-            p_gcc_asm_statement->p_last_token = ctx->current;
+
+            p_asm_statement->p_last_token = ctx->current;
 
             if (parser_match_tk(ctx, '}'))
             {
@@ -9452,30 +9453,30 @@ static struct asm_statement* _Owner _Opt msvc_asm_statement(struct parser_ctx* c
                 throw;
             }
 
-            p_gcc_asm_statement->p_last_token = ctx->current;
+            p_asm_statement->p_last_token = ctx->current;
             parser_match(ctx);
         }
 
         if (ctx->current && ctx->current->type == ';')
         {
             /*optional*/
-            p_gcc_asm_statement->p_last_token = ctx->current;
+            p_asm_statement->p_last_token = ctx->current;
             parser_match(ctx);
         }
     }
     catch
     {
-        asm_statement_delete(p_gcc_asm_statement);
-        p_gcc_asm_statement = NULL;
+        asm_statement_delete(p_asm_statement);
+        p_asm_statement = NULL;
     }
 
-    return p_gcc_asm_statement;
+    return p_asm_statement;
 }
 
 static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ctx)
-{    
+{
     /*
-       This is the grammar, but we are using a simple balanced asm ( ) 
+       This is the grammar, but we are using a simple balanced asm ( )
     //https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html
     asm-statement:
     asm asm-qualifier[opt] ( asm-template asm-operands[opt] ) ;
@@ -9518,9 +9519,9 @@ static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ct
             goto-labels , identifier
 
         constraint:
-            string-literal    
+            string-literal
     */
-    struct asm_statement* _Owner _Opt p_gcc_asm_statement = NULL;
+    struct asm_statement* _Owner _Opt p_asm_statement = NULL;
     try
     {
         if (ctx->current == NULL)
@@ -9528,11 +9529,11 @@ static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ct
             unexpected_end_of_file(ctx);
             throw;
         }
-        p_gcc_asm_statement = calloc(1, sizeof(struct asm_statement));
-        if (p_gcc_asm_statement == NULL)
+        p_asm_statement = calloc(1, sizeof(struct asm_statement));
+        if (p_asm_statement == NULL)
             throw;
 
-        p_gcc_asm_statement->p_first_token = ctx->current;
+        p_asm_statement->p_first_token = ctx->current;
 
         if (parser_match_tk(ctx, TK_KEYWORD__ASM) != 0)
             throw;
@@ -9555,16 +9556,19 @@ static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ct
                 parser_match(ctx);
                 if (count == 0)
                 {
-                    p_gcc_asm_statement->p_last_token = ctx->current;
+                    p_asm_statement->p_last_token = ctx->current;
                     break;
                 }
             }
             else if (ctx->current->type == '(')
             {
                 count++;
+                parser_match(ctx);
             }
-
-            parser_match(ctx);
+            else
+            {
+                parser_match(ctx);
+            }
         }
 
         if (parser_match_tk(ctx, ';') != 0)
@@ -9572,10 +9576,10 @@ static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ct
     }
     catch
     {
-        asm_statement_delete(p_gcc_asm_statement);
-        p_gcc_asm_statement = NULL;
+        asm_statement_delete(p_asm_statement);
+        p_asm_statement = NULL;
     }
-    return p_gcc_asm_statement;
+    return p_asm_statement;
 }
 
 struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
