@@ -517,15 +517,7 @@ int compile_one_file(const char* file_name,
         }
         else
         {
-            report->test_succeeded++;
-            if (color_enabled)
-            {
-                printf(LIGHTGREEN "TEST OK\n" COLOR_RESET);
-            }
-            else
-            {
-                printf("TEST OK\n");
-            }
+            report->test_succeeded++;            
         }
     }
 

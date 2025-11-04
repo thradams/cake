@@ -53,26 +53,12 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_
 static void pre_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx);
 static void pre_conditional_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx);
 
-//TODO share this with parser!
-/*
- * preprocessor uses long long
- */
+
 static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* token, long long* result, enum target target)
 {
-
-    const long long signed_long_max_value =
-        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG);
-
-    const unsigned long long unsigned_long_max_value =
-        target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG);
-
-    const long long signed_long_long_max_value =
-        target_signed_max(ctx->options.target, TYPE_SIGNED_LONG_LONG);
-
-
     /*copy removing the separators*/
-    // um dos maiores buffer necessarios seria 128 bits binario...
     // 0xb1'1'1....
+    //TODO maybe bitint will be longer..
     int c = 0;
     char buffer[128 * 2 + 4] = { 0 };
     const char* s = token->lexeme;
@@ -91,103 +77,34 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, struct token* toke
     const enum token_type type = parse_number(token->lexeme, suffix, errormsg);
     if (type == TK_NONE)
     {
-        preprocessor_diagnostic(
-            C_INVALID_TOKEN,
+        preprocessor_diagnostic(C_INVALID_TOKEN,
             ctx,
             token,
             "%s",
             errormsg);
         return 0;
     }
-    struct object  cv = { 0 };
+
+    unsigned long long value = 0;
     switch (type)
     {
     case TK_COMPILER_DECIMAL_CONSTANT:
-    case TK_COMPILER_OCTAL_CONSTANT:
-    case TK_COMPILER_HEXADECIMAL_CONSTANT:
-    case TK_COMPILER_BINARY_CONSTANT:
-    {
-        unsigned long long value = 0;
-        switch (type)
-        {
-        case TK_COMPILER_DECIMAL_CONSTANT:
-            value = strtoull(buffer, NULL, 10);
-            break;
-        case TK_COMPILER_OCTAL_CONSTANT:
-            value = strtoull(buffer + 1, NULL, 8);
-            break;
-        case TK_COMPILER_HEXADECIMAL_CONSTANT:
-            value = strtoull(buffer + 2, NULL, 16);
-            break;
-        case TK_COMPILER_BINARY_CONSTANT:
-            value = strtoull(buffer + 2, NULL, 2);
-            break;
-        default:
-            break;
-        }
-
-        if (value == ULLONG_MAX && errno == ERANGE)
-        {
-            //compiler_diagnostic(
-            //C_ERROR_LITERAL_OVERFLOW,
-            //ctx,
-            //token,
-            //NULL,
-            //"integer literal is too large to be represented in any integer type");
-        }
-
-        if (suffix[0] == 'U')
-        {
-            /*fixing the type that fits the size*/
-            if (value <= UINT_MAX && suffix[1] != 'L')
-            {
-                cv = object_make_unsigned_int(ctx->options.target, (unsigned int)value);
-
-            }
-            else if (value <= unsigned_long_max_value && suffix[2] != 'L')
-            {
-                cv = object_make_unsigned_long(target, (unsigned long)value);
-            }
-            else //if (value <= ULLONG_MAX)
-            {
-                cv = object_make_unsigned_long_long(ctx->options.target, value);
-            }
-        }
-        else
-        {
-            /*fixing the type that fits the size*/
-            if (value <= INT_MAX && suffix[0] != 'L')
-            {
-                cv = object_make_signed_int(ctx->options.target, (int)value);
-            }
-            else if (value <= (unsigned long long) signed_long_max_value && suffix[1] != 'L' /*!= LL*/)
-            {
-                cv = object_make_signed_long(target, (long)value);
-            }
-            else if (value <= (unsigned long long) signed_long_long_max_value)
-            {
-                cv = object_make_signed_long_long(ctx->options.target, (long long)value);
-            }
-            else
-            {
-                cv = object_make_signed_long_long(ctx->options.target, value);
-            }
-        }
-
-    }
-    break;
-
-    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
-    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        //error
+        value = strtoull(buffer, NULL, 10);
         break;
-
+    case TK_COMPILER_OCTAL_CONSTANT:
+        value = strtoull(buffer + 1, NULL, 8);
+        break;
+    case TK_COMPILER_HEXADECIMAL_CONSTANT:
+        value = strtoull(buffer + 2, NULL, 16);
+        break;
+    case TK_COMPILER_BINARY_CONSTANT:
+        value = strtoull(buffer + 2, NULL, 2);
+        break;
     default:
-        assert(false);
+        break;
     }
 
-    *result = object_to_signed_long_long(&cv);
-
+    *result = value;
     return 0;
 }
 

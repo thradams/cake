@@ -1205,6 +1205,16 @@ struct try_statement
 struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx);
 void try_statement_delete(struct try_statement* _Owner _Opt p);
 
+struct asm_statement
+{
+    struct token * p_first_token;
+    struct token * p_last_token;
+};
+
+struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx);
+
+void asm_statement_delete(struct asm_statement* _Owner _Opt p);
+
 struct case_label_list
 {
     /*
@@ -1417,6 +1427,8 @@ struct primary_block
          iteration-statement
          defer-statement (extension)
          try-statement (extension)
+
+         gcc_asm_statement
     */
 
     struct compound_statement* _Owner _Opt compound_statement;
@@ -1424,6 +1436,7 @@ struct primary_block
     struct iteration_statement* _Owner _Opt iteration_statement;
     struct defer_statement* _Owner _Opt defer_statement;
     struct try_statement* _Owner _Opt try_statement;
+    struct asm_statement* _Owner _Opt asm_statement;
 };
 
 void primary_block_delete(struct primary_block* _Owner _Opt p);

@@ -7,8 +7,12 @@ int main(void)
     printf("0x1.ep+3 = %f\n", 0x1.ep+3);
  
     // Constants outside the range of type double.
+    [[cake::w200]]
     printf("+2.0e+308 --> %g\n",  2.0e+308);
+    [[cake::w200]]
     printf("+1.0e-324 --> %g\n",  1.0e-324);
+    [[cake::w200]]
     printf("-1.0e-324 --> %g\n", -1.0e-324);
+    [[cake::w200]]
     printf("-2.0e+308 --> %g\n", -2.0e+308);
 }

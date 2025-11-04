@@ -16,6 +16,7 @@
 #include "parser.h"
 #include "type.h"
 #include <math.h>
+#include <float.h>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -970,9 +971,43 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     {
         if (suffix[0] == 'F')
         {
-            double value = strtod(buffer, NULL);
-            if (isinf(value) && errno == ERANGE)
+            const double value = strtod(buffer, NULL);
+            if (errno == ERANGE)
             {
+                if (isinf(value))
+                {
+                    compiler_diagnostic(W_FLOAT_RANGE,
+                                        ctx,
+                                        token,
+                                        NULL,
+                                        "floating constant exceeds range of float");
+                }
+                else
+                {
+                    compiler_diagnostic(W_FLOAT_RANGE,
+                                     ctx,
+                                     token,
+                                     NULL,
+                                     "floating constant truncated to zero");
+                }
+            }
+            else if ((value > 0 && value > (double)FLT_MAX) ||
+                     (value < 0 && value < (double)FLT_MAX))
+            {
+                compiler_diagnostic(W_FLOAT_RANGE,
+                                    ctx,
+                                    token,
+                                    NULL,
+                                    "floating constant exceeds range of float");
+            }
+            else if (value > 0 && value < (double)FLT_MIN)
+            {
+                /*Minimum positive*/
+                compiler_diagnostic(W_FLOAT_RANGE,
+                                    ctx,
+                                    token,
+                                    NULL,
+                                    "floating constant is too small for float.");
             }
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_FLOAT;
             object_destroy(&p_expression_node->object);
@@ -980,16 +1015,53 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         }
         else if (suffix[0] == 'L')
         {
-            long double value = strtod(buffer, NULL);
+            const long double value = strtod(buffer, NULL);
+
+            if (errno == ERANGE)
+            {
+                if (isinf(value))
+                {
+                    compiler_diagnostic(W_FLOAT_RANGE,
+                                        ctx,
+                                        token,
+                                        NULL,
+                                        "floating constant exceeds range of long double");
+                }
+                else
+                {
+                    compiler_diagnostic(W_FLOAT_RANGE,
+                                     ctx,
+                                     token,
+                                     NULL,
+                                     "floating constant truncated to zero");
+                }
+            }
+
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_DOUBLE | TYPE_SPECIFIER_LONG;
             object_destroy(&p_expression_node->object);
             p_expression_node->object = object_make_long_double(ctx->options.target, value);
         }
         else
         {
-            double value = strtod(buffer, NULL);
-            if (isinf(value) && errno == ERANGE)
+            const double value = strtod(buffer, NULL);
+            if (errno == ERANGE)
             {
+                if (isinf(value))
+                {
+                    compiler_diagnostic(W_FLOAT_RANGE,
+                                        ctx,
+                                        token,
+                                        NULL,
+                                        "floating constant exceeds range of double");
+                }
+                else
+                {
+                    compiler_diagnostic(W_FLOAT_RANGE,
+                                     ctx,
+                                     token,
+                                     NULL,
+                                     "floating constant truncated to zero");
+                }
             }
             object_destroy(&p_expression_node->object);
             p_expression_node->object = object_make_double(ctx->options.target, value);
@@ -4515,7 +4587,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                                     "%s",
                                     warning_message);
                             }
-                           
+
                         }
                         else if (op == '<=')
                         {
@@ -4533,11 +4605,11 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                                     "%s",
                                     warning_message);
                             }
-                          
+
                         }
                         else if (op == '>')
                         {
-                            new_expression->object= object_greater_than(ctx->options.target,
+                            new_expression->object = object_greater_than(ctx->options.target,
                                                  &new_expression->left->object,
                                                  &new_expression->right->object,
                                                  warning_message);
@@ -4551,11 +4623,11 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                                     "%s",
                                     warning_message);
                             }
-                         
+
                         }
                         else if (op == '<')
                         {
-                            new_expression->object= object_smaller_than(ctx->options.target,
+                            new_expression->object = object_smaller_than(ctx->options.target,
                                                  &new_expression->left->object,
                                                  &new_expression->right->object,
                                                  warning_message);
@@ -4569,7 +4641,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                                     "%s",
                                     warning_message);
                             }
-                     
+
                         }
 
                     }
