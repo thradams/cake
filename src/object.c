@@ -1937,6 +1937,11 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
 
             while (*p)
             {
+                if (*p == 'e' || *p == 'E')
+                {
+                    dot_found = true;
+                }
+
                 if (*p == '.')
                 {
                     dot_found = true;

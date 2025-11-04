@@ -19686,6 +19686,11 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
 
             while (*p)
             {
+                if (*p == 'e' || *p == 'E')
+                {
+                    dot_found = true;
+                }
+
                 if (*p == '.')
                 {
                     dot_found = true;
@@ -28672,7 +28677,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.39"
+#define CAKE_VERSION "0.12.40"
 
 
 
