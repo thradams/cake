@@ -80,14 +80,21 @@ function validate(model)
 function ReportIssue()
 {
     var source = inputEditor.getValue();
+    var generates = outputEditor.getValue();
+
     var to = -2;// document.getElementById("outtype").value;
     var options = document.getElementById("options").value;
 
     var title = "unexpected result";
     var textbeforecode = "I believe the following code is not producing the expected result or diagnostics.\n";
+
+    var generatesText = "Is generating:\n";
+
     var link = "https://github.com/thradams/cake/issues/new?title=" + encodeURIComponent(title) +
         "&body=" + encodeURIComponent(textbeforecode + "\n```c\n" + source + "\n```\n");
-                   
+    "&body=" + encodeURIComponent(textbeforecode + "\n```c\n" + source + "\n```\n") +
+        encodeURIComponent(generatesText + "\n```c\n" + generates + "\n```\n");
+
 
     window.open(link, '_blank');
 }
@@ -149,7 +156,7 @@ function OnCompileButton()
 
     if (outputLanguage == 0)
         options += " -E";
- 
+
 
     var source = inputEditor.getValue();
     var ot = CompileText(options, source);
@@ -222,10 +229,10 @@ function OnLoad()
     monaco.editor.defineTheme("myCTheme", {
         base: "vs",  // or "vs" for light
         inherit: true,    // inherit existing rules
-        rules: [            
-            { token: "keyword.special", foreground: "008000"},   // your special keywords            
+        rules: [
+            { token: "keyword.special", foreground: "008000" },   // your special keywords            
         ],
-        colors: {           
+        colors: {
         }
     });
 
