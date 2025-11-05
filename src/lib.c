@@ -28677,7 +28677,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.40"
+#define CAKE_VERSION "0.12.41"
 
 
 
@@ -45217,19 +45217,13 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
             {
                 //literals also can be used in c89 initializers
                 il_print_string(object->p_init_expression->first_token, object->p_init_expression->last_token, ss);
-
             }
-            else if (object->p_init_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR &&
-                     type_is_function(&object->p_init_expression->type))
+            else 
             {
                 /*
-                  functions can be used in constant initialization
+                  pointer to function, or pointer to file scope objects can be used
                 */
                 d_visit_expression(ctx, ss, object->p_init_expression);
-            }
-            else
-            {
-                ss_fprintf(ss, "0 /*?*/");
             }
         }
         else
