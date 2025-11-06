@@ -2464,7 +2464,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START ||
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY ||
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF ||
-
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN ||
         is_first_of_compiler_function(ctx);
 }
 
@@ -3029,6 +3029,56 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             }
 
             new_expression->object = object_make_size_t(ctx->options.target, offsetof);
+
+            return new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN)
+        {
+            const char* builtin_func_name = ctx->current->lexeme;
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN;
+
+            parser_match(ctx);
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (strcmp(builtin_func_name, "__builtin_huge_val") == 0)
+            {
+                new_expression->type = type_make_double();
+                new_expression->object = object_make_double(ctx->options.target, HUGE_VAL);
+            }
+            else if (strcmp(builtin_func_name, "__builtin_inff") == 0)
+            {
+                new_expression->type = type_make_double();
+                new_expression->object = object_make_double(ctx->options.target, INFINITE);
+            }
+            else
+            {
+                compiler_diagnostic(C_ERROR_NOT_FOUND,
+                            ctx,
+                            new_expression->first_token,
+                            NULL,
+                            "unknown  builtin"); 
+            }
 
             return new_expression;
         }
@@ -5704,7 +5754,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
         if (p_expression_node == NULL)
             throw;
 
-              
+
         if (ctx->current && ctx->current->type == '?')
         {
             struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof(struct expression));
@@ -5756,7 +5806,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 {
                     true_eval_mode = EXPRESSION_EVAL_MODE_NONE;
                     false_eval_mode = EXPRESSION_EVAL_MODE_VALUE_AND_TYPE;
-                }                
+                }
                 break;
             }
 
@@ -5784,7 +5834,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 throw;
             }
 
-          
+
             struct expression* _Owner _Opt p_right = conditional_expression(ctx, false_eval_mode);
 
             if (p_right == NULL)
