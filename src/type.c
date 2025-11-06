@@ -1160,7 +1160,7 @@ bool type_is_integer(const struct type* p_type)
 * Integer and floating types are collectively called arithmetic types.
 */
 bool type_is_arithmetic(const struct type* p_type)
-{    
+{
     return type_is_integer(p_type) || type_is_floating_point(p_type);
 }
 
@@ -2623,20 +2623,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
             unsigned long long result = 0;
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
-                //https://github.com/thradams/cake/issues/248
-                unsigned long long SIZE_MAX_WORKAROUND = 0;
-
-#ifdef __linux__
-#if __x86_64__
-                SIZE_MAX_WORKAROUND = 0xffffffffffffffffULL;
-#else
-                SIZE_MAX_WORKAROUND = 0xffffffffULL;
-#endif                    
-#else                
-                SIZE_MAX_WORKAROUND = SIZE_MAX;
-#endif
-
-                if (result > SIZE_MAX_WORKAROUND)
+                if (result > SIZE_MAX)
                 {
                     return ESIZEOF_OVERLOW;
                 }

@@ -5704,8 +5704,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
         if (p_expression_node == NULL)
             throw;
 
-        enum expression_eval_mode current_eval_mode = eval_mode;
-
+              
         if (ctx->current && ctx->current->type == '?')
         {
             struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof(struct expression));
@@ -5737,17 +5736,31 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 }
             }
 
-            switch (current_eval_mode)
+            enum expression_eval_mode true_eval_mode = eval_mode;
+            enum expression_eval_mode false_eval_mode = eval_mode;
+
+
+            switch (eval_mode)
             {
             case EXPRESSION_EVAL_MODE_NONE:
             case EXPRESSION_EVAL_MODE_TYPE:
                 break;
+
             case EXPRESSION_EVAL_MODE_VALUE_AND_TYPE:
-                current_eval_mode = has_constant_expression && !constant_expression_is_true;
+                if (has_constant_expression && constant_expression_is_true)
+                {
+                    true_eval_mode = EXPRESSION_EVAL_MODE_VALUE_AND_TYPE;
+                    false_eval_mode = EXPRESSION_EVAL_MODE_NONE;
+                }
+                else
+                {
+                    true_eval_mode = EXPRESSION_EVAL_MODE_NONE;
+                    false_eval_mode = EXPRESSION_EVAL_MODE_VALUE_AND_TYPE;
+                }                
                 break;
             }
 
-            struct expression* _Owner _Opt p_left = expression(ctx, current_eval_mode);
+            struct expression* _Owner _Opt p_left = expression(ctx, true_eval_mode);
 
             if (p_left == NULL)
             {
@@ -5771,24 +5784,8 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 throw;
             }
 
-            enum expression_eval_mode new_eval_mode = EXPRESSION_EVAL_MODE_VALUE_AND_TYPE;
-            switch (eval_mode)
-            {
-            case EXPRESSION_EVAL_MODE_NONE:
-            case EXPRESSION_EVAL_MODE_TYPE:
-                new_eval_mode = eval_mode;
-                break;
-
-            case EXPRESSION_EVAL_MODE_VALUE_AND_TYPE:
-                new_eval_mode = eval_mode;
-                if (has_constant_expression && constant_expression_is_true)
-                {
-                    new_eval_mode = EXPRESSION_EVAL_MODE_TYPE;
-                }
-                break;
-            }
-
-            struct expression* _Owner _Opt p_right = conditional_expression(ctx, new_eval_mode);
+          
+            struct expression* _Owner _Opt p_right = conditional_expression(ctx, false_eval_mode);
 
             if (p_right == NULL)
             {

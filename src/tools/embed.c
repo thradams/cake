@@ -4,7 +4,7 @@
 #include <fs.h>
 #include <stdlib.h>
 #include <string.h>
- 
+
 
 int embed(const char* filename)
 
@@ -45,31 +45,24 @@ int embed(const char* filename)
 
     while (fread(&ch, 1, 1, file))
     {
+        if (ch == '\r')
+            continue; /*where are not printing to avoid changes with linux/windows*/
 
         if (count % 25 == 0)
 
             fprintf(file_out, "\n");
 
 
-
         if (count > 0)
-
             fprintf(file_out, ",");
 
-
-
         fprintf(file_out, "%d", (int)ch);
-
         count++;
-
     }
 
 
-
     fclose(file);
-
     fclose(file_out);
-
     return count;
 
 }
@@ -123,7 +116,7 @@ int main(int argc, char** argv)
             }
             else
             {
-              printf("embed generated '%s'\n", filepath);
+                printf("embed generated '%s'\n", filepath);
             }
         }
     }

@@ -26,7 +26,12 @@
 "#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__) "\n"
 
 
-
+/*
+  To see all predefined macros
+  gcc -dM -E
+  For some reason __STDC_HOSTED__ is not printed
+  but it is defined (maybe others)
+*/
 const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS =
 #ifdef __EMSCRIPTEN__
 //include dir on emscripten
@@ -34,26 +39,30 @@ const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS =
 #endif
 
 CAKE_STANDARD_MACROS
-"#define __linux__\n"
-//"#define __GNUC__  16\n"
-"#define __x86_64__ 1\n"
-"#define __CHAR_BIT__ 8\n"
-"#define __SIZE_TYPE__ long unsigned int\n"
-"#define __PTRDIFF_TYPE__ long int\n"
-"#define __WCHAR_TYPE__ int\n"
-"#define __WINT_TYPE__ unsigned int\n"
-"#define __INTMAX_TYPE__ long int\n"
-"#define __UINTMAX_TYPE__ long unsigned int\n"
-"#define __SIG_ATOMIC_TYPE__ int\n"
-"#define __INT8_TYPE__ signed char\n"
-"#define __INT16_TYPE__ short int\n"
-"#define __INT32_TYPE__ int\n"
-"#define __INT64_TYPE__ long int\n"
-"#define __UINT8_TYPE__ unsigned char\n"
-"#define __UINT16_TYPE__ short unsigned int\n"
-"#define __UINT32_TYPE__ unsigned int\n"
-"#define __UINT64_TYPE__ long unsigned int\n"
-"#define __INT_LEAST8_TYPE__ signed char\n"
+"#define __linux__            1\n"
+"#define __extension__        \n"    /*this is not a macro*/
+"#define __GNUC__             4\n"      /*this number is reduced to parser headers without all GCC extensions*/
+"#define __GNUC_MINOR__       1\n"
+"#define __STDC_HOSTED__      1\n"
+"#define __STDC__             1\n"
+"#define __x86_64__           1\n"
+"#define __CHAR_BIT__         8\n"
+"#define __SIZE_TYPE__        long unsigned int\n"
+"#define __PTRDIFF_TYPE__     long int\n"
+"#define __WCHAR_TYPE__       int\n"
+"#define __WINT_TYPE__        unsigned int\n"
+"#define __INTMAX_TYPE__      long int\n"
+"#define __UINTMAX_TYPE__     long unsigned int\n"
+"#define __SIG_ATOMIC_TYPE__  int\n"
+"#define __INT8_TYPE__        signed char\n"
+"#define __INT16_TYPE__       short int\n"
+"#define __INT32_TYPE__       int\n"
+"#define __INT64_TYPE__       long int\n"
+"#define __UINT8_TYPE__       unsigned char\n"
+"#define __UINT16_TYPE__      short unsigned int\n"
+"#define __UINT32_TYPE__      unsigned int\n"
+"#define __UINT64_TYPE__      long unsigned int\n"
+"#define __INT_LEAST8_TYPE__  signed char\n"
 "#define __INT_LEAST16_TYPE__ short int\n"
 "#define __INT_LEAST32_TYPE__ int\n"
 "#define __INT_LEAST64_TYPE__ long int\n"
@@ -61,92 +70,81 @@ CAKE_STANDARD_MACROS
 "#define __UINT_LEAST16_TYPE__ short unsigned int\n"
 "#define __UINT_LEAST32_TYPE__ unsigned int\n"
 "#define __UINT_LEAST64_TYPE__ long unsigned int\n"
-"#define __INT_FAST8_TYPE__ signed char\n"
-"#define __INT_FAST16_TYPE__ long int\n"
-"#define __INT_FAST32_TYPE__ long int\n"
-"#define __INT_FAST64_TYPE__ long int\n"
-"#define __UINT_FAST8_TYPE__ unsigned char\n"
-"#define __UINT_FAST16_TYPE__ long unsigned int\n"
-"#define __UINT_FAST32_TYPE__ long unsigned int\n"
-"#define __UINT_FAST64_TYPE__ long unsigned int\n"
-"#define __INTPTR_TYPE__ long int\n"
-"#define __UINTPTR_TYPE__ long unsigned int\n"
-"#define __DBL_MAX__ ((double)1.79769313486231570814527423731704357e+308L)\n"
-"#define __DBL_MIN__ ((double)2.22507385850720138309023271733240406e-308L)\n"
-"#define __FLT_RADIX__ 2\n"
-"#define __FLT_EPSILON__ 1.19209289550781250000000000000000000e-7F\n"
-"#define __DBL_EPSILON__ ((double)2.22044604925031308084726333618164062e-16L)\n"
-"#define __LDBL_EPSILON__ 1.08420217248550443400745280086994171e-19L\n"
-"#define __DBL_DECIMAL_DIG__ 17\n"
-"#define __FLT_EVAL_METHOD__ 0\n"
-"#define __FLT_RADIX__ 2\n"
-"#define __DBL_MAX_EXP__ 1024\n"
-"#define __DECIMAL_DIG__ 21\n"
-"#define __FLT_DECIMAL_DIG__ 9\n"
-"#define __FLT_MIN_10_EXP__ (-37)\n"
-"#define __FLT_MIN__ 1.17549435082228750796873653722224568e-38F\n"
-"#define __FLT_MAX__ 3.40282346638528859811704183484516925e+38F\n"
-"#define __FLT_EPSILON__ 1.19209289550781250000000000000000000e-7F\n"
-"#define __FLT_DIG__ 6\n"
-"#define __FLT_MANT_DIG__ 24\n"
-"#define __FLT_MIN_EXP__ (-125)\n"
-"#define __FLT_MAX_10_EXP__ 38\n"
-"#define __FLT_ROUNDS__ __FLT_ROUNDS__\n"
-"#define __FLT_EVAL_METHOD__ 0\n"
-"#define __FLT_HAS_SUBNORM__ __FLT_HAS_SUBNORM__\n"
-"#define __FLT_MAX_EXP__ 128\n"
-"#define __FLT_HAS_DENORM__ 1\n"
-"#define __SCHAR_MAX__ 0x7f\n"
-"#define __WCHAR_MAX__ 0x7fffffff\n"
-"#define __SHRT_MAX__ 0x7fff\n"
-"#define __INT_MAX__ 0x7fffffff\n"
-"#define __LONG_MAX__ 0x7fffffffffffffffL\n"
-"#define __LONG_LONG_MAX__ 0x7fffffffffffffffLL\n"
-"#define __WINT_MAX__ 0xffffffffU\n"
-"#define __SIZE_MAX__ 0xffffffffffffffffUL\n"
-"#define __PTRDIFF_MAX__ 0x7fffffffffffffffL\n"
-"#define __INTMAX_MAX__ 0x7fffffffffffffffL\n"
-"#define __UINTMAX_MAX__ 0xffffffffffffffffUL\n"
-"#define __SIG_ATOMIC_MAX__ 0x7fffffff\n"
-"#define __INT8_MAX__ 0x7f\n"
-"#define __INT16_MAX__ 0x7fff\n"
-"#define __INT32_MAX__ 0x7fffffff\n"
-"#define __INT64_MAX__ 0x7fffffffffffffffL\n"
-"#define __UINT8_MAX__ 0xff\n"
-"#define __UINT16_MAX__ 0xffff\n"
-"#define __UINT32_MAX__ 0xffffffffU\n"
-"#define __UINT64_MAX__ 0xffffffffffffffffUL\n"
-"#define __INT_LEAST8_MAX__ 0x7f\n"
-"#define __INT_LEAST16_MAX__ 0x7fff\n"
-"#define __INT_LEAST32_MAX__ 0x7fffffff\n"
-"#define __INT_LEAST64_MAX__ 0x7fffffffffffffffL\n"
-"#define __UINT_LEAST8_MAX__ 0xff\n"
-"#define __UINT_LEAST16_MAX__ 0xffff\n"
-"#define __UINT_LEAST32_MAX__ 0xffffffffU\n"
-"#define __UINT_LEAST64_MAX__ 0xffffffffffffffffUL\n"
-"#define __INT_FAST8_MAX__ 0x7f\n"
-"#define __INT_FAST16_MAX__ 0x7fffffffffffffffL\n"
-"#define __INT_FAST32_MAX__ 0x7fffffffffffffffL\n"
-"#define __INT_FAST64_MAX__ 0x7fffffffffffffffL\n"
-"#define __UINT_FAST8_MAX__ 0xff\n"
-"#define __UINT_FAST16_MAX__ 0xffffffffffffffffUL\n"
-"#define __UINT_FAST32_MAX__ 0xffffffffffffffffUL\n"
-"#define __UINT_FAST64_MAX__ 0xffffffffffffffffUL\n"
-"#define __INTPTR_MAX__ 0x7fffffffffffffffL\n"
-"#define __UINTPTR_MAX__ 0xffffffffffffffffUL\n"
-"#define __WCHAR_MIN__ (-0x7fffffff - 1)\n"
-"#define __WINT_MIN__ 0U\n"
+"#define __INT_FAST8_TYPE__    signed char\n"
+"#define __INT_FAST16_TYPE__   long int\n"
+"#define __INT_FAST32_TYPE__   long int\n"
+"#define __INT_FAST64_TYPE__   long int\n"
+"#define __UINT_FAST8_TYPE__   unsigned char\n"
+"#define __UINT_FAST16_TYPE__  long unsigned int\n"
+"#define __UINT_FAST32_TYPE__  long unsigned int\n"
+"#define __UINT_FAST64_TYPE__  long unsigned int\n"
+"#define __INTPTR_TYPE__       long int\n"
+"#define __UINTPTR_TYPE__      long unsigned int\n"
+"#define __DBL_MAX__           ((double)1.79769313486231570814527423731704357e+308L)\n"
+"#define __DBL_MIN__           ((double)2.22507385850720138309023271733240406e-308L)\n"
+"#define __FLT_RADIX__         2\n"
+"#define __FLT_EPSILON__       1.19209289550781250000000000000000000e-7F\n"
+"#define __DBL_EPSILON__       ((double)2.22044604925031308084726333618164062e-16L)\n"
+"#define __LDBL_EPSILON__      1.08420217248550443400745280086994171e-19L\n"
+"#define __DBL_DECIMAL_DIG__   17\n"
+"#define __FLT_EVAL_METHOD__   0\n"
+"#define __FLT_RADIX__         2\n"
+"#define __DBL_MAX_EXP__       1024\n"
+"#define __DECIMAL_DIG__       21\n"
+"#define __FLT_DECIMAL_DIG__   9\n"
+"#define __FLT_MIN_10_EXP__    (-37)\n"
+"#define __FLT_MIN__           1.17549435082228750796873653722224568e-38F\n"
+"#define __FLT_MAX__           3.40282346638528859811704183484516925e+38F\n"
+"#define __FLT_EPSILON__       1.19209289550781250000000000000000000e-7F\n"
+"#define __FLT_DIG__           6\n"
+"#define __FLT_MANT_DIG__      24\n"
+"#define __FLT_MIN_EXP__       (-125)\n"
+"#define __FLT_MAX_10_EXP__    38\n"
+"#define __FLT_EVAL_METHOD__   0\n"
+"#define __FLT_MAX_EXP__       128\n"
+"#define __FLT_HAS_DENORM__    1\n"
+"#define __SCHAR_MAX__         0x7f\n"
+"#define __WCHAR_MAX__         0x7fffffff\n"
+"#define __SHRT_MAX__          0x7fff\n"
+"#define __INT_MAX__           0x7fffffff\n"
+"#define __LONG_MAX__          0x7fffffffffffffffL\n"
+"#define __LONG_LONG_MAX__     0x7fffffffffffffffLL\n"
+"#define __WINT_MAX__          0xffffffffU\n"
+"#define __SIZE_MAX__          0xffffffffffffffffUL\n"
+"#define __PTRDIFF_MAX__       0x7fffffffffffffffL\n"
+"#define __INTMAX_MAX__        0x7fffffffffffffffL\n"
+"#define __UINTMAX_MAX__       0xffffffffffffffffUL\n"
+"#define __SIG_ATOMIC_MAX__    0x7fffffff\n"
+"#define __INT8_MAX__          0x7f\n"
+"#define __INT16_MAX__         0x7fff\n"
+"#define __INT32_MAX__         0x7fffffff\n"
+"#define __INT64_MAX__         0x7fffffffffffffffL\n"
+"#define __UINT8_MAX__         0xff\n"
+"#define __UINT16_MAX__        0xffff\n"
+"#define __UINT32_MAX__        0xffffffffU\n"
+"#define __UINT64_MAX__        0xffffffffffffffffUL\n"
+"#define __INT_LEAST8_MAX__    0x7f\n"
+"#define __INT_LEAST16_MAX__   0x7fff\n"
+"#define __INT_LEAST32_MAX__   0x7fffffff\n"
+"#define __INT_LEAST64_MAX__   0x7fffffffffffffffL\n"
+"#define __UINT_LEAST8_MAX__   0xff\n"
+"#define __UINT_LEAST16_MAX__  0xffff\n"
+"#define __UINT_LEAST32_MAX__  0xffffffffU\n"
+"#define __UINT_LEAST64_MAX__  0xffffffffffffffffUL\n"
+"#define __INT_FAST8_MAX__     0x7f\n"
+"#define __INT_FAST16_MAX__    0x7fffffffffffffffL\n"
+"#define __INT_FAST32_MAX__    0x7fffffffffffffffL\n"
+"#define __INT_FAST64_MAX__    0x7fffffffffffffffL\n"
+"#define __UINT_FAST8_MAX__    0xff\n"
+"#define __UINT_FAST16_MAX__   0xffffffffffffffffUL\n"
+"#define __UINT_FAST32_MAX__   0xffffffffffffffffUL\n"
+"#define __UINT_FAST64_MAX__   0xffffffffffffffffUL\n"
+"#define __INTPTR_MAX__        0x7fffffffffffffffL\n"
+"#define __UINTPTR_MAX__       0xffffffffffffffffUL\n"
+"#define __WCHAR_MIN__        (-0x7fffffff - 1)\n"
+"#define __WINT_MIN__         0U\n"
 "#define __SIG_ATOMIC_MIN__ (-0x7fffffff - 1)\n"
 "#define __INT8_C (-0x7fffffff - 1)\n"
-"#define __INT16_C __INT16_C\n"
-"#define __INT32_C __INT32_C\n"
-"#define __INT64_C __INT64_C\n"
-"#define __UINT8_C __UINT8_C\n"
-"#define __UINT16_C __UINT16_C\n"
-"#define __UINT32_C __UINT32_C\n"
-"#define __UINT64_C __UINT64_C\n"
-"#define __INTMAX_C __INTMAX_C\n"
-"#define __UINTMAX_C __UINTMAX_C\n"
 "#define __SCHAR_WIDTH__ 8\n"
 "#define __SHRT_WIDTH__ 16\n"
 "#define __INT_WIDTH__ 32\n"
@@ -326,7 +324,7 @@ static struct platform platform_x86_x64_gcc =
   .pointer_alignment = 8,
 
 
-  .wchar_t_type = TYPE_UNSIGNED_INT,
+  .wchar_t_type = TYPE_SIGNED_INT,
 
   .short_n_bits = 16,
   .short_alignment = 2,
@@ -534,7 +532,7 @@ static struct platform platform_catalina =
 
   .long_long_n_bits = 32,
   .long_long_alignment = 4,
-  
+
   .float_n_bits = 32,
   .float_alignment = 4,
 
@@ -545,7 +543,7 @@ static struct platform platform_catalina =
   .long_double_alignment = 4,
 };
 
-static struct platform* platforms[NUMBER_OF_TARGETS] = 
+static struct platform* platforms[NUMBER_OF_TARGETS] =
 {
         [TARGET_X86_X64_GCC] = &platform_x86_x64_gcc,
         [TARGET_X86_MSVC] = &platform_x86_msvc,
@@ -591,11 +589,12 @@ long long target_signed_max(enum  target target, enum object_type type)
 {
     int bits = target_get_num_of_bits(target, type);
 
-    if (bits >= 64) {
+    if (bits >= 64)
+    {
         return 0x7FFFFFFFFFFFFFFFLL; // (2^(63) - 1)
-    } 
-      
-    
+    }
+
+
     return (1LL << (bits - 1)) - 1; // 2^(bits-1) - 1    
 }
 
@@ -607,8 +606,8 @@ unsigned long long target_unsigned_max(enum  target target, enum object_type typ
     int bits = target_get_num_of_bits(target, type);
     if (bits >= 64)
         return ~0ULL;   // all bits set to 1
-    
-    return (1ULL << bits) - 1;    
+
+    return (1ULL << bits) - 1;
 }
 
 int target_get_num_of_bits(enum target target, enum object_type type)
@@ -626,20 +625,20 @@ int target_get_num_of_bits(enum target target, enum object_type type)
     case TYPE_SIGNED_INT:
     case TYPE_UNSIGNED_INT:
         return get_platform(target)->int_n_bits;
-    
+
     case TYPE_SIGNED_LONG:
     case TYPE_UNSIGNED_LONG:
         return get_platform(target)->long_n_bits;
-        
+
     case TYPE_SIGNED_LONG_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
         return get_platform(target)->long_long_n_bits;
 
     case TYPE_FLOAT:
-            return get_platform(target)->float_n_bits;
+        return get_platform(target)->float_n_bits;
 
     case TYPE_DOUBLE:
-            return get_platform(target)->double_n_bits;
+        return get_platform(target)->double_n_bits;
 
     case TYPE_LONG_DOUBLE:
         return get_platform(target)->long_double_n_bits;

@@ -883,18 +883,27 @@ void print_tokens_html(struct token* p_token)
 void print_position(const char* path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
 {
 
+    if (path == NULL) path = "";
+
     if (visual_studio_ouput_format)
     {
         //MSVC format
-        printf("%s(%d,%d): ", path ? path : "<>", line, col);
+        print_path(path);
+        printf("(%d,%d): ", line, col);
     }
     else
-    {
+    {     
+        if (color_enabled)
+        {
+            printf(WHITE);
+        }
+        print_path(path);
+
         //GCC format
         if (color_enabled)
-            printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+            printf(WHITE ":%d:%d: ", line, col);
         else
-            printf("%s:%d:%d: ", path ? path : "<>", line, col);
+            printf(":%d:%d: ", line, col);
     }
 }
 

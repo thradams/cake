@@ -227,7 +227,7 @@ void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_
 
 bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token_opt, const char* fmt, ...)
 {
-  
+
 
     struct marker marker = { 0 };
 
@@ -279,7 +279,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         return false;
     }
 
-    if (!is_error && included_file_location)
+    if (w != W_NOTE && !is_error && included_file_location)
     {
         //notes are warning are not printed in included files
         return false;
@@ -2095,10 +2095,10 @@ static bool preprocessor_token_ahead_skiping_blanks_and_new_line(struct token* p
 
     while (current &&
         (current->type == TK_BLANKS ||
-         current->type == TK_NEWLINE ||
-         current->type == TK_PLACEMARKER ||
-         current->type == TK_LINE_COMMENT ||
-         current->type == TK_COMMENT))
+            current->type == TK_NEWLINE ||
+            current->type == TK_PLACEMARKER ||
+            current->type == TK_LINE_COMMENT ||
+            current->type == TK_COMMENT))
     {
         current = current->next;
     }
@@ -3529,7 +3529,22 @@ static bool is_empty_assert(struct token_list* replacement_list)
     return true;
 }
 
-
+void print_path(const char* path)
+{
+    const char* p = path;
+    while (*p)
+    {
+#ifdef _WIN32
+        if (*p == '/')
+            printf("\\");
+        else
+            printf("%c", *p);
+#else
+        printf("%c", *p);
+#endif
+        p++;
+    }
+}
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
 
@@ -3658,7 +3673,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     for (int i = 0; i < (level + 1); i++)
                         printf(".");
-                    printf("%s\n", full_path_result);
+
+                    print_path(full_path_result);                    
+                    printf("\n");
                 }
 
                 struct tokenizer_ctx tctx = { 0 };
@@ -6121,7 +6138,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_COMMENT: return "/*comment*/";
     case TK_PPNUMBER: return "pp-number";
 
-    case TK_KEYWORD_GCC__ATTRIBUTE:return "__attribute";
+    case TK_KEYWORD_GCC__ATTRIBUTE:return "__attribute__";
     case TK_KEYWORD_GCC__BUILTIN_VA_LIST:return "__builtin_va_list";
     case TK_KEYWORD_MSVC__PTR32:return "__ptr32";
     case TK_KEYWORD_MSVC__PTR64:return "__ptr64";

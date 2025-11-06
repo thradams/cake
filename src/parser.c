@@ -64,6 +64,7 @@ void defer_statement_delete(struct defer_statement* _Owner _Opt p)
     }
 }
 
+static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool statement);
 
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token);
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token);
@@ -987,6 +988,16 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
+
+    if (ctx->current->type == TK_KEYWORD__ASM)
+        return true;
+
+    if (ctx->current->type == TK_KEYWORD_MSVC__DECLSPEC)
+        return true;
+
+    if (ctx->current->type == TK_KEYWORD_GCC__ATTRIBUTE)
+        return true;
+
     if (ctx->current->type != '[')
     {
         return false;
@@ -1298,6 +1309,15 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("__asm__", text) == 0 || strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
             return TK_KEYWORD__ASM;
 
+        if (strcmp("__restrict", text) == 0)
+            return TK_KEYWORD_RESTRICT;
+
+        if (strcmp("__inline", text) == 0)
+            return TK_KEYWORD_INLINE;
+
+        if (strcmp("__alignof__", text) == 0)
+            return TK_KEYWORD__ALIGNOF;
+
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
         {
             // begin microsoft
@@ -1311,8 +1331,7 @@ enum token_type is_keyword(const char* text, enum target target)
                 return TK_KEYWORD_MSVC__INT64;
             if (strcmp("__forceinline", text) == 0)
                 return TK_KEYWORD_INLINE;
-            if (strcmp("__inline", text) == 0)
-                return TK_KEYWORD_INLINE;
+
             if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
                 return TK_KEYWORD_MSVC__STDCALL;
             if (strcmp("__cdecl", text) == 0)
@@ -1321,8 +1340,6 @@ enum token_type is_keyword(const char* text, enum target target)
                 return TK_KEYWORD_MSVC__FASTCALL;
             if (strcmp("__alignof", text) == 0)
                 return TK_KEYWORD__ALIGNOF;
-            if (strcmp("__restrict", text) == 0)
-                return TK_KEYWORD_RESTRICT;
             if (strcmp("__declspec", text) == 0)
                 return TK_KEYWORD_MSVC__DECLSPEC;
         }
@@ -3546,9 +3563,25 @@ static void gcc_attribute(struct parser_ctx* ctx)
     if (ctx->current->type == '(')
     {
         parser_match(ctx); //(
-        if (ctx->current->type != ')')
+        int count = 1;
+        for (;;)
         {
-            gcc_attribute_argument_list(ctx);
+            if (ctx->current->type == ')')
+            {
+                count--;
+
+                if (count == 0)
+                    break;
+
+                parser_match(ctx);
+            }
+            else if (ctx->current->type == '(')
+            {
+                count++;
+                parser_match(ctx); //(
+            }
+            else
+                parser_match(ctx); //(
         }
         parser_match_tk(ctx, ')');
     }
@@ -5672,6 +5705,18 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
         p_declarator = NULL;
     }
 
+    struct attribute_specifier_sequence* _Owner _Opt p = attribute_specifier_sequence_opt(ctx);
+    attribute_specifier_sequence_delete(p);
+
+    if (ctx->current->type == TK_KEYWORD__ASM)
+    {
+        /*
+            int var __asm__("real_name_in_asm");
+            void func(void) __asm__("real_func_name");
+        */
+        struct asm_statement* p3 = gcc_asm(ctx, false);
+        asm_statement_delete(p3);
+    }
 
     return p_declarator;
 }
@@ -7692,29 +7737,6 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
             throw;
         }
 
-        if (ctx->current->type == TK_KEYWORD_MSVC__DECLSPEC)
-        {
-            //parser_match(ctx);
-            p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
-            if (p_attribute_specifier_sequence == NULL)
-                throw;
-
-            p_attribute_specifier_sequence->first_token = ctx->current;
-            p_attribute_specifier_sequence->msvc_declspec_flags |= msvc_declspec_sequence_opt(ctx);
-            return  p_attribute_specifier_sequence;
-        }
-
-        if (ctx->current->type == TK_KEYWORD_GCC__ATTRIBUTE)
-        {
-            p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
-            if (p_attribute_specifier_sequence == NULL)
-                throw;
-
-            p_attribute_specifier_sequence->first_token = ctx->current;
-            gcc_attribute_specifier_opt(ctx);
-            return  p_attribute_specifier_sequence;
-        }
-
         if (first_of_attribute_specifier(ctx))
         {
             p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
@@ -7726,14 +7748,33 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
             while (ctx->current != NULL &&
                 first_of_attribute_specifier(ctx))
             {
-                struct attribute_specifier* _Owner _Opt p_attribute_specifier = attribute_specifier(ctx);
-                if (p_attribute_specifier == NULL)
-                    throw;
 
-                p_attribute_specifier_sequence->attributes_flags |=
-                    p_attribute_specifier->attribute_list->attributes_flags;
+                if (ctx->current->type == TK_KEYWORD_GCC__ATTRIBUTE)
+                {
+                    gcc_attribute_specifier_opt(ctx);
+                }
+                else if (ctx->current->type == TK_KEYWORD_MSVC__DECLSPEC)
+                {
+                    p_attribute_specifier_sequence->msvc_declspec_flags |= msvc_declspec_sequence_opt(ctx);
+                }
+                else if (ctx->current->type == TK_KEYWORD__ASM)
+                {
+                    struct asm_statement _Owner _Opt* p3 = gcc_asm(ctx, false);
+                    asm_statement_delete(p3);
 
-                attribute_specifier_sequence_add(p_attribute_specifier_sequence, p_attribute_specifier);
+                }
+                else
+                {
+                    struct attribute_specifier* _Owner _Opt p_attribute_specifier = attribute_specifier(ctx);
+                    if (p_attribute_specifier == NULL)
+                        throw;
+
+                    p_attribute_specifier_sequence->attributes_flags |=
+                        p_attribute_specifier->attribute_list->attributes_flags;
+
+                    attribute_specifier_sequence_add(p_attribute_specifier_sequence, p_attribute_specifier);
+                }
+
             }
 
             if (ctx->previous == NULL)
@@ -9473,7 +9514,7 @@ static struct asm_statement* _Owner _Opt msvc_asm_statement(struct parser_ctx* c
     return p_asm_statement;
 }
 
-static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ctx)
+static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool statement)
 {
     /*
        This is the grammar, but we are using a simple balanced asm ( )
@@ -9571,8 +9612,11 @@ static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ct
             }
         }
 
-        if (parser_match_tk(ctx, ';') != 0)
-            throw;
+        if (statement)
+        {
+            if (parser_match_tk(ctx, ';') != 0)
+                throw;
+        }
     }
     catch
     {
@@ -9600,7 +9644,7 @@ struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
     static_assert(NUMBER_OF_TARGETS == 6, "how this target handle asm blocks?");
 
     //balanced tokens ( ... ) 
-    return gcc_asm_statement(ctx);
+    return gcc_asm(ctx, true);
 }
 
 struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
@@ -10752,6 +10796,16 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
     {
         while (ctx->current != NULL)
         {
+            if (ctx->current->type == TK_KEYWORD__ASM)
+            {
+                //TODO
+                /*
+                  __asm__(".globl my_symbol\nmy_symbol:");
+                */
+                struct asm_statement* p3 = gcc_asm(ctx, true);
+                asm_statement_delete(p3);
+            }
+
             struct declaration* _Owner _Opt p = external_declaration(ctx);
             if (p == NULL)
                 throw;
