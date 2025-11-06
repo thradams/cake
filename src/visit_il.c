@@ -737,6 +737,15 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         break;
 
+    case UNARY_EXPRESSION_GCC__BUILTIN_XXXXX:
+        ss_fprintf(oss, "%s(", p_expression->first_token->lexeme);
+
+        if (p_expression->left)
+            d_visit_expression(ctx, oss, p_expression->left);
+
+        ss_fprintf(oss, ")");
+        break;
+
     case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
         ss_fprintf(oss, "__builtin_offsetof(");
 
@@ -1859,7 +1868,7 @@ static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss,
         {
             ss_fprintf(oss, "%s", p->lexeme);
             if (p == p_primary_block->asm_statement->p_last_token)
-                break;           
+                break;
             p = p->next;
         }
         ss_fprintf(oss, "\n");
@@ -2682,7 +2691,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
                 //literals also can be used in c89 initializers
                 il_print_string(object->p_init_expression->first_token, object->p_init_expression->last_token, ss);
             }
-            else 
+            else
             {
                 /*
                   pointer to function, or pointer to file scope objects can be used

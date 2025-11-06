@@ -6086,7 +6086,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
-    case TK_KEYWORD_GCC__BUILTIN: return "TK_KEYWORD_GCC__BUILTIN";
+    case TK_KEYWORD_GCC__BUILTIN_XXXXX: return "TK_KEYWORD_GCC__BUILTIN_XXXXX";
 
     }
     return "TK_X_MISSING_NAME";
@@ -6297,7 +6297,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "__builtin_c23_va_start";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "__builtin_va_copy";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "__builtin_offsetof";
-    case TK_KEYWORD_GCC__BUILTIN: return "__builtin_xxx";
+    case TK_KEYWORD_GCC__BUILTIN_XXXXX: return "__builtin_xxxxx";
 
     default:
         break;

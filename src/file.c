@@ -1,4 +1,7 @@
-int main()
-{
-    __builtin_huge_val();
+
+
+
+int main() {
+    assert(1 && "a");
+    return 0;
 }

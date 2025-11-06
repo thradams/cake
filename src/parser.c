@@ -989,8 +989,11 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
         return false;
 
 
-    if (ctx->current->type == TK_KEYWORD__ASM)
+    if (ctx->options.target == TARGET_X86_X64_GCC &&
+        ctx->current->type == TK_KEYWORD__ASM)
+    {
         return true;
+    }
 
     if (ctx->current->type == TK_KEYWORD_MSVC__DECLSPEC)
         return true;
@@ -1270,11 +1273,10 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("__builtin_va_copy", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
 
+        /*must be after others __builtin_*/
         if (strstr(text, "__builtin_") != NULL)
-        {
-            //ANY BUILTIN
-            return TK_KEYWORD_GCC__BUILTIN;
-        }
+            return TK_KEYWORD_GCC__BUILTIN_XXXXX;
+
         static_assert(NUMBER_OF_TARGETS == 6, "some target builtins or extensions may be necessary");
 
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
@@ -7549,6 +7551,11 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
         }
         else
         {
+            /*
+            * TODO
+             #pragma warning(push)
+             #pragma warning(disable:4001) 
+            */
             compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown pragma");
             throw;
         }
@@ -7764,9 +7771,12 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 }
                 else if (ctx->current->type == TK_KEYWORD__ASM)
                 {
-                    struct asm_statement _Owner _Opt* p3 = gcc_asm(ctx, false);
-                    asm_statement_delete(p3);
-
+                    if (ctx->options.target == TARGET_X86_X64_GCC)
+                    {
+                        /*GCC also uses asm as attribute*/
+                        struct asm_statement _Owner _Opt* p3 = gcc_asm(ctx, false);
+                        asm_statement_delete(p3);
+                    }
                 }
                 else
                 {

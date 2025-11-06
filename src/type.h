@@ -329,6 +329,7 @@ bool type_is_pointer_or_array(const struct type* p_type);
 bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers);
 bool type_is_compatible(const struct type* a, const struct type* b);
 bool type_is_scalar(const struct type* p_type);
+bool type_is_scalar_decay(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);
 bool type_is_decimal128(const struct type* p_type);

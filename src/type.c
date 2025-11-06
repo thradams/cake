@@ -1164,14 +1164,35 @@ bool type_is_arithmetic(const struct type* p_type)
     return type_is_integer(p_type) || type_is_floating_point(p_type);
 }
 
+bool type_is_scalar_decay(const struct type* p_type)
+{
+    if (type_is_arithmetic(p_type))
+        return true;
+
+    if (type_is_pointer_or_array(p_type))
+        return true;
+
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return false;
+
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        return true;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
+        return true;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        return true;
+
+    return false;
+}
 /*
  Arithmetic types, pointer types, and the nullptr_t type are collectively
  called scalar types.
 */
 bool type_is_scalar(const struct type* p_type)
 {
-    //TODO we need two concepts...is_scalar on real type or is_scalar after lvalue converison
-
     if (type_is_arithmetic(p_type))
         return true;
 
@@ -1184,6 +1205,7 @@ bool type_is_scalar(const struct type* p_type)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         return true;
+
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         return true;
 

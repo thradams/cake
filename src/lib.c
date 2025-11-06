@@ -482,6 +482,9 @@ enum token_type
     TK_KEYWORD_GCC__BUILTIN_C23_VA_START,    
     TK_KEYWORD_GCC__BUILTIN_VA_COPY,
     TK_KEYWORD_GCC__BUILTIN_OFFSETOF,
+
+    TK_KEYWORD_GCC__BUILTIN_XXXXX,
+
 //#ifdef _WIN32 
 
     //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
@@ -7222,7 +7225,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     for (int i = 0; i < (level + 1); i++)
                         printf(".");
 
-                    print_path(full_path_result);                    
+                    print_path(full_path_result);
                     printf("\n");
                 }
 
@@ -9634,6 +9637,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
+    case TK_KEYWORD_GCC__BUILTIN_XXXXX: return "TK_KEYWORD_GCC__BUILTIN_XXXXX";
 
     }
     return "TK_X_MISSING_NAME";
@@ -9844,6 +9848,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "__builtin_c23_va_start";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "__builtin_va_copy";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "__builtin_offsetof";
+    case TK_KEYWORD_GCC__BUILTIN_XXXXX: return "__builtin_xxxxx";
 
     default:
         break;
@@ -14678,7 +14683,7 @@ int fill_options(struct options* options,
 {
 
     options->target = CAKE_COMPILE_TIME_SELECTED_TARGET;
-   
+
     /*
        default at this moment is same as -Wall
     */
@@ -14902,7 +14907,7 @@ int fill_options(struct options* options,
 
         if (has_prefix(argv[i], "-target="))
         {
-            int r = parse_target(argv[i] + (sizeof("-target=")-1), &options->target);
+            int r = parse_target(argv[i] + (sizeof("-target=") - 1), &options->target);
             if (r != 0)
             {
                 printf("Invalid target. Options: ");
@@ -14982,71 +14987,91 @@ int fill_options(struct options* options,
     return 0;
 }
 
+static void print_option(const char* option, const char* description)
+{
+    const char* p = option;
+    int count = 0;
+    int first_colum = 27;
+
+    puts(LIGHTCYAN);
+    while (*p)
+    {
+        printf("%c", *p);
+        count++;
+        p++;
+    }
+
+    printf("%s", COLOR_RESET);
+
+
+
+    for (; count < first_colum; count++)
+        printf(" ");
+
+    p = description;
+
+    bool breakline = false;
+    while (*p)
+    {
+        printf("%c", *p);
+        count++;
+        if (count > 70)
+            breakline = true;
+
+        if (breakline && *p == ' ')
+        {
+            breakline = false;
+            printf("\n");
+            count = 0;
+            for (; count < first_colum; count++)
+                printf(" ");
+        }
+        p++;
+    }
+
+    printf("%s\n", COLOR_RESET);
+}
 
 void print_help()
 {
-#define CAKE LIGHTCYAN "cake " COLOR_RESET 
-
-    const char* options =
-        LIGHTGREEN "Usage :" COLOR_RESET CAKE LIGHTBLUE "[OPTIONS] source1.c source2.c ...\n" COLOR_RESET
+    const char* sample =
+        LIGHTGREEN "Usage : " COLOR_RESET "cake " LIGHTBLUE "[OPTIONS] source1.c source2.c ...\n" COLOR_RESET
         "\n"
         LIGHTGREEN "Samples:\n" COLOR_RESET
         "\n"
-        WHITE "    " CAKE " source.c\n" COLOR_RESET
+        WHITE "    cake source.c\n" COLOR_RESET
         "    Compiles source.c and outputs /out/source.c\n"
         "\n"
-        WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" COLOR_RESET
+        WHITE "    cake file.c -o file.cc && cl file.cc\n" COLOR_RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
-        WHITE "    " CAKE " file.c -direct-compilation -o file.cc && cl file.cc\n" COLOR_RESET
-        "    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc\n"
-        "\n"
-        LIGHTGREEN "Options:\n" COLOR_RESET
-        "\n"
-        LIGHTCYAN "  -I                   " COLOR_RESET " Adds a directory to the list of directories searched for include files \n"
-        "                        (On windows, if you run cake at the visual studio command prompt cake \n"
-        "                        uses the same include files used by msvc )\n"
-        "\n"
-        LIGHTCYAN "  -auto-config           " COLOR_RESET "Generates cakeconfig.h with include directories\n"
-        "\n"
-        LIGHTCYAN "  -no-output            " COLOR_RESET "Cake will not generate output\n"
-        "\n"
-        LIGHTCYAN "  -D                    " COLOR_RESET "Defines a preprocessing symbol for a source file \n"
-        "\n"
-        LIGHTCYAN "  -E                    " COLOR_RESET "Copies preprocessor output to standard output \n"
-        "\n"
-        LIGHTCYAN "  -o name.c             " COLOR_RESET "Defines the output name when compiling one file\n"
-        "\n"
-        LIGHTCYAN "  -no-discard           " COLOR_RESET "Makes [[nodiscard]] default implicitly \n"
-        "\n"
-        LIGHTCYAN "  -Wname -Wno-name      " COLOR_RESET "Enables or disable warning\n"
-        "\n"
-        LIGHTCYAN "  -fanalyzer            " COLOR_RESET "Runs flow analysis -  required for ownership\n"
-        "\n"
-        LIGHTCYAN "  -sarif                " COLOR_RESET "Generates sarif files\n"
-        "\n"
-        LIGHTCYAN "  -H                    " COLOR_RESET "Print the name of each header file used\n"
-        "\n"
-        LIGHTCYAN "  -sarif-path           " COLOR_RESET "Set sarif output dir\n"
-        "\n"
-        LIGHTCYAN "  -msvc-output          " COLOR_RESET "Output is compatible with visual studio\n"
-        "\n"
-        LIGHTCYAN "  -fdiagnostics-color=never " COLOR_RESET "Output will not use colors\n"
-        "\n"        
-        LIGHTCYAN "  -dump-tokens          " COLOR_RESET "Output tokens before preprocessor\n"
-        "\n"
-        LIGHTCYAN "  -dump-pp-tokens       " COLOR_RESET "Output tokens after preprocessor\n"
-        "\n"
-        LIGHTCYAN "  -disable-assert       " COLOR_RESET "disables built-in assert\n"
-        "\n"
-        LIGHTCYAN "  -const-literal        " COLOR_RESET "literal string becomes const\n"
-        "\n"
-        LIGHTCYAN "  -preprocess-def-macro " COLOR_RESET "preprocess def macros after expansion\n"
+        LIGHTGREEN "Options:\n" COLOR_RESET;
 
-        "More details at http://thradams.com/cake/manual.html\n"
-        ;
+    printf("%s", sample);
 
-    printf("%s", options);
+    print_option("-I", "Adds a directory to the list of directories searched for include files");
+    print_option("-auto-config", "Generates cakeconfig.h with include directories");
+    print_option("-no-output", "Cake will not generate output");
+    print_option("-D", "Defines a preprocessing symbol for a source file");
+    print_option("-E", "Copies preprocessor output to standard output");
+    print_option("-o name", "Defines the output name when compiling one file");
+    print_option("-no-discard", "Makes [[nodiscard]] default implicitly");
+    print_option("-Wname -Wno-name", "Enables or disable warning");
+    print_option("-fanalyzer ", "Runs flow analysis -  required for ownership");
+    print_option("-sarif ", "Generates sarif files");
+    print_option("-H", "Print the name of each header file used");
+    print_option("-sarif-path", "Set sarif output dir");
+    print_option("-msvc-output", "Output is compatible with visual studio");
+    print_option("-fdiagnostics-color=never", "Output will not use colors");
+    print_option("-dump-tokens", "Output tokens before preprocessor");
+    print_option("-dump-pp-tokens", "Output tokens after preprocessor");
+    print_option("-disable-assert", "disables built-in assert");
+    print_option("-const-literal", "literal string becomes const");
+    print_option("-preprocess-def-macro", "preprocess def macros after expansion");
+
+    printf("\n");
+    printf("More details at http://cakecc.org/manual.html\n");
+
 }
 
 #ifdef TEST
@@ -15419,6 +15444,7 @@ bool type_is_pointer_or_array(const struct type* p_type);
 bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers);
 bool type_is_compatible(const struct type* a, const struct type* b);
 bool type_is_scalar(const struct type* p_type);
+bool type_is_scalar_decay(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);
 bool type_is_decimal128(const struct type* p_type);
@@ -15832,6 +15858,7 @@ enum expression_type
     UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY,
     UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG,
     UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF,
+    UNARY_EXPRESSION_GCC__BUILTIN_XXXXX,
 
 
     UNARY_EXPRESSION_TRAITS,
@@ -21450,7 +21477,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
-            if (c > wchar_max_value)
+            if (c > UINT16_MAX)
             {
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
@@ -21624,6 +21651,8 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     const unsigned long long unsigned_long_long_max_value =
         target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
+
+    errno = 0;
 
     if (ctx->current == NULL)
     {
@@ -23284,6 +23313,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START ||
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY ||
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_XXXXX ||
 
         is_first_of_compiler_function(ctx);
 }
@@ -23593,8 +23623,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START)
         {
-
-
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
@@ -23641,8 +23669,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END)
         {
-
-
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
@@ -23849,6 +23875,116 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             }
 
             new_expression->object = object_make_size_t(ctx->options.target, offsetof);
+
+            return new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_XXXXX)
+        {
+            const char* const builtin_name = ctx->current->lexeme;
+
+            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_XXXXX;
+
+            parser_match(ctx);
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (strcmp(builtin_name, "__builtin_signbitf") == 0 ||
+                strcmp(builtin_name, "__builtin_signbit") == 0 ||
+                strcmp(builtin_name, "__builtin_signbitl") == 0)
+            {
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->left = expression(ctx, eval_mode);
+                if (new_expression->left == NULL)
+                {
+
+                }
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->type = type_make_int();
+            }
+            else if (strcmp(builtin_name, "__builtin_nanf") == 0)
+            {
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (parser_match_tk(ctx, TK_STRING_LITERAL) != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->type = type_make_double();
+                //new_expression->object = object_make_double(ctx->options.target, NAN);
+            }
+            else
+            {
+                /*
+                   __builtin_xxxxx()
+                */
+                if (strcmp(builtin_name, "__builtin_inff") == 0)
+                {
+                    new_expression->type = type_make_double();
+                    //new_expression->object = object_make_double(ctx->options.target, INFINITY);
+                }
+                else if (strcmp(builtin_name, "__builtin_huge_val") == 0)
+                {
+                    new_expression->type = type_make_double();
+                    new_expression->object = object_make_double(ctx->options.target, HUGE_VAL);
+                }
+                else if (strcmp(builtin_name, "__builtin_unreachable") == 0 ||
+                         strcmp(builtin_name, "__builtin_trap") == 0)
+                {
+                    new_expression->type = make_void_type();
+                }
+                else
+                {
+                    //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+                    compiler_diagnostic(C_ERROR_NOT_FOUND,
+                                        ctx,
+                                        new_expression->first_token,
+                                            NULL,
+                                            "unkown builtin '%s'", builtin_name);
+                }
+
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+            }
 
             return new_expression;
         }
@@ -24908,12 +25044,12 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
             new_expression->last_token = new_expression->right->last_token;
 
 
-
-            if (!type_is_scalar(&new_expression->left->type) && !type_is_array(&new_expression->left->type))
+            if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, NULL, "left operator is not scalar");
             }
-            if (!type_is_scalar(&new_expression->right->type) && !type_is_array(&new_expression->right->type))
+
+            if (!type_is_scalar_decay(&new_expression->right->type))
             {
                 compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, operator_position, NULL, "right operator is not scalar");
             }
@@ -25960,14 +26096,14 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
             }
 
             //Each of the operands shall have scalar type
-            if (!type_is_scalar(&new_expression->left->type))
+            if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
                 throw;
             }
 
-            if (!type_is_scalar(&new_expression->right->type))
+            if (!type_is_scalar_decay(&new_expression->right->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
@@ -26085,14 +26221,14 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
 
 
             //Each of the operands shall have scalar type
-            if (!type_is_scalar(&new_expression->left->type))
+            if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
                 throw;
             }
 
-            if (!type_is_scalar(&new_expression->right->type))
+            if (!type_is_scalar_decay(&new_expression->right->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
@@ -26524,7 +26660,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
         if (p_expression_node == NULL)
             throw;
 
-              
+
         if (ctx->current && ctx->current->type == '?')
         {
             struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof(struct expression));
@@ -26576,7 +26712,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 {
                     true_eval_mode = EXPRESSION_EVAL_MODE_NONE;
                     false_eval_mode = EXPRESSION_EVAL_MODE_VALUE_AND_TYPE;
-                }                
+                }
                 break;
             }
 
@@ -26604,7 +26740,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 throw;
             }
 
-          
+
             struct expression* _Owner _Opt p_right = conditional_expression(ctx, false_eval_mode);
 
             if (p_right == NULL)
@@ -26645,7 +26781,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             }
 
             /*The first operand shall have scalar type*/
-            if (!type_is_scalar(&p_conditional_expression->condition_expr->type))
+            if (!type_is_scalar_decay(&p_conditional_expression->condition_expr->type))
             {
                 compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE, ctx, ctx->current, NULL, "condition must have scalar type");
             }
@@ -28642,7 +28778,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.41"
+#define CAKE_VERSION "0.12.42"
 
 
 
@@ -28743,6 +28879,7 @@ void defer_statement_delete(struct defer_statement* _Owner _Opt p)
     }
 }
 
+static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool statement);
 
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token);
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token);
@@ -29666,11 +29803,18 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
+
+    if (ctx->options.target == TARGET_X86_X64_GCC &&
+        ctx->current->type == TK_KEYWORD__ASM)
+    {
+        return true;
+    }
+
     if (ctx->current->type == TK_KEYWORD_MSVC__DECLSPEC)
         return true;
+
     if (ctx->current->type == TK_KEYWORD_GCC__ATTRIBUTE)
         return true;
-    
 
     if (ctx->current->type != '[')
     {
@@ -29944,6 +30088,10 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("__builtin_va_copy", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_VA_COPY;
 
+        /*must be after others __builtin_*/
+        if (strstr(text, "__builtin_") != NULL)
+            return TK_KEYWORD_GCC__BUILTIN_XXXXX;
+
         static_assert(NUMBER_OF_TARGETS == 6, "some target builtins or extensions may be necessary");
 
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
@@ -29988,6 +30136,9 @@ enum token_type is_keyword(const char* text, enum target target)
 
         if (strcmp("__inline", text) == 0)
             return TK_KEYWORD_INLINE;
+
+        if (strcmp("__alignof__", text) == 0)
+            return TK_KEYWORD__ALIGNOF;
 
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
         {
@@ -32234,9 +32385,25 @@ static void gcc_attribute(struct parser_ctx* ctx)
     if (ctx->current->type == '(')
     {
         parser_match(ctx); //(
-        if (ctx->current->type != ')')
+        int count = 1;
+        for (;;)
         {
-            gcc_attribute_argument_list(ctx);
+            if (ctx->current->type == ')')
+            {
+                count--;
+
+                if (count == 0)
+                    break;
+
+                parser_match(ctx);
+            }
+            else if (ctx->current->type == '(')
+            {
+                count++;
+                parser_match(ctx); //(
+            }
+            else
+                parser_match(ctx); //(
         }
         parser_match_tk(ctx, ')');
     }
@@ -34360,10 +34527,18 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
         p_declarator = NULL;
     }
 
-    struct attribute_specifier_sequence* _Owner _Opt p =
-        attribute_specifier_sequence_opt(ctx);
-
+    struct attribute_specifier_sequence* _Owner _Opt p = attribute_specifier_sequence_opt(ctx);
     attribute_specifier_sequence_delete(p);
+
+    if (ctx->current->type == TK_KEYWORD__ASM)
+    {
+        /*
+            int var __asm__("real_name_in_asm");
+            void func(void) __asm__("real_func_name");
+        */
+        struct asm_statement* p3 = gcc_asm(ctx, false);
+        asm_statement_delete(p3);
+    }
 
     return p_declarator;
 }
@@ -36191,6 +36366,11 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
         }
         else
         {
+            /*
+            * TODO
+             #pragma warning(push)
+             #pragma warning(disable:4001) 
+            */
             compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown pragma");
             throw;
         }
@@ -36384,8 +36564,6 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
             throw;
         }
 
-      
-
         if (first_of_attribute_specifier(ctx))
         {
             p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
@@ -36406,6 +36584,15 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 {
                     p_attribute_specifier_sequence->msvc_declspec_flags |= msvc_declspec_sequence_opt(ctx);
                 }
+                else if (ctx->current->type == TK_KEYWORD__ASM)
+                {
+                    if (ctx->options.target == TARGET_X86_X64_GCC)
+                    {
+                        /*GCC also uses asm as attribute*/
+                        struct asm_statement _Owner _Opt* p3 = gcc_asm(ctx, false);
+                        asm_statement_delete(p3);
+                    }
+                }
                 else
                 {
                     struct attribute_specifier* _Owner _Opt p_attribute_specifier = attribute_specifier(ctx);
@@ -36414,10 +36601,10 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
 
                     p_attribute_specifier_sequence->attributes_flags |=
                         p_attribute_specifier->attribute_list->attributes_flags;
-                    
+
                     attribute_specifier_sequence_add(p_attribute_specifier_sequence, p_attribute_specifier);
                 }
-                
+
             }
 
             if (ctx->previous == NULL)
@@ -38157,7 +38344,7 @@ static struct asm_statement* _Owner _Opt msvc_asm_statement(struct parser_ctx* c
     return p_asm_statement;
 }
 
-static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ctx)
+static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool statement)
 {
     /*
        This is the grammar, but we are using a simple balanced asm ( )
@@ -38255,8 +38442,11 @@ static struct asm_statement* _Owner _Opt gcc_asm_statement(struct parser_ctx* ct
             }
         }
 
-        if (parser_match_tk(ctx, ';') != 0)
-            throw;
+        if (statement)
+        {
+            if (parser_match_tk(ctx, ';') != 0)
+                throw;
+        }
     }
     catch
     {
@@ -38284,7 +38474,7 @@ struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
     static_assert(NUMBER_OF_TARGETS == 6, "how this target handle asm blocks?");
 
     //balanced tokens ( ... ) 
-    return gcc_asm_statement(ctx);
+    return gcc_asm(ctx, true);
 }
 
 struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
@@ -39436,6 +39626,16 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
     {
         while (ctx->current != NULL)
         {
+            if (ctx->current->type == TK_KEYWORD__ASM)
+            {
+                //TODO
+                /*
+                  __asm__(".globl my_symbol\nmy_symbol:");
+                */
+                struct asm_statement* p3 = gcc_asm(ctx, true);
+                asm_statement_delete(p3);
+            }
+
             struct declaration* _Owner _Opt p = external_declaration(ctx);
             if (p == NULL)
                 throw;
@@ -43243,6 +43443,15 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         break;
 
+    case UNARY_EXPRESSION_GCC__BUILTIN_XXXXX:
+        ss_fprintf(oss, "%s(", p_expression->first_token->lexeme);
+
+        if (p_expression->left)
+            d_visit_expression(ctx, oss, p_expression->left);
+
+        ss_fprintf(oss, ")");
+        break;
+
     case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
         ss_fprintf(oss, "__builtin_offsetof(");
 
@@ -44365,7 +44574,7 @@ static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss,
         {
             ss_fprintf(oss, "%s", p->lexeme);
             if (p == p_primary_block->asm_statement->p_last_token)
-                break;           
+                break;
             p = p->next;
         }
         ss_fprintf(oss, "\n");
@@ -45188,7 +45397,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
                 //literals also can be used in c89 initializers
                 il_print_string(object->p_init_expression->first_token, object->p_init_expression->last_token, ss);
             }
-            else 
+            else
             {
                 /*
                   pointer to function, or pointer to file scope objects can be used
@@ -54481,28 +54690,26 @@ struct platform* get_platform(enum  target target)
     return platforms[target];
 }
 
-
 long long target_signed_max(enum  target target, enum object_type type)
 {
-    int bits = target_get_num_of_bits(target, type);
+    const int bits = target_get_num_of_bits(target, type);
+    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
-    if (bits >= 64)
+    if (bits >= sizeof(unsigned long long) * CHAR_BIT)
     {
-        return 0x7FFFFFFFFFFFFFFFLL; // (2^(63) - 1)
+        return LLONG_MAX;
     }
-
 
     return (1LL << (bits - 1)) - 1; // 2^(bits-1) - 1    
 }
 
 unsigned long long target_unsigned_max(enum  target target, enum object_type type)
 {
-    /*
-      2^bits - 1
-    */
-    int bits = target_get_num_of_bits(target, type);
-    if (bits >= 64)
-        return ~0ULL;   // all bits set to 1
+    const int bits = target_get_num_of_bits(target, type);
+    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+
+    if (bits >= sizeof(unsigned long long) * CHAR_BIT)
+        return ULLONG_MAX;
 
     return (1ULL << bits) - 1;
 }
@@ -54559,6 +54766,43 @@ const char* target_get_predefined_macros(enum target e)
     return "";
 };
 
+#ifdef TEST
+
+void target_self_test()
+{
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
+
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == CHAR_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == SHRT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == INT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == LONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == LLONG_MAX);
+
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
+
+
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
+
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
+
+    
+#if CHAR_MIN < 0
+    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
+#else
+    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
+#endif
+        
+
+}
+#endif
 
 
 /*
@@ -55718,14 +55962,35 @@ bool type_is_arithmetic(const struct type* p_type)
     return type_is_integer(p_type) || type_is_floating_point(p_type);
 }
 
+bool type_is_scalar_decay(const struct type* p_type)
+{
+    if (type_is_arithmetic(p_type))
+        return true;
+
+    if (type_is_pointer_or_array(p_type))
+        return true;
+
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return false;
+
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        return true;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
+        return true;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        return true;
+
+    return false;
+}
 /*
  Arithmetic types, pointer types, and the nullptr_t type are collectively
  called scalar types.
 */
 bool type_is_scalar(const struct type* p_type)
 {
-    //TODO we need two concepts...is_scalar on real type or is_scalar after lvalue converison
-
     if (type_is_arithmetic(p_type))
         return true;
 
@@ -55738,6 +56003,7 @@ bool type_is_scalar(const struct type* p_type)
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         return true;
+
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         return true;
 

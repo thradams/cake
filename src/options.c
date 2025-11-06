@@ -345,7 +345,7 @@ int fill_options(struct options* options,
 {
 
     options->target = CAKE_COMPILE_TIME_SELECTED_TARGET;
-   
+
     /*
        default at this moment is same as -Wall
     */
@@ -569,7 +569,7 @@ int fill_options(struct options* options,
 
         if (has_prefix(argv[i], "-target="))
         {
-            int r = parse_target(argv[i] + (sizeof("-target=")-1), &options->target);
+            int r = parse_target(argv[i] + (sizeof("-target=") - 1), &options->target);
             if (r != 0)
             {
                 printf("Invalid target. Options: ");
@@ -649,71 +649,91 @@ int fill_options(struct options* options,
     return 0;
 }
 
+static void print_option(const char* option, const char* description)
+{
+    const char* p = option;
+    int count = 0;
+    int first_colum = 27;
+
+    puts(LIGHTCYAN);
+    while (*p)
+    {
+        printf("%c", *p);
+        count++;
+        p++;
+    }
+
+    printf("%s", COLOR_RESET);
+
+
+
+    for (; count < first_colum; count++)
+        printf(" ");
+
+    p = description;
+
+    bool breakline = false;
+    while (*p)
+    {
+        printf("%c", *p);
+        count++;
+        if (count > 70)
+            breakline = true;
+
+        if (breakline && *p == ' ')
+        {
+            breakline = false;
+            printf("\n");
+            count = 0;
+            for (; count < first_colum; count++)
+                printf(" ");
+        }
+        p++;
+    }
+
+    printf("%s\n", COLOR_RESET);
+}
 
 void print_help()
 {
-#define CAKE LIGHTCYAN "cake " COLOR_RESET 
-
-    const char* options =
-        LIGHTGREEN "Usage :" COLOR_RESET CAKE LIGHTBLUE "[OPTIONS] source1.c source2.c ...\n" COLOR_RESET
+    const char* sample =
+        LIGHTGREEN "Usage : " COLOR_RESET "cake " LIGHTBLUE "[OPTIONS] source1.c source2.c ...\n" COLOR_RESET
         "\n"
         LIGHTGREEN "Samples:\n" COLOR_RESET
         "\n"
-        WHITE "    " CAKE " source.c\n" COLOR_RESET
+        WHITE "    cake source.c\n" COLOR_RESET
         "    Compiles source.c and outputs /out/source.c\n"
         "\n"
-        WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" COLOR_RESET
+        WHITE "    cake file.c -o file.cc && cl file.cc\n" COLOR_RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
-        WHITE "    " CAKE " file.c -direct-compilation -o file.cc && cl file.cc\n" COLOR_RESET
-        "    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc\n"
-        "\n"
-        LIGHTGREEN "Options:\n" COLOR_RESET
-        "\n"
-        LIGHTCYAN "  -I                   " COLOR_RESET " Adds a directory to the list of directories searched for include files \n"
-        "                        (On windows, if you run cake at the visual studio command prompt cake \n"
-        "                        uses the same include files used by msvc )\n"
-        "\n"
-        LIGHTCYAN "  -auto-config           " COLOR_RESET "Generates cakeconfig.h with include directories\n"
-        "\n"
-        LIGHTCYAN "  -no-output            " COLOR_RESET "Cake will not generate output\n"
-        "\n"
-        LIGHTCYAN "  -D                    " COLOR_RESET "Defines a preprocessing symbol for a source file \n"
-        "\n"
-        LIGHTCYAN "  -E                    " COLOR_RESET "Copies preprocessor output to standard output \n"
-        "\n"
-        LIGHTCYAN "  -o name.c             " COLOR_RESET "Defines the output name when compiling one file\n"
-        "\n"
-        LIGHTCYAN "  -no-discard           " COLOR_RESET "Makes [[nodiscard]] default implicitly \n"
-        "\n"
-        LIGHTCYAN "  -Wname -Wno-name      " COLOR_RESET "Enables or disable warning\n"
-        "\n"
-        LIGHTCYAN "  -fanalyzer            " COLOR_RESET "Runs flow analysis -  required for ownership\n"
-        "\n"
-        LIGHTCYAN "  -sarif                " COLOR_RESET "Generates sarif files\n"
-        "\n"
-        LIGHTCYAN "  -H                    " COLOR_RESET "Print the name of each header file used\n"
-        "\n"
-        LIGHTCYAN "  -sarif-path           " COLOR_RESET "Set sarif output dir\n"
-        "\n"
-        LIGHTCYAN "  -msvc-output          " COLOR_RESET "Output is compatible with visual studio\n"
-        "\n"
-        LIGHTCYAN "  -fdiagnostics-color=never " COLOR_RESET "Output will not use colors\n"
-        "\n"        
-        LIGHTCYAN "  -dump-tokens          " COLOR_RESET "Output tokens before preprocessor\n"
-        "\n"
-        LIGHTCYAN "  -dump-pp-tokens       " COLOR_RESET "Output tokens after preprocessor\n"
-        "\n"
-        LIGHTCYAN "  -disable-assert       " COLOR_RESET "disables built-in assert\n"
-        "\n"
-        LIGHTCYAN "  -const-literal        " COLOR_RESET "literal string becomes const\n"
-        "\n"
-        LIGHTCYAN "  -preprocess-def-macro " COLOR_RESET "preprocess def macros after expansion\n"
+        LIGHTGREEN "Options:\n" COLOR_RESET;
 
-        "More details at http://thradams.com/cake/manual.html\n"
-        ;
+    printf("%s", sample);
 
-    printf("%s", options);
+    print_option("-I", "Adds a directory to the list of directories searched for include files");
+    print_option("-auto-config", "Generates cakeconfig.h with include directories");
+    print_option("-no-output", "Cake will not generate output");
+    print_option("-D", "Defines a preprocessing symbol for a source file");
+    print_option("-E", "Copies preprocessor output to standard output");
+    print_option("-o name", "Defines the output name when compiling one file");
+    print_option("-no-discard", "Makes [[nodiscard]] default implicitly");
+    print_option("-Wname -Wno-name", "Enables or disable warning");
+    print_option("-fanalyzer ", "Runs flow analysis -  required for ownership");
+    print_option("-sarif ", "Generates sarif files");
+    print_option("-H", "Print the name of each header file used");
+    print_option("-sarif-path", "Set sarif output dir");
+    print_option("-msvc-output", "Output is compatible with visual studio");
+    print_option("-fdiagnostics-color=never", "Output will not use colors");
+    print_option("-dump-tokens", "Output tokens before preprocessor");
+    print_option("-dump-pp-tokens", "Output tokens after preprocessor");
+    print_option("-disable-assert", "disables built-in assert");
+    print_option("-const-literal", "literal string becomes const");
+    print_option("-preprocess-def-macro", "preprocess def macros after expansion");
+
+    printf("\n");
+    printf("More details at http://cakecc.org/manual.html\n");
+
 }
 
 #ifdef TEST

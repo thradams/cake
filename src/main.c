@@ -100,17 +100,46 @@ int main(int argc, char** argv)
         return 1;
     }
 
-#ifdef TEST
-    test_main();
-    printf("--------------------------------------\n");
-    printf("Tests embedded within #ifdef TEST blocks.\n");
-    printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);
-    printf("--------------------------------------\n");
-    if (g_unit_test_error_count > 0)
+
+    if (argc > 1 && strcmp(argv[1], "-selftest") == 0)    
     {
+        /*
+          cake -selftest
+          cake must be compiled with -DTEST
+        */
+
+        printf("*** SELF TEST ***.\n");
+
+#ifdef TEST
+
+
+        clock_t begin_clock = clock();
+        
+        test_main();
+        
+        struct report report = { 0 }; 
+        report.test_mode = true;
+        report.test_failed = g_unit_test_error_count;
+        report.test_succeeded = g_unit_test_success_count;
+
+        clock_t end_clock = clock();
+        double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
+        report.no_files = g_unit_test_error_count + g_unit_test_success_count;
+        report.cpu_time_used_sec = cpu_time_used;
+
+        print_report(&report);
+
+        if (g_unit_test_error_count > 0)
+        {
+            return EXIT_FAILURE;
+        }
+#else
+        printf("cake must be compiled with -DTEST to include self tests.\n");
         return EXIT_FAILURE;
-    }
 #endif
+    }
+    
+
 
     struct report report = { 0 };
     compile(argc, (const char**)argv, &report);

@@ -80,6 +80,9 @@ void newline_macro_func(void);
 /* tests from options.c*/
 void test_get_warning_name(void);
 
+/* tests from target.c*/
+void target_self_test(void);
+
 /*end of forward declarations*/
 
 int test_main(void)
@@ -149,6 +152,7 @@ g_unit_test_success_count = 0;
     quasi_recursive_macro();
     newline_macro_func();
     test_get_warning_name();
+    target_self_test();
 return g_unit_test_error_count;
 
 }

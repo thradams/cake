@@ -630,7 +630,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters.");
             }
 
-            if (c > wchar_max_value)
+            if (c > UINT16_MAX)
             {
                 compiler_diagnostic(W_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Character too large for enclosing character literal type.");
             }
@@ -804,6 +804,8 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
     const unsigned long long unsigned_long_long_max_value =
         target_unsigned_max(ctx->options.target, TYPE_UNSIGNED_LONG_LONG);
 
+
+    errno = 0;
 
     if (ctx->current == NULL)
     {
@@ -2464,7 +2466,8 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START ||
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY ||
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF ||
-        ctx->current->type == TK_KEYWORD_GCC__BUILTIN ||
+        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_XXXXX ||
+
         is_first_of_compiler_function(ctx);
 }
 
@@ -2773,8 +2776,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START)
         {
-
-
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
@@ -2821,8 +2822,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_END)
         {
-
-
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
@@ -3032,13 +3031,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             return new_expression;
         }
-        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN)
+        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_XXXXX)
         {
-            const char* builtin_func_name = ctx->current->lexeme;
+            const char* const builtin_name = ctx->current->lexeme;
+
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN;
+            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_XXXXX;
 
             parser_match(ctx);
 
@@ -3049,35 +3049,94 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 throw;
             }
 
-            if (parser_match_tk(ctx, '(') != 0)
+            if (strcmp(builtin_name, "__builtin_signbitf") == 0 ||
+                strcmp(builtin_name, "__builtin_signbit") == 0 ||
+                strcmp(builtin_name, "__builtin_signbitl") == 0)
             {
-                expression_delete(new_expression);
-                throw;
-            }
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
 
-            if (parser_match_tk(ctx, ')') != 0)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
+                new_expression->left = expression(ctx, eval_mode);
+                if (new_expression->left == NULL)
+                {
 
-            if (strcmp(builtin_func_name, "__builtin_huge_val") == 0)
-            {
-                new_expression->type = type_make_double();
-                new_expression->object = object_make_double(ctx->options.target, HUGE_VAL);
+                }
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                new_expression->type = type_make_int();
             }
-            else if (strcmp(builtin_func_name, "__builtin_inff") == 0)
+            else if (strcmp(builtin_name, "__builtin_nanf") == 0)
             {
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (parser_match_tk(ctx, TK_STRING_LITERAL) != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
                 new_expression->type = type_make_double();
-                new_expression->object = object_make_double(ctx->options.target, INFINITE);
+                //new_expression->object = object_make_double(ctx->options.target, NAN);
             }
             else
             {
-                compiler_diagnostic(C_ERROR_NOT_FOUND,
-                            ctx,
-                            new_expression->first_token,
-                            NULL,
-                            "unknown  builtin"); 
+                /*
+                   __builtin_xxxxx()
+                */
+                if (strcmp(builtin_name, "__builtin_inff") == 0)
+                {
+                    new_expression->type = type_make_double();
+                    //new_expression->object = object_make_double(ctx->options.target, INFINITY);
+                }
+                else if (strcmp(builtin_name, "__builtin_huge_val") == 0)
+                {
+                    new_expression->type = type_make_double();
+                    new_expression->object = object_make_double(ctx->options.target, HUGE_VAL);
+                }
+                else if (strcmp(builtin_name, "__builtin_unreachable") == 0 ||
+                         strcmp(builtin_name, "__builtin_trap") == 0)
+                {
+                    new_expression->type = make_void_type();
+                }
+                else
+                {
+                    //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+                    compiler_diagnostic(C_ERROR_NOT_FOUND,
+                                        ctx,
+                                        new_expression->first_token,
+                                            NULL,
+                                            "unkown builtin '%s'", builtin_name);
+                }
+
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
             }
 
             return new_expression;
@@ -4138,12 +4197,12 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
             new_expression->last_token = new_expression->right->last_token;
 
 
-
-            if (!type_is_scalar(&new_expression->left->type) && !type_is_array(&new_expression->left->type))
+            if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, NULL, "left operator is not scalar");
             }
-            if (!type_is_scalar(&new_expression->right->type) && !type_is_array(&new_expression->right->type))
+
+            if (!type_is_scalar_decay(&new_expression->right->type))
             {
                 compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, operator_position, NULL, "right operator is not scalar");
             }
@@ -5190,14 +5249,14 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
             }
 
             //Each of the operands shall have scalar type
-            if (!type_is_scalar(&new_expression->left->type))
+            if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
                 throw;
             }
 
-            if (!type_is_scalar(&new_expression->right->type))
+            if (!type_is_scalar_decay(&new_expression->right->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
@@ -5315,14 +5374,14 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
 
 
             //Each of the operands shall have scalar type
-            if (!type_is_scalar(&new_expression->left->type))
+            if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "left type is not scalar for or expression");
                 throw;
             }
 
-            if (!type_is_scalar(&new_expression->right->type))
+            if (!type_is_scalar_decay(&new_expression->right->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, NULL, "right type is not scalar for or expression");
@@ -5875,7 +5934,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             }
 
             /*The first operand shall have scalar type*/
-            if (!type_is_scalar(&p_conditional_expression->condition_expr->type))
+            if (!type_is_scalar_decay(&p_conditional_expression->condition_expr->type))
             {
                 compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE, ctx, ctx->current, NULL, "condition must have scalar type");
             }
