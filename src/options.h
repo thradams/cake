@@ -235,11 +235,6 @@ enum style
     STYLE_GNU,// A style complying with the GNU coding standards
 
 };
-int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/]);
-int get_warning_name_and_number(enum diagnostic_id w, int n, char buffer[/*n*/]);
-unsigned long long  get_warning_bit_mask(const char* wname);
-
-enum diagnostic_id  get_warning(const char* wname);
 
 struct diagnostic
 {
@@ -317,6 +312,11 @@ struct options
     bool test_mode;
 
     /*
+      -test-in-out
+    */
+    bool test_mode_inout;
+
+    /*
     * -nullchecks
     */
     bool null_checks_enabled;
@@ -327,6 +327,8 @@ struct options
       -E
     */
     bool preprocess_only;
+
+    
 
     /*
       -preprocess-def-macro
@@ -379,6 +381,11 @@ struct options
       -autoconfig
     */
     bool auto_config;
+
+    /*
+       -comment-to-attr
+    */
+    bool comment_to_attribute;
 
     bool do_static_debug;
     int static_debug_lines;

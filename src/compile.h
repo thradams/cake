@@ -1,3 +1,11 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+ *
+ *  struct object is used to compute the compile time expressions (including constexpr)
+ *
+*/
+
 #pragma once
 #include "ownership.h"
 #include <stdbool.h>

@@ -1976,6 +1976,7 @@ struct object object_equal(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2026,6 +2027,7 @@ struct object object_not_equal(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2077,6 +2079,7 @@ struct object object_greater_than_or_equal(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2127,6 +2130,7 @@ struct object object_greater_than(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2176,6 +2180,7 @@ struct object object_smaller_than_or_equal(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2226,6 +2231,7 @@ struct object object_smaller_than(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2276,6 +2282,7 @@ struct object object_add(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2359,6 +2366,7 @@ struct object object_sub(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2443,6 +2451,7 @@ struct object object_mul(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2527,6 +2536,7 @@ struct object object_div(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2589,6 +2599,7 @@ struct object object_mod(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2677,6 +2688,7 @@ int object_is_smaller_than_or_equal(enum target target, const struct object* a, 
 
 struct object object_logical_not(enum target target, const struct object* a, char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
 
     struct object r = { 0 };
@@ -2722,6 +2734,7 @@ struct object object_logical_not(enum target target, const struct object* a, cha
 
 struct object object_bitwise_not(enum target target, const struct object* a, char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
 
     struct object r = { 0 };
@@ -2765,6 +2778,7 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
 
 struct object object_unary_minus(enum target target, const struct object* a, char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
 
     struct object r = { 0 };
@@ -2810,6 +2824,7 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
 
 struct object object_unary_plus(enum target target, const struct object* a, char warning_message[200])
 {
+    warning_message[0] = '\0';
     /*
        char  c = -5;
        int   i = +c; //it just perform integer promotion
@@ -2863,6 +2878,7 @@ struct object object_bitwise_xor(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2913,6 +2929,7 @@ struct object object_bitwise_or(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -2964,6 +2981,7 @@ struct object object_bitwise_and(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -3014,6 +3032,7 @@ struct object object_shift_left(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
@@ -3065,6 +3084,7 @@ struct object object_shift_right(enum target target,
     const struct object* b,
     char warning_message[200])
 {
+    warning_message[0] = '\0';
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 

@@ -252,6 +252,8 @@ char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral)
         {
             if (*p == '"')
                 ss_fprintf(&ss, "\\\"");
+            else if (*p == '\\')
+                ss_fprintf(&ss, "\\\\");
             else
                 ss_fprintf(&ss, "%c", *p);
             p++;
@@ -929,7 +931,7 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
 
         //lets find the begin of line
         const struct token* p_line_begin = p_token;
-        while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
+        while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE && p_line_begin->prev->type != TK_PRAGMA_END))
         {
             p_line_begin = p_line_begin->prev;
         }

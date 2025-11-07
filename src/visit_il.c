@@ -485,6 +485,7 @@ static const char* get_op_by_expression_type(enum expression_type type)
     return "";
 }
 
+
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
 
@@ -738,13 +739,20 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case UNARY_EXPRESSION_GCC__BUILTIN_XXXXX:
+    {
         ss_fprintf(oss, "%s(", p_expression->first_token->lexeme);
 
-        if (p_expression->left)
-            d_visit_expression(ctx, oss, p_expression->left);
-
+        struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
+        while (arg)
+        {
+            d_visit_expression(ctx, oss, arg->expression);
+            if (arg->next)
+                ss_fprintf(oss, ", ");
+            arg = arg->next;
+        }
         ss_fprintf(oss, ")");
-        break;
+    }
+    break;
 
     case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
         ss_fprintf(oss, "__builtin_offsetof(");

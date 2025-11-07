@@ -584,12 +584,12 @@ struct platform* get_platform(enum  target target)
     return platforms[target];
 }
 
-long long target_signed_max(enum  target target, enum object_type type)
+long long target_signed_max(enum target target, enum object_type type)
 {
     const int bits = target_get_num_of_bits(target, type);
-    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+    assert(bits <= sizeof(long long) * CHAR_BIT);
 
-    if (bits >= sizeof(unsigned long long) * CHAR_BIT)
+    if (bits >= sizeof(long long) * CHAR_BIT)
     {
         return LLONG_MAX;
     }
@@ -671,11 +671,11 @@ void target_self_test()
     assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
     assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
 
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == CHAR_MAX);
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == SHRT_MAX);
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == INT_MAX);
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == LONG_MAX);
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == LLONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
 
     assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
     assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);

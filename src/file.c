@@ -1,12 +1,7 @@
-struct S {
-    int a;
-};
-int main() {
-    union S {
-        int i;
-    };
+#include <stdio.h>
 
-    [[cake::w740]] [[cake::w1030]]   
- 
-    struct S x2;
+int main()
+{
+    printf("Hello World"); 
+    return 0;
 }

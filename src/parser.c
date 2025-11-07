@@ -7390,7 +7390,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 if (p_pragma_token->type != TK_STRING_LITERAL)
                     throw;
 
-                unsigned long long w = atoi(p_pragma_token->lexeme + 1);
+                unsigned long long w = atoi(p_pragma_token->lexeme + 2); /* sample "C0004"*/
                 w = (1ULL << ((unsigned long long)w));
 
 
@@ -8114,7 +8114,6 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute_sp
                     ctx->current->lexeme[0] == 'W' ||
                     ctx->current->lexeme[0] == 'w')
                 {
-                    //enum diagnostic_id  get_warning(const char* wname)
                     p_attribute_specifier->ack = atoi(ctx->current->lexeme + 1);
                 }
                 else if (strcmp(ctx->current->lexeme, "leak") == 0)

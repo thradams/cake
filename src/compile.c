@@ -1,3 +1,10 @@
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+ *
+ *  struct object is used to compute the compile time expressions (including constexpr)
+ *
+*/
 
 #include "compile.h"
 
@@ -102,47 +109,6 @@ unsigned long size);
 
 #endif
 
-void append_msvc_include_dir(struct preprocessor_ctx* prectx)
-{
-
-#ifdef _WIN32
-    char env[2000] = { 0 };
-    int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
-
-    if (n > 0)
-    {
-
-        const char* p = env;
-        for (;;)
-        {
-            if (*p == '\0')
-            {
-                break;
-            }
-            char filename_local[500] = { 0 };
-            int count = 0;
-            while (*p != '\0' && (*p != ';' && *p != '\n'))
-            {
-                filename_local[count] = *p;
-                p++;
-                count++;
-            }
-            filename_local[count] = 0;
-            if (count > 0)
-            {
-                strcat(filename_local, "/");
-                include_dir_add(&prectx->include_dir, filename_local);
-            }
-            if (*p == '\0')
-            {
-                break;
-            }
-            p++;
-        }
-    }
-#endif
-}
-
 
 int generate_config_file(const char* configpath)
 {
@@ -163,7 +129,7 @@ int generate_config_file(const char* configpath)
 
 #ifdef __linux__
 
-        fprintf(outfile, "This file was generated reading the output of\n");
+        fprintf(outfile, "//This file was generated reading the output of\n");
         fprintf(outfile, "//echo | gcc -v -E - 2>&1\n");
         fprintf(outfile, "\n");
 
@@ -315,13 +281,14 @@ int compile_one_file(const char* file_name,
 
     struct ast ast = { 0 };
 
-    const char* _Owner _Opt s = NULL;
+    const char* _Owner _Opt p_output_string = NULL;
 
     _Opt struct parser_ctx ctx = { 0 };
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list tokens = { 0 };
 
+    tctx.options = *options;
     ctx.options = *options;
     ctx.p_report = report;
     char* _Owner _Opt content = NULL;
@@ -335,7 +302,7 @@ int compile_one_file(const char* file_name,
         }
 
         prectx.options = *options;
-        append_msvc_include_dir(&prectx);
+        
 
         content = read_file(file_name, true /*append new line*/);
         if (content == NULL)
@@ -409,9 +376,23 @@ int compile_one_file(const char* file_name,
 
         if (options->preprocess_only)
         {
-            const char* _Owner _Opt s2 = print_preprocessed_to_string2(ast.token_list.head);
-            printf("%s", s2);
-            free((void* _Owner _Opt)s2);
+            p_output_string = print_preprocessed_to_string2(ast.token_list.head);
+            printf("%s", p_output_string);
+
+            FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
+            if (outfile)
+            {
+                if (p_output_string)
+                    fprintf(outfile, "%s", p_output_string);
+
+                fclose(outfile);
+            }
+            else
+            {
+                report->error_count++;
+                printf("cannot open output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));
+                throw;
+            }            
         }
         else
         {
@@ -428,14 +409,14 @@ int compile_one_file(const char* file_name,
                 ctx2.ast = ast;
                 ctx2.options = ctx.options;
                 d_visit(&ctx2, &ss);
-                s = ss.c_str; //MOVE
+                p_output_string = ss.c_str; //MOVE
                 d_visit_ctx_destroy(&ctx2);
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
                 {
-                    if (s)
-                        fprintf(outfile, "%s", s);
+                    if (p_output_string)
+                        fprintf(outfile, "%s", p_output_string);
 
                     fclose(outfile);
                 }
@@ -475,7 +456,7 @@ int compile_one_file(const char* file_name,
         // printf("Error %s\n", error->message);
     }
 
-    if (ctx.options.test_mode)
+    if (ctx.options.test_mode_inout)
     {
         //lets check if the generated file is the expected
         char file_name_no_ext[FS_MAX_PATH] = { 0 };
@@ -488,14 +469,30 @@ int compile_one_file(const char* file_name,
         if (content_expected)
         {
             //We don't compare the fist line because it has the version that changes.
-            int s_first_line_len = get_first_line_len(s);
-            int content_expected_first_line_len = get_first_line_len(content_expected);
-            if (s && strcmp(content_expected + content_expected_first_line_len, s + s_first_line_len) != 0)
+            int s_first_line_len = 0;
+            int content_expected_first_line_len = 0;
+
+            if (ctx.options.preprocess_only)
             {
-                printf("different");
+            }
+            else
+            {
+                s_first_line_len = get_first_line_len(p_output_string);
+                content_expected_first_line_len = get_first_line_len(content_expected);
+            }
+
+            
+            if (p_output_string && strcmp(content_expected + content_expected_first_line_len, p_output_string + s_first_line_len) != 0)
+            {
+                printf("Output file '%s' is different from expected file '%s'\n", out_file_name, buf);
                 report->error_count++;
             }
             free(content_expected);
+        }
+        else
+        {
+            printf("Missing comparison file '%s' (-test-mode-in-out)\n", buf);
+            report->test_failed++;
         }
 
         if (report->error_count > 0 || report->warnings_count > 0)
@@ -517,14 +514,14 @@ int compile_one_file(const char* file_name,
         }
         else
         {
-            report->test_succeeded++;            
+            report->test_succeeded++;
         }
     }
 
     token_list_destroy(&tokens);
 
     parser_ctx_destroy(&ctx);
-    free((void* _Owner _Opt)s);
+    free((void* _Owner _Opt)p_output_string);
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);

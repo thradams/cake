@@ -28,6 +28,9 @@
 #endif
 
 
+//TODO i am doing this to same stack on expressoins TODO
+static char warning_message[200] = { 0 };
+
 struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
@@ -1573,14 +1576,6 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
       argument-expression-ctx , assignment-expression
     */
 
-    /*
-     argument-expression-list: (extended)
-      assignment-expression
-      move assignment-expression
-      argument-expression-ctx , assignment-expression
-      argument-expression-ctx , assignment-expression
-    */
-
     struct argument_expression_list list = { 0 };
     struct argument_expression* _Owner _Opt p_argument_expression = NULL;
 
@@ -2629,7 +2624,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&new_expression->right->object))
                 {
-                    char warning_message[200] = { 0 };
+                    
                     new_expression->object =
                         object_logical_not(ctx->options.target, &new_expression->right->object, warning_message);
                 }
@@ -2665,7 +2660,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                   object_has_constant_value(&new_expression->right->object))
                 {
-                    char warning_message[200] = { 0 };
+                    
                     new_expression->object =
                         object_bitwise_not(ctx->options.target, &new_expression->right->object, warning_message);
                 }
@@ -2683,7 +2678,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&new_expression->right->object))
                 {
-                    char warning_message[200] = { 0 };
+                    
                     if (op == '-')
                     {
                         new_expression->object =
@@ -3049,96 +3044,153 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 throw;
             }
 
-            if (strcmp(builtin_name, "__builtin_signbitf") == 0 ||
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            if (ctx->current->type != ')')
+            {
+               new_expression->argument_expression_list = argument_expression_list(ctx, eval_mode);
+            }
+
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
+            //https://gcc.gnu.org/onlinedocs/gcc/Floating-Point-Format-Builtins.html
+
+            if (strcmp(builtin_name, "__builtin_huge_val") == 0 ||
+                strcmp(builtin_name, "__builtin_inf") == 0 ||
+                strcmp(builtin_name, "__builtin_nan(const char* str)") == 0 ||
+                strcmp(builtin_name, "__builtin_nans(const char* str)") == 0 ||
+                strcmp(builtin_name, "__builtin_powi(double, int)") == 0
+                )
+            {
+                new_expression->type = type_make_double();
+            }
+            else if (strcmp(builtin_name, "__builtin_huge_valf") == 0 ||
+                     strcmp(builtin_name, "__builtin_inff") == 0 ||
+                     strcmp(builtin_name, "__builtin_nanf") == 0 ||
+                     strcmp(builtin_name, "__builtin_nansf") == 0 ||
+                     strcmp(builtin_name, "__builtin_powif") == 0)
+            {
+                new_expression->type = type_make_float();
+            }
+             else if (strcmp(builtin_name, "__builtin_add_overflow") == 0 ||
+                      strcmp(builtin_name, "__builtin_sadd_overflow") == 0 ||
+                      strcmp(builtin_name, "__builtin_saddl_overflow") == 0 ||
+                      strcmp(builtin_name, "__builtin_saddll_overflow") == 0 ||
+                      strcmp(builtin_name, "__builtin_uaddl_overflow ") == 0 ||
+                      strcmp(builtin_name, "__builtin_uaddll_overflow") == 0)
+            {
+                new_expression->type = type_make_int_bool_like();
+            }
+            else if (strcmp(builtin_name, "__builtin_huge_vall") == 0 ||
+                    strcmp(builtin_name, "__builtin_infl") == 0 ||
+                    strcmp(builtin_name, "__builtin_nanl") == 0 ||
+                    strcmp(builtin_name, "__builtin_nansl") == 0 ||
+                    strcmp(builtin_name, "__builtin_powil") == 0)
+            {
+                new_expression->type = type_make_long_double();
+            }
+            else if (strcmp(builtin_name, "__builtin_huge_valfN") == 0 ||
+                    strcmp(builtin_name, "__builtin_inffN") == 0 ||
+                    strcmp(builtin_name, "__builtin_nanfN") == 0 ||
+                    strcmp(builtin_name, "__builtin_nansfN") == 0 ||
+                    strcmp(builtin_name, "__builtin_huge_valfNx") == 0 ||
+                    strcmp(builtin_name, "__builtin_inffNx") == 0 ||
+                    strcmp(builtin_name, "__builtin_nanfNx") == 0 ||
+                    strcmp(builtin_name, "__builtin_nansfNx") == 0 )
+            {
+                //there is not f floatn in cake yet
+                new_expression->type = type_make_long_double();
+            }
+            else if (strcmp(builtin_name, "__builtin_infd32") == 0 ||
+                     strcmp(builtin_name, "__builtin_infd64") == 0 ||
+                     strcmp(builtin_name, "__builtin_infd128") == 0 ||
+                     strcmp(builtin_name, "__builtin_nand32") == 0 ||
+                     strcmp(builtin_name, "__builtin_nand64") == 0 ||
+                     strcmp(builtin_name, "__builtin_nand128") == 0 ||
+                     strcmp(builtin_name, "__builtin_nansd32") == 0 ||
+                     strcmp(builtin_name, "__builtin_nansd64") == 0 ||
+                     strcmp(builtin_name, "__builtin_nansd128") == 0)
+            {
+                //tODO
+            }
+            else if (strcmp(builtin_name, "__builtin_fpclassify") == 0 ||
+                     strcmp(builtin_name, "__builtin_isinf_sign") == 0 ||
+                     strcmp(builtin_name, "__builtin_issignaling") == 0)
+            {
+                new_expression->type = type_make_int();
+            }
+            else if (strcmp(builtin_name, "__builtin_signbitf") == 0 ||
                 strcmp(builtin_name, "__builtin_signbit") == 0 ||
                 strcmp(builtin_name, "__builtin_signbitl") == 0)
             {
-                if (parser_match_tk(ctx, '(') != 0)
-                {
-                    expression_delete(new_expression);
-                    throw;
-                }
-
-                new_expression->left = expression(ctx, eval_mode);
-                if (new_expression->left == NULL)
-                {
-
-                }
-
-                if (parser_match_tk(ctx, ')') != 0)
-                {
-                    expression_delete(new_expression);
-                    throw;
-                }
-
                 new_expression->type = type_make_int();
-            }
-            else if (strcmp(builtin_name, "__builtin_nanf") == 0)
+            }                        
+            else if (strcmp(builtin_name, "__builtin_unreachable") == 0 ||
+                     strcmp(builtin_name, "__builtin_trap") == 0)
             {
-                if (parser_match_tk(ctx, '(') != 0)
-                {
-                    expression_delete(new_expression);
-                    throw;
-                }
-
-                if (parser_match_tk(ctx, TK_STRING_LITERAL) != 0)
-                {
-                    expression_delete(new_expression);
-                    throw;
-                }
-
-                if (parser_match_tk(ctx, ')') != 0)
-                {
-                    expression_delete(new_expression);
-                    throw;
-                }
-
-                new_expression->type = type_make_double();
-                //new_expression->object = object_make_double(ctx->options.target, NAN);
+                new_expression->type = make_void_type();
+            }
+            else if (strcmp(builtin_name, "__builtin_ffs") == 0 ||
+                     strcmp(builtin_name, "__builtin_clz") == 0 ||
+                     strcmp(builtin_name, "__builtin_clrsb ") == 0 ||
+                     strcmp(builtin_name, "__builtin_popcount ") == 0 ||
+                    strcmp(builtin_name, "__builtin_parity") == 0 ||
+                    strcmp(builtin_name, "__builtin_ffsl") == 0 ||
+                    strcmp(builtin_name, "__builtin_clzl") == 0 ||
+                    strcmp(builtin_name, "__builtin_clrsbl") == 0 ||
+                    strcmp(builtin_name, "__builtin_popcountl") == 0 ||
+                    strcmp(builtin_name, "__builtin_parityl") == 0 ||
+                    strcmp(builtin_name, "__builti__builtin_ffsll") == 0 ||
+                    strcmp(builtin_name, "__builtin_clzll") == 0 ||
+                    strcmp(builtin_name, "__builtin_ctzll") == 0 ||
+                    strcmp(builtin_name, "__builtin_clrsbll") == 0 ||
+                    strcmp(builtin_name, "__builtin_parityll") == 0 ||
+                    strcmp(builtin_name, "__builtin_ffsg") == 0 ||
+                    strcmp(builtin_name, "__builtin_clzg") == 0 ||
+                    strcmp(builtin_name, "__builtin_ctzg") == 0 ||
+                    strcmp(builtin_name, "__builtin_clrsbg") == 0 ||
+                    strcmp(builtin_name, "__builtin_popcountg") == 0 ||
+                    strcmp(builtin_name, "__builtin_parityg") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_bit_ceil") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_bit_floor") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_bit_width") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_count_ones") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_count_zeros") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_first_leading_one") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_first_leading_zero") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_first_trailing_one") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_first_trailing_zero") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_has_single_bit") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_leading_ones") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_leading_zeros") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_trailing_ones ") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_trailing_zeros") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_rotate_left") == 0 ||
+                    strcmp(builtin_name, "__builtin_stdc_rotate_right")
+                )
+            {
+                //https://gcc.gnu.org/onlinedocs/gcc/Bit-Operation-Builtins.html
+                new_expression->type = type_make_int();
             }
             else
             {
-                /*
-                   __builtin_xxxxx()
-                */
-                if (strcmp(builtin_name, "__builtin_inff") == 0)
-                {
-                    new_expression->type = type_make_double();
-                    //new_expression->object = object_make_double(ctx->options.target, INFINITY);
-                }
-                else if (strcmp(builtin_name, "__builtin_huge_val") == 0)
-                {
-                    new_expression->type = type_make_double();
-                    new_expression->object = object_make_double(ctx->options.target, HUGE_VAL);
-                }
-                else if (strcmp(builtin_name, "__builtin_unreachable") == 0 ||
-                         strcmp(builtin_name, "__builtin_trap") == 0)
-                {
-                    new_expression->type = make_void_type();
-                }
-                else
-                {
-                    //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
-                    compiler_diagnostic(C_ERROR_NOT_FOUND,
-                                        ctx,
-                                        new_expression->first_token,
-                                            NULL,
-                                            "unkown builtin '%s'", builtin_name);
-                }
-
-                if (parser_match_tk(ctx, '(') != 0)
-                {
-                    expression_delete(new_expression);
-                    throw;
-                }
-
-                if (parser_match_tk(ctx, ')') != 0)
-                {
-                    expression_delete(new_expression);
-                    throw;
-                }
+                //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+                compiler_diagnostic(C_ERROR_NOT_FOUND,
+                                    ctx,
+                                    new_expression->first_token,
+                                    NULL,
+                                    "unknown builtin '%s'", builtin_name);
+                new_expression->type = make_void_type();
             }
-
+            
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
@@ -4073,7 +4125,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                         .p_token_end = new_expression->right->last_token
                     };
 
-                    char warning_message[200] = { 0 };
+                    
                     if (op == '*')
                     {
                         new_expression->object = object_mul(ctx->options.target,
@@ -4237,7 +4289,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                                 .p_token_end = new_expression->right->last_token
                             };
 
-                            char warning_message[200] = { 0 };
+                            
 
                             new_expression->object = object_add(ctx->options.target,
                                                  &new_expression->left->object,
@@ -4331,7 +4383,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                                 .p_token_end = new_expression->right->last_token
                             };
 
-                            char warning_message[200] = { 0 };
+                            
 
                             new_expression->object = object_sub(ctx->options.target,
                                                  &new_expression->left->object,
@@ -4476,7 +4528,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                char warning_message[200] = { 0 };
+                
 
                 if (op == '<<')
                 {
@@ -4677,7 +4729,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
 
 
 
-                        char warning_message[200] = { 0 };
+                        
                         enum diagnostic_id warning_id = 0;
 
                         if (op == '>=')
@@ -4892,7 +4944,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum 
             {
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
                 {
-                    char warning_message[200] = { 0 };
+                    
                     if (p_token_operator->type == '==')
                     {
                         new_expression->object = object_equal(ctx->options.target,
@@ -4984,7 +5036,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                char warning_message[200] = { 0 };
+                
                 new_expression->object = object_bitwise_and(ctx->options.target,
                     &new_expression->left->object,
                     &new_expression->right->object, warning_message);
@@ -5063,7 +5115,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                char warning_message[200] = { 0 };
+                
                 new_expression->object = object_bitwise_xor(ctx->options.target,
                     &new_expression->left->object,
                     &new_expression->right->object, warning_message);
@@ -5152,7 +5204,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, e
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                char warning_message[200] = { 0 };
+                
                 new_expression->object = object_bitwise_or(ctx->options.target,
                 &new_expression->left->object,
                 &new_expression->right->object, warning_message);

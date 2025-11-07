@@ -1697,36 +1697,36 @@ int main()
 
 sample["Extensions"]["pragma diagnostic"] =
     `
+
 enum E1 { A };
 enum E2 { B };
 
 int main() {
 
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic error "-Wenum-conversion"
+#pragma CAKE diagnostic error "C0004"
     if (A == B){}
 #pragma CAKE diagnostic pop
 
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic warning "-Wenum-conversion"
+#pragma CAKE diagnostic warning "C0004"
     if (A == B){}
 #pragma CAKE diagnostic pop
 
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic note "-Wenum-conversion"
+#pragma CAKE diagnostic note "C0004"
     if (A == B){}
 #pragma CAKE diagnostic pop
 
 
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wenum-conversion"
+#pragma CAKE diagnostic ignored "C0004"
     if (A == B){}
 #pragma CAKE diagnostic pop
-
-
-
 
 }
+
+
 
 `;
 

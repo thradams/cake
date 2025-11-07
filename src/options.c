@@ -321,9 +321,22 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-comment-to-attr") == 0)
+        {
+            options->comment_to_attribute = true;
+            continue;
+        }
+
         if (strcmp(argv[i], "-test-mode") == 0)
         {
             options->test_mode = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-test-mode-in-out") == 0)
+        {
+            options->test_mode = true;
+            options->test_mode_inout = true;
             continue;
         }
 
@@ -572,6 +585,8 @@ void print_help()
     print_option("-disable-assert", "disables built-in assert");
     print_option("-const-literal", "literal string becomes const");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
+    print_option("-comment-to-attr", "convert comments /*!w#*/ into attributes [[cake::w#]]");
+    
 
     printf("\n");
     printf("More details at http://cakecc.org/manual.html\n");
