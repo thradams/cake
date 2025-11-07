@@ -192,6 +192,9 @@ int main()
                " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
                " /out:cake.exe ");
 
+    //Generates cakeconfig.h with the include dir used by gcc
+    execute_cmd("./cake -autoconfig");
+
     //Runs cake on its own source
     execute_cmd("cake.exe -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -w11 " " main.c " CAKE_SOURCE_FILES);
 
