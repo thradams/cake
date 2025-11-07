@@ -193,7 +193,7 @@ int main()
                " /out:cake.exe ");
 
     //Generates cakeconfig.h with the include dir used by gcc
-    execute_cmd("./cake -autoconfig");
+    execute_cmd("cake.exe -autoconfig");
 
     //Runs cake on its own source
     execute_cmd("cake.exe -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -w11 " " main.c " CAKE_SOURCE_FILES);
