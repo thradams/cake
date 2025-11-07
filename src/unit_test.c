@@ -77,9 +77,6 @@ void recursive_macro_expr(void);
 void quasi_recursive_macro(void);
 void newline_macro_func(void);
 
-/* tests from options.c*/
-void test_get_warning_name(void);
-
 /* tests from target.c*/
 void target_self_test(void);
 
@@ -151,7 +148,6 @@ g_unit_test_success_count = 0;
     recursive_macro_expr();
     quasi_recursive_macro();
     newline_macro_func();
-    test_get_warning_name();
     target_self_test();
 return g_unit_test_error_count;
 

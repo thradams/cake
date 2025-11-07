@@ -106,79 +106,6 @@ struct diagnostic default_diagnostic = {
         (1ULL << W_UNUSED_VARIABLE))
 };
 
-static struct w {
-    enum diagnostic_id w;
-    const char* name;
-}
-s_warnings[] = {
-    {W_UNUSED_VARIABLE, "unused-variable"},
-    {W_UNUSED_FUNCTION, "unused-function"},
-    {W_DEPRECATED, "deprecated"},
-    {W_ENUN_CONVERSION,"enum-conversion"},
-
-    {W_ADDRESS, "address"},
-    {W_UNUSED_PARAMETER, "unused-parameter"},
-    {W_DECLARATOR_HIDE, "hide-declarator"},
-    {W_TYPEOF_ARRAY_PARAMETER, "typeof-parameter"},
-    {W_ATTRIBUTES, "attributes"},
-    {W_UNUSED_VALUE, "unused-value"},
-    {W_STYLE, "style"},
-    {W_COMMENT,"comment"},
-    {W_LINE_SLICING,"line-slicing"},
-    {W_SWITCH, "switch"},
-    {W_UNSUAL_NULL_POINTER_CONSTANT, "unusual-null"},
-
-    {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"},
-    {W_UNINITIALZED, "uninitialized"},
-    {W_RETURN_LOCAL_ADDR, "return-local-addr"},
-    {W_DIVIZION_BY_ZERO,"div-by-zero"},
-    {W_CONSTANT_VALUE, "constant-value"},
-    {W_SIZEOF_ARRAY_ARGUMENT, "sizeof-array-argument"},
-
-    {W_STRING_SLICED,"string-slicing"},
-    {W_DECLARATOR_STATE,"declarator-state"},
-    {W_OWNERSHIP_MISSING_OWNER_QUALIFIER, "missing-owner-qualifier"},
-    {W_OWNERSHIP_NOT_OWNER,"not-owner"},
-    {W_OWNERSHIP_USING_TEMPORARY_OWNER,"temp-owner"},
-    {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
-    {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
-    {W_OWNERSHIP_DISCARDING_OWNER, "discard-owner"},
-
-    {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
-    {W_FLOW_DIVIZION_BY_ZERO, "flow-div-by-zero"},
-
-    /////////////////////////////////////////////////////////////////////////
-    {W_FLOW_NON_NULL, "flow-not-null"},
-    {W_FLOW_MISSING_DTOR, "missing-destructor"},
-    {W_FLOW_MOVED, "using-moved-object"},
-    {W_FLOW_UNINITIALIZED, "analyzer-maybe-uninitialized"},
-    {W_FLOW_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
-    {W_FLOW_LIFETIME_ENDED, "lifetime-ended"},
-    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"},
-
-    /////////////////////////////////////////////////////////////////////
-    {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
-    {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
-    {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
-    {W_MULTICHAR_ERROR, "multi-char"},
-    {W_ARRAY_INDIRECTION,"array-indirection"},
-    {W_OUT_OF_BOUNDS, "out-of-bounds"},
-    {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
-    {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
-
-    {W_CONST_NOT_INITIALIZED, "const-init"},
-    {W_NULL_CONVERTION, "null-conversion"},
-    {W_BOOL_COMPARISON, "bool-comparison"},
-    {W_IMPLICITLY_UNSIGNED_LITERAL, "implicitly-unsigned-literal"},
-    {W_INTEGER_OVERFLOW, "overflow"},
-    {W_ARRAY_SIZE, "array-size"},
-    {W_EMPTY_STATEMENT, "empty-statement"},
-    {W_ERROR_INCOMPATIBLE_TYPES, "incompatible-types"},
-    {W_UNUSED_LABEL, "unused-label"},
-    {W_NULLABLE_TO_NON_NULLABLE, "null-non-null" }
-};
-
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 {
     if (!is_diagnostic_configurable(w))
@@ -244,94 +171,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
 }
 
 
-enum diagnostic_id  get_warning(const char* wname)
-{
-    if (!(wname[0] == '-' || wname[0] == 'E'))
-    {
-        return 0;
-    }
 
-    if (wname[0] == '-' && wname[1] == 'W')
-    {
-        for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
-        {
-            if (strncmp(s_warnings[j].name, wname + 2, strlen(s_warnings[j].name)) == 0)
-            {
-                return s_warnings[j].w;
-            }
-        }
-    }
-    else if (wname[1] == 'E')
-    {
-        int ec = atoi(wname + 2);
-        return ec;
-
-    }
-    return 0;
-}
-
-unsigned long long  get_warning_bit_mask(const char* wname)
-{
-    const bool disable_warning = wname[2] == 'n' && wname[3] == 'o';
-    const char* final_name = disable_warning ? wname + 5 : wname + 2;
-    assert(wname[0] == '-');
-    for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
-    {
-
-        if (strncmp(s_warnings[j].name, final_name, strlen(s_warnings[j].name)) == 0)
-        {
-            return (1ULL << ((unsigned long long)s_warnings[j].w));
-        }
-    }
-    return 0;
-}
-
-int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
-{
-    if (is_diagnostic_configurable(w))
-    {
-        //TODO because s_warnings is _Ctor of order ....
-        //this is a linear seatch instead of just index! TODOD
-        for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
-        {
-            if (s_warnings[j].w == w)
-            {
-                snprintf(buffer, n, "-W%s", s_warnings[j].name);
-                return 0;
-            }
-        }
-        snprintf(buffer, n, "W%d", w);
-    }
-    else
-    {
-        snprintf(buffer, n, "E%d", w);
-    }
-
-    return 0;//"";
-}
-
-int get_warning_name_and_number(enum diagnostic_id w, int n, char buffer[/*n*/])
-{
-    if (is_diagnostic_configurable(w))
-    {
-        //TODO because s_warnings is _Ctor of order ....
-        //this is a linear seatch instead of just index! TODOD
-        for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
-        {
-            if (s_warnings[j].w == w)
-            {
-                snprintf(buffer, n, "-W%s/-W%d", s_warnings[j].name, w);
-                return 0;
-            }
-        }
-    }
-    else
-    {
-        snprintf(buffer, n, "E%d", w);
-    }
-
-    return 0;//"";
-}
 
 static int has_prefix(const char* str, const char* prefix)
 {
@@ -593,16 +433,17 @@ int fill_options(struct options* options,
         }
 
         //warnings
-        if (argv[i][1] == 'W')
+        if (argv[i][1] == 'w')
         {
             if (strcmp(argv[i], "-Wall") == 0)
             {
                 options->diagnostic_stack.stack[0].warnings = ~0ULL;
                 continue;
             }
-            const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
+            const bool disable_warning = (argv[i][2] == 'd');
 
-            unsigned long long w = get_warning_bit_mask(argv[i]);
+            unsigned long long w = atoi(argv[i] + 3);
+            w = (1ULL << ((unsigned long long)w));
 
             if (w == 0)
             {
@@ -653,9 +494,11 @@ static void print_option(const char* option, const char* description)
 {
     const char* p = option;
     int count = 0;
-    int first_colum = 27;
+    int first_colum = 28;
 
-    puts(LIGHTCYAN);
+
+
+    printf(LIGHTCYAN " ");
     while (*p)
     {
         printf("%c", *p);
@@ -664,7 +507,6 @@ static void print_option(const char* option, const char* description)
     }
 
     printf("%s", COLOR_RESET);
-
 
 
     for (; count < first_colum; count++)
@@ -683,7 +525,7 @@ static void print_option(const char* option, const char* description)
         if (breakline && *p == ' ')
         {
             breakline = false;
-            printf("\n");
+            printf("\n ");
             count = 0;
             for (; count < first_colum; count++)
                 printf(" ");
@@ -736,25 +578,3 @@ void print_help()
 
 }
 
-#ifdef TEST
-#include "unit_test.h"
-#include <string.h>
-
-void test_get_warning_name()
-{
-    char dbg_name[100];
-    get_warning_name(W_FLOW_MISSING_DTOR, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wmissing-destructor") == 0);
-
-    unsigned long long  flags = get_warning_bit_mask(dbg_name);
-    assert(flags == (1ULL << W_FLOW_MISSING_DTOR));
-
-
-    get_warning_name(W_STYLE, sizeof dbg_name, dbg_name);
-    assert(strcmp(dbg_name, "-Wstyle") == 0);
-
-    unsigned long long  flags2 = get_warning_bit_mask(dbg_name);
-    assert(flags2 == (1ULL << W_STYLE));
-}
-
-#endif

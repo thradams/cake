@@ -1,7 +1,4 @@
-
-
-
-int main() {
-    assert(1 && "a");
-    return 0;
+void f(int a[1])
+{
+*a;
 }

@@ -8,7 +8,9 @@
 int main(void)
 {
     char src[] = "hi";
+    [[cake::w0052]]
     char dest[6] = "abcdef"; // no null terminator
+    
     strncpy(dest, src, 5); // writes five characters 'h', 'i', '\0', '\0', '\0' to dest
     printf("strncpy(dest, src, 5) to a 6-byte dest gives : ");
     for (size_t n = 0; n < sizeof dest; ++n) {

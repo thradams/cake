@@ -1277,15 +1277,6 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strstr(text, "__builtin_") != NULL)
             return TK_KEYWORD_GCC__BUILTIN_XXXXX;
 
-        static_assert(NUMBER_OF_TARGETS == 6, "some target builtins or extensions may be necessary");
-
-        if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
-        {
-            if (strcmp("__ptr32", text) == 0)
-                return TK_KEYWORD_MSVC__PTR32;
-            if (strcmp("__ptr64", text) == 0)
-                return TK_KEYWORD_MSVC__PTR64;
-        }
 
 
         if (strcmp("_Bool", text) == 0)
@@ -1300,16 +1291,22 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD__DECIMAL128;
         if (strcmp("_Generic", text) == 0)
             return TK_KEYWORD__GENERIC;
+
         if (strcmp("_Imaginary", text) == 0)
             return TK_KEYWORD__IMAGINARY;
+
         if (strcmp("_Noreturn", text) == 0)
             return TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
+
         if (strcmp("_Static_assert", text) == 0)
             return TK_KEYWORD__STATIC_ASSERT;
+
         if (strcmp("_Thread_local", text) == 0)
             return TK_KEYWORD__THREAD_LOCAL;
+
         if (strcmp("_BitInt", text) == 0)
             return TK_KEYWORD__BITINT; /*(C23)*/
+
         if (strcmp("__typeof__", text) == 0)
             return TK_KEYWORD_TYPEOF; /*(C23)*/
 
@@ -1319,7 +1316,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("__restrict", text) == 0)
             return TK_KEYWORD_RESTRICT;
 
-        if (strcmp("__inline", text) == 0)
+        if (strcmp("__inline", text) == 0 || strcmp("__inline__", text) == 0)
             return TK_KEYWORD_INLINE;
 
         if (strcmp("__alignof__", text) == 0)
@@ -1327,26 +1324,39 @@ enum token_type is_keyword(const char* text, enum target target)
 
         if (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC)
         {
+            if (strcmp("__ptr32", text) == 0)
+                return TK_KEYWORD_MSVC__PTR32;
+            if (strcmp("__ptr64", text) == 0)
+                return TK_KEYWORD_MSVC__PTR64;
+
             // begin microsoft
             if (strcmp("__int8", text) == 0)
                 return TK_KEYWORD_MSVC__INT8;
+
             if (strcmp("__int16", text) == 0)
                 return TK_KEYWORD_MSVC__INT16;
+
             if (strcmp("__int32", text) == 0)
                 return TK_KEYWORD_MSVC__INT32;
+
             if (strcmp("__int64", text) == 0)
                 return TK_KEYWORD_MSVC__INT64;
+
             if (strcmp("__forceinline", text) == 0)
                 return TK_KEYWORD_INLINE;
 
             if (strcmp("__stdcall", text) == 0 || strcmp("_stdcall", text) == 0)
                 return TK_KEYWORD_MSVC__STDCALL;
+
             if (strcmp("__cdecl", text) == 0)
                 return TK_KEYWORD_MSVC__CDECL;
+
             if (strcmp("__fastcall", text) == 0)
                 return TK_KEYWORD_MSVC__FASTCALL;
+
             if (strcmp("__alignof", text) == 0)
                 return TK_KEYWORD__ALIGNOF;
+
             if (strcmp("__declspec", text) == 0)
                 return TK_KEYWORD_MSVC__DECLSPEC;
         }
@@ -7362,7 +7372,9 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 if (p_pragma_token->type != TK_STRING_LITERAL)
                     throw;
 
-                unsigned long long w = get_warning_bit_mask(p_pragma_token->lexeme + 1 /*+ 2*/);
+                unsigned long long w = atoi(p_pragma_token->lexeme + 1);
+                w = (1ULL << ((unsigned long long)w));
+
 
                 ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
                 ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
@@ -7554,7 +7566,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             /*
             * TODO
              #pragma warning(push)
-             #pragma warning(disable:4001) 
+             #pragma warning(disable:4001)
             */
             compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "unknown pragma");
             throw;
@@ -8562,15 +8574,12 @@ void warn_unrecognized_warnings(struct parser_ctx* ctx,
     struct token* token = p_attribute_specifier_sequence->first_token;
     for (int i = stack->size - 1; i >= 0; i--)
     {
-        char warning_name[200] = { 0 };
-        get_warning_name_and_number(stack->stack[i], sizeof(warning_name), warning_name);
-
         compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
             ctx,
             token,
             NULL,
-            "warning '%s' was not recognized",
-            warning_name);
+            "warning 'C%04d' was not recognized",
+            stack->stack[i]);
     }
 }
 

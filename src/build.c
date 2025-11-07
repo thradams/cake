@@ -343,9 +343,9 @@ int main()
 
 #ifdef TEST
     execute_cmd(RUN "cake -selftest");
-    execute_cmd(RUN "cake -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -Wno-unused-variable -Wno-array-size -Wno-array-indirection -Wno-div-by-zero -test-mode");
-    execute_cmd(RUN "cake  -fdiagnostics-color=never -Wno-unused-variable ../tests/unit-tests/*.c -test-mode");
-    execute_cmd(RUN "cake  -fdiagnostics-color=never -Wno-unused-variable ../tests/output-test/*.c -test-mode");
+    execute_cmd(RUN "cake -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
+    execute_cmd(RUN "cake  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
+    execute_cmd(RUN "cake  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode");
 
     printf("Other test cases\n");
     printf("cake ../tests/unit-tests/failing/*.c -test-mode\n");
