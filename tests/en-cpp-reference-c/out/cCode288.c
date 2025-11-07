@@ -1,6 +1,0 @@
-
-int main(void)
-{
-    ;
-}
-
