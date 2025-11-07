@@ -435,7 +435,7 @@ int fill_options(struct options* options,
         //warnings
         if (argv[i][1] == 'w')
         {
-            if (strcmp(argv[i], "-Wall") == 0)
+            if (strcmp(argv[i], "-wall") == 0)
             {
                 options->diagnostic_stack.stack[0].warnings = ~0ULL;
                 continue;
@@ -450,7 +450,6 @@ int fill_options(struct options* options,
                 printf("unknown warning '%s'", argv[i]);
                 return 1;
             }
-
 
             if (disable_warning)
             {
@@ -549,7 +548,7 @@ void print_help()
         WHITE "    cake file.c -o file.cc && cl file.cc\n" COLOR_RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
-        LIGHTGREEN "Options:\n" COLOR_RESET;
+        LIGHTGREEN "Options:\n\n" COLOR_RESET;
 
     printf("%s", sample);
 
@@ -560,7 +559,8 @@ void print_help()
     print_option("-E", "Copies preprocessor output to standard output");
     print_option("-o name", "Defines the output name when compiling one file");
     print_option("-no-discard", "Makes [[nodiscard]] default implicitly");
-    print_option("-Wname -Wno-name", "Enables or disable warning");
+    print_option("-w -wd", "Enables or disable warning number");
+    print_option("-wall", "Enables all warnings");
     print_option("-fanalyzer ", "Runs flow analysis -  required for ownership");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");

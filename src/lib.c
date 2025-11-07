@@ -14773,7 +14773,7 @@ int fill_options(struct options* options,
         //warnings
         if (argv[i][1] == 'w')
         {
-            if (strcmp(argv[i], "-Wall") == 0)
+            if (strcmp(argv[i], "-wall") == 0)
             {
                 options->diagnostic_stack.stack[0].warnings = ~0ULL;
                 continue;
@@ -14788,7 +14788,6 @@ int fill_options(struct options* options,
                 printf("unknown warning '%s'", argv[i]);
                 return 1;
             }
-
 
             if (disable_warning)
             {
@@ -14887,7 +14886,7 @@ void print_help()
         WHITE "    cake file.c -o file.cc && cl file.cc\n" COLOR_RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
-        LIGHTGREEN "Options:\n" COLOR_RESET;
+        LIGHTGREEN "Options:\n\n" COLOR_RESET;
 
     printf("%s", sample);
 
@@ -14898,7 +14897,8 @@ void print_help()
     print_option("-E", "Copies preprocessor output to standard output");
     print_option("-o name", "Defines the output name when compiling one file");
     print_option("-no-discard", "Makes [[nodiscard]] default implicitly");
-    print_option("-Wname -Wno-name", "Enables or disable warning");
+    print_option("-w -wd", "Enables or disable warning number");
+    print_option("-wall", "Enables all warnings");
     print_option("-fanalyzer ", "Runs flow analysis -  required for ownership");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
@@ -28600,7 +28600,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.43"
+#define CAKE_VERSION "0.12.44"
 
 
 
@@ -32714,9 +32714,23 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 /*this tag already exist in this scope*/
                 if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
                 {
-                    assert(p_entry->data.p_struct_or_union_specifier != NULL);
-                    p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
-                    p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
+                    if (p_struct_or_union_specifier->first_token->type ==
+                        p_entry->data.p_struct_or_union_specifier->first_token->type)
+                    {
+
+                        assert(p_entry->data.p_struct_or_union_specifier != NULL);
+                        p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
+                        p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
+                    }
+                    else
+                    {
+                        compiler_diagnostic(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                        ctx,
+                        p_struct_or_union_specifier->tagtoken,
+                        NULL,
+                        "use of '%s' with tag type that does not match previous declaration.",
+                        p_struct_or_union_specifier->tagtoken->lexeme);
+                    }
                 }
                 else
                 {
@@ -32762,8 +32776,12 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                     }
                     else
                     {
-                        /*tag already exists in some scope*/
-                        p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+                        if (p_first_tag_previous_scopes->first_token->type ==
+                            p_struct_or_union_specifier->first_token->type)
+                        {
+                            /*tag already exists in some scope*/
+                            p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+                        }
                     }
                 }
             }

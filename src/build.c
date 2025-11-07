@@ -193,7 +193,7 @@ int main()
                " /out:cake.exe ");
 
     //Runs cake on its own source
-    execute_cmd("cake.exe -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " " main.c " CAKE_SOURCE_FILES);
+    execute_cmd("cake.exe -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -w11 " " main.c " CAKE_SOURCE_FILES);
 
 #ifndef TEST
     //compiling the generated code

@@ -4077,9 +4077,23 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 /*this tag already exist in this scope*/
                 if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
                 {
-                    assert(p_entry->data.p_struct_or_union_specifier != NULL);
-                    p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
-                    p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
+                    if (p_struct_or_union_specifier->first_token->type ==
+                        p_entry->data.p_struct_or_union_specifier->first_token->type)
+                    {
+
+                        assert(p_entry->data.p_struct_or_union_specifier != NULL);
+                        p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
+                        p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
+                    }
+                    else
+                    {
+                        compiler_diagnostic(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                        ctx,
+                        p_struct_or_union_specifier->tagtoken,
+                        NULL,
+                        "use of '%s' with tag type that does not match previous declaration.",
+                        p_struct_or_union_specifier->tagtoken->lexeme);
+                    }
                 }
                 else
                 {
@@ -4125,8 +4139,12 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                     }
                     else
                     {
-                        /*tag already exists in some scope*/
-                        p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+                        if (p_first_tag_previous_scopes->first_token->type ==
+                            p_struct_or_union_specifier->first_token->type)
+                        {
+                            /*tag already exists in some scope*/
+                            p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+                        }
                     }
                 }
             }
