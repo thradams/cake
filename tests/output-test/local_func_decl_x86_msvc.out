@@ -1,0 +1,15 @@
+// Cake 0.11.09 target=x86_msvc
+
+void f();
+
+int main(void)
+{
+    f();
+}
+
+
+void f()
+{
+}
+
+

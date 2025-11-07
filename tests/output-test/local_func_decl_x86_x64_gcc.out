@@ -1,0 +1,15 @@
+/* Cake x86_x64_gcc */
+
+void f();
+
+int main(void)
+{
+    f();
+}
+
+
+void f()
+{
+}
+
+

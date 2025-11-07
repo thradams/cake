@@ -31,7 +31,6 @@
 
 # Executables
 *.exe
-*.out
 *.app
 *.i*86
 *.x86_64
@@ -46,6 +45,9 @@
 # Kernel Module Compile Results
 *.mod*
 *.cmd
+#sarif
+*.sarif
+
 .tmp_versions/
 modules.order
 Module.symvers
@@ -62,20 +64,32 @@ dkms.conf
 /src/build
 /vc/DebugTest
 /vc/x64/Debug
-/src/sqlite3.h
-/src/sqlite3.c
-/src/sqlite3ext.h
-/src/shell.c
-src/cake
-*.sarif
-/src/.vs/
 
-/vc/.vs/cake/FileContentIndex
-/.vscode/
+
+/src/.vs/
+/vc/.vs/
+
+
 /vc/cake/Debug
 /vc/cake/x64/Debug
 /vc/cake/DebugTest
-/tests/unit-tests/failing/_Out
+/vc/cake/Release
+/vc/cake/x64/Release
 
-compile_commands.json
-.cache
+tests/en-cpp-reference-c/out/
+tests/unit-tests/out/
+
+/tests/en-cpp-reference-c/failing/.vs/
+
+/tests/unit-tests/failing/out
+/out/src
+src/cake
+src/cake
+/tests/output-test/out
+/src/x86_msvc
+/src/x86_x64_gcc
+/x86_msvc/src
+/tests/unit-tests/x86_msvc
+/tests/en-cpp-reference-c/x86_msvc
+/tests/output-test/x86_msvc
+/tests/preprocessor/x86_msvc
