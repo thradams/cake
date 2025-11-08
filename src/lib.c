@@ -700,7 +700,7 @@ void throw_break_point();
 
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 //#pragma once
@@ -829,6 +829,9 @@ unsigned long long target_unsigned_max(enum  target target, enum object_type typ
 #endif
 
 
+
+#include <limits.h>
+
 enum language_version
 {
     LANGUAGE_C23,
@@ -838,84 +841,149 @@ enum language_version
 
 enum diagnostic_id {
 
-    DIAGNOSTIC_ID_NONE = 0,
-    W_WARNING_DIRECTIVE,     
-    W_UNUSED_VARIABLE, //-Wunused-variable
-    W_DEPRECATED,
-    W_ENUN_CONVERSION,//-Wenum-conversion
+    W_LOCATION = 0,
 
-    W_ADDRESS, //-Waddress (always true)
-    W_UNUSED_PARAMETER, //-Wno-unused-parameter
-    W_DECLARATOR_HIDE, // gcc no
-    W_TYPEOF_ARRAY_PARAMETER,//
-    W_ATTRIBUTES, //-Wattributes
-    W_UNUSED_VALUE, //-Wunused-value
-    W_STYLE, //-Wstyle
-    W_COMMENT,
-    W_LINE_SLICING,
-    W_STRING_SLICED,
-    W_DISCARDED_QUALIFIERS,
-    W_DECLARATOR_STATE,
-    W_UNINITIALZED,
-    W_RETURN_LOCAL_ADDR,
-    W_MUST_USE_ADDRESSOF,
-    W_ARRAY_INDIRECTION,
-    /*ownership type system errors*/
-    W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
-    W_OWNERSHIP_NOT_OWNER,
-    W_OWNERSHIP_USING_TEMPORARY_OWNER,
-    W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-    W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
-    W_OWNERSHIP_DISCARDING_OWNER,
-    W_OWNERSHIP_NON_OWNER_MOVE,    
-    //////////////////////////////////////////////
-    W_FLOW_NON_NULL, //-Wnonnull
-    W_FLOW_MISSING_DTOR,
-    W_FLOW_UNINITIALIZED,
-    W_FLOW_LIFETIME_ENDED,
-    W_FLOW_MOVED,
-    W_FLOW_NULL_DEREFERENCE,
-    W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
-    W_FLOW_NULLABLE_TO_NON_NULLABLE,
-    W_FLOW_DIVIZION_BY_ZERO,    
-    //////////////////////////////////////////////
-    W_DIVIZION_BY_ZERO,
-    W_CONSTANT_VALUE, /*sample 0 * a */
-    W_PASSING_NULL_AS_ARRAY,
-    W_INCOMPATIBLE_ENUN_TYPES,
-    W_MULTICHAR_ERROR,
-    W_OUT_OF_BOUNDS,
-    W_ASSIGNMENT_OF_ARRAY_PARAMETER,
-    W_CONDITIONAL_IS_CONSTANT,
-    W_SWITCH,
-    W_UNSUAL_NULL_POINTER_CONSTANT,
-    W_SIZEOF_ARRAY_ARGUMENT,
-    W_CONST_NOT_INITIALIZED,
-    W_NULL_CONVERTION,
-    W_IMPLICITLY_UNSIGNED_LITERAL,
-    W_INTEGER_OVERFLOW,
-    W_ARRAY_SIZE,
+    W_WARNING_DIRECTIVE = 1,
+    W_UNUSED_VARIABLE = 2,
+    W_DEPRECATED = 3,
+    W_ENUN_CONVERSION = 4,
+
+    W_ADDRESS = 5,
+    W_UNUSED_PARAMETER = 6,
+    W_DECLARATOR_HIDE = 7,
+    W_TYPEOF_ARRAY_PARAMETER = 8,
+    W_ATTRIBUTES = 9,
+    W_UNUSED_VALUE = 10,
+    W_STYLE = 11,
+    W_COMMENT = 12,
+    W_LINE_SLICING = 13,
+    W_STRING_SLICED = 14,
+    W_DISCARDED_QUALIFIERS = 15,
+    W_DECLARATOR_STATE = 16,
+    W_UNINITIALZED = 17,
+    W_RETURN_LOCAL_ADDR = 18,
+    W_MUST_USE_ADDRESSOF = 19,
+    W_ARRAY_INDIRECTION = 20,
+
+    W_OWNERSHIP_MISSING_OWNER_QUALIFIER = 21,
+    W_OWNERSHIP_NOT_OWNER = 22,
+    W_OWNERSHIP_USING_TEMPORARY_OWNER = 23,
+    W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER = 24,
+    W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN = 25,
+    W_OWNERSHIP_DISCARDING_OWNER = 26,
+    W_OWNERSHIP_NON_OWNER_MOVE = 27,
+
+    W_FLOW_NON_NULL = 28,
+    W_FLOW_MISSING_DTOR = 29,
+    W_FLOW_UNINITIALIZED = 30,
+    W_FLOW_LIFETIME_ENDED = 31,
+    W_FLOW_MOVED = 32,
+    W_FLOW_NULL_DEREFERENCE = 33,
+    W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG = 34,
+    W_FLOW_NULLABLE_TO_NON_NULLABLE = 35,
+    W_FLOW_DIVIZION_BY_ZERO = 36,
+
+
+    W_DIVIZION_BY_ZERO = 37,
+    W_CONSTANT_VALUE = 38,
+    W_PASSING_NULL_AS_ARRAY = 39,
+    W_INCOMPATIBLE_ENUN_TYPES = 40,
+    W_MULTICHAR_ERROR = 41,
+    W_OUT_OF_BOUNDS = 42,
+    W_ASSIGNMENT_OF_ARRAY_PARAMETER = 43,
+    W_CONDITIONAL_IS_CONSTANT = 44,
+    W_SWITCH = 45,
+    W_UNSUAL_NULL_POINTER_CONSTANT = 46,
+    W_SIZEOF_ARRAY_ARGUMENT = 47,
+    W_CONST_NOT_INITIALIZED = 48,
+    W_NULL_CONVERTION = 49,
+    W_IMPLICITLY_UNSIGNED_LITERAL = 50,
+    W_INTEGER_OVERFLOW = 51,
+    W_ARRAY_SIZE = 52,
+
+
+    W_EMPTY_STATEMENT = 53,
+    W_ERROR_INCOMPATIBLE_TYPES = 54,
+    W_UNUSED_LABEL = 55,
+    W_REDEFINING_BUITIN_MACRO = 56,
+    W_UNUSED_FUNCTION = 57,
+    W_BOOL_COMPARISON = 58,
+    W_WARNING_DID_NOT_HAPPEN = 59,
+    W_NULLABLE_TO_NON_NULLABLE = 60,
+    W_CAST_TO_SAME_TYPE = 61,
+
+    W_TO_MANY_INITIALIZERS = 62,
+    W_FLOAT_RANGE = 63,
+
+    
+    W_UNUSED_WARNING_64 = 64,
+    W_UNUSED_WARNING_65 = 65,
+    W_UNUSED_WARNING_66 = 66,
+    W_UNUSED_WARNING_67 = 67,
+    W_UNUSED_WARNING_68 = 68,
+    W_UNUSED_WARNING_69 = 69,
+    W_UNUSED_WARNING_70 = 70,
+    W_UNUSED_WARNING_71 = 71,
+    W_UNUSED_WARNING_72 = 72,
+    W_UNUSED_WARNING_73 = 73,
+    W_UNUSED_WARNING_74 = 74,
+    W_UNUSED_WARNING_75 = 75,
+    W_UNUSED_WARNING_76 = 76,
+    W_UNUSED_WARNING_77 = 77,
+    W_UNUSED_WARNING_78 = 78,
+    W_UNUSED_WARNING_79 = 79,
+    W_UNUSED_WARNING_80 = 80,
+    W_UNUSED_WARNING_81 = 81,
+    W_UNUSED_WARNING_82 = 82,
+    W_UNUSED_WARNING_83 = 83,
+    W_UNUSED_WARNING_84 = 84,
+    W_UNUSED_WARNING_85 = 85,
+    W_UNUSED_WARNING_86 = 86,
+    W_UNUSED_WARNING_87 = 87,
+    W_UNUSED_WARNING_88 = 88,
+    W_UNUSED_WARNING_89 = 89,
+    W_UNUSED_WARNING_90 = 90,
+    W_UNUSED_WARNING_91 = 91,
+    W_UNUSED_WARNING_92 = 92,
+    W_UNUSED_WARNING_93 = 93,
+    W_UNUSED_WARNING_94 = 94,
+    W_UNUSED_WARNING_95 = 95,
+    W_UNUSED_WARNING_96 = 96,
+    W_UNUSED_WARNING_97 = 97,
+    W_UNUSED_WARNING_98 = 98,
+    W_UNUSED_WARNING_99 = 99,
+    W_UNUSED_WARNING_100 = 100,
+    W_UNUSED_WARNING_101 = 101,
+    W_UNUSED_WARNING_102 = 102,
+    W_UNUSED_WARNING_103 = 103,
+    W_UNUSED_WARNING_104 = 104,
+    W_UNUSED_WARNING_105 = 105,
+    W_UNUSED_WARNING_106 = 106,
+    W_UNUSED_WARNING_107 = 107,
+    W_UNUSED_WARNING_108 = 108,
+    W_UNUSED_WARNING_109 = 109,
+    W_UNUSED_WARNING_110 = 110,
+    W_UNUSED_WARNING_111 = 111,
+    W_UNUSED_WARNING_112 = 112,
+    W_UNUSED_WARNING_113 = 113,
+    W_UNUSED_WARNING_114 = 114,
+    W_UNUSED_WARNING_115 = 115,
+    W_UNUSED_WARNING_116 = 116,
+    W_UNUSED_WARNING_117 = 117,
+    W_UNUSED_WARNING_118 = 118,
+    W_UNUSED_WARNING_119 = 119,
+    W_UNUSED_WARNING_120 = 120,
+    W_UNUSED_WARNING_121 = 121,
+    W_UNUSED_WARNING_122 = 122,
+    W_UNUSED_WARNING_123 = 123,
+    W_UNUSED_WARNING_124 = 124,
+    W_UNUSED_WARNING_125 = 125,
+    W_UNUSED_WARNING_126 = 126,
+    W_UNUSED_WARNING_127 = 127,
+    
+
     
     
-    W_EMPTY_STATEMENT,
-    W_ERROR_INCOMPATIBLE_TYPES,
-    W_UNUSED_LABEL,
-    W_REDEFINING_BUITIN_MACRO,
-    W_UNUSED_FUNCTION,
-    W_BOOL_COMPARISON,
-    W_WARNING_DID_NOT_HAPPEN,
-    W_NULLABLE_TO_NON_NULLABLE,
-    W_CAST_TO_SAME_TYPE,
-
-    W_LOCATION, /*prints code location*/
-    W_NOTE,
-
-    //----------------------------------------------------------------
-    
-    W_TO_MANY_INITIALIZERS = 100,
-    W_FLOAT_RANGE = 200,
-
-    //---------------------------------------------------------------
 
     C_ERROR_INVALID_QUALIFIER_FOR_POINTER = 640,
     C_ERROR_UNEXPECTED = 650,
@@ -997,19 +1065,19 @@ enum diagnostic_id {
     C_INVALID_ARGUMENT_NELEMENTSOF = 1390,
     C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER = 1400,
     C_ERROR_FUNCTION_RETURNS_FUNCTION = 1410,
-    C_ERROR_FUNCTION_RETURNS_ARRAY = 1420,    
-    C_ERROR_LABEL_NOT_DEFINED = 1430,    
+    C_ERROR_FUNCTION_RETURNS_ARRAY = 1420,
+    C_ERROR_LABEL_NOT_DEFINED = 1430,
     C_ERROR_DUPLICATED_LABEL = 1440,
     C_ERROR_DUPLICATED_CASE = 1450,
-    C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,    
-    C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION = 1570, 
+    C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,
+    C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION = 1570,
     C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH = 1780,
     C_ERROR_POINTER_TO_FLOATING_TYPE = 1790,
     C_ERROR_FLOATING_TYPE_TO_POINTER = 1800,
     C_ERROR_NULLPTR_CAST_ERROR = 1810,
     C_ERROR_MACRO_REDEFINITION = 1820,
     C_ERROR_INVALID_PREPROCESSING_DIRECTIVE = 1830,
-    C_ERROR_FUNCTION_CANNOT_BE_MEMBER  = 1840,
+    C_ERROR_FUNCTION_CANNOT_BE_MEMBER = 1840,
     C_ERROR_NON_INTEGRAL_ENUM_TYPE = 1850,
     C_ERROR_REQUIRES_COMPILE_TIME_VALUE = 1860,
     C_ERROR_OUTER_SCOPE = 1870,
@@ -1017,17 +1085,7 @@ enum diagnostic_id {
 
 
 bool is_diagnostic_configurable(enum diagnostic_id id);
-bool is_diagnostic_warning(enum diagnostic_id id);
-bool is_diagnostic_error(enum diagnostic_id id);
-bool is_diagnostic_note(enum diagnostic_id id);
 
-/*
-* These warnings are removed when "nullable=disable"
-*/
-#define WFLAG(W) (1ULL << W)
-#define NULLABLE_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_NULL_DEREFERENCE) | WFLAG(W_FLOW_NULLABLE_TO_NON_NULLABLE))
-
-#define OWNERSHIP_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_UNINITIALIZED))
 
 
 int get_diagnostic_phase(enum diagnostic_id w);
@@ -1058,25 +1116,33 @@ enum style
 
 };
 
+#define BITSET_SIZE 128
+#define BITSET_WORD_BITS (CHAR_BIT * sizeof(unsigned long))
+#define BITSET_WORDS ((BITSET_SIZE + BITSET_WORD_BITS - 1) / BITSET_WORD_BITS)
+
+struct bitset
+{
+    unsigned long bits[BITSET_WORDS];
+};
+
+
 struct diagnostic
 {
-    /*
-      each message has number (0-63) that corresponds to the bit index
-      Messages bigger than W_NOTE are errors or bigger than 63
-    */
 
     /*set of warnings reported as errors*/
-    unsigned long long errors;
+    struct bitset errors;
+
     /*set of warnings reported as warnings*/
-    unsigned long long warnings;
+    struct bitset warnings;
+
     /*set of warnings reported as notes*/
-    unsigned long long notes;
+    struct bitset notes;
 };
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
-void diagnostic_remove(struct diagnostic *d, enum diagnostic_id w);
+void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w);
 
 struct diagnostic_stack
 {
@@ -1122,7 +1188,7 @@ struct options
     */
     bool disable_assert;
 
-    
+
     /*
        -flow-analysis
     */
@@ -1150,7 +1216,7 @@ struct options
     */
     bool preprocess_only;
 
-    
+
 
     /*
       -preprocess-def-macro
@@ -1158,7 +1224,7 @@ struct options
     bool preprocess_def_macro;
 
     bool clear_error_at_end; //used by tests
-    
+
     /*
       -sarif
     */
@@ -1228,7 +1294,15 @@ bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w);
 
 void print_help();
 
+void options_set_error(struct options* options, enum diagnostic_id w, bool value);
+void options_set_warning(struct options* options, enum diagnostic_id w, bool value);
+void options_set_note(struct options* options, enum diagnostic_id w, bool value);
+void options_set_all_warnings(struct options* options);
+void options_set_clear_all_warnings(struct options* options);
 
+bool options_diagnostic_is_error(const struct options* options, enum diagnostic_id w);
+bool options_diagnostic_is_warning(const struct options* options, enum diagnostic_id w);
+bool options_diagnostic_is_note(const struct options* options, enum diagnostic_id w);
 
 #define CAKE_CONFIG_FILE_NAME "/cakeconfig.h"
 
@@ -3802,25 +3876,10 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     /*warnings inside headers are ignored*/
     const bool included_file_location = p_token_opt->level > 0;
 
-    bool is_error = false;
-    bool is_warning = false;
-    bool is_note = false;
 
-    if (w > W_NOTE)
-    {
-        is_error = true;
-    }
-    else
-    {
-        is_error =
-            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & (1ULL << w)) != 0;
-
-        is_warning =
-            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & (1ULL << w)) != 0;
-
-        is_note =
-            ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
-    }
+    bool is_error = options_diagnostic_is_error(&ctx->options, w);
+    bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
+    bool is_note = options_diagnostic_is_note(&ctx->options, w);
 
     if (is_error)
     {
@@ -3839,7 +3898,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         return false;
     }
 
-    if (w != W_NOTE && !is_error && included_file_location)
+    if (w != W_LOCATION && !is_error && included_file_location)
     {
         //notes are warning are not printed in included files
         return false;
@@ -3850,16 +3909,12 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
 
     char buffer[200] = { 0 };
 
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
 
     va_list args = { 0 };
 
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-#pragma CAKE diagnostic pop
 
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -3877,23 +3932,23 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+                printf(LIGHTRED "error " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
             else
-                printf("error: " "%s\n", buffer);
+                printf("error "        "C%04d: %s\n", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
             else
-                printf("warning: " "%s\n", buffer);
+                printf("warning "  "C%04d: %s\n", w, buffer);
         }
         else if (is_note)
         {
             if (color_enabled)
-                printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+                printf(LIGHTCYAN "note: " WHITE "%s\n" COLOR_RESET, buffer);
             else
-                printf("note: "  "%s\n", buffer);
+                printf("note: " "%s\n", buffer);
         }
 
         print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
@@ -4081,7 +4136,7 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
             snprintf(newpath, full_path_out_size, "%s/%s", current->path, path);
         }
 
-          if (!realpath(newpath, full_path_out))
+        if (!realpath(newpath, full_path_out))
             full_path_out[0] = '\0';
 
         path_normalize(full_path_out);
@@ -7279,12 +7334,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (content != NULL)
             {
+#if 0
+                //append all includes used can be used to reduce headers non used
+                //in the include
                 FILE* f = fopen("includes.txt", "a");
                 if (f)
                 {
                     fprintf(f, "%s\n", full_path_result);
                     fclose(f);
                 }
+#endif
                 if (ctx->options.show_includes)
                 {
                     for (int i = 0; i < (level + 1); i++)
@@ -7313,7 +7372,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
                     {
                         /*let's print the include path*/
-                        preprocessor_diagnostic(W_NOTE, ctx, r.tail, "dir = '%s'", p->path);
+                        preprocessor_diagnostic(W_LOCATION, ctx, r.tail, "dir = '%s'", p->path);
                     }
                 }
                 else
@@ -7622,7 +7681,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     macro->p_name_token,
                     "macro redefinition");
 
-                    preprocessor_diagnostic(W_NOTE,
+                    preprocessor_diagnostic(W_LOCATION,
                     ctx,
                     existing_macro->p_name_token,
                     "previous definition");
@@ -9146,7 +9205,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     */
                     if (input_list->head->type == TK_STRING_LITERAL)
                     {
-                        preprocessor_diagnostic(W_NOTE, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+                        preprocessor_diagnostic(W_LOCATION, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
                     }
                     else if (input_list->head->type == TK_LINE_COMMENT)
                         preprocessor_diagnostic(W_COMMENT, ctx, input_list->head, "multi-line //comment");
@@ -9404,8 +9463,10 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         return  ENOENT;
     }
 
-    const enum diagnostic_id w =
+    const struct bitset w =
         ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings;
+
+    options_set_clear_all_warnings(&ctx->options);
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
@@ -9434,16 +9495,10 @@ static bool is_builtin_macro(const char* name)
 
 void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 {
-    /*
-      This command prints all macros used by gcc
-      echo | gcc -dM -E -
-    */
     const struct diagnostic w =
         ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
-    /*we dont want warnings here*/
-    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
-        (struct diagnostic){ 0 };
+    options_set_clear_all_warnings(&ctx->options);
 
     static char mon[][4] = {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -10339,7 +10394,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 
     if (!is_screaming_case(token->lexeme))
     {
-        preprocessor_diagnostic(W_NOTE, ctx, token, "use SCREAMING_CASE for macros");
+        preprocessor_diagnostic(W_LOCATION, ctx, token, "use SCREAMING_CASE for macros");
     }
 
 }
@@ -14380,22 +14435,61 @@ char* _Owner read_file(const char* path, bool append_newline)
 #pragma safety enable
 
 
+#ifndef _Countof
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
+#endif
+
+static void bitset_clear(struct bitset* b)
+{
+    for (int i = 0; i < BITSET_WORDS; ++i)
+        b->bits[i] = 0;
+}
+static void bitset_setall(struct bitset* b)
+{
+    unsigned long mask = ~0UL;
+    for (int i = 0; i < BITSET_WORDS; ++i)
+        b->bits[i] = mask;
+}
+
+static void bitset_set(struct bitset* b, int pos, int value)
+{
+    if (pos < 0 || pos >= BITSET_SIZE)
+        return;
+    int word = pos / BITSET_WORD_BITS;
+    int bit = pos % BITSET_WORD_BITS;
+    unsigned long mask = 1UL << bit;
+    if (value)
+        b->bits[word] |= mask;
+    else
+        b->bits[word] &= ~mask;
+}
+
+static int bitset_get(const struct bitset* b, int pos)
+{
+    if (pos < 0 || pos >= BITSET_SIZE)
+        return 0;
+    int word = pos / BITSET_WORD_BITS;
+    int bit = pos % BITSET_WORD_BITS;
+    return (b->bits[word] >> bit) & 1UL;
+}
 
 bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w)
 {
-    if (w > W_NOTE)
+        if (w == W_LOCATION)
+        return true;
+    
+    if (w >= BITSET_SIZE)
         return true;
 
-    return ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors & (1ULL << w)) != 0) ||
-        ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings & (1ULL << w)) != 0) ||
-        ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
+    return
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w) ||
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w) ||
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w);
 }
 
 bool is_diagnostic_note(enum diagnostic_id id)
 {
-    if (id == W_NOTE ||
-        id == W_LOCATION)
+    if (id == W_LOCATION)
     {
         return true;
     }
@@ -14405,19 +14499,26 @@ bool is_diagnostic_note(enum diagnostic_id id)
 
 bool is_diagnostic_warning(enum diagnostic_id id)
 {
-    return id > W_NOTE && id <= C_ERROR_INVALID_QUALIFIER_FOR_POINTER;
+    if (id == W_LOCATION)
+        return false;
+
+    return id < BITSET_SIZE;
 }
 
 bool is_diagnostic_error(enum diagnostic_id id)
 {
-    return id >= C_ERROR_INVALID_QUALIFIER_FOR_POINTER;
+    if (id == W_LOCATION)
+        return false;
+
+    return id >= BITSET_SIZE;
 }
 
 bool is_diagnostic_configurable(enum diagnostic_id id)
 {
-    //We have 0-63 configurable (bit set)
-    //configurable diagnostic also have names. Other have numbers only    
-    return id >= 0 && id < W_LOCATION;
+    if (id == W_LOCATION)
+        return false;
+
+    return id >= 0 && id < BITSET_SIZE;
 }
 
 int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id)
@@ -14444,11 +14545,17 @@ void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack)
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 {
+    if (diagnostic_stack->top_index >= _Countof(diagnostic_stack->stack))
+    {
+        assert(false);
+        return 0;
+    }
+
     int index = diagnostic_stack->top_index;
     diagnostic_stack->top_index++;
-    diagnostic_stack->stack[diagnostic_stack->top_index].warnings = 0;
-    diagnostic_stack->stack[diagnostic_stack->top_index].errors = 0;
-    diagnostic_stack->stack[diagnostic_stack->top_index].notes = 0;
+    bitset_clear(&diagnostic_stack->stack[diagnostic_stack->top_index].errors);
+    bitset_clear(&diagnostic_stack->stack[diagnostic_stack->top_index].warnings);
+    bitset_clear(&diagnostic_stack->stack[diagnostic_stack->top_index].notes);
     return index;
 }
 
@@ -14465,62 +14572,41 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
 }
 
 
-struct diagnostic default_diagnostic = {
-      .warnings = (~0ULL) & ~(
-        NULLABLE_DISABLE_REMOVED_WARNINGS |
-        (1ULL << W_NOTE) |
-        (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER) |
-        (1ULL << W_UNUSED_VARIABLE))
-};
 
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 {
     if (!is_diagnostic_configurable(w))
         return; //ops
 
-    if ((d->errors & (1ULL << w)) != 0)
-        d->errors &= ~(1ULL << w);
-
-    if ((d->warnings & (1ULL << w)) != 0)
-        d->warnings &= ~(1ULL << w);
-
-    if ((d->notes & (1ULL << w)) != 0)
-        d->notes &= ~(1ULL << w);
+    bitset_set(&d->warnings, w, false);
+    bitset_set(&d->errors, w, false);
+    bitset_set(&d->notes, w, false);
 }
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
+    if (w == W_LOCATION)
+        return 1; /*note*/
+
     if (is_diagnostic_configurable(w))
     {
-        if ((d->errors & (1ULL << w)) != 0)
+        if (bitset_get(&d->errors, w))
             return 3;
 
-        if ((d->warnings & (1ULL << w)) != 0)
+        if (bitset_get(&d->warnings, w))
             return 2;
 
-        if ((d->notes & (1ULL << w)) != 0)
+        if (bitset_get(&d->notes, w))
             return 1;
     }
 
-
-    if (is_diagnostic_note(w))
-        return 1;
-
-    if (is_diagnostic_warning(w))
-        return 2;
-
-    if (is_diagnostic_error(w))
-        return 3;
-
-    return 3; //errors
+    return 3; /*error*/
 }
 
 int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
     {
-        //TODO should be everything that starts with FLOW
     case W_FLOW_NULLABLE_TO_NON_NULLABLE:
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:
@@ -14532,6 +14618,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_DIVIZION_BY_ZERO:
 
         return 2; /*returns 2 if it flow analysis*/
+
     default:
         break;
     }
@@ -14554,13 +14641,13 @@ int fill_options(struct options* options,
 
     options->target = CAKE_COMPILE_TIME_SELECTED_TARGET;
 
-    /*
-       default at this moment is same as -Wall
-    */
-    options->diagnostic_stack.stack[0] = default_diagnostic;
+    options_set_all_warnings(options);
+    options_set_warning(options, W_FLOW_NULL_DEREFERENCE, false);
+    options_set_warning(options, W_FLOW_NULLABLE_TO_NON_NULLABLE, false);
+    options_set_warning(options, W_UNUSED_PARAMETER, false);
+    options_set_warning(options, W_UNUSED_VARIABLE, false);
 
-    options->diagnostic_stack.stack[0].warnings &= ~(1ULL << W_STYLE);
-    //&~items;
+    options_set_warning(options, W_STYLE, false);
 
 
     /*first loop used to collect options*/
@@ -14764,8 +14851,8 @@ int fill_options(struct options* options,
             if (strcmp(argv[i], "-nullable=disable") == 0)
             {
                 options->null_checks_enabled = false;
-                unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-                options->diagnostic_stack.stack[0].warnings &= ~w;
+                //unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
+                //options->diagnostic_stack.stack[0].warnings &= ~w;
                 continue;
             }
 
@@ -14818,31 +14905,19 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-wall") == 0)
             {
-                options->diagnostic_stack.stack[0].warnings = ~0ULL;
+                options_set_all_warnings(options);
                 continue;
             }
-            const bool disable_warning = (argv[i][2] == 'd');
+            const bool enable_warning = (argv[i][2] != 'd');
 
-            unsigned long long w = atoi(argv[i] + 3);
-            w = (1ULL << ((unsigned long long)w));
+            const int w = atoi(argv[i] + 3);
 
-            if (w == 0)
+            if (!is_diagnostic_configurable(w))
             {
-                printf("unknown warning '%s'", argv[i]);
+                printf("diagnostic '%d' is not configurable", w);
                 return 1;
             }
-
-            if (disable_warning)
-            {
-                options->diagnostic_stack.stack[0].warnings &= ~w;
-            }
-            else
-            {
-                if (w == W_STYLE)
-                    options->diagnostic_stack.stack[0].warnings |= w;
-                else
-                    options->diagnostic_stack.stack[0].notes |= w;
-            }
+            options_set_warning(options, w, enable_warning);
             continue;
         }
 
@@ -14954,14 +15029,84 @@ void print_help()
     print_option("-const-literal", "literal string becomes const");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-comment-to-attr", "convert comments /*!w#*/ into attributes [[cake::w#]]");
-    
+
 
     printf("\n");
     printf("More details at http://cakecc.org/manual.html\n");
 
 }
 
+void options_set_error(struct options* options, enum diagnostic_id w, bool value)
+{
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w, false);
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w, false);
 
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w, value);
+}
+
+void options_set_warning(struct options* options, enum diagnostic_id w, bool value)
+{
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w, false);
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w, false);
+
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w, value);
+}
+
+void options_set_all_warnings(struct options* options)
+{
+    bitset_setall(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings);
+}
+
+void options_set_clear_all_warnings(struct options* options)
+{
+    bitset_clear(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings);
+}
+
+
+void options_set_note(struct options* options, enum diagnostic_id w, bool value)
+{
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w, false);
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w, false);
+
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w, value);
+}
+
+bool options_diagnostic_is_error(const struct options* options, enum diagnostic_id w)
+{
+    if (w == W_LOCATION)
+        return false;
+    
+    if (w >= BITSET_SIZE)
+        return true;
+
+    return
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w);
+}
+
+bool options_diagnostic_is_warning(const struct options* options, enum diagnostic_id w)
+{
+    if (w == W_LOCATION)
+        return false;
+    
+    if (w >= BITSET_SIZE)
+        return false;
+
+    return
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w);
+
+}
+
+bool options_diagnostic_is_note(const struct options* options, enum diagnostic_id w)
+{
+    if (w == W_LOCATION)
+        return false;
+    
+    if (w >= BITSET_SIZE)
+        return false;
+
+    return
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w);
+}
 
 /*
  *  This file is part of cake compiler
@@ -15660,9 +15805,6 @@ struct object object_shift_right(enum target target,
     const struct object* b,
     char warning_message[200]);
 
-
-
-#include <limits.h>
 
 
 /*
@@ -21074,17 +21216,19 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, enum 
             {
                 if (p_default_generic_association != NULL)
                 {
-                    compiler_diagnostic(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
+                    if (compiler_diagnostic(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
                         ctx,
                         p_generic_association2->first_token,
                         NULL,
-                        "duplicate default generic association.");
+                        "duplicate default generic association."))
+                    {
 
-                    compiler_diagnostic(W_NOTE,
-                        ctx,
-                        p_default_generic_association->first_token,
-                        NULL,
-                        "previous default generic association");
+                        compiler_diagnostic(W_LOCATION,
+                            ctx,
+                            p_default_generic_association->first_token,
+                            NULL,
+                            "previous default generic association");
+                    }
                 }
                 else
                 {
@@ -23358,7 +23502,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&new_expression->right->object))
                 {
-                    
+
                     new_expression->object =
                         object_logical_not(ctx->options.target, &new_expression->right->object, warning_message);
                 }
@@ -23394,7 +23538,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                   object_has_constant_value(&new_expression->right->object))
                 {
-                    
+
                     new_expression->object =
                         object_bitwise_not(ctx->options.target, &new_expression->right->object, warning_message);
                 }
@@ -23412,7 +23556,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&new_expression->right->object))
                 {
-                    
+
                     if (op == '-')
                     {
                         new_expression->object =
@@ -23786,7 +23930,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             if (ctx->current->type != ')')
             {
-               new_expression->argument_expression_list = argument_expression_list(ctx, eval_mode);
+                new_expression->argument_expression_list = argument_expression_list(ctx, eval_mode);
             }
 
             if (parser_match_tk(ctx, ')') != 0)
@@ -23814,12 +23958,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             {
                 new_expression->type = type_make_float();
             }
-             else if (strcmp(builtin_name, "__builtin_add_overflow") == 0 ||
-                      strcmp(builtin_name, "__builtin_sadd_overflow") == 0 ||
-                      strcmp(builtin_name, "__builtin_saddl_overflow") == 0 ||
-                      strcmp(builtin_name, "__builtin_saddll_overflow") == 0 ||
-                      strcmp(builtin_name, "__builtin_uaddl_overflow ") == 0 ||
-                      strcmp(builtin_name, "__builtin_uaddll_overflow") == 0)
+            else if (strcmp(builtin_name, "__builtin_add_overflow") == 0 ||
+                     strcmp(builtin_name, "__builtin_sadd_overflow") == 0 ||
+                     strcmp(builtin_name, "__builtin_saddl_overflow") == 0 ||
+                     strcmp(builtin_name, "__builtin_saddll_overflow") == 0 ||
+                     strcmp(builtin_name, "__builtin_uaddl_overflow ") == 0 ||
+                     strcmp(builtin_name, "__builtin_uaddll_overflow") == 0)
             {
                 new_expression->type = type_make_int_bool_like();
             }
@@ -23838,7 +23982,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     strcmp(builtin_name, "__builtin_huge_valfNx") == 0 ||
                     strcmp(builtin_name, "__builtin_inffNx") == 0 ||
                     strcmp(builtin_name, "__builtin_nanfNx") == 0 ||
-                    strcmp(builtin_name, "__builtin_nansfNx") == 0 )
+                    strcmp(builtin_name, "__builtin_nansfNx") == 0)
             {
                 //there is not f floatn in cake yet
                 new_expression->type = type_make_long_double();
@@ -23866,7 +24010,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 strcmp(builtin_name, "__builtin_signbitl") == 0)
             {
                 new_expression->type = type_make_int();
-            }                        
+            }
             else if (strcmp(builtin_name, "__builtin_unreachable") == 0 ||
                      strcmp(builtin_name, "__builtin_trap") == 0)
             {
@@ -23924,7 +24068,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                                     "unknown builtin '%s'", builtin_name);
                 new_expression->type = make_void_type();
             }
-            
+
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
@@ -24859,7 +25003,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                         .p_token_end = new_expression->right->last_token
                     };
 
-                    
+
                     if (op == '*')
                     {
                         new_expression->object = object_mul(ctx->options.target,
@@ -25023,7 +25167,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                                 .p_token_end = new_expression->right->last_token
                             };
 
-                            
+
 
                             new_expression->object = object_add(ctx->options.target,
                                                  &new_expression->left->object,
@@ -25117,7 +25261,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                                 .p_token_end = new_expression->right->last_token
                             };
 
-                            
+
 
                             new_expression->object = object_sub(ctx->options.target,
                                                  &new_expression->left->object,
@@ -25262,7 +25406,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                
+
 
                 if (op == '<<')
                 {
@@ -25463,7 +25607,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
 
 
 
-                        
+
                         enum diagnostic_id warning_id = 0;
 
                         if (op == '>=')
@@ -25678,7 +25822,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum 
             {
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
                 {
-                    
+
                     if (p_token_operator->type == '==')
                     {
                         new_expression->object = object_equal(ctx->options.target,
@@ -25770,7 +25914,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                
+
                 new_expression->object = object_bitwise_and(ctx->options.target,
                     &new_expression->left->object,
                     &new_expression->right->object, warning_message);
@@ -25849,7 +25993,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                
+
                 new_expression->object = object_bitwise_xor(ctx->options.target,
                     &new_expression->left->object,
                     &new_expression->right->object, warning_message);
@@ -25938,7 +26082,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, e
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                
+
                 new_expression->object = object_bitwise_or(ctx->options.target,
                 &new_expression->left->object,
                 &new_expression->right->object, warning_message);
@@ -29089,27 +29233,11 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         marker.end_col = p_token_opt->col;
     }
 
-    bool is_error = false;
-    bool is_warning = false;
-    bool is_note = false;
 
-    if (is_diagnostic_configurable(w))
-    {
-        is_error =
-            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & (1ULL << w)) != 0;
+    const bool is_error = options_diagnostic_is_error(&ctx->options, w);
+    const bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
+    const bool is_note = options_diagnostic_is_note(&ctx->options, w);
 
-        is_warning =
-            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & (1ULL << w)) != 0;
-
-        is_note =
-            ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
-    }
-    else
-    {
-        is_note = is_diagnostic_note(w);
-        is_error = is_diagnostic_error(w);
-        is_warning = is_diagnostic_warning(w);
-    }
 
     if (is_error)
     {
@@ -29157,18 +29285,11 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         ctx->options.visual_studio_ouput_format,
         color_enabled);
 
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
 
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-
-#pragma CAKE diagnostic pop
-
-    //bool show_warning_name = w < W_NOTE && w != W_LOCATION;
 
 
     if (ctx->options.visual_studio_ouput_format)
@@ -30031,6 +30152,8 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strstr(text, "__builtin_") != NULL)
             return TK_KEYWORD_GCC__BUILTIN_XXXXX;
 
+        if (strstr(text, "__volatile__") != NULL) //GCC
+            return TK_KEYWORD_VOLATILE;
 
 
         if (strcmp("_Bool", text) == 0)
@@ -31342,7 +31465,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     {
                         if (compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
                         {
-                            compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                            compiler_diagnostic(W_LOCATION, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
                         }
                     }
                 }
@@ -31360,7 +31483,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     /*but redeclaration at function scope we show warning*/
                     if (compiler_diagnostic(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", declarator_name))
                     {
-                        compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->first_token_opt, NULL, "previous declaration is here");
+                        compiler_diagnostic(W_LOCATION, ctx, p_previous_declarator->first_token_opt, NULL, "previous declaration is here");
                     }
                 }
             }
@@ -36144,20 +36267,14 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 if (p_pragma_token->type != TK_STRING_LITERAL)
                     throw;
 
-                unsigned long long w = atoi(p_pragma_token->lexeme + 2); /* sample "C0004"*/
-                w = (1ULL << ((unsigned long long)w));
-
-
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+                const unsigned long long w = atoi(p_pragma_token->lexeme + 2); /* sample "C0004"*/
 
                 if (is_error)
-                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors |= w;
+                    options_set_error(&ctx->options, w, true);
                 else if (is_warning)
-                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
+                    options_set_warning(&ctx->options, w, true);
                 else if (is_note)
-                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
+                    options_set_note(&ctx->options, w, true);
             }
             else
             {
@@ -36180,14 +36297,13 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             const bool nullable_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
 
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+            options_set_warning(&ctx->options, W_NULLABLE_TO_NON_NULLABLE, nullable_enable);
+            options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, nullable_enable);
+
+
 
             if (nullable_enable)
             {
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                 ctx->options.null_checks_enabled = true;
                 ctx->options.flow_analysis = true; //also enable flow analysis
             }
@@ -36210,15 +36326,10 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             }
 
             const bool ownership_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
-            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+            options_set_warning(&ctx->options, W_FLOW_UNINITIALIZED, ownership_enable);
 
             if (ownership_enable)
             {
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                 ctx->options.ownership_enabled = true;
                 ctx->options.flow_analysis = true; //also enable flow analysis
             }
@@ -36263,14 +36374,12 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             p_pragma_token = pragma_declaration_match(p_pragma_token);
 
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+
+            options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, safety_enable);
+            options_set_warning(&ctx->options, W_FLOW_NULLABLE_TO_NON_NULLABLE, safety_enable);
 
             if (safety_enable)
             {
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                 ctx->options.null_checks_enabled = true;
                 ctx->options.flow_analysis = true; //also enable flow analysis
                 ctx->options.ownership_enabled = true;
@@ -37549,7 +37658,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 {
                     //already defined
                     compiler_diagnostic(C_ERROR_DUPLICATED_LABEL, ctx, ctx->current, NULL, "duplicated label '%s'", ctx->current->lexeme);
-                    compiler_diagnostic(W_NOTE, ctx, p_label_list_item->p_defined, NULL, "previous definition of '%s'", ctx->current->lexeme);
+                    compiler_diagnostic(W_LOCATION, ctx, p_label_list_item->p_defined, NULL, "previous definition of '%s'", ctx->current->lexeme);
                 }
                 else
                 {
@@ -37726,7 +37835,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     "multiple default labels in one switch"))
                 {
 
-                    compiler_diagnostic(W_NOTE,
+                    compiler_diagnostic(W_LOCATION,
                         ctx,
                         p_existing_default_label->p_first_token,
                         NULL,
@@ -38309,6 +38418,42 @@ static struct asm_statement* _Owner _Opt msvc_asm_statement(struct parser_ctx* c
     return p_asm_statement;
 }
 
+static void gcc_asm_qualifier_opt(struct parser_ctx* ctx)
+{
+    /*
+       asm-qualifier:
+            volatile
+            __volatile__
+            goto
+            volatile goto
+            __volatile__ goto
+    */
+    try
+    {
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+        if (ctx->current->type == TK_KEYWORD_VOLATILE)
+        {
+            parser_match(ctx);
+            if (ctx->current->type == TK_KEYWORD_GOTO)
+            {
+                parser_match(ctx);
+            }
+        }
+        else if (ctx->current->type == TK_KEYWORD_GOTO)
+        {
+            parser_match(ctx);
+        }
+    }
+    catch
+    {
+    }
+}
+
 static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool statement)
 {
     /*
@@ -38373,6 +38518,8 @@ static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool st
 
         if (parser_match_tk(ctx, TK_KEYWORD__ASM) != 0)
             throw;
+
+        gcc_asm_qualifier_opt(ctx);
 
         if (parser_match_tk(ctx, '(') != 0)
             throw;
@@ -41140,8 +41287,7 @@ int compile_one_file(const char* file_name,
         {
             print_tokens(color_enabled, tokens.head);
         }
-
-        prectx.options.diagnostic_stack.stack[prectx.options.diagnostic_stack.top_index].notes |= (1ULL << W_NOTE);
+        
         ast.token_list = preprocessor(&prectx, &tokens, 0);
 
         report->warnings_count += prectx.n_warnings;

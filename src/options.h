@@ -1,11 +1,12 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma once
 #include <stdbool.h>
 #include "target.h"
+#include <limits.h>
 
 enum language_version
 {
@@ -16,84 +17,149 @@ enum language_version
 
 enum diagnostic_id {
 
-    DIAGNOSTIC_ID_NONE = 0,
-    W_WARNING_DIRECTIVE,     
-    W_UNUSED_VARIABLE, //-Wunused-variable
-    W_DEPRECATED,
-    W_ENUN_CONVERSION,//-Wenum-conversion
+    W_LOCATION = 0,
 
-    W_ADDRESS, //-Waddress (always true)
-    W_UNUSED_PARAMETER, //-Wno-unused-parameter
-    W_DECLARATOR_HIDE, // gcc no
-    W_TYPEOF_ARRAY_PARAMETER,//
-    W_ATTRIBUTES, //-Wattributes
-    W_UNUSED_VALUE, //-Wunused-value
-    W_STYLE, //-Wstyle
-    W_COMMENT,
-    W_LINE_SLICING,
-    W_STRING_SLICED,
-    W_DISCARDED_QUALIFIERS,
-    W_DECLARATOR_STATE,
-    W_UNINITIALZED,
-    W_RETURN_LOCAL_ADDR,
-    W_MUST_USE_ADDRESSOF,
-    W_ARRAY_INDIRECTION,
-    /*ownership type system errors*/
-    W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
-    W_OWNERSHIP_NOT_OWNER,
-    W_OWNERSHIP_USING_TEMPORARY_OWNER,
-    W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-    W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
-    W_OWNERSHIP_DISCARDING_OWNER,
-    W_OWNERSHIP_NON_OWNER_MOVE,    
-    //////////////////////////////////////////////
-    W_FLOW_NON_NULL, //-Wnonnull
-    W_FLOW_MISSING_DTOR,
-    W_FLOW_UNINITIALIZED,
-    W_FLOW_LIFETIME_ENDED,
-    W_FLOW_MOVED,
-    W_FLOW_NULL_DEREFERENCE,
-    W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
-    W_FLOW_NULLABLE_TO_NON_NULLABLE,
-    W_FLOW_DIVIZION_BY_ZERO,    
-    //////////////////////////////////////////////
-    W_DIVIZION_BY_ZERO,
-    W_CONSTANT_VALUE, /*sample 0 * a */
-    W_PASSING_NULL_AS_ARRAY,
-    W_INCOMPATIBLE_ENUN_TYPES,
-    W_MULTICHAR_ERROR,
-    W_OUT_OF_BOUNDS,
-    W_ASSIGNMENT_OF_ARRAY_PARAMETER,
-    W_CONDITIONAL_IS_CONSTANT,
-    W_SWITCH,
-    W_UNSUAL_NULL_POINTER_CONSTANT,
-    W_SIZEOF_ARRAY_ARGUMENT,
-    W_CONST_NOT_INITIALIZED,
-    W_NULL_CONVERTION,
-    W_IMPLICITLY_UNSIGNED_LITERAL,
-    W_INTEGER_OVERFLOW,
-    W_ARRAY_SIZE,
+    W_WARNING_DIRECTIVE = 1,
+    W_UNUSED_VARIABLE = 2,
+    W_DEPRECATED = 3,
+    W_ENUN_CONVERSION = 4,
+
+    W_ADDRESS = 5,
+    W_UNUSED_PARAMETER = 6,
+    W_DECLARATOR_HIDE = 7,
+    W_TYPEOF_ARRAY_PARAMETER = 8,
+    W_ATTRIBUTES = 9,
+    W_UNUSED_VALUE = 10,
+    W_STYLE = 11,
+    W_COMMENT = 12,
+    W_LINE_SLICING = 13,
+    W_STRING_SLICED = 14,
+    W_DISCARDED_QUALIFIERS = 15,
+    W_DECLARATOR_STATE = 16,
+    W_UNINITIALZED = 17,
+    W_RETURN_LOCAL_ADDR = 18,
+    W_MUST_USE_ADDRESSOF = 19,
+    W_ARRAY_INDIRECTION = 20,
+
+    W_OWNERSHIP_MISSING_OWNER_QUALIFIER = 21,
+    W_OWNERSHIP_NOT_OWNER = 22,
+    W_OWNERSHIP_USING_TEMPORARY_OWNER = 23,
+    W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER = 24,
+    W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN = 25,
+    W_OWNERSHIP_DISCARDING_OWNER = 26,
+    W_OWNERSHIP_NON_OWNER_MOVE = 27,
+
+    W_FLOW_NON_NULL = 28,
+    W_FLOW_MISSING_DTOR = 29,
+    W_FLOW_UNINITIALIZED = 30,
+    W_FLOW_LIFETIME_ENDED = 31,
+    W_FLOW_MOVED = 32,
+    W_FLOW_NULL_DEREFERENCE = 33,
+    W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG = 34,
+    W_FLOW_NULLABLE_TO_NON_NULLABLE = 35,
+    W_FLOW_DIVIZION_BY_ZERO = 36,
+
+
+    W_DIVIZION_BY_ZERO = 37,
+    W_CONSTANT_VALUE = 38,
+    W_PASSING_NULL_AS_ARRAY = 39,
+    W_INCOMPATIBLE_ENUN_TYPES = 40,
+    W_MULTICHAR_ERROR = 41,
+    W_OUT_OF_BOUNDS = 42,
+    W_ASSIGNMENT_OF_ARRAY_PARAMETER = 43,
+    W_CONDITIONAL_IS_CONSTANT = 44,
+    W_SWITCH = 45,
+    W_UNSUAL_NULL_POINTER_CONSTANT = 46,
+    W_SIZEOF_ARRAY_ARGUMENT = 47,
+    W_CONST_NOT_INITIALIZED = 48,
+    W_NULL_CONVERTION = 49,
+    W_IMPLICITLY_UNSIGNED_LITERAL = 50,
+    W_INTEGER_OVERFLOW = 51,
+    W_ARRAY_SIZE = 52,
+
+
+    W_EMPTY_STATEMENT = 53,
+    W_ERROR_INCOMPATIBLE_TYPES = 54,
+    W_UNUSED_LABEL = 55,
+    W_REDEFINING_BUITIN_MACRO = 56,
+    W_UNUSED_FUNCTION = 57,
+    W_BOOL_COMPARISON = 58,
+    W_WARNING_DID_NOT_HAPPEN = 59,
+    W_NULLABLE_TO_NON_NULLABLE = 60,
+    W_CAST_TO_SAME_TYPE = 61,
+
+    W_TO_MANY_INITIALIZERS = 62,
+    W_FLOAT_RANGE = 63,
+
+    
+    W_UNUSED_WARNING_64 = 64,
+    W_UNUSED_WARNING_65 = 65,
+    W_UNUSED_WARNING_66 = 66,
+    W_UNUSED_WARNING_67 = 67,
+    W_UNUSED_WARNING_68 = 68,
+    W_UNUSED_WARNING_69 = 69,
+    W_UNUSED_WARNING_70 = 70,
+    W_UNUSED_WARNING_71 = 71,
+    W_UNUSED_WARNING_72 = 72,
+    W_UNUSED_WARNING_73 = 73,
+    W_UNUSED_WARNING_74 = 74,
+    W_UNUSED_WARNING_75 = 75,
+    W_UNUSED_WARNING_76 = 76,
+    W_UNUSED_WARNING_77 = 77,
+    W_UNUSED_WARNING_78 = 78,
+    W_UNUSED_WARNING_79 = 79,
+    W_UNUSED_WARNING_80 = 80,
+    W_UNUSED_WARNING_81 = 81,
+    W_UNUSED_WARNING_82 = 82,
+    W_UNUSED_WARNING_83 = 83,
+    W_UNUSED_WARNING_84 = 84,
+    W_UNUSED_WARNING_85 = 85,
+    W_UNUSED_WARNING_86 = 86,
+    W_UNUSED_WARNING_87 = 87,
+    W_UNUSED_WARNING_88 = 88,
+    W_UNUSED_WARNING_89 = 89,
+    W_UNUSED_WARNING_90 = 90,
+    W_UNUSED_WARNING_91 = 91,
+    W_UNUSED_WARNING_92 = 92,
+    W_UNUSED_WARNING_93 = 93,
+    W_UNUSED_WARNING_94 = 94,
+    W_UNUSED_WARNING_95 = 95,
+    W_UNUSED_WARNING_96 = 96,
+    W_UNUSED_WARNING_97 = 97,
+    W_UNUSED_WARNING_98 = 98,
+    W_UNUSED_WARNING_99 = 99,
+    W_UNUSED_WARNING_100 = 100,
+    W_UNUSED_WARNING_101 = 101,
+    W_UNUSED_WARNING_102 = 102,
+    W_UNUSED_WARNING_103 = 103,
+    W_UNUSED_WARNING_104 = 104,
+    W_UNUSED_WARNING_105 = 105,
+    W_UNUSED_WARNING_106 = 106,
+    W_UNUSED_WARNING_107 = 107,
+    W_UNUSED_WARNING_108 = 108,
+    W_UNUSED_WARNING_109 = 109,
+    W_UNUSED_WARNING_110 = 110,
+    W_UNUSED_WARNING_111 = 111,
+    W_UNUSED_WARNING_112 = 112,
+    W_UNUSED_WARNING_113 = 113,
+    W_UNUSED_WARNING_114 = 114,
+    W_UNUSED_WARNING_115 = 115,
+    W_UNUSED_WARNING_116 = 116,
+    W_UNUSED_WARNING_117 = 117,
+    W_UNUSED_WARNING_118 = 118,
+    W_UNUSED_WARNING_119 = 119,
+    W_UNUSED_WARNING_120 = 120,
+    W_UNUSED_WARNING_121 = 121,
+    W_UNUSED_WARNING_122 = 122,
+    W_UNUSED_WARNING_123 = 123,
+    W_UNUSED_WARNING_124 = 124,
+    W_UNUSED_WARNING_125 = 125,
+    W_UNUSED_WARNING_126 = 126,
+    W_UNUSED_WARNING_127 = 127,
+    
+
     
     
-    W_EMPTY_STATEMENT,
-    W_ERROR_INCOMPATIBLE_TYPES,
-    W_UNUSED_LABEL,
-    W_REDEFINING_BUITIN_MACRO,
-    W_UNUSED_FUNCTION,
-    W_BOOL_COMPARISON,
-    W_WARNING_DID_NOT_HAPPEN,
-    W_NULLABLE_TO_NON_NULLABLE,
-    W_CAST_TO_SAME_TYPE,
-
-    W_LOCATION, /*prints code location*/
-    W_NOTE,
-
-    //----------------------------------------------------------------
-    
-    W_TO_MANY_INITIALIZERS = 100,
-    W_FLOAT_RANGE = 200,
-
-    //---------------------------------------------------------------
 
     C_ERROR_INVALID_QUALIFIER_FOR_POINTER = 640,
     C_ERROR_UNEXPECTED = 650,
@@ -175,19 +241,19 @@ enum diagnostic_id {
     C_INVALID_ARGUMENT_NELEMENTSOF = 1390,
     C_ERROR_RETURN_CANNOT_BE_USED_INSIDE_DEFER = 1400,
     C_ERROR_FUNCTION_RETURNS_FUNCTION = 1410,
-    C_ERROR_FUNCTION_RETURNS_ARRAY = 1420,    
-    C_ERROR_LABEL_NOT_DEFINED = 1430,    
+    C_ERROR_FUNCTION_RETURNS_ARRAY = 1420,
+    C_ERROR_LABEL_NOT_DEFINED = 1430,
     C_ERROR_DUPLICATED_LABEL = 1440,
     C_ERROR_DUPLICATED_CASE = 1450,
-    C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,    
-    C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION = 1570, 
+    C_ERROR_SUBSCRIPT_IS_NOT_AN_INTEGER = 1560,
+    C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION = 1570,
     C_ERROR_MULTIPLE_DEFAULT_LABELS_IN_ONE_SWITCH = 1780,
     C_ERROR_POINTER_TO_FLOATING_TYPE = 1790,
     C_ERROR_FLOATING_TYPE_TO_POINTER = 1800,
     C_ERROR_NULLPTR_CAST_ERROR = 1810,
     C_ERROR_MACRO_REDEFINITION = 1820,
     C_ERROR_INVALID_PREPROCESSING_DIRECTIVE = 1830,
-    C_ERROR_FUNCTION_CANNOT_BE_MEMBER  = 1840,
+    C_ERROR_FUNCTION_CANNOT_BE_MEMBER = 1840,
     C_ERROR_NON_INTEGRAL_ENUM_TYPE = 1850,
     C_ERROR_REQUIRES_COMPILE_TIME_VALUE = 1860,
     C_ERROR_OUTER_SCOPE = 1870,
@@ -195,17 +261,7 @@ enum diagnostic_id {
 
 
 bool is_diagnostic_configurable(enum diagnostic_id id);
-bool is_diagnostic_warning(enum diagnostic_id id);
-bool is_diagnostic_error(enum diagnostic_id id);
-bool is_diagnostic_note(enum diagnostic_id id);
 
-/*
-* These warnings are removed when "nullable=disable"
-*/
-#define WFLAG(W) (1ULL << W)
-#define NULLABLE_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_NULL_DEREFERENCE) | WFLAG(W_FLOW_NULLABLE_TO_NON_NULLABLE))
-
-#define OWNERSHIP_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_UNINITIALIZED))
 
 
 int get_diagnostic_phase(enum diagnostic_id w);
@@ -236,25 +292,33 @@ enum style
 
 };
 
+#define BITSET_SIZE 128
+#define BITSET_WORD_BITS (CHAR_BIT * sizeof(unsigned long))
+#define BITSET_WORDS ((BITSET_SIZE + BITSET_WORD_BITS - 1) / BITSET_WORD_BITS)
+
+struct bitset
+{
+    unsigned long bits[BITSET_WORDS];
+};
+
+
 struct diagnostic
 {
-    /*
-      each message has number (0-63) that corresponds to the bit index
-      Messages bigger than W_NOTE are errors or bigger than 63
-    */
 
     /*set of warnings reported as errors*/
-    unsigned long long errors;
+    struct bitset errors;
+
     /*set of warnings reported as warnings*/
-    unsigned long long warnings;
+    struct bitset warnings;
+
     /*set of warnings reported as notes*/
-    unsigned long long notes;
+    struct bitset notes;
 };
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
-void diagnostic_remove(struct diagnostic *d, enum diagnostic_id w);
+void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w);
 
 struct diagnostic_stack
 {
@@ -300,7 +364,7 @@ struct options
     */
     bool disable_assert;
 
-    
+
     /*
        -flow-analysis
     */
@@ -328,7 +392,7 @@ struct options
     */
     bool preprocess_only;
 
-    
+
 
     /*
       -preprocess-def-macro
@@ -336,7 +400,7 @@ struct options
     bool preprocess_def_macro;
 
     bool clear_error_at_end; //used by tests
-    
+
     /*
       -sarif
     */
@@ -406,3 +470,12 @@ bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w);
 
 void print_help();
 
+void options_set_error(struct options* options, enum diagnostic_id w, bool value);
+void options_set_warning(struct options* options, enum diagnostic_id w, bool value);
+void options_set_note(struct options* options, enum diagnostic_id w, bool value);
+void options_set_all_warnings(struct options* options);
+void options_set_clear_all_warnings(struct options* options);
+
+bool options_diagnostic_is_error(const struct options* options, enum diagnostic_id w);
+bool options_diagnostic_is_warning(const struct options* options, enum diagnostic_id w);
+bool options_diagnostic_is_note(const struct options* options, enum diagnostic_id w);

@@ -12,22 +12,61 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#ifndef _Countof
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
+#endif
+
+static void bitset_clear(struct bitset* b)
+{
+    for (int i = 0; i < BITSET_WORDS; ++i)
+        b->bits[i] = 0;
+}
+static void bitset_setall(struct bitset* b)
+{
+    unsigned long mask = ~0UL;
+    for (int i = 0; i < BITSET_WORDS; ++i)
+        b->bits[i] = mask;
+}
+
+static void bitset_set(struct bitset* b, int pos, int value)
+{
+    if (pos < 0 || pos >= BITSET_SIZE)
+        return;
+    int word = pos / BITSET_WORD_BITS;
+    int bit = pos % BITSET_WORD_BITS;
+    unsigned long mask = 1UL << bit;
+    if (value)
+        b->bits[word] |= mask;
+    else
+        b->bits[word] &= ~mask;
+}
+
+static int bitset_get(const struct bitset* b, int pos)
+{
+    if (pos < 0 || pos >= BITSET_SIZE)
+        return 0;
+    int word = pos / BITSET_WORD_BITS;
+    int bit = pos % BITSET_WORD_BITS;
+    return (b->bits[word] >> bit) & 1UL;
+}
 
 bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w)
 {
-    if (w > W_NOTE)
+        if (w == W_LOCATION)
+        return true;
+    
+    if (w >= BITSET_SIZE)
         return true;
 
-    return ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors & (1ULL << w)) != 0) ||
-        ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings & (1ULL << w)) != 0) ||
-        ((options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
+    return
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w) ||
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w) ||
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w);
 }
 
 bool is_diagnostic_note(enum diagnostic_id id)
 {
-    if (id == W_NOTE ||
-        id == W_LOCATION)
+    if (id == W_LOCATION)
     {
         return true;
     }
@@ -37,19 +76,26 @@ bool is_diagnostic_note(enum diagnostic_id id)
 
 bool is_diagnostic_warning(enum diagnostic_id id)
 {
-    return id > W_NOTE && id <= C_ERROR_INVALID_QUALIFIER_FOR_POINTER;
+    if (id == W_LOCATION)
+        return false;
+
+    return id < BITSET_SIZE;
 }
 
 bool is_diagnostic_error(enum diagnostic_id id)
 {
-    return id >= C_ERROR_INVALID_QUALIFIER_FOR_POINTER;
+    if (id == W_LOCATION)
+        return false;
+
+    return id >= BITSET_SIZE;
 }
 
 bool is_diagnostic_configurable(enum diagnostic_id id)
 {
-    //We have 0-63 configurable (bit set)
-    //configurable diagnostic also have names. Other have numbers only    
-    return id >= 0 && id < W_LOCATION;
+    if (id == W_LOCATION)
+        return false;
+
+    return id >= 0 && id < BITSET_SIZE;
 }
 
 int diagnostic_id_stack_push(struct diagnostic_id_stack* diagnostic_stack, enum diagnostic_id id)
@@ -76,11 +122,17 @@ void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack)
 
 int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 {
+    if (diagnostic_stack->top_index >= _Countof(diagnostic_stack->stack))
+    {
+        assert(false);
+        return 0;
+    }
+
     int index = diagnostic_stack->top_index;
     diagnostic_stack->top_index++;
-    diagnostic_stack->stack[diagnostic_stack->top_index].warnings = 0;
-    diagnostic_stack->stack[diagnostic_stack->top_index].errors = 0;
-    diagnostic_stack->stack[diagnostic_stack->top_index].notes = 0;
+    bitset_clear(&diagnostic_stack->stack[diagnostic_stack->top_index].errors);
+    bitset_clear(&diagnostic_stack->stack[diagnostic_stack->top_index].warnings);
+    bitset_clear(&diagnostic_stack->stack[diagnostic_stack->top_index].notes);
     return index;
 }
 
@@ -97,62 +149,41 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
 }
 
 
-struct diagnostic default_diagnostic = {
-      .warnings = (~0ULL) & ~(
-        NULLABLE_DISABLE_REMOVED_WARNINGS |
-        (1ULL << W_NOTE) |
-        (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER) |
-        (1ULL << W_UNUSED_VARIABLE))
-};
 
 void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 {
     if (!is_diagnostic_configurable(w))
         return; //ops
 
-    if ((d->errors & (1ULL << w)) != 0)
-        d->errors &= ~(1ULL << w);
-
-    if ((d->warnings & (1ULL << w)) != 0)
-        d->warnings &= ~(1ULL << w);
-
-    if ((d->notes & (1ULL << w)) != 0)
-        d->notes &= ~(1ULL << w);
+    bitset_set(&d->warnings, w, false);
+    bitset_set(&d->errors, w, false);
+    bitset_set(&d->notes, w, false);
 }
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
+    if (w == W_LOCATION)
+        return 1; /*note*/
+
     if (is_diagnostic_configurable(w))
     {
-        if ((d->errors & (1ULL << w)) != 0)
+        if (bitset_get(&d->errors, w))
             return 3;
 
-        if ((d->warnings & (1ULL << w)) != 0)
+        if (bitset_get(&d->warnings, w))
             return 2;
 
-        if ((d->notes & (1ULL << w)) != 0)
+        if (bitset_get(&d->notes, w))
             return 1;
     }
 
-
-    if (is_diagnostic_note(w))
-        return 1;
-
-    if (is_diagnostic_warning(w))
-        return 2;
-
-    if (is_diagnostic_error(w))
-        return 3;
-
-    return 3; //errors
+    return 3; /*error*/
 }
 
 int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
     {
-        //TODO should be everything that starts with FLOW
     case W_FLOW_NULLABLE_TO_NON_NULLABLE:
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:
@@ -164,6 +195,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_DIVIZION_BY_ZERO:
 
         return 2; /*returns 2 if it flow analysis*/
+
     default:
         break;
     }
@@ -186,13 +218,13 @@ int fill_options(struct options* options,
 
     options->target = CAKE_COMPILE_TIME_SELECTED_TARGET;
 
-    /*
-       default at this moment is same as -Wall
-    */
-    options->diagnostic_stack.stack[0] = default_diagnostic;
+    options_set_all_warnings(options);
+    options_set_warning(options, W_FLOW_NULL_DEREFERENCE, false);
+    options_set_warning(options, W_FLOW_NULLABLE_TO_NON_NULLABLE, false);
+    options_set_warning(options, W_UNUSED_PARAMETER, false);
+    options_set_warning(options, W_UNUSED_VARIABLE, false);
 
-    options->diagnostic_stack.stack[0].warnings &= ~(1ULL << W_STYLE);
-    //&~items;
+    options_set_warning(options, W_STYLE, false);
 
 
     /*first loop used to collect options*/
@@ -396,8 +428,8 @@ int fill_options(struct options* options,
             if (strcmp(argv[i], "-nullable=disable") == 0)
             {
                 options->null_checks_enabled = false;
-                unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-                options->diagnostic_stack.stack[0].warnings &= ~w;
+                //unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
+                //options->diagnostic_stack.stack[0].warnings &= ~w;
                 continue;
             }
 
@@ -450,31 +482,19 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-wall") == 0)
             {
-                options->diagnostic_stack.stack[0].warnings = ~0ULL;
+                options_set_all_warnings(options);
                 continue;
             }
-            const bool disable_warning = (argv[i][2] == 'd');
+            const bool enable_warning = (argv[i][2] != 'd');
 
-            unsigned long long w = atoi(argv[i] + 3);
-            w = (1ULL << ((unsigned long long)w));
+            const int w = atoi(argv[i] + 3);
 
-            if (w == 0)
+            if (!is_diagnostic_configurable(w))
             {
-                printf("unknown warning '%s'", argv[i]);
+                printf("diagnostic '%d' is not configurable", w);
                 return 1;
             }
-
-            if (disable_warning)
-            {
-                options->diagnostic_stack.stack[0].warnings &= ~w;
-            }
-            else
-            {
-                if (w == W_STYLE)
-                    options->diagnostic_stack.stack[0].warnings |= w;
-                else
-                    options->diagnostic_stack.stack[0].notes |= w;
-            }
+            options_set_warning(options, w, enable_warning);
             continue;
         }
 
@@ -586,10 +606,81 @@ void print_help()
     print_option("-const-literal", "literal string becomes const");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-comment-to-attr", "convert comments /*!w#*/ into attributes [[cake::w#]]");
-    
+
 
     printf("\n");
     printf("More details at http://cakecc.org/manual.html\n");
 
 }
 
+void options_set_error(struct options* options, enum diagnostic_id w, bool value)
+{
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w, false);
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w, false);
+
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w, value);
+}
+
+void options_set_warning(struct options* options, enum diagnostic_id w, bool value)
+{
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w, false);
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w, false);
+
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w, value);
+}
+
+void options_set_all_warnings(struct options* options)
+{
+    bitset_setall(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings);
+}
+
+void options_set_clear_all_warnings(struct options* options)
+{
+    bitset_clear(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings);
+}
+
+
+void options_set_note(struct options* options, enum diagnostic_id w, bool value)
+{
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w, false);
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w, false);
+
+    bitset_set(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w, value);
+}
+
+bool options_diagnostic_is_error(const struct options* options, enum diagnostic_id w)
+{
+    if (w == W_LOCATION)
+        return false;
+    
+    if (w >= BITSET_SIZE)
+        return true;
+
+    return
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].errors, w);
+}
+
+bool options_diagnostic_is_warning(const struct options* options, enum diagnostic_id w)
+{
+    if (w == W_LOCATION)
+        return false;
+    
+    if (w >= BITSET_SIZE)
+        return false;
+
+    return
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings, w);
+
+}
+
+bool options_diagnostic_is_note(const struct options* options, enum diagnostic_id w)
+{
+    if (w == W_LOCATION)
+        return false;
+    
+    if (w >= BITSET_SIZE)
+        return false;
+
+    return
+        bitset_get(&options->diagnostic_stack.stack[options->diagnostic_stack.top_index].notes, w);
+}

@@ -340,17 +340,19 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, enum 
             {
                 if (p_default_generic_association != NULL)
                 {
-                    compiler_diagnostic(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
+                    if (compiler_diagnostic(C_ERROR_DUPLICATE_DEFAULT_GENERIC_ASSOCIATION,
                         ctx,
                         p_generic_association2->first_token,
                         NULL,
-                        "duplicate default generic association.");
+                        "duplicate default generic association."))
+                    {
 
-                    compiler_diagnostic(W_NOTE,
-                        ctx,
-                        p_default_generic_association->first_token,
-                        NULL,
-                        "previous default generic association");
+                        compiler_diagnostic(W_LOCATION,
+                            ctx,
+                            p_default_generic_association->first_token,
+                            NULL,
+                            "previous default generic association");
+                    }
                 }
                 else
                 {
@@ -2624,7 +2626,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&new_expression->right->object))
                 {
-                    
+
                     new_expression->object =
                         object_logical_not(ctx->options.target, &new_expression->right->object, warning_message);
                 }
@@ -2660,7 +2662,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                   object_has_constant_value(&new_expression->right->object))
                 {
-                    
+
                     new_expression->object =
                         object_bitwise_not(ctx->options.target, &new_expression->right->object, warning_message);
                 }
@@ -2678,7 +2680,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
                     object_has_constant_value(&new_expression->right->object))
                 {
-                    
+
                     if (op == '-')
                     {
                         new_expression->object =
@@ -3052,7 +3054,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             if (ctx->current->type != ')')
             {
-               new_expression->argument_expression_list = argument_expression_list(ctx, eval_mode);
+                new_expression->argument_expression_list = argument_expression_list(ctx, eval_mode);
             }
 
             if (parser_match_tk(ctx, ')') != 0)
@@ -3080,12 +3082,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             {
                 new_expression->type = type_make_float();
             }
-             else if (strcmp(builtin_name, "__builtin_add_overflow") == 0 ||
-                      strcmp(builtin_name, "__builtin_sadd_overflow") == 0 ||
-                      strcmp(builtin_name, "__builtin_saddl_overflow") == 0 ||
-                      strcmp(builtin_name, "__builtin_saddll_overflow") == 0 ||
-                      strcmp(builtin_name, "__builtin_uaddl_overflow ") == 0 ||
-                      strcmp(builtin_name, "__builtin_uaddll_overflow") == 0)
+            else if (strcmp(builtin_name, "__builtin_add_overflow") == 0 ||
+                     strcmp(builtin_name, "__builtin_sadd_overflow") == 0 ||
+                     strcmp(builtin_name, "__builtin_saddl_overflow") == 0 ||
+                     strcmp(builtin_name, "__builtin_saddll_overflow") == 0 ||
+                     strcmp(builtin_name, "__builtin_uaddl_overflow ") == 0 ||
+                     strcmp(builtin_name, "__builtin_uaddll_overflow") == 0)
             {
                 new_expression->type = type_make_int_bool_like();
             }
@@ -3104,7 +3106,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     strcmp(builtin_name, "__builtin_huge_valfNx") == 0 ||
                     strcmp(builtin_name, "__builtin_inffNx") == 0 ||
                     strcmp(builtin_name, "__builtin_nanfNx") == 0 ||
-                    strcmp(builtin_name, "__builtin_nansfNx") == 0 )
+                    strcmp(builtin_name, "__builtin_nansfNx") == 0)
             {
                 //there is not f floatn in cake yet
                 new_expression->type = type_make_long_double();
@@ -3132,7 +3134,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 strcmp(builtin_name, "__builtin_signbitl") == 0)
             {
                 new_expression->type = type_make_int();
-            }                        
+            }
             else if (strcmp(builtin_name, "__builtin_unreachable") == 0 ||
                      strcmp(builtin_name, "__builtin_trap") == 0)
             {
@@ -3190,7 +3192,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                                     "unknown builtin '%s'", builtin_name);
                 new_expression->type = make_void_type();
             }
-            
+
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
@@ -4125,7 +4127,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                         .p_token_end = new_expression->right->last_token
                     };
 
-                    
+
                     if (op == '*')
                     {
                         new_expression->object = object_mul(ctx->options.target,
@@ -4289,7 +4291,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                                 .p_token_end = new_expression->right->last_token
                             };
 
-                            
+
 
                             new_expression->object = object_add(ctx->options.target,
                                                  &new_expression->left->object,
@@ -4383,7 +4385,7 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, enum 
                                 .p_token_end = new_expression->right->last_token
                             };
 
-                            
+
 
                             new_expression->object = object_sub(ctx->options.target,
                                                  &new_expression->left->object,
@@ -4528,7 +4530,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                
+
 
                 if (op == '<<')
                 {
@@ -4729,7 +4731,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
 
 
 
-                        
+
                         enum diagnostic_id warning_id = 0;
 
                         if (op == '>=')
@@ -4944,7 +4946,7 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, enum 
             {
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE)
                 {
-                    
+
                     if (p_token_operator->type == '==')
                     {
                         new_expression->object = object_equal(ctx->options.target,
@@ -5036,7 +5038,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                
+
                 new_expression->object = object_bitwise_and(ctx->options.target,
                     &new_expression->left->object,
                     &new_expression->right->object, warning_message);
@@ -5115,7 +5117,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                
+
                 new_expression->object = object_bitwise_xor(ctx->options.target,
                     &new_expression->left->object,
                     &new_expression->right->object, warning_message);
@@ -5204,7 +5206,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, e
             if (object_has_constant_value(&new_expression->left->object) &&
                 object_has_constant_value(&new_expression->right->object))
             {
-                
+
                 new_expression->object = object_bitwise_or(ctx->options.target,
                 &new_expression->left->object,
                 &new_expression->right->object, warning_message);

@@ -242,25 +242,10 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     /*warnings inside headers are ignored*/
     const bool included_file_location = p_token_opt->level > 0;
 
-    bool is_error = false;
-    bool is_warning = false;
-    bool is_note = false;
 
-    if (w > W_NOTE)
-    {
-        is_error = true;
-    }
-    else
-    {
-        is_error =
-            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & (1ULL << w)) != 0;
-
-        is_warning =
-            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & (1ULL << w)) != 0;
-
-        is_note =
-            ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
-    }
+    bool is_error = options_diagnostic_is_error(&ctx->options, w);
+    bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
+    bool is_note = options_diagnostic_is_note(&ctx->options, w);
 
     if (is_error)
     {
@@ -279,7 +264,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         return false;
     }
 
-    if (w != W_NOTE && !is_error && included_file_location)
+    if (w != W_LOCATION && !is_error && included_file_location)
     {
         //notes are warning are not printed in included files
         return false;
@@ -290,16 +275,12 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
 
     char buffer[200] = { 0 };
 
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
 
     va_list args = { 0 };
 
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-#pragma CAKE diagnostic pop
 
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -317,23 +298,23 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+                printf(LIGHTRED "error " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
             else
-                printf("error: " "%s\n", buffer);
+                printf("error "        "C%04d: %s\n", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
             else
-                printf("warning: " "%s\n", buffer);
+                printf("warning "  "C%04d: %s\n", w, buffer);
         }
         else if (is_note)
         {
             if (color_enabled)
-                printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+                printf(LIGHTCYAN "note: " WHITE "%s\n" COLOR_RESET, buffer);
             else
-                printf("note: "  "%s\n", buffer);
+                printf("note: " "%s\n", buffer);
         }
 
         print_line_and_token(&marker, ctx->options.visual_studio_ouput_format);
@@ -3757,7 +3738,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
                     {
                         /*let's print the include path*/
-                        preprocessor_diagnostic(W_NOTE, ctx, r.tail, "dir = '%s'", p->path);
+                        preprocessor_diagnostic(W_LOCATION, ctx, r.tail, "dir = '%s'", p->path);
                     }
                 }
                 else
@@ -4066,7 +4047,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     macro->p_name_token,
                     "macro redefinition");
 
-                    preprocessor_diagnostic(W_NOTE,
+                    preprocessor_diagnostic(W_LOCATION,
                     ctx,
                     existing_macro->p_name_token,
                     "previous definition");
@@ -5590,7 +5571,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     */
                     if (input_list->head->type == TK_STRING_LITERAL)
                     {
-                        preprocessor_diagnostic(W_NOTE, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+                        preprocessor_diagnostic(W_LOCATION, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
                     }
                     else if (input_list->head->type == TK_LINE_COMMENT)
                         preprocessor_diagnostic(W_COMMENT, ctx, input_list->head, "multi-line //comment");
@@ -5848,8 +5829,10 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         return  ENOENT;
     }
 
-    const enum diagnostic_id w =
+    const struct bitset w =
         ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings;
+
+    options_set_clear_all_warnings(&ctx->options);
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
@@ -5878,16 +5861,10 @@ static bool is_builtin_macro(const char* name)
 
 void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 {
-    /*
-      This command prints all macros used by gcc
-      echo | gcc -dM -E -
-    */
     const struct diagnostic w =
         ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
 
-    /*we dont want warnings here*/
-    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] =
-        (struct diagnostic){ 0 };
+    options_set_clear_all_warnings(&ctx->options);
 
     static char mon[][4] = {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -6783,7 +6760,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 
     if (!is_screaming_case(token->lexeme))
     {
-        preprocessor_diagnostic(W_NOTE, ctx, token, "use SCREAMING_CASE for macros");
+        preprocessor_diagnostic(W_LOCATION, ctx, token, "use SCREAMING_CASE for macros");
     }
 
 }

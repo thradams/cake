@@ -335,27 +335,11 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         marker.end_col = p_token_opt->col;
     }
 
-    bool is_error = false;
-    bool is_warning = false;
-    bool is_note = false;
 
-    if (is_diagnostic_configurable(w))
-    {
-        is_error =
-            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors & (1ULL << w)) != 0;
+    const bool is_error = options_diagnostic_is_error(&ctx->options, w);
+    const bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
+    const bool is_note = options_diagnostic_is_note(&ctx->options, w);
 
-        is_warning =
-            (ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings & (1ULL << w)) != 0;
-
-        is_note =
-            ((ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes & (1ULL << w)) != 0);
-    }
-    else
-    {
-        is_note = is_diagnostic_note(w);
-        is_error = is_diagnostic_error(w);
-        is_warning = is_diagnostic_warning(w);
-    }
 
     if (is_error)
     {
@@ -403,18 +387,11 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         ctx->options.visual_studio_ouput_format,
         color_enabled);
 
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
 
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-
-#pragma CAKE diagnostic pop
-
-    //bool show_warning_name = w < W_NOTE && w != W_LOCATION;
 
 
     if (ctx->options.visual_studio_ouput_format)
@@ -2590,7 +2567,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     {
                         if (compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
                         {
-                            compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                            compiler_diagnostic(W_LOCATION, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
                         }
                     }
                 }
@@ -2608,7 +2585,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     /*but redeclaration at function scope we show warning*/
                     if (compiler_diagnostic(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", declarator_name))
                     {
-                        compiler_diagnostic(W_NOTE, ctx, p_previous_declarator->first_token_opt, NULL, "previous declaration is here");
+                        compiler_diagnostic(W_LOCATION, ctx, p_previous_declarator->first_token_opt, NULL, "previous declaration is here");
                     }
                 }
             }
@@ -7392,20 +7369,14 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 if (p_pragma_token->type != TK_STRING_LITERAL)
                     throw;
 
-                unsigned long long w = atoi(p_pragma_token->lexeme + 2); /* sample "C0004"*/
-                w = (1ULL << ((unsigned long long)w));
-
-
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+                const unsigned long long w = atoi(p_pragma_token->lexeme + 2); /* sample "C0004"*/
 
                 if (is_error)
-                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors |= w;
+                    options_set_error(&ctx->options, w, true);
                 else if (is_warning)
-                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
+                    options_set_warning(&ctx->options, w, true);
                 else if (is_note)
-                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes |= w;
+                    options_set_note(&ctx->options, w, true);
             }
             else
             {
@@ -7428,14 +7399,13 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             const bool nullable_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
 
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+            options_set_warning(&ctx->options, W_NULLABLE_TO_NON_NULLABLE, nullable_enable);
+            options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, nullable_enable);
+
+
 
             if (nullable_enable)
             {
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                 ctx->options.null_checks_enabled = true;
                 ctx->options.flow_analysis = true; //also enable flow analysis
             }
@@ -7458,15 +7428,10 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             }
 
             const bool ownership_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
-            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+            options_set_warning(&ctx->options, W_FLOW_UNINITIALIZED, ownership_enable);
 
             if (ownership_enable)
             {
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                 ctx->options.ownership_enabled = true;
                 ctx->options.flow_analysis = true; //also enable flow analysis
             }
@@ -7511,14 +7476,12 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             p_pragma_token = pragma_declaration_match(p_pragma_token);
 
-            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].errors &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].notes &= ~w;
-            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings &= ~w;
+
+            options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, safety_enable);
+            options_set_warning(&ctx->options, W_FLOW_NULLABLE_TO_NON_NULLABLE, safety_enable);
 
             if (safety_enable)
             {
-                ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index].warnings |= w;
                 ctx->options.null_checks_enabled = true;
                 ctx->options.flow_analysis = true; //also enable flow analysis
                 ctx->options.ownership_enabled = true;
@@ -8797,7 +8760,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 {
                     //already defined
                     compiler_diagnostic(C_ERROR_DUPLICATED_LABEL, ctx, ctx->current, NULL, "duplicated label '%s'", ctx->current->lexeme);
-                    compiler_diagnostic(W_NOTE, ctx, p_label_list_item->p_defined, NULL, "previous definition of '%s'", ctx->current->lexeme);
+                    compiler_diagnostic(W_LOCATION, ctx, p_label_list_item->p_defined, NULL, "previous definition of '%s'", ctx->current->lexeme);
                 }
                 else
                 {
@@ -8974,7 +8937,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     "multiple default labels in one switch"))
                 {
 
-                    compiler_diagnostic(W_NOTE,
+                    compiler_diagnostic(W_LOCATION,
                         ctx,
                         p_existing_default_label->p_first_token,
                         NULL,

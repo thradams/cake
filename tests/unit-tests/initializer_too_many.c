@@ -4,7 +4,7 @@ struct X {
 };
 
 //warning: warning: excess elements in initializer 
-[[cake::e100]]
+[[cake::w62]]
 constexpr struct X x = {.c = 3, 4};
 
 static_assert(x.a == 0);

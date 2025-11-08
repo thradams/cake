@@ -356,8 +356,7 @@ int compile_one_file(const char* file_name,
         {
             print_tokens(color_enabled, tokens.head);
         }
-
-        prectx.options.diagnostic_stack.stack[prectx.options.diagnostic_stack.top_index].notes |= (1ULL << W_NOTE);
+        
         ast.token_list = preprocessor(&prectx, &tokens, 0);
 
         report->warnings_count += prectx.n_warnings;
