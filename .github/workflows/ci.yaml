@@ -14,7 +14,7 @@ jobs:
     - name: Build and test
       run: |
         cd src
-        gcc -DTEST -DAUTOCONFIG build.c -o build
+        gcc -DTEST build.c -o build
         ./build
 
   windows-msvc:
@@ -27,5 +27,5 @@ jobs:
     - name: Build and test
       run: |
         cd src
-        cl build.c -DTEST -DAUTOCONFIG
+        cl build.c -DTEST 
         .\build.exe

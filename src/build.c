@@ -192,7 +192,9 @@ int main()
                " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
                " /out:cake.exe ");
 
-#ifdef AUTOCONFIG
+#ifdef CAKE_HEADERS
+    //uses cakeconfig
+#else
     //Generates cakeconfig.h with the include dir used by gcc
     execute_cmd("cake.exe -autoconfig");
 #endif
@@ -333,9 +335,12 @@ int main()
 #endif
            " -o cake");
 
-#ifdef AUTOCONFIG
+
+#ifdef CAKE_HEADERS
+    //uses cakeconfig
+#else
     //Generates cakeconfig.h with the include dir used by gcc
-    execute_cmd("./cake -autoconfig");
+    execute_cmd("./cake  -autoconfig");
 #endif
 
     //Uses previouly generated cakeconfig.h to find include dir

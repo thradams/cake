@@ -3700,16 +3700,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (content != NULL)
             {
-#if 0
-                //append all includes used can be used to reduce headers non used
-                //in the include
-                FILE* f = fopen("includes.txt", "a");
-                if (f)
-                {
-                    fprintf(f, "%s\n", full_path_result);
-                    fclose(f);
-                }
-#endif
                 if (ctx->options.show_includes)
                 {
                     for (int i = 0; i < (level + 1); i++)
