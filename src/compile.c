@@ -713,11 +713,11 @@ int compile(int argc, const char** argv, struct report* report)
         printf("emulating %s\n", get_platform(options.target)->name);
     }
 
-    char executable_path[FS_MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
+    char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);
     char cakeconfig_path[FS_MAX_PATH] = { 0 };
-    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
+    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, executable_path);
 
     if (options.auto_config) //-autoconfig
     {

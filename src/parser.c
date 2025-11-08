@@ -1277,6 +1277,8 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strstr(text, "__builtin_") != NULL)
             return TK_KEYWORD_GCC__BUILTIN_XXXXX;
 
+        if (strstr(text, "__volatile__") != NULL) //GCC
+            return TK_KEYWORD_VOLATILE;
 
 
         if (strcmp("_Bool", text) == 0)
@@ -9555,6 +9557,42 @@ static struct asm_statement* _Owner _Opt msvc_asm_statement(struct parser_ctx* c
     return p_asm_statement;
 }
 
+static void gcc_asm_qualifier_opt(struct parser_ctx* ctx)
+{
+    /*
+       asm-qualifier:
+            volatile
+            __volatile__
+            goto
+            volatile goto
+            __volatile__ goto
+    */
+    try
+    {
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+        if (ctx->current->type == TK_KEYWORD_VOLATILE)
+        {
+            parser_match(ctx);
+            if (ctx->current->type == TK_KEYWORD_GOTO)
+            {
+                parser_match(ctx);
+            }
+        }
+        else if (ctx->current->type == TK_KEYWORD_GOTO)
+        {
+            parser_match(ctx);
+        }
+    }
+    catch
+    {
+    }
+}
+
 static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool statement)
 {
     /*
@@ -9619,6 +9657,8 @@ static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool st
 
         if (parser_match_tk(ctx, TK_KEYWORD__ASM) != 0)
             throw;
+
+        gcc_asm_qualifier_opt(ctx);
 
         if (parser_match_tk(ctx, '(') != 0)
             throw;

@@ -1230,7 +1230,7 @@ void print_help();
 
 
 
-#define CAKE_CFG_FNAME "/cakeconfig.h"
+#define CAKE_CONFIG_FILE_NAME "/cakeconfig.h"
 
 struct include_dir
 {
@@ -4074,12 +4074,15 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
         size_t len = strlen(current->path);
         if (current->path[len - 1] == '/')
         {
-            snprintf(full_path_out, full_path_out_size, "%s%s", current->path, path);
+            snprintf(newpath, full_path_out_size, "%s%s", current->path, path);
         }
         else
         {
-            snprintf(full_path_out, full_path_out_size, "%s/%s", current->path, path);
+            snprintf(newpath, full_path_out_size, "%s/%s", current->path, path);
         }
+
+          if (!realpath(newpath, full_path_out))
+            full_path_out[0] = '\0';
 
         path_normalize(full_path_out);
         if (pragma_once_already_included(ctx, full_path_out))
@@ -5399,10 +5402,10 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                     }
                 }
 
-                if (ctx->options.comment_to_attribute &&  start[2] == '!' && start[3] == 'w')
+                if (ctx->options.comment_to_attribute && start[2] == '!' && start[3] == 'w')
                 {
                     /*
-                        Conversion from !w4 to -> [[cake::w4]]                         
+                        Conversion from !w4 to -> [[cake::w4]]
                     */
                     struct token_list list2 = tokenizer(ctx, "[[cake::wN]]", "", level, 0);
                     struct token* p_new_token = token_list_pop_front_get(&list2);
@@ -5413,8 +5416,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         if (strcmp(p_new_token->lexeme, "wN") == 0)
                         {
                             free(p_new_token->lexeme);
-                            char fmt[10] = {0};
-                            const char * p = start + 3;
+                            char fmt[10] = { 0 };
+                            const char* p = start + 3;
                             for (int i = 0; i < sizeof fmt; i++)
                             {
                                 fmt[i] = *p;
@@ -5422,7 +5425,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                                     break;
                                 p++;
                             }
-                                                        
+
                             p_new_token->lexeme = strdup(fmt);
                         }
                         p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
@@ -7276,6 +7279,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (content != NULL)
             {
+                FILE* f = fopen("includes.txt", "a");
+                if (f)
+                {
+                    fprintf(f, "%s\n", full_path_result);
+                    fclose(f);
+                }
                 if (ctx->options.show_includes)
                 {
                     for (int i = 0; i < (level + 1); i++)
@@ -9347,7 +9356,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s", file_name);
     dirname(local_cakeconfig_path);
 
-    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s" CAKE_CFG_FNAME, local_cakeconfig_path);
+    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, local_cakeconfig_path);
 
     char* _Owner _Opt str = read_file(local_cakeconfig_path, true);
 
@@ -9373,11 +9382,11 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     {
         //Search cakeconfig at cake executable dir
 
-        char executable_path[FS_MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
+        char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
         get_self_path(executable_path, sizeof(executable_path));
         dirname(executable_path);
         char root_cakeconfig_path[FS_MAX_PATH] = { 0 };
-        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
+        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, executable_path);
         str = read_file(root_cakeconfig_path, true);
         if (str && ctx->options.show_includes)
         {
@@ -41488,11 +41497,11 @@ int compile(int argc, const char** argv, struct report* report)
         printf("emulating %s\n", get_platform(options.target)->name);
     }
 
-    char executable_path[FS_MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
+    char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);
     char cakeconfig_path[FS_MAX_PATH] = { 0 };
-    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
+    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, executable_path);
 
     if (options.auto_config) //-autoconfig
     {

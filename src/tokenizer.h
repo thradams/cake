@@ -10,7 +10,7 @@
 #include "options.h"
 #include "ownership.h"
 
-#define CAKE_CFG_FNAME "/cakeconfig.h"
+#define CAKE_CONFIG_FILE_NAME "/cakeconfig.h"
 
 struct include_dir
 {

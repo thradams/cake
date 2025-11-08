@@ -1,7 +1,7 @@
-#include <stdio.h>
+#define arraysize(A) (sizeof(A) / sizeof((A))[0])
 
-int main()
+int f(const unsigned int v)
 {
-    printf("Hello World"); 
-    return 0;
+    int array[3];
+    static_assert(arraysize(array) == 3);
 }
