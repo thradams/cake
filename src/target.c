@@ -7,7 +7,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
+#ifndef _Countof
 #define _Countof(A) (sizeof(A)/sizeof((A)[0]))
+#endif
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)

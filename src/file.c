@@ -1,2 +1,4 @@
-#define hashhash(a,b)  a##b
-hashhash(x, y);
+int f()
+{
+   return (sizeof((1)));    
+}

@@ -17,7 +17,10 @@ typedef int errno_t;
 #ifndef __CAKE__
 
 //emulate _Countof
+
+#ifndef _Countof
 #define _Countof(A) (sizeof(A)/sizeof((A)[0]))
+#endif
 
 #define try  
 #define catch if (0) catch_label:

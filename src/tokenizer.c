@@ -3731,10 +3731,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
 
+                    printf("Include directories:\n");
                     for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
-                    {
-                        /*let's print the include path*/
-                        preprocessor_diagnostic(W_LOCATION, ctx, r.tail, "dir = '%s'", p->path);
+                    {                        
+                        print_path(p->path);
+                        printf("\n");
                     }
                 }
                 else
