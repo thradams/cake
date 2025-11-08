@@ -502,8 +502,14 @@ const char* _Owner _Opt  find_and_read_include_file(struct preprocessor_ctx* ctx
             snprintf(newpath, full_path_out_size, "%s/%s", current->path, path);
         }
 
+#ifdef __EMSCRIPTEN__
+        /*realpath returns empty on emscriptem*/
+        snprintf(full_path_out, full_path_out_size, "%s", newpath);
+#else
         if (!realpath(newpath, full_path_out))
             full_path_out[0] = '\0';
+
+#endif
 
         path_normalize(full_path_out);
         if (pragma_once_already_included(ctx, full_path_out))
