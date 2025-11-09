@@ -26,7 +26,9 @@
 
 static unsigned long long wrap_unsigned_integer(unsigned long long value, int bits)
 {
-    if (bits == 0 || bits >= 64)
+    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+
+    if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
         return value;
 
     const unsigned long long mask = (1ULL << bits) - 1;
@@ -36,7 +38,9 @@ static unsigned long long wrap_unsigned_integer(unsigned long long value, int bi
 
 static long long wrap_signed_integer(long long value, int bits)
 {
-    if (bits == 0 || bits >= 64)
+    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+
+    if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
         return value;
 
     // Mask to keep lower n bits
@@ -392,7 +396,7 @@ struct object object_make_nullptr(enum target target)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = get_platform(target)->size_t_type;
-    const int bits =  target_get_num_of_bits(target, r.value_type);
+    const int bits = target_get_num_of_bits(target, r.value_type);
     r.value.host_u_long_long = wrap_unsigned_integer(0, bits);
     return r;
 }
@@ -829,7 +833,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
     {
         if (object_type_is_signed_integer(dest_type))
         {
-            r.value.host_long_long = wrap_signed_integer((long long) v->value.host_long_double, dest_n_bits);
+            r.value.host_long_long = wrap_signed_integer((long long)v->value.host_long_double, dest_n_bits);
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
