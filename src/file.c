@@ -1,19 +1,5 @@
-
-
-int main()
-{
-    int* p = 0x00000000;   // pointer to NULL
-
-      
-        __try
-        {
-          
-        }
-        __finally
-        {
-            
-        }
-    
-    
+int main(){
+  static_assert("\100\040\040"[0] == 64);
+  static_assert('\100' == 64);
 
 }

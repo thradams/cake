@@ -2294,7 +2294,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
         printf("(%d,%d): ", line, col);
     }
     else
-    {     
+    {
         if (color_enabled)
         {
             printf(WHITE);
@@ -2970,17 +2970,24 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
 
         *out_value = (int)result;
     }
-    else if (*p == '0')
+    else if (*p >= '0' && *p <= '7')
     {
         // octal digit
-        p++;
-
         int result = 0;
         while ((*p >= '0' && *p <= '7'))
         {
-            int byte;
-            byte = (*p - '0');
-            result = (result << 4) | (byte & 0xF);
+            result = (result << 3) | (*p - '0');  // shift left by 3 bits and add digit
+            p++;
+        }
+        *out_value = result;
+    }
+    else if (*p >= '1' && *p <= '9')
+    {
+        // decimal digit
+        int result = 0;
+        while ((*p >= '0' && *p <= '9'))
+        {
+            result = result * 10 + (*p - '0');
             p++;
         }
         *out_value = result;
@@ -3021,7 +3028,6 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
             *out_value = '"';
             break;
         default:
-            // this is handled at tokenizer
             assert(false);
             return NULL;
         }
@@ -28894,7 +28900,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.48"
+#define CAKE_VERSION "0.12.49"
 
 
 
