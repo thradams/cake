@@ -259,6 +259,10 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     {
 
     }
+    else if (w == W_LOCATION)
+    {
+        //location is always printed
+    }
     else
     {
         return false;
@@ -926,7 +930,17 @@ int is_nondigit(const struct stream* p)
     */
     return (p->current[0] >= 'a' && p->current[0] <= 'z') ||
         (p->current[0] >= 'A' && p->current[0] <= 'Z') ||
-        (p->current[0] == '_');
+        (p->current[0] == '_') || (p->current[0] == '$');
+
+    
+    /*
+      From the standard:
+      
+      It is implementation-defined
+      if a $ (U+0024, DOLLAR SIGN) may be used as a nondigit character.
+
+      MSVC uses $
+    */
 }
 
 
@@ -4039,15 +4053,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (!macro_is_same(macro, existing_macro))
                 {
-                    preprocessor_diagnostic(C_ERROR_MACRO_REDEFINITION,
-                    ctx,
-                    macro->p_name_token,
-                    "macro redefinition");
-
-                    preprocessor_diagnostic(W_LOCATION,
-                    ctx,
-                    existing_macro->p_name_token,
-                    "previous definition");
+                    if (preprocessor_diagnostic(C_ERROR_MACRO_REDEFINITION,
+                        ctx,
+                        macro->p_name_token,
+                        "macro redefinition"))
+                    {
+                        preprocessor_diagnostic(W_LOCATION,
+                        ctx,
+                        existing_macro->p_name_token,
+                        "previous definition");
+                    }
 
                     macro_delete(macro);
                     throw;

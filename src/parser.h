@@ -1189,9 +1189,16 @@ void defer_list_destroy(_Dtor struct defer_list* p);
 struct try_statement
 {
     /*
-      try-statement: (extension)
+      try-statement: (cake- extension)
        "try" secondary-block
        "try" secondary-block "catch" secondary-block
+    */
+
+    /*
+      __try: (msvc extension)
+       "__try" secondary-block
+       "__finally" secondary-block 
+       "__except(expression)" secondary-block
     */
     struct secondary_block* _Owner secondary_block;
     struct secondary_block* _Owner _Opt catch_secondary_block_opt;
@@ -1199,6 +1206,7 @@ struct try_statement
     struct token* last_token;
     struct token* _Opt catch_token_opt; /*catch*/
 
+    struct expression* msvc_except_expression;
     int catch_label_id;
 };
 

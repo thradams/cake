@@ -495,6 +495,12 @@ enum token_type
     TK_KEYWORD_MSVC__STDCALL,
     TK_KEYWORD_MSVC__CDECL,    
     TK_KEYWORD_MSVC__DECLSPEC,
+    
+    TK_KEYWORD_MSVC__TRY,
+    TK_KEYWORD_MSVC__EXCEPT,
+    TK_KEYWORD_MSVC__FINALLY,
+    TK_KEYWORD_MSVC__LEAVE,
+
 //#endif
 
     TK_KEYWORD__ASM, 
@@ -3896,6 +3902,10 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
     {
 
     }
+    else if (w == W_LOCATION)
+    {
+        //location is always printed
+    }
     else
     {
         return false;
@@ -4563,7 +4573,17 @@ int is_nondigit(const struct stream* p)
     */
     return (p->current[0] >= 'a' && p->current[0] <= 'z') ||
         (p->current[0] >= 'A' && p->current[0] <= 'Z') ||
-        (p->current[0] == '_');
+        (p->current[0] == '_') || (p->current[0] == '$');
+
+    
+    /*
+      From the standard:
+      
+      It is implementation-defined
+      if a $ (U+0024, DOLLAR SIGN) may be used as a nondigit character.
+
+      MSVC uses $
+    */
 }
 
 
@@ -7676,15 +7696,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (!macro_is_same(macro, existing_macro))
                 {
-                    preprocessor_diagnostic(C_ERROR_MACRO_REDEFINITION,
-                    ctx,
-                    macro->p_name_token,
-                    "macro redefinition");
-
-                    preprocessor_diagnostic(W_LOCATION,
-                    ctx,
-                    existing_macro->p_name_token,
-                    "previous definition");
+                    if (preprocessor_diagnostic(C_ERROR_MACRO_REDEFINITION,
+                        ctx,
+                        macro->p_name_token,
+                        "macro redefinition"))
+                    {
+                        preprocessor_diagnostic(W_LOCATION,
+                        ctx,
+                        existing_macro->p_name_token,
+                        "previous definition");
+                    }
 
                     macro_delete(macro);
                     throw;
@@ -17250,9 +17271,16 @@ void defer_list_destroy(_Dtor struct defer_list* p);
 struct try_statement
 {
     /*
-      try-statement: (extension)
+      try-statement: (cake- extension)
        "try" secondary-block
        "try" secondary-block "catch" secondary-block
+    */
+
+    /*
+      __try: (msvc extension)
+       "__try" secondary-block
+       "__finally" secondary-block 
+       "__except(expression)" secondary-block
     */
     struct secondary_block* _Owner secondary_block;
     struct secondary_block* _Owner _Opt catch_secondary_block_opt;
@@ -17260,6 +17288,7 @@ struct try_statement
     struct token* last_token;
     struct token* _Opt catch_token_opt; /*catch*/
 
+    struct expression* msvc_except_expression;
     int catch_label_id;
 };
 
@@ -28865,7 +28894,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.47"
+#define CAKE_VERSION "0.12.48"
 
 
 
@@ -30207,9 +30236,22 @@ enum token_type is_keyword(const char* text, enum target target)
         {
             if (strcmp("__ptr32", text) == 0)
                 return TK_KEYWORD_MSVC__PTR32;
+            
             if (strcmp("__ptr64", text) == 0)
                 return TK_KEYWORD_MSVC__PTR64;
 
+            if (strcmp("__try", text) == 0)
+                return TK_KEYWORD_MSVC__TRY;
+            
+            if (strcmp("__except", text) == 0)
+                return TK_KEYWORD_MSVC__EXCEPT;
+
+            if (strcmp("__finally", text) == 0)
+                return TK_KEYWORD_MSVC__FINALLY;
+
+            if (strcmp("__leave", text) == 0)
+                return TK_KEYWORD_MSVC__LEAVE;
+            
             // begin microsoft
             if (strcmp("__int8", text) == 0)
                 return TK_KEYWORD_MSVC__INT8;
@@ -36303,7 +36345,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             options_set_warning(&ctx->options, W_NULLABLE_TO_NON_NULLABLE, nullable_enable);
             options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, nullable_enable);
-
+            options_set_warning(&ctx->options, W_FLOW_NULLABLE_TO_NON_NULLABLE, nullable_enable);
 
 
             if (nullable_enable)
@@ -37240,7 +37282,8 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
             if (p_primary_block->defer_statement == NULL)
                 throw;
         }
-        else if (ctx->current->type == TK_KEYWORD_CAKE_TRY)
+        else if (ctx->current->type == TK_KEYWORD_CAKE_TRY ||
+                 ctx->current->type == TK_KEYWORD_MSVC__TRY)
         {
             p_primary_block->try_statement = try_statement(ctx);
             if (p_primary_block->try_statement == NULL)
@@ -37398,6 +37441,7 @@ static bool first_of_primary_block(const struct parser_ctx* ctx)
         first_of_iteration_statement(ctx) ||
         ctx->current->type == TK_KEYWORD_DEFER /*extension*/ ||
         ctx->current->type == TK_KEYWORD_CAKE_TRY /*extension*/ ||
+        ctx->current->type == TK_KEYWORD_MSVC__TRY ||
         ctx->current->type == TK_KEYWORD__ASM
         )
     {
@@ -38611,24 +38655,24 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
         p_try_statement->first_token = ctx->current;
 
-        assert(ctx->current->type == TK_KEYWORD_CAKE_TRY);
+        if (ctx->current->type != TK_KEYWORD_CAKE_TRY && ctx->current->type != TK_KEYWORD_MSVC__TRY)
+        {
+
+            throw;
+        }
+
         const struct try_statement* _Opt try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
 
         p_try_statement->catch_label_id = ctx->label_id++;
 
 
-        if (parser_match_tk(ctx, TK_KEYWORD_CAKE_TRY) != 0)
-            throw;
-
-#pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wmissing-destructor"    
+        parser_match(ctx);
+            
 
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
         if (p_secondary_block == NULL) throw;
-
         p_try_statement->secondary_block = p_secondary_block;
-#pragma cake diagnostic pop
 
         /*restores the previous one*/
         ctx->p_current_try_statement_opt = try_statement_copy_opt;
@@ -38651,6 +38695,33 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
 
         }
+        else if (ctx->current->type == TK_KEYWORD_MSVC__FINALLY)
+        {
+            p_try_statement->catch_token_opt = ctx->current;
+            parser_match(ctx);
+
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
+
+
+            p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
+            if (p_try_statement->catch_secondary_block_opt == NULL) throw;
+        }
+        else if (ctx->current->type == TK_KEYWORD_MSVC__EXCEPT)
+        {
+
+            //TODO
+            p_try_statement->catch_token_opt = ctx->current;
+            parser_match(ctx);
+            
+            parser_match_tk(ctx, '(');
+            p_try_statement->msvc_except_expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            parser_match_tk(ctx, ')');
+
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
+            p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
+            if (p_try_statement->catch_secondary_block_opt == NULL) throw;
+        }
+
         if (ctx->previous == NULL)
             throw;
 
@@ -44659,12 +44730,34 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
     print_identation(ctx, oss);
-    ss_fprintf(oss, "if (1) /*try*/\n");
+
+    if (p_try_statement->first_token->type == TK_KEYWORD_CAKE_TRY)
+        ss_fprintf(oss, "if (1) /*try*/\n");
+    else if (p_try_statement->first_token->type == TK_KEYWORD_MSVC__TRY)
+        ss_fprintf(oss, "__try\n");
 
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
+
+    if (p_try_statement->catch_token_opt)
+    {
+        if (p_try_statement->catch_token_opt->type == TK_KEYWORD_CAKE_CATCH)
+        {
+            ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
+        }
+        else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__FINALLY)
+        {
+            ss_fprintf(oss, "__finally\n");
+        }
+        else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__EXCEPT)
+        {
+            ss_fprintf(oss, "__except(");
+            d_visit_expression(ctx, oss, p_try_statement->msvc_except_expression);
+            ss_fprintf(oss, ")\n");
+        }
+    }
+
 
     if (p_try_statement->catch_secondary_block_opt)
     {
@@ -54426,6 +54519,7 @@ CAKE_STANDARD_MACROS
 "#define _WIN32 1\n"
 "#define _INTEGRAL_MAX_BITS 64\n"
 "#define _MSC_VER 1944\n"
+"#define _MSC_EXTENSIONS 1\n"
 "#define _M_IX86 600\n"
 "#define __pragma(a)\n"
 "\n";
@@ -54442,6 +54536,7 @@ CAKE_STANDARD_MACROS
 "#define _WIN64 1\n"
 "#define _INTEGRAL_MAX_BITS 64\n"
 "#define _MSC_VER 1944\n"
+"#define _MSC_EXTENSIONS 1\n"
 "#define _M_X64 100\n"
 "#define __pragma(a)\n"
 "\n";

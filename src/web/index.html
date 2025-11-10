@@ -197,7 +197,7 @@ the previous mode has been discontinued at version 0.9.36.</p>
 
 <p>Then at <em>./src</em> dir type:</p>
 
-<pre><code>call emcc -DMOCKFILES &quot;lib.c&quot; -o &quot;Web\cakejs.js&quot; -s WASM=0 -s EXPORTED_FUNCTIONS=&quot;[&#39;_CompileText&#39;]&quot; -s EXTRA_EXPORTED_RUNTIME_METHODS=&quot;[&#39;ccall&#39;, &#39;cwrap&#39;]&quot;
+<pre><code>call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar &quot;lib.c&quot; -o &quot;Web\cakejs.js&quot; -s WASM=0 -s EXPORTED_FUNCTIONS=&quot;[&#39;_CompileText&#39;]&quot; -s EXTRA_EXPORTED_RUNTIME_METHODS=&quot;[&#39;ccall&#39;, &#39;cwrap&#39;]&quot;
 </code></pre>
 
 <p>This will generate the <em>\src\Web\cake.js</em></p>

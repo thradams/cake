@@ -192,6 +192,7 @@ CAKE_STANDARD_MACROS
 "#define _WIN32 1\n"
 "#define _INTEGRAL_MAX_BITS 64\n"
 "#define _MSC_VER 1944\n"
+"#define _MSC_EXTENSIONS 1\n"
 "#define _M_IX86 600\n"
 "#define __pragma(a)\n"
 "\n";
@@ -208,6 +209,7 @@ CAKE_STANDARD_MACROS
 "#define _WIN64 1\n"
 "#define _INTEGRAL_MAX_BITS 64\n"
 "#define _MSC_VER 1944\n"
+"#define _MSC_EXTENSIONS 1\n"
 "#define _M_X64 100\n"
 "#define __pragma(a)\n"
 "\n";

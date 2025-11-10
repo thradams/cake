@@ -127,7 +127,7 @@ The normal build also generates a file *lib.c* that is the amalgamated  version 
 Then at _./src_ dir type:
 
 ```
-call emcc -DMOCKFILES "lib.c" -o "Web\cakejs.js" -s WASM=0 -s EXPORTED_FUNCTIONS="['_CompileText']" -s EXTRA_EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap']"
+call emcc -sSTACK_SIZE=8388608 -DMOCKFILES -Wno-multichar "lib.c" -o "Web\cakejs.js" -s WASM=0 -s EXPORTED_FUNCTIONS="['_CompileText']" -s EXTRA_EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap']"
 ```
 
 This will generate the *\src\Web\cake.js*

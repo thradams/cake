@@ -1305,9 +1305,22 @@ enum token_type is_keyword(const char* text, enum target target)
         {
             if (strcmp("__ptr32", text) == 0)
                 return TK_KEYWORD_MSVC__PTR32;
+            
             if (strcmp("__ptr64", text) == 0)
                 return TK_KEYWORD_MSVC__PTR64;
 
+            if (strcmp("__try", text) == 0)
+                return TK_KEYWORD_MSVC__TRY;
+            
+            if (strcmp("__except", text) == 0)
+                return TK_KEYWORD_MSVC__EXCEPT;
+
+            if (strcmp("__finally", text) == 0)
+                return TK_KEYWORD_MSVC__FINALLY;
+
+            if (strcmp("__leave", text) == 0)
+                return TK_KEYWORD_MSVC__LEAVE;
+            
             // begin microsoft
             if (strcmp("__int8", text) == 0)
                 return TK_KEYWORD_MSVC__INT8;
@@ -7401,7 +7414,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             options_set_warning(&ctx->options, W_NULLABLE_TO_NON_NULLABLE, nullable_enable);
             options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, nullable_enable);
-
+            options_set_warning(&ctx->options, W_FLOW_NULLABLE_TO_NON_NULLABLE, nullable_enable);
 
 
             if (nullable_enable)
@@ -8338,7 +8351,8 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
             if (p_primary_block->defer_statement == NULL)
                 throw;
         }
-        else if (ctx->current->type == TK_KEYWORD_CAKE_TRY)
+        else if (ctx->current->type == TK_KEYWORD_CAKE_TRY ||
+                 ctx->current->type == TK_KEYWORD_MSVC__TRY)
         {
             p_primary_block->try_statement = try_statement(ctx);
             if (p_primary_block->try_statement == NULL)
@@ -8496,6 +8510,7 @@ static bool first_of_primary_block(const struct parser_ctx* ctx)
         first_of_iteration_statement(ctx) ||
         ctx->current->type == TK_KEYWORD_DEFER /*extension*/ ||
         ctx->current->type == TK_KEYWORD_CAKE_TRY /*extension*/ ||
+        ctx->current->type == TK_KEYWORD_MSVC__TRY ||
         ctx->current->type == TK_KEYWORD__ASM
         )
     {
@@ -9709,24 +9724,24 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
         p_try_statement->first_token = ctx->current;
 
-        assert(ctx->current->type == TK_KEYWORD_CAKE_TRY);
+        if (ctx->current->type != TK_KEYWORD_CAKE_TRY && ctx->current->type != TK_KEYWORD_MSVC__TRY)
+        {
+
+            throw;
+        }
+
         const struct try_statement* _Opt try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
 
         p_try_statement->catch_label_id = ctx->label_id++;
 
 
-        if (parser_match_tk(ctx, TK_KEYWORD_CAKE_TRY) != 0)
-            throw;
-
-#pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wmissing-destructor"    
+        parser_match(ctx);
+            
 
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
         if (p_secondary_block == NULL) throw;
-
         p_try_statement->secondary_block = p_secondary_block;
-#pragma cake diagnostic pop
 
         /*restores the previous one*/
         ctx->p_current_try_statement_opt = try_statement_copy_opt;
@@ -9749,6 +9764,33 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
 
         }
+        else if (ctx->current->type == TK_KEYWORD_MSVC__FINALLY)
+        {
+            p_try_statement->catch_token_opt = ctx->current;
+            parser_match(ctx);
+
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
+
+
+            p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
+            if (p_try_statement->catch_secondary_block_opt == NULL) throw;
+        }
+        else if (ctx->current->type == TK_KEYWORD_MSVC__EXCEPT)
+        {
+
+            //TODO
+            p_try_statement->catch_token_opt = ctx->current;
+            parser_match(ctx);
+            
+            parser_match_tk(ctx, '(');
+            p_try_statement->msvc_except_expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            parser_match_tk(ctx, ')');
+
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
+            p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
+            if (p_try_statement->catch_secondary_block_opt == NULL) throw;
+        }
+
         if (ctx->previous == NULL)
             throw;
 

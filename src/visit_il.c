@@ -1833,12 +1833,34 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
     print_identation(ctx, oss);
-    ss_fprintf(oss, "if (1) /*try*/\n");
+
+    if (p_try_statement->first_token->type == TK_KEYWORD_CAKE_TRY)
+        ss_fprintf(oss, "if (1) /*try*/\n");
+    else if (p_try_statement->first_token->type == TK_KEYWORD_MSVC__TRY)
+        ss_fprintf(oss, "__try\n");
 
     d_visit_secondary_block(ctx, oss, p_try_statement->secondary_block);
 
     print_identation(ctx, oss);
-    ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
+
+    if (p_try_statement->catch_token_opt)
+    {
+        if (p_try_statement->catch_token_opt->type == TK_KEYWORD_CAKE_CATCH)
+        {
+            ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
+        }
+        else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__FINALLY)
+        {
+            ss_fprintf(oss, "__finally\n");
+        }
+        else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__EXCEPT)
+        {
+            ss_fprintf(oss, "__except(");
+            d_visit_expression(ctx, oss, p_try_statement->msvc_except_expression);
+            ss_fprintf(oss, ")\n");
+        }
+    }
+
 
     if (p_try_statement->catch_secondary_block_opt)
     {

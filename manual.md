@@ -1412,7 +1412,7 @@ __declspec
 __cdecl
 __fastcall, __stdcall
 __forceinline alias for inline in cake
-
+__pragma
 ```
 
 ### Extension assert built-in
