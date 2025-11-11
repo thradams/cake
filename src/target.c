@@ -7,297 +7,47 @@
 #include <inttypes.h>
 #include <assert.h>
 
+static char gcc_builtins_include[] =
+{
+ #include "include/x86_x64_gcc_builtins.h.include"
+ ,0
+};
+
+static char x86_x64_gcc_macros[] =
+{
+ #include "include/x86_x64_gcc_macros.h.include"
+ ,0
+};
+
+static char x86_msvc_macros[] =
+{
+ #include "include/x86_msvc_macros.h.include"
+ ,0
+};
+
+static char x64_msvc_macros[] =
+{
+ #include "include/x64_msvc_macros.h.include"
+ ,0
+};
+
+
+static char catalina_macros[] =
+{
+ #include "include/catalina_macros.h.include"
+ ,0
+};
+
+static char ccu8_macros[] =
+{
+ #include "include/ccu8_macros.h.include"
+ ,0
+};
+
+
 #ifndef _Countof
 #define _Countof(A) (sizeof(A)/sizeof((A)[0]))
 #endif
-
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-
-#define CAKE_STANDARD_MACROS  \
-"#define __CAKE__ 202311L\n"\
-"#define __STDC_VERSION__ 202311L\n"\
-"#define __FILE__ \"__FILE__\"\n"\
-"#define __LINE__ 0\n"\
-"#define __COUNTER__ 0\n"\
-"#define _CONSOLE\n"\
-"#define __STDC_OWNERSHIP__ 1\n" \
-"#define __STDC_NO_ATOMICS__ " TOSTRING(__STDC_NO_ATOMICS__) "\n"\
-"#define __STDC_NO_COMPLEX__  " TOSTRING(__STDC_NO_COMPLEX__) "\n"\
-"#define __STDC_NO_THREADS__   " TOSTRING(__STDC_NO_THREADS__) "\n"\
-"#define __STDC_NO_VLA__    " TOSTRING(__STDC_NO_VLA__) "\n"
-
-
-/*
-  To see all predefined macros
-  gcc -dM -E
-  For some reason __STDC_HOSTED__ is not printed
-  but it is defined (maybe others)
-*/
-const char* TARGET_X86_X64_GCC_PREDEFINED_MACROS =
-#ifdef __EMSCRIPTEN__
-//include dir on emscripten
-"#pragma dir \"c:/\"\n"
-#endif
-
-CAKE_STANDARD_MACROS
-"#define __linux__            1\n"
-"#define __extension__        \n"    /*this is not a macro*/
-"#define __GNUC__             4\n"      /*this number is reduced to parser headers without all GCC extensions*/
-"#define __GNUC_MINOR__       1\n"
-"#define __STDC_HOSTED__      1\n"
-"#define __STDC__             1\n"
-"#define __x86_64__           1\n"
-"#define __CHAR_BIT__         8\n"
-"#define __SIZE_TYPE__        long unsigned int\n"
-"#define __PTRDIFF_TYPE__     long int\n"
-"#define __WCHAR_TYPE__       int\n"
-"#define __WINT_TYPE__        unsigned int\n"
-"#define __INTMAX_TYPE__      long int\n"
-"#define __UINTMAX_TYPE__     long unsigned int\n"
-"#define __SIG_ATOMIC_TYPE__  int\n"
-"#define __INT8_TYPE__        signed char\n"
-"#define __INT16_TYPE__       short int\n"
-"#define __INT32_TYPE__       int\n"
-"#define __INT64_TYPE__       long int\n"
-"#define __UINT8_TYPE__       unsigned char\n"
-"#define __UINT16_TYPE__      short unsigned int\n"
-"#define __UINT32_TYPE__      unsigned int\n"
-"#define __UINT64_TYPE__      long unsigned int\n"
-"#define __INT_LEAST8_TYPE__  signed char\n"
-"#define __INT_LEAST16_TYPE__ short int\n"
-"#define __INT_LEAST32_TYPE__ int\n"
-"#define __INT_LEAST64_TYPE__ long int\n"
-"#define __UINT_LEAST8_TYPE__ unsigned char\n"
-"#define __UINT_LEAST16_TYPE__ short unsigned int\n"
-"#define __UINT_LEAST32_TYPE__ unsigned int\n"
-"#define __UINT_LEAST64_TYPE__ long unsigned int\n"
-"#define __INT_FAST8_TYPE__    signed char\n"
-"#define __INT_FAST16_TYPE__   long int\n"
-"#define __INT_FAST32_TYPE__   long int\n"
-"#define __INT_FAST64_TYPE__   long int\n"
-"#define __UINT_FAST8_TYPE__   unsigned char\n"
-"#define __UINT_FAST16_TYPE__  long unsigned int\n"
-"#define __UINT_FAST32_TYPE__  long unsigned int\n"
-"#define __UINT_FAST64_TYPE__  long unsigned int\n"
-"#define __INTPTR_TYPE__       long int\n"
-"#define __UINTPTR_TYPE__      long unsigned int\n"
-"#define __DBL_MAX__           ((double)1.79769313486231570814527423731704357e+308L)\n"
-"#define __DBL_MIN__           ((double)2.22507385850720138309023271733240406e-308L)\n"
-"#define __FLT_RADIX__         2\n"
-"#define __FLT_EPSILON__       1.19209289550781250000000000000000000e-7F\n"
-"#define __DBL_EPSILON__       ((double)2.22044604925031308084726333618164062e-16L)\n"
-"#define __LDBL_EPSILON__      1.08420217248550443400745280086994171e-19L\n"
-"#define __DBL_DECIMAL_DIG__   17\n"
-"#define __FLT_EVAL_METHOD__   0\n"
-"#define __FLT_RADIX__         2\n"
-"#define __DBL_MAX_EXP__       1024\n"
-"#define __DECIMAL_DIG__       21\n"
-"#define __FLT_DECIMAL_DIG__   9\n"
-"#define __FLT_MIN_10_EXP__    (-37)\n"
-"#define __FLT_MIN__           1.17549435082228750796873653722224568e-38F\n"
-"#define __FLT_MAX__           3.40282346638528859811704183484516925e+38F\n"
-"#define __FLT_EPSILON__       1.19209289550781250000000000000000000e-7F\n"
-"#define __FLT_DIG__           6\n"
-"#define __FLT_MANT_DIG__      24\n"
-"#define __FLT_MIN_EXP__       (-125)\n"
-"#define __FLT_MAX_10_EXP__    38\n"
-"#define __FLT_EVAL_METHOD__   0\n"
-"#define __FLT_MAX_EXP__       128\n"
-"#define __FLT_HAS_DENORM__    1\n"
-"#define __SCHAR_MAX__         0x7f\n"
-"#define __WCHAR_MAX__         0x7fffffff\n"
-"#define __SHRT_MAX__          0x7fff\n"
-"#define __INT_MAX__           0x7fffffff\n"
-"#define __LONG_MAX__          0x7fffffffffffffffL\n"
-"#define __LONG_LONG_MAX__     0x7fffffffffffffffLL\n"
-"#define __WINT_MAX__          0xffffffffU\n"
-"#define __SIZE_MAX__          0xffffffffffffffffUL\n"
-"#define __PTRDIFF_MAX__       0x7fffffffffffffffL\n"
-"#define __INTMAX_MAX__        0x7fffffffffffffffL\n"
-"#define __UINTMAX_MAX__       0xffffffffffffffffUL\n"
-"#define __SIG_ATOMIC_MAX__    0x7fffffff\n"
-"#define __INT8_MAX__          0x7f\n"
-"#define __INT16_MAX__         0x7fff\n"
-"#define __INT32_MAX__         0x7fffffff\n"
-"#define __INT64_MAX__         0x7fffffffffffffffL\n"
-"#define __UINT8_MAX__         0xff\n"
-"#define __UINT16_MAX__        0xffff\n"
-"#define __UINT32_MAX__        0xffffffffU\n"
-"#define __UINT64_MAX__        0xffffffffffffffffUL\n"
-"#define __INT_LEAST8_MAX__    0x7f\n"
-"#define __INT_LEAST16_MAX__   0x7fff\n"
-"#define __INT_LEAST32_MAX__   0x7fffffff\n"
-"#define __INT_LEAST64_MAX__   0x7fffffffffffffffL\n"
-"#define __UINT_LEAST8_MAX__   0xff\n"
-"#define __UINT_LEAST16_MAX__  0xffff\n"
-"#define __UINT_LEAST32_MAX__  0xffffffffU\n"
-"#define __UINT_LEAST64_MAX__  0xffffffffffffffffUL\n"
-"#define __INT_FAST8_MAX__     0x7f\n"
-"#define __INT_FAST16_MAX__    0x7fffffffffffffffL\n"
-"#define __INT_FAST32_MAX__    0x7fffffffffffffffL\n"
-"#define __INT_FAST64_MAX__    0x7fffffffffffffffL\n"
-"#define __UINT_FAST8_MAX__    0xff\n"
-"#define __UINT_FAST16_MAX__   0xffffffffffffffffUL\n"
-"#define __UINT_FAST32_MAX__   0xffffffffffffffffUL\n"
-"#define __UINT_FAST64_MAX__   0xffffffffffffffffUL\n"
-"#define __INTPTR_MAX__        0x7fffffffffffffffL\n"
-"#define __UINTPTR_MAX__       0xffffffffffffffffUL\n"
-"#define __WCHAR_MIN__        (-0x7fffffff - 1)\n"
-"#define __WINT_MIN__         0U\n"
-"#define __SIG_ATOMIC_MIN__ (-0x7fffffff - 1)\n"
-"#define __INT8_C (-0x7fffffff - 1)\n"
-"#define __SCHAR_WIDTH__ 8\n"
-"#define __SHRT_WIDTH__ 16\n"
-"#define __INT_WIDTH__ 32\n"
-"#define __LONG_WIDTH__ 64\n"
-"#define __LONG_LONG_WIDTH__ 64\n"
-"#define __PTRDIFF_WIDTH__ 64\n"
-"#define __SIG_ATOMIC_WIDTH__ 32\n"
-"#define __SIZE_WIDTH__ 64\n"
-"#define __WCHAR_WIDTH__ 32\n"
-"#define __WINT_WIDTH__ 32\n"
-"#define __INT_LEAST8_WIDTH__ 8\n"
-"#define __INT_LEAST16_WIDTH__ 16\n"
-"#define __INT_LEAST32_WIDTH__ 32\n"
-"#define __INT_LEAST64_WIDTH__ 64\n"
-"#define __INT_FAST8_WIDTH__ 8\n"
-"#define __INT_FAST16_WIDTH__ 64\n"
-"#define __INT_FAST32_WIDTH__ 64\n"
-"#define __INT_FAST64_WIDTH__ 64\n"
-"#define __INTPTR_WIDTH__ 64\n"
-"#define __INTMAX_WIDTH__ 64\n"
-"#define __SIZEOF_INT__ 4\n"
-"#define __SIZEOF_LONG__ 8\n"
-"#define __SIZEOF_LONG_LONG__ 8\n"
-"#define __SIZEOF_SHORT__ 2\n"
-"#define __SIZEOF_POINTER__ 8\n"
-"#define __SIZEOF_FLOAT__ 4\n"
-"#define __SIZEOF_DOUBLE__ 8\n"
-"#define __SIZEOF_LONG_DOUBLE__ 16\n"
-"#define __SIZEOF_SIZE_T__ 8\n"
-"#define __SIZEOF_WCHAR_T__ 4\n"
-"#define __SIZEOF_WINT_T__ 4\n"
-"#define __SIZEOF_PTRDIFF_T__ 8\n";
-
-
-const char* TARGET_X86_MSVC_PREDEFINED_MACROS =
-
-#ifdef __EMSCRIPTEN__
-//include dir on emscripten
-"#pragma dir \"c:/\"\n"
-#endif
-
-CAKE_STANDARD_MACROS
-"#define _WIN32 1\n"
-"#define _INTEGRAL_MAX_BITS 64\n"
-"#define _MSC_VER 1944\n"
-"#define _MSC_EXTENSIONS 1\n"
-"#define _M_IX86 600\n"
-"#define __pragma(a)\n"
-"\n";
-
-const char* TARGET_X64_MSVC_PREDEFINED_MACROS =
-
-#ifdef __EMSCRIPTEN__
-//include dir on emscripten
-"#pragma dir \"c:/\"\n"
-#endif
-
-CAKE_STANDARD_MACROS
-"#define _WIN32 1\n"
-"#define _WIN64 1\n"
-"#define _INTEGRAL_MAX_BITS 64\n"
-"#define _MSC_VER 1944\n"
-"#define _MSC_EXTENSIONS 1\n"
-"#define _M_X64 100\n"
-"#define __pragma(a)\n"
-"\n";
-
-
-const char* TARGET_CCU8_PREDEFINED_MACROS =
-
-#ifdef __EMSCRIPTEN__
-//include dir on emscripten
-"#pragma dir \"c:/\"\n"
-#endif
-
-CAKE_STANDARD_MACROS
-"#define __EI()\n"
-"#define __DI()\n"
-"#define __asm()\n"
-"#define __SEGBASE_N()\n"
-"#define __SEGBASE_F()\n"
-"#define __SEGSIZE()\n"
-"#define __near\n"
-"#define __far\n"
-"#define __huge\n"
-"#define __PACKED\n"
-"#define __UNPACKED\n"
-"#define __noreg\n"
-"#define __STDC__\n"
-"#define __CCU8__\n"
-"#define __VERSION__\n"
-"#define __ARCHITECTURE__\n"
-"#define __DEBUG__\n"
-"#define __MS__\n"
-"#define __ML__\n"
-"#define __ML__\n"
-"#define __UNSIGNEDCHAR__\n"
-"#define __NOFAR__\n"
-"#define __LCCU16__\n"
-"#define __LAPISOMF__\n"
-"\n";
-
-const char* TARGET_LCCU16_PREDEFINED_MACROS =
-
-#ifdef __EMSCRIPTEN__
-//include dir on emscripten
-"#pragma dir \"c:/\"\n"
-#endif
-
-CAKE_STANDARD_MACROS
-"#define __EI()\n"
-"#define __DI()\n"
-"#define __asm()\n"
-"#define __SEGBASE_N()\n"
-"#define __SEGBASE_F()\n"
-"#define __SEGSIZE()\n"
-"#define __near\n"
-"#define __far\n"
-"#define __huge\n"
-"#define __PACKED\n"
-"#define __UNPACKED\n"
-"#define __noreg\n"
-"#define __STDC__\n"
-"#define __CCU8__\n"
-"#define __VERSION__\n"
-"#define __ARCHITECTURE__\n"
-"#define __DEBUG__\n"
-"#define __MS__\n"
-"#define __ML__\n"
-"#define __ML__\n"
-"#define __UNSIGNEDCHAR__\n"
-"#define __NOFAR__\n"
-"#define __LCCU16__\n"
-"#define __LAPISOMF__\n"
-"\n";
-
-const char* TARGET_CATALINA_PREDEFINED_MACROS =
-
-#ifdef __EMSCRIPTEN__
-//include dir on emscripten
-"#pragma dir \"c:/\"\n"
-#endif
-
-CAKE_STANDARD_MACROS
-"#define ___CATALINA__\n"
-"#define ___CATALYST__\n"
-"\n";
-
-
-static_assert(NUMBER_OF_TARGETS == 6, "add static struct platform platform_name");
-
 
 
 static struct platform platform_x86_x64_gcc =
@@ -654,51 +404,67 @@ const char* target_get_predefined_macros(enum target e)
 {
     switch (e)
     {
-    case TARGET_X86_X64_GCC: return TARGET_X86_X64_GCC_PREDEFINED_MACROS;
-    case TARGET_X86_MSVC:    return TARGET_X86_MSVC_PREDEFINED_MACROS;
-    case TARGET_X64_MSVC:    return TARGET_X64_MSVC_PREDEFINED_MACROS;
-    case TARGET_CCU8:        return TARGET_CCU8_PREDEFINED_MACROS;
-    case TARGET_LCCU16:      return TARGET_LCCU16_PREDEFINED_MACROS;
-    case TARGET_CATALINA:    return TARGET_CATALINA_PREDEFINED_MACROS;
+    case TARGET_X86_X64_GCC: return x86_x64_gcc_macros;
+    case TARGET_X86_MSVC:    return x86_msvc_macros;
+    case TARGET_X64_MSVC:    return x64_msvc_macros;
+    case TARGET_CCU8:        return ccu8_macros;
+    case TARGET_LCCU16:      return ccu8_macros;
+    case TARGET_CATALINA:    return catalina_macros;
     }
     return "";
 };
 
+
+
+const char* target_get_builtins(enum target e)
+{
+    switch (e)
+    {
+    case TARGET_X86_X64_GCC: return gcc_builtins_include;
+    case TARGET_X86_MSVC:    return "";
+    case TARGET_X64_MSVC:    return "";
+    case TARGET_CCU8:        return "";
+    case TARGET_LCCU16:      return "";
+    case TARGET_CATALINA:    return "";
+    }
+    return "";
+}
+
 #ifdef TEST
 #include "unit_test.h"
 
-void target_self_test()
-{
-    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
-    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
-    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
-    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
-    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
+    void target_self_test()
+    {
+        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
+        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
+        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
+        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
+        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
 
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
-    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
+        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
+        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
+        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
+        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
+        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
 
-    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
-    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
-    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
-    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
-    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
+        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
+        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
+        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
+        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
+        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
 
 
-    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
+        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
 
-    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
+        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
 
-    
+
 #if CHAR_MIN < 0
-    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
+        assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
 #else
-    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
+        assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
 #endif
-        
 
-}
+
+    }
 #endif

@@ -5870,7 +5870,14 @@ static bool is_builtin_macro(const char* name)
 
     return false;
 }
-
+static void add_define(struct preprocessor_ctx* ctx, const char* text)
+{
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list l2 = tokenizer(&tctx, text, "define", 0, TK_FLAG_NONE);
+    struct token_list tl2 = preprocessor(ctx, &l2, 0);
+    token_list_destroy(&tl2);
+    token_list_destroy(&l2);
+}
 void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
 {
     const struct diagnostic w =
@@ -5887,23 +5894,19 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     struct tm* tm = localtime(&now);
 
     struct tokenizer_ctx tctx = { 0 };
-
+    add_define(ctx, "#define __CAKE__  1\n");
+    add_define(ctx, "#define __FILE__ \"\" \n");
+    add_define(ctx, "#define __LINE__  0 \n");
+    add_define(ctx, "#define __COUNTER__  0 \n");
+    add_define(ctx, "#define __STDC_VERSION__  202311L \n");
+    
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
-    struct token_list l1 = tokenizer(&tctx, datastr, "__DATE__ macro inclusion", 0, TK_FLAG_NONE);
-    struct token_list tl1 = preprocessor(ctx, &l1, 0);
-
-    token_list_destroy(&tl1);
-    token_list_destroy(&l1);
-
+    add_define(ctx, datastr);
     char timestr[100] = { 0 };
     snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-    struct token_list l2 = tokenizer(&tctx, timestr, "__TIME__ macro inclusion", 0, TK_FLAG_NONE);
-    struct token_list tl2 = preprocessor(ctx, &l2, 0);
-
-    token_list_destroy(&tl2);
-    token_list_destroy(&l2);
+    add_define(ctx, datastr);    
 
 
     /*
@@ -6135,8 +6138,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
-    case TK_KEYWORD_GCC__BUILTIN_XXXXX: return "TK_KEYWORD_GCC__BUILTIN_XXXXX";
-
+    
     }
     return "TK_X_MISSING_NAME";
 };
@@ -6346,7 +6348,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "__builtin_c23_va_start";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "__builtin_va_copy";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "__builtin_offsetof";
-    case TK_KEYWORD_GCC__BUILTIN_XXXXX: return "__builtin_xxxxx";
+    
 
     default:
         break;

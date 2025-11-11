@@ -77,6 +77,18 @@ static int compare_function_arguments(struct parser_ctx* ctx,
             p_current_parameter_type = p_current_parameter_type->next;
         }
 
+        if (p_current_parameter_type == NULL && 
+            p_type->name_opt && 
+            strncmp(p_type->name_opt, "__builtin", sizeof("__builtin") - 1) == 0)
+        {
+            //some builtin function are like templates 
+            //For instance :
+            // bool __builtin_add_overflow(type1 a, type2 b, type3 * res)
+            // Then we declare as bool __builtin_add_overflow()
+            // and we dont check  arguments
+            return 0;
+        }
+
         if (p_current_argument != NULL && !p_param_list->is_var_args)
         {
             compiler_diagnostic(C_ERROR_TOO_MANY_ARGUMENTS, ctx,
@@ -1860,9 +1872,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     p_expression_node_new = NULL;
                     throw;
                 }
-
+                
                 compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list);
-
+                
                 if (ctx->previous == NULL)
                 {
                     expression_delete(p_expression_node_new);
@@ -2463,7 +2475,6 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_C23_VA_START ||
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY ||
         ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF ||
-        ctx->current->type == TK_KEYWORD_GCC__BUILTIN_XXXXX ||
 
         is_first_of_compiler_function(ctx);
 }
@@ -3027,174 +3038,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             new_expression->object = object_make_size_t(ctx->options.target, offsetof);
 
             return new_expression;
-        }
-        else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_XXXXX)
-        {
-            const char* const builtin_name = ctx->current->lexeme;
-
-            struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
-            new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_GCC__BUILTIN_XXXXX;
-
-            parser_match(ctx);
-
-            if (ctx->current == NULL)
-            {
-                unexpected_end_of_file(ctx);
-                expression_delete(new_expression);
-                throw;
-            }
-
-            if (parser_match_tk(ctx, '(') != 0)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-
-            if (ctx->current->type != ')')
-            {
-                new_expression->argument_expression_list = argument_expression_list(ctx, eval_mode);
-            }
-
-            if (parser_match_tk(ctx, ')') != 0)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-
-            //https://gcc.gnu.org/onlinedocs/gcc/Floating-Point-Format-Builtins.html
-
-            if (strcmp(builtin_name, "__builtin_huge_val") == 0 ||
-                strcmp(builtin_name, "__builtin_inf") == 0 ||
-                strcmp(builtin_name, "__builtin_nan(const char* str)") == 0 ||
-                strcmp(builtin_name, "__builtin_nans(const char* str)") == 0 ||
-                strcmp(builtin_name, "__builtin_powi(double, int)") == 0
-                )
-            {
-                new_expression->type = type_make_double();
-            }
-            else if (strcmp(builtin_name, "__builtin_huge_valf") == 0 ||
-                     strcmp(builtin_name, "__builtin_inff") == 0 ||
-                     strcmp(builtin_name, "__builtin_nanf") == 0 ||
-                     strcmp(builtin_name, "__builtin_nansf") == 0 ||
-                     strcmp(builtin_name, "__builtin_powif") == 0)
-            {
-                new_expression->type = type_make_float();
-            }
-            else if (strcmp(builtin_name, "__builtin_add_overflow") == 0 ||
-                     strcmp(builtin_name, "__builtin_sadd_overflow") == 0 ||
-                     strcmp(builtin_name, "__builtin_saddl_overflow") == 0 ||
-                     strcmp(builtin_name, "__builtin_saddll_overflow") == 0 ||
-                     strcmp(builtin_name, "__builtin_uaddl_overflow ") == 0 ||
-                     strcmp(builtin_name, "__builtin_uaddll_overflow") == 0)
-            {
-                new_expression->type = type_make_int_bool_like();
-            }
-            else if (strcmp(builtin_name, "__builtin_huge_vall") == 0 ||
-                    strcmp(builtin_name, "__builtin_infl") == 0 ||
-                    strcmp(builtin_name, "__builtin_nanl") == 0 ||
-                    strcmp(builtin_name, "__builtin_nansl") == 0 ||
-                    strcmp(builtin_name, "__builtin_powil") == 0)
-            {
-                new_expression->type = type_make_long_double();
-            }
-            else if (strcmp(builtin_name, "__builtin_huge_valfN") == 0 ||
-                    strcmp(builtin_name, "__builtin_inffN") == 0 ||
-                    strcmp(builtin_name, "__builtin_nanfN") == 0 ||
-                    strcmp(builtin_name, "__builtin_nansfN") == 0 ||
-                    strcmp(builtin_name, "__builtin_huge_valfNx") == 0 ||
-                    strcmp(builtin_name, "__builtin_inffNx") == 0 ||
-                    strcmp(builtin_name, "__builtin_nanfNx") == 0 ||
-                    strcmp(builtin_name, "__builtin_nansfNx") == 0)
-            {
-                //there is not f floatn in cake yet
-                new_expression->type = type_make_long_double();
-            }
-            else if (strcmp(builtin_name, "__builtin_infd32") == 0 ||
-                     strcmp(builtin_name, "__builtin_infd64") == 0 ||
-                     strcmp(builtin_name, "__builtin_infd128") == 0 ||
-                     strcmp(builtin_name, "__builtin_nand32") == 0 ||
-                     strcmp(builtin_name, "__builtin_nand64") == 0 ||
-                     strcmp(builtin_name, "__builtin_nand128") == 0 ||
-                     strcmp(builtin_name, "__builtin_nansd32") == 0 ||
-                     strcmp(builtin_name, "__builtin_nansd64") == 0 ||
-                     strcmp(builtin_name, "__builtin_nansd128") == 0)
-            {
-                //tODO
-            }
-            else if (strcmp(builtin_name, "__builtin_fpclassify") == 0 ||
-                     strcmp(builtin_name, "__builtin_isinf_sign") == 0 ||
-                     strcmp(builtin_name, "__builtin_issignaling") == 0)
-            {
-                new_expression->type = type_make_int();
-            }
-            else if (strcmp(builtin_name, "__builtin_signbitf") == 0 ||
-                strcmp(builtin_name, "__builtin_signbit") == 0 ||
-                strcmp(builtin_name, "__builtin_signbitl") == 0)
-            {
-                new_expression->type = type_make_int();
-            }
-            else if (strcmp(builtin_name, "__builtin_unreachable") == 0 ||
-                     strcmp(builtin_name, "__builtin_trap") == 0)
-            {
-                new_expression->type = make_void_type();
-            }
-            else if (strcmp(builtin_name, "__builtin_ffs") == 0 ||
-                     strcmp(builtin_name, "__builtin_clz") == 0 ||
-                     strcmp(builtin_name, "__builtin_clrsb ") == 0 ||
-                     strcmp(builtin_name, "__builtin_popcount ") == 0 ||
-                    strcmp(builtin_name, "__builtin_parity") == 0 ||
-                    strcmp(builtin_name, "__builtin_ffsl") == 0 ||
-                    strcmp(builtin_name, "__builtin_clzl") == 0 ||
-                    strcmp(builtin_name, "__builtin_clrsbl") == 0 ||
-                    strcmp(builtin_name, "__builtin_popcountl") == 0 ||
-                    strcmp(builtin_name, "__builtin_parityl") == 0 ||
-                    strcmp(builtin_name, "__builti__builtin_ffsll") == 0 ||
-                    strcmp(builtin_name, "__builtin_clzll") == 0 ||
-                    strcmp(builtin_name, "__builtin_ctzll") == 0 ||
-                    strcmp(builtin_name, "__builtin_clrsbll") == 0 ||
-                    strcmp(builtin_name, "__builtin_parityll") == 0 ||
-                    strcmp(builtin_name, "__builtin_ffsg") == 0 ||
-                    strcmp(builtin_name, "__builtin_clzg") == 0 ||
-                    strcmp(builtin_name, "__builtin_ctzg") == 0 ||
-                    strcmp(builtin_name, "__builtin_clrsbg") == 0 ||
-                    strcmp(builtin_name, "__builtin_popcountg") == 0 ||
-                    strcmp(builtin_name, "__builtin_parityg") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_bit_ceil") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_bit_floor") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_bit_width") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_count_ones") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_count_zeros") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_first_leading_one") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_first_leading_zero") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_first_trailing_one") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_first_trailing_zero") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_has_single_bit") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_leading_ones") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_leading_zeros") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_trailing_ones ") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_trailing_zeros") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_rotate_left") == 0 ||
-                    strcmp(builtin_name, "__builtin_stdc_rotate_right")
-                )
-            {
-                //https://gcc.gnu.org/onlinedocs/gcc/Bit-Operation-Builtins.html
-                new_expression->type = type_make_int();
-            }
-            else
-            {
-                //https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
-                compiler_diagnostic(C_ERROR_NOT_FOUND,
-                                    ctx,
-                                    new_expression->first_token,
-                                    NULL,
-                                    "unknown builtin '%s'", builtin_name);
-                new_expression->type = make_void_type();
-            }
-
-            return new_expression;
-        }
+        }     
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             parser_match(ctx);
