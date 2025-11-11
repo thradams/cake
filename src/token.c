@@ -1581,17 +1581,6 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         }
         *out_value = result;
     }
-    else if (*p >= '1' && *p <= '9')
-    {
-        // decimal digit
-        int result = 0;
-        while ((*p >= '0' && *p <= '9'))
-        {
-            result = result * 10 + (*p - '0');
-            p++;
-        }
-        *out_value = result;
-    }
     else
     {
         switch (*p)
