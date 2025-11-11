@@ -11101,6 +11101,11 @@ struct ast get_ast(struct options* options,
 
         add_standard_macros(&prectx, options->target);
 
+#ifdef __EMSCRIPTEN__
+        /*we mock web version to include from c*/
+        include_dir_add(&prectx.include_dir, "c:/");
+#endif
+
         ast.token_list = preprocessor(&prectx, &list, 0);
         if (prectx.n_errors != 0)
             throw;

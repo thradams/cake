@@ -28731,7 +28731,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.50"
+#define CAKE_VERSION "0.12.51"
 
 
 
@@ -39868,6 +39868,11 @@ struct ast get_ast(struct options* options,
         prectx.macros.capacity = 5000;
 
         add_standard_macros(&prectx, options->target);
+
+#ifdef __EMSCRIPTEN__
+        /*we mock web version to include from c*/
+        include_dir_add(&prectx.include_dir, "c:/");
+#endif
 
         ast.token_list = preprocessor(&prectx, &list, 0);
         if (prectx.n_errors != 0)
