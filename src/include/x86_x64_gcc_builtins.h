@@ -122,3 +122,42 @@ int __builtin_signbit(double x);
 int __builtin_signbitf(float x);
 int __builtin_signbitl(long double x);
 
+
+
+
+int __builtin_ffs(int x);
+int __builtin_clz(unsigned int x);
+int __builtin_ctz(unsigned int x);
+int __builtin_clrsb(int x);
+int __builtin_popcount(unsigned int x);
+int __builtin_parity(unsigned int x);
+int __builtin_ffsl(long);
+int __builtin_clzl(unsigned long);
+int __builtin_ctzl(unsigned long);
+int __builtin_clrsbl(long);
+int __builtin_popcountl(unsigned long);
+int __builtin_parityl(unsigned long);
+int __builtin_ffsll(long long);
+int __builtin_clzll(unsigned long long);
+int __builtin_ctzll(unsigned long long);
+int __builtin_clrsbll(long long);
+int __builtin_popcountll(unsigned long long);
+int __builtin_parityll(unsigned long long);
+int __builtin_ffsg(...);
+
+int __builtin_clrsbg(...);
+int __builtin_parityg(...);
+
+unsigned int __builtin_stdc_bit_width(/*type arg*/);
+unsigned int __builtin_stdc_count_ones(/*type arg*/);
+unsigned int __builtin_stdc_count_zeros(/*type arg*/);
+unsigned int __builtin_stdc_first_leading_one(/*type arg*/);
+unsigned int __builtin_stdc_first_leading_zero(/*type arg*/);
+unsigned int __builtin_stdc_first_trailing_one(/*type arg*/);
+unsigned int __builtin_stdc_first_trailing_zero(/*type arg*/);
+unsigned int __builtin_stdc_has_single_bit(/*type arg*/);
+unsigned int __builtin_stdc_leading_ones(/*type arg*/);
+unsigned int __builtin_stdc_leading_zeros(/*type arg*/);
+unsigned int __builtin_stdc_trailing_ones(/*type arg*/);
+unsigned int __builtin_stdc_trailing_zeros(/*type arg*/);
+

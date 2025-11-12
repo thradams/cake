@@ -54237,6 +54237,12 @@ static char catalina_macros[] =
  ,0
 };
 
+static char catalina_builtins[] =
+{
+ #include "include/catalina_builtins.h.include"
+ ,0
+};
+
 static char ccu8_macros[] =
 {
  #include "include/ccu8_macros.h.include"
@@ -54624,7 +54630,7 @@ const char* target_get_builtins(enum target e)
     case TARGET_X64_MSVC:    return "";
     case TARGET_CCU8:        return "";
     case TARGET_LCCU16:      return "";
-    case TARGET_CATALINA:    return "";
+    case TARGET_CATALINA:    return catalina_builtins;
     }
     return "";
 }
