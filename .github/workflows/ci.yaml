@@ -6,6 +6,20 @@ permissions:
   contents: read
 
 jobs:
+
+  clang-mac:
+    if: false
+    runs-on: macos-latest
+
+    steps:    
+    - uses: actions/checkout@v4
+    - run: clang --version
+    - name: Build and Test Clang      
+      run: |        
+        cd src
+        clang -DTEST -o build  build.c 
+        ./build
+            
   linux-gcc:
     runs-on: ubuntu-22.04
     steps:
@@ -17,7 +31,9 @@ jobs:
         gcc -DTEST build.c -o build
         ./build
 
-  windows-msvc:
+
+
+  windows-msvc-x86:
     runs-on: windows-2022
     steps:
     - uses: actions/checkout@v4
@@ -29,3 +45,18 @@ jobs:
         cd src
         cl build.c -DTEST 
         .\build.exe
+
+  windows-msvc-x64:
+    runs-on: windows-2022
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ilammy/msvc-dev-cmd@v1.13.0
+      with:
+        arch: x64
+    - name: Build and test
+      run: |
+        cd src
+        cl build.c -DTEST 
+        .\build.exe
+
+ 

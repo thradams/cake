@@ -624,6 +624,7 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         //MSVC
         p_token->type == TK_KEYWORD_MSVC__PTR32 ||
         p_token->type == TK_KEYWORD_MSVC__PTR64 ||
+        p_token->type == TK_KEYWORD_MSVC__UNALIGNED ||
 
         /*extensions*/
         p_token->type == TK_KEYWORD__CTOR ||
@@ -1104,6 +1105,11 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD_NULLPTR;
         break;
 
+    case 'o':
+        if (strcmp("offsetof", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
+        break;
+
     case 'l':
         if (strcmp("long", text) == 0)
             return TK_KEYWORD_LONG;
@@ -1305,6 +1311,9 @@ enum token_type is_keyword(const char* text, enum target target)
 
             if (strcmp("__ptr64", text) == 0)
                 return TK_KEYWORD_MSVC__PTR64;
+
+            if (strcmp("__unaligned", text) == 0)
+                return TK_KEYWORD_MSVC__UNALIGNED;
 
             if (strcmp("__try", text) == 0)
                 return TK_KEYWORD_MSVC__TRY;
@@ -2848,7 +2857,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
             if (!type_is_pointer(&p_init_declarator->p_declarator->type) &&
-                p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_DTOR)
+                p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR)
             {
                 if (p_init_declarator->p_declarator->first_token_opt)
                 {
@@ -5531,8 +5540,12 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     case TK_KEYWORD_MSVC__PTR32:
         p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_PTR32;
         break;
+
     case TK_KEYWORD_MSVC__PTR64:
         p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_PTR64;
+        break;
+    case TK_KEYWORD_MSVC__UNALIGNED:
+        p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_UNALIGNED;
         break;
 
     default:
@@ -5545,19 +5558,19 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         switch (ctx->current->type)
         {
         case TK_KEYWORD__CTOR:
-            p_type_qualifier->flags = TYPE_QUALIFIER_CTOR;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CTOR;
             break;
 
         case TK_KEYWORD__DTOR:
-            p_type_qualifier->flags = TYPE_QUALIFIER_DTOR;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_DTOR;
             break;
 
         case TK_KEYWORD_CAKE_OWNER:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OWNER;
             break;
 
         case TK_KEYWORD_CAKE_VIEW:
-            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_VIEW;
             break;
 
         default:
@@ -5571,7 +5584,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         switch (ctx->current->type)
         {
         case TK_KEYWORD_CAKE_OPT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OPT;
             break;
 
         default:
@@ -6467,11 +6480,11 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         {
             if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
             {
-                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CTOR;
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_CTOR;
             }
             else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
             {
-                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_DTOR;
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_DTOR;
             }
         }
         p_parameter_declaration->declaration_specifiers = p_declaration_specifiers;
@@ -11056,7 +11069,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         l = translation_unit(ctx, &local_error); /*insert buitin declarations at scope*/
 
         if (local_error)
-        {            
+        {
             throw;
         }
 

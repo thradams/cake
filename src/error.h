@@ -16,12 +16,12 @@ typedef int errno_t;
 
 #ifndef __CAKE__
 
-//emulate _Countof
-
+/*emulation of c2y _Countof*/
 #ifndef _Countof
 #define _Countof(A) (sizeof(A)/sizeof((A)[0]))
 #endif
 
+/*emulation of cake try catch using macros*/
 #define try  
 #define catch if (0) catch_label:
 #define throw do { throw_break_point(); goto catch_label;}while (0)

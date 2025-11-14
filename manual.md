@@ -1,34 +1,22 @@
 
-## Intro
+## Using cake
+
 Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux.
 This approach makes Cake useful in real and existing programs. 
 
 When applicable, Cake uses the same command line options of MSVC and GCC.
 
-## Static analyzer
-For static analyzer concepts of ownership and nullable pointers visit  [ownership](ownership.html) 
+### Include directories
 
-## Include directories
+Include directories are specified in `cakeconfig.h` file.
 
-On Windows, Cake can be used on the command line similarly to MSVC.
-Cake reads the `INCLUDE` variable, the same variable used by MSVC to locate the include directories.
-
-Additionally, you can run Cake outside the Visual Studio command prompt by placing the file `cakeconfig.h` in 
-the same directory or above the source files, and specifying the directories using #pragma dir.
-
-If Cake doesn't find `cakeconfig.h` in the local directories, it will try to locate it in the 
-same path as the Cake executable.
-
-The **-autoconfig** option generates the `cakeconfig.h` automatically on both Windows and Linux.
-
-On Windows, to manually discover which directories are included, you can run the command:
+On Windows, to manually discover which directories are included, you can run at 
+Visual Studio command prompt the command:
 
 
 ```
 echo %INCLUDE%
 ```
-
-at Visual Studio command prompt.
 
 To find out what are the directories used by GCC type:
 
@@ -36,7 +24,7 @@ To find out what are the directories used by GCC type:
 echo | gcc -E -Wp,-v -
 ```
   
-Sample of cakeconfig.h
+Sample of `cakeconfig.h`
 
 ```c
 
@@ -73,7 +61,13 @@ Sample of cakeconfig.h
 
 ```
 
-Sample, project `cakeconfig.h`
+The command line `cake -autoconfig` generates the cake config file.
+
+We can have a `cakeconfig.h` per project and call a more generic `cakeconfig.h` for system includes.
+
+Sample: 
+
+`yourproject\cakeconfig.h`
 
 ```c
 
@@ -86,7 +80,8 @@ Sample, project `cakeconfig.h`
 ```
 
 
-## Command line
+### Command line
+
 
 ```
 cake [options] source1.c source2.c ...
@@ -105,77 +100,70 @@ SAMPLES
   
 ```
 
-### OPTIONS
+### Options
 
-#### -I  (same as GCC and MSVC)
+ * `-I`  (same as GCC and MSVC)
 Adds a directory to the list of directories searched for include files
 
-####  -no-output
+ * `-no-output`
 Cake will not generate output
 
-#### -D (same as GCC and MSVC)
+* `-D` (same as GCC and MSVC)
 Defines a preprocessing symbol for a source file
 
-#### -E (same as GCC and MSVC)
+* `-E` (same as GCC and MSVC)
 Copies preprocessor output to standard output
 
-#### -o name.c (same as GCC and MSVC)
+* `-o name.c` (same as GCC and MSVC)
   Defines the output name, when we compile a single file
 
-#### -dump-tokens            
+* `-dump-tokens`
 Output tokens before preprocessor
 
-#### -Wname -Wno-name  (same as GCC)   
+* `-Wnumber -Wno-number`
 Enables or disable warnings.
 See [warnings](warnings.html)
 
-#### -disable-assert
-disable cake extension where assert is an statement. See extensions
+* `-disable-assert`
+Disable cake extension where assert is an statement.
 
-#### -H (same as gcc, /showIncludes in MSVC)
+* `-H` (same as gcc, /showIncludes in MSVC)
 Causes the compiler to output a list of the include files. 
 
-#### -preprocess-def-macro 
+* `*-preprocess-def-macro`
 preprocess def macros after expansion
 
-#### -Wall
+* `-Wall`
 Enables all warnings
 
-#### -sarif               
+* `-sarif`
 Generates sarif files.
 Sarif Visual Studio plugin https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer
 
-#### -sarif-path               
-Specifies the Sarif output dir.
+* `-sarif-path`
+Specifies the Sarif output dir. "Visual Studio -> External Tools" 
+`-Wstyle  -msvc-output  -no-output -sarif -sarif-path "$(SolutionDir).sarif" $(ItemPath)`
 
-Inside "Visual Studio -> External Tools" this command can be used for static analysis.
-
-`-Wstyle  -msvc-output  -no-output -sarif -sarif-path "$(SolutionDir).sarif" $(ItemPath)´
-
-### -target
+*  `-target`
 Defines how the source code is interpreted (integers sizes, align etc) and specifies the
 C89 output that is compatible with the target compiler.
 Options: x86\_x64_gcc, x64\_msvc, x64\_msvc, catalina, ccu8
 
-#### -msvc-output          
-Output is compatible with Visual Studio IDE. 
-(We can click on the error message and IDE selects the line.) 
+*  `-msvc-output` Output is compatible with Visual Studio IDE. 
 
-#### -fdiagnostics-color=never (same as GCC)
-Output will not use colors
+*  `-fdiagnostics-color=never` (same as GCC) Output will not use colors
 
-### -fanalyzer
-This option enables an static analysis of program flow. This is required for some
-ownership checks
+*  `-fanalyzer` runs cake flow analysis
 
-### -auto-config
+* `-auto-config` Generates cakeconfig.h header (see includes)
 
-Generates cakeconfig.h header. 
+* `-style=name` Set the style used in (w011) style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`
 
-On Windows, it must be generated inside the Visual Studio Command Prompt to read the INCLUDE variable.
-On Linux, it calls GCC with echo | gcc -v -E - 2>&1 and reads the output.
+* `-comment-to-attr` Converts at preprocessor phase, comment like this `/*w12*/` to attributes `[[cake::w12]]`
+ 
+* `-const-literal` Makes the compiler handle string literals as const char[] rather than char[].
 
-## Output
+### Output
 
 The current backend generates C89-compatible code, which can be pipelined with existing 
 compilers to produce executables. 
@@ -234,118 +222,14 @@ output
           ├── file2.c
 ```
 
-## Pre-defined macros
-
-```c
- #define __CAKE__ 202311L
- #define __STDC_VERSION__ 202311L
- #define __STDC_OWNERSHIP__ 1
-```
-
-The define __STDC_OWNERSHIP__ indicates that the compiler suports owneship checks
-
-
-### Pre-defined macros for MSVC compatibility
-https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170#standard-predefined-macros
-
-### Pre-defined macros for GCC compatibility
-https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html
-
-
-## Pre K & R
-
-struct, int, char, float..
-https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cman74.pdf
-https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cman.pdf
-
-
-## K & R
-
-unions
-
 ## C89
 
-C89 
-https://port70.net/~nsz/c/c89/c89-draft.html
-
 https://nvlpubs.nist.gov/nistpubs/Legacy/FIPS/fipspub160.pdf
-
-
-
-* 8 and 9 are not octal digits.
-* The Standard introduces a larger set of suffixes to make the type of constants explicit: U or L for integers, F or L for floating. It also refines the rules for the type of
-unsuffixed constants.
-* Adjacent string literals are concatenated.
-* There is a notation for wide-character string literals and character constants;
-* Characters, as well as other types, may be explicitly declared to carry, or not to
-carry, a sign by using the keywords signed or unsigned. The locution long
-float as a synonym for double is withdrawn; but long double may be used to
-declare an extra-precision floating quantity.
-* For some time, type unsigned char has been available. The standard introduces
-the signed keyword to make signedness explicit for char and other integral
-objects.
-* The void type has been available in most implementations for some years. The
-Standard introduces the use of the void * type as a generic pointer type; previously
-char * played this role. At the same time, explicit rules are enacted against mixing
-pointers and integers, and pointers of different type, without the use of casts.
-* The Standard places explicit minima on the ranges of the arithmetic types, and mandates headers limits.h and float.h giving the characteristics of each
-particular implementation.
-* Enumerations are new since the first edition of this book.
-* The Standard adopts from C++ the notion of type qualifier, for example const
-* Strings are no longer modifiable, and so may be placed in read-only memory.
-* The "usual arithmetic conversions" are changed, essentially from "for integers,
-unsigned always wins; for floating point, always use double" to "promote to the
-smallest capacious-enoughtype." 
-* The old assignment operators like =+ are truly gone. Also, assignment operators are
-now single tokens; in the first edition, they were pairs, and could be separated by
-white space.
-* A compiler's license to treat mathematically associative operators as computationally
-associative is revoked.
-* A unary + operator is introduced for symmetry with unary -.
-* A pointer to a function may be used as a function designator without an explicit *
-operator. 
-* Structures may be assigned, passed to functions, and returned by functions.
-* Applying the address-of operator to arrays is permitted, and the result is a pointer to
-the array.
-* The sizeof operator, in the first edition, yielded type int; subsequently, many
-implementations made it unsigned. The Standard makes its type explicitly
-implementation-dependent, but requires the type, size_ t, to be defined in a
-
-* The address-of operator &. may not be applied to an object declared register, even
-if the implementation choose snot to keep the object in a register.
-* The type of a shift expression is that of the left operand; the right operand can't promote the result.
-* The Standard legalizes the creation of a pointer just beyond the end of an array, and
-allows arithmetic and relations on it;
-* The Standard introduces (borrowing from C++) the notion of a function prototype
-declaration that incorporates the types of the parameters, and includes an explicit
-recognition of variadic functions together with an approved way of dealing with
-them. The older style is still accepted, with restrictions.
-* Empty declarations, which have no declarators and don't declare at least a structure,
-union, or enumeration, are forbidden by the Standard. On the other hand, a declaration with just a structure or union tag redeclares that tag even if it was declared in
-an outer scope.
-* External data declarations without any specifiers or qualifiers (just a naked declarator) are forbidden.
-* Some implementations, when presented with an extern declaration in an inner
-block, would export the declaration to the rest of the file. The Standard makes it
-clear that the scope of such a declaration is just the block.
-* The scope of parameters is injected into a function's compound statement, so that
-variable declarations at the top level of the function cannot hide the parameters.
-* The name spaces of identifiers are somewhat different. The Standard puts all tags in
-a single name space, and also introduces a separate name space for labels; 
-Also, member names are associated with the structure or union of which
-they are a part. (This has been common practice from some time.)
-* Unions may be initialized; the initializer refers to the first member.
-* Automatic structures, unions, and arrays may be initialized, albeit in a restricted
-way.
-* Character arrays with an explicit size may be initialized by a string literal with
-exactly that many characters (the \0 is quietly squeezed out).
-* The controlling expression, and the case labels, of a switch may have any integral
-type.
-
-
-(Reference, The C programming language 2 edition)
-
 ## C99
-https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n325.pdf
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf
+
 
 ```c
  #define __STDC_VERSION__ 199901L  //C99
@@ -608,16 +492,15 @@ int main(void)
 ```
 
 
-## C11 Transformations
+## C11
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf
+
 
 ```c
 #define __STDC_VERSION__ 201112L //C11
 ```
-
-
-https://open-std.org/JTC1/SC22/WG14/www/docs/n1570.pdf
-
-https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf
 
 ###  C11 \_Static\_assert
 
@@ -727,7 +610,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf
 Uses __declspec(align(n)) in MSVC output and __attribute__((aligned(n))) in GCC output.
 
 
-## C23 Transformations
+## C23
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf
 
@@ -1179,7 +1062,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 Not implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
-## C2Y Transformations
+## C2Y
 
 ### Obsolete implicitly octal literals
 
@@ -1292,130 +1175,20 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf
 ```
 
 
-## Cake Extensions (Not in C23, C2Y)
+## Cake Extensions
 
-###  Extension - try catch throw
 
-```
-   try-statement:
-      try secondary-block
-      try secondary-block catch secondary-block   
-```
-
-```
-jump-statement:
-  throw;
-```
-
-try catch is a external block that we can jump off.
-
-try catch is a **LOCAL jump** this is on purpose not a limitation.
-
-catch block is optional.
+### Pre-defined macros in Cake
 
 ```c
-try
-{
-   for (int i = 0 ; i < 10; i++) {
-      for (int j = 0 ; j < 10; j++) {
-        ... 
-        if (error) throw;
-        ...
-      }
-   }
-}
-catch
-{
-}
+ #define __CAKE__ 202311L
+ #define __STDC_VERSION__ 202311L
+ #define __STDC_OWNERSHIP__ 1
 ```
 
-### Extension #pragma dir  
+The define __STDC_OWNERSHIP__ indicates that the compiler suports owneship checks
 
-```c 
-#pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt"
-```  
-  
-pragma dir makes the preprocessor include the directory when searching for includes.
-
-
-### Type traits
-
-We have some compile time functions to infer properties of types.
-
-```c
-
-_is_char()
-The three types char, signed char, and unsigned char are collectively called the character types.
-
-_is_pointer
-Pointer to object or function
-
-_is_array
-Array type
-
-_is_function
-A function type describes a function with specified return type. 
-
-_is_floating_point
-float, double, and long double return true
-
-_is_integral
-The standard signed integer types and standard unsigned integer types are collectively called the
-standard integer types;
-
-_is_arithmetic
-Integer and floating types are collectively called arithmetic types. 
-
-_is_scalar
-Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
-
-```
-
-Note: Type traits that can be easily created with \_Generic will be removed.
-_
-### Extension - Object lifetime checks
-
-See [ownership](ownership.html)
-
-```
-_Owner
-_Opt
-_View
-```
-
-### GCC extensions
-
-These GCC extensions allow parsing headers and generate correct code for GCC 
-
-```
-__builtin_va_list
-__builtin_c23_va_start
-__builtin_va_start
-__builtin_va_end
-__builtin_va_arg
-__builtin_va_copy
-```
-
-```c
-__builtin_offsetof
-__attribute__
-__typeof__ alias for typeof in cake
-```
-
-
-### MSVC extensions
-
-```
-__ptr32, __ptr64
-__int8 ... __int64
-__declspec
-__cdecl
-__fastcall, __stdcall
-__forceinline alias for inline in cake
-__pragma
-```
-
-### Extension assert built-in
+### assert built-in
 
 In cake assert is an built-in function.
 The reason is because it works as tips for flow analysis.
@@ -1470,8 +1243,132 @@ assert works as a state selector, similar to what happens in if statements but w
 ```
 
 
+###  try { throw; } catch {}
+
+```
+   try-statement:
+      try secondary-block
+      try secondary-block catch secondary-block   
+```
+
+```
+jump-statement:
+  throw;
+```
+
+try catch is a external block that we can jump off.
+
+try catch is a **LOCAL jump** this is on purpose not a limitation.
+
+catch block is optional.
+
+```c
+try
+{
+   for (int i = 0 ; i < 10; i++) {
+      for (int j = 0 ; j < 10; j++) {
+        ... 
+        if (error) throw;
+        ...
+      }
+   }
+}
+catch
+{
+}
+```
+
+### \#pragma dir  
+
+```c 
+#pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt"
+```  
+  
+pragma dir makes the preprocessor include the directory when searching for includes.
 
 
+### offsetof
+
+In cake offset (https://en.cppreference.com/w/cpp/types/offsetof.html) is an operator
 
 
+### Type traits
 
+We have some compile time functions to infer properties of types.
+
+```c
+
+_is_char()
+The three types char, signed char, and unsigned char are collectively called the character types.
+
+_is_pointer
+Pointer to object or function
+
+_is_array
+Array type
+
+_is_function
+A function type describes a function with specified return type. 
+
+_is_floating_point
+float, double, and long double return true
+
+_is_integral
+The standard signed integer types and standard unsigned integer types are collectively called the
+standard integer types;
+
+_is_arithmetic
+Integer and floating types are collectively called arithmetic types. 
+
+_is_scalar
+Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
+
+```
+
+Note: Type traits that can be easily created with \_Generic will be removed.
+_
+### Extension - Object lifetime checks
+
+See [ownership](ownership.html)
+
+```
+_Owner
+_Opt
+_View
+```
+
+## GCC extensions
+
+
+  * \_\_builtin\_va\_list
+  * \_\_builtin\_c23\_va_start
+  * \_\_builtin\_va\_start
+  * \_\_builtin\_va\_end
+  * \_\_builtin\_va\_arg
+  * \_\_builtin\_va\_copy
+  * \_\_builtin\_offsetof (same as cake offsetof)
+  * \_\_attribute\_\_
+  * \_\_typeof\_\_ alias same as typeof
+
+Other builtins are declared at `\src\include\x86_x64_gcc_builtins.h`
+
+Pre-defined macros for GCC compatibility
+https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html
+
+See `\src\include\x86_x64_gcc_builtins.h`
+
+## MSVC extensions
+
+ * \_\_ptr32, \_\_ptr64
+ * \_\_int8 ... \_\_int64
+ * \_\_declspec
+ * \_\_cdecl
+ * \_\_fastcall, \_\_stdcall
+ * \_\_forceinline alias for inline in cake
+ * \_\_pragma
+
+
+Pre-defined macros for MSVC compatibility
+https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170#standard-predefined-macros
+
+See `\src\include\x86_msvc_macros.h` and `\src\include\x64_msvc_macros.h`

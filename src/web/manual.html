@@ -31,330 +31,293 @@
 <h1>Cake - C23 and Beyond</h1>
 <ul>
 <li>
-<a href="#toc_0">Intro</a>
-</li>
-<li>
-<a href="#toc_1">Static analyzer</a>
-</li>
-<li>
-<a href="#toc_2">Include directories</a>
-</li>
-<li>
-<a href="#toc_3">Command line</a>
+<a href="#toc_0">Using cake</a>
 <ul>
 <li>
-<a href="#toc_4">OPTIONS</a>
+<a href="#toc_1">Include directories</a>
 </li>
 <li>
-<a href="#toc_5">-target</a>
+<a href="#toc_2">Command line</a>
 </li>
 <li>
-<a href="#toc_6">-fanalyzer</a>
+<a href="#toc_3">Options</a>
 </li>
 <li>
-<a href="#toc_7">-auto-config</a>
+<a href="#toc_4">Output</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_8">Output</a>
+<a href="#toc_5">C89</a>
 </li>
 <li>
-<a href="#toc_9">Pre-defined macros</a>
+<a href="#toc_6">C99</a>
 <ul>
 <li>
-<a href="#toc_10">Pre-defined macros for MSVC compatibility</a>
+<a href="#toc_7">C99 restrict pointers</a>
 </li>
 <li>
-<a href="#toc_11">Pre-defined macros for GCC compatibility</a>
+<a href="#toc_8">C99 Variable-length array (VLA)</a>
+</li>
+<li>
+<a href="#toc_9">C99 Flexible array members</a>
+</li>
+<li>
+<a href="#toc_10">C99 static and type qualifiers in parameter array declarators</a>
+</li>
+<li>
+<a href="#toc_11">C99 Complex and imaginary support</a>
+</li>
+<li>
+<a href="#toc_12">C99 Universal character names (\u and \U)</a>
+</li>
+<li>
+<a href="#toc_13">C99 Hexadecimal floating constants</a>
+</li>
+<li>
+<a href="#toc_14">C99 Compound literals</a>
+</li>
+<li>
+<a href="#toc_15">C99 Designated initializers</a>
+</li>
+<li>
+<a href="#toc_16">C99 Line comments</a>
+</li>
+<li>
+<a href="#toc_17">Declarations in for loop initializers</a>
+</li>
+<li>
+<a href="#toc_18">C99 inline functions</a>
+</li>
+<li>
+<a href="#toc_19">C99 _Pragma preprocessing operator</a>
+</li>
+<li>
+<a href="#toc_20">C99 __func__ predefined identifier</a>
+</li>
+<li>
+<a href="#toc_21">C99 Variadic macros</a>
+</li>
+<li>
+<a href="#toc_22">C99 _Bool</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_12">Pre K &amp; R</a>
-</li>
-<li>
-<a href="#toc_13">K &amp; R</a>
-</li>
-<li>
-<a href="#toc_14">C89</a>
-</li>
-<li>
-<a href="#toc_15">C99</a>
+<a href="#toc_23">C11</a>
 <ul>
 <li>
-<a href="#toc_16">C99 restrict pointers</a>
+<a href="#toc_24">C11 _Static_assert</a>
 </li>
 <li>
-<a href="#toc_17">C99 Variable-length array (VLA)</a>
+<a href="#toc_25">C11 Anonymous structures and unions</a>
 </li>
 <li>
-<a href="#toc_18">C99 Flexible array members</a>
+<a href="#toc_26">C11 _Noreturn</a>
 </li>
 <li>
-<a href="#toc_19">C99 static and type qualifiers in parameter array declarators</a>
+<a href="#toc_27">C11 Thread_local/Atomic</a>
 </li>
 <li>
-<a href="#toc_20">C99 Complex and imaginary support</a>
+<a href="#toc_28">C11 type-generic expressions (_Generic)</a>
 </li>
 <li>
-<a href="#toc_21">C99 Universal character names (\u and \U)</a>
+<a href="#toc_29">C11 u&#39; &#39; U&#39; &#39; character constants</a>
 </li>
 <li>
-<a href="#toc_22">C99 Hexadecimal floating constants</a>
+<a href="#toc_30">C11 u8&quot;literals&quot;</a>
 </li>
 <li>
-<a href="#toc_23">C99 Compound literals</a>
+<a href="#toc_31">C11 _Alignof or C23 alignof</a>
 </li>
 <li>
-<a href="#toc_24">C99 Designated initializers</a>
-</li>
-<li>
-<a href="#toc_25">C99 Line comments</a>
-</li>
-<li>
-<a href="#toc_26">Declarations in for loop initializers</a>
-</li>
-<li>
-<a href="#toc_27">C99 inline functions</a>
-</li>
-<li>
-<a href="#toc_28">C99 _Pragma preprocessing operator</a>
-</li>
-<li>
-<a href="#toc_29">C99 __func__ predefined identifier</a>
-</li>
-<li>
-<a href="#toc_30">C99 Variadic macros</a>
-</li>
-<li>
-<a href="#toc_31">C99 _Bool</a>
+<a href="#toc_32">C11 _Alignas or C23 alignas</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_32">C11 Transformations</a>
+<a href="#toc_33">C23</a>
 <ul>
 <li>
-<a href="#toc_33">C11 _Static_assert</a>
+<a href="#toc_34">C23 _Decimal32, _Decimal64, and _Decimal128</a>
 </li>
 <li>
-<a href="#toc_34">C11 Anonymous structures and unions</a>
+<a href="#toc_35">C23 static_assert / single-argument static_assert</a>
 </li>
 <li>
-<a href="#toc_35">C11 _Noreturn</a>
+<a href="#toc_36">C23 u8 character prefix</a>
 </li>
 <li>
-<a href="#toc_36">C11 Thread_local/Atomic</a>
+<a href="#toc_37">C23 No function declarators without prototypes</a>
 </li>
 <li>
-<a href="#toc_37">C11 type-generic expressions (_Generic)</a>
+<a href="#toc_38">C23 Improved Tag Compatibility</a>
 </li>
 <li>
-<a href="#toc_38">C11 u&#39; &#39; U&#39; &#39; character constants</a>
+<a href="#toc_39">C23 Unnamed parameters in function definitions</a>
 </li>
 <li>
-<a href="#toc_39">C11 u8&quot;literals&quot;</a>
+<a href="#toc_40">C23 Digit separators</a>
 </li>
 <li>
-<a href="#toc_40">C11 _Alignof or C23 alignof</a>
+<a href="#toc_41">C23 Binary literals</a>
 </li>
 <li>
-<a href="#toc_41">C11 _Alignas or C23 alignas</a>
+<a href="#toc_42">C23 Introduce the nullptr constant</a>
+</li>
+<li>
+<a href="#toc_43">C23 Make false and true first-class language features</a>
+</li>
+<li>
+<a href="#toc_44">C23 {} empty initializer</a>
+</li>
+<li>
+<a href="#toc_45">C23 auto</a>
+</li>
+<li>
+<a href="#toc_46">C23 typeof / typeof_unqual</a>
+</li>
+<li>
+<a href="#toc_47">C23 Improved Normal Enumerations</a>
+</li>
+<li>
+<a href="#toc_48">C23 constexpr</a>
+</li>
+<li>
+<a href="#toc_49">C23 Enhancements to Enumerations</a>
+</li>
+<li>
+<a href="#toc_50">C23 Attributes</a>
+</li>
+<li>
+<a href="#toc_51">C23 fallthrough attribute</a>
+</li>
+<li>
+<a href="#toc_52">C23 deprecated attribute</a>
+</li>
+<li>
+<a href="#toc_53">C23 maybe_unused attribute</a>
+</li>
+<li>
+<a href="#toc_54">C23 nodiscard attribute</a>
+</li>
+<li>
+<a href="#toc_55">C23 [[unsequenced]] and [[reproducible]]</a>
+</li>
+<li>
+<a href="#toc_56">C23 __has_attribute</a>
+</li>
+<li>
+<a href="#toc_57">C23 __has_include</a>
+</li>
+<li>
+<a href="#toc_58">C23 #warning</a>
+</li>
+<li>
+<a href="#toc_59">C23 #embed</a>
+</li>
+<li>
+<a href="#toc_60">C23 #elifdef #elifndef</a>
+</li>
+<li>
+<a href="#toc_61">C23 __VA_OPT__</a>
+</li>
+<li>
+<a href="#toc_62">C23 BitInt(N))</a>
+</li>
+<li>
+<a href="#toc_63">C23 Compound Literals with storage specifier</a>
+</li>
+<li>
+<a href="#toc_64">C23 Variably-modified (VM) types</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_42">C23 Transformations</a>
+<a href="#toc_65">C2Y</a>
 <ul>
 <li>
-<a href="#toc_43">C23 _Decimal32, _Decimal64, and _Decimal128</a>
+<a href="#toc_66">Obsolete implicitly octal literals</a>
 </li>
 <li>
-<a href="#toc_44">C23 static_assert / single-argument static_assert</a>
+<a href="#toc_67">case range expressions</a>
 </li>
 <li>
-<a href="#toc_45">C23 u8 character prefix</a>
+<a href="#toc_68">#def</a>
 </li>
 <li>
-<a href="#toc_46">C23 No function declarators without prototypes</a>
+<a href="#toc_69">_Countof operator</a>
 </li>
 <li>
-<a href="#toc_47">C23 Improved Tag Compatibility</a>
+<a href="#toc_70">defer</a>
 </li>
 <li>
-<a href="#toc_48">C23 Unnamed parameters in function definitions</a>
+<a href="#toc_71">Function literals and local functions</a>
 </li>
 <li>
-<a href="#toc_49">C23 Digit separators</a>
+<a href="#toc_72">if declarations, v4</a>
 </li>
 <li>
-<a href="#toc_50">C23 Binary literals</a>
-</li>
-<li>
-<a href="#toc_51">C23 Introduce the nullptr constant</a>
-</li>
-<li>
-<a href="#toc_52">C23 Make false and true first-class language features</a>
-</li>
-<li>
-<a href="#toc_53">C23 {} empty initializer</a>
-</li>
-<li>
-<a href="#toc_54">C23 auto</a>
-</li>
-<li>
-<a href="#toc_55">C23 typeof / typeof_unqual</a>
-</li>
-<li>
-<a href="#toc_56">C23 Improved Normal Enumerations</a>
-</li>
-<li>
-<a href="#toc_57">C23 constexpr</a>
-</li>
-<li>
-<a href="#toc_58">C23 Enhancements to Enumerations</a>
-</li>
-<li>
-<a href="#toc_59">C23 Attributes</a>
-</li>
-<li>
-<a href="#toc_60">C23 fallthrough attribute</a>
-</li>
-<li>
-<a href="#toc_61">C23 deprecated attribute</a>
-</li>
-<li>
-<a href="#toc_62">C23 maybe_unused attribute</a>
-</li>
-<li>
-<a href="#toc_63">C23 nodiscard attribute</a>
-</li>
-<li>
-<a href="#toc_64">C23 [[unsequenced]] and [[reproducible]]</a>
-</li>
-<li>
-<a href="#toc_65">C23 __has_attribute</a>
-</li>
-<li>
-<a href="#toc_66">C23 __has_include</a>
-</li>
-<li>
-<a href="#toc_67">C23 #warning</a>
-</li>
-<li>
-<a href="#toc_68">C23 #embed</a>
-</li>
-<li>
-<a href="#toc_69">C23 #elifdef #elifndef</a>
-</li>
-<li>
-<a href="#toc_70">C23 __VA_OPT__</a>
-</li>
-<li>
-<a href="#toc_71">C23 BitInt(N))</a>
-</li>
-<li>
-<a href="#toc_72">C23 Compound Literals with storage specifier</a>
-</li>
-<li>
-<a href="#toc_73">C23 Variably-modified (VM) types</a>
+<a href="#toc_73">C2Y typename on _Generic</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_74">C2Y Transformations</a>
+<a href="#toc_74">Cake Extensions</a>
 <ul>
 <li>
-<a href="#toc_75">Obsolete implicitly octal literals</a>
+<a href="#toc_75">Pre-defined macros in Cake</a>
 </li>
 <li>
-<a href="#toc_76">case range expressions</a>
+<a href="#toc_76">assert built-in</a>
 </li>
 <li>
-<a href="#toc_77">#def</a>
+<a href="#toc_77">try { throw; } catch {}</a>
 </li>
 <li>
-<a href="#toc_78">_Countof operator</a>
+<a href="#toc_78">#pragma dir</a>
 </li>
 <li>
-<a href="#toc_79">defer</a>
+<a href="#toc_79">offsetof</a>
 </li>
 <li>
-<a href="#toc_80">Function literals and local functions</a>
+<a href="#toc_80">Type traits</a>
 </li>
 <li>
-<a href="#toc_81">if declarations, v4</a>
-</li>
-<li>
-<a href="#toc_82">C2Y typename on _Generic</a>
+<a href="#toc_81">Extension - Object lifetime checks</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_83">Cake Extensions (Not in C23, C2Y)</a>
-<ul>
-<li>
-<a href="#toc_84">Extension - try catch throw</a>
+<a href="#toc_82">GCC extensions</a>
 </li>
 <li>
-<a href="#toc_85">Extension #pragma dir</a>
-</li>
-<li>
-<a href="#toc_86">Type traits</a>
-</li>
-<li>
-<a href="#toc_87">Extension - Object lifetime checks</a>
-</li>
-<li>
-<a href="#toc_88">GCC extensions</a>
-</li>
-<li>
-<a href="#toc_89">MSVC extensions</a>
-</li>
-<li>
-<a href="#toc_90">Extension assert built-in</a>
+<a href="#toc_83">MSVC extensions</a>
 </li>
 </ul>
-</li>
-</ul>
-<h2 id="toc_0">Intro</h2>
+<h2 id="toc_0">Using cake</h2>
 
 <p>Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux.
 This approach makes Cake useful in real and existing programs. </p>
 
 <p>When applicable, Cake uses the same command line options of MSVC and GCC.</p>
 
-<h2 id="toc_1">Static analyzer</h2>
+<h3 id="toc_1">Include directories</h3>
 
-<p>For static analyzer concepts of ownership and nullable pointers visit  <a href="ownership.html">ownership</a> </p>
+<p>Include directories are specified in <code>cakeconfig.h</code> file.</p>
 
-<h2 id="toc_2">Include directories</h2>
-
-<p>On Windows, Cake can be used on the command line similarly to MSVC.
-Cake reads the <code>INCLUDE</code> variable, the same variable used by MSVC to locate the include directories.</p>
-
-<p>Additionally, you can run Cake outside the Visual Studio command prompt by placing the file <code>cakeconfig.h</code> in 
-the same directory or above the source files, and specifying the directories using #pragma dir.</p>
-
-<p>If Cake doesn&#39;t find <code>cakeconfig.h</code> in the local directories, it will try to locate it in the 
-same path as the Cake executable.</p>
-
-<p>The <strong>-autoconfig</strong> option generates the <code>cakeconfig.h</code> automatically on both Windows and Linux.</p>
-
-<p>On Windows, to manually discover which directories are included, you can run the command:</p>
+<p>On Windows, to manually discover which directories are included, you can run at 
+Visual Studio command prompt the command:</p>
 
 <pre><code>echo %INCLUDE%
 </code></pre>
-
-<p>at Visual Studio command prompt.</p>
 
 <p>To find out what are the directories used by GCC type:</p>
 
 <pre><code>echo | gcc -E -Wp,-v -
 </code></pre>
 
-<p>Sample of cakeconfig.h</p>
+<p>Sample of <code>cakeconfig.h</code></p>
 
 <pre><code class="language-c">
 #ifdef __linux__
@@ -390,7 +353,13 @@ same path as the Cake executable.</p>
 
 </code></pre>
 
-<p>Sample, project <code>cakeconfig.h</code></p>
+<p>The command line <code>cake -autoconfig</code> generates the cake config file.</p>
+
+<p>We can have a <code>cakeconfig.h</code> per project and call a more generic <code>cakeconfig.h</code> for system includes.</p>
+
+<p>Sample: </p>
+
+<p><code>yourproject\cakeconfig.h</code></p>
 
 <pre><code class="language-c">
 //system includes...etc
@@ -401,7 +370,7 @@ same path as the Cake executable.</p>
 
 </code></pre>
 
-<h2 id="toc_3">Command line</h2>
+<h3 id="toc_2">Command line</h3>
 
 <pre><code>cake [options] source1.c source2.c ...
 
@@ -419,94 +388,52 @@ SAMPLES
   
 </code></pre>
 
-<h3 id="toc_4">OPTIONS</h3>
+<h3 id="toc_3">Options</h3>
 
-<h4>-I  (same as GCC and MSVC)</h4>
-
-<p>Adds a directory to the list of directories searched for include files</p>
-
-<h4>-no-output</h4>
-
-<p>Cake will not generate output</p>
-
-<h4>-D (same as GCC and MSVC)</h4>
-
-<p>Defines a preprocessing symbol for a source file</p>
-
-<h4>-E (same as GCC and MSVC)</h4>
-
-<p>Copies preprocessor output to standard output</p>
-
-<h4>-o name.c (same as GCC and MSVC)</h4>
-
-<p>Defines the output name, when we compile a single file</p>
-
-<h4>-dump-tokens</h4>
-
-<p>Output tokens before preprocessor</p>
-
-<h4>-Wname -Wno-name  (same as GCC)</h4>
-
-<p>Enables or disable warnings.
-See <a href="warnings.html">warnings</a></p>
-
-<h4>-disable-assert</h4>
-
-<p>disable cake extension where assert is an statement. See extensions</p>
-
-<h4>-H (same as gcc, /showIncludes in MSVC)</h4>
-
-<p>Causes the compiler to output a list of the include files. </p>
-
-<h4>-preprocess-def-macro</h4>
-
-<p>preprocess def macros after expansion</p>
-
-<h4>-Wall</h4>
-
-<p>Enables all warnings</p>
-
-<h4>-sarif</h4>
-
-<p>Generates sarif files.
-Sarif Visual Studio plugin <a href="https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer">https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer</a></p>
-
-<h4>-sarif-path</h4>
-
-<p>Specifies the Sarif output dir.</p>
-
-<p>Inside &quot;Visual Studio -&gt; External Tools&quot; this command can be used for static analysis.</p>
-
-<p>`-Wstyle  -msvc-output  -no-output -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; $(ItemPath)´</p>
-
-<h3 id="toc_5">-target</h3>
-
-<p>Defines how the source code is interpreted (integers sizes, align etc) and specifies the
+<ul>
+<li><p><code>-I</code>  (same as GCC and MSVC)
+Adds a directory to the list of directories searched for include files</p></li>
+<li><p><code>-no-output</code>
+Cake will not generate output</p></li>
+<li><p><code>-D</code> (same as GCC and MSVC)
+Defines a preprocessing symbol for a source file</p></li>
+<li><p><code>-E</code> (same as GCC and MSVC)
+Copies preprocessor output to standard output</p></li>
+<li><p><code>-o name.c</code> (same as GCC and MSVC)
+Defines the output name, when we compile a single file</p></li>
+<li><p><code>-dump-tokens</code>
+Output tokens before preprocessor</p></li>
+<li><p><code>-Wnumber -Wno-number</code>
+Enables or disable warnings.
+See <a href="warnings.html">warnings</a></p></li>
+<li><p><code>-disable-assert</code>
+Disable cake extension where assert is an statement.</p></li>
+<li><p><code>-H</code> (same as gcc, /showIncludes in MSVC)
+Causes the compiler to output a list of the include files. </p></li>
+<li><p><code>*-preprocess-def-macro</code>
+preprocess def macros after expansion</p></li>
+<li><p><code>-Wall</code>
+Enables all warnings</p></li>
+<li><p><code>-sarif</code>
+Generates sarif files.
+Sarif Visual Studio plugin <a href="https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer">https://marketplace.visualstudio.com/items?itemName=WDGIS.MicrosoftSarifViewer</a></p></li>
+<li><p><code>-sarif-path</code>
+Specifies the Sarif output dir. &quot;Visual Studio -&gt; External Tools&quot; 
+<code>-Wstyle  -msvc-output  -no-output -sarif -sarif-path &quot;$(SolutionDir).sarif&quot; $(ItemPath)</code></p></li>
+<li><p><code>-target</code>
+Defines how the source code is interpreted (integers sizes, align etc) and specifies the
 C89 output that is compatible with the target compiler.
-Options: x86_x64_gcc, x64_msvc, x64_msvc, catalina, ccu8</p>
+Options: x86_x64_gcc, x64_msvc, x64_msvc, catalina, ccu8</p></li>
+<li><p><code>-msvc-output</code> Output is compatible with Visual Studio IDE. </p></li>
+<li><p><code>-fdiagnostics-color=never</code> (same as GCC) Output will not use colors</p></li>
+<li><p><code>-fanalyzer</code> runs cake flow analysis</p></li>
+<li><p><code>-auto-config</code> Generates cakeconfig.h header (see includes)</p></li>
+<li><p><code>-style=name</code> Set the style used in (w011) style warnings. Options are <code>-style=cake</code>, <code>-style=gnu</code>, <code>-style=microsoft</code></p></li>
+<li><p><code>-comment-to-attr</code> Converts at preprocessor phase, comment like this <code>/*w12*/</code> to attributes <code>[[cake::w12]]</code></p></li>
+<li><p><code>-const-literal</code> Makes the compiler handle string literals as const char[] rather than char[].</p></li>
+</ul>
 
-<h4>-msvc-output</h4>
-
-<p>Output is compatible with Visual Studio IDE. 
-(We can click on the error message and IDE selects the line.) </p>
-
-<h4>-fdiagnostics-color=never (same as GCC)</h4>
-
-<p>Output will not use colors</p>
-
-<h3 id="toc_6">-fanalyzer</h3>
-
-<p>This option enables an static analysis of program flow. This is required for some
-ownership checks</p>
-
-<h3 id="toc_7">-auto-config</h3>
-
-<p>Generates cakeconfig.h header. </p>
-
-<p>On Windows, it must be generated inside the Visual Studio Command Prompt to read the INCLUDE variable.
-On Linux, it calls GCC with echo | gcc -v -E - 2&gt;&amp;1 and reads the output.</p>
-
-<h2 id="toc_8">Output</h2>
+<h3 id="toc_4">Output</h3>
 
 <p>The current backend generates C89-compatible code, which can be pipelined with existing 
 compilers to produce executables. </p>
@@ -562,125 +489,24 @@ It does not include the following features:</p>
           ├── file2.c
 </code></pre>
 
-<h2 id="toc_9">Pre-defined macros</h2>
-
-<pre><code class="language-c"> #define __CAKE__ 202311L
- #define __STDC_VERSION__ 202311L
- #define __STDC_OWNERSHIP__ 1
-</code></pre>
-
-<p>The define <strong>STDC_OWNERSHIP</strong> indicates that the compiler suports owneship checks</p>
-
-<h3 id="toc_10">Pre-defined macros for MSVC compatibility</h3>
-
-<p><a href="https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170#standard-predefined-macros">https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170#standard-predefined-macros</a></p>
-
-<h3 id="toc_11">Pre-defined macros for GCC compatibility</h3>
-
-<p><a href="https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html">https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html</a></p>
-
-<h2 id="toc_12">Pre K &amp; R</h2>
-
-<p>struct, int, char, float..
-<a href="https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cman74.pdf">https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cman74.pdf</a>
-<a href="https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cman.pdf">https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cman.pdf</a></p>
-
-<h2 id="toc_13">K &amp; R</h2>
-
-<p>unions</p>
-
-<h2 id="toc_14">C89</h2>
-
-<p>C89 
-<a href="https://port70.net/%7Ensz/c/c89/c89-draft.html">https://port70.net/~nsz/c/c89/c89-draft.html</a></p>
+<h2 id="toc_5">C89</h2>
 
 <p><a href="https://nvlpubs.nist.gov/nistpubs/Legacy/FIPS/fipspub160.pdf">https://nvlpubs.nist.gov/nistpubs/Legacy/FIPS/fipspub160.pdf</a></p>
 
-<ul>
-<li>8 and 9 are not octal digits.</li>
-<li>The Standard introduces a larger set of suffixes to make the type of constants explicit: U or L for integers, F or L for floating. It also refines the rules for the type of
-unsuffixed constants.</li>
-<li>Adjacent string literals are concatenated.</li>
-<li>There is a notation for wide-character string literals and character constants;</li>
-<li>Characters, as well as other types, may be explicitly declared to carry, or not to
-carry, a sign by using the keywords signed or unsigned. The locution long
-float as a synonym for double is withdrawn; but long double may be used to
-declare an extra-precision floating quantity.</li>
-<li>For some time, type unsigned char has been available. The standard introduces
-the signed keyword to make signedness explicit for char and other integral
-objects.</li>
-<li>The void type has been available in most implementations for some years. The
-Standard introduces the use of the void * type as a generic pointer type; previously
-char * played this role. At the same time, explicit rules are enacted against mixing
-pointers and integers, and pointers of different type, without the use of casts.</li>
-<li>The Standard places explicit minima on the ranges of the arithmetic types, and mandates headers limits.h and float.h giving the characteristics of each
-particular implementation.</li>
-<li>Enumerations are new since the first edition of this book.</li>
-<li>The Standard adopts from C++ the notion of type qualifier, for example const</li>
-<li>Strings are no longer modifiable, and so may be placed in read-only memory.</li>
-<li>The &quot;usual arithmetic conversions&quot; are changed, essentially from &quot;for integers,
-unsigned always wins; for floating point, always use double&quot; to &quot;promote to the
-smallest capacious-enoughtype.&quot; </li>
-<li>The old assignment operators like =+ are truly gone. Also, assignment operators are
-now single tokens; in the first edition, they were pairs, and could be separated by
-white space.</li>
-<li>A compiler&#39;s license to treat mathematically associative operators as computationally
-associative is revoked.</li>
-<li>A unary + operator is introduced for symmetry with unary -.</li>
-<li>A pointer to a function may be used as a function designator without an explicit *
-operator. </li>
-<li>Structures may be assigned, passed to functions, and returned by functions.</li>
-<li>Applying the address-of operator to arrays is permitted, and the result is a pointer to
-the array.</li>
-<li><p>The sizeof operator, in the first edition, yielded type int; subsequently, many
-implementations made it unsigned. The Standard makes its type explicitly
-implementation-dependent, but requires the type, size_ t, to be defined in a</p></li>
-<li><p>The address-of operator &amp;. may not be applied to an object declared register, even
-if the implementation choose snot to keep the object in a register.</p></li>
-<li><p>The type of a shift expression is that of the left operand; the right operand can&#39;t promote the result.</p></li>
-<li><p>The Standard legalizes the creation of a pointer just beyond the end of an array, and
-allows arithmetic and relations on it;</p></li>
-<li><p>The Standard introduces (borrowing from C++) the notion of a function prototype
-declaration that incorporates the types of the parameters, and includes an explicit
-recognition of variadic functions together with an approved way of dealing with
-them. The older style is still accepted, with restrictions.</p></li>
-<li><p>Empty declarations, which have no declarators and don&#39;t declare at least a structure,
-union, or enumeration, are forbidden by the Standard. On the other hand, a declaration with just a structure or union tag redeclares that tag even if it was declared in
-an outer scope.</p></li>
-<li><p>External data declarations without any specifiers or qualifiers (just a naked declarator) are forbidden.</p></li>
-<li><p>Some implementations, when presented with an extern declaration in an inner
-block, would export the declaration to the rest of the file. The Standard makes it
-clear that the scope of such a declaration is just the block.</p></li>
-<li><p>The scope of parameters is injected into a function&#39;s compound statement, so that
-variable declarations at the top level of the function cannot hide the parameters.</p></li>
-<li><p>The name spaces of identifiers are somewhat different. The Standard puts all tags in
-a single name space, and also introduces a separate name space for labels; 
-Also, member names are associated with the structure or union of which
-they are a part. (This has been common practice from some time.)</p></li>
-<li><p>Unions may be initialized; the initializer refers to the first member.</p></li>
-<li><p>Automatic structures, unions, and arrays may be initialized, albeit in a restricted
-way.</p></li>
-<li><p>Character arrays with an explicit size may be initialized by a string literal with
-exactly that many characters (the \0 is quietly squeezed out).</p></li>
-<li><p>The controlling expression, and the case labels, of a switch may have any integral
-type.</p></li>
-</ul>
+<h2 id="toc_6">C99</h2>
 
-<p>(Reference, The C programming language 2 edition)</p>
-
-<h2 id="toc_15">C99</h2>
-
-<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf</a></p>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n325.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n325.pdf</a>
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf</a></p>
 
 <pre><code class="language-c"> #define __STDC_VERSION__ 199901L  //C99
 </code></pre>
 
-<h3 id="toc_16">C99 restrict pointers</h3>
+<h3 id="toc_7">C99 restrict pointers</h3>
 
 <pre><code class="language-c">void f(const char* restrict s);
 </code></pre>
 
-<h3 id="toc_17">C99 Variable-length array (VLA)</h3>
+<h3 id="toc_8">C99 Variable-length array (VLA)</h3>
 
 <pre><code class="language-c">#include &lt;stdlib.h&gt;
 #include &lt;stdio.h&gt;
@@ -701,7 +527,7 @@ cdd
 
 <p>Not implemented yet.</p>
 
-<h3 id="toc_18">C99 Flexible array members</h3>
+<h3 id="toc_9">C99 Flexible array members</h3>
 
 <pre><code class="language-c">
 #include &lt;stdio.h&gt;
@@ -744,7 +570,7 @@ int main() {
 
 </code></pre>
 
-<h3 id="toc_19">C99 static and type qualifiers in parameter array declarators</h3>
+<h3 id="toc_10">C99 static and type qualifiers in parameter array declarators</h3>
 
 <pre><code class="language-c">#include &lt;stdlib.h&gt;
 
@@ -769,15 +595,15 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_20">C99 Complex and imaginary support</h3>
+<h3 id="toc_11">C99 Complex and imaginary support</h3>
 
 <p>Not implemented</p>
 
-<h3 id="toc_21">C99 Universal character names (\u and \U)</h3>
+<h3 id="toc_12">C99 Universal character names (\u and \U)</h3>
 
 <p>Not implemented</p>
 
-<h3 id="toc_22">C99 Hexadecimal floating constants</h3>
+<h3 id="toc_13">C99 Hexadecimal floating constants</h3>
 
 <pre><code class="language-c">double d = 0x1p+1;
 </code></pre>
@@ -798,7 +624,7 @@ r1= 1 +   ---  +  --- + ---   = 1.1376953125
 
 </code></pre>
 
-<h3 id="toc_23">C99 Compound literals</h3>
+<h3 id="toc_14">C99 Compound literals</h3>
 
 <pre><code class="language-c">struct s {
   int i;
@@ -817,7 +643,7 @@ int f(void) {
 <p>N716
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm</a></p>
 
-<h3 id="toc_24">C99 Designated initializers</h3>
+<h3 id="toc_15">C99 Designated initializers</h3>
 
 <pre><code class="language-c"> int main()
  {
@@ -833,9 +659,9 @@ int f(void) {
 <p>N494
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf</a></p>
 
-<h3 id="toc_25">C99 Line comments</h3>
+<h3 id="toc_16">C99 Line comments</h3>
 
-<h3 id="toc_26">Declarations in for loop initializers</h3>
+<h3 id="toc_17">Declarations in for loop initializers</h3>
 
 <pre><code class="language-c">int main()
 {
@@ -848,7 +674,7 @@ int f(void) {
 
 </code></pre>
 
-<h3 id="toc_27">C99 inline functions</h3>
+<h3 id="toc_18">C99 inline functions</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n709.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n709.htm</a>  (30 May 1997)
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm</a></p>
@@ -863,11 +689,11 @@ int main(void)
 }
 </code></pre>
 
-<h3 id="toc_28">C99 _Pragma preprocessing operator</h3>
+<h3 id="toc_19">C99 _Pragma preprocessing operator</h3>
 
 <p>NXXXX?</p>
 
-<h3 id="toc_29">C99 __func__ predefined identifier</h3>
+<h3 id="toc_20">C99 __func__ predefined identifier</h3>
 
 <p>N611 13 Sep 96 Mooney, <strong>FUNC</strong></p>
 
@@ -879,7 +705,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_30">C99 Variadic macros</h3>
+<h3 id="toc_21">C99 Variadic macros</h3>
 
 <pre><code class="language-c">
 #include &lt;stdio.h&gt;
@@ -896,7 +722,7 @@ int main()
 <p>N707
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm</a></p>
 
-<h3 id="toc_31">C99 _Bool</h3>
+<h3 id="toc_22">C99 _Bool</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n815.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n815.htm</a>  (1998)</p>
 
@@ -907,16 +733,15 @@ int main()
 }
 </code></pre>
 
-<h2 id="toc_32">C11 Transformations</h2>
+<h2 id="toc_23">C11</h2>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf</a>
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf</a></p>
 
 <pre><code class="language-c">#define __STDC_VERSION__ 201112L //C11
 </code></pre>
 
-<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n1570.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n1570.pdf</a></p>
-
-<p><a href="https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf">https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf</a></p>
-
-<h3 id="toc_33">C11 _Static_assert</h3>
+<h3 id="toc_24">C11 _Static_assert</h3>
 
 <pre><code class="language-c">int main()
 {
@@ -924,7 +749,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_34">C11 Anonymous structures and unions</h3>
+<h3 id="toc_25">C11 Anonymous structures and unions</h3>
 
 <pre><code class="language-c">struct v {
   union { /* anonymous union*/
@@ -942,20 +767,20 @@ int main(){
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf</a></p>
 
-<h3 id="toc_35">C11 _Noreturn</h3>
+<h3 id="toc_26">C11 _Noreturn</h3>
 
 <pre><code class="language-c">_Noreturn void f () {
   abort(); // ok
 }
 </code></pre>
 
-<h3 id="toc_36">C11 Thread_local/Atomic</h3>
+<h3 id="toc_27">C11 Thread_local/Atomic</h3>
 
 <p>Thread_local uses __declspec(thread) in MSVC output and __thread with GCC output.</p>
 
 <p>Atomic - not implemented</p>
 
-<h3 id="toc_37">C11 type-generic expressions (_Generic)</h3>
+<h3 id="toc_28">C11 type-generic expressions (_Generic)</h3>
 
 <p>N1441
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm</a></p>
@@ -975,7 +800,7 @@ int main(void)
 }
 </code></pre>
 
-<h3 id="toc_38">C11 u&#39; &#39; U&#39; &#39; character constants</h3>
+<h3 id="toc_29">C11 u&#39; &#39; U&#39; &#39; character constants</h3>
 
 <pre><code class="language-c"> int i = U&#39;ç&#39;;
  int i2 = u&#39;ç&#39;;
@@ -983,7 +808,7 @@ int main(void)
 
 <p>Important: Cake assume source is utf8 encoded.</p>
 
-<h3 id="toc_39">C11 u8&quot;literals&quot;</h3>
+<h3 id="toc_30">C11 u8&quot;literals&quot;</h3>
 
 <pre><code class="language-c">char * s1 = u8&quot;maçã&quot;;
 char * s2 = u8&quot;maca&quot;;
@@ -994,7 +819,7 @@ char * s2 = u8&quot;maca&quot;;
 
 <p>Important: Cake assume source is utf8 encoded.</p>
 
-<h3 id="toc_40">C11 _Alignof or C23 alignof</h3>
+<h3 id="toc_31">C11 _Alignof or C23 alignof</h3>
 
 <pre><code class="language-c"> int main()
  {
@@ -1002,13 +827,13 @@ char * s2 = u8&quot;maca&quot;;
  }
 </code></pre>
 
-<h3 id="toc_41">C11 _Alignas or C23 alignas</h3>
+<h3 id="toc_32">C11 _Alignas or C23 alignas</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf</a></p>
 
 <p>Uses __declspec(align(n)) in MSVC output and <strong>attribute</strong>((aligned(n))) in GCC output.</p>
 
-<h2 id="toc_42">C23 Transformations</h2>
+<h2 id="toc_33">C23</h2>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf</a></p>
 
@@ -1016,17 +841,17 @@ char * s2 = u8&quot;maca&quot;;
 #define __STDC_VERSION__ 202311L  //C23
 </code></pre>
 
-<h3 id="toc_43">C23 _Decimal32, _Decimal64, and _Decimal128</h3>
+<h3 id="toc_34">C23 _Decimal32, _Decimal64, and _Decimal128</h3>
 
 <p>Not implemented.
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1107.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1107.htm</a></p>
 
-<h3 id="toc_44">C23 static_assert / single-argument static_assert</h3>
+<h3 id="toc_35">C23 static_assert / single-argument static_assert</h3>
 
 <p>N1330
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf</a></p>
 
-<h3 id="toc_45">C23 u8 character prefix</h3>
+<h3 id="toc_36">C23 u8 character prefix</h3>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf</a></p>
 
@@ -1035,7 +860,7 @@ char * s2 = u8&quot;maca&quot;;
 }
 </code></pre>
 
-<h3 id="toc_46">C23 No function declarators without prototypes</h3>
+<h3 id="toc_37">C23 No function declarators without prototypes</h3>
 
 <p><a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm</a></p>
 
@@ -1048,7 +873,7 @@ char * s2 = u8&quot;maca&quot;;
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf</a></p>
 
-<h3 id="toc_47">C23 Improved Tag Compatibility</h3>
+<h3 id="toc_38">C23 Improved Tag Compatibility</h3>
 
 <p>Not implemented yet.</p>
 
@@ -1062,7 +887,7 @@ void bar(void)
 }
 </code></pre>
 
-<h3 id="toc_48">C23 Unnamed parameters in function definitions</h3>
+<h3 id="toc_39">C23 Unnamed parameters in function definitions</h3>
 
 <pre><code class="language-c">int f(int );
 
@@ -1075,7 +900,7 @@ int f(int ) {
 <p>C89 backened.
 We should add a dummy name when generating - Not implemented yet.</p>
 
-<h3 id="toc_49">C23 Digit separators</h3>
+<h3 id="toc_40">C23 Digit separators</h3>
 
 <pre><code class="language-c">int main()
 {
@@ -1085,7 +910,7 @@ We should add a dummy name when generating - Not implemented yet.</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf</a></p>
 
-<h3 id="toc_50">C23 Binary literals</h3>
+<h3 id="toc_41">C23 Binary literals</h3>
 
 <pre><code class="language-c">#define X  0b1010
 
@@ -1097,7 +922,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_51">C23 Introduce the nullptr constant</h3>
+<h3 id="toc_42">C23 Introduce the nullptr constant</h3>
 
 <pre><code class="language-c">
 int main()
@@ -1111,11 +936,11 @@ int main()
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm</a></p>
 
-<h3 id="toc_52">C23 Make false and true first-class language features</h3>
+<h3 id="toc_43">C23 Make false and true first-class language features</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf</a></p>
 
-<h3 id="toc_53">C23 {} empty initializer</h3>
+<h3 id="toc_44">C23 {} empty initializer</h3>
 
 <pre><code class="language-c">
 int main()
@@ -1137,7 +962,7 @@ int main()
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm</a>
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3011.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3011.htm</a></p>
 
-<h3 id="toc_54">C23 auto</h3>
+<h3 id="toc_45">C23 auto</h3>
 
 <pre><code class="language-c">static auto a = 3.5;
 auto p = &amp;a;
@@ -1149,7 +974,7 @@ auto qA = &amp;A;
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm</a></p>
 
-<h3 id="toc_55">C23 typeof / typeof_unqual</h3>
+<h3 id="toc_46">C23 typeof / typeof_unqual</h3>
 
 <pre><code class="language-c">
 #define SWAP(a, b) \
@@ -1194,7 +1019,7 @@ int main()
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm</a>
 <a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf</a></p>
 
-<h3 id="toc_56">C23 Improved Normal Enumerations</h3>
+<h3 id="toc_47">C23 Improved Normal Enumerations</h3>
 
 <p>//TODO</p>
 
@@ -1212,7 +1037,7 @@ static_assert(_Generic(a0,
 
 <p>The type of the enum must be adjusted.</p>
 
-<h3 id="toc_57">C23 constexpr</h3>
+<h3 id="toc_48">C23 constexpr</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm</a></p>
 
@@ -1260,7 +1085,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_58">C23 Enhancements to Enumerations</h3>
+<h3 id="toc_49">C23 Enhancements to Enumerations</h3>
 
 <pre><code class="language-c">enum X : short {
   A
@@ -1273,28 +1098,28 @@ int main() {
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm</a></p>
 
-<h3 id="toc_59">C23 Attributes</h3>
+<h3 id="toc_50">C23 Attributes</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf</a>
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf</a></p>
 
-<h3 id="toc_60">C23 fallthrough attribute</h3>
+<h3 id="toc_51">C23 fallthrough attribute</h3>
 
 <p>Not implemented</p>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf</a></p>
 
-<h3 id="toc_61">C23 deprecated attribute</h3>
+<h3 id="toc_52">C23 deprecated attribute</h3>
 
 <p>Partially implemented
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf</a></p>
 
-<h3 id="toc_62">C23 maybe_unused attribute</h3>
+<h3 id="toc_53">C23 maybe_unused attribute</h3>
 
 <p>Implemented
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf</a></p>
 
-<h3 id="toc_63">C23 nodiscard attribute</h3>
+<h3 id="toc_54">C23 nodiscard attribute</h3>
 
 <p>Partially implemented</p>
 
@@ -1302,15 +1127,15 @@ int main() {
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2448.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2448.pdf</a></p>
 
-<h3 id="toc_64">C23 [[unsequenced]] and [[reproducible]]</h3>
+<h3 id="toc_55">C23 [[unsequenced]] and [[reproducible]]</h3>
 
 <p>//TODO</p>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm</a></p>
 
-<h3 id="toc_65">C23 __has_attribute</h3>
+<h3 id="toc_56">C23 __has_attribute</h3>
 
-<h3 id="toc_66">C23 __has_include</h3>
+<h3 id="toc_57">C23 __has_include</h3>
 
 <pre><code class="language-c">
 #if __has_include(&lt;stdio.h&gt;)
@@ -1325,7 +1150,7 @@ int main() {
 
 </code></pre>
 
-<h3 id="toc_67">C23 #warning</h3>
+<h3 id="toc_58">C23 #warning</h3>
 
 <pre><code class="language-c">int main()
 {
@@ -1338,7 +1163,7 @@ C89 backend - n/a
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf</a></p>
 
-<h3 id="toc_68">C23 #embed</h3>
+<h3 id="toc_59">C23 #embed</h3>
 
 <p>Partially implemented.</p>
 
@@ -1355,7 +1180,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_69">C23 #elifdef #elifndef</h3>
+<h3 id="toc_60">C23 #elifdef #elifndef</h3>
 
 <p>Implemented</p>
 
@@ -1370,7 +1195,7 @@ int main()
 #endif
 </code></pre>
 
-<h3 id="toc_70">C23 __VA_OPT__</h3>
+<h3 id="toc_61">C23 __VA_OPT__</h3>
 
 <p>Implemented.</p>
 
@@ -1403,13 +1228,13 @@ int main()
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm</a></p>
 
-<h3 id="toc_71">C23 BitInt(N))</h3>
+<h3 id="toc_62">C23 BitInt(N))</h3>
 
 <p>Not implemented</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf</a></p>
 
-<h3 id="toc_72">C23 Compound Literals with storage specifier</h3>
+<h3 id="toc_63">C23 Compound Literals with storage specifier</h3>
 
 <p>Not implemented yet.</p>
 
@@ -1423,14 +1248,14 @@ int main()
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm</a></p>
 
-<h3 id="toc_73">C23 Variably-modified (VM) types</h3>
+<h3 id="toc_64">C23 Variably-modified (VM) types</h3>
 
 <p>Not implemented
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf</a></p>
 
-<h2 id="toc_74">C2Y Transformations</h2>
+<h2 id="toc_65">C2Y</h2>
 
-<h3 id="toc_75">Obsolete implicitly octal literals</h3>
+<h3 id="toc_66">Obsolete implicitly octal literals</h3>
 
 <pre><code class="language-c">
 static_assert(0o52 == 052);
@@ -1446,22 +1271,22 @@ int main()
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm</a></p>
 
-<h3 id="toc_76">case range expressions</h3>
+<h3 id="toc_67">case range expressions</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm</a></p>
 
-<h3 id="toc_77">#def</h3>
+<h3 id="toc_68">#def</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt</a></p>
 
-<h3 id="toc_78">_Countof operator</h3>
+<h3 id="toc_69">_Countof operator</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf</a></p>
 
 <p>Obs: Cake extends countof to enums, returning the number
 of enumerators.</p>
 
-<h3 id="toc_79">defer</h3>
+<h3 id="toc_70">defer</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm</a></p>
 
@@ -1490,11 +1315,11 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_80">Function literals and local functions</h3>
+<h3 id="toc_71">Function literals and local functions</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf</a></p>
 
-<h3 id="toc_81">if declarations, v4</h3>
+<h3 id="toc_72">if declarations, v4</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm</a></p>
 
@@ -1513,7 +1338,7 @@ int main()
 <p>C++ proposal
 <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html</a></p>
 
-<h3 id="toc_82">C2Y typename on _Generic</h3>
+<h3 id="toc_73">C2Y typename on _Generic</h3>
 
 <p>This feature was created in Cake and now it is part of C2Y!</p>
 
@@ -1530,120 +1355,18 @@ int main()
 }
 </code></pre>
 
-<h2 id="toc_83">Cake Extensions (Not in C23, C2Y)</h2>
+<h2 id="toc_74">Cake Extensions</h2>
 
-<h3 id="toc_84">Extension - try catch throw</h3>
+<h3 id="toc_75">Pre-defined macros in Cake</h3>
 
-<pre><code>   try-statement:
-      try secondary-block
-      try secondary-block catch secondary-block   
+<pre><code class="language-c"> #define __CAKE__ 202311L
+ #define __STDC_VERSION__ 202311L
+ #define __STDC_OWNERSHIP__ 1
 </code></pre>
 
-<pre><code>jump-statement:
-  throw;
-</code></pre>
+<p>The define <strong>STDC_OWNERSHIP</strong> indicates that the compiler suports owneship checks</p>
 
-<p>try catch is a external block that we can jump off.</p>
-
-<p>try catch is a <strong>LOCAL jump</strong> this is on purpose not a limitation.</p>
-
-<p>catch block is optional.</p>
-
-<pre><code class="language-c">try
-{
-   for (int i = 0 ; i &lt; 10; i++) {
-      for (int j = 0 ; j &lt; 10; j++) {
-        ... 
-        if (error) throw;
-        ...
-      }
-   }
-}
-catch
-{
-}
-</code></pre>
-
-<h3 id="toc_85">Extension #pragma dir</h3>
-
-<pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
-</code></pre>
-
-<p>pragma dir makes the preprocessor include the directory when searching for includes.</p>
-
-<h3 id="toc_86">Type traits</h3>
-
-<p>We have some compile time functions to infer properties of types.</p>
-
-<pre><code class="language-c">
-_is_char()
-The three types char, signed char, and unsigned char are collectively called the character types.
-
-_is_pointer
-Pointer to object or function
-
-_is_array
-Array type
-
-_is_function
-A function type describes a function with specified return type. 
-
-_is_floating_point
-float, double, and long double return true
-
-_is_integral
-The standard signed integer types and standard unsigned integer types are collectively called the
-standard integer types;
-
-_is_arithmetic
-Integer and floating types are collectively called arithmetic types. 
-
-_is_scalar
-Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
-
-</code></pre>
-
-<p>Note: Type traits that can be easily created with _Generic will be removed.
-_</p>
-
-<h3 id="toc_87">Extension - Object lifetime checks</h3>
-
-<p>See <a href="ownership.html">ownership</a></p>
-
-<pre><code>_Owner
-_Opt
-_View
-</code></pre>
-
-<h3 id="toc_88">GCC extensions</h3>
-
-<p>These GCC extensions allow parsing headers and generate correct code for GCC </p>
-
-<pre><code>__builtin_va_list
-__builtin_c23_va_start
-__builtin_va_start
-__builtin_va_end
-__builtin_va_arg
-__builtin_va_copy
-</code></pre>
-
-<pre><code class="language-c">__builtin_offsetof
-__attribute__
-__typeof__ alias for typeof in cake
-</code></pre>
-
-<h3 id="toc_89">MSVC extensions</h3>
-
-<pre><code>__ptr32, __ptr64
-__int8 ... __int64
-__declspec
-__cdecl
-__fastcall, __stdcall
-__forceinline alias for inline in cake
-__pragma
-</code></pre>
-
-<h3 id="toc_90">Extension assert built-in</h3>
+<h3 id="toc_76">assert built-in</h3>
 
 <p>In cake assert is an built-in function.
 The reason is because it works as tips for flow analysis.</p>
@@ -1692,4 +1415,129 @@ assert works as a state selector, similar to what happens in if statements but w
         //we assume p is not null here...        
     }
 </code></pre>
+
+<h3 id="toc_77">try { throw; } catch {}</h3>
+
+<pre><code>   try-statement:
+      try secondary-block
+      try secondary-block catch secondary-block   
+</code></pre>
+
+<pre><code>jump-statement:
+  throw;
+</code></pre>
+
+<p>try catch is a external block that we can jump off.</p>
+
+<p>try catch is a <strong>LOCAL jump</strong> this is on purpose not a limitation.</p>
+
+<p>catch block is optional.</p>
+
+<pre><code class="language-c">try
+{
+   for (int i = 0 ; i &lt; 10; i++) {
+      for (int j = 0 ; j &lt; 10; j++) {
+        ... 
+        if (error) throw;
+        ...
+      }
+   }
+}
+catch
+{
+}
+</code></pre>
+
+<h3 id="toc_78">#pragma dir</h3>
+
+<pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
+</code></pre>
+
+<p>pragma dir makes the preprocessor include the directory when searching for includes.</p>
+
+<h3 id="toc_79">offsetof</h3>
+
+<p>In cake offset (<a href="https://en.cppreference.com/w/cpp/types/offsetof.html">https://en.cppreference.com/w/cpp/types/offsetof.html</a>) is an operator</p>
+
+<h3 id="toc_80">Type traits</h3>
+
+<p>We have some compile time functions to infer properties of types.</p>
+
+<pre><code class="language-c">
+_is_char()
+The three types char, signed char, and unsigned char are collectively called the character types.
+
+_is_pointer
+Pointer to object or function
+
+_is_array
+Array type
+
+_is_function
+A function type describes a function with specified return type. 
+
+_is_floating_point
+float, double, and long double return true
+
+_is_integral
+The standard signed integer types and standard unsigned integer types are collectively called the
+standard integer types;
+
+_is_arithmetic
+Integer and floating types are collectively called arithmetic types. 
+
+_is_scalar
+Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
+
+</code></pre>
+
+<p>Note: Type traits that can be easily created with _Generic will be removed.
+_</p>
+
+<h3 id="toc_81">Extension - Object lifetime checks</h3>
+
+<p>See <a href="ownership.html">ownership</a></p>
+
+<pre><code>_Owner
+_Opt
+_View
+</code></pre>
+
+<h2 id="toc_82">GCC extensions</h2>
+
+<ul>
+<li>__builtin_va_list</li>
+<li>__builtin_c23_va_start</li>
+<li>__builtin_va_start</li>
+<li>__builtin_va_end</li>
+<li>__builtin_va_arg</li>
+<li>__builtin_va_copy</li>
+<li>__builtin_offsetof (same as cake offsetof)</li>
+<li>__attribute__</li>
+<li>__typeof__ alias same as typeof</li>
+</ul>
+
+<p>Other builtins are declared at <code>\src\include\x86_x64_gcc_builtins.h</code></p>
+
+<p>Pre-defined macros for GCC compatibility
+<a href="https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html">https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html</a></p>
+
+<p>See <code>\src\include\x86_x64_gcc_builtins.h</code></p>
+
+<h2 id="toc_83">MSVC extensions</h2>
+
+<ul>
+<li>__ptr32, __ptr64</li>
+<li>__int8 ... __int64</li>
+<li>__declspec</li>
+<li>__cdecl</li>
+<li>__fastcall, __stdcall</li>
+<li>__forceinline alias for inline in cake</li>
+<li>__pragma</li>
+</ul>
+
+<p>Pre-defined macros for MSVC compatibility
+<a href="https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170#standard-predefined-macros">https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170#standard-predefined-macros</a></p>
+
+<p>See <code>\src\include\x86_msvc_macros.h</code> and <code>\src\include\x64_msvc_macros.h</code></p>
 </article></body></html>

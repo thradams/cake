@@ -34,84 +34,2009 @@
 <a href="#toc_0">Warnings</a>
 <ul>
 <li>
-<a href="#toc_1">-Wunused-variable</a>
+<a href="#toc_1">1 #warning directive (preprocessor)</a>
 </li>
 <li>
-<a href="#toc_2">-Wdeprecated</a>
+<a href="#toc_2">2 Unused variable</a>
 </li>
 <li>
-<a href="#toc_3">-Wenum-compare</a>
+<a href="#toc_3">3 Deprecated</a>
 </li>
 <li>
-<a href="#toc_4">-Wnonnull</a>
+<a href="#toc_4">4 Enum conversion issue</a>
 </li>
 <li>
-<a href="#toc_5">-Waddress</a>
+<a href="#toc_5">5 Suspicious address usage</a>
 </li>
 <li>
-<a href="#toc_6">-Wunused-parameter</a>
+<a href="#toc_6">6 Unused function parameter (disabled by default)</a>
 </li>
 <li>
-<a href="#toc_7">-Whide-declarator</a>
+<a href="#toc_7">7 Declarator hides previous declaration</a>
 </li>
 <li>
-<a href="#toc_8">-Wtypeof-parameter</a>
+<a href="#toc_8">8 typeof used on array parameter</a>
 </li>
 <li>
-<a href="#toc_9">-Wattributes</a>
+<a href="#toc_9">9 Invalid or suspicious attributes</a>
 </li>
 <li>
-<a href="#toc_10">-Wunused-value</a>
+<a href="#toc_10">10 Unused value</a>
 </li>
 <li>
-<a href="#toc_11">-Wstyle</a>
+<a href="#toc_11">11 Style issue (disabled by default)</a>
+</li>
+<li>
+<a href="#toc_12">12 Comment-related issue</a>
+</li>
+<li>
+<a href="#toc_13">13 Line slicing occurred</a>
+</li>
+<li>
+<a href="#toc_14">14 String was sliced</a>
+</li>
+<li>
+<a href="#toc_15">15 Discarded qualifiers</a>
+</li>
+<li>
+<a href="#toc_16">16 Declarator state issue</a>
+</li>
+<li>
+<a href="#toc_17">17 Uninitialized variable</a>
+</li>
+<li>
+<a href="#toc_18">18 Returning address of local variable</a>
+</li>
+<li>
+<a href="#toc_19">19 Missing address-of operator</a>
+</li>
+<li>
+<a href="#toc_20">20 Array indirection issue</a>
+</li>
+<li>
+<a href="#toc_21">21 Missing owner qualifier</a>
+</li>
+<li>
+<a href="#toc_22">22 Using object without being owner</a>
+</li>
+<li>
+<a href="#toc_23">23 Using temporary owner incorrectly</a>
+</li>
+<li>
+<a href="#toc_24">24 Move-assignment to non-owner</a>
+</li>
+<li>
+<a href="#toc_25">25 Assigning non-owner to owner</a>
+</li>
+<li>
+<a href="#toc_26">26 Discarding an owner</a>
+</li>
+<li>
+<a href="#toc_27">27 Moving a non-owner object</a>
+</li>
+<li>
+<a href="#toc_28">28 Non-null flow violation</a>
+</li>
+<li>
+<a href="#toc_29">29 Missing destructor (flow analysis)</a>
+</li>
+<li>
+<a href="#toc_30">30 Uninitialized value (flow analysis)</a>
+</li>
+<li>
+<a href="#toc_31">31 Lifetime has ended (flow analysis)</a>
+</li>
+<li>
+<a href="#toc_32">32 Object already moved (flow analysis)</a>
+</li>
+<li>
+<a href="#toc_33">33 Null dereference</a>
+</li>
+<li>
+<a href="#toc_34">34 Maybe-null passed to non-optional argument</a>
+</li>
+<li>
+<a href="#toc_35">35 Nullable converted to non-nullable</a>
+</li>
+<li>
+<a href="#toc_36">36 Division by zero (flow analysis)</a>
+</li>
+<li>
+<a href="#toc_37">37 Division by zero</a>
+</li>
+<li>
+<a href="#toc_38">38 Constant expression has constant value</a>
+</li>
+<li>
+<a href="#toc_39">39 Passing null as array</a>
+</li>
+<li>
+<a href="#toc_40">40 Incompatible enum types</a>
+</li>
+<li>
+<a href="#toc_41">41 Multi-character literal</a>
+</li>
+<li>
+<a href="#toc_42">42 Out-of-bounds access</a>
+</li>
+<li>
+<a href="#toc_43">43 Assignment to array parameter</a>
+</li>
+<li>
+<a href="#toc_44">44 Conditional is constant</a>
+</li>
+<li>
+<a href="#toc_45">45 Suspicious switch statement</a>
+</li>
+<li>
+<a href="#toc_46">46 Unusual null pointer constant</a>
+</li>
+<li>
+<a href="#toc_47">47 sizeof applied to array argument</a>
+</li>
+<li>
+<a href="#toc_48">48 const object not initialized</a>
+</li>
+<li>
+<a href="#toc_49">49 Null conversion issue</a>
+</li>
+<li>
+<a href="#toc_50">50 Implicitly unsigned literal</a>
+</li>
+<li>
+<a href="#toc_51">51 Integer overflow</a>
+</li>
+<li>
+<a href="#toc_52">52 Invalid array size</a>
+</li>
+<li>
+<a href="#toc_53">53 Empty statement</a>
+</li>
+<li>
+<a href="#toc_54">54 Incompatible types</a>
+</li>
+<li>
+<a href="#toc_55">55 Unused label</a>
+</li>
+<li>
+<a href="#toc_56">56 Redefining builtin macro</a>
+</li>
+<li>
+<a href="#toc_57">57 Unused function</a>
+</li>
+<li>
+<a href="#toc_58">58 Boolean comparison issue</a>
+</li>
+<li>
+<a href="#toc_59">59 Expected warning did not occur</a>
+</li>
+<li>
+<a href="#toc_60">60 Nullable to non-nullable</a>
+</li>
+<li>
+<a href="#toc_61">61 Cast to same type</a>
+</li>
+<li>
+<a href="#toc_62">62 Too many initializers</a>
+</li>
+<li>
+<a href="#toc_63">63 Float out of range</a>
+</li>
+<li>
+<a href="#toc_64">64–127 Reserved / unused warnings</a>
+</li>
+<li>
+<a href="#toc_65">640 Invalid qualifier for pointer</a>
+</li>
+<li>
+<a href="#toc_66">650 Unexpected compiler error</a>
+</li>
+<li>
+<a href="#toc_67">660 Too many arguments</a>
+</li>
+<li>
+<a href="#toc_68">670 Too few arguments</a>
+</li>
+<li>
+<a href="#toc_69">680 Not found</a>
+</li>
+<li>
+<a href="#toc_70">690 No match for generic selection</a>
+</li>
+<li>
+<a href="#toc_71">700 Subscripted value is neither array nor pointer</a>
+</li>
+<li>
+<a href="#toc_72">710 Called object is not function or function pointer</a>
+</li>
+<li>
+<a href="#toc_73">720 Struct member not found</a>
+</li>
+<li>
+<a href="#toc_74">730 Structure or union required</a>
+</li>
+<li>
+<a href="#toc_75">740 Struct is incomplete</a>
+</li>
+<li>
+<a href="#toc_76">750 Declarator not found</a>
+</li>
+<li>
+<a href="#toc_77">760 Expected declarator name</a>
+</li>
+<li>
+<a href="#toc_78">770 Unknown attribute name</a>
+</li>
+<li>
+<a href="#toc_79">780 Indirection requires pointer operand</a>
+</li>
+<li>
+<a href="#toc_80">790 Invalid token</a>
+</li>
+<li>
+<a href="#toc_81">800 Expected struct type</a>
+</li>
+<li>
+<a href="#toc_82">810 Expected type name</a>
+</li>
+<li>
+<a href="#toc_83">820 Left operand is not arithmetic</a>
+</li>
+<li>
+<a href="#toc_84">830 Right operand is not arithmetic</a>
+</li>
+<li>
+<a href="#toc_85">840 Left operand is not integer</a>
+</li>
+<li>
+<a href="#toc_86">850 Right operand is not integer</a>
+</li>
+<li>
+<a href="#toc_87">860 Invalid type</a>
+</li>
+<li>
+<a href="#toc_88">870 Left operand is not scalar</a>
+</li>
+<li>
+<a href="#toc_89">880 Right operand is not scalar</a>
+</li>
+<li>
+<a href="#toc_90">890 Incompatible pointer types</a>
+</li>
+<li>
+<a href="#toc_91">900 Assignment of function</a>
+</li>
+<li>
+<a href="#toc_92">910 Assignment to array expression</a>
+</li>
+<li>
+<a href="#toc_93">920 Assignment of read-only object</a>
+</li>
+<li>
+<a href="#toc_94">930 lvalue required as left operand of assignment</a>
+</li>
+<li>
+<a href="#toc_95">940 Condition must have scalar type</a>
+</li>
+<li>
+<a href="#toc_96">950 Incompatible types</a>
+</li>
+<li>
+<a href="#toc_97">960 Expected constant expression</a>
+</li>
+<li>
+<a href="#toc_98">970 Unexpected token</a>
+</li>
+<li>
+<a href="#toc_99">980 Cannot combine with previous &#39;long long&#39;</a>
+</li>
+<li>
+<a href="#toc_100">990 Expected declaration</a>
+</li>
+<li>
+<a href="#toc_101">1000 Static/type qualifiers not allowed here</a>
+</li>
+<li>
+<a href="#toc_102">1010 Owner qualifier can only be used with pointers</a>
+</li>
+<li>
+<a href="#toc_103">1020 Redeclaration error</a>
+</li>
+<li>
+<a href="#toc_104">1030 Tag type mismatch with previous declaration</a>
+</li>
+<li>
+<a href="#toc_105">1040 Missing enum tag name</a>
+</li>
+<li>
+<a href="#toc_106">1050 Multiple enum definitions</a>
+</li>
+<li>
+<a href="#toc_107">1060 static_assert failed</a>
+</li>
+<li>
+<a href="#toc_108">1070 static_set error</a>
+</li>
+<li>
+<a href="#toc_109">1080 Static-state analysis failed</a>
+</li>
+<li>
+<a href="#toc_110">1090 Unbalanced attribute</a>
+</li>
+<li>
+<a href="#toc_111">1100 Unexpected end of file</a>
+</li>
+<li>
+<a href="#toc_112">1110 throw used outside try block</a>
+</li>
+<li>
+<a href="#toc_113">1120 void function returning a value</a>
+</li>
+<li>
+<a href="#toc_114">1121 Non-void function missing return value</a>
+</li>
+<li>
+<a href="#toc_115">1130 Argument size smaller than parameter size</a>
+</li>
+<li>
+<a href="#toc_116">1140 Token invalid in preprocessor expression</a>
+</li>
+<li>
+<a href="#toc_117">1150 File not found (preprocessor)</a>
+</li>
+<li>
+<a href="#toc_118">1160 Missing parenthesis</a>
+</li>
+<li>
+<a href="#toc_119">1170 Expression error</a>
+</li>
+<li>
+<a href="#toc_120">1180 Preprocessor error directive</a>
+</li>
+<li>
+<a href="#toc_121">1190 Too few arguments to macro</a>
+</li>
+<li>
+<a href="#toc_122">1191 Too many arguments to macro</a>
+</li>
+<li>
+<a href="#toc_123">1200 Invalid macro argument</a>
+</li>
+<li>
+<a href="#toc_124">1210 Missing macro argument</a>
+</li>
+<li>
+<a href="#toc_125">1220 Address of register variable</a>
+</li>
+<li>
+<a href="#toc_126">1230 Operator requires lvalue</a>
+</li>
+<li>
+<a href="#toc_127">1240 Character literal too large</a>
+</li>
+<li>
+<a href="#toc_128">1250 Pragma error</a>
+</li>
+<li>
+<a href="#toc_129">1260 Out of memory</a>
+</li>
+<li>
+<a href="#toc_130">1270 Invalid storage size</a>
+</li>
+<li>
+<a href="#toc_131">1280 Returning owner to non-owner</a>
+</li>
+<li>
+<a href="#toc_132">1290 auto requires a single declarator</a>
+</li>
+<li>
+<a href="#toc_133">1300 Multiple incompatible specifiers</a>
+</li>
+<li>
+<a href="#toc_134">1310 Increment operator cannot be used on owner</a>
+</li>
+<li>
+<a href="#toc_135">1320 Decrement operator cannot be used on owner</a>
+</li>
+<li>
+<a href="#toc_136">1330 Preprocessor division by zero</a>
+</li>
+<li>
+<a href="#toc_137">1340 Integer-to-pointer conversion error</a>
+</li>
+<li>
+<a href="#toc_138">1350 Literal overflow</a>
+</li>
+<li>
+<a href="#toc_139">1360 Character not encodable in one code unit</a>
+</li>
+<li>
+<a href="#toc_140">1370 Multi-character literal error</a>
+</li>
+<li>
+<a href="#toc_141">1380 Invalid token</a>
+</li>
+<li>
+<a href="#toc_142">1390 Invalid argument to _Countof</a>
+</li>
+<li>
+<a href="#toc_143">1400 return used inside defer</a>
+</li>
+<li>
+<a href="#toc_144">1410 Function returns function type</a>
+</li>
+<li>
+<a href="#toc_145">1420 Function returns array type</a>
+</li>
+<li>
+<a href="#toc_146">1430 Label not defined</a>
+</li>
+<li>
+<a href="#toc_147">1440 Duplicate label</a>
+</li>
+<li>
+<a href="#toc_148">1450 Duplicate case label</a>
+</li>
+<li>
+<a href="#toc_149">1560 Array subscript is not an integer</a>
+</li>
+<li>
+<a href="#toc_150">1570 Duplicate default generic association</a>
+</li>
+<li>
+<a href="#toc_151">1780 Multiple default labels in switch</a>
+</li>
+<li>
+<a href="#toc_152">1790 Pointer to floating type</a>
+</li>
+<li>
+<a href="#toc_153">1800 Floating type converted to pointer</a>
+</li>
+<li>
+<a href="#toc_154">1810 nullptr cast error</a>
+</li>
+<li>
+<a href="#toc_155">1820 Macro redefinition</a>
+</li>
+<li>
+<a href="#toc_156">1830 Invalid preprocessing directive</a>
+</li>
+<li>
+<a href="#toc_157">1840 Function cannot be a member</a>
+</li>
+<li>
+<a href="#toc_158">1850 Non-integral enum type</a>
+</li>
+<li>
+<a href="#toc_159">1860 Requires compile-time constant</a>
+</li>
+<li>
+<a href="#toc_160">1870 Outer scope error</a>
 </li>
 </ul>
 </li>
 </ul>
 <h2 id="toc_0">Warnings</h2>
 
-<p>Warnings can be controlled with &quot;-Wname&quot; and &quot;-Wno-name&quot; and &quot;-Wall&quot;.
-When the same warning exists in gcc cakes uses the same name if possible.</p>
+<p>Warnings can be enabled with <code>-w0123</code> where <code>123</code> is the warning number,
+or disabled with <code>-wd0123</code>.</p>
 
-<p>Inside source code you can control warning like this</p>
+<p>All warning are configurable. Cake has errors, warnings and notes.
+We can make a warning to be a note or error using pragma.</p>
 
-<pre><code class="language-c">
-enum E1 { A };
-enum E2 { B };
+<pre><code class="language-c">#pragma CAKE diagnostic push
+#pragma CAKE diagnostic error &quot;C0004&quot;
+    
 
-int main() {
+    /*
+      c04 is not reported as error
+      code..
+    
+    */
 
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore &quot;-Wenum-compare&quot;
-    if (A == B){}
 #pragma CAKE diagnostic pop
 
-    if (A == B) {}
+</code></pre>
 
+<h3 id="toc_1">1 #warning directive (preprocessor)</h3>
+
+<pre><code class="language-c">#warning message
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_2">2 Unused variable</h3>
+
+<pre><code class="language-c">// -w02
+void f()
+{
+    int i;    
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_3">3 Deprecated</h3>
+
+<pre><code class="language-c">[[deprecated]] void f2() {}
+
+int main(void)
+{
+    f2();
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_4">4 Enum conversion issue</h3>
+
+<pre><code class="language-c">enum E1 {A};
+enum E2 {B};
+int main()
+{    
+   enum E1 = B;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_5">5 Suspicious address usage</h3>
+
+<pre><code class="language-c">int main()
+{    
 }
 
 </code></pre>
 
-<h3 id="toc_1">-Wunused-variable</h3>
+<p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_2">-Wdeprecated</h3>
+<h3 id="toc_6">6 Unused function parameter (disabled by default)</h3>
 
-<h3 id="toc_3">-Wenum-compare</h3>
+<pre><code class="language-c">// -w06
+void f(int i) {}
+</code></pre>
 
-<h3 id="toc_4">-Wnonnull</h3>
+<p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_5">-Waddress</h3>
+<h3 id="toc_7">7 Declarator hides previous declaration</h3>
 
-<h3 id="toc_6">-Wunused-parameter</h3>
+<pre><code class="language-c">void f() {
+    int i;
+    {
+      int i;
+    }
+}
+</code></pre>
 
-<h3 id="toc_7">-Whide-declarator</h3>
+<p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_8">-Wtypeof-parameter</h3>
+<h3 id="toc_8">8 typeof used on array parameter</h3>
 
-<h3 id="toc_9">-Wattributes</h3>
+<pre><code class="language-c">void f(int a[])
+{
+    typeof(a) p;
+}
+</code></pre>
 
-<h3 id="toc_10">-Wunused-value</h3>
+<p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_11">-Wstyle</h3>
+<h3 id="toc_9">9 Invalid or suspicious attributes</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_10">10 Unused value</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_11">11 Style issue (disabled by default)</h3>
+
+<pre><code class="language-c">//-w011
+int main() { //  warning C0011: not following correct brace style
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_12">12 Comment-related issue</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_13">13 Line slicing occurred</h3>
+
+<pre><code class="language-c">int a \
+   = 1; // warning C0013: unnecessary line-slicing
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_14">14 String was sliced</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_15">15 Discarded qualifiers</h3>
+
+<pre><code class="language-c">char* f(){
+    static const char s[] = &quot;a&quot;;
+    return s; //warning C0015:  discarding const
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_16">16 Declarator state issue</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_17">17 Uninitialized variable</h3>
+
+<pre><code class="language-c">int main()
+{  
+ int i;
+ int j = i;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_18">18 Returning address of local variable</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_19">19 Missing address-of operator</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_20">20 Array indirection issue</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_21">21 Missing owner qualifier</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_22">22 Using object without being owner</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_23">23 Using temporary owner incorrectly</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_24">24 Move-assignment to non-owner</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_25">25 Assigning non-owner to owner</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_26">26 Discarding an owner</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_27">27 Moving a non-owner object</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_28">28 Non-null flow violation</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_29">29 Missing destructor (flow analysis)</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_30">30 Uninitialized value (flow analysis)</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_31">31 Lifetime has ended (flow analysis)</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_32">32 Object already moved (flow analysis)</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_33">33 Null dereference</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_34">34 Maybe-null passed to non-optional argument</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_35">35 Nullable converted to non-nullable</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_36">36 Division by zero (flow analysis)</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_37">37 Division by zero</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_38">38 Constant expression has constant value</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_39">39 Passing null as array</h3>
+
+<pre><code class="language-c">void f(int a[]){}
+int main(){
+    f(0); //warning C0039:  passing null as array
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_40">40 Incompatible enum types</h3>
+
+<pre><code class="language-c">enum E1 {A};
+enum E2 {B};
+int main()
+{    
+   enum E1 e = B; //warning C0040:  incompatible types
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_41">41 Multi-character literal</h3>
+
+<pre><code class="language-c">int main()
+{  
+  int i = &#39;abc&#39;;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_42">42 Out-of-bounds access</h3>
+
+<pre><code class="language-c">int main()
+{  
+  int a[2]= {0};
+  a[2] = 1; //warning C0042: index 2 is past the end of the array
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_43">43 Assignment to array parameter</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_44">44 Conditional is constant</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_45">45 Suspicious switch statement</h3>
+
+<pre><code class="language-c">int main()
+{
+    bool b =1;
+    switch(b){ //warning C0045: switch condition has boolean value
+        case 1:break;
+    }
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_46">46 Unusual null pointer constant</h3>
+
+<pre><code class="language-c">int main()
+{
+    int * p = &#39;\0&#39;; //warning C0046: unusual expression/type used as null pointer constant
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_47">47 sizeof applied to array argument</h3>
+
+<pre><code class="language-c">void f(int a[])
+{
+    sizeof(a); //warning C0047: sizeof applied to array function parameter
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_48">48 const object not initialized</h3>
+
+<pre><code class="language-c">int main()
+{  
+  const int i;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_49">49 Null conversion issue</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_50">50 Implicitly unsigned literal</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_51">51 Integer overflow</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_52">52 Invalid array size</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_53">53 Empty statement</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_54">54 Incompatible types</h3>
+
+<pre><code class="language-c">void f(double * p);
+int main()
+{  
+    int a;
+    f(&amp;a); // warning C0054:  incompatible types
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_55">55 Unused label</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_56">56 Redefining builtin macro</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_57">57 Unused function</h3>
+
+<pre><code class="language-c">static void f(){};
+int main()
+{  
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_58">58 Boolean comparison issue</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_59">59 Expected warning did not occur</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_60">60 Nullable to non-nullable</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_61">61 Cast to same type</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_62">62 Too many initializers</h3>
+
+<pre><code class="language-c">int main()
+{  
+  int a[2] = {1, 2, 3};
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_63">63 Float out of range</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_64">64–127 Reserved / unused warnings</h3>
+
+<hr>
+
+<h3 id="toc_65">640 Invalid qualifier for pointer</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_66">650 Unexpected compiler error</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_67">660 Too many arguments</h3>
+
+<pre><code class="language-c">void f(void);
+int main()
+{  
+  f(1);
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_68">670 Too few arguments</h3>
+
+<pre><code class="language-c">void f(int i);
+int main()
+{  
+  f();
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_69">680 Not found</h3>
+
+<pre><code class="language-c">int main()
+{  
+   i = 1;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_70">690 No match for generic selection</h3>
+
+<pre><code class="language-c">int main(){
+    int i;
+    _Generic(i, double: 0); // error C0690: no match for generic
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_71">700 Subscripted value is neither array nor pointer</h3>
+
+<pre><code class="language-c">int main(){
+    int i;
+    i[0]; //error C0700: subscripted value is neither array nor pointer
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_72">710 Called object is not function or function pointer</h3>
+
+<pre><code class="language-c">int main(){
+    int i;
+    i(); // error C0710: called object is not a function or function pointer
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_73">720 Struct member not found</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_74">730 Structure or union required</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_75">740 Struct is incomplete</h3>
+
+<pre><code class="language-c">struct X;
+int main(){
+    struct X x;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_76">750 Declarator not found</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_77">760 Expected declarator name</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_78">770 Unknown attribute name</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_79">780 Indirection requires pointer operand</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_80">790 Invalid token</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_81">800 Expected struct type</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_82">810 Expected type name</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_83">820 Left operand is not arithmetic</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_84">830 Right operand is not arithmetic</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_85">840 Left operand is not integer</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_86">850 Right operand is not integer</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_87">860 Invalid type</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_88">870 Left operand is not scalar</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_89">880 Right operand is not scalar</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_90">890 Incompatible pointer types</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_91">900 Assignment of function</h3>
+
+<pre><code class="language-c">int main()
+{
+    main = 0;    
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_92">910 Assignment to array expression</h3>
+
+<pre><code class="language-c">int main()
+{  
+    int a[2] = {0};
+    a = 1; //error C0910: assignment to expression with array type
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_93">920 Assignment of read-only object</h3>
+
+<pre><code class="language-c">int main()
+{
+    const int i = 1;
+    i = 2; 
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_94">930 lvalue required as left operand of assignment</h3>
+
+<pre><code class="language-c">int main()
+{  
+  1 = 2; //error C1230: lvalue required as left operand of assignment
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_95">940 Condition must have scalar type</h3>
+
+<pre><code class="language-c">int main(){
+    struct X {int i;} x;
+    x ? 1 : 0; //error C0940: condition must have scalar type
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_96">950 Incompatible types</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_97">960 Expected constant expression</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_98">970 Unexpected token</h3>
+
+<pre><code class="language-c">int main)
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_99">980 Cannot combine with previous &#39;long long&#39;</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_100">990 Expected declaration</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_101">1000 Static/type qualifiers not allowed here</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_102">1010 Owner qualifier can only be used with pointers</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_103">1020 Redeclaration error</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_104">1030 Tag type mismatch with previous declaration</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_105">1040 Missing enum tag name</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_106">1050 Multiple enum definitions</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_107">1060 static_assert failed</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_108">1070 static_set error</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_109">1080 Static-state analysis failed</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_110">1090 Unbalanced attribute</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_111">1100 Unexpected end of file</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_112">1110 throw used outside try block</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_113">1120 void function returning a value</h3>
+
+<pre><code class="language-c">void f(){
+    return 1; //error C1120: void function &#39;f&#39; should not return a value
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_114">1121 Non-void function missing return value</h3>
+
+<pre><code class="language-c">int f(){
+  return; //error C1121: non void function &#39;f&#39; should return a value
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_115">1130 Argument size smaller than parameter size</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_116">1140 Token invalid in preprocessor expression</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_117">1150 File not found (preprocessor)</h3>
+
+<pre><code class="language-c">#include &lt;file&gt;
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_118">1160 Missing parenthesis</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_119">1170 Expression error</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_120">1180 Preprocessor error directive</h3>
+
+<pre><code class="language-c">#error message
+</code></pre>
+
+<h3 id="toc_121">1190 Too few arguments to macro</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_122">1191 Too many arguments to macro</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_123">1200 Invalid macro argument</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_124">1210 Missing macro argument</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_125">1220 Address of register variable</h3>
+
+<pre><code class="language-c">int main()
+{  
+    register int a;
+    &amp;a; //error C1220: address of register variable &#39;x&#39; requested
+}
+</code></pre>
+
+<h3 id="toc_126">1230 Operator requires lvalue</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_127">1240 Character literal too large</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_128">1250 Pragma error</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_129">1260 Out of memory</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_130">1270 Invalid storage size</h3>
+
+<pre><code class="language-c">int a[-2]; // error C1270: sizeof &#39;a&#39; is too large
+</code></pre>
+
+<h3 id="toc_131">1280 Returning owner to non-owner</h3>
+
+<pre><code class="language-c">#pragma safety enable
+
+int * g();
+
+int * _Owner f(){
+  return g(); //warning C0025: cannot assign a non-owner to owner
+}
+</code></pre>
+
+<h3 id="toc_132">1290 auto requires a single declarator</h3>
+
+<pre><code class="language-c">int main()
+{
+   auto  * p = 0; //error C1290: &#39;auto&#39; requires a plain identifier
+}
+</code></pre>
+
+<h3 id="toc_133">1300 Multiple incompatible specifiers</h3>
+
+<pre><code class="language-c">long short s;
+</code></pre>
+
+<h3 id="toc_134">1310 Increment operator cannot be used on owner</h3>
+
+<pre><code class="language-c">#pragma safety enable
+int main(){
+
+    int * _Owner _Opt p = 0;
+    p++; //error C1310: operator ++ cannot be used in _Owner pointers
+}
+</code></pre>
+
+<h3 id="toc_135">1320 Decrement operator cannot be used on owner</h3>
+
+<pre><code class="language-c">#pragma safety enable
+int main(){
+
+    int * _Owner _Opt p = 0;
+    p--; //error C1320: operator -- cannot be used in owner pointers
+}
+</code></pre>
+
+<h3 id="toc_136">1330 Preprocessor division by zero</h3>
+
+<pre><code class="language-c">#if 1/0
+#endif
+</code></pre>
+
+<h3 id="toc_137">1340 Integer-to-pointer conversion error</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_138">1350 Literal overflow</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_139">1360 Character not encodable in one code unit</h3>
+
+<pre><code class="language-c">int main()
+{
+   unsigned char c = u8&#39;ç&#39;;// error C1360: character not encodable in a single code unit.
+}
+
+</code></pre>
+
+<h3 id="toc_140">1370 Multi-character literal error</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_141">1380 Invalid token</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_142">1390 Invalid argument to _Countof</h3>
+
+<pre><code class="language-c">int main(){
+  int a;
+  _Countof(a); //error C1390: argument of _Countof must be an array
+}
+</code></pre>
+
+<h3 id="toc_143">1400 return used inside defer</h3>
+
+<pre><code class="language-c">int main(){  
+  defer return 0; //error C1400: return cannot be used inside defer statement
+}
+</code></pre>
+
+<h3 id="toc_144">1410 Function returns function type</h3>
+
+<pre><code class="language-c">int f()(int){} //error C1410: function returning function
+</code></pre>
+
+<h3 id="toc_145">1420 Function returns array type</h3>
+
+<pre><code class="language-c">int f()[2]{} //error C1420: function returning array
+</code></pre>
+
+<h3 id="toc_146">1430 Label not defined</h3>
+
+<pre><code class="language-c">int main(){
+    goto A; //error C1430: label &#39;A&#39; used but not defined
+}
+</code></pre>
+
+<h3 id="toc_147">1440 Duplicate label</h3>
+
+<pre><code class="language-c">int main(){
+    A:
+    A: // error C1440: duplicated label &#39;A&#39;
+}
+</code></pre>
+
+<h3 id="toc_148">1450 Duplicate case label</h3>
+
+<pre><code class="language-c">void f(int i)
+{
+    switch(i)
+    {
+        case 1:
+        break;
+        case 1: //error C1450: duplicate case &#39;1&#39;
+        break;
+    }
+}
+</code></pre>
+
+<h3 id="toc_149">1560 Array subscript is not an integer</h3>
+
+<pre><code class="language-c">int main(){
+    int a[2];
+    a[1.0] = 1; //error C1560: array subscript is not an integer
+}
+</code></pre>
+
+<h3 id="toc_150">1570 Duplicate default generic association</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_151">1780 Multiple default labels in switch</h3>
+
+<pre><code class="language-c">int main()
+{  
+//TODO
+}
+</code></pre>
+
+<h3 id="toc_152">1790 Pointer to floating type</h3>
+
+<pre><code class="language-c">int main()
+{    
+}
+</code></pre>
+
+<h3 id="toc_153">1800 Floating type converted to pointer</h3>
+
+<pre><code class="language-c">int main()
+{    
+}
+</code></pre>
+
+<h3 id="toc_154">1810 nullptr cast error</h3>
+
+<pre><code class="language-c">int main()
+{    
+}
+</code></pre>
+
+<h3 id="toc_155">1820 Macro redefinition</h3>
+
+<pre><code class="language-c">#define A 1
+#define A 2 //error C1820: macro redefinition
+</code></pre>
+
+<h3 id="toc_156">1830 Invalid preprocessing directive</h3>
+
+<pre><code class="language-c">#blablabla //error C1830: invalid preprocessor directive &#39;#blablabla&#39;
+</code></pre>
+
+<h3 id="toc_157">1840 Function cannot be a member</h3>
+
+<pre><code class="language-c">struct X
+{
+    void f(); //error C1840: members having a function type are not allowed
+};
+</code></pre>
+
+<h3 id="toc_158">1850 Non-integral enum type</h3>
+
+<pre><code class="language-c">enum E : double {A}; //error C1850: expected an integer type
+</code></pre>
+
+<h3 id="toc_159">1860 Requires compile-time constant</h3>
+
+<pre><code class="language-c">int main()
+{    
+}
+</code></pre>
+
+<h3 id="toc_160">1870 Outer scope error</h3>
+
+<pre><code class="language-c">int main()
+{    
+}
+</code></pre>
 </article></body></html>

@@ -606,7 +606,10 @@ void print_help()
     print_option("-const-literal", "literal string becomes const");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-comment-to-attr", "convert comments /*!w#*/ into attributes [[cake::w#]]");
-
+    print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
+    print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");
+    print_option("-disable-assert", "Disable cake assert extension.");
+    print_option("-const-literal", "Makes the compiler handle string literals as const char[] rather than char[].");
 
     printf("\n");
     printf("More details at http://cakecc.org/manual.html\n");

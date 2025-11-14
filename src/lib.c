@@ -487,7 +487,7 @@ enum token_type
     //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
     TK_KEYWORD_MSVC__PTR32,
     TK_KEYWORD_MSVC__PTR64,
-
+    TK_KEYWORD_MSVC__UNALIGNED,
     TK_KEYWORD_MSVC__FASTCALL,
     TK_KEYWORD_MSVC__STDCALL,
     TK_KEYWORD_MSVC__CDECL,    
@@ -684,12 +684,12 @@ typedef int errno_t;
 
 #ifndef __CAKE__
 
-//emulate _Countof
-
+/*emulation of c2y _Countof*/
 #ifndef _Countof
 #define _Countof(A) (sizeof(A)/sizeof((A)[0]))
 #endif
 
+/*emulation of cake try catch using macros*/
 #define try  
 #define catch if (0) catch_label:
 #define throw do { throw_break_point(); goto catch_label;}while (0)
@@ -12084,19 +12084,11 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
-
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
-
     DWORD r = GetModuleFileNameA(NULL, buffer, maxsize);
-
-#pragma CAKE diagnostic pop
-
     return r;
 }
 
-#else
+#elif defined __linux__
 
 int get_self_path(char* buffer, int maxsize)
 {
@@ -12114,7 +12106,28 @@ int get_self_path(char* buffer, int maxsize)
     return 0;
 
 }
+#elif defined __APPLE__
 
+int get_self_path(char* buffer, int maxsize) {
+    //uint32_t size = 0;
+
+    // First call gets required buffer size
+    //_NSGetExecutablePath(NULL, &size);
+
+    // Allocate buffer for the raw path
+
+    if (_NSGetExecutablePath(buffer,maxsize) != 0) {
+        return NULL;
+    }
+
+    // Canonicalize (resolve symlinks, ., ..)
+    char resolved[4096];
+    if (!realpath(buffer, resolved)) {
+        return NULL;
+    }
+    
+    return 0;
+}
 #endif
 
 
@@ -15043,7 +15056,10 @@ void print_help()
     print_option("-const-literal", "literal string becomes const");
     print_option("-preprocess-def-macro", "preprocess def macros after expansion");
     print_option("-comment-to-attr", "convert comments /*!w#*/ into attributes [[cake::w#]]");
-
+    print_option("-style=name", "Set the style used in w011 style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`");
+    print_option("-selftest", "Runs Cake's internal tests. The code must be compiled with -DTEST.");
+    print_option("-disable-assert", "Disable cake assert extension.");
+    print_option("-const-literal", "Makes the compiler handle string literals as const char[] rather than char[].");
 
     printf("\n");
     printf("More details at http://cakecc.org/manual.html\n");
@@ -15245,16 +15261,17 @@ enum type_qualifier_flags
 
 
     /*ownership extensions*/
-    TYPE_QUALIFIER_OWNER = 1 << 4,
-    TYPE_QUALIFIER_VIEW = 1 << 5,
-    TYPE_QUALIFIER_OPT = 1 << 6,
+    TYPE_QUALIFIER_CAKE_OWNER = 1 << 4,
+    TYPE_QUALIFIER_CAKE_VIEW = 1 << 5,
+    TYPE_QUALIFIER_CAKE_OPT = 1 << 6,
 
     /*function contract*/
-    TYPE_QUALIFIER_DTOR = 1 << 7,
-    TYPE_QUALIFIER_CTOR = 1 << 8,
+    TYPE_QUALIFIER_CAKE_DTOR = 1 << 7,
+    TYPE_QUALIFIER_CAKE_CTOR = 1 << 8,
 
     TYPE_QUALIFIER_MSVC_PTR32 = 1 << 9,
     TYPE_QUALIFIER_MSVC_PTR64 = 1 << 10,
+    TYPE_QUALIFIER_MSVC_UNALIGNED = 1 << 11,
 
 };
 
@@ -20979,8 +20996,8 @@ static int compare_function_arguments(struct parser_ctx* ctx,
             p_current_parameter_type = p_current_parameter_type->next;
         }
 
-        if (p_current_parameter_type == NULL && 
-            p_type->name_opt && 
+        if (p_current_parameter_type == NULL &&
+            p_type->name_opt &&
             strncmp(p_type->name_opt, "__builtin", sizeof("__builtin") - 1) == 0)
         {
             //some builtin function are like templates 
@@ -21660,7 +21677,8 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
               sequence, its value is the one that results when an object with type char whose value is that of the
               single character or escape sequence is converted to type int.
             */
-            unsigned long long value = 0;
+            bool multi_character_literal = false;
+            long long value = 0;
             while (*p != '\'')
             {
                 unsigned int c = 0;
@@ -21675,13 +21693,24 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL) throw;
                 }
-
-                value = value * 256 + c;
-                if (value > int_max_value)
+                if (multi_character_literal)
+                {
+                    value = ((unsigned long long) value) * 256 + c;                    
+                }
+                else
+                {
+                    struct object obj = object_make_char(ctx->options.target, (int)c);
+                    value = obj.value.host_long_long;
+                    object_destroy(&obj);
+                }
+                
+                
+                if (value > (long long) int_max_value)
                 {
                     compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
                 }
+                multi_character_literal = true;
             }
             p_expression_node->object = object_make_signed_int(ctx->options.target, value);
         }
@@ -22579,24 +22608,24 @@ static void fix_member_type(struct type* p_type, const struct type* struct_type,
     */
     p_type->storage_class_specifier_flags = struct_type->storage_class_specifier_flags;
 
-    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
     {
         /*
           struct X { _Owner int i; };
           _View struct X x;
           x.i ;//is is not _Owner
         */
-        p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_OWNER;
+        p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_CAKE_OWNER;
     }
 
-    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_OPT)
+    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT)
     {
         /*
           struct X { _Owner int i; };
           _View struct X x;
           x.i ;//is is not _Owner
         */
-        p_type->type_qualifier_flags |= TYPE_QUALIFIER_OPT;
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_OPT;
     }
 
 }
@@ -22614,21 +22643,21 @@ static void fix_arrow_member_type(struct type* p_type, const struct type* left, 
         p_type->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
     }
 
-    if (t.type_qualifier_flags & TYPE_QUALIFIER_OPT)
+    if (t.type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT)
     {
         /*
            const struct X * p;
         */
 
-        p_type->type_qualifier_flags |= TYPE_QUALIFIER_OPT;
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_OPT;
     }
 
-    if (t.type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    if (t.type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
     {
         /*
           _View struct X * p;
         */
-        p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_OWNER;
+        p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_CAKE_OWNER;
     }
 
     type_destroy(&t);
@@ -22748,7 +22777,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 ctx,
                                                 ctx->current,
                                                 NULL,
-                                                "called object is not attr function or function pointer");
+                                                "called object is not a function or function pointer");
                 }
 
                 p_expression_node_new->type = get_function_return_type(&p_expression_node->type);
@@ -22774,9 +22803,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     p_expression_node_new = NULL;
                     throw;
                 }
-                
+
                 compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list);
-                
+
                 if (ctx->previous == NULL)
                 {
                     expression_delete(p_expression_node_new);
@@ -23926,10 +23955,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             new_expression->type = make_size_t_type(ctx->options.target);
 
-            size_t offsetof = 0;
+            size_t offset_of = 0;
 
             enum sizeof_error e =
-                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offsetof, ctx->options.target);
+                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offset_of, ctx->options.target);
 
             if (e != 0)
             {
@@ -23937,10 +23966,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 throw;
             }
 
-            new_expression->object = object_make_size_t(ctx->options.target, offsetof);
+            new_expression->object = object_make_size_t(ctx->options.target, offset_of);
 
             return new_expression;
-        }     
+        }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             parser_match(ctx);
@@ -28731,7 +28760,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.51"
+#define CAKE_VERSION "0.12.52"
 
 
 
@@ -29392,6 +29421,7 @@ bool first_of_type_qualifier_token(const struct token* p_token)
         //MSVC
         p_token->type == TK_KEYWORD_MSVC__PTR32 ||
         p_token->type == TK_KEYWORD_MSVC__PTR64 ||
+        p_token->type == TK_KEYWORD_MSVC__UNALIGNED ||
 
         /*extensions*/
         p_token->type == TK_KEYWORD__CTOR ||
@@ -29872,6 +29902,11 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD_NULLPTR;
         break;
 
+    case 'o':
+        if (strcmp("offsetof", text) == 0)
+            return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
+        break;
+
     case 'l':
         if (strcmp("long", text) == 0)
             return TK_KEYWORD_LONG;
@@ -30073,6 +30108,9 @@ enum token_type is_keyword(const char* text, enum target target)
 
             if (strcmp("__ptr64", text) == 0)
                 return TK_KEYWORD_MSVC__PTR64;
+
+            if (strcmp("__unaligned", text) == 0)
+                return TK_KEYWORD_MSVC__UNALIGNED;
 
             if (strcmp("__try", text) == 0)
                 return TK_KEYWORD_MSVC__TRY;
@@ -31616,7 +31654,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
 
             if (!type_is_pointer(&p_init_declarator->p_declarator->type) &&
-                p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_DTOR)
+                p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR)
             {
                 if (p_init_declarator->p_declarator->first_token_opt)
                 {
@@ -34299,8 +34337,12 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     case TK_KEYWORD_MSVC__PTR32:
         p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_PTR32;
         break;
+
     case TK_KEYWORD_MSVC__PTR64:
         p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_PTR64;
+        break;
+    case TK_KEYWORD_MSVC__UNALIGNED:
+        p_type_qualifier->flags = TYPE_QUALIFIER_MSVC_UNALIGNED;
         break;
 
     default:
@@ -34313,19 +34355,19 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         switch (ctx->current->type)
         {
         case TK_KEYWORD__CTOR:
-            p_type_qualifier->flags = TYPE_QUALIFIER_CTOR;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CTOR;
             break;
 
         case TK_KEYWORD__DTOR:
-            p_type_qualifier->flags = TYPE_QUALIFIER_DTOR;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_DTOR;
             break;
 
         case TK_KEYWORD_CAKE_OWNER:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OWNER;
             break;
 
         case TK_KEYWORD_CAKE_VIEW:
-            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_VIEW;
             break;
 
         default:
@@ -34339,7 +34381,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         switch (ctx->current->type)
         {
         case TK_KEYWORD_CAKE_OPT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OPT;
             break;
 
         default:
@@ -35235,11 +35277,11 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         {
             if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
             {
-                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CTOR;
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_CTOR;
             }
             else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
             {
-                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_DTOR;
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_DTOR;
             }
         }
         p_parameter_declaration->declaration_specifiers = p_declaration_specifiers;
@@ -39824,7 +39866,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         l = translation_unit(ctx, &local_error); /*insert buitin declarations at scope*/
 
         if (local_error)
-        {            
+        {
             throw;
         }
 
@@ -40900,7 +40942,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
    This function is called by the web version
 */   
 char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
-
+void print_report(struct report* report);
 
 #pragma safety enable
 
@@ -40997,8 +41039,8 @@ int generate_config_file(const char* configpath)
         outfile = fopen(configpath, "w");
         if (outfile == NULL)
         {
-            printf("Cannot open the file '%s' for writing.\n", configpath);
             error = errno;
+            printf("Cannot open the file '%s' for writing '%s'.\n", configpath, get_posix_error_message(error));            
             throw;
         }
 
@@ -41013,6 +41055,60 @@ int generate_config_file(const char* configpath)
 
         char path[400] = { 0 };
         char* command = "echo | gcc -v -E - 2>&1";
+        int in_include_section = 0;
+
+        // Open the command for reading
+        FILE* fp = popen(command, "r");
+        if (fp == NULL)
+        {
+            fprintf(stderr, "Failed to run command\n");
+            error = errno;
+            throw;
+        }
+
+        // Read the output a line at a time
+        while (fgets(path, sizeof(path), fp) != NULL)
+        {
+            // Check if we are in the "#include <...> search starts here:" section
+            if (strstr(path, "#include <...> search starts here:") != NULL)
+            {
+                in_include_section = 1;
+                continue;
+            }
+            // Check if we have reached the end of the include section
+            if (in_include_section && strstr(path, "End of search list.") != NULL)
+            {
+                break;
+            }
+            // Print the include directories
+            if (in_include_section)
+            {
+                const char* p = path;
+                while (*p == ' ') p++;
+
+                int len = strlen(path);
+                if (path[len - 1] == '\n')
+                    path[len - 1] = '\0';
+
+                fprintf(outfile, "#pragma dir \"%s\"\n", p);
+            }
+        }
+
+        fprintf(outfile, "\n");
+
+        // Close the command stream
+        pclose(fp);
+
+#endif
+
+#ifdef __APPLE__
+
+        fprintf(outfile, "//This file was generated reading the output of\n");
+        fprintf(outfile, "//echo | clang -v -E - 2>&1\n");
+        fprintf(outfile, "\n");
+
+        char path[400] = { 0 };
+        char* command = "echo | clang -v -E - 2>&1";
         int in_include_section = 0;
 
         // Open the command for reading
@@ -41577,6 +41673,40 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #endif
 }
 
+void print_report(struct report* report)
+{
+    if (report->ignore_this_report)
+        return;
+
+    if (report->test_mode ||
+        report->error_count != 0 ||
+        report->warnings_count != 0 ||
+        report->info_count != 0)
+    {
+
+        printf("\n");
+        printf("%d"   " errors ", report->error_count);
+        printf("%d"  " warnings ", report->warnings_count);
+        printf("%d"     " notes ", report->info_count);
+        printf("\n");
+        printf("%d files in %.2f seconds", report->no_files, report->cpu_time_used_sec);
+
+        if (report->test_mode)
+        {
+            if (report->error_count > 0 || report->warnings_count > 0)
+                printf(RED " - TEST FAILED" COLOR_RESET);
+            else
+                printf(GREEN " - TEST SUCCEEDED" COLOR_RESET);
+
+        }
+        printf("\n");
+
+    }
+
+    printf("\n");
+}
+
+
 int compile(int argc, const char** argv, struct report* report)
 {
     struct options options = { 0 };
@@ -41692,6 +41822,24 @@ int compile(int argc, const char** argv, struct report* report)
     double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
+
+
+    print_report(report);
+
+    if (report->test_mode)
+    {
+        //if (result != 0)
+          //  return EXIT_FAILURE;
+
+        if (report->error_count > 0 || report->warnings_count > 0)
+        {
+            return EXIT_FAILURE;
+        }
+
+        return EXIT_SUCCESS;
+    }
+
+
     return 0;
 }
 
@@ -41799,12 +41947,17 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     /*
       This function is called by the web playground
     */
-    printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
     printf(WHITE "cake %s main.c\n", pszoptions);
 
+    printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
+    
     struct report report = { 0 };
-    return (char* _Owner _Opt)compile_source(pszoptions, content, &report);
+    char * s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
+    print_report(&report);
+    return s;
 }
+
+
 
 
 /*
@@ -43257,8 +43410,9 @@ static const char* get_op_by_expression_type(enum expression_type type)
 
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
-
-    if (!ctx->address_of_argument &&
+    
+    if (p_expression->expression_type != EXPRESSION_EXPRESSION &&
+        !ctx->address_of_argument &&
         object_has_constant_value(&p_expression->object))
     {
         if (type_is_void_ptr(&p_expression->type) ||
@@ -48058,7 +48212,7 @@ bool object_check(struct type* p_type, struct flow_object* p_object)
 {
     try
     {
-        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
         {
             return false;
         }
@@ -54810,16 +54964,16 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
     if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
         print_item(ss, first, "volatile");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER)
         print_item(ss, first, "_Owner");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_DTOR)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR)
         print_item(ss, first, "_Dtor");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
         print_item(ss, first, "_View");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_OPT)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT)
         print_item(ss, first, "_Opt");
 
 }
@@ -55015,7 +55169,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
            "pointer to function returning type".
         */
         struct type t = type_add_pointer(p_type, nullchecks_enabled);
-        t.type_qualifier_flags &= ~TYPE_QUALIFIER_OPT;
+        t.type_qualifier_flags &= ~TYPE_QUALIFIER_CAKE_OPT;
         t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
         t.category = t.category;
         return t;
@@ -55425,7 +55579,7 @@ bool type_is_owner_or_pointer_to_dtor(const struct type* p_type)
     {
         return true;
     }
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_DTOR;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR;
 }
 
 bool type_is_pointer_to_owner(const struct type* p_type)
@@ -55438,7 +55592,7 @@ bool type_is_pointer_to_owner(const struct type* p_type)
 
 bool type_is_dtor(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_DTOR;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR;
 }
 
 bool type_is_pointed_dtor(const struct type* p_type)
@@ -55455,7 +55609,7 @@ bool type_is_owner(const struct type* p_type)
 {
     if (p_type->struct_or_union_specifier)
     {
-        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
             return false;
 
         struct struct_or_union_specifier* _Opt p_complete =
@@ -55478,14 +55632,14 @@ bool type_is_owner(const struct type* p_type)
         }
     }
 
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
 }
 
 bool type_is_opt(const struct type* p_type, bool nullable_enabled)
 {
     if (nullable_enabled)
     {
-        return p_type->type_qualifier_flags & TYPE_QUALIFIER_OPT;
+        return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT;
     }
 
     //If  nullable_enabled is disabled then all pointers are nullable
@@ -55494,12 +55648,12 @@ bool type_is_opt(const struct type* p_type, bool nullable_enabled)
 
 bool type_is_view(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW;
 }
 
 bool type_is_ctor(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CTOR;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
 }
 
 bool type_is_const(const struct type* p_type)
@@ -55569,7 +55723,7 @@ bool type_is_pointer_to_out(const struct type* p_type)
 
     if (p_type->category == TYPE_CATEGORY_POINTER)
     {
-        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CTOR;
+        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
     }
     return false;
 }
@@ -57846,8 +58000,8 @@ static bool type_is_same_core(const struct type* a,
             enum type_qualifier_flags aq = pa->type_qualifier_flags;
             enum type_qualifier_flags bq = pb->type_qualifier_flags;
 
-            unsigned int all = (TYPE_QUALIFIER_OWNER | TYPE_QUALIFIER_VIEW |
-             TYPE_QUALIFIER_OPT | TYPE_QUALIFIER_DTOR | TYPE_QUALIFIER_CTOR);
+            unsigned int all = (TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_VIEW |
+             TYPE_QUALIFIER_CAKE_OPT | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_CTOR);
 
             aq = aq & ~all;
             bq = bq & ~all;

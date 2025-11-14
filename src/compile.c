@@ -119,8 +119,8 @@ int generate_config_file(const char* configpath)
         outfile = fopen(configpath, "w");
         if (outfile == NULL)
         {
-            printf("Cannot open the file '%s' for writing.\n", configpath);
             error = errno;
+            printf("Cannot open the file '%s' for writing '%s'.\n", configpath, get_posix_error_message(error));            
             throw;
         }
 
@@ -135,6 +135,60 @@ int generate_config_file(const char* configpath)
 
         char path[400] = { 0 };
         char* command = "echo | gcc -v -E - 2>&1";
+        int in_include_section = 0;
+
+        // Open the command for reading
+        FILE* fp = popen(command, "r");
+        if (fp == NULL)
+        {
+            fprintf(stderr, "Failed to run command\n");
+            error = errno;
+            throw;
+        }
+
+        // Read the output a line at a time
+        while (fgets(path, sizeof(path), fp) != NULL)
+        {
+            // Check if we are in the "#include <...> search starts here:" section
+            if (strstr(path, "#include <...> search starts here:") != NULL)
+            {
+                in_include_section = 1;
+                continue;
+            }
+            // Check if we have reached the end of the include section
+            if (in_include_section && strstr(path, "End of search list.") != NULL)
+            {
+                break;
+            }
+            // Print the include directories
+            if (in_include_section)
+            {
+                const char* p = path;
+                while (*p == ' ') p++;
+
+                int len = strlen(path);
+                if (path[len - 1] == '\n')
+                    path[len - 1] = '\0';
+
+                fprintf(outfile, "#pragma dir \"%s\"\n", p);
+            }
+        }
+
+        fprintf(outfile, "\n");
+
+        // Close the command stream
+        pclose(fp);
+
+#endif
+
+#ifdef __APPLE__
+
+        fprintf(outfile, "//This file was generated reading the output of\n");
+        fprintf(outfile, "//echo | clang -v -E - 2>&1\n");
+        fprintf(outfile, "\n");
+
+        char path[400] = { 0 };
+        char* command = "echo | clang -v -E - 2>&1";
         int in_include_section = 0;
 
         // Open the command for reading
@@ -699,6 +753,40 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #endif
 }
 
+void print_report(struct report* report)
+{
+    if (report->ignore_this_report)
+        return;
+
+    if (report->test_mode ||
+        report->error_count != 0 ||
+        report->warnings_count != 0 ||
+        report->info_count != 0)
+    {
+
+        printf("\n");
+        printf("%d"   " errors ", report->error_count);
+        printf("%d"  " warnings ", report->warnings_count);
+        printf("%d"     " notes ", report->info_count);
+        printf("\n");
+        printf("%d files in %.2f seconds", report->no_files, report->cpu_time_used_sec);
+
+        if (report->test_mode)
+        {
+            if (report->error_count > 0 || report->warnings_count > 0)
+                printf(RED " - TEST FAILED" COLOR_RESET);
+            else
+                printf(GREEN " - TEST SUCCEEDED" COLOR_RESET);
+
+        }
+        printf("\n");
+
+    }
+
+    printf("\n");
+}
+
+
 int compile(int argc, const char** argv, struct report* report)
 {
     struct options options = { 0 };
@@ -814,6 +902,24 @@ int compile(int argc, const char** argv, struct report* report)
     double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
+
+
+    print_report(report);
+
+    if (report->test_mode)
+    {
+        //if (result != 0)
+          //  return EXIT_FAILURE;
+
+        if (report->error_count > 0 || report->warnings_count > 0)
+        {
+            return EXIT_FAILURE;
+        }
+
+        return EXIT_SUCCESS;
+    }
+
+
     return 0;
 }
 
@@ -921,9 +1027,14 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     /*
       This function is called by the web playground
     */
-    printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
     printf(WHITE "cake %s main.c\n", pszoptions);
 
+    printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
+    
     struct report report = { 0 };
-    return (char* _Owner _Opt)compile_source(pszoptions, content, &report);
+    char * s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
+    print_report(&report);
+    return s;
 }
+
+

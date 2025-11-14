@@ -319,6 +319,21 @@ int main()
 
            " -o cake "
            CAKE_SOURCE_FILES " main.c ");
+
+
+#ifdef CAKE_HEADERS
+    //uses cakeconfig
+#else
+    //Generates cakeconfig.h with the include dir used by gcc
+    execute_cmd("./cake  -autoconfig");
+#endif
+
+    //Uses previouly generated cakeconfig.h to find include dir
+    execute_cmd("./cake "
+               " -fanalyzer "
+               CAKE_SOURCE_FILES);
+
+    //run unit test if -DTEST
 #endif
 
 #if defined COMPILER_GCC && !defined(COMPILER_TINYC)

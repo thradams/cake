@@ -77,8 +77,8 @@ static int compare_function_arguments(struct parser_ctx* ctx,
             p_current_parameter_type = p_current_parameter_type->next;
         }
 
-        if (p_current_parameter_type == NULL && 
-            p_type->name_opt && 
+        if (p_current_parameter_type == NULL &&
+            p_type->name_opt &&
             strncmp(p_type->name_opt, "__builtin", sizeof("__builtin") - 1) == 0)
         {
             //some builtin function are like templates 
@@ -758,7 +758,8 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
               sequence, its value is the one that results when an object with type char whose value is that of the
               single character or escape sequence is converted to type int.
             */
-            unsigned long long value = 0;
+            bool multi_character_literal = false;
+            long long value = 0;
             while (*p != '\'')
             {
                 unsigned int c = 0;
@@ -773,13 +774,24 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     p = escape_sequences_decode_opt(p, &c);
                     if (p == NULL) throw;
                 }
-
-                value = value * 256 + c;
-                if (value > int_max_value)
+                if (multi_character_literal)
+                {
+                    value = ((unsigned long long) value) * 256 + c;                    
+                }
+                else
+                {
+                    struct object obj = object_make_char(ctx->options.target, (int)c);
+                    value = obj.value.host_long_long;
+                    object_destroy(&obj);
+                }
+                
+                
+                if (value > (long long) int_max_value)
                 {
                     compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
                 }
+                multi_character_literal = true;
             }
             p_expression_node->object = object_make_signed_int(ctx->options.target, value);
         }
@@ -1677,24 +1689,24 @@ static void fix_member_type(struct type* p_type, const struct type* struct_type,
     */
     p_type->storage_class_specifier_flags = struct_type->storage_class_specifier_flags;
 
-    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
     {
         /*
           struct X { _Owner int i; };
           _View struct X x;
           x.i ;//is is not _Owner
         */
-        p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_OWNER;
+        p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_CAKE_OWNER;
     }
 
-    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_OPT)
+    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT)
     {
         /*
           struct X { _Owner int i; };
           _View struct X x;
           x.i ;//is is not _Owner
         */
-        p_type->type_qualifier_flags |= TYPE_QUALIFIER_OPT;
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_OPT;
     }
 
 }
@@ -1712,21 +1724,21 @@ static void fix_arrow_member_type(struct type* p_type, const struct type* left, 
         p_type->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
     }
 
-    if (t.type_qualifier_flags & TYPE_QUALIFIER_OPT)
+    if (t.type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT)
     {
         /*
            const struct X * p;
         */
 
-        p_type->type_qualifier_flags |= TYPE_QUALIFIER_OPT;
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_OPT;
     }
 
-    if (t.type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    if (t.type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
     {
         /*
           _View struct X * p;
         */
-        p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_OWNER;
+        p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_CAKE_OWNER;
     }
 
     type_destroy(&t);
@@ -1846,7 +1858,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 ctx,
                                                 ctx->current,
                                                 NULL,
-                                                "called object is not attr function or function pointer");
+                                                "called object is not a function or function pointer");
                 }
 
                 p_expression_node_new->type = get_function_return_type(&p_expression_node->type);
@@ -1872,9 +1884,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     p_expression_node_new = NULL;
                     throw;
                 }
-                
+
                 compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list);
-                
+
                 if (ctx->previous == NULL)
                 {
                     expression_delete(p_expression_node_new);
@@ -3024,10 +3036,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             new_expression->type = make_size_t_type(ctx->options.target);
 
-            size_t offsetof = 0;
+            size_t offset_of = 0;
 
             enum sizeof_error e =
-                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offsetof, ctx->options.target);
+                type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offset_of, ctx->options.target);
 
             if (e != 0)
             {
@@ -3035,10 +3047,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 throw;
             }
 
-            new_expression->object = object_make_size_t(ctx->options.target, offsetof);
+            new_expression->object = object_make_size_t(ctx->options.target, offset_of);
 
             return new_expression;
-        }     
+        }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             parser_match(ctx);

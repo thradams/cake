@@ -7,4 +7,5 @@
 #define _MSC_VER 1944
 #define _MSC_EXTENSIONS 1
 #define _M_X64 100
+#define _M_AMD64 100
 #define __pragma(a)

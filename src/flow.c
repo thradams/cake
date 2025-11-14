@@ -1782,7 +1782,7 @@ bool object_check(struct type* p_type, struct flow_object* p_object)
 {
     try
     {
-        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
         {
             return false;
         }

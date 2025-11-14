@@ -23,36 +23,6 @@
 
 
 
-static void print_report(struct report* report)
-{
-    if (report->test_mode ||
-        report->error_count != 0 ||
-        report->warnings_count != 0 ||
-        report->info_count != 0)
-    {
-
-        printf("\n");
-        printf("%d"   " errors ", report->error_count);
-        printf("%d"  " warnings ", report->warnings_count);
-        printf("%d"     " notes ", report->info_count);
-        printf("\n");
-        printf("%d files in %.2f seconds", report->no_files, report->cpu_time_used_sec);
-
-        if (report->test_mode)
-        {
-            if (report->test_failed > 0)
-                printf(RED " - TEST FAILED" COLOR_RESET);
-            else
-                printf(GREEN " - TEST SUCCEEDED" COLOR_RESET);
-
-        }
-        printf("\n");
-
-    }
-
-    printf("\n");
-}
-
 #ifdef TEST
 #include "unit_test.c"
 #endif
@@ -60,8 +30,6 @@ static void print_report(struct report* report)
 int main(int argc, char** argv)
 {
     enable_vt_mode();
-
-
 
 #if 0
     //Help debug emscript on desktop 
@@ -74,26 +42,7 @@ int main(int argc, char** argv)
     return;
 #endif
 
-    //-msvc-output 
-
-    /*
-      /nologo ?
-    */
-    printf("Cake " CAKE_VERSION " ");
-#if defined _MSC_VER 
-    printf("(MSVC ");
-#ifdef _WIN64
-    printf("x64");
-#else
-    printf("x86");
-#endif
-    printf(")");
-
-#elif defined __linux__ && defined __GNUC__ 
-    printf("(GCC)");
-#endif
-
-    printf("\n");
+    printf("Cake " CAKE_VERSION " (%s)\n", get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->name);
 
     if (argc < 2)
     {
@@ -104,20 +53,14 @@ int main(int argc, char** argv)
 
     if (argc > 1 && strcmp(argv[1], "-selftest") == 0)    
     {
-        /*
-          cake -selftest
-          cake must be compiled with -DTEST
-        */
-
         printf("*** SELF TEST ***.\n");
 
 #ifdef TEST
 
-
         clock_t begin_clock = clock();
-        
+
         test_main();
-        
+
         struct report report = { 0 }; 
         report.test_mode = true;
         report.test_failed = g_unit_test_error_count;
@@ -130,34 +73,18 @@ int main(int argc, char** argv)
 
         print_report(&report);
 
-        if (g_unit_test_error_count > 0)
-        {
-            return EXIT_FAILURE;
-        }
+        return g_unit_test_error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 #else
-        printf("cake must be compiled with -DTEST to include self tests.\n");
+        printf("Error: self-tests not included. To run the self-tests, compile with -DTEST and try again.\n");
         return EXIT_FAILURE;
 #endif
     }
-    
 
 
     struct report report = { 0 };
-    compile(argc, (const char**)argv, &report);
+    int result = compile(argc, (const char**)argv, &report);
 
-    if (!report.ignore_this_report)
-    {
-        print_report(&report);
-    }
-
-    if (report.test_mode)
-    {
-        return report.test_failed ? EXIT_FAILURE : EXIT_SUCCESS;
-    }
-
-
-    return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
+    return result;
 }
 
 

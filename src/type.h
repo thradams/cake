@@ -104,16 +104,17 @@ enum type_qualifier_flags
 
 
     /*ownership extensions*/
-    TYPE_QUALIFIER_OWNER = 1 << 4,
-    TYPE_QUALIFIER_VIEW = 1 << 5,
-    TYPE_QUALIFIER_OPT = 1 << 6,
+    TYPE_QUALIFIER_CAKE_OWNER = 1 << 4,
+    TYPE_QUALIFIER_CAKE_VIEW = 1 << 5,
+    TYPE_QUALIFIER_CAKE_OPT = 1 << 6,
 
     /*function contract*/
-    TYPE_QUALIFIER_DTOR = 1 << 7,
-    TYPE_QUALIFIER_CTOR = 1 << 8,
+    TYPE_QUALIFIER_CAKE_DTOR = 1 << 7,
+    TYPE_QUALIFIER_CAKE_CTOR = 1 << 8,
 
     TYPE_QUALIFIER_MSVC_PTR32 = 1 << 9,
     TYPE_QUALIFIER_MSVC_PTR64 = 1 << 10,
+    TYPE_QUALIFIER_MSVC_UNALIGNED = 1 << 11,
 
 };
 

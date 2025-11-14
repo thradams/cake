@@ -338,19 +338,11 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
-
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
-
     DWORD r = GetModuleFileNameA(NULL, buffer, maxsize);
-
-#pragma CAKE diagnostic pop
-
     return r;
 }
 
-#else
+#elif defined __linux__
 
 int get_self_path(char* buffer, int maxsize)
 {
@@ -368,7 +360,28 @@ int get_self_path(char* buffer, int maxsize)
     return 0;
 
 }
+#elif defined __APPLE__
 
+int get_self_path(char* buffer, int maxsize) {
+    //uint32_t size = 0;
+
+    // First call gets required buffer size
+    //_NSGetExecutablePath(NULL, &size);
+
+    // Allocate buffer for the raw path
+
+    if (_NSGetExecutablePath(buffer,maxsize) != 0) {
+        return NULL;
+    }
+
+    // Canonicalize (resolve symlinks, ., ..)
+    char resolved[4096];
+    if (!realpath(buffer, resolved)) {
+        return NULL;
+    }
+    
+    return 0;
+}
 #endif
 
 

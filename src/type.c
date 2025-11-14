@@ -143,16 +143,16 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
     if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
         print_item(ss, first, "volatile");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER)
         print_item(ss, first, "_Owner");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_DTOR)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR)
         print_item(ss, first, "_Dtor");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
         print_item(ss, first, "_View");
 
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_OPT)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT)
         print_item(ss, first, "_Opt");
 
 }
@@ -348,7 +348,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
            "pointer to function returning type".
         */
         struct type t = type_add_pointer(p_type, nullchecks_enabled);
-        t.type_qualifier_flags &= ~TYPE_QUALIFIER_OPT;
+        t.type_qualifier_flags &= ~TYPE_QUALIFIER_CAKE_OPT;
         t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
         t.category = t.category;
         return t;
@@ -758,7 +758,7 @@ bool type_is_owner_or_pointer_to_dtor(const struct type* p_type)
     {
         return true;
     }
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_DTOR;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR;
 }
 
 bool type_is_pointer_to_owner(const struct type* p_type)
@@ -771,7 +771,7 @@ bool type_is_pointer_to_owner(const struct type* p_type)
 
 bool type_is_dtor(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_DTOR;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR;
 }
 
 bool type_is_pointed_dtor(const struct type* p_type)
@@ -788,7 +788,7 @@ bool type_is_owner(const struct type* p_type)
 {
     if (p_type->struct_or_union_specifier)
     {
-        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
             return false;
 
         struct struct_or_union_specifier* _Opt p_complete =
@@ -811,14 +811,14 @@ bool type_is_owner(const struct type* p_type)
         }
     }
 
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
 }
 
 bool type_is_opt(const struct type* p_type, bool nullable_enabled)
 {
     if (nullable_enabled)
     {
-        return p_type->type_qualifier_flags & TYPE_QUALIFIER_OPT;
+        return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT;
     }
 
     //If  nullable_enabled is disabled then all pointers are nullable
@@ -827,12 +827,12 @@ bool type_is_opt(const struct type* p_type, bool nullable_enabled)
 
 bool type_is_view(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW;
 }
 
 bool type_is_ctor(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CTOR;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
 }
 
 bool type_is_const(const struct type* p_type)
@@ -902,7 +902,7 @@ bool type_is_pointer_to_out(const struct type* p_type)
 
     if (p_type->category == TYPE_CATEGORY_POINTER)
     {
-        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CTOR;
+        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
     }
     return false;
 }
@@ -3179,8 +3179,8 @@ static bool type_is_same_core(const struct type* a,
             enum type_qualifier_flags aq = pa->type_qualifier_flags;
             enum type_qualifier_flags bq = pb->type_qualifier_flags;
 
-            unsigned int all = (TYPE_QUALIFIER_OWNER | TYPE_QUALIFIER_VIEW |
-             TYPE_QUALIFIER_OPT | TYPE_QUALIFIER_DTOR | TYPE_QUALIFIER_CTOR);
+            unsigned int all = (TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_VIEW |
+             TYPE_QUALIFIER_CAKE_OPT | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_CTOR);
 
             aq = aq & ~all;
             bq = bq & ~all;

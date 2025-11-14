@@ -162,7 +162,7 @@ enum token_type
     //https://learn.microsoft.com/en-us/cpp/cpp/ptr32-ptr64?view=msvc-170&redirectedfrom=MSDN
     TK_KEYWORD_MSVC__PTR32,
     TK_KEYWORD_MSVC__PTR64,
-
+    TK_KEYWORD_MSVC__UNALIGNED,
     TK_KEYWORD_MSVC__FASTCALL,
     TK_KEYWORD_MSVC__STDCALL,
     TK_KEYWORD_MSVC__CDECL,    
