@@ -776,7 +776,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 }
                 if (multi_character_literal)
                 {
-                    value = ((unsigned long long) value) * 256 + c;                    
+                    value = ((unsigned long long) value) * 256 + c;
                 }
                 else
                 {
@@ -784,9 +784,9 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                     value = obj.value.host_long_long;
                     object_destroy(&obj);
                 }
-                
-                
-                if (value > (long long) int_max_value)
+
+
+                if (value > (long long)int_max_value)
                 {
                     compiler_diagnostic(W_OUT_OF_BOUNDS, ctx, ctx->current, NULL, "character constant too long for its type", ctx->current->lexeme);
                     break;
@@ -5628,7 +5628,23 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
                     expression_delete(p_expression_node_new);
                     throw;
                 }
+
                 p_expression_node_new->object = object_dup(&p_expression_node_new->right->object);
+
+                /*
+                    void main() {
+                      int n;
+                      if (1 && (n = 2, 1)) //(n = 2, 1) is not constant
+                      {
+                      }
+                    }
+                */
+                if (p_expression_node_new->object.state == CONSTANT_VALUE_STATE_CONSTANT)
+                {
+                    //expression with , are not constants
+                    p_expression_node_new->object.state = CONSTANT_VALUE_EQUAL;
+                }
+
                 p_expression_node_new->left->last_token = p_expression_node_new->right->last_token;
 
                 p_expression_node = p_expression_node_new;

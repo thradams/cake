@@ -489,8 +489,7 @@ static const char* get_op_by_expression_type(enum expression_type type)
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
     
-    if (p_expression->expression_type != EXPRESSION_EXPRESSION &&
-        !ctx->address_of_argument &&
+    if (!ctx->address_of_argument &&
         object_has_constant_value(&p_expression->object))
     {
         if (type_is_void_ptr(&p_expression->type) ||

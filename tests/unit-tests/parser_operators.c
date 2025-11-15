@@ -49,7 +49,9 @@ _Static_assert((1 ? 2 : 3) == 2, "ternary true failed");
 _Static_assert((0 ? 2 : 3) == 3, "ternary false failed");
 
 /* ---------- Comma operator (evaluates left to right, returns last) ---------- */
+[[cake::w0960]]
 _Static_assert(((1, 2, 3)) == 3, "comma operator failed");
+//warning in clang error in gcc, error in cake
 
 /* ---------- sizeof and _Alignof ---------- */
 _Static_assert(sizeof(char) == 1, "sizeof(char) must be 1 by standard");
