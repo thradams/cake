@@ -33,7 +33,8 @@
     " flow.c "            \
     " error.c "           \
     " target.c "          \
-    " type.c "
+    " type.c "            \
+    " main.c "
 
 #define HOEDOWN_SOURCE_FILES \
  " autolink.c " \
@@ -115,9 +116,19 @@ static void generate_doc(const char* mdfilename, const char* outfile)
     }
 }
 
+static void HEADER(const char* text)
+{
+    printf("************************************************\n");
+    printf("%s\n", text);
+    printf("************************************************\n");
+
+}
 
 int main()
 {
+
+    HEADER("Build tools");
+
     echo_chdir("./tools");
 
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " CC_OUTPUT("../maketest.exe"));
@@ -127,6 +138,9 @@ int main()
     echo_chdir("./hoedown");
 
     execute_cmd(CC HOEDOWN_SOURCE_FILES CC_OUTPUT("../../hoedown.exe"));
+
+
+    HEADER("Build docs");
 
     echo_chdir("..");
     echo_chdir("..");
@@ -139,19 +153,34 @@ int main()
 
     remove("hoedown.exe");
 
+
+    HEADER("Build inner tests");
+
     execute_cmd(RUN "maketest.exe unit_test.c " CAKE_SOURCE_FILES);
 
     remove("maketest.exe");
 
+    HEADER("Build embedded files");
+
+
+
     execute_cmd(RUN "embed.exe \"./include\" ");
+
+
+    HEADER("Build amalgamated file");
+
 
     execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_SOURCE_FILES);
     remove("amalgamator.exe");
 
 
+
+    HEADER("Build cake");
+
+
 #if defined COMPILER_MSVC
 
-    execute_cmd(CC CAKE_SOURCE_FILES " main.c "
+    execute_cmd(CC CAKE_SOURCE_FILES
 
 #if defined DEBUG
                " /Od /MDd /RTC1 "
@@ -200,29 +229,27 @@ int main()
 #endif
 
     //Runs cake on its own source
-    execute_cmd("cake.exe -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -w11 " " main.c " CAKE_SOURCE_FILES);
+    
+    HEADER("Runs cake on its own source");
+    
 
-#ifndef TEST
-    //compiling the generated code
+    execute_cmd("cake.exe -DTEST -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -w11 " CAKE_SOURCE_FILES);
+
 #ifdef _WIN64
     echo_chdir("../x64_msvc/src");
-    execute_cmd("cl main.c -o cakex64msvc" CAKE_SOURCE_FILES);
-#elif defined _WIN32
-    echo_chdir("../x86_msvc/src");
-    execute_cmd("cl main.c -o cakex86msvc" CAKE_SOURCE_FILES);
 #else
-    echo_chdir("../x86_x64_gcc/src");
-    execute_cmd("cl main.c -o cakegcc" CAKE_SOURCE_FILES);
+    echo_chdir("../x86_msvc/src");
 #endif
 
-    
-#endif
+    execute_cmd("cl  -o cake89.exe" CAKE_SOURCE_FILES);
+    copy_file("cake89.exe", "../../src/cake89.exe");
+    echo_chdir("../../src");
 
 #endif
 
 #if defined PLATFORM_WINDOWS && defined COMPILER_CLANG
 
-    execute_cmd("clang " CAKE_SOURCE_FILES " main.c "
+    execute_cmd("clang " CAKE_SOURCE_FILES
 #if defined DEBUG
            " -D_DEBUG"
 #else
@@ -249,61 +276,6 @@ int main()
 
 #endif
 
-#if defined COMPILER_HLC
-    execute_cmd(CC CAKE_SOURCE_FILES " main.c "
-
-#if defined DEBUG
-              " /Od /MDd /RTC1 "
-              " /Dstrdup=_strdup" /*nao linka em release*/
-#else                              // RELEASE
-              " /MT "
-              " /DNDEBUG "
-
-#endif
-              " /D_CRT_NONSTDC_NO_WARNINGS "
-              " /wd4996 "
-              " /wd4100 " //unreferenced formal paramet
-              " /wd4068 " //unknown pragma                              
-              " /W4 "
-#ifdef TEST
-              "-DTEST"
-#endif
-              " /D_CRT_SECURE_NO_WARNINGS "
-              " /link "
-              " ucrt.lib "
-              " Kernel32.lib User32.lib Advapi32.lib"
-              " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
-              " /out:cake.exe");
-
-    //Runs cake on its own source
-    execute_cmd("cake.exe -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
-
-#endif
-
-
-#if defined COMPILER_TINYC
-
-#ifdef PLATFORM_WINDOWS
-#define OUTPUT_NAME "cake_tcc.exe "
-#else
-#define OUTPUT_NAME  "cake_tcc "
-#endif
-
-    execute_cmd(CC CAKE_SOURCE_FILES " main.c "
-
-#ifdef TEST
-        " -DTEST "
-#endif              
-        " -o " OUTPUT_NAME
-    );
-
-
-    //Runs cake on its own source
-    execute_cmd(RUN OUTPUT_NAME " -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -Wstyle -Wno-unused-parameter -Wno-unused-variable " CAKE_SOURCE_FILES);
-
-
-#endif
-
 
 #if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS)) && defined COMPILER_CLANG
     execute_cmd("clang "
@@ -318,7 +290,7 @@ int main()
            " -std=c17 "
 
            " -o cake "
-           CAKE_SOURCE_FILES " main.c ");
+           CAKE_SOURCE_FILES);
 
 
 #ifdef CAKE_HEADERS
@@ -343,10 +315,10 @@ int main()
            "  -Wall "
            " -Wno-multichar "
            " -Wno-unknown-pragmas "
-           " -g  " CAKE_SOURCE_FILES " main.c "
+           " -g  " CAKE_SOURCE_FILES
 
 #ifdef TEST
-           " -DTEST"
+           " -DTEST "
 #endif
            " -o cake");
 
@@ -358,17 +330,28 @@ int main()
     execute_cmd("./cake  -autoconfig");
 #endif
 
+    
+    HEADER("Runs cake on its own source");
+    
+
     //Uses previouly generated cakeconfig.h to find include dir
-    execute_cmd("./cake "
-               " -fanalyzer "
-               CAKE_SOURCE_FILES);
+    execute_cmd("./cake -DTEST -fanalyzer " CAKE_SOURCE_FILES);
 
-    //run unit test if -DTEST
 
+    echo_chdir("./x86_x64_gcc/");
+
+    execute_cmd("gcc  -o cake89 " CAKE_SOURCE_FILES);
+    //execute_cmd("cp "cake"")
+    execute_cmd("cp cake89 ../cake89");
+    echo_chdir("../");
 
 #endif
 
 #ifdef TEST
+    
+    HEADER("Runs tests");
+    
+
     execute_cmd(RUN "cake -selftest");
     execute_cmd(RUN "cake -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
     execute_cmd(RUN "cake  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
@@ -376,8 +359,22 @@ int main()
     execute_cmd(RUN "cake  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
     execute_cmd(RUN "cake  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
+
+    
+    HEADER("Runs tests 89");
+    
+
+    execute_cmd(RUN "cake89 -selftest");
+    execute_cmd(RUN "cake89 -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
+    execute_cmd(RUN "cake89  -fdiagnostics-color=never -wd20 ../tests/unit-tests/*.c -test-mode");
+
+    execute_cmd(RUN "cake89  -fdiagnostics-color=never -wd20 ../tests/output-test/*.c -test-mode-in-out");
+    execute_cmd(RUN "cake89  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
+
     printf("Other test cases\n");
     printf("cake ../tests/unit-tests/failing/*.c -test-mode\n");
+
+
 #endif // TEST
 
     //cake ..\tests\sqlite\sqlite3.c -DSQLITE_OMIT_SEH -Wno-out-of-bounds

@@ -1272,9 +1272,12 @@ int main()
 
 <h3 id="toc_73">720 Struct member not found</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">struct X{int a;}
+int main()
+{
+  struct X x;
+  x.b = 1; //error C0720: member &#39;b&#39; not found in &#39;struct X&#39;
+  return 0;
 }
 </code></pre>
 
@@ -1515,9 +1518,13 @@ int main(){
 
 <h3 id="toc_97">960 Expected constant expression</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">void f(int i)
+{
+    switch (i)
+    {
+        case i: //error C0960: expected constant expression
+        break;
+    }
 }
 </code></pre>
 
@@ -1614,7 +1621,7 @@ int main(){
 
 <pre><code class="language-c">int main()
 {  
-//TODO
+  static_assert(1 == 2); // error C1060: static_assert failed
 }
 </code></pre>
 
@@ -1653,9 +1660,8 @@ int main(){
 <h3 id="toc_111">1100 Unexpected end of file</h3>
 
 <pre><code class="language-c">int main()
-{  
-//TODO
-}
+{  //error C0970: unexpected end of file
+
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
@@ -1664,7 +1670,7 @@ int main(){
 
 <pre><code class="language-c">int main()
 {  
-//TODO
+ throw; //error C1110: throw statement not within try block
 }
 </code></pre>
 
@@ -1740,17 +1746,19 @@ int main(){
 
 <h3 id="toc_121">1190 Too few arguments to macro</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">#define F(a, b) a
+int main()
+{
+    F(1);  //error C1190: too few arguments provided to function-like macro invocation
 }
 </code></pre>
 
 <h3 id="toc_122">1191 Too many arguments to macro</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">#define F(a, b) a
+int main()
+{
+    F(1, 2, 3);  //error C1191: too many arguments provided to function-like macro invocation
 }
 </code></pre>
 
@@ -1783,9 +1791,11 @@ int main(){
 
 <pre><code class="language-c">int main()
 {  
-//TODO
+ 1 == 2;
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_127">1240 Character literal too large</h3>
 
@@ -1803,18 +1813,18 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_129">1260 Out of memory</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
-}
-</code></pre>
+<p>Internal compiler error</p>
 
 <h3 id="toc_130">1270 Invalid storage size</h3>
 
 <pre><code class="language-c">int a[-2]; // error C1270: sizeof &#39;a&#39; is too large
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_131">1280 Returning owner to non-owner</h3>
 
@@ -1827,6 +1837,8 @@ int * _Owner f(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_132">1290 auto requires a single declarator</h3>
 
 <pre><code class="language-c">int main()
@@ -1835,10 +1847,14 @@ int * _Owner f(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_133">1300 Multiple incompatible specifiers</h3>
 
 <pre><code class="language-c">long short s;
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_134">1310 Increment operator cannot be used on owner</h3>
 
@@ -1850,6 +1866,8 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_135">1320 Decrement operator cannot be used on owner</h3>
 
 <pre><code class="language-c">#pragma safety enable
@@ -1860,11 +1878,15 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_136">1330 Preprocessor division by zero</h3>
 
 <pre><code class="language-c">#if 1/0
 #endif
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_137">1340 Integer-to-pointer conversion error</h3>
 
@@ -1874,6 +1896,8 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_138">1350 Literal overflow</h3>
 
 <pre><code class="language-c">int main()
@@ -1881,6 +1905,8 @@ int main(){
 //TODO
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_139">1360 Character not encodable in one code unit</h3>
 
@@ -1891,6 +1917,8 @@ int main(){
 
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_140">1370 Multi-character literal error</h3>
 
 <pre><code class="language-c">int main()
@@ -1898,6 +1926,8 @@ int main(){
 //TODO
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_141">1380 Invalid token</h3>
 
@@ -1907,6 +1937,8 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_142">1390 Invalid argument to _Countof</h3>
 
 <pre><code class="language-c">int main(){
@@ -1915,6 +1947,8 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_143">1400 return used inside defer</h3>
 
 <pre><code class="language-c">int main(){  
@@ -1922,15 +1956,21 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_144">1410 Function returns function type</h3>
 
 <pre><code class="language-c">int f()(int){} //error C1410: function returning function
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_145">1420 Function returns array type</h3>
 
 <pre><code class="language-c">int f()[2]{} //error C1420: function returning array
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_146">1430 Label not defined</h3>
 
@@ -1939,6 +1979,8 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_147">1440 Duplicate label</h3>
 
 <pre><code class="language-c">int main(){
@@ -1946,6 +1988,8 @@ int main(){
     A: // error C1440: duplicated label &#39;A&#39;
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_148">1450 Duplicate case label</h3>
 
@@ -1961,6 +2005,8 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_149">1560 Array subscript is not an integer</h3>
 
 <pre><code class="language-c">int main(){
@@ -1968,6 +2014,8 @@ int main(){
     a[1.0] = 1; //error C1560: array subscript is not an integer
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_150">1570 Duplicate default generic association</h3>
 
@@ -1979,32 +2027,50 @@ int main(){
 
 <h3 id="toc_151">1780 Multiple default labels in switch</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">void f(int i)
+{
+    switch(i)
+    {
+        default:
+        break;
+        default: //error C1780: multiple default labels in one switch
+        break;
+    }
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_152">1790 Pointer to floating type</h3>
 
 <pre><code class="language-c">int main()
-{    
+{
+    int *p = 0;
+    double d = (double) p; //error C1790: pointer type cannot be converted to any floating type
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_153">1800 Floating type converted to pointer</h3>
 
 <pre><code class="language-c">int main()
-{    
+{
+    int *p = (int*)1.2; //error C1800: A floating type cannot be converted to any pointer type
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_154">1810 nullptr cast error</h3>
 
 <pre><code class="language-c">int main()
-{    
+{
+    int i = (int)nullptr; // error C1810: cannot cast nullptr_t to this type
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_155">1820 Macro redefinition</h3>
 
@@ -2012,10 +2078,14 @@ int main(){
 #define A 2 //error C1820: macro redefinition
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_156">1830 Invalid preprocessing directive</h3>
 
 <pre><code class="language-c">#blablabla //error C1830: invalid preprocessor directive &#39;#blablabla&#39;
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_157">1840 Function cannot be a member</h3>
 
@@ -2025,22 +2095,37 @@ int main(){
 };
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_158">1850 Non-integral enum type</h3>
 
 <pre><code class="language-c">enum E : double {A}; //error C1850: expected an integer type
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_159">1860 Requires compile-time constant</h3>
 
-<pre><code class="language-c">int main()
+<pre><code class="language-c">int a;
+int b = a; //error C1860: requires a compile time object
+int main()
 {    
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_160">1870 Outer scope error</h3>
 
-<pre><code class="language-c">int main()
-{    
+<pre><code class="language-c">
+int main()
+{
+    int i;
+    int dup() { return i * 2; } //error C1870: &#39;i&#39; cannot be evaluated in this scope
+    return dup();
 }
+
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 </article></body></html>

@@ -739,9 +739,12 @@ int main(){
 
 ### 720 Struct member not found
 ```c
+struct X{int a;}
 int main()
-{  
-//TODO
+{
+  struct X x;
+  x.b = 1; //error C0720: member 'b' not found in 'struct X'
+  return 0;
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -960,10 +963,15 @@ int main()
 <button onclick="Try(this)">try</button>
 
 ### 960 Expected constant expression
+
 ```c
-int main()
-{  
-//TODO
+void f(int i)
+{
+    switch (i)
+    {
+        case i: //error C0960: expected constant expression
+        break;
+    }
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -1050,7 +1058,7 @@ int main()
 ```c
 int main()
 {  
-//TODO
+  static_assert(1 == 2); // error C1060: static_assert failed
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -1083,11 +1091,11 @@ int main()
 <button onclick="Try(this)">try</button>
 
 ### 1100 Unexpected end of file
+
 ```c
 int main()
-{  
-//TODO
-}
+{  //error C0970: unexpected end of file
+
 ```
 <button onclick="Try(this)">try</button>
 
@@ -1095,7 +1103,7 @@ int main()
 ```c
 int main()
 {  
-//TODO
+ throw; //error C1110: throw statement not within try block
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -1162,16 +1170,18 @@ int main()
 ```
 ### 1190 Too few arguments to macro
 ```c
+#define F(a, b) a
 int main()
-{  
-//TODO
+{
+    F(1);  //error C1190: too few arguments provided to function-like macro invocation
 }
 ```
 ### 1191 Too many arguments to macro
 ```c
+#define F(a, b) a
 int main()
-{  
-//TODO
+{
+    F(1, 2, 3);  //error C1191: too many arguments provided to function-like macro invocation
 }
 ```
 ### 1200 Invalid macro argument
@@ -1200,9 +1210,11 @@ int main()
 ```c
 int main()
 {  
-//TODO
+ 1 == 2;
 }
 ```
+<button onclick="Try(this)">try</button>
+
 ### 1240 Character literal too large
 ```c
 int main()
@@ -1217,17 +1229,17 @@ int main()
 //TODO
 }
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1260 Out of memory
-```c
-int main()
-{  
-//TODO
-}
-```
+Internal compiler error
+
 ### 1270 Invalid storage size
 ```c
 int a[-2]; // error C1270: sizeof 'a' is too large
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1280 Returning owner to non-owner
 ```c
@@ -1239,6 +1251,7 @@ int * _Owner f(){
   return g(); //warning C0025: cannot assign a non-owner to owner
 }
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1290 auto requires a single declarator
 ```c
@@ -1247,11 +1260,14 @@ int main()
    auto  * p = 0; //error C1290: 'auto' requires a plain identifier
 }
 ```
+<button onclick="Try(this)">try</button>
+
 ### 1300 Multiple incompatible specifiers
 
 ```c
 long short s;
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1310 Increment operator cannot be used on owner
 ```c
@@ -1262,6 +1278,9 @@ int main(){
     p++; //error C1310: operator ++ cannot be used in _Owner pointers
 }
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1320 Decrement operator cannot be used on owner
 ```c
 #pragma safety enable
@@ -1271,12 +1290,16 @@ int main(){
     p--; //error C1320: operator -- cannot be used in owner pointers
 }
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1330 Preprocessor division by zero
 ```c
 #if 1/0
 #endif
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1340 Integer-to-pointer conversion error
 ```c
 int main()
@@ -1284,6 +1307,8 @@ int main()
 //TODO
 }
 ```
+<button onclick="Try(this)">try</button>
+
 ### 1350 Literal overflow
 ```c
 int main()
@@ -1291,6 +1316,10 @@ int main()
 //TODO
 }
 ```
+
+<button onclick="Try(this)">try</button>
+
+
 ### 1360 Character not encodable in one code unit
 ```c
 int main()
@@ -1299,6 +1328,9 @@ int main()
 }
 
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1370 Multi-character literal error
 ```c
 int main()
@@ -1306,6 +1338,9 @@ int main()
 //TODO
 }
 ```
+
+<button onclick="Try(this)">try</button>
+
 ### 1380 Invalid token
 ```c
 int main()
@@ -1313,6 +1348,9 @@ int main()
 //TODO
 }
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1390 Invalid argument to \_Countof
 ```c
 int main(){
@@ -1320,22 +1358,28 @@ int main(){
   _Countof(a); //error C1390: argument of _Countof must be an array
 }
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1400 return used inside defer
 ```c
 int main(){  
   defer return 0; //error C1400: return cannot be used inside defer statement
 }
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1410 Function returns function type
 ```c
 int f()(int){} //error C1410: function returning function
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1420 Function returns array type
 ```c
 int f()[2]{} //error C1420: function returning array
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1430 Label not defined
 ```c
@@ -1343,6 +1387,9 @@ int main(){
     goto A; //error C1430: label 'A' used but not defined
 }
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1440 Duplicate label
 ```c
 int main(){
@@ -1350,6 +1397,8 @@ int main(){
     A: // error C1440: duplicated label 'A'
 }
 ```
+<button onclick="Try(this)">try</button>
+
 ### 1450 Duplicate case label
 ```c
 void f(int i)
@@ -1363,6 +1412,8 @@ void f(int i)
     }
 }
 ```
+<button onclick="Try(this)">try</button>
+
 ### 1560 Array subscript is not an integer
 ```c
 int main(){
@@ -1370,6 +1421,8 @@ int main(){
     a[1.0] = 1; //error C1560: array subscript is not an integer
 }
 ```
+<button onclick="Try(this)">try</button>
+
 ### 1570 Duplicate default generic association
 ```c
 int main()
@@ -1379,34 +1432,50 @@ int main()
 ```
 ### 1780 Multiple default labels in switch
 ```c
-int main()
-{  
-//TODO
+void f(int i)
+{
+    switch(i)
+    {
+        default:
+        break;
+        default: //error C1780: multiple default labels in one switch
+        break;
+    }
 }
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1790 Pointer to floating type
 
 ```c
 int main()
-{    
+{
+    int *p = 0;
+    double d = (double) p; //error C1790: pointer type cannot be converted to any floating type
 }
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1800 Floating type converted to pointer
 
 ```c
 int main()
-{    
+{
+    int *p = (int*)1.2; //error C1800: A floating type cannot be converted to any pointer type
 }
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1810 nullptr cast error
 
 ```c
 int main()
-{    
+{
+    int i = (int)nullptr; // error C1810: cannot cast nullptr_t to this type
 }
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1820 Macro redefinition
 
@@ -1414,12 +1483,14 @@ int main()
 #define A 1
 #define A 2 //error C1820: macro redefinition
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1830 Invalid preprocessing directive
 
 ```c
 #blablabla //error C1830: invalid preprocessor directive '#blablabla'
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1840 Function cannot be a member
 
@@ -1429,25 +1500,39 @@ struct X
     void f(); //error C1840: members having a function type are not allowed
 };
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1850 Non-integral enum type
 
 ```c
 enum E : double {A}; //error C1850: expected an integer type
 ```
+<button onclick="Try(this)">try</button>
 
 ### 1860 Requires compile-time constant
 
 ```c
+int a;
+int b = a; //error C1860: requires a compile time object
 int main()
 {    
 }
 ```
+
+<button onclick="Try(this)">try</button>
+
 
 ### 1870 Outer scope error
 
 ```c
+
 int main()
-{    
+{
+    int i;
+	int dup() { return i * 2; } //error C1870: 'i' cannot be evaluated in this scope
+    return dup();
 }
+
 ```
+
+<button onclick="Try(this)">try</button>

@@ -28,11 +28,6 @@
 #  define COMPILER_TINYC 1
 #define CC " tcc "
 #define CC_OUTPUT(X) " -o " X
-#elif defined(__HLC__)
-https://github.com/PascalBeyer/Headerless-C-Compiler
-#  define COMPILER_HLC 1
-#define CC " hlc "
-#define CC_OUTPUT(X) " -o " X
 #else
 #  define COMPILER_UNKNOWN 1
 #endif
@@ -128,6 +123,44 @@ https://github.com/PascalBeyer/Headerless-C-Compiler
 #  define API_POSIX 1
 #endif
 
+#include <stdio.h>
+
+int copy_file(const char *src, const char *dst) {
+    FILE *fin = fopen(src, "rb");
+    if (!fin) {
+        perror("fopen(src)");
+        exit(1);
+    }
+
+    FILE *fout = fopen(dst, "wb");
+    if (!fout) {
+        perror("fopen(dst)");
+        fclose(fin);
+        exit(1);
+        return -1;
+    }
+
+    int c;
+    while ((c = fgetc(fin)) != EOF) {
+        if (fputc(c, fout) == EOF) {
+            perror("fputc");
+            fclose(fin);
+            fclose(fout);
+            return -1;
+        }
+    }
+
+    if (ferror(fin)) {
+        perror("fgetc");
+        fclose(fin);
+        fclose(fout);
+        return -1;
+    }
+
+    fclose(fin);
+    fclose(fout);
+    return 0;
+}
 
 
 #ifdef PLATFORM_WINDOWS

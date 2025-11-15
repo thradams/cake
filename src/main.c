@@ -22,8 +22,6 @@
 #define assert _ASSERTE
 #endif
 
-
-
 #ifdef TEST
 #include "unit_test.c"
 #endif
