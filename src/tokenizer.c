@@ -5586,7 +5586,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                         preprocessor_diagnostic(W_LOCATION, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
                     }
                     else if (input_list->head->type == TK_LINE_COMMENT)
-                        preprocessor_diagnostic(W_COMMENT, ctx, input_list->head, "multi-line //comment");
+                        preprocessor_diagnostic(W_MULTI_LINE_COMMENT, ctx, input_list->head, "multi-line //comment");
                     else
                         preprocessor_diagnostic(W_LINE_SLICING, ctx, input_list->head, "unnecessary line-slicing");
                 }

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "version.h"
+#include "compile.h"
 
 #ifdef _WIN32
 #include <crtdbg.h>

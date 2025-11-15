@@ -1033,7 +1033,7 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     
     struct report report = { 0 };
     char * s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
-    print_report(&report);
+   // print_report(&report);
     return s;
 }
 

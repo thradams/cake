@@ -8695,28 +8695,23 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                 if (p_unlabeled_statement != NULL &&
                     p_unlabeled_statement->jump_statement == NULL &&
                     p_unlabeled_statement->expression_statement != NULL &&
-                    p_unlabeled_statement->expression_statement->expression_opt &&
-                    !type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type) &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != ASSIGNMENT_EXPRESSION_ASSIGN &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_FUNCTION_CALL &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_INCREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_DECREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_INCREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_DECREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_DECLARATOR_ATTRIBUTE_EXPR &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_ASSERT)
+                    p_unlabeled_statement->expression_statement->expression_opt)
                 {
-                    if (ctx->current &&
-                        ctx->current->level == 0)
+                    if (p_unlabeled_statement->expression_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_DECLARATOR ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_NUMBER)
                     {
-#if 0
-                        //too many false..alerts.
-                        //make list of for sure ...
-                        compiler_diagnostic(W_UNUSED_VALUE,
-                            ctx,
-                            p_unlabeled_statement->expression_statement->expression_opt->first_token,
-                            "expression not used");
-#endif
+                        if (ctx->current &&
+                            ctx->current->level == 0)
+                        {
+                            //too many false..alerts.
+                            //make list of for sure ...
+                            compiler_diagnostic(W_EXPRESSION_RESULT_NOT_USED,
+                                ctx,
+                                p_unlabeled_statement->expression_statement->expression_opt->first_token,
+                                NULL,
+                                "expression result not used");
+
+                        }
                     }
                 }
             }

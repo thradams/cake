@@ -1616,6 +1616,10 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         case '"':
             *out_value = '"';
             break;
+        
+        case '\n': //line slicing inside string
+            break;
+
         default:
             assert(false);
             return NULL;

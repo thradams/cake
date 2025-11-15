@@ -103,22 +103,29 @@ void f(int a[])
 }
 ```
 <button onclick="Try(this)">try</button>
-### 9 Invalid or suspicious attributes
+### 9 ignoring the result of _Owner type 
 
 ```c
+#pragma safety enable
+int *_Owner f();
 int main()
-{  
-//TODO
+{
+  f();  //warning C0009: ignoring the result of _Owner type 
 }
 ```
 <button onclick="Try(this)">try</button>
 
-### 10 Unused value
+### 10 Expression result not used
 
 ```c
 int main()
 {  
-//TODO
+  int a = 0;
+  a++;
+  
+  a; //warning C0010: expression result not used
+  1; //warning C0010: expression result not used
+ 
 }
 ```
 
@@ -135,12 +142,13 @@ int main() { //  warning C0011: not following correct brace style
 
 <button onclick="Try(this)">try</button>
 
-### 12 Comment-related issue
+### 12  multi-line comment
 
 ```c
 int main()
 {  
-//TODO
+  // \
+  a++; 
 }
 ```
 
@@ -176,15 +184,8 @@ char* f(){
 
 <button onclick="Try(this)">try</button>
 
-### 16 Declarator state issue
-```c
-int main()
-{  
-//TODO
-}
-```
+### 16 (currently not used)
 
-<button onclick="Try(this)">try</button>
 
 ### 17 Uninitialized variable
 ```c
@@ -197,11 +198,12 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-### 18 Returning address of local variable
+### 18 Returning address of local variable (TODO)
 ```c
-int main()
+int * f()
 {  
-//TODO
+    int i;
+    return &i;
 }
 ```
 
@@ -226,14 +228,7 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-### 21 Missing owner qualifier
-```c
-int main()
-{  
-//TODO
-}
-```
-<button onclick="Try(this)">try</button>
+### 21 (currently not used)
 
 ### 22 Using object without being owner
 ```c
@@ -266,9 +261,13 @@ int main()
 
 ### 25 Assigning non-owner to owner
 ```c
+#pragma safety enable
+
+void  f(int * _Owner);
 int main()
-{  
-//TODO
+{
+  int * _Opt p = 0;
+  f(p); // warning C0025: cannot assign a non-owner to owner
 }
 ```
 
@@ -342,32 +341,31 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-### 33 Null dereference
+### 33 Null dereference (flow analysis)
+
 ```c
+#pragma safety enable
 int main()
-{  
-//TODO
+{
+  int * _Opt p = 0;
+  *p =1; //warning C0033: dereference a NULL object
 }
 ```
 
 <button onclick="Try(this)">try</button>
 
 
-### 34 Maybe-null passed to non-optional argument
-```c
-int main()
-{  
-//TODO
-}
-```
+### 34 (not used flow)
 
-<button onclick="Try(this)">try</button>
-
-### 35 Nullable converted to non-nullable
+### 35 Nullable converted to non-nullable (flow)
 ```c
+#pragma safety enable
+
+void f(int *p);
 int main()
-{  
-//TODO
+{
+  int * _Opt p = 0;
+  f(p); // warning C0035: passing a possible null pointer 'p' to non-nullable pointer parameter
 }
 ```
 
@@ -375,33 +373,34 @@ int main()
 
 ### 36 Division by zero (flow analysis)
 ```c
-int main()
-{  
-//TODO
+#pragma safety enable
+
+void f(int i)
+{
+    if (i > 0)
+     i = 0;
+    else
+     i =1;
+
+    int j = 1/i; //warning C0036: possible division by zero
 }
 ```
 <button onclick="Try(this)">try</button>
 
-### 37 Division by zero
+### 37 Division by zero (without flow analysis)
+
 ```c
 int main()
-{  
-//TODO
+{
+    const int i = 0;
+    int j = 1/i; //warning C0037: division by zero
 }
 ```
 
 <button onclick="Try(this)">try</button>
 
 
-### 38 Constant expression has constant value
-```c
-int main()
-{  
-//TODO
-}
-```
-
-<button onclick="Try(this)">try</button>
+### 38 (not used)
 
 ### 39 Passing null as array
 ```c
@@ -447,18 +446,19 @@ int main()
 
 ### 43 Assignment to array parameter
 ```c
-int main()
-{  
-//TODO
+void f(int a[]){
+    a = 1; // warning C0043: assignment to array parameter
 }
 ```
 <button onclick="Try(this)">try</button>
 
-### 44 Conditional is constant
+### 44 Conditional is constant (currently disabled)
+
 ```c
 int main()
 {  
-//TODO
+  if (1) {
+  }
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -505,11 +505,11 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-### 49 Null conversion issue
+### 49 implicit conversion of nullptr constant to 'bool'
 ```c
-int main()
-{  
-//TODO
+void f(bool b){}
+int main(){
+    f(nullptr); //warning C0049: implicit conversion of nullptr constant to 'bool'
 }
 ```
 
@@ -517,19 +517,23 @@ int main()
 
 ### 50 Implicitly unsigned literal
 ```c
-int main()
-{  
-//TODO
+
+int main(){
+  long long a = 9223372036854775807;
+  unsigned long long b = 9223372036854775808; // warning C0050: integer literal is too large to be represented in a signed integer type, interpreting as unsigned
+  unsigned long long c = 9223372036854775808ULL;
 }
+
 ```
 <button onclick="Try(this)">try</button>
 
 ### 51 Integer overflow
 ```c
-int main()
-{  
-//TODO
+
+int main(){
+  long long a = 9223372036854775807 + 2; //warning C0051: integer overflow
 }
+
 ```
 <button onclick="Try(this)">try</button>
 
@@ -567,16 +571,14 @@ int main()
 ```c
 int main()
 {  
-//TODO
+  A: //warning C0055: label 'A' defined but not used
 }
 ```
 <button onclick="Try(this)">try</button>
 ### 56 Redefining builtin macro
+
 ```c
-int main()
-{  
-//TODO
-}
+#define __FILE__ 1 //warning C0056: redefining built-in macro
 ```
 
 <button onclick="Try(this)">try</button>
@@ -594,8 +596,12 @@ int main()
 ### 58 Boolean comparison issue
 ```c
 int main()
-{  
-//TODO
+{
+    bool b = false;
+    int i = 2;
+    if (b == i) //warning C0058: comparison bool with non bool
+    {
+    }
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -603,8 +609,12 @@ int main()
 ### 59 Expected warning did not occur
 ```c
 int main()
-{  
-//TODO
+{
+    bool b = false;
+    bool i = false;
+    if ([[cake::w58]] b == i) //warning C0059: warning 'C0058' was not recognized
+    {
+    }
 }
 ```
 <button onclick="Try(this)">try</button>

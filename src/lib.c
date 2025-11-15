@@ -858,19 +858,19 @@ enum diagnostic_id {
     W_DECLARATOR_HIDE = 7,
     W_TYPEOF_ARRAY_PARAMETER = 8,
     W_ATTRIBUTES = 9,
-    W_UNUSED_VALUE = 10,
+    W_EXPRESSION_RESULT_NOT_USED = 10,
     W_STYLE = 11,
-    W_COMMENT = 12,
+    W_MULTI_LINE_COMMENT = 12,
     W_LINE_SLICING = 13,
     W_STRING_SLICED = 14,
     W_DISCARDED_QUALIFIERS = 15,
-    W_DECLARATOR_STATE = 16,
+    W_UNUSED_WARNING_16 = 16,
     W_UNINITIALZED = 17,
     W_RETURN_LOCAL_ADDR = 18,
     W_MUST_USE_ADDRESSOF = 19,
     W_ARRAY_INDIRECTION = 20,
 
-    W_OWNERSHIP_MISSING_OWNER_QUALIFIER = 21,
+    W_UNUSED_WARNING_21 = 21,
     W_OWNERSHIP_NOT_OWNER = 22,
     W_OWNERSHIP_USING_TEMPORARY_OWNER = 23,
     W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER = 24,
@@ -884,13 +884,13 @@ enum diagnostic_id {
     W_FLOW_LIFETIME_ENDED = 31,
     W_FLOW_MOVED = 32,
     W_FLOW_NULL_DEREFERENCE = 33,
-    W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG = 34,
+    W_FLOW_NOT_USED_34 = 34,
     W_FLOW_NULLABLE_TO_NON_NULLABLE = 35,
     W_FLOW_DIVIZION_BY_ZERO = 36,
 
 
     W_DIVIZION_BY_ZERO = 37,
-    W_CONSTANT_VALUE = 38,
+    W_UNUSED_WARNING_38 = 38,
     W_PASSING_NULL_AS_ARRAY = 39,
     W_INCOMPATIBLE_ENUN_TYPES = 40,
     W_MULTICHAR_ERROR = 41,
@@ -3012,6 +3012,10 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         case '"':
             *out_value = '"';
             break;
+        
+        case '\n': //line slicing inside string
+            break;
+
         default:
             assert(false);
             return NULL;
@@ -9220,7 +9224,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                         preprocessor_diagnostic(W_LOCATION, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
                     }
                     else if (input_list->head->type == TK_LINE_COMMENT)
-                        preprocessor_diagnostic(W_COMMENT, ctx, input_list->head, "multi-line //comment");
+                        preprocessor_diagnostic(W_MULTI_LINE_COMMENT, ctx, input_list->head, "multi-line //comment");
                     else
                         preprocessor_diagnostic(W_LINE_SLICING, ctx, input_list->head, "unnecessary line-slicing");
                 }
@@ -14639,7 +14643,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_UNINITIALIZED:
     case W_FLOW_MOVED:
     case W_FLOW_NULL_DEREFERENCE:
-    case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
+    case W_FLOW_NOT_USED_34:
     case W_FLOW_NON_NULL:
     case W_FLOW_LIFETIME_ENDED:
     case W_FLOW_DIVIZION_BY_ZERO:
@@ -28776,7 +28780,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.53"
+#define CAKE_VERSION "0.12.55"
 
 
 
@@ -37508,28 +37512,23 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
                 if (p_unlabeled_statement != NULL &&
                     p_unlabeled_statement->jump_statement == NULL &&
                     p_unlabeled_statement->expression_statement != NULL &&
-                    p_unlabeled_statement->expression_statement->expression_opt &&
-                    !type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type) &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != ASSIGNMENT_EXPRESSION_ASSIGN &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_FUNCTION_CALL &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_INCREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_DECREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_INCREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_DECREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_DECLARATOR_ATTRIBUTE_EXPR &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_ASSERT)
+                    p_unlabeled_statement->expression_statement->expression_opt)
                 {
-                    if (ctx->current &&
-                        ctx->current->level == 0)
+                    if (p_unlabeled_statement->expression_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_DECLARATOR ||
+                        p_unlabeled_statement->expression_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_NUMBER)
                     {
-#if 0
-                        //too many false..alerts.
-                        //make list of for sure ...
-                        compiler_diagnostic(W_UNUSED_VALUE,
-                            ctx,
-                            p_unlabeled_statement->expression_statement->expression_opt->first_token,
-                            "expression not used");
-#endif
+                        if (ctx->current &&
+                            ctx->current->level == 0)
+                        {
+                            //too many false..alerts.
+                            //make list of for sure ...
+                            compiler_diagnostic(W_EXPRESSION_RESULT_NOT_USED,
+                                ctx,
+                                p_unlabeled_statement->expression_statement->expression_opt->first_token,
+                                NULL,
+                                "expression result not used");
+
+                        }
                     }
                 }
             }
@@ -41969,7 +41968,7 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     
     struct report report = { 0 };
     char * s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
-    print_report(&report);
+   // print_report(&report);
     return s;
 }
 

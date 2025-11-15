@@ -189,7 +189,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_UNINITIALIZED:
     case W_FLOW_MOVED:
     case W_FLOW_NULL_DEREFERENCE:
-    case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
+    case W_FLOW_NOT_USED_34:
     case W_FLOW_NON_NULL:
     case W_FLOW_LIFETIME_ENDED:
     case W_FLOW_DIVIZION_BY_ZERO:

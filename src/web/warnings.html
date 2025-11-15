@@ -58,16 +58,16 @@
 <a href="#toc_8">8 typeof used on array parameter</a>
 </li>
 <li>
-<a href="#toc_9">9 Invalid or suspicious attributes</a>
+<a href="#toc_9">9 ignoring the result of _Owner type</a>
 </li>
 <li>
-<a href="#toc_10">10 Unused value</a>
+<a href="#toc_10">10 Expression result not used</a>
 </li>
 <li>
 <a href="#toc_11">11 Style issue (disabled by default)</a>
 </li>
 <li>
-<a href="#toc_12">12 Comment-related issue</a>
+<a href="#toc_12">12  multi-line comment</a>
 </li>
 <li>
 <a href="#toc_13">13 Line slicing occurred</a>
@@ -79,13 +79,13 @@
 <a href="#toc_15">15 Discarded qualifiers</a>
 </li>
 <li>
-<a href="#toc_16">16 Declarator state issue</a>
+<a href="#toc_16">16 (currently not used)</a>
 </li>
 <li>
 <a href="#toc_17">17 Uninitialized variable</a>
 </li>
 <li>
-<a href="#toc_18">18 Returning address of local variable</a>
+<a href="#toc_18">18 Returning address of local variable (TODO)</a>
 </li>
 <li>
 <a href="#toc_19">19 Missing address-of operator</a>
@@ -94,7 +94,7 @@
 <a href="#toc_20">20 Array indirection issue</a>
 </li>
 <li>
-<a href="#toc_21">21 Missing owner qualifier</a>
+<a href="#toc_21">21 (currently not used)</a>
 </li>
 <li>
 <a href="#toc_22">22 Using object without being owner</a>
@@ -130,22 +130,22 @@
 <a href="#toc_32">32 Object already moved (flow analysis)</a>
 </li>
 <li>
-<a href="#toc_33">33 Null dereference</a>
+<a href="#toc_33">33 Null dereference (flow analysis)</a>
 </li>
 <li>
-<a href="#toc_34">34 Maybe-null passed to non-optional argument</a>
+<a href="#toc_34">34 (not used flow)</a>
 </li>
 <li>
-<a href="#toc_35">35 Nullable converted to non-nullable</a>
+<a href="#toc_35">35 Nullable converted to non-nullable (flow)</a>
 </li>
 <li>
 <a href="#toc_36">36 Division by zero (flow analysis)</a>
 </li>
 <li>
-<a href="#toc_37">37 Division by zero</a>
+<a href="#toc_37">37 Division by zero (without flow analysis)</a>
 </li>
 <li>
-<a href="#toc_38">38 Constant expression has constant value</a>
+<a href="#toc_38">38 (not used)</a>
 </li>
 <li>
 <a href="#toc_39">39 Passing null as array</a>
@@ -163,7 +163,7 @@
 <a href="#toc_43">43 Assignment to array parameter</a>
 </li>
 <li>
-<a href="#toc_44">44 Conditional is constant</a>
+<a href="#toc_44">44 Conditional is constant (currently disabled)</a>
 </li>
 <li>
 <a href="#toc_45">45 Suspicious switch statement</a>
@@ -178,7 +178,7 @@
 <a href="#toc_48">48 const object not initialized</a>
 </li>
 <li>
-<a href="#toc_49">49 Null conversion issue</a>
+<a href="#toc_49">49 implicit conversion of nullptr constant to &#39;bool&#39;</a>
 </li>
 <li>
 <a href="#toc_50">50 Implicitly unsigned literal</a>
@@ -620,21 +620,28 @@ void f(int i) {}
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_9">9 Invalid or suspicious attributes</h3>
+<h3 id="toc_9">9 ignoring the result of _Owner type</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">#pragma safety enable
+int *_Owner f();
+int main()
+{
+  f();  //warning C0009: ignoring the result of _Owner type 
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_10">10 Unused value</h3>
+<h3 id="toc_10">10 Expression result not used</h3>
 
 <pre><code class="language-c">int main()
 {  
-//TODO
+  int a = 0;
+  a++;
+  
+  a; //warning C0010: expression result not used
+  1; //warning C0010: expression result not used
+ 
 }
 </code></pre>
 
@@ -650,11 +657,12 @@ int main() { //  warning C0011: not following correct brace style
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_12">12 Comment-related issue</h3>
+<h3 id="toc_12">12  multi-line comment</h3>
 
 <pre><code class="language-c">int main()
 {  
-//TODO
+  // \
+  a++; 
 }
 </code></pre>
 
@@ -689,15 +697,7 @@ int main() { //  warning C0011: not following correct brace style
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_16">16 Declarator state issue</h3>
-
-<pre><code class="language-c">int main()
-{  
-//TODO
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
+<h3 id="toc_16">16 (currently not used)</h3>
 
 <h3 id="toc_17">17 Uninitialized variable</h3>
 
@@ -710,11 +710,12 @@ int main() { //  warning C0011: not following correct brace style
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_18">18 Returning address of local variable</h3>
+<h3 id="toc_18">18 Returning address of local variable (TODO)</h3>
 
-<pre><code class="language-c">int main()
+<pre><code class="language-c">int * f()
 {  
-//TODO
+    int i;
+    return &amp;i;
 }
 </code></pre>
 
@@ -740,15 +741,7 @@ int main() { //  warning C0011: not following correct brace style
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_21">21 Missing owner qualifier</h3>
-
-<pre><code class="language-c">int main()
-{  
-//TODO
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
+<h3 id="toc_21">21 (currently not used)</h3>
 
 <h3 id="toc_22">22 Using object without being owner</h3>
 
@@ -782,9 +775,13 @@ int main() { //  warning C0011: not following correct brace style
 
 <h3 id="toc_25">25 Assigning non-owner to owner</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">#pragma safety enable
+
+void  f(int * _Owner);
+int main()
+{
+  int * _Opt p = 0;
+  f(p); // warning C0025: cannot assign a non-owner to owner
 }
 </code></pre>
 
@@ -860,31 +857,29 @@ int main() { //  warning C0011: not following correct brace style
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_33">33 Null dereference</h3>
+<h3 id="toc_33">33 Null dereference (flow analysis)</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">#pragma safety enable
+int main()
+{
+  int * _Opt p = 0;
+  *p =1; //warning C0033: dereference a NULL object
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_34">34 Maybe-null passed to non-optional argument</h3>
+<h3 id="toc_34">34 (not used flow)</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
-}
-</code></pre>
+<h3 id="toc_35">35 Nullable converted to non-nullable (flow)</h3>
 
-<p><button onclick="Try(this)">try</button></p>
+<pre><code class="language-c">#pragma safety enable
 
-<h3 id="toc_35">35 Nullable converted to non-nullable</h3>
-
-<pre><code class="language-c">int main()
-{  
-//TODO
+void f(int *p);
+int main()
+{
+  int * _Opt p = 0;
+  f(p); // warning C0035: passing a possible null pointer &#39;p&#39; to non-nullable pointer parameter
 }
 </code></pre>
 
@@ -892,33 +887,33 @@ int main() { //  warning C0011: not following correct brace style
 
 <h3 id="toc_36">36 Division by zero (flow analysis)</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">#pragma safety enable
+
+void f(int i)
+{
+    if (i &gt; 0)
+     i = 0;
+    else
+     i =1;
+
+    int j = 1/i; //warning C0036: possible division by zero
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_37">37 Division by zero</h3>
+<h3 id="toc_37">37 Division by zero (without flow analysis)</h3>
 
 <pre><code class="language-c">int main()
-{  
-//TODO
+{
+    const int i = 0;
+    int j = 1/i; //warning C0037: division by zero
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_38">38 Constant expression has constant value</h3>
-
-<pre><code class="language-c">int main()
-{  
-//TODO
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
+<h3 id="toc_38">38 (not used)</h3>
 
 <h3 id="toc_39">39 Passing null as array</h3>
 
@@ -966,19 +961,19 @@ int main()
 
 <h3 id="toc_43">43 Assignment to array parameter</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">void f(int a[]){
+    a = 1; // warning C0043: assignment to array parameter
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_44">44 Conditional is constant</h3>
+<h3 id="toc_44">44 Conditional is constant (currently disabled)</h3>
 
 <pre><code class="language-c">int main()
 {  
-//TODO
+  if (1) {
+  }
 }
 </code></pre>
 
@@ -1028,11 +1023,11 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_49">49 Null conversion issue</h3>
+<h3 id="toc_49">49 implicit conversion of nullptr constant to &#39;bool&#39;</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">void f(bool b){}
+int main(){
+    f(nullptr); //warning C0049: implicit conversion of nullptr constant to &#39;bool&#39;
 }
 </code></pre>
 
@@ -1040,20 +1035,24 @@ int main()
 
 <h3 id="toc_50">50 Implicitly unsigned literal</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">
+int main(){
+  long long a = 9223372036854775807;
+  unsigned long long b = 9223372036854775808; // warning C0050: integer literal is too large to be represented in a signed integer type, interpreting as unsigned
+  unsigned long long c = 9223372036854775808ULL;
 }
+
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_51">51 Integer overflow</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
+<pre><code class="language-c">
+int main(){
+  long long a = 9223372036854775807 + 2; //warning C0051: integer overflow
 }
+
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
@@ -1094,7 +1093,7 @@ int main()
 
 <pre><code class="language-c">int main()
 {  
-//TODO
+  A: //warning C0055: label &#39;A&#39; defined but not used
 }
 </code></pre>
 
@@ -1102,10 +1101,7 @@ int main()
 
 <h3 id="toc_56">56 Redefining builtin macro</h3>
 
-<pre><code class="language-c">int main()
-{  
-//TODO
-}
+<pre><code class="language-c">#define __FILE__ 1 //warning C0056: redefining built-in macro
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
@@ -1123,8 +1119,12 @@ int main()
 <h3 id="toc_58">58 Boolean comparison issue</h3>
 
 <pre><code class="language-c">int main()
-{  
-//TODO
+{
+    bool b = false;
+    int i = 2;
+    if (b == i) //warning C0058: comparison bool with non bool
+    {
+    }
 }
 </code></pre>
 
@@ -1133,8 +1133,12 @@ int main()
 <h3 id="toc_59">59 Expected warning did not occur</h3>
 
 <pre><code class="language-c">int main()
-{  
-//TODO
+{
+    bool b = false;
+    bool i = false;
+    if ([[cake::w58]] b == i) //warning C0059: warning &#39;C0058&#39; was not recognized
+    {
+    }
 }
 </code></pre>
 

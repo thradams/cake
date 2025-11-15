@@ -9,23 +9,23 @@ int main()
     void local()
     {
         f(); //ok
-        g;//ok
-        s; //ok
+        g++;//ok
+        s++; //ok
         //error: 'i' cannot be evaluated in this scope
         [[cake::e1870]]
-        i; //error
+        i++; //error
     }
 
 
     (void())
     {
         f(); //ok
-        g;//ok
-        s; //ok
+        g++;//ok
+        s++; //ok
 
         //error: 'i' cannot be evaluated in this scope
         [[cake::e1870]]
-        i; //error
+        i++; //error
     };
 
 }
