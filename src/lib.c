@@ -28796,7 +28796,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.58"
+#define CAKE_VERSION "0.12.59"
 
 
 
@@ -48837,7 +48837,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             if (show_warning &&
                 compiler_diagnostic(W_FLOW_MISSING_DTOR,
                     ctx->ctx,
-                    position, NULL,                    
+                    position, NULL,
                     "object referenced by owner '%s' was not released.", previous_names))
             {
                 compiler_diagnostic(W_LOCATION,
@@ -51896,14 +51896,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             type_is_function(&p_expression->left->declarator->type) &&
             p_expression->argument_expression_list.head)
         {
-            
-            struct argument_expression* _Owner _Opt p_argument_expression = p_expression->argument_expression_list.head;
-            
+
+            struct argument_expression* _Opt p_argument_expression = p_expression->argument_expression_list.head;
+
             if (p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt)
             {
-                struct parameter_declaration* _Owner _Opt p_parameter = 
+                struct parameter_declaration* _Owner _Opt p_parameter =
                     p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
-                while (p_parameter)
+                while (p_parameter && p_argument_expression)
                 {
                     p_parameter->declarator->p_alias_of_expression =
                         p_argument_expression->expression;
@@ -51921,6 +51921,15 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 flow_visit_secondary_block(ctx, p_expression->left->declarator->direct_declarator->function_declarator->p_out_block);
             }
+
+            struct parameter_declaration* p_parameter = p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+            while (p_parameter)
+            {
+                p_parameter->declarator->p_alias_of_expression = NULL;
+                p_parameter = p_parameter->next;
+            }
+
+
         }
 #endif
     }
@@ -53289,7 +53298,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
         if (p_obj)
         {
             const bool color_enabled = !ctx->ctx->options.color_disabled;
-            print_flow_object(color_enabled,  &p_static_assert_declaration->constant_expression->type, p_obj, !ex);
+            print_flow_object(color_enabled, &p_static_assert_declaration->constant_expression->type, p_obj, !ex);
             if (p_obj->is_temporary)
             {
                 p_obj->current.state = FLOW_OBJECT_STATE_LIFE_TIME_ENDED;
