@@ -853,7 +853,7 @@ enum diagnostic_id {
     W_DEPRECATED = 3,
     W_ENUN_CONVERSION = 4,
 
-    W_ADDRESS = 5,
+    W_UNUSED_WARNING_5 = 5,
     W_UNUSED_PARAMETER = 6,
     W_DECLARATOR_HIDE = 7,
     W_TYPEOF_ARRAY_PARAMETER = 8,
@@ -876,7 +876,7 @@ enum diagnostic_id {
     W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER = 24,
     W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN = 25,
     W_OWNERSHIP_DISCARDING_OWNER = 26,
-    W_OWNERSHIP_NON_OWNER_MOVE = 27,
+    W_UNUSED_WARNING_27 = 27,
 
     W_FLOW_NON_NULL = 28,
     W_FLOW_MISSING_DTOR = 29,
@@ -907,7 +907,7 @@ enum diagnostic_id {
     W_ARRAY_SIZE = 52,
 
 
-    W_EMPTY_STATEMENT = 53,
+    W_UNUSED_WARNING_53 = 53,
     W_ERROR_INCOMPATIBLE_TYPES = 54,
     W_UNUSED_LABEL = 55,
     W_REDEFINING_BUITIN_MACRO = 56,
@@ -1001,9 +1001,11 @@ enum diagnostic_id {
     C_ERROR_STRUCT_MEMBER_NOT_FOUND = 720,
     C_ERROR_STRUCTURE_OR_UNION_REQUIRED = 730,
     C_ERROR_STRUCT_IS_INCOMPLETE = 740,
-    C_ERROR_DECLARATOR_NOT_FOUND = 750,
-    C_ERROR_EXPECTED_DECLARATOR_NAME = 760,
-    C_ERROR_UNKNOWN_ATTRIBUTE_NAME = 770,
+    
+    C_ERROR_UNUSED_750= 750,
+
+    C_ERROR_UNUSED_760 = 760,
+    C_ERROR_UNUSED_770 = 770,
     C_ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND = 780,
     C_ERROR_INVALID_TOKEN = 790,
     C_ERROR_EXPECTED_STRUCT_TYPE = 800,
@@ -1048,7 +1050,7 @@ enum diagnostic_id {
     C_ERROR_PREPROCESSOR_C_ERROR_DIRECTIVE = 1180,
     C_ERROR_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO = 1190,
     C_ERROR_TOO_MANY_ARGUMENTS_TO_FUNCTION_LIKE_MACRO = 1191,
-    C_ERROR_PREPROCESSOR_MACRO_INVALID_ARG = 1200,
+    C_ERROR_UNUSED_1200 = 1200,
     C_ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT = 1210,
     C_ERROR_ADDRESS_OF_REGISTER = 1220,
     C_ERROR_OPERATOR_NEEDS_LVALUE = 1230, //C2105
@@ -7221,6 +7223,15 @@ static bool is_empty_assert(struct token_list* replacement_list)
 void print_path(const char* path)
 {
     const char* p = path;
+    const char* last = NULL;
+    while (*p)
+    {
+        if (*p == '/' || *p == '\\')
+            last = p;
+        p++;
+    }
+   
+    p = last ? last + 1: path;
     while (*p)
     {
 #ifdef _WIN32
@@ -14848,6 +14859,7 @@ int fill_options(struct options* options,
 
         if (strcmp(argv[i], "-msvc-output") == 0) //same as clang
         {
+            options->color_disabled = true;
             options->visual_studio_ouput_format = true;
             continue;
         }
@@ -15902,7 +15914,6 @@ enum expression_type
     UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY,
     UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG,
     UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF,
-    UNARY_EXPRESSION_GCC__BUILTIN_XXXXX,
 
 
     UNARY_EXPRESSION_TRAITS,
@@ -22106,7 +22117,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
-
+                assert(p_scope != NULL);
                 if (p_scope->scope_level == 0)
                 {
                     //file scope
@@ -28780,7 +28791,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.56"
+#define CAKE_VERSION "0.12.57"
 
 
 
@@ -29156,11 +29167,14 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     const bool is_error = options_diagnostic_is_error(&ctx->options, w);
     const bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
     const bool is_note = options_diagnostic_is_note(&ctx->options, w);
-
+    const bool is_location = (w == W_LOCATION);
 
     if (is_error)
     {
         ctx->p_report->error_count++;
+    }
+    else if (is_location)
+    {
     }
     else if (is_warning)
     {
@@ -29180,8 +29194,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
             return false;
         }
 
-        if (w != W_LOCATION)
-            ctx->p_report->info_count++;
+        ctx->p_report->info_count++;
     }
     else
     {
@@ -29219,6 +29232,8 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
             printf("warning C%d: ", w);
         else if (is_note)
             printf("note: ");
+        else if (is_location)
+            printf(": ");
 
         printf("%s", buffer);
     }
@@ -29227,26 +29242,27 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+                printf(LIGHTRED "error " WHITE "C%04d: %s" COLOR_RESET, w, buffer);
             else
-                printf("error "        "C%04d: %s\n", w, buffer);
+                printf("error "        "C%04d: %s", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s" COLOR_RESET, w, buffer);
             else
-                printf("warning "  "C%04d: %s\n", w, buffer);
+                printf("warning "  "C%04d: %s", w, buffer);
         }
-        else if (is_note)
+        else if (is_note || is_location)
         {
             if (color_enabled)
-                printf(LIGHTCYAN "note: " WHITE "%s\n" COLOR_RESET, buffer);
+                printf(LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, buffer);
             else
-                printf("note: " "%s\n", buffer);
-        }
+                printf("note: " "%s", buffer);
+        }        
     }
 
+    printf("\n");
     print_line_and_token(&marker, color_enabled);
 
 
@@ -31384,7 +31400,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                             ss_clear(&ss);
                             print_type_no_names(&ss, &p_init_declarator->p_declarator->type, ctx->options.target);
 
-                            compiler_diagnostic(C_ERROR_REDECLARATION,
+                            compiler_diagnostic(W_LOCATION,
                                 ctx,
                                 p_previous_declarator->name_opt,
                                 NULL,
@@ -34010,12 +34026,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 hash_item_set_destroy(&item);
             }
-
-            //if (!has_identifier)
-            //{
-              //  compiler_diagnostic(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
-                //throw;
-            //}
         }
     }
     catch
@@ -40936,6 +40946,7 @@ int initializer_init_new(struct parser_ctx* ctx,
  *
 */
 
+#pragma safety enable
 
 
 /*
@@ -40958,10 +40969,6 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
 */   
 char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
 void print_report(struct report* report);
-
-#pragma safety enable
-
-
 
 #ifdef _WIN32
 #endif
@@ -41055,7 +41062,7 @@ int generate_config_file(const char* configpath)
         if (outfile == NULL)
         {
             error = errno;
-            printf("Cannot open the file '%s' for writing '%s'.\n", configpath, get_posix_error_message(error));            
+            printf("Cannot open the file '%s' for writing '%s'.\n", configpath, get_posix_error_message(error));
             throw;
         }
 
@@ -41291,7 +41298,7 @@ int compile_one_file(const char* file_name,
         }
 
         prectx.options = *options;
-        
+
 
         content = read_file(file_name, true /*append new line*/);
         if (content == NULL)
@@ -41345,7 +41352,7 @@ int compile_one_file(const char* file_name,
         {
             print_tokens(color_enabled, tokens.head);
         }
-        
+
         ast.token_list = preprocessor(&prectx, &tokens, 0);
 
         report->warnings_count += prectx.n_warnings;
@@ -41365,7 +41372,8 @@ int compile_one_file(const char* file_name,
         if (options->preprocess_only)
         {
             p_output_string = print_preprocessed_to_string2(ast.token_list.head);
-            printf("%s", p_output_string);
+            if (p_output_string)
+                printf("%s", p_output_string);
 
             FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
             if (outfile)
@@ -41380,7 +41388,7 @@ int compile_one_file(const char* file_name,
                 report->error_count++;
                 printf("cannot open output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));
                 throw;
-            }            
+            }
         }
         else
         {
@@ -41463,13 +41471,13 @@ int compile_one_file(const char* file_name,
             if (ctx.options.preprocess_only)
             {
             }
-            else
+            else if (p_output_string)
             {
                 s_first_line_len = get_first_line_len(p_output_string);
                 content_expected_first_line_len = get_first_line_len(content_expected);
             }
 
-            
+
             if (p_output_string && strcmp(content_expected + content_expected_first_line_len, p_output_string + s_first_line_len) != 0)
             {
                 printf("Output file '%s' is different from expected file '%s'\n", out_file_name, buf);
@@ -41875,7 +41883,7 @@ static int strtoargv(char* s, int n, const char* argv[/*n*/])
             break;
         argv[argvc] = p;
         argvc++;
-        while (*p != ' ' && *p != '\0')
+        while (*p != ' ' && *p != '\0') //error in cake static analysis
             p++;
         if (*p == 0)
             break;
@@ -41965,10 +41973,11 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     printf(WHITE "cake %s main.c\n", pszoptions);
 
     printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
-    
+
     struct report report = { 0 };
-    char * s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
-   // print_report(&report);
+    char* _Owner _Opt s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
+
+
     return s;
 }
 
@@ -43674,22 +43683,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             d_visit_expression(ctx, oss, p_expression->generic_selection->p_view_selected_expression);
         }
         break;
-
-    case UNARY_EXPRESSION_GCC__BUILTIN_XXXXX:
-    {
-        ss_fprintf(oss, "%s(", p_expression->first_token->lexeme);
-
-        struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
-        while (arg)
-        {
-            d_visit_expression(ctx, oss, arg->expression);
-            if (arg->next)
-                ss_fprintf(oss, ", ");
-            arg = arg->next;
-        }
-        ss_fprintf(oss, ")");
-    }
-    break;
 
     case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
         ss_fprintf(oss, "__builtin_offsetof(");
@@ -48834,8 +48827,8 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             if (show_warning &&
                 compiler_diagnostic(W_FLOW_MISSING_DTOR,
                     ctx->ctx,
-                    position, NULL,
-                    "object pointed by '%s' was not released.", previous_names))
+                    position, NULL,                    
+                    "object referenced by owner '%s' was not released.", previous_names))
             {
                 compiler_diagnostic(W_LOCATION,
                 ctx->ctx,
@@ -48889,7 +48882,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                     compiler_diagnostic(W_FLOW_MISSING_DTOR,
                         ctx->ctx,
                         position, NULL,
-                        "object pointed by '%s' was not released.", previous_names))
+                        "object referenced by owner '%s' was not released.", previous_names))
                 {
                     compiler_diagnostic(W_LOCATION,
                     ctx->ctx,

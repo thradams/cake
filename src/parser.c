@@ -339,11 +339,14 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     const bool is_error = options_diagnostic_is_error(&ctx->options, w);
     const bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
     const bool is_note = options_diagnostic_is_note(&ctx->options, w);
-
+    const bool is_location = (w == W_LOCATION);
 
     if (is_error)
     {
         ctx->p_report->error_count++;
+    }
+    else if (is_location)
+    {
     }
     else if (is_warning)
     {
@@ -363,8 +366,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
             return false;
         }
 
-        if (w != W_LOCATION)
-            ctx->p_report->info_count++;
+        ctx->p_report->info_count++;
     }
     else
     {
@@ -402,6 +404,8 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
             printf("warning C%d: ", w);
         else if (is_note)
             printf("note: ");
+        else if (is_location)
+            printf(": ");
 
         printf("%s", buffer);
     }
@@ -410,26 +414,27 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+                printf(LIGHTRED "error " WHITE "C%04d: %s" COLOR_RESET, w, buffer);
             else
-                printf("error "        "C%04d: %s\n", w, buffer);
+                printf("error "        "C%04d: %s", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s" COLOR_RESET, w, buffer);
             else
-                printf("warning "  "C%04d: %s\n", w, buffer);
+                printf("warning "  "C%04d: %s", w, buffer);
         }
-        else if (is_note)
+        else if (is_note || is_location)
         {
             if (color_enabled)
-                printf(LIGHTCYAN "note: " WHITE "%s\n" COLOR_RESET, buffer);
+                printf(LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, buffer);
             else
-                printf("note: " "%s\n", buffer);
-        }
+                printf("note: " "%s", buffer);
+        }        
     }
 
+    printf("\n");
     print_line_and_token(&marker, color_enabled);
 
 
@@ -2567,7 +2572,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                             ss_clear(&ss);
                             print_type_no_names(&ss, &p_init_declarator->p_declarator->type, ctx->options.target);
 
-                            compiler_diagnostic(C_ERROR_REDECLARATION,
+                            compiler_diagnostic(W_LOCATION,
                                 ctx,
                                 p_previous_declarator->name_opt,
                                 NULL,
@@ -5193,12 +5198,6 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
                 p_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 hash_item_set_destroy(&item);
             }
-
-            //if (!has_identifier)
-            //{
-              //  compiler_diagnostic(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
-                //throw;
-            //}
         }
     }
     catch

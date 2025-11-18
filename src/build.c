@@ -72,7 +72,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "            \"&to=\" + encodeURI(\"-2\") +\n"
         "            \"&options=\" + encodeURI(\"\");\n"
         "\n"
-        "        window.open(link, 'popup','width=800,height=600');\n"
+        "        window.open(link, '_blank');\n"
         "    }\n"
         "// find-replace for this\n"
         "// <button onclick=\"Try(this)\">try</button> \n"
@@ -119,7 +119,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
 static void HEADER(const char* text)
 {
     printf("************************************************\n");
-    printf("%s\n", text);
+    printf(" %s\n", text);
     printf("************************************************\n");
 
 }

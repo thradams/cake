@@ -394,6 +394,7 @@ int fill_options(struct options* options,
 
         if (strcmp(argv[i], "-msvc-output") == 0) //same as clang
         {
+            options->color_disabled = true;
             options->visual_studio_ouput_format = true;
             continue;
         }

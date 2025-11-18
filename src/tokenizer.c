@@ -3582,7 +3582,17 @@ static bool is_empty_assert(struct token_list* replacement_list)
 
 void print_path(const char* path)
 {
+    //I will print just the file name for now..to be decided.
     const char* p = path;
+    const char* last = NULL;
+    while (*p)
+    {
+        if (*p == '/' || *p == '\\')
+            last = p;
+        p++;
+    }
+    
+    p = last ? last + 1: path;
     while (*p)
     {
 #ifdef _WIN32

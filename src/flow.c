@@ -2390,8 +2390,8 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
             if (show_warning &&
                 compiler_diagnostic(W_FLOW_MISSING_DTOR,
                     ctx->ctx,
-                    position, NULL,
-                    "object pointed by '%s' was not released.", previous_names))
+                    position, NULL,                    
+                    "object referenced by owner '%s' was not released.", previous_names))
             {
                 compiler_diagnostic(W_LOCATION,
                 ctx->ctx,
@@ -2445,7 +2445,7 @@ static void flow_end_of_block_visit_core(struct flow_visit_ctx* ctx,
                     compiler_diagnostic(W_FLOW_MISSING_DTOR,
                         ctx->ctx,
                         position, NULL,
-                        "object pointed by '%s' was not released.", previous_names))
+                        "object referenced by owner '%s' was not released.", previous_names))
                 {
                     compiler_diagnostic(W_LOCATION,
                     ctx->ctx,

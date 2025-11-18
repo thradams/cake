@@ -19,7 +19,7 @@
             "&to=" + encodeURI("-2") +
             "&options=" + encodeURI("");
 
-        window.open(link, 'popup','width=800,height=600');
+        window.open(link, '_blank');
     }
 // find-replace for this
 // <button onclick="Try(this)">try</button> 
@@ -55,24 +55,27 @@
 <a href="#toc_7">Clang on Linux/Windows/MacOS build instructions</a>
 </li>
 <li>
-<a href="#toc_8">Emscripten build instructions (web)</a>
+<a href="#toc_8">Running tests</a>
+</li>
+<li>
+<a href="#toc_9">Emscripten build instructions (web)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_9">Running cake at command line</a>
+<a href="#toc_10">Running cake at command line</a>
 </li>
 <li>
-<a href="#toc_10">Road map</a>
+<a href="#toc_11">Road map</a>
 </li>
 <li>
-<a href="#toc_11">Participating</a>
+<a href="#toc_12">Participating</a>
 </li>
 <li>
-<a href="#toc_12">How cake is developed?</a>
+<a href="#toc_13">How cake is developed?</a>
 </li>
 <li>
-<a href="#toc_13">Cake x CFront</a>
+<a href="#toc_14">Cake x CFront</a>
 </li>
 </ul>
 <p>The C Programming language 1978</p>
@@ -110,7 +113,7 @@ or old compilers to produce executables. </p>
        └─► [cake preprocessor] ──►[cake compiler] ─┘ c89            
 </code></pre>
 
-<p>Cake aims to enhance C&#39;s safety by providing high-quality warning messages and advanced 
+<p>Cake aims to enhance C&#39;s safety by providing high-quality <a href="warnings.html">warning messages</a> and advanced 
 flow analysis, including <a href="ownership.html">object lifetime</a> checks.</p>
 
 <h1 id="toc_1">Web Playground</h1>
@@ -133,13 +136,9 @@ seamless integration.</p>
 This allows developers to use modern or experimental features while targeting 
 compilers that do not yet support the latest language standards.</p>
 
-<p>Previous versions of Cake included a conversion mode to 
-translate code while preserving the preprocessor parts. </p>
-
-<p>Although useful, this process could not guarantee 100% conversion,
-functioning more as a tool than a compiler. With the new versions 
-of Cake moving toward becoming a more traditional compiler,
-the previous mode has been discontinued at version 0.9.36.</p>
+<p>Cake is also a cross-compiler. For example, on Windows it can use Linux 
+headers and generate GCC-compatible code for Linux, and vice versa. 
+This makes it very useful when developing multiplatform code.</p>
 
 <h1 id="toc_3">Features</h1>
 
@@ -149,9 +148,11 @@ the previous mode has been discontinued at version 0.9.36.</p>
 <li>C23 semantic analysis</li>
 <li>Static <a href="ownership.html">object lifetime</a> checks (Extension)</li>
 <li>Sarif output</li>
-<li>Backend generating C89 compatible code</li>
+<li>Cross compiling</li>
+<li>C89 backend</li>
+<li>Style checker</li>
 <li>AST </li>
-<li>More than 260 diagnostics</li>
+<li>Lots of <a href="warnings.html">diagnostics</a></li>
 </ul>
 
 <h1 id="toc_4">Build</h1>
@@ -182,12 +183,14 @@ the previous mode has been discontinued at version 0.9.36.</p>
 <pre><code>clang build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<p>To run unit tests windows/linux add <em>-DTEST</em> for instance:</p>
+<h2 id="toc_8">Running tests</h2>
+
+<p>Adding <em>-DTEST</em> on any platform will run a large set of tests.</p>
 
 <pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<h2 id="toc_8">Emscripten build instructions (web)</h2>
+<h2 id="toc_9">Emscripten build instructions (web)</h2>
 
 <p>Emscripten <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
 
@@ -202,7 +205,7 @@ the previous mode has been discontinued at version 0.9.36.</p>
 
 <p>This will generate the <em>\src\Web\cake.js</em></p>
 
-<h1 id="toc_9">Running cake at command line</h1>
+<h1 id="toc_10">Running cake at command line</h1>
 
 <p>Make sure cake is on your system path.</p>
 
@@ -211,11 +214,11 @@ the previous mode has been discontinued at version 0.9.36.</p>
 <pre><code>cake source.c
 </code></pre>
 
-<p>this will output <em>./out/source.c</em></p>
+<p>this will output <em>./platform short name/source.c</em></p>
 
 <p>See <a href="manual.html">Manual</a></p>
 
-<h1 id="toc_10">Road map</h1>
+<h1 id="toc_11">Road map</h1>
 
 <ul>
 <li>function literal and local functions implementation</li>
@@ -223,7 +226,7 @@ the previous mode has been discontinued at version 0.9.36.</p>
 <li>Flow v2 algorithm was delayed</li>
 </ul>
 
-<h1 id="toc_11">Participating</h1>
+<h1 id="toc_12">Participating</h1>
 
 <p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
 
@@ -233,7 +236,7 @@ the previous mode has been discontinued at version 0.9.36.</p>
 
 <p><a href="https://discord.gg/YRekr2N65S">https://discord.gg/YRekr2N65S</a></p>
 
-<h1 id="toc_12">How cake is developed?</h1>
+<h1 id="toc_13">How cake is developed?</h1>
 
 <p>I use Visual Studio 2022 IDE to write and debug the Cake source.
 Cake parses itself using the MSVC includes and generates the X_86_msvc 
@@ -241,7 +244,7 @@ directory after the build.
 The Linux version is tested inside WSL, and the macOS version is 
 currently the least tested but is expected to work.</p>
 
-<h1 id="toc_13">Cake x CFront</h1>
+<h1 id="toc_14">Cake x CFront</h1>
 
 <p>CFront was the first C++ compiler, designed to translate C++ source code into C.
 Initially compatible with C89, it diverged as the C and C++ languages evolved 

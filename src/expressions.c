@@ -1183,7 +1183,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
-
+                assert(p_scope != NULL);
                 if (p_scope->scope_level == 0)
                 {
                     //file scope

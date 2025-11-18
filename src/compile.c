@@ -6,12 +6,9 @@
  *
 */
 
-#include "compile.h"
-
 #pragma safety enable
-
 #include "ownership.h"
-
+#include "compile.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -120,7 +117,7 @@ int generate_config_file(const char* configpath)
         if (outfile == NULL)
         {
             error = errno;
-            printf("Cannot open the file '%s' for writing '%s'.\n", configpath, get_posix_error_message(error));            
+            printf("Cannot open the file '%s' for writing '%s'.\n", configpath, get_posix_error_message(error));
             throw;
         }
 
@@ -356,7 +353,7 @@ int compile_one_file(const char* file_name,
         }
 
         prectx.options = *options;
-        
+
 
         content = read_file(file_name, true /*append new line*/);
         if (content == NULL)
@@ -410,7 +407,7 @@ int compile_one_file(const char* file_name,
         {
             print_tokens(color_enabled, tokens.head);
         }
-        
+
         ast.token_list = preprocessor(&prectx, &tokens, 0);
 
         report->warnings_count += prectx.n_warnings;
@@ -430,7 +427,8 @@ int compile_one_file(const char* file_name,
         if (options->preprocess_only)
         {
             p_output_string = print_preprocessed_to_string2(ast.token_list.head);
-            printf("%s", p_output_string);
+            if (p_output_string)
+                printf("%s", p_output_string);
 
             FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
             if (outfile)
@@ -445,7 +443,7 @@ int compile_one_file(const char* file_name,
                 report->error_count++;
                 printf("cannot open output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));
                 throw;
-            }            
+            }
         }
         else
         {
@@ -528,13 +526,13 @@ int compile_one_file(const char* file_name,
             if (ctx.options.preprocess_only)
             {
             }
-            else
+            else if (p_output_string)
             {
                 s_first_line_len = get_first_line_len(p_output_string);
                 content_expected_first_line_len = get_first_line_len(content_expected);
             }
 
-            
+
             if (p_output_string && strcmp(content_expected + content_expected_first_line_len, p_output_string + s_first_line_len) != 0)
             {
                 printf("Output file '%s' is different from expected file '%s'\n", out_file_name, buf);
@@ -940,7 +938,7 @@ static int strtoargv(char* s, int n, const char* argv[/*n*/])
             break;
         argv[argvc] = p;
         argvc++;
-        while (*p != ' ' && *p != '\0')
+        while (*p != ' ' && *p != '\0') //error in cake static analysis
             p++;
         if (*p == 0)
             break;
@@ -1030,10 +1028,11 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     printf(WHITE "cake %s main.c\n", pszoptions);
 
     printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
-    
+
     struct report report = { 0 };
-    char * s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
-   // print_report(&report);
+    char* _Owner _Opt s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
+
+
     return s;
 }
 

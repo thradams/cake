@@ -65,16 +65,8 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-### 5 Suspicious address usage
+### 5 (unused)
 
-```c
-int main()
-{    
-}
-
-```
-
-<button onclick="Try(this)">try</button>
 
 ### 6 Unused function parameter (disabled by default)
 
@@ -184,7 +176,7 @@ char* f(){
 
 <button onclick="Try(this)">try</button>
 
-### 16 (currently not used)
+### 16 (unused)
 
 
 ### 17 Uninitialized variable
@@ -220,15 +212,15 @@ int main()
 
 ### 20 Array indirection issue
 ```c
-int main()
-{  
-//TODO
+void f(int a[])
+{
+    *a =1; // warning C0020: array indirection
 }
 ```
 
 <button onclick="Try(this)">try</button>
 
-### 21 (currently not used)
+### 21 (unused)
 
 ### 22 Using object without being owner
 ```c
@@ -275,68 +267,142 @@ int main()
 
 ### 26 Discarding an owner
 ```c
-int main()
-{  
-//TODO
+
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+
+void f(int * _Opt p){}
+
+int main() {
+   f((int*)malloc(1)); //warning C0026: discarding _Owner pointer   
 }
 ```
 <button onclick="Try(this)">try</button>
 
-### 27 Moving a non-owner object
-```c
-int main()
-{  
-//TODO
-}
-```
-<button onclick="Try(this)">try</button>
+### 27 (unused)
 
 ### 28 Non-null flow violation
+
 ```c
-int main()
-{  
-//TODO
+#pragma nullable enable
+
+void f(int *p)
+{
+  if (p) //warning C0028: pointer is always not-null
+  {   
+  }
 }
+int main() {}
 ```
 <button onclick="Try(this)">try</button>
 
-### 29 Missing destructor (flow analysis)
 ```c
-int main()
-{  
-//TODO
+#pragma nullable enable
+
+int main() {
+  int * _Opt p = 0;
+  if (p) //warning C0028: pointer is always null
+  {   
+  }
 }
 ```
+<button onclick="Try(this)">try</button>
+See [object lifetime](ownership.md)
 
+### 29 pointed object was not released (flow analysis)
+```c
+#pragma safety enable
+
+struct X {
+    char* _Owner text; 
+};
+
+void delete_x(struct X *_Owner p) //warning C0029: object pointed by 'p' was not released.
+{
+}
+int main() {}
+```
 <button onclick="Try(this)">try</button>
 
 ### 30 Uninitialized value (flow analysis)
 ```c
-int main()
-{  
-//TODO
+#pragma safety enable
+
+void f(int i)
+{
+    int j;
+    if (i) j =1;
+    i = j; //warning C0030: object 'j' can be uninitialized
 }
+int main() {}
+
+```
+<button onclick="Try(this)">try</button>
+
+```c
+
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+struct X{
+    char* _Owner _Opt p;
+};
+struct X makeX();
+void destroyX([[dtor]]struct X * p){
+  free(p->p);
+}
+
+int main() {
+    struct X x = makeX();
+    destroyX(&x);
+    destroyX(&x); //double free
+}
+
 ```
 
 <button onclick="Try(this)">try</button>
 
 ### 31 Lifetime has ended (flow analysis)
 ```c
-int main()
-{  
-//TODO
+
+#pragma safety enable
+
+struct X { int i; };
+
+int main() {
+    struct X * _Opt p = 0;
+    {
+      struct X x ={};
+      p = &x;
+    }
+    p->i = 0; //warning C0031: object lifetime ended
 }
+
 ```
 
 <button onclick="Try(this)">try</button>
 
+See [object lifetime](ownership.md)
+
 
 ### 32 Object already moved (flow analysis)
 ```c
-int main()
-{  
-//TODO
+
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+int main() {
+   void * _Owner _Opt p = malloc(1);
+   void * _Owner _Opt p2 = p;
+   void * _Owner _Opt p3 = p; //warning C0032: object may be already moved
+   free(p2);
 }
+
 ```
 
 <button onclick="Try(this)">try</button>
@@ -540,20 +606,14 @@ int main(){
 ### 52 Invalid array size
 ```c
 int main()
-{  
-//TODO
+{
+    char a[2] = "1234"; // warning C0052: initializer for array is too long
 }
 ```
 <button onclick="Try(this)">try</button>
 
-### 53 Empty statement
-```c
-int main()
-{  
-//TODO
-}
-```
-<button onclick="Try(this)">try</button>
+### 53 (unused)
+
 
 ### 54 Incompatible types
 ```c
@@ -619,26 +679,29 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-### 60 Nullable to non-nullable
+### 60 Null pointer constant to non-nullable pointer
+
 ```c
-int main()
-{  
-//TODO
+#pragma safety enable
+
+int main() {  
+  int * p2 = nullptr; //warning C0060: cannot convert a null pointer constant to non-nullable pointer
 }
 ```
 <button onclick="Try(this)">try</button>
 
-### 61 Cast to same type
+### 61 Cast to same type (inactive)
 ```c
 int main()
 {  
-//TODO
+  int i = (int) 0;
 }
 ```
 
 <button onclick="Try(this)">try</button>
 
 ### 62 Too many initializers
+
 ```c
 int main()
 {  
@@ -648,34 +711,28 @@ int main()
 <button onclick="Try(this)">try</button>
 ### 63 Float out of range
 ```c
-int main()
-{  
-//TODO
+int main() {
+  float f = 1e300f; //warning C0063: floating constant exceeds range of float
 }
 ```
 <button onclick="Try(this)">try</button>
 
 ### 64–127 Reserved / unused warnings
 
----
+## Errors 
 
-### 640 Invalid qualifier for pointer
+### 640 \_View is the default qualifier
 ```c
-int main()
-{  
-//TODO
+#pragma safety enable
+
+int main() {  
+  int * _View i; //error C0640: invalid qualifier for pointer
 }
 ```
 <button onclick="Try(this)">try</button>
 
 ### 650 Unexpected compiler error
-```c
-int main()
-{  
-//TODO
-}
-```
-<button onclick="Try(this)">try</button>
+Some internal error.
 
 ### 660 Too many arguments
 
@@ -751,9 +808,9 @@ int main()
 
 ### 730 Structure or union required
 ```c
-int main()
-{  
-//TODO
+int main() {  
+  int a;
+  a.a = 1; // error C0730: structure or union required
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -767,38 +824,17 @@ int main(){
 ```
 <button onclick="Try(this)">try</button>
 
-### 750 Declarator not found
-```c
-int main()
-{  
-//TODO
-}
-```
-<button onclick="Try(this)">try</button>
+### 750 (unused)
 
-### 760 Expected declarator name
-```c
-int main()
-{  
-//TODO
-}
-```
-<button onclick="Try(this)">try</button>
+### 760 (unused)
 
-### 770 Unknown attribute name
-```c
-int main()
-{  
-//TODO
-}
-```
-<button onclick="Try(this)">try</button>
+### 770 (unused)
 
 ### 780 Indirection requires pointer operand
 ```c
-int main()
-{  
-//TODO
+int main() {
+    int i;
+    *i = 1; //error C0780: indirection requires pointer operand
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -1020,10 +1056,10 @@ int main()
 
 ### 1020 Redeclaration error
 ```c
-int main()
-{  
-//TODO
-}
+
+#pragma safety enable
+int a;
+double a; //error C1020: conflicting types for 'a' (int)
 ```
 <button onclick="Try(this)">try</button>
 
@@ -1036,12 +1072,13 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-### 1040 Missing enum tag name
+### 1040 type specifier or qualifier expected
 ```c
-int main()
-{  
-//TODO
-}
+struct X7
+{
+    goto  a; //error C1040: type specifier or qualifier expected
+};
+
 ```
 <button onclick="Try(this)">try</button>
 
@@ -1073,12 +1110,18 @@ int main()
 <button onclick="Try(this)">try</button>
 
 ### 1080 Static-state analysis failed
+
 ```c
-int main()
-{  
-//TODO
-}
+#pragma safety enable
+
+int f();
+
+int main() {   
+    int i = f();
+    static_state(i, "not-zero"); //error C1080: static_state failed
+} 
 ```
+
 <button onclick="Try(this)">try</button>
 
 ### 1090 Unbalanced attribute
@@ -1135,10 +1178,8 @@ int main()
 
 ### 1140 Token invalid in preprocessor expression
 ```c
-int main()
-{  
-//TODO
-}
+#if ()
+#endif
 ```
 <button onclick="Try(this)">try</button>
 
@@ -1159,15 +1200,20 @@ int main()
 
 ### 1170 Expression error
 ```c
-int main()
-{  
-//TODO
-}
+#if 1+
+#endif
 ```
+<button onclick="Try(this)">try</button>
+
+
 ### 1180 Preprocessor error directive
 ```c
 #error message
 ```
+
+<button onclick="Try(this)">try</button>
+
+
 ### 1190 Too few arguments to macro
 ```c
 #define F(a, b) a
@@ -1176,6 +1222,8 @@ int main()
     F(1);  //error C1190: too few arguments provided to function-like macro invocation
 }
 ```
+<button onclick="Try(this)">try</button>
+
 ### 1191 Too many arguments to macro
 ```c
 #define F(a, b) a
@@ -1184,13 +1232,10 @@ int main()
     F(1, 2, 3);  //error C1191: too many arguments provided to function-like macro invocation
 }
 ```
-### 1200 Invalid macro argument
-```c
-int main()
-{  
-//TODO
-}
-```
+<button onclick="Try(this)">try</button>
+
+### 1200 (unused)
+
 ### 1210 Missing macro argument
 ```c
 int main()
@@ -1238,6 +1283,13 @@ Internal compiler error
 ### 1270 Invalid storage size
 ```c
 int a[-2]; // error C1270: sizeof 'a' is too large
+```
+<button onclick="Try(this)">try</button>
+
+```c
+int main() {
+  int a[2147483647]; //error C1270: sizeof 'a' is too large
+}
 ```
 <button onclick="Try(this)">try</button>
 
@@ -1300,11 +1352,14 @@ int main(){
 <button onclick="Try(this)">try</button>
 
 
-### 1340 Integer-to-pointer conversion error
+### 1340 non-pointer to pointer error
 ```c
-int main()
-{  
-//TODO
+
+void f(int * p);
+
+int main() {
+    int i;
+    f(i); //error C1340: non-pointer to pointer   
 }
 ```
 <button onclick="Try(this)">try</button>
