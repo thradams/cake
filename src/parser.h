@@ -17,10 +17,6 @@
 #include "options.h"
 
 
-//EXPERIMENTAL CONTRACTS
-#define EXPERIMENTAL_CONTRACTS 1
-
-
 struct scope
 {
     int scope_level;
@@ -835,6 +831,15 @@ struct function_declarator
     struct direct_declarator* _Owner _Opt direct_declarator;
     struct scope parameters_scope;// used for scope parameters
     struct parameter_type_list* _Owner _Opt parameter_type_list_opt;
+
+
+#define EXPERIMENTAL_CONTRACTS_II 1
+#ifdef EXPERIMENTAL_CONTRACTS_II
+    struct parameter_declaration* _Opt _Owner p_out_parameter_declaration;
+    struct secondary_block* _Opt _Owner p_in_block;
+    struct secondary_block* _Opt _Owner p_out_block;
+#endif
+
 };
 
 void function_declarator_delete(struct function_declarator* _Owner _Opt p);

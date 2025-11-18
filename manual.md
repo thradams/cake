@@ -239,8 +239,14 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf
 
 ```c
 void f(const char* restrict s);
+int main(){
+    f("");
+}
 ```
+
 <button onclick="Try(this)">try</button>
+
+Currently restrict is being removed on the generated code.
 
 
 ###  C99 Variable-length array (VLA) 
@@ -339,8 +345,9 @@ int main()
 }
 
 ```
-  <button onclick="Try(this)">try</button>
+<button onclick="Try(this)">try</button>
 
+Cake will perform the same checks regardless of the static keyword.
 
 ### C99 Complex and imaginary support
 Not implemented
@@ -417,6 +424,12 @@ N494
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 ### C99 Line comments
+
+```c
+
+//line comments
+
+```
 
 ### Declarations in for loop initializers 
 
@@ -536,6 +549,8 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf
 
 ###  C11 \_Static\_assert
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf
+
 ```c
 int main()
 {
@@ -545,8 +560,11 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
+\_Static\_assert became static_assert in C23.
 
 ### C11 Anonymous structures and unions
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf
 
 
 ```c
@@ -566,17 +584,19 @@ int main(){
 <button onclick="Try(this)">try</button>
 
 
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1406.pdf
 
 
 ### C11 \_Noreturn
+
+<button onclick="Try(this)">try</button>
 
 ```c
 _Noreturn void f () {
   abort(); // ok
 }
 ```
-<button onclick="Try(this)">try</button>
+
+`_Noreturn` became `[[noreturn]]` in C23.
 
 ###  C11 Thread_local/Atomic
 
@@ -587,8 +607,6 @@ Atomic - not implemented
 
 ###  C11 type-generic expressions (\_Generic)
 
-
-N1441
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm
 
 ```c
@@ -611,6 +629,8 @@ int main(void)
 
 ###  C11 u' ' U' ' character constants
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1326.pdf
+
 ```c
  int i = U'ç';
  int i2 = u'ç';
@@ -621,19 +641,19 @@ Important: Cake assume source is utf8 encoded.
 
 ###  C11 u8"literals"
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm
+
 ```c
 char * s1 = u8"maçã";
 char * s2 = u8"maca";
 ```
 <button onclick="Try(this)">try</button>
 
-N1488
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm
-
 Important: Cake assume source is utf8 encoded.
 
 ### C11 _Alignof or C23 alignof
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1397.htm
 
 ```c
  int main()
@@ -643,12 +663,13 @@ Important: Cake assume source is utf8 encoded.
 ```
 <button onclick="Try(this)">try</button>
 
+`_Alignof` became `alignof` in C23.
 
 ### C11 _Alignas or C23 alignas
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1335.pdf
 
-Uses __declspec(align(n)) in MSVC output and __attribute__((aligned(n))) in GCC output.
+Uses `__declspec(align(n))` in MSVC output and `__attribute__((aligned(n)))` in GCC output.
 
 
 ## C23
@@ -659,7 +680,6 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf
 #define __STDC_VERSION__ 201710L  //C17
 #define __STDC_VERSION__ 202311L  //C23
 ```
-<button onclick="Try(this)">try</button>
 
 ###  C23 \_Decimal32, \_Decimal64, and \_Decimal128
 
@@ -668,8 +688,16 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1107.htm
 
 ### C23 static\_assert / single-argument static_assert
 
-N1330
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf
+
+```c
+int main(void)
+{
+    static_assert(1 == 2);
+}
+```
+
+<button onclick="Try(this)">try</button>
 
 ###  C23 u8 character prefix
 
@@ -716,7 +744,9 @@ void bar(void)
 
 
 ### C23 Unnamed parameters in function definitions
-  
+
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf
+
 ```c
 int f(int );
 
@@ -725,11 +755,11 @@ int f(int ) {
 ```
 <button onclick="Try(this)">try</button>
 
-https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf
-
 Missing a dummy name when generating c89.
 
 ### C23 Digit separators
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf
 
 ```c
 int main()
@@ -739,9 +769,11 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf
 
 ### C23 Binary literals 
+
+<button onclick="Try(this)">try</button>
+
 
 ```c
 #define X  0b1010
@@ -753,10 +785,11 @@ int main()
 }
 
 ```
-<button onclick="Try(this)">try</button>
 
 
 ### C23 Introduce the nullptr constant
+
+https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
 ```c
 
@@ -770,7 +803,6 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
 ### C23 Make false and true first-class language features
 
@@ -791,6 +823,10 @@ int main()
 
 ###  C23 {} empty initializer
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3011.htm
+
+
 ```c
 
 int main()
@@ -810,11 +846,9 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3011.htm
-
 ###  C23 auto
+
+https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm
 
 ```c
 static auto a = 3.5;
@@ -828,10 +862,11 @@ auto qA = &A;
 <button onclick="Try(this)">try</button>
 
 
-https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm
-
 
 ###  C23 typeof / typeof_unqual
+
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf
 
 ```c
 
@@ -874,10 +909,8 @@ int main()
 
 ```
   
-  <button onclick="Try(this)">try</button>
+<button onclick="Try(this)">try</button>
 
-https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm
-https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf
 
 ### C23 Improved Normal Enumerations
 
@@ -898,9 +931,7 @@ static_assert(_Generic(a0,
 
 <button onclick="Try(this)">try</button>
 
-
 The type of the enum must be adjusted.
-
 
 ###  C23 constexpr 
 
@@ -951,10 +982,11 @@ int main()
 
 
 ```
-  <button onclick="Try(this)">try</button>
-
+<button onclick="Try(this)">try</button>
   
 ###  C23 Enhancements to Enumerations
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 
 ```c
 enum X : short {
@@ -967,8 +999,6 @@ int main() {
 ```
 <button onclick="Try(this)">try</button>
 
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
-
 
 ###  C23 Attributes
 
@@ -976,9 +1006,31 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf
 
 ### C23 fallthrough attribute
-Not implemented
+TODO
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf
+
+```c
+void g(){}
+void h(){}
+void i(){}
+ 
+void f(int n) {
+    void g(void), h(void), i(void);
+    switch (n) {
+        case 1: /* diagnostic on fallthrough discouraged */
+        case 2:
+            g();
+            [[fallthrough]];
+        case 3: /* diagnostic on fallthrough discouraged */
+            h();
+        case 4: /* fallthrough diagnostic encouraged */
+            i();
+            //[[fallthrough]]; /* constraint violation */            
+    }
+}
+```
+<button onclick="Try(this)">try</button>
 
 ### C23 deprecated attribute
 
@@ -996,7 +1048,6 @@ int main(void) {
     f2();
 }
 ```
-
 
 <button onclick="Try(this)">try</button>
 
@@ -1018,23 +1069,72 @@ void f( [[maybe_unused]] int arg1, int arg2) //warning C0006: 'arg2': unreferenc
 <button onclick="Try(this)">try</button>
 
 ### C23 nodiscard attribute
-Partially implemented
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2448.pdf
 
+```c
+#include <stdlib.h>
+
+struct [[nodiscard]] error_info { int error; };
+
+struct error_info enable_missile_safety_mode(void);
+
+void launch_missiles(void);
+
+void test_missiles(void) {
+    enable_missile_safety_mode();
+    launch_missiles();
+}
+
+[[nodiscard("must check armed state")]]
+bool arm_detonator(int within);
+
+void detonate();
+
+void call(void) {
+  arm_detonator(3);
+  detonate();
+}
+
+```
+
+<button onclick="Try(this)">try</button>
+
+Cake implementation is missing the message.
 
 ### C23 [[unsequenced]] and [[reproducible]]
 
-//TODO
+TODO
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm
 
+```c
+typedef double f_t [[reproducible]] (double);    // invalid, applies to identifier f_t
+typedef double g_t(double) [[reproducible]];     // valid, applies to type
+extern g_t f [[unsequenced]];                    // invalid, applies to identifier f
+extern typeof(double(double)) [[unsequenced]] g; // valid, applies to type specifier
+extern g_t [[unsequenced]] g;                    // valid, applies to type specifier
+```
+
 ###  C23 \_\_has\_attribute
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2799.pdf
+
+```c
+
+#if __has_c_attribute(fallthrough)
+#else
+#warning at this moment we return 0 for all attributes
+#endif
+```
+<button onclick="Try(this)">try</button>
 
 
 ###  C23 \_\_has\_include
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2799.pdf
 
 ```c
 
@@ -1053,7 +1153,8 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm
 
 
 ###  C23 \#warning
-  
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
 
 ```c
 int main()
@@ -1063,9 +1164,8 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
 
-###  C23 \#embed
+###  C23 #embed
 
 Partially implemented.
 
@@ -1087,7 +1187,7 @@ int main()
 
 ###  C23 \#elifdef \#elifndef
 
-Implemented
+<button onclick="Try(this)">try</button>
 
 ```c
 #define Y
@@ -1100,7 +1200,6 @@ Implemented
 #define VERSION 3
 #endif
 ```
-<button onclick="Try(this)">try</button>
 
   
 ###  C23 \_\_VA_OPT\_\_
@@ -1138,18 +1237,26 @@ int main()
 <button onclick="Try(this)">try</button>
 
 
-
-
 ###  C23 BitInt(N))
 
+TODO 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf
 
-Not implemented yet.
+```c
+int main()
+{
+    _BitInt(2) a2 = 1;
+    _BitInt(3) a3 = 2;
+    _BitInt(33) a33 = 1;
+    char c = 3;
+}
+```
+<button onclick="Try(this)">try</button>
 
 
 ### C23 Compound Literals with storage specifier
   
-Not implemented yet.
+TODO
 
 ```c
 void F(int *p){}
@@ -1165,17 +1272,16 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 
 ### C23 Variably-modified (VM) types
 
-NOT IMPLEMENTED YET
+TODO
+
 Variably modified types part of C23. 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
-
 Only variable length arrays with automatic storage duration that are optional.
-
 
 ## C2Y
 
-### Obsolete implicitly octal literals
+### C2Y Obsolete implicitly octal literals
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm
 
@@ -1194,7 +1300,7 @@ int main()
 <button onclick="Try(this)">try</button>
 
 
-### case range expressions
+### C2Y case range expressions
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm
 
@@ -1219,7 +1325,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm
   }
  ```
 
-### \#def
+### C2Y #def
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
 
@@ -1243,7 +1349,7 @@ It may not be part of C2Y, but it is implemented in Cake while
 we wait to see whether we will keep it as an extension or remove it.
 
 
-### \_Countof operator 
+### C2Y \_Countof operator 
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf
 
@@ -1306,7 +1412,7 @@ int main() { }
 ```
 <button onclick="Try(this)">try</button>
 
-###  defer
+### C2Y defer
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf
 
@@ -1339,12 +1445,12 @@ int main() {
 ```
 <button onclick="Try(this)">try</button>
 
-###  Function literals and local functions
+###  C2Y Function literals and local functions
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf
 
 
-###  if declarations, v4
+###  C2Y if declarations, v4
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm
 
@@ -1386,6 +1492,50 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf
     static_assert(_Generic(int, int : 1));
     static_assert(_Generic(typeof(p), const int * const: 1));
 }
+```
+<button onclick="Try(this)">try</button>
+
+### C2Y \_\_COUNTER\_\_
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm
+
+```c
+
+/*
+ Compile with -E
+*/
+
+#define X(Z) Z Z
+X(__COUNTER__) // 0 0
+X(__COUNTER__) // 1 1
+
+```
+<button onclick="Try(this)">try</button>
+
+### C2Y Local functions
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf
+
+```c
+int main()
+{
+   static int dup(int a) { return a * 2; }
+   return dup(1);
+}
+```
+<button onclick="Try(this)">try</button>
+
+### C2Y Function Literals
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3679.pdf
+
+```c
+#include <stdio.h>
+int main()
+{
+  printf("%d", (int (void)){
+    return 1;
+  }());
+}
+
 ```
 <button onclick="Try(this)">try</button>
 
@@ -1608,6 +1758,7 @@ See `\src\include\x86_x64_gcc_builtins.h`
  * \_\_fastcall, \_\_stdcall
  * \_\_forceinline alias for inline in cake
  * \_\_pragma
+ * \_\_unaligned 
 
 
 Pre-defined macros for MSVC compatibility

@@ -1479,10 +1479,12 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         }
 #else
         /*web versions only text files that are included*/
-        char* textfile = read_file(filename_opt, true);
+        char full_path[FS_MAX_PATH] = { 0 };
+        snprintf(full_path, sizeof full_path, "c:/%s", filename_opt);
+        char* textfile = read_file(full_path, true);
         if (textfile == NULL)
         {
-            preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
+            preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, position, "file '%s' not found", filename_opt);
             throw;
         }
 
@@ -2461,38 +2463,27 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     has_c_attribute_value = "202106L";
                 }
                 else if (strcmp(path, "deprecated") == 0)
-                {    /*deprecated
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 201904L
-                * when given deprecated as the pp-tokens operand
-                */
+                {
                     has_c_attribute_value = "201904L";
                 }
                 else if (strcmp(path, "noreturn") == 0)
                 {
-                    /*noreturn
-                    * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202202L
-                    * when given noreturn as the pp-tokens operand.
-                    */
                     has_c_attribute_value = "202202L";
                 }
                 else if (strcmp(path, "reproducible") == 0)
                 {
-                    /*reproducible
-                       * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
-                       * when given reproducible as the pp-tokens operand.
-                    */
                     //has_c_attribute_value = "202207L";
                 }
                 else if (strcmp(path, "unsequenced") == 0)
                 {
-                    /*
-                       * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
-                       * when given unsequenced as the pp-tokens operand.
-                       */
-                       //has_c_attribute_value = "202207L";
+                    //has_c_attribute_value = "202207L";
+                }
+                else if (strcmp(path, "fallthrough") == 0)
+                {
+                    has_c_attribute_value = "202311L";
                 }
 
-
+                
                 struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
                 if (p_new_token == NULL)
                 {

@@ -488,13 +488,14 @@ int fill_options(struct options* options,
             }
             const bool enable_warning = (argv[i][2] != 'd');
 
-            const int w = atoi(argv[i] + 3);
+            const int w = atoi(argv[i] + (enable_warning ? 2 : 3));
 
             if (!is_diagnostic_configurable(w))
             {
                 printf("diagnostic '%d' is not configurable", w);
                 return 1;
             }
+
             options_set_warning(options, w, enable_warning);
             continue;
         }

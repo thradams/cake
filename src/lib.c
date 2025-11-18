@@ -5119,10 +5119,12 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         }
 #else
         /*web versions only text files that are included*/
-        char* textfile = read_file(filename_opt, true);
+        char full_path[FS_MAX_PATH] = { 0 };
+        snprintf(full_path, sizeof full_path, "c:/%s", filename_opt);
+        char* textfile = read_file(full_path, true);
         if (textfile == NULL)
         {
-            preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
+            preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, position, "file '%s' not found", filename_opt);
             throw;
         }
 
@@ -6101,38 +6103,27 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     has_c_attribute_value = "202106L";
                 }
                 else if (strcmp(path, "deprecated") == 0)
-                {    /*deprecated
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 201904L
-                * when given deprecated as the pp-tokens operand
-                */
+                {
                     has_c_attribute_value = "201904L";
                 }
                 else if (strcmp(path, "noreturn") == 0)
                 {
-                    /*noreturn
-                    * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202202L
-                    * when given noreturn as the pp-tokens operand.
-                    */
                     has_c_attribute_value = "202202L";
                 }
                 else if (strcmp(path, "reproducible") == 0)
                 {
-                    /*reproducible
-                       * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
-                       * when given reproducible as the pp-tokens operand.
-                    */
                     //has_c_attribute_value = "202207L";
                 }
                 else if (strcmp(path, "unsequenced") == 0)
                 {
-                    /*
-                       * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
-                       * when given unsequenced as the pp-tokens operand.
-                       */
-                       //has_c_attribute_value = "202207L";
+                    //has_c_attribute_value = "202207L";
+                }
+                else if (strcmp(path, "fallthrough") == 0)
+                {
+                    has_c_attribute_value = "202311L";
                 }
 
-
+                
                 struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
                 if (p_new_token == NULL)
                 {
@@ -7222,6 +7213,7 @@ static bool is_empty_assert(struct token_list* replacement_list)
 
 void print_path(const char* path)
 {
+    //I will print just the file name for now..to be decided.
     const char* p = path;
     const char* last = NULL;
     while (*p)
@@ -7230,7 +7222,7 @@ void print_path(const char* path)
             last = p;
         p++;
     }
-   
+    
     p = last ? last + 1: path;
     while (*p)
     {
@@ -14953,13 +14945,14 @@ int fill_options(struct options* options,
             }
             const bool enable_warning = (argv[i][2] != 'd');
 
-            const int w = atoi(argv[i] + 3);
+            const int w = atoi(argv[i] + (enable_warning ? 2 : 3));
 
             if (!is_diagnostic_configurable(w))
             {
                 printf("diagnostic '%d' is not configurable", w);
                 return 1;
             }
+
             options_set_warning(options, w, enable_warning);
             continue;
         }
@@ -16124,10 +16117,6 @@ void check_assigment(struct parser_ctx* ctx,
 
 
 
-//EXPERIMENTAL CONTRACTS
-#define EXPERIMENTAL_CONTRACTS 1
-
-
 struct scope
 {
     int scope_level;
@@ -16942,6 +16931,15 @@ struct function_declarator
     struct direct_declarator* _Owner _Opt direct_declarator;
     struct scope parameters_scope;// used for scope parameters
     struct parameter_type_list* _Owner _Opt parameter_type_list_opt;
+
+
+#define EXPERIMENTAL_CONTRACTS_II 1
+#ifdef EXPERIMENTAL_CONTRACTS_II
+    struct parameter_declaration* _Opt _Owner p_out_parameter_declaration;
+    struct secondary_block* _Opt _Owner p_in_block;
+    struct secondary_block* _Opt _Owner p_out_block;
+#endif
+
 };
 
 void function_declarator_delete(struct function_declarator* _Owner _Opt p);
@@ -22111,6 +22109,13 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 }
 
                 assert(p_declarator != NULL);
+
+                if (p_declarator->declaration_specifiers && 
+                    p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
+                {                    
+                    compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);                    
+                }
+                
 
                 if (type_is_deprecated(&p_declarator->type))
                 {
@@ -28791,7 +28796,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.57"
+#define CAKE_VERSION "0.12.58"
 
 
 
@@ -29259,7 +29264,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
                 printf(LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, buffer);
             else
                 printf("note: " "%s", buffer);
-        }        
+        }
     }
 
     printf("\n");
@@ -30938,6 +30943,8 @@ static void check_unused_parameters(struct parser_ctx* ctx, struct parameter_lis
     }
 }
 
+struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx);
+
 struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence,
     enum storage_class_specifier_flags storage_specifier_flags,
@@ -31028,56 +31035,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             }
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
-#if EXPERIMENTAL_CONTRACTS
-
-
-            if (ctx->current->type == TK_KEYWORD_TRUE ||
-                ctx->current->type == TK_KEYWORD_FALSE ||
-                ctx->current->type == TK_IDENTIFIER)
-            {
-                for (;;)
-                {
-                    if (ctx->current == NULL)
-                    {
-                        unexpected_end_of_file(ctx);
-                        throw;
-                    }
-
-                    enum token_type type = ctx->current->type;
-                    if (type != TK_KEYWORD_TRUE &&
-                        type != TK_KEYWORD_FALSE &&
-                        type != TK_IDENTIFIER)
-                    {
-                        throw;
-                    }
-                    parser_match(ctx); //true
-                    parser_match(ctx); //(
-
-                    if (type != TK_KEYWORD_FALSE)
-                    {
-                        assert(p_declarator->p_expression_true == NULL);
-                        p_declarator->p_expression_true = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-                    }
-                    else
-                    {
-                        assert(p_declarator->p_expression_false == NULL);
-                        p_declarator->p_expression_false = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-                    }
-                    parser_match(ctx); //)
-
-                    if (ctx->current == NULL)
-                    {
-                        unexpected_end_of_file(ctx);
-                        throw;
-                    }
-
-                    if (ctx->current->type != ',')
-                        break;
-
-                    parser_match(ctx); //)
-                }
-            }
-#endif
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
 
@@ -34943,6 +34900,59 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
         if (parser_match_tk(ctx, ')') != 0)
             throw;
 
+
+#ifdef EXPERIMENTAL_CONTRACTS_II
+        /*
+            bool is_empty(struct X* p)
+            in{
+
+            }
+            out(r)
+            {
+                if (r)
+                    assert(p->x == 0);
+            };
+        */
+        if (ctx->current->type == TK_IDENTIFIER && strcmp(ctx->current->lexeme, "in") == 0)
+        {
+            scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
+
+            parser_match(ctx);
+
+            p_function_declarator->p_in_block = secondary_block(ctx);
+
+            scope_list_pop(&ctx->scopes);
+
+            if (p_function_declarator->p_in_block == NULL)
+                throw;
+        }
+
+        if (ctx->current->type == TK_IDENTIFIER && strcmp(ctx->current->lexeme, "out") == 0)
+        {
+            scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
+
+            parser_match(ctx);
+            if (ctx->current->type == '(')
+            {
+                parser_match(ctx);
+
+                p_function_declarator->p_out_parameter_declaration = parameter_declaration(ctx);
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    throw;
+                }
+            }
+
+            p_function_declarator->p_out_block = secondary_block(ctx);
+
+            scope_list_pop(&ctx->scopes);
+
+            if (p_function_declarator->p_out_block == NULL)
+                throw;
+
+        }
+#endif
     }
     catch
     {
@@ -51880,112 +51890,37 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             flow_compare_function_arguments(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
             true_false_set_destroy(&left_local);
         }
-        //////////////////////////////////////////////////////////////////////////////////////////////////////
-#if EXPERIMENTAL_CONTRACTS
+
+#if EXPERIMENTAL_CONTRACTS_II
         if (p_expression->left->declarator &&
-            type_is_function(&p_expression->left->declarator->type))
+            type_is_function(&p_expression->left->declarator->type) &&
+            p_expression->argument_expression_list.head)
         {
-            struct type return_type = get_function_return_type(&p_expression->left->declarator->type);
-            if (p_expression->left->declarator->p_expression_true)
+            
+            struct argument_expression* _Owner _Opt p_argument_expression = p_expression->argument_expression_list.head;
+            
+            if (p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt)
             {
-                struct expression* p_expression_true = p_expression->left->declarator->p_expression_true;
-
-                /*given you expression we clear all previous alias*/
-                flow_clear_alias(p_expression_true);
-
-                /*then we bind new alias*/
-                flow_expression_bind(ctx,
-                                     p_expression_true,
-                                     &p_expression->left->declarator->type.params,
-                                     &p_expression->argument_expression_list);
-
-
-                if (type_is_scalar(&return_type))
+                struct parameter_declaration* _Owner _Opt p_parameter = 
+                    p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+                while (p_parameter)
                 {
-                    struct true_false_set local = { 0 };
+                    p_parameter->declarator->p_alias_of_expression =
+                        p_argument_expression->expression;
 
-                    bool inside_contract = ctx->inside_contract;
-
-                    ctx->inside_contract = true;
-                    flow_visit_expression(ctx, p_expression_true, &local);
-                    ctx->inside_contract = inside_contract; //restore
-
-                    for (int i = 0; i < local.size; i++)
-                    {
-                        struct true_false_set_item item5 = {
-                          .p_expression = local.data[i].p_expression,
-                          .true_branch_state = local.data[i].true_branch_state
-                        };
-
-                        true_false_set_push_back(expr_true_false_set, &item5);
-                    }
-                    true_false_set_destroy(&local);
-                }
-                else
-                {
-                    struct true_false_set true_false_set4 = { 0 };
-                    bool old = ctx->inside_assert;
-                    ctx->inside_assert = true;
-
-                    bool inside_contract = ctx->inside_contract;
-                    ctx->inside_contract = true;
-                    flow_visit_expression(ctx, p_expression->left->declarator->p_expression_true, &true_false_set4); //assert(p == 0);            
-                    ctx->inside_contract = inside_contract; //restore
-
-                    ctx->inside_assert = old;
-                    true_false_set_set_objects_to_true_branch(ctx, &true_false_set4, nullable_enabled);
-                    true_false_set_destroy(&true_false_set4);
+                    p_parameter = p_parameter->next;
+                    p_argument_expression = p_argument_expression->next;
                 }
             }
 
-            if (p_expression->left->declarator->p_expression_false)
+            if (p_expression->left->declarator->direct_declarator->function_declarator->p_in_block)
             {
-                struct expression* p_expression_false = p_expression->left->declarator->p_expression_false;
-
-                /*given you expression we clear all previous alias*/
-                flow_clear_alias(p_expression_false);
-
-                /*then we bind new alias*/
-                flow_expression_bind(ctx,
-                                     p_expression_false,
-                                     &p_expression->left->declarator->type.params,
-                                     &p_expression->argument_expression_list);
-
-
-                struct true_false_set local = { 0 };
-
-
-
-                bool inside_contract = ctx->inside_contract;
-
-                ctx->inside_contract = true;
-                flow_visit_expression(ctx, p_expression_false, &local);
-                ctx->inside_contract = inside_contract; //restore
-
-                for (int i = 0; i < local.size; i++)
-                {
-                    int index =
-                        find_item_index_by_expression(expr_true_false_set, local.data[i].p_expression);
-                    if (index == -1)
-                    {
-                        struct true_false_set_item item5 = {
-                          .p_expression = local.data[i].p_expression,
-                          .false_branch_state = local.data[i].true_branch_state
-                        };
-
-                        true_false_set_push_back(expr_true_false_set, &item5);
-                    }
-                    else
-                    {
-                        expr_true_false_set->data[index].false_branch_state |= local.data[i].false_branch_state;
-                    }
-
-                }
-                true_false_set_destroy(&local);
-
+                flow_visit_secondary_block(ctx, p_expression->left->declarator->direct_declarator->function_declarator->p_in_block);
             }
-            type_destroy(&return_type);
-
+            if (p_expression->left->declarator->direct_declarator->function_declarator->p_out_block)
+            {
+                flow_visit_secondary_block(ctx, p_expression->left->declarator->direct_declarator->function_declarator->p_out_block);
+            }
         }
 #endif
     }

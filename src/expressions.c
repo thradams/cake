@@ -1178,6 +1178,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                 assert(p_declarator != NULL);
 
+                if (p_declarator->declaration_specifiers && 
+                    p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
+                {                    
+                    compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);                    
+                }
+                
                 if (type_is_deprecated(&p_declarator->type))
                 {
                     compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);

@@ -5443,112 +5443,37 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             flow_compare_function_arguments(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
             true_false_set_destroy(&left_local);
         }
-        //////////////////////////////////////////////////////////////////////////////////////////////////////
-#if EXPERIMENTAL_CONTRACTS
+
+#if EXPERIMENTAL_CONTRACTS_II
         if (p_expression->left->declarator &&
-            type_is_function(&p_expression->left->declarator->type))
+            type_is_function(&p_expression->left->declarator->type) &&
+            p_expression->argument_expression_list.head)
         {
-            struct type return_type = get_function_return_type(&p_expression->left->declarator->type);
-            if (p_expression->left->declarator->p_expression_true)
+            
+            struct argument_expression* _Owner _Opt p_argument_expression = p_expression->argument_expression_list.head;
+            
+            if (p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt)
             {
-                struct expression* p_expression_true = p_expression->left->declarator->p_expression_true;
-
-                /*given you expression we clear all previous alias*/
-                flow_clear_alias(p_expression_true);
-
-                /*then we bind new alias*/
-                flow_expression_bind(ctx,
-                                     p_expression_true,
-                                     &p_expression->left->declarator->type.params,
-                                     &p_expression->argument_expression_list);
-
-
-                if (type_is_scalar(&return_type))
+                struct parameter_declaration* _Owner _Opt p_parameter = 
+                    p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+                while (p_parameter)
                 {
-                    struct true_false_set local = { 0 };
+                    p_parameter->declarator->p_alias_of_expression =
+                        p_argument_expression->expression;
 
-                    bool inside_contract = ctx->inside_contract;
-
-                    ctx->inside_contract = true;
-                    flow_visit_expression(ctx, p_expression_true, &local);
-                    ctx->inside_contract = inside_contract; //restore
-
-                    for (int i = 0; i < local.size; i++)
-                    {
-                        struct true_false_set_item item5 = {
-                          .p_expression = local.data[i].p_expression,
-                          .true_branch_state = local.data[i].true_branch_state
-                        };
-
-                        true_false_set_push_back(expr_true_false_set, &item5);
-                    }
-                    true_false_set_destroy(&local);
-                }
-                else
-                {
-                    struct true_false_set true_false_set4 = { 0 };
-                    bool old = ctx->inside_assert;
-                    ctx->inside_assert = true;
-
-                    bool inside_contract = ctx->inside_contract;
-                    ctx->inside_contract = true;
-                    flow_visit_expression(ctx, p_expression->left->declarator->p_expression_true, &true_false_set4); //assert(p == 0);            
-                    ctx->inside_contract = inside_contract; //restore
-
-                    ctx->inside_assert = old;
-                    true_false_set_set_objects_to_true_branch(ctx, &true_false_set4, nullable_enabled);
-                    true_false_set_destroy(&true_false_set4);
+                    p_parameter = p_parameter->next;
+                    p_argument_expression = p_argument_expression->next;
                 }
             }
 
-            if (p_expression->left->declarator->p_expression_false)
+            if (p_expression->left->declarator->direct_declarator->function_declarator->p_in_block)
             {
-                struct expression* p_expression_false = p_expression->left->declarator->p_expression_false;
-
-                /*given you expression we clear all previous alias*/
-                flow_clear_alias(p_expression_false);
-
-                /*then we bind new alias*/
-                flow_expression_bind(ctx,
-                                     p_expression_false,
-                                     &p_expression->left->declarator->type.params,
-                                     &p_expression->argument_expression_list);
-
-
-                struct true_false_set local = { 0 };
-
-
-
-                bool inside_contract = ctx->inside_contract;
-
-                ctx->inside_contract = true;
-                flow_visit_expression(ctx, p_expression_false, &local);
-                ctx->inside_contract = inside_contract; //restore
-
-                for (int i = 0; i < local.size; i++)
-                {
-                    int index =
-                        find_item_index_by_expression(expr_true_false_set, local.data[i].p_expression);
-                    if (index == -1)
-                    {
-                        struct true_false_set_item item5 = {
-                          .p_expression = local.data[i].p_expression,
-                          .false_branch_state = local.data[i].true_branch_state
-                        };
-
-                        true_false_set_push_back(expr_true_false_set, &item5);
-                    }
-                    else
-                    {
-                        expr_true_false_set->data[index].false_branch_state |= local.data[i].false_branch_state;
-                    }
-
-                }
-                true_false_set_destroy(&local);
-
+                flow_visit_secondary_block(ctx, p_expression->left->declarator->direct_declarator->function_declarator->p_in_block);
             }
-            type_destroy(&return_type);
-
+            if (p_expression->left->declarator->direct_declarator->function_declarator->p_out_block)
+            {
+                flow_visit_secondary_block(ctx, p_expression->left->declarator->direct_declarator->function_declarator->p_out_block);
+            }
         }
 #endif
     }

@@ -1,6 +1,25 @@
-union __tag5 {
-    signed long long host_long_long;
-    unsigned long long host_u_long_long;
-    long double host_long_double;
+#pragma safety enable
+
+struct X {
+    char* _Opt name;
 };
-static_assert(sizeof(union __tag5) == 16);
+
+
+bool is_empty(struct X* p)
+in{
+
+}
+out(bool r)
+{
+    assert(p->name != 0);
+};
+
+
+int main()
+{
+    struct X x = {};
+    if (is_empty(&x))
+    {
+        static_debug(x);
+    }
+}

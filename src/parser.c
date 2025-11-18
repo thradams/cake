@@ -431,7 +431,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
                 printf(LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, buffer);
             else
                 printf("note: " "%s", buffer);
-        }        
+        }
     }
 
     printf("\n");
@@ -2110,6 +2110,8 @@ static void check_unused_parameters(struct parser_ctx* ctx, struct parameter_lis
     }
 }
 
+struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx);
+
 struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence,
     enum storage_class_specifier_flags storage_specifier_flags,
@@ -2200,56 +2202,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             }
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
-#if EXPERIMENTAL_CONTRACTS
-
-
-            if (ctx->current->type == TK_KEYWORD_TRUE ||
-                ctx->current->type == TK_KEYWORD_FALSE ||
-                ctx->current->type == TK_IDENTIFIER)
-            {
-                for (;;)
-                {
-                    if (ctx->current == NULL)
-                    {
-                        unexpected_end_of_file(ctx);
-                        throw;
-                    }
-
-                    enum token_type type = ctx->current->type;
-                    if (type != TK_KEYWORD_TRUE &&
-                        type != TK_KEYWORD_FALSE &&
-                        type != TK_IDENTIFIER)
-                    {
-                        throw;
-                    }
-                    parser_match(ctx); //true
-                    parser_match(ctx); //(
-
-                    if (type != TK_KEYWORD_FALSE)
-                    {
-                        assert(p_declarator->p_expression_true == NULL);
-                        p_declarator->p_expression_true = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-                    }
-                    else
-                    {
-                        assert(p_declarator->p_expression_false == NULL);
-                        p_declarator->p_expression_false = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-                    }
-                    parser_match(ctx); //)
-
-                    if (ctx->current == NULL)
-                    {
-                        unexpected_end_of_file(ctx);
-                        throw;
-                    }
-
-                    if (ctx->current->type != ',')
-                        break;
-
-                    parser_match(ctx); //)
-                }
-            }
-#endif
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
 
@@ -6115,6 +6067,59 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
         if (parser_match_tk(ctx, ')') != 0)
             throw;
 
+
+#ifdef EXPERIMENTAL_CONTRACTS_II
+        /*
+            bool is_empty(struct X* p)
+            in{
+
+            }
+            out(r)
+            {
+                if (r)
+                    assert(p->x == 0);
+            };
+        */
+        if (ctx->current->type == TK_IDENTIFIER && strcmp(ctx->current->lexeme, "in") == 0)
+        {
+            scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
+
+            parser_match(ctx);
+
+            p_function_declarator->p_in_block = secondary_block(ctx);
+
+            scope_list_pop(&ctx->scopes);
+
+            if (p_function_declarator->p_in_block == NULL)
+                throw;
+        }
+
+        if (ctx->current->type == TK_IDENTIFIER && strcmp(ctx->current->lexeme, "out") == 0)
+        {
+            scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
+
+            parser_match(ctx);
+            if (ctx->current->type == '(')
+            {
+                parser_match(ctx);
+
+                p_function_declarator->p_out_parameter_declaration = parameter_declaration(ctx);
+
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    throw;
+                }
+            }
+
+            p_function_declarator->p_out_block = secondary_block(ctx);
+
+            scope_list_pop(&ctx->scopes);
+
+            if (p_function_declarator->p_out_block == NULL)
+                throw;
+
+        }
+#endif
     }
     catch
     {
