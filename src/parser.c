@@ -399,9 +399,9 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     if (ctx->options.visual_studio_ouput_format)
     {
         if (is_error)
-            printf("error C%d: ", w);
+            printf("error %d: ", w);
         else if (is_warning)
-            printf("warning C%d: ", w);
+            printf("warning %d: ", w);
         else if (is_note)
             printf("note: ");
         else if (is_location)
@@ -414,16 +414,16 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error " WHITE "C%04d: %s" COLOR_RESET, w, buffer);
+                printf(LIGHTRED "error " WHITE "%d: %s" COLOR_RESET, w, buffer);
             else
-                printf("error "        "C%04d: %s", w, buffer);
+                printf("error "        "%d: %s", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s" COLOR_RESET, w, buffer);
+                printf(LIGHTMAGENTA "warning " WHITE "%d: %s" COLOR_RESET, w, buffer);
             else
-                printf("warning "  "C%04d: %s", w, buffer);
+                printf("warning "  "%d: %s", w, buffer);
         }
         else if (is_note || is_location)
         {
@@ -1200,6 +1200,9 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD__DTOR; /*extension*/
         if (strcmp("_Opt", text) == 0)
             return TK_KEYWORD_CAKE_OPT; /*extension*/
+
+        if (strcmp("_Defer", text) == 0)
+            return TK_KEYWORD_DEFER;
 
         if (strcmp("_View", text) == 0)
             return TK_KEYWORD_CAKE_VIEW; /*extension*/
@@ -8589,7 +8592,7 @@ void warn_unrecognized_warnings(struct parser_ctx* ctx,
             ctx,
             token,
             NULL,
-            "warning 'C%04d' was not recognized",
+            "warning '%d' was not recognized",
             stack->stack[i]);
     }
 }
@@ -10134,9 +10137,9 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
 
         ctx->p_current_defer_statement_opt = p_defer_statement;
 
-        struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+        struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx); //TODO unlabeled_statement
         if (p_secondary_block == NULL) throw;
-
+        
         p_defer_statement->secondary_block = p_secondary_block;
         if (ctx->previous == NULL) throw;
 

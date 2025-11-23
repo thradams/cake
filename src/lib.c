@@ -853,7 +853,7 @@ enum diagnostic_id {
     W_DEPRECATED = 3,
     W_ENUN_CONVERSION = 4,
 
-    W_UNUSED_WARNING_5 = 5,
+    W_TOKEN_SLICED = 5,
     W_UNUSED_PARAMETER = 6,
     W_DECLARATOR_HIDE = 7,
     W_TYPEOF_ARRAY_PARAMETER = 8,
@@ -989,6 +989,9 @@ enum diagnostic_id {
 
     
     
+    C_ERROR_TOKENIZER_MISSING_TERMINATING = 630, //'
+    C_ERROR_TOKENIZER_MISSING_TERMINATING_QUOTE = 631, //"
+    C_ERROR_TOKENIZER_MISSING_END_OF_COMMENT = 632, //"
 
     C_ERROR_INVALID_QUALIFIER_FOR_POINTER = 640,
     C_ERROR_UNEXPECTED = 650,
@@ -2289,7 +2292,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     {
         //MSVC format
         print_path(path);
-        printf("(%d,%d): ", line, col);
+        printf("(%d): ", line);
     }
     else
     {
@@ -3785,75 +3788,52 @@ void preprocessor_ctx_destroy(_Dtor struct preprocessor_ctx* p)
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 
-static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
+static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
     const bool color_enabled = !ctx->options.color_disabled;
-    ctx->n_errors++;
+
+
+    bool is_error = options_diagnostic_is_error(&ctx->options, w);
+    bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
+    //bool is_note = options_diagnostic_is_note(&ctx->options, w);
+    if (is_error)
+    {
+        ctx->n_errors++;
+    }
+    else if (is_warning)
+    {
+        ctx->n_warnings++;
+    }
 
     char buffer[200] = { 0 };
-
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
-
-
 
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-#pragma CAKE diagnostic pop
-
     print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)
     {
-        printf("error: "  "%s\n", buffer);
+        printf("warning %d: %s\n", w, buffer);
     }
     else
     {
-        if (color_enabled)
-            printf(LIGHTRED "error: " WHITE "%s\n", buffer);
-        else
-            printf("error: " "%s\n", buffer);
+        if (is_error)
+        {
+            if (color_enabled)
+                printf(LIGHTRED "error " WHITE  "%d: %s\n", w, buffer);
+            else
+                printf("error %d: %s\n", w, buffer);
+        }
+        else if (is_warning)
+        {
+            if (color_enabled)
+                printf(LIGHTMAGENTA "warning " WHITE  "%d: %s\n", w, buffer);
+            else
+                printf("warning: %d %s\n", w, buffer);
+        }
     }
-}
-
-
-static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
-{
-    const bool color_enabled = !ctx->options.color_disabled;
-
-    ctx->n_warnings++;
-
-
-    char buffer[200] = { 0 };
-
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
-
-
-    va_list args = { 0 };
-    va_start(args, fmt);
-    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-
-#pragma CAKE diagnostic pop
-
-    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
-    if (ctx->options.visual_studio_ouput_format)
-    {
-        printf("warning: " "%s\n", buffer);
-    }
-    else
-    {
-        if (color_enabled)
-            printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
-        else
-            printf("warning: " "%s\n", buffer);
-    }
-
 }
 
 
@@ -3867,8 +3847,6 @@ void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_
 
 bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token_opt, const char* fmt, ...)
 {
-
-
     struct marker marker = { 0 };
 
     if (p_token_opt == NULL) return false;
@@ -3942,16 +3920,16 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+                printf(LIGHTRED "error " WHITE "%d: %s\n" COLOR_RESET, w, buffer);
             else
-                printf("error "        "C%04d: %s\n", w, buffer);
+                printf("error "        "%d: %s\n", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+                printf(LIGHTMAGENTA "warning " WHITE "%d: %s\n" COLOR_RESET, w, buffer);
             else
-                printf("warning "  "C%04d: %s\n", w, buffer);
+                printf("warning "  "%d: %s\n", w, buffer);
         }
         else if (is_note)
         {
@@ -4572,10 +4550,10 @@ int is_nondigit(const struct stream* p)
         (p->current[0] >= 'A' && p->current[0] <= 'Z') ||
         (p->current[0] == '_') || (p->current[0] == '$');
 
-    
+
     /*
       From the standard:
-      
+
       It is implementation-defined
       if a $ (U+0024, DOLLAR SIGN) may be used as a nondigit character.
 
@@ -4924,7 +4902,7 @@ struct token* _Owner _Opt character_constant(struct tokenizer_ctx* ctx, struct s
         if (stream->current[0] == '\0' ||
             stream->current[0] == '\n')
         {
-            tokenizer_set_warning(ctx, stream, "missing terminating ' character");
+            tokenizer_diagnostic(C_ERROR_TOKENIZER_MISSING_TERMINATING, ctx, stream, "missing terminating ' character");
             break;
         }
     }
@@ -4982,7 +4960,7 @@ struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct strea
             if (stream->current[0] == '\0' ||
                 stream->current[0] == '\n')
             {
-                tokenizer_set_error(ctx, stream, "missing terminating \" character");
+                tokenizer_diagnostic(C_ERROR_TOKENIZER_MISSING_TERMINATING_QUOTE, ctx, stream, "missing terminating \" character");
                 throw;
             }
 
@@ -5387,7 +5365,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 has_space = false;
                 if (set_sliced_flag(&stream, p_new_token))
                 {
-                    tokenizer_set_warning(ctx, &stream, "token sliced");
+                    tokenizer_diagnostic(W_TOKEN_SLICED, ctx, &stream, "token sliced");
                 }
                 token_list_add(&list, p_new_token);
                 continue;
@@ -5476,7 +5454,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                     }
                     else if (stream.current[0] == '\0')
                     {
-                        tokenizer_set_error(ctx, &stream, "missing end of comment");
+                        tokenizer_diagnostic(C_ERROR_TOKENIZER_MISSING_END_OF_COMMENT, ctx, &stream, "missing end of comment");
                         break;
                     }
                     else
@@ -6123,7 +6101,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     has_c_attribute_value = "202311L";
                 }
 
-                
+
                 struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
                 if (p_new_token == NULL)
                 {
@@ -7222,8 +7200,8 @@ void print_path(const char* path)
             last = p;
         p++;
     }
-    
-    p = last ? last + 1: path;
+
+    p = last ? last + 1 : path;
     while (*p)
     {
 #ifdef _WIN32
@@ -7388,7 +7366,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     printf("Include directories:\n");
                     for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
-                    {                        
+                    {
                         print_path(p->path);
                         printf("\n");
                     }
@@ -9540,14 +9518,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     add_define(ctx, "#define __LINE__  0 \n");
     add_define(ctx, "#define __COUNTER__  0 \n");
     add_define(ctx, "#define __STDC_VERSION__  202311L \n");
-    
+
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
     add_define(ctx, datastr);
     char timestr[100] = { 0 };
     snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-    add_define(ctx, datastr);    
+    add_define(ctx, datastr);
 
 
     /*
@@ -9779,7 +9757,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
-    
+
     }
     return "TK_X_MISSING_NAME";
 };
@@ -9989,7 +9967,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "__builtin_c23_va_start";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "__builtin_va_copy";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "__builtin_offsetof";
-    
+
 
     default:
         break;
@@ -15886,6 +15864,7 @@ enum expression_type
     PRIMARY_EXPRESSION_GENERIC,
     PRIMARY_EXPRESSION_NUMBER,
     PRIMARY_EXPRESSION_PARENTESIS,
+    PRIMARY_EXPRESSION_STATEMENT_EXPRESSION, //GCC
 
     POSTFIX_EXPRESSION_FUNCTION_LITERAL,
     POSTFIX_EXPRESSION_COMPOUND_LITERAL,
@@ -16060,7 +16039,7 @@ struct expression
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
     struct generic_selection* _Owner _Opt generic_selection; //_Generic
-
+    
     struct token* first_token;
     struct token* last_token;
     
@@ -22110,12 +22089,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                 assert(p_declarator != NULL);
 
-                if (p_declarator->declaration_specifiers && 
+                if (p_declarator->declaration_specifiers &&
                     p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
-                {                    
-                    compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);                    
+                {
+                    compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
-                
+
 
                 if (type_is_deprecated(&p_declarator->type))
                 {
@@ -22489,12 +22468,67 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 throw;
             }
 
-            p_expression_node->right = expression(ctx, eval_mode);
-            if (p_expression_node->right == NULL)
-                throw;
+            if (ctx->current->type == '{')
+            {
+                /*
+                   GCC statement expression extension
+                   https://gcc.gnu.org/onlinedocs/gcc-12.2.0/gcc/Statement-Exprs.html#Statement-Exprs
 
-            p_expression_node->type = type_dup(&p_expression_node->right->type);
-            p_expression_node->object = p_expression_node->right->object;
+                   See
+                   https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm
+                */
+
+                p_expression_node->expression_type = PRIMARY_EXPRESSION_STATEMENT_EXPRESSION;
+                
+                bool e = is_diagnostic_enabled(&ctx->options, W_EXPRESSION_RESULT_NOT_USED);
+                options_set_warning(&ctx->options, W_EXPRESSION_RESULT_NOT_USED, false);
+                p_expression_node->compound_statement = compound_statement(ctx);
+                options_set_warning(&ctx->options, W_EXPRESSION_RESULT_NOT_USED, e);
+
+                if (p_expression_node->compound_statement == NULL)
+                {
+                    throw;
+                }
+                
+                /*
+                   The last thing in the compound statement should be an expression followed 
+                   by a semicolon; the value of this subexpression serves as the value of 
+                   the entire construct. (If you use some other kind of statement last within 
+                   the braces, the construct has type void, and thus effectively no value.) 
+                */
+                struct expression* p_last_expression = NULL;
+                struct block_item* _Owner _Opt  p = p_expression_node->compound_statement->block_item_list.head;
+                while (p)
+                {
+                    if (p->next == NULL && 
+                        p->unlabeled_statement &&
+                        p->unlabeled_statement->expression_statement && 
+                        p->unlabeled_statement->expression_statement->expression_opt)
+                    {
+                        p_last_expression = p->unlabeled_statement->expression_statement->expression_opt;
+                    }
+                    p = p->next;
+                }
+
+                if (p_last_expression)
+                {
+                    p_expression_node->type = type_dup(&p_last_expression->type);
+                    p_expression_node->object = p_last_expression->object;
+                }
+                else
+                {
+                    p_expression_node->type = make_void_type();
+                }                                
+            }
+            else
+            {
+                p_expression_node->right = expression(ctx, eval_mode);
+                if (p_expression_node->right == NULL)
+                    throw;
+
+                p_expression_node->type = type_dup(&p_expression_node->right->type);
+                p_expression_node->object = p_expression_node->right->object;
+            }
 
             if (ctx->current == NULL)
             {
@@ -28796,7 +28830,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.59"
+#define CAKE_VERSION "0.12.61"
 
 
 
@@ -29232,9 +29266,9 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     if (ctx->options.visual_studio_ouput_format)
     {
         if (is_error)
-            printf("error C%d: ", w);
+            printf("error %d: ", w);
         else if (is_warning)
-            printf("warning C%d: ", w);
+            printf("warning %d: ", w);
         else if (is_note)
             printf("note: ");
         else if (is_location)
@@ -29247,16 +29281,16 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error " WHITE "C%04d: %s" COLOR_RESET, w, buffer);
+                printf(LIGHTRED "error " WHITE "%d: %s" COLOR_RESET, w, buffer);
             else
-                printf("error "        "C%04d: %s", w, buffer);
+                printf("error "        "%d: %s", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s" COLOR_RESET, w, buffer);
+                printf(LIGHTMAGENTA "warning " WHITE "%d: %s" COLOR_RESET, w, buffer);
             else
-                printf("warning "  "C%04d: %s", w, buffer);
+                printf("warning "  "%d: %s", w, buffer);
         }
         else if (is_note || is_location)
         {
@@ -30033,6 +30067,9 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD__DTOR; /*extension*/
         if (strcmp("_Opt", text) == 0)
             return TK_KEYWORD_CAKE_OPT; /*extension*/
+
+        if (strcmp("_Defer", text) == 0)
+            return TK_KEYWORD_DEFER;
 
         if (strcmp("_View", text) == 0)
             return TK_KEYWORD_CAKE_VIEW; /*extension*/
@@ -37422,7 +37459,7 @@ void warn_unrecognized_warnings(struct parser_ctx* ctx,
             ctx,
             token,
             NULL,
-            "warning 'C%04d' was not recognized",
+            "warning '%d' was not recognized",
             stack->stack[i]);
     }
 }
@@ -38967,9 +39004,9 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
 
         ctx->p_current_defer_statement_opt = p_defer_statement;
 
-        struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+        struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx); //TODO unlabeled_statement
         if (p_secondary_block == NULL) throw;
-
+        
         p_defer_statement->secondary_block = p_secondary_block;
         if (ctx->previous == NULL) throw;
 
@@ -43441,10 +43478,11 @@ static const char* get_op_by_expression_type(enum expression_type type)
     return "";
 }
 
+static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
-    
+
     if (!ctx->address_of_argument &&
         object_has_constant_value(&p_expression->object))
     {
@@ -43684,6 +43722,30 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
 
         break;
+
+    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+    {
+        char name[100] = { 0 };
+        snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
+
+        struct osstream local = { 0 };
+
+        ss_swap(&ctx->block_scope_declarators, &local);
+        print_identation_core(&local, ctx->indentation);
+        d_print_type(ctx, &local, &p_expression->type, name, false);
+        ss_fprintf(&local, ";\n", name);
+        ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+
+        ss_clear(&local);
+
+        //we need to change the last statment
+        d_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
+
+        ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+        ss_close(&local);
+        ss_fprintf(oss, "%s", name);
+    }
+    break;
 
     case PRIMARY_EXPRESSION_GENERIC:
         assert(p_expression->generic_selection != NULL);
@@ -44992,6 +45054,78 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream*
     ss_close(&block_scope_declarators);
     ss_close(&local);
 }
+
+static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
+{
+    bool is_local = ctx->is_local;
+    ctx->is_local = true;
+
+    struct osstream block_scope_declarators = { 0 };
+    ss_swap(&ctx->block_scope_declarators, &block_scope_declarators);
+
+    struct osstream local = { 0 };
+
+    ctx->indentation++;
+
+    struct block_item* _Opt p_block_item = p_compound_statement->block_item_list.head;
+    while (p_block_item)
+    {
+        if (p_block_item->next == NULL)
+        {
+            /*last*/
+
+            if (p_block_item->unlabeled_statement &&
+                p_block_item->unlabeled_statement->expression_statement &&
+                p_block_item->unlabeled_statement->expression_statement->expression_opt)
+            {
+                print_identation(ctx, &local);
+                ss_fprintf(&local, "%s = ", var_name);
+                d_visit_expression(ctx, &local, p_block_item->unlabeled_statement->expression_statement->expression_opt);
+                ss_fprintf(&local, ";\n");
+            }
+        }
+        else
+        {
+            d_visit_block_item(ctx, &local, p_block_item);
+        }
+        p_block_item = p_block_item->next;
+    }
+
+
+    bool ends_with_jump = false;
+
+    if (p_compound_statement->block_item_list.tail &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL)
+    {
+        ends_with_jump = true;
+    }
+
+    if (!ends_with_jump)
+        il_print_defer_list(ctx, &local, &p_compound_statement->defer_list);
+
+    ctx->indentation--;
+
+    print_identation(ctx, oss);
+    ss_fprintf(oss, "{\n");
+
+    if (ctx->block_scope_declarators.c_str)
+    {
+        ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+        ss_fprintf(oss, "\n");
+    }
+
+    if (local.c_str)
+        ss_fprintf(oss, "%s", local.c_str);
+
+    print_identation(ctx, oss);
+    ss_fprintf(oss, "}\n");
+    ctx->is_local = is_local; //restore
+    ss_swap(&ctx->block_scope_declarators, &block_scope_declarators);
+    ss_close(&block_scope_declarators);
+    ss_close(&local);
+}
+
 
 static void d_visit_function_body(struct d_visit_ctx* ctx,
     struct osstream* oss,
@@ -49551,6 +49685,24 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             assert(p_expression->right != NULL);
             return expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
         }
+        else if (p_expression->expression_type == PRIMARY_EXPRESSION_STATEMENT_EXPRESSION)
+        {
+            struct expression* p_last_expression = NULL;
+            struct block_item* _Owner _Opt  p = p_expression->compound_statement->block_item_list.head;
+            while (p)
+            {
+                if (p->next == NULL &&
+                    p->unlabeled_statement &&
+                    p->unlabeled_statement->expression_statement &&
+                    p->unlabeled_statement->expression_statement->expression_opt)
+                {
+                    p_last_expression = p->unlabeled_statement->expression_statement->expression_opt;
+                }
+                p = p->next;
+            }
+
+            return expression_get_flow_object(ctx, p_last_expression, nullable_enabled);
+        }
         else if (p_expression->expression_type == CAST_EXPRESSION)
         {
             assert(p_expression->left != NULL);
@@ -51727,6 +51879,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case PRIMARY_EXPRESSION_PARENTESIS:
         assert(p_expression->right != NULL);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
+        break;
+
+    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+        assert(p_expression->compound_statement != NULL);
+        flow_visit_compound_statement(ctx, p_expression->compound_statement);
         break;
 
     case PRIMARY_EXPRESSION_STRING_LITERAL:

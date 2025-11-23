@@ -32,6 +32,7 @@ enum expression_type
     PRIMARY_EXPRESSION_GENERIC,
     PRIMARY_EXPRESSION_NUMBER,
     PRIMARY_EXPRESSION_PARENTESIS,
+    PRIMARY_EXPRESSION_STATEMENT_EXPRESSION, //GCC
 
     POSTFIX_EXPRESSION_FUNCTION_LITERAL,
     POSTFIX_EXPRESSION_COMPOUND_LITERAL,
@@ -206,7 +207,7 @@ struct expression
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
     struct generic_selection* _Owner _Opt generic_selection; //_Generic
-
+    
     struct token* first_token;
     struct token* last_token;
     

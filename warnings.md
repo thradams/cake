@@ -65,7 +65,7 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-### 5 (unused)
+### 5 token sliced
 
 
 ### 6 Unused function parameter (disabled by default)
@@ -720,6 +720,12 @@ int main() {
 ### 64–127 Reserved / unused warnings
 
 ## Errors 
+
+### 630 Missing terminating '
+
+### 631 Missing terminating "
+
+### 632 Missing end of comment 
 
 ### 640 \_View is the default qualifier
 ```c

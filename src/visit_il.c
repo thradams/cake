@@ -485,10 +485,11 @@ static const char* get_op_by_expression_type(enum expression_type type)
     return "";
 }
 
+static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
-    
+
     if (!ctx->address_of_argument &&
         object_has_constant_value(&p_expression->object))
     {
@@ -728,6 +729,30 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
 
         break;
+
+    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+    {
+        char name[100] = { 0 };
+        snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
+
+        struct osstream local = { 0 };
+
+        ss_swap(&ctx->block_scope_declarators, &local);
+        print_identation_core(&local, ctx->indentation);
+        d_print_type(ctx, &local, &p_expression->type, name, false);
+        ss_fprintf(&local, ";\n", name);
+        ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+
+        ss_clear(&local);
+
+        //we need to change the last statment
+        d_visit_compound_statement_2(name, ctx, &local, p_expression->compound_statement);
+
+        ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+        ss_close(&local);
+        ss_fprintf(oss, "%s", name);
+    }
+    break;
 
     case PRIMARY_EXPRESSION_GENERIC:
         assert(p_expression->generic_selection != NULL);
@@ -2036,6 +2061,78 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream*
     ss_close(&block_scope_declarators);
     ss_close(&local);
 }
+
+static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
+{
+    bool is_local = ctx->is_local;
+    ctx->is_local = true;
+
+    struct osstream block_scope_declarators = { 0 };
+    ss_swap(&ctx->block_scope_declarators, &block_scope_declarators);
+
+    struct osstream local = { 0 };
+
+    ctx->indentation++;
+
+    struct block_item* _Opt p_block_item = p_compound_statement->block_item_list.head;
+    while (p_block_item)
+    {
+        if (p_block_item->next == NULL)
+        {
+            /*last*/
+
+            if (p_block_item->unlabeled_statement &&
+                p_block_item->unlabeled_statement->expression_statement &&
+                p_block_item->unlabeled_statement->expression_statement->expression_opt)
+            {
+                print_identation(ctx, &local);
+                ss_fprintf(&local, "%s = ", var_name);
+                d_visit_expression(ctx, &local, p_block_item->unlabeled_statement->expression_statement->expression_opt);
+                ss_fprintf(&local, ";\n");
+            }
+        }
+        else
+        {
+            d_visit_block_item(ctx, &local, p_block_item);
+        }
+        p_block_item = p_block_item->next;
+    }
+
+
+    bool ends_with_jump = false;
+
+    if (p_compound_statement->block_item_list.tail &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL)
+    {
+        ends_with_jump = true;
+    }
+
+    if (!ends_with_jump)
+        il_print_defer_list(ctx, &local, &p_compound_statement->defer_list);
+
+    ctx->indentation--;
+
+    print_identation(ctx, oss);
+    ss_fprintf(oss, "{\n");
+
+    if (ctx->block_scope_declarators.c_str)
+    {
+        ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+        ss_fprintf(oss, "\n");
+    }
+
+    if (local.c_str)
+        ss_fprintf(oss, "%s", local.c_str);
+
+    print_identation(ctx, oss);
+    ss_fprintf(oss, "}\n");
+    ctx->is_local = is_local; //restore
+    ss_swap(&ctx->block_scope_declarators, &block_scope_declarators);
+    ss_close(&block_scope_declarators);
+    ss_close(&local);
+}
+
 
 static void d_visit_function_body(struct d_visit_ctx* ctx,
     struct osstream* oss,

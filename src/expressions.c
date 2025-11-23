@@ -1178,12 +1178,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                 assert(p_declarator != NULL);
 
-                if (p_declarator->declaration_specifiers && 
+                if (p_declarator->declaration_specifiers &&
                     p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
-                {                    
-                    compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);                    
+                {
+                    compiler_diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
-                
+
 
                 if (type_is_deprecated(&p_declarator->type))
                 {
@@ -1557,12 +1557,67 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 throw;
             }
 
-            p_expression_node->right = expression(ctx, eval_mode);
-            if (p_expression_node->right == NULL)
-                throw;
+            if (ctx->current->type == '{')
+            {
+                /*
+                   GCC statement expression extension
+                   https://gcc.gnu.org/onlinedocs/gcc-12.2.0/gcc/Statement-Exprs.html#Statement-Exprs
 
-            p_expression_node->type = type_dup(&p_expression_node->right->type);
-            p_expression_node->object = p_expression_node->right->object;
+                   See
+                   https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm
+                */
+
+                p_expression_node->expression_type = PRIMARY_EXPRESSION_STATEMENT_EXPRESSION;
+                
+                bool e = is_diagnostic_enabled(&ctx->options, W_EXPRESSION_RESULT_NOT_USED);
+                options_set_warning(&ctx->options, W_EXPRESSION_RESULT_NOT_USED, false);
+                p_expression_node->compound_statement = compound_statement(ctx);
+                options_set_warning(&ctx->options, W_EXPRESSION_RESULT_NOT_USED, e);
+
+                if (p_expression_node->compound_statement == NULL)
+                {
+                    throw;
+                }
+                
+                /*
+                   The last thing in the compound statement should be an expression followed 
+                   by a semicolon; the value of this subexpression serves as the value of 
+                   the entire construct. (If you use some other kind of statement last within 
+                   the braces, the construct has type void, and thus effectively no value.) 
+                */
+                struct expression* p_last_expression = NULL;
+                struct block_item* _Owner _Opt  p = p_expression_node->compound_statement->block_item_list.head;
+                while (p)
+                {
+                    if (p->next == NULL && 
+                        p->unlabeled_statement &&
+                        p->unlabeled_statement->expression_statement && 
+                        p->unlabeled_statement->expression_statement->expression_opt)
+                    {
+                        p_last_expression = p->unlabeled_statement->expression_statement->expression_opt;
+                    }
+                    p = p->next;
+                }
+
+                if (p_last_expression)
+                {
+                    p_expression_node->type = type_dup(&p_last_expression->type);
+                    p_expression_node->object = p_last_expression->object;
+                }
+                else
+                {
+                    p_expression_node->type = make_void_type();
+                }                                
+            }
+            else
+            {
+                p_expression_node->right = expression(ctx, eval_mode);
+                if (p_expression_node->right == NULL)
+                    throw;
+
+                p_expression_node->type = type_dup(&p_expression_node->right->type);
+                p_expression_node->object = p_expression_node->right->object;
+            }
 
             if (ctx->current == NULL)
             {

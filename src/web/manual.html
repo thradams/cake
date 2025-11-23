@@ -266,39 +266,42 @@
 <li>
 <a href="#toc_75">C2Y Function Literals</a>
 </li>
+<li>
+<a href="#toc_76">C2Y Statement expressions</a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_76">Cake Extensions</a>
+<a href="#toc_77">Cake Extensions</a>
 <ul>
 <li>
-<a href="#toc_77">Pre-defined macros in Cake</a>
+<a href="#toc_78">Pre-defined macros in Cake</a>
 </li>
 <li>
-<a href="#toc_78">assert built-in</a>
+<a href="#toc_79">assert built-in</a>
 </li>
 <li>
-<a href="#toc_79">try { throw; } catch {}</a>
+<a href="#toc_80">try { throw; } catch {}</a>
 </li>
 <li>
-<a href="#toc_80">#pragma dir</a>
+<a href="#toc_81">#pragma dir</a>
 </li>
 <li>
-<a href="#toc_81">offsetof</a>
+<a href="#toc_82">offsetof</a>
 </li>
 <li>
-<a href="#toc_82">Type traits</a>
+<a href="#toc_83">Type traits</a>
 </li>
 <li>
-<a href="#toc_83">Extension - Object lifetime checks</a>
+<a href="#toc_84">Extension - Object lifetime checks</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_84">GCC extensions</a>
+<a href="#toc_85">GCC extensions</a>
 </li>
 <li>
-<a href="#toc_85">MSVC extensions</a>
+<a href="#toc_86">MSVC extensions</a>
 </li>
 </ul>
 <h2 id="toc_0">Using cake</h2>
@@ -1620,13 +1623,7 @@ int main() { }
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf</a></p>
 
-<p><em>defer</em> will call the defer statement before the block exit at inverse order of declaration.</p>
-
-<pre><code>     defer-statement:
-        defer secondary-block
-</code></pre>
-
-<p>For instance:</p>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3733.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3733.htm</a></p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
@@ -1634,11 +1631,11 @@ int main() {
   do {
      FILE* f = fopen(&quot;in.txt&quot;, &quot;r&quot;);
      if (f == NULL) break;
-     defer fclose(f);
+     _Defer fclose(f);
 
      FILE* f2 = fopen(&quot;out.txt&quot;, &quot;w&quot;);
      if (f2 == NULL) break;
-     defer fclose(f2);
+     _Defer fclose(f2);
      //...    
   }
   while(0);
@@ -1740,16 +1737,35 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h2 id="toc_76">Cake Extensions</h2>
+<h3 id="toc_76">C2Y Statement expressions</h3>
 
-<h3 id="toc_77">Pre-defined macros in Cake</h3>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm</a></p>
+
+<pre><code class="language-c">
+#include &lt;stdio.h&gt; 
+
+#define maxint(a,b) \
+  ({int _a = (a), _b = (b); _a &gt; _b ? _a : _b; })
+
+int main()
+{
+  printf(&quot;%d&quot;, maxint(1, 2));
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h2 id="toc_77">Cake Extensions</h2>
+
+<h3 id="toc_78">Pre-defined macros in Cake</h3>
 
 <pre><code class="language-c"> #define __CAKE__           202311L
  #define __STDC_VERSION__   202311L
  
 </code></pre>
 
-<h3 id="toc_78">assert built-in</h3>
+<h3 id="toc_79">assert built-in</h3>
 
 <p>In cake assert is an built-in function.
 The reason is because it works as tips for flow analysis.</p>
@@ -1803,7 +1819,7 @@ assert works as a state selector, similar to what happens in if statements but w
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_79">try { throw; } catch {}</h3>
+<h3 id="toc_80">try { throw; } catch {}</h3>
 
 <pre><code>   try-statement:
       try secondary-block
@@ -1844,14 +1860,14 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_80">#pragma dir</h3>
+<h3 id="toc_81">#pragma dir</h3>
 
 <pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
 </code></pre>
 
 <p>Add the path to the list of directory paths used to seach include files.</p>
 
-<h3 id="toc_81">offsetof</h3>
+<h3 id="toc_82">offsetof</h3>
 
 <p>In cake offset (<a href="https://en.cppreference.com/w/cpp/types/offsetof.html">https://en.cppreference.com/w/cpp/types/offsetof.html</a>) is an operator</p>
 
@@ -1876,7 +1892,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_82">Type traits</h3>
+<h3 id="toc_83">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.</p>
 
@@ -1911,7 +1927,7 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 <p>Note: Type traits that can be easily created with _Generic will be removed.
 _</p>
 
-<h3 id="toc_83">Extension - Object lifetime checks</h3>
+<h3 id="toc_84">Extension - Object lifetime checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
@@ -1920,7 +1936,7 @@ _Opt
 _View
 </code></pre>
 
-<h2 id="toc_84">GCC extensions</h2>
+<h2 id="toc_85">GCC extensions</h2>
 
 <ul>
 <li>__builtin_va_list</li>
@@ -1941,7 +1957,7 @@ _View
 
 <p>See <code>\src\include\x86_x64_gcc_builtins.h</code></p>
 
-<h2 id="toc_85">MSVC extensions</h2>
+<h2 id="toc_86">MSVC extensions</h2>
 
 <ul>
 <li>__ptr32, __ptr64</li>

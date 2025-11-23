@@ -3104,6 +3104,24 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             assert(p_expression->right != NULL);
             return expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
         }
+        else if (p_expression->expression_type == PRIMARY_EXPRESSION_STATEMENT_EXPRESSION)
+        {
+            struct expression* p_last_expression = NULL;
+            struct block_item* _Owner _Opt  p = p_expression->compound_statement->block_item_list.head;
+            while (p)
+            {
+                if (p->next == NULL &&
+                    p->unlabeled_statement &&
+                    p->unlabeled_statement->expression_statement &&
+                    p->unlabeled_statement->expression_statement->expression_opt)
+                {
+                    p_last_expression = p->unlabeled_statement->expression_statement->expression_opt;
+                }
+                p = p->next;
+            }
+
+            return expression_get_flow_object(ctx, p_last_expression, nullable_enabled);
+        }
         else if (p_expression->expression_type == CAST_EXPRESSION)
         {
             assert(p_expression->left != NULL);
@@ -5280,6 +5298,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case PRIMARY_EXPRESSION_PARENTESIS:
         assert(p_expression->right != NULL);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
+        break;
+
+    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+        assert(p_expression->compound_statement != NULL);
+        flow_visit_compound_statement(ctx, p_expression->compound_statement);
         break;
 
     case PRIMARY_EXPRESSION_STRING_LITERAL:

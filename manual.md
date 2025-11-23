@@ -1416,15 +1416,7 @@ int main() { }
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf
 
-*defer* will call the defer statement before the block exit at inverse order of declaration.
-
-
-```
-     defer-statement:
-        defer secondary-block
-```
-
-For instance:
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3733.htm
 
 ```c
 #include <stdio.h>
@@ -1433,11 +1425,11 @@ int main() {
   do {
      FILE* f = fopen("in.txt", "r");
      if (f == NULL) break;
-     defer fclose(f);
+     _Defer fclose(f);
 
      FILE* f2 = fopen("out.txt", "w");
      if (f2 == NULL) break;
-     defer fclose(f2);
+     _Defer fclose(f2);
      //...    
   }
   while(0);
@@ -1537,6 +1529,26 @@ int main()
 }
 
 ```
+<button onclick="Try(this)">try</button>
+
+### C2Y Statement expressions
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm
+
+```c
+
+#include <stdio.h> 
+
+#define maxint(a,b) \
+  ({int _a = (a), _b = (b); _a > _b ? _a : _b; })
+
+int main()
+{
+  printf("%d", maxint(1, 2));
+}
+
+```
+
 <button onclick="Try(this)">try</button>
 
 ## Cake Extensions

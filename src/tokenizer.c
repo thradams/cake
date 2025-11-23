@@ -145,75 +145,52 @@ void preprocessor_ctx_destroy(_Dtor struct preprocessor_ctx* p)
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 
-static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
+static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
     const bool color_enabled = !ctx->options.color_disabled;
-    ctx->n_errors++;
+
+
+    bool is_error = options_diagnostic_is_error(&ctx->options, w);
+    bool is_warning = options_diagnostic_is_warning(&ctx->options, w);
+    //bool is_note = options_diagnostic_is_note(&ctx->options, w);
+    if (is_error)
+    {
+        ctx->n_errors++;
+    }
+    else if (is_warning)
+    {
+        ctx->n_warnings++;
+    }
 
     char buffer[200] = { 0 };
-
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
-
-
 
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-#pragma CAKE diagnostic pop
-
     print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
     if (ctx->options.visual_studio_ouput_format)
     {
-        printf("error: "  "%s\n", buffer);
+        printf("warning %d: %s\n", w, buffer);
     }
     else
     {
-        if (color_enabled)
-            printf(LIGHTRED "error: " WHITE "%s\n", buffer);
-        else
-            printf("error: " "%s\n", buffer);
+        if (is_error)
+        {
+            if (color_enabled)
+                printf(LIGHTRED "error " WHITE  "%d: %s\n", w, buffer);
+            else
+                printf("error %d: %s\n", w, buffer);
+        }
+        else if (is_warning)
+        {
+            if (color_enabled)
+                printf(LIGHTMAGENTA "warning " WHITE  "%d: %s\n", w, buffer);
+            else
+                printf("warning: %d %s\n", w, buffer);
+        }
     }
-}
-
-
-static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
-{
-    const bool color_enabled = !ctx->options.color_disabled;
-
-    ctx->n_warnings++;
-
-
-    char buffer[200] = { 0 };
-
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
-#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
-
-
-    va_list args = { 0 };
-    va_start(args, fmt);
-    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-
-#pragma CAKE diagnostic pop
-
-    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format, color_enabled);
-    if (ctx->options.visual_studio_ouput_format)
-    {
-        printf("warning: " "%s\n", buffer);
-    }
-    else
-    {
-        if (color_enabled)
-            printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
-        else
-            printf("warning: " "%s\n", buffer);
-    }
-
 }
 
 
@@ -227,8 +204,6 @@ void pre_unexpected_end_of_file(struct token* _Opt p_token, struct preprocessor_
 
 bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token_opt, const char* fmt, ...)
 {
-
-
     struct marker marker = { 0 };
 
     if (p_token_opt == NULL) return false;
@@ -302,16 +277,16 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+                printf(LIGHTRED "error " WHITE "%d: %s\n" COLOR_RESET, w, buffer);
             else
-                printf("error "        "C%04d: %s\n", w, buffer);
+                printf("error "        "%d: %s\n", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning " WHITE "C%04d: %s\n" COLOR_RESET, w, buffer);
+                printf(LIGHTMAGENTA "warning " WHITE "%d: %s\n" COLOR_RESET, w, buffer);
             else
-                printf("warning "  "C%04d: %s\n", w, buffer);
+                printf("warning "  "%d: %s\n", w, buffer);
         }
         else if (is_note)
         {
@@ -932,10 +907,10 @@ int is_nondigit(const struct stream* p)
         (p->current[0] >= 'A' && p->current[0] <= 'Z') ||
         (p->current[0] == '_') || (p->current[0] == '$');
 
-    
+
     /*
       From the standard:
-      
+
       It is implementation-defined
       if a $ (U+0024, DOLLAR SIGN) may be used as a nondigit character.
 
@@ -1284,7 +1259,7 @@ struct token* _Owner _Opt character_constant(struct tokenizer_ctx* ctx, struct s
         if (stream->current[0] == '\0' ||
             stream->current[0] == '\n')
         {
-            tokenizer_set_warning(ctx, stream, "missing terminating ' character");
+            tokenizer_diagnostic(C_ERROR_TOKENIZER_MISSING_TERMINATING, ctx, stream, "missing terminating ' character");
             break;
         }
     }
@@ -1342,7 +1317,7 @@ struct token* _Owner _Opt string_literal(struct tokenizer_ctx* ctx, struct strea
             if (stream->current[0] == '\0' ||
                 stream->current[0] == '\n')
             {
-                tokenizer_set_error(ctx, stream, "missing terminating \" character");
+                tokenizer_diagnostic(C_ERROR_TOKENIZER_MISSING_TERMINATING_QUOTE, ctx, stream, "missing terminating \" character");
                 throw;
             }
 
@@ -1747,7 +1722,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 has_space = false;
                 if (set_sliced_flag(&stream, p_new_token))
                 {
-                    tokenizer_set_warning(ctx, &stream, "token sliced");
+                    tokenizer_diagnostic(W_TOKEN_SLICED, ctx, &stream, "token sliced");
                 }
                 token_list_add(&list, p_new_token);
                 continue;
@@ -1836,7 +1811,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                     }
                     else if (stream.current[0] == '\0')
                     {
-                        tokenizer_set_error(ctx, &stream, "missing end of comment");
+                        tokenizer_diagnostic(C_ERROR_TOKENIZER_MISSING_END_OF_COMMENT, ctx, &stream, "missing end of comment");
                         break;
                     }
                     else
@@ -2483,7 +2458,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     has_c_attribute_value = "202311L";
                 }
 
-                
+
                 struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
                 if (p_new_token == NULL)
                 {
@@ -3582,8 +3557,8 @@ void print_path(const char* path)
             last = p;
         p++;
     }
-    
-    p = last ? last + 1: path;
+
+    p = last ? last + 1 : path;
     while (*p)
     {
 #ifdef _WIN32
@@ -3748,7 +3723,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     printf("Include directories:\n");
                     for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
-                    {                        
+                    {
                         print_path(p->path);
                         printf("\n");
                     }
@@ -5900,14 +5875,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     add_define(ctx, "#define __LINE__  0 \n");
     add_define(ctx, "#define __COUNTER__  0 \n");
     add_define(ctx, "#define __STDC_VERSION__  202311L \n");
-    
+
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
     add_define(ctx, datastr);
     char timestr[100] = { 0 };
     snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-    add_define(ctx, datastr);    
+    add_define(ctx, datastr);
 
 
     /*
@@ -6139,7 +6114,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "TK_KEYWORD_GCC__BUILTIN_C23_VA_START";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "TK_KEYWORD_GCC__BUILTIN_VA_COPY";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "TK_KEYWORD_GCC__BUILTIN_OFFSETOF";
-    
+
     }
     return "TK_X_MISSING_NAME";
 };
@@ -6349,7 +6324,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
     case TK_KEYWORD_GCC__BUILTIN_C23_VA_START: return "__builtin_c23_va_start";
     case TK_KEYWORD_GCC__BUILTIN_VA_COPY: return "__builtin_va_copy";
     case TK_KEYWORD_GCC__BUILTIN_OFFSETOF: return "__builtin_offsetof";
-    
+
 
     default:
         break;

@@ -1353,71 +1353,18 @@ X(__COUNTER__) // 1 1
 
 `;
 
-sample["Extensions"] = [];
-sample["Extensions"]["try catch throw"] =
-    `
-#include <stdio.h>
 
-int main()
-{
-  FILE * f = NULL;
-  try
-  {
-     f = fopen("file.txt", "r");
-     if (f == NULL) throw;
 
-    /*success here*/
-  }
-  catch
-  {
-     /*some error*/
-  }
-
-  if (f)
-    fclose(f);
-}
-
-`;
-
-sample["Extensions"]["try catch throw II"] =
-    `
-#include <stdio.h>
-
-/*not sure if usefull , but this is allowed*/
-
-int main()
-{
-  try
-  {
-      FILE * f = NULL;
-      try {
-         FILE *f = fopen("file.txt", "r");
-         if (f == NULL) throw;
-         /*more*/
-      }
-      catch {
-         if (f)
-          fclose(f);
-         throw;
-      }
-  }
-  catch
-  {
-  }
-}
-
-`;
-
-sample["Extensions"]["Local functions I"] =
+sample["C2Y"]["Local functions I"] =
     `
 int main()
 {
-	int dup(int a) { return a * 2; }
+	static int dup(int a) { return a * 2; }
     return dup(1);
 }
 `;
 
-sample["Extensions"]["Local functions II"] =
+sample["C2Y"]["Local functions II"] =
     `
 #include <stdlib.h>
 
@@ -1426,7 +1373,7 @@ void async(void (* callback)(int result, void * data), void * data);
 int main()
 {
 	struct {int value; }* capture = calloc(1, sizeof * capture);
-    void callback(int result, void * data)
+    static void callback(int result, void * data)
     {
 		typeof(capture) p = data;
         free(p);
@@ -1436,33 +1383,30 @@ int main()
 }
 `;
 
-sample["Extensions"]["Local functions III"] =
-`
+sample["C2Y"]["Local functions III"] =
+    `
 #include <stdio.h>
 
 void f() {
-    printf("f1\\n");
+    printf("extern function\\n");
 }
 
 int main()
-{
-    /*
-       auto or static storage specifier ?
-       Currently it accepts both
-    */
-    static void f();
-    void f() {
-        printf("f2\\n");
+{    
+    static void f(); //forward declaration
+
+    static void f() {
+        printf("local function\\n");
     }
 
-    f();
+    f(); //calls local function
 }
 `;
 
 
 
-sample["Extensions"]["Literal function async I"] =
-`
+sample["C2Y"]["Literal function async I"] =
+    `
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -1488,8 +1432,8 @@ int main()
 `;
 
 
-sample["Extensions"]["Literal function async II"] =
-`
+sample["C2Y"]["Literal function async II"] =
+    `
 /*
    Pattern:
    do this -> then that -> then that ....
@@ -1530,8 +1474,8 @@ int main()
 `;
 
 
-sample["Extensions"]["Literal function scopes"] =
-`
+sample["C2Y"]["Literal function scopes"] =
+    `
 
 void f1(){
     /*we cannot use local variables*/
@@ -1558,8 +1502,8 @@ void f4(){
 
 `;
 
-sample["Extensions"]["Literal function 1"] =
-`
+sample["C2Y"]["Literal function 1"] =
+    `
 #include <stdio.h>
 int main()
 {
@@ -1569,8 +1513,8 @@ int main()
 }
 `;
 
-sample["Extensions"]["generic functions I"] =
- `
+sample["C2Y"]["generic functions I"] =
+    `
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -1648,7 +1592,7 @@ int main() {
 }
 `;
 
-sample["Extensions"]["generic functions"] =
+sample["C2Y"]["generic functions"] =
     `
 
 #define SWAP(a, b)\\
@@ -1667,6 +1611,81 @@ int main()
 }
 `;
 
+
+
+sample["C2Y"]["Statement expressions"] =
+`
+
+//https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm
+
+#include <stdio.h>
+
+#define maxint(a,b) \
+  ({int _a = (a), _b = (b); _a > _b ? _a : _b; })
+
+int main()
+{
+  printf("%d", maxint(1, 2));
+}
+`;
+
+
+
+sample["Extensions"] = [];
+sample["Extensions"]["try catch throw"] =
+    `
+#include <stdio.h>
+
+int main()
+{
+  FILE * f = NULL;
+  try
+  {
+     f = fopen("file.txt", "r");
+     if (f == NULL) throw;
+
+    /*success here*/
+  }
+  catch
+  {
+     /*some error*/
+  }
+
+  if (f)
+    fclose(f);
+}
+
+`;
+
+
+sample["Extensions"]["try catch throw II"] =
+    `
+#include <stdio.h>
+
+/*not sure if usefull , but this is allowed*/
+
+int main()
+{
+  try
+  {
+      FILE * f = NULL;
+      try {
+         FILE *f = fopen("file.txt", "r");
+         if (f == NULL) throw;
+         /*more*/
+      }
+      catch {
+         if (f)
+          fclose(f);
+         throw;
+      }
+  }
+  catch
+  {
+  }
+}
+
+`;
 
 sample["Extensions"]["line slicing checks"] =
     `
