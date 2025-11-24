@@ -3254,6 +3254,13 @@ struct attribute* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* ctx)
         if (strcmp(p_type_specifier->attribute_token->lexeme, "align") == 0)
         {
             parser_match(ctx); //(
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
             int a = atoi(ctx->current->lexeme);
             if (a == 8)
                 p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_ALIGN_8_FLAG;
@@ -3446,67 +3453,6 @@ enum msvc_declspec_flags msvc_declspec_sequence_opt(struct parser_ctx* ctx)
 
     }
     return msvc_declspec_flags;
-}
-
-static void gcc_attribute_argument(struct parser_ctx* ctx)
-{
-    /*
-       attribute-argument:
-         identifier
-         constant-expression
-         string-literal
-    */
-    if (ctx->current == NULL)
-    {
-        unexpected_end_of_file(ctx);
-        return;
-    }
-
-    if (token_is_identifier_or_keyword(ctx->current->type))
-    {
-        parser_match(ctx);
-
-    }
-    else if (ctx->current->type == TK_STRING_LITERAL)
-    {
-        parser_match(ctx);
-    }
-    else //constant expressions
-    {
-        struct expression* expr = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-        expression_delete(expr);
-    }
-}
-
-static void gcc_attribute_argument_list(struct parser_ctx* ctx)
-{
-    /*
-      attribute-argument-list:
-          attribute-argument
-          attribute-argument-list , attribute-argument
-    */
-
-    if (ctx->current == NULL)
-    {
-        unexpected_end_of_file(ctx);
-        return;
-    }
-
-    for (;;)
-    {
-        gcc_attribute_argument(ctx);
-
-        if (ctx->current == NULL)
-        {
-            unexpected_end_of_file(ctx);
-            return;
-        }
-
-        if (ctx->current->type != ',')
-            break;
-
-        parser_match(ctx);
-    }
 }
 
 static void gcc_attribute(struct parser_ctx* ctx)
@@ -8808,6 +8754,12 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 ctx->p_current_selection_statement->condition == NULL)
             {
                 //unexpected because we are in case
+                compiler_diagnostic(C_ERROR_CASE_NOT_IN_SWITCH,
+                ctx,
+                ctx->current,
+                NULL,
+                "case label not within a switch statement");
+
                 throw;
             }
 
@@ -8953,6 +8905,19 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         }
         else if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
+            if (ctx->p_current_selection_statement == NULL ||
+                ctx->p_current_selection_statement->condition == NULL)
+            {
+                //unexpected because we are in case
+                compiler_diagnostic(C_ERROR_CASE_NOT_IN_SWITCH,
+                ctx,
+                ctx->current,
+                NULL,
+                "default case not within a switch statement");
+
+                throw;
+            }
+
             struct label* _Opt p_existing_default_label = case_label_list_find_default(ctx, &ctx->p_current_selection_statement->label_list);
 
             if (p_existing_default_label)

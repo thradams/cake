@@ -3546,19 +3546,23 @@ static bool is_empty_assert(struct token_list* replacement_list)
     return true;
 }
 
-void print_path(const char* path)
+void print_path(const char* path, bool fullpath)
 {
     //I will print just the file name for now..to be decided.
     const char* p = path;
-    const char* last = NULL;
-    while (*p)
+
+    if (!fullpath)
     {
-        if (*p == '/' || *p == '\\')
-            last = p;
-        p++;
+        const char* last = NULL;
+        while (*p)
+        {
+            if (*p == '/' || *p == '\\')
+                last = p;
+            p++;
+        }
+        p = last ? last + 1 : path;
     }
 
-    p = last ? last + 1 : path;
     while (*p)
     {
 #ifdef _WIN32
@@ -3701,7 +3705,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     for (int i = 0; i < (level + 1); i++)
                         printf(".");
 
-                    print_path(full_path_result);
+                    print_path(full_path_result, true /*full path*/);
                     printf("\n");
                 }
 
@@ -3724,7 +3728,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     printf("Include directories:\n");
                     for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
                     {
-                        print_path(p->path);
+                        print_path(p->path, true/*full path*/);
                         printf("\n");
                     }
                 }

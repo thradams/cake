@@ -890,7 +890,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     if (visual_studio_ouput_format)
     {
         //MSVC format
-        print_path(path);
+        print_path(path, true /*full path*/);
         printf("(%d,%d): ", line, col);
     }
     else
@@ -899,7 +899,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
         {
             printf(WHITE);
         }
-        print_path(path);
+        print_path(path, false /*full path*/);
 
         //GCC format
         if (color_enabled)

@@ -830,7 +830,13 @@ int main(){
 ```
 <button onclick="Try(this)">try</button>
 
-### 750 (unused)
+### 750  case label or default not within a switch statement
+```c
+int main() {
+ case 1:;
+}
+```
+<button onclick="Try(this)">try</button>
 
 ### 760 (unused)
 

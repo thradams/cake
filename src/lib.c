@@ -1410,7 +1410,7 @@ void print_all_macros(const struct preprocessor_ctx* prectx);
 
 int include_config_header(struct preprocessor_ctx* ctx, const char* file_name);
 int stringify(const char* input, int n, char output[]);
-void print_path(const char* path);
+void print_path(const char* path, bool fullpath);
 
 
 #ifdef _WIN32
@@ -2291,8 +2291,8 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     if (visual_studio_ouput_format)
     {
         //MSVC format
-        print_path(path);
-        printf("(%d): ", line);
+        print_path(path, true /*full path*/);
+        printf("(%d,%d): ", line, col);
     }
     else
     {
@@ -2300,7 +2300,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
         {
             printf(WHITE);
         }
-        print_path(path);
+        print_path(path, false /*full path*/);
 
         //GCC format
         if (color_enabled)
@@ -7189,19 +7189,23 @@ static bool is_empty_assert(struct token_list* replacement_list)
     return true;
 }
 
-void print_path(const char* path)
+void print_path(const char* path, bool fullpath)
 {
     //I will print just the file name for now..to be decided.
     const char* p = path;
-    const char* last = NULL;
-    while (*p)
+
+    if (!fullpath)
     {
-        if (*p == '/' || *p == '\\')
-            last = p;
-        p++;
+        const char* last = NULL;
+        while (*p)
+        {
+            if (*p == '/' || *p == '\\')
+                last = p;
+            p++;
+        }
+        p = last ? last + 1 : path;
     }
 
-    p = last ? last + 1 : path;
     while (*p)
     {
 #ifdef _WIN32
@@ -7344,7 +7348,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     for (int i = 0; i < (level + 1); i++)
                         printf(".");
 
-                    print_path(full_path_result);
+                    print_path(full_path_result, true /*full path*/);
                     printf("\n");
                 }
 
@@ -7367,7 +7371,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     printf("Include directories:\n");
                     for (struct include_dir* _Opt p = ctx->include_dir.head; p; p = p->next)
                     {
-                        print_path(p->path);
+                        print_path(p->path, true/*full path*/);
                         printf("\n");
                     }
                 }
@@ -16073,7 +16077,6 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
 struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant, enum expression_eval_mode eval_mode);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
-bool expression_get_variables(struct expression* expr, int n, struct object* variables[/*n*/]);
 
 bool expression_is_lvalue(const struct expression* expr);
 
@@ -22227,14 +22230,14 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             */
 
             unsigned int number_of_elements_including_zero = 0;
-            struct object* _Opt last = NULL;
+            struct object* _Opt _Owner last = NULL;
 
             while (ctx->current->type == TK_STRING_LITERAL)
             {
                 //"part1" "part2" TODO check different types
 
 
-                const unsigned char* it = (unsigned char*)ctx->current->lexeme;
+                const unsigned char* _Opt it = (unsigned char*)ctx->current->lexeme;
 
                 //skip string literal prefix u8, L etc 
                 while (*it != '"')
@@ -22320,7 +22323,12 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
               Appending the last \0
             */
             struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
-            if (p_new == NULL) throw;
+            if (p_new == NULL)
+            {
+                object_delete(last);
+                last = NULL;
+                throw;
+            }
 
             if (is_wide)
             {
@@ -22496,7 +22504,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                    the entire construct. (If you use some other kind of statement last within 
                    the braces, the construct has type void, and thus effectively no value.) 
                 */
-                struct expression* p_last_expression = NULL;
+                struct expression* _Opt p_last_expression = NULL;
                 struct block_item* _Owner _Opt  p = p_expression_node->compound_statement->block_item_list.head;
                 while (p)
                 {
@@ -22937,7 +22945,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 &p_member_declarator->declarator->type);
                             }
 
-                            struct object* object = find_object_declarator_by_index(&p_expression_node_new->left->object, &p_complete->member_declaration_list, member_index);
+                            struct object* _Opt object = find_object_declarator_by_index(&p_expression_node_new->left->object, &p_complete->member_declaration_list, member_index);
 
                             if (object)
                             {
@@ -23232,8 +23240,8 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         if (type_is_function(&p_expression_node->type_name->abstract_declarator->type))
         {
             //this keep the typedef for function out.. we must have the function declarator
-            const struct declarator* inner = declarator_get_innert_function_declarator(p_expression_node->type_name->abstract_declarator);
-            if (inner->direct_declarator->function_declarator == NULL)
+            const struct declarator* _Opt inner = declarator_get_innert_function_declarator(p_expression_node->type_name->abstract_declarator);
+            if (inner && inner->direct_declarator && inner->direct_declarator->function_declarator == NULL)
             {
                 compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing function declarator");
                 throw;
@@ -23251,7 +23259,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_expression_node->type_name->abstract_declarator;
 
-            struct scope* p_current_function_scope_opt = ctx->p_current_function_scope_opt;
+            struct scope* _Opt p_current_function_scope_opt = ctx->p_current_function_scope_opt;
             ctx->p_current_function_scope_opt = ctx->scopes.tail;
 
             p_expression_node->compound_statement = function_body(ctx);
@@ -23793,6 +23801,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 throw;
             }
 
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(new_expression);
+                throw;
+            }
+
             if (ctx->current->type == ',')
             {
                 parser_match(ctx);
@@ -24186,6 +24201,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
                 if (type_is_enum(&new_expression->type_name->abstract_declarator->type))
                 {
+                    assert(new_expression->type_name->type.enum_specifier);
+
                     const struct enum_specifier* _Opt p_enum_specifier =
                         get_complete_enum_specifier(new_expression->type_name->type.enum_specifier);
                     size_t nelements = 0;
@@ -24252,6 +24269,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
                 if (type_is_enum(&new_expression->right->type))
                 {
+                    assert(new_expression->right->type.enum_specifier);
+
                     const struct enum_specifier* _Opt p_enum_specifier =
                         get_complete_enum_specifier(new_expression->right->type.enum_specifier);
                     size_t nelements = 0;
@@ -25346,12 +25365,14 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
             //Each of the operands shall have integer type.
             if (!type_is_integer(&new_expression->left->type))
             {
+                expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
                 throw;
             }
 
             if (!type_is_integer(&new_expression->right->type))
             {
+                expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
@@ -26028,6 +26049,7 @@ struct expression* _Owner _Opt inclusive_or_expression(struct parser_ctx* ctx, e
 
             if (!type_is_integer(&new_expression->right->type))
             {
+                expression_delete(new_expression);
                 compiler_diagnostic(C_ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "right type must be an integer type");
                 throw;
             }
@@ -26547,6 +26569,7 @@ void expression_delete(struct expression* _Owner _Opt p)
         //explodindo
         //object_destroy(&p->object);
 
+        
         free(p);
     }
 }
@@ -26965,149 +26988,6 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
     return p_expression;
 }
 
-bool expression_get_variables(struct expression* expr, int n, struct object* variables[/*n*/])
-{
-    int count = 0;
-    switch (expr->expression_type)
-    {
-
-    case EXPRESSION_TYPE_INVALID:  break;
-
-    case PRIMARY_EXPRESSION_ENUMERATOR:  break;
-    case PRIMARY_EXPRESSION_DECLARATOR:
-        if (!object_has_constant_value(&expr->object))
-        {
-            if (count < n)
-            {
-                variables[count] = object_get_non_const_referenced(&expr->object);
-                count++;
-            }
-
-        }
-        break;
-
-    case PRIMARY_EXPRESSION_STRING_LITERAL:  break;
-    case PRIMARY_EXPRESSION__FUNC__:  break; /*predefined identifier __func__ */
-    case PRIMARY_EXPRESSION_CHAR_LITERAL:  break;
-    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:  break; /*true false*/
-    case PRIMARY_EXPRESSION_GENERIC:  break;
-    case PRIMARY_EXPRESSION_NUMBER:  break;
-
-    case PRIMARY_EXPRESSION_PARENTESIS:
-        assert(expr->right != NULL);
-        count += expression_get_variables(expr->right, n, variables);
-        break;
-
-    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:  break;
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:  break;
-
-    case POSTFIX_FUNCTION_CALL:  break; // ( ) 
-    case POSTFIX_ARRAY:  break; // [ ]
-    case POSTFIX_DOT:  break; // .
-    case POSTFIX_ARROW:  break; // .
-    case POSTFIX_INCREMENT:  break;
-    case POSTFIX_DECREMENT:  break;
-
-
-    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:  break;
-    case UNARY_EXPRESSION_SIZEOF_TYPE:  break;
-    case UNARY_EXPRESSION_COUNTOF:  break;
-
-    case UNARY_EXPRESSION_TRAITS:  break;
-    case UNARY_EXPRESSION_IS_SAME:  break;
-    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:  break;
-
-    case UNARY_EXPRESSION_ALIGNOF_TYPE:  break;
-    case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:  break;
-
-    case UNARY_EXPRESSION_ASSERT:  break;
-
-    case UNARY_EXPRESSION_INCREMENT:  break;
-    case UNARY_EXPRESSION_DECREMENT:  break;
-
-    case UNARY_EXPRESSION_NOT:  break;
-    case UNARY_EXPRESSION_BITNOT:  break;
-    case UNARY_EXPRESSION_NEG:  break;
-    case UNARY_EXPRESSION_PLUS:  break;
-    case UNARY_EXPRESSION_CONTENT:  break;
-    case UNARY_EXPRESSION_ADDRESSOF:  break;
-
-    case CAST_EXPRESSION:  break;
-
-    case MULTIPLICATIVE_EXPRESSION_MULT:
-    case MULTIPLICATIVE_EXPRESSION_DIV:
-    case MULTIPLICATIVE_EXPRESSION_MOD:
-        assert(expr->left != NULL);
-        assert(expr->right != NULL);
-        count += expression_get_variables(expr->left, n, variables);
-        count += expression_get_variables(expr->right, n, variables);
-        break;
-
-    case ADDITIVE_EXPRESSION_PLUS:
-    case ADDITIVE_EXPRESSION_MINUS:
-        assert(expr->left != NULL);
-        assert(expr->right != NULL);
-
-        count += expression_get_variables(expr->left, n, variables);
-        count += expression_get_variables(expr->right, n, variables);
-        break;
-
-
-    case SHIFT_EXPRESSION_RIGHT:
-    case SHIFT_EXPRESSION_LEFT:
-
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
-    case RELATIONAL_EXPRESSION_LESS_THAN:
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-    case EQUALITY_EXPRESSION_EQUAL:
-    case EQUALITY_EXPRESSION_NOT_EQUAL:
-        assert(expr->left != NULL);
-        assert(expr->right != NULL);
-        count += expression_get_variables(expr->left, n, variables);
-        count += expression_get_variables(expr->right, n, variables);
-        break;
-
-    case AND_EXPRESSION:  break;
-    case EXCLUSIVE_OR_EXPRESSION:  break;
-    case INCLUSIVE_OR_EXPRESSION:  break;
-
-    case LOGICAL_OR_EXPRESSION:
-    case LOGICAL_AND_EXPRESSION:
-        assert(expr->left != NULL);
-        assert(expr->right != NULL);
-        count += expression_get_variables(expr->left, n, variables);
-        count += expression_get_variables(expr->right, n, variables);
-        break; //&&
-
-    case ASSIGNMENT_EXPRESSION_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:  break;
-    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:  break;
-
-
-    case EXPRESSION_EXPRESSION:  break;
-
-    case CONDITIONAL_EXPRESSION:  break;
-
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
-    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
-    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
-    case UNARY_EXPRESSION_CONSTEVAL:
-        break;
-    }
-
-    return count;
-}
 
 bool expression_is_lvalue(const struct expression* expr)
 {
@@ -32121,6 +32001,13 @@ struct attribute* _Owner _Opt extended_decl_modifier_seq(struct parser_ctx* ctx)
         if (strcmp(p_type_specifier->attribute_token->lexeme, "align") == 0)
         {
             parser_match(ctx); //(
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
             int a = atoi(ctx->current->lexeme);
             if (a == 8)
                 p_type_specifier->msvc_declspec_flags |= MSVC_DECLSPEC_ALIGN_8_FLAG;
@@ -32313,67 +32200,6 @@ enum msvc_declspec_flags msvc_declspec_sequence_opt(struct parser_ctx* ctx)
 
     }
     return msvc_declspec_flags;
-}
-
-static void gcc_attribute_argument(struct parser_ctx* ctx)
-{
-    /*
-       attribute-argument:
-         identifier
-         constant-expression
-         string-literal
-    */
-    if (ctx->current == NULL)
-    {
-        unexpected_end_of_file(ctx);
-        return;
-    }
-
-    if (token_is_identifier_or_keyword(ctx->current->type))
-    {
-        parser_match(ctx);
-
-    }
-    else if (ctx->current->type == TK_STRING_LITERAL)
-    {
-        parser_match(ctx);
-    }
-    else //constant expressions
-    {
-        struct expression* expr = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-        expression_delete(expr);
-    }
-}
-
-static void gcc_attribute_argument_list(struct parser_ctx* ctx)
-{
-    /*
-      attribute-argument-list:
-          attribute-argument
-          attribute-argument-list , attribute-argument
-    */
-
-    if (ctx->current == NULL)
-    {
-        unexpected_end_of_file(ctx);
-        return;
-    }
-
-    for (;;)
-    {
-        gcc_attribute_argument(ctx);
-
-        if (ctx->current == NULL)
-        {
-            unexpected_end_of_file(ctx);
-            return;
-        }
-
-        if (ctx->current->type != ',')
-            break;
-
-        parser_match(ctx);
-    }
 }
 
 static void gcc_attribute(struct parser_ctx* ctx)
