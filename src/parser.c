@@ -9809,6 +9809,22 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
        "if" ( init-statement _Opt condition ) secondary-block
        "if" ( init-statement _Opt condition ) secondary-block "else" secondary-block
        switch ( init-statement _Opt condition ) secondary-block
+
+       C2Y
+
+       selection-statement:
+         if ( selection-header ) secondary-block
+         if ( selection-header ) secondary-block else secondary-block
+         switch ( selection-header ) secondary-block
+
+      selection-header:
+        expression
+        declaration expression
+        simple-declaration
+
+      simple-declaration:
+         attribute-specifier-sequenceopt declaration-specifiers declarator = initializer
+
     */
 
     struct scope if_scope = { 0 };
@@ -9998,44 +10014,8 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         assert(p_selection_statement->secondary_block == NULL);
         p_selection_statement->secondary_block = p_secondary_block;
 
-        if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
-        {
-            //switch of enum without default, then we check if all items were used
-            if (case_label_list_find_default(ctx, &p_selection_statement->label_list) == NULL)
-            {
-                const struct enum_specifier* _Opt p_enum_specifier = NULL;
-
-                if (ctx->p_current_selection_statement &&
-                    ctx->p_current_selection_statement->condition &&
-                    ctx->p_current_selection_statement->condition->expression &&
-                    ctx->p_current_selection_statement->condition->expression->type.enum_specifier)
-                {
-                    p_enum_specifier = get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
-                }
-
-                if (p_enum_specifier)
-                {
-                    struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
-                    while (p)
-                    {
-                        struct label* _Opt p_used = case_label_list_find(ctx, &p_selection_statement->label_list, &p->value);
-
-                        if (p_used == NULL)
-                        {
-                            compiler_diagnostic(W_SWITCH,
-                                ctx,
-                                ctx->current, NULL,
-                                "enumeration '%s' not handled in switch", p->token->lexeme);
-                        }
-                        p = p->next;
-                    }
-                }
-            }
-        }
-
+     
         ctx->p_current_selection_statement = previous;
-
-
 
 
         if (is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE)
@@ -10063,6 +10043,43 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         }
 
         p_selection_statement->last_token = p_tk;
+
+
+        if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
+        {
+            //switch of enum without default, then we check if all items were used
+            if (case_label_list_find_default(ctx, &p_selection_statement->label_list) == NULL)
+            {
+                const struct enum_specifier* _Opt p_enum_specifier = NULL;
+
+                if (p_selection_statement->condition &&
+                    p_selection_statement->condition->expression &&
+                    p_selection_statement->condition->expression->type.enum_specifier)
+                {
+                    p_enum_specifier = get_complete_enum_specifier(p_selection_statement->condition->expression->type.enum_specifier);
+                }
+
+                if (p_enum_specifier)
+                {
+                    struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
+                    while (p)
+                    {
+                        struct label* _Opt p_used = case_label_list_find(ctx, &p_selection_statement->label_list, &p->value);
+
+                        if (p_used == NULL)
+                        {
+                            compiler_diagnostic(W_SWITCH,
+                                ctx,
+                                p_selection_statement->last_token,
+                                NULL,
+                                "enumeration '%s' not handled in switch", p->token->lexeme);
+                        }
+                        p = p->next;
+                    }
+                }
+            }
+        }
+
     }
     catch
     {
@@ -10097,14 +10114,25 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
         p_defer_statement->first_token = ctx->current;
         parser_match(ctx);
 
-        const struct defer_statement* _Opt p_previous_defer_statement_opt =
-            ctx->p_current_defer_statement_opt;
+        const struct defer_statement* _Opt p_previous_defer_statement_opt = ctx->p_current_defer_statement_opt;
 
         ctx->p_current_defer_statement_opt = p_defer_statement;
+
+        /*
+          Defer statements can not be exited by means of break or continue.
+        */
+        const struct iteration_statement* p_current_iteration_statement = ctx->p_current_iteration_statement;
+        ctx->p_current_iteration_statement = NULL;
+
+        struct selection_statement* p_current_selection_statement = ctx->p_current_selection_statement;
+        ctx->p_current_selection_statement = NULL;
 
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx); //TODO unlabeled_statement
         if (p_secondary_block == NULL) throw;
         
+        ctx->p_current_iteration_statement = p_current_iteration_statement; //restore
+        ctx->p_current_selection_statement = p_current_selection_statement; //restore
+
         p_defer_statement->secondary_block = p_secondary_block;
         if (ctx->previous == NULL) throw;
 
@@ -10142,6 +10170,7 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
       for ( expressionopt ; expressionopt ; expressionopt ) statement
       for ( declaration expressionopt ; expressionopt ) statement
     */
+    const struct iteration_statement* const p_current_iteration_statement = ctx->p_current_iteration_statement;
     struct iteration_statement* _Owner _Opt p_iteration_statement = NULL;
     try
     {
@@ -10155,6 +10184,8 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
 
         if (p_iteration_statement == NULL)
             throw;
+
+        ctx->p_current_iteration_statement = p_iteration_statement;
 
         p_iteration_statement->first_token = ctx->current;
         if (ctx->current->type == TK_KEYWORD_DO)
@@ -10334,6 +10365,9 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
         iteration_statement_delete(p_iteration_statement);
         p_iteration_statement = NULL;
     }
+
+    ctx->p_current_iteration_statement = p_current_iteration_statement; /*restore*/
+
     return p_iteration_statement;
 }
 
@@ -10409,10 +10443,23 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_CONTINUE)
         {
+            if (ctx->p_current_iteration_statement == NULL)
+            {
+                compiler_diagnostic(C_ERROR_CONTINUE_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "continue not within iteration");
+                throw;
+            }
             parser_match(ctx);
         }
         else if (ctx->current->type == TK_KEYWORD_BREAK)
         {
+            const bool in_switch  =
+                ctx->p_current_selection_statement && ctx->p_current_selection_statement->first_token->type == TK_KEYWORD_SWITCH;
+
+            if (ctx->p_current_iteration_statement == NULL && !in_switch)
+            {
+                compiler_diagnostic(C_ERROR_BREAK_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "'break' statement not in loop or switch statement");
+                throw;
+            }
             parser_match(ctx);
         }
         else if (ctx->current->type == TK_KEYWORD_CAKE_THROW)

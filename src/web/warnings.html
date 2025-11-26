@@ -273,13 +273,13 @@
 <a href="#toc_79">740 Struct is incomplete</a>
 </li>
 <li>
-<a href="#toc_80">750 (unused)</a>
+<a href="#toc_80">750  case label or default not within a switch statement</a>
 </li>
 <li>
-<a href="#toc_81">760 (unused)</a>
+<a href="#toc_81">760 &#39;break&#39; statement not in loop or switch statement</a>
 </li>
 <li>
-<a href="#toc_82">770 (unused)</a>
+<a href="#toc_82">770 &#39;continue&#39; statement not in loop statement</a>
 </li>
 <li>
 <a href="#toc_83">780 Indirection requires pointer operand</a>
@@ -1375,11 +1375,32 @@ int main(){
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_80">750 (unused)</h3>
+<h3 id="toc_80">750  case label or default not within a switch statement</h3>
 
-<h3 id="toc_81">760 (unused)</h3>
+<pre><code class="language-c">int main() {
+ case 1:;
+}
+</code></pre>
 
-<h3 id="toc_82">770 (unused)</h3>
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_81">760 &#39;break&#39; statement not in loop or switch statement</h3>
+
+<pre><code class="language-c">int main() {
+ break;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_82">770 &#39;continue&#39; statement not in loop statement</h3>
+
+<pre><code class="language-c">int main() {
+ continue;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_83">780 Indirection requires pointer operand</h3>
 

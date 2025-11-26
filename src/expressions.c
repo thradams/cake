@@ -1315,9 +1315,6 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
               but since we keep the source format here it was an alternative
             */
 
-            unsigned int number_of_elements_including_zero = 0;
-            struct object* _Opt _Owner last = NULL;
-
             while (ctx->current->type == TK_STRING_LITERAL)
             {
                 //"part1" "part2" TODO check different types
@@ -1341,7 +1338,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     {
                         it = utf8_decode(it, &c);
                         if (it == NULL)
-                        {
+                        {                            
                             throw;
                         }
                     }
@@ -1384,17 +1381,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                         //u8"" also are char not (char8_t)
                         *p_new = object_make_char(ctx->options.target, value);
                     }
-                    number_of_elements_including_zero++;
-                    if (p_expression_node->object.members.head == NULL)
-                    {
-                        p_expression_node->object.members.head = p_new;
-                    }
-                    else
-                    {
-                        if (last)
-                            last->next = p_new;
-                    }
-                    last = p_new;
+                    object_list_push(&p_expression_node->object.members, p_new);        
                 }
 
                 parser_match(ctx);
@@ -1411,8 +1398,6 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             struct object* _Opt _Owner p_new = calloc(1, sizeof * p_new);
             if (p_new == NULL)
             {
-                object_delete(last);
-                last = NULL;
                 throw;
             }
 
@@ -1438,19 +1423,11 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 //u8"" also are char not (char8_t)
                 *p_new = object_make_char(ctx->options.target, 0);
             }
-            number_of_elements_including_zero++;
 
-            if (last == NULL)
-            {
-                p_expression_node->object.members.head = p_new;
-            }
-            else
-            {
-                last->next = p_new;
-            }
+            object_list_push(&p_expression_node->object.members, p_new);
 
             enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
-            p_expression_node->type = type_make_literal_string(number_of_elements_including_zero, char_type_specifiers, lit_flags, ctx->options.target);
+            p_expression_node->type = type_make_literal_string(p_expression_node->object.members.count, char_type_specifiers, lit_flags, ctx->options.target);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {

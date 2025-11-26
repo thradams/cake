@@ -838,9 +838,24 @@ int main() {
 ```
 <button onclick="Try(this)">try</button>
 
-### 760 (unused)
+### 760 'break' statement not in loop or switch statement
 
-### 770 (unused)
+```c
+int main() {
+ break;
+}
+```
+<button onclick="Try(this)">try</button>
+
+### 770 'continue' statement not in loop statement
+
+```c
+int main() {
+ continue;
+}
+```
+<button onclick="Try(this)">try</button>
+
 
 ### 780 Indirection requires pointer operand
 ```c

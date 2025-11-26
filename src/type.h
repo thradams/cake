@@ -348,10 +348,7 @@ bool type_is_vla(const struct type* p_type);
 struct type type_get_enum_type(const struct type* p_type);
 
 struct argument_expression;
-void check_argument_and_parameter(struct parser_ctx* ctx,
-    struct argument_expression* current_argument,
-    struct type* paramer_type,
-    int param_num);
+
 
 struct type type_convert_to(const struct type* p_type, enum language_version target);
 struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled);

@@ -317,7 +317,9 @@ int compile_one_file(const char* file_name,
 {
     bool color_enabled = !options->color_disabled;
 
-    printf("%s\n", file_name);
+    print_path(file_name, true);
+    printf("\n");
+
     struct preprocessor_ctx prectx = { 0 };
     prectx.options = *options;
     prectx.macros.capacity = 5000;
@@ -906,9 +908,6 @@ int compile(int argc, const char** argv, struct report* report)
 
     if (report->test_mode)
     {
-        //if (result != 0)
-          //  return EXIT_FAILURE;
-
         if (report->error_count > 0 || report->warnings_count > 0)
         {
             return EXIT_FAILURE;
@@ -917,8 +916,7 @@ int compile(int argc, const char** argv, struct report* report)
         return EXIT_SUCCESS;
     }
 
-
-    return 0;
+    return (report->error_count > 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 

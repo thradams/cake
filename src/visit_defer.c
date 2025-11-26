@@ -621,21 +621,6 @@ static void defer_visit_for_statement(struct defer_visit_ctx* ctx, struct iterat
         p_defer->p_iteration_statement = p_iteration_statement;
         defer_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
         defer_visit_ctx_pop_tail_block(ctx);
-
-        const bool b_secondary_block_ends_with_jump =
-            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-
-        /*we visit again*/
-        if (!b_secondary_block_ends_with_jump)
-        {
-            struct defer_defer_scope* _Opt p_defer2 = defer_visit_ctx_push_tail_block(ctx);
-            if (p_defer2 == NULL) throw;
-
-            p_defer2->p_iteration_statement = p_iteration_statement;
-            defer_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-            defer_exit_block_visit(ctx, p_defer2, p_iteration_statement->secondary_block->last_token, &p_iteration_statement->defer_list);
-            defer_visit_ctx_pop_tail_block(ctx);
-        }
     }
     catch
     {

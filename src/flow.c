@@ -190,6 +190,7 @@ void flow_object_state_delete(struct flow_object_state* _Owner _Opt p)
         free(p);
     }
 }
+
 void flow_object_state_copy(struct flow_object_state* to, const struct flow_object_state* from)
 {
     to->state = from->state;
@@ -258,6 +259,7 @@ void flow_object_delete(struct flow_object* _Owner _Opt p)
         free(p);
     }
 }
+
 int objects_view_reserve(struct flow_objects_view* p, int n);
 void object_set_pointer(struct flow_object* p_object, struct flow_object* p_object2)
 {
@@ -318,15 +320,10 @@ int flow_object_add_state(struct flow_object* p, struct flow_object_state* _Owne
     return 0;
 }
 
-
-
-
-
 void objects_view_destroy(_Dtor struct flow_objects_view* p)
 {
     free(p->data);
 }
-
 
 int objects_view_reserve(struct flow_objects_view* p, int n)
 {
@@ -381,8 +378,6 @@ int objects_view_push_back(struct flow_objects_view* p, struct flow_object* p_ob
     }
 
     p->data[p->size] = p_object;
-
-
     p->size++;
 
     return 0;
@@ -3106,8 +3101,10 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
         }
         else if (p_expression->expression_type == PRIMARY_EXPRESSION_STATEMENT_EXPRESSION)
         {
-            struct expression* p_last_expression = NULL;
-            struct block_item* _Owner _Opt  p = p_expression->compound_statement->block_item_list.head;
+            assert(p_expression->compound_statement);
+
+            struct expression* _Opt p_last_expression = NULL;
+            struct block_item* _Opt  p = p_expression->compound_statement->block_item_list.head;
             while (p)
             {
                 if (p->next == NULL &&
@@ -3120,7 +3117,8 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
                 p = p->next;
             }
 
-            return expression_get_flow_object(ctx, p_last_expression, nullable_enabled);
+            if (p_last_expression)
+                return expression_get_flow_object(ctx, p_last_expression, nullable_enabled);
         }
         else if (p_expression->expression_type == CAST_EXPRESSION)
         {
@@ -5254,6 +5252,7 @@ static void flow_expression_bind(struct flow_visit_ctx* ctx,
 
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
 {
+
     true_false_set_clear(expr_true_false_set); //out
 
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
@@ -5475,37 +5474,44 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             struct argument_expression* _Opt p_argument_expression = p_expression->argument_expression_list.head;
 
-            if (p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt)
+            if (p_expression->left->declarator->direct_declarator &&
+                p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt)
             {
-                struct parameter_declaration* _Owner _Opt p_parameter =
+                struct parameter_declaration* _Opt p_parameter =
                     p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
                 while (p_parameter && p_argument_expression)
                 {
-                    p_parameter->declarator->p_alias_of_expression =
-                        p_argument_expression->expression;
+                    if (p_parameter->declarator)
+                    {
+                        p_parameter->declarator->p_alias_of_expression = p_argument_expression->expression;
+                    }
 
                     p_parameter = p_parameter->next;
                     p_argument_expression = p_argument_expression->next;
                 }
             }
 
-            if (p_expression->left->declarator->direct_declarator->function_declarator->p_in_block)
+            if (p_expression->left->declarator->direct_declarator &&
+                p_expression->left->declarator->direct_declarator->function_declarator &&
+                p_expression->left->declarator->direct_declarator->function_declarator->p_in_block)
             {
                 flow_visit_secondary_block(ctx, p_expression->left->declarator->direct_declarator->function_declarator->p_in_block);
             }
-            if (p_expression->left->declarator->direct_declarator->function_declarator->p_out_block)
+
+            if (p_expression->left->declarator->direct_declarator &&
+                p_expression->left->declarator->direct_declarator->function_declarator &&
+                p_expression->left->declarator->direct_declarator->function_declarator->p_out_block)
             {
                 flow_visit_secondary_block(ctx, p_expression->left->declarator->direct_declarator->function_declarator->p_out_block);
             }
 
-            struct parameter_declaration* p_parameter = p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+            struct parameter_declaration* _Opt p_parameter = p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
             while (p_parameter)
             {
-                p_parameter->declarator->p_alias_of_expression = NULL;
+                if (p_parameter->declarator)
+                    p_parameter->declarator->p_alias_of_expression = NULL;
                 p_parameter = p_parameter->next;
             }
-
-
         }
 #endif
     }
@@ -7285,10 +7291,7 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 */
 static bool flow_is_last_item_return(struct compound_statement* p_compound_statement)
 {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wflow-not-null"
-
-    if (p_compound_statement &&
+    if (/*!w28*/ p_compound_statement &&
         p_compound_statement->block_item_list.tail &&
         p_compound_statement->block_item_list.tail->unlabeled_statement &&
         p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement &&
@@ -7298,8 +7301,6 @@ static bool flow_is_last_item_return(struct compound_statement* p_compound_state
         return true;
     }
     return false;
-
-#pragma CAKE diagnostic pop
 }
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
@@ -7390,8 +7391,6 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
     flow_objects_clear(&ctx->arena);
 }
 
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wanalyzer-maybe-uninitialized" 
 
 _Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
 {
@@ -7405,10 +7404,8 @@ _Opt struct flow_object* _Opt arena_new_object(struct flow_visit_ctx* ctx)
             p = NULL;
         }
     }
-    return (struct flow_object* _Opt)p; //warning removed
+    /*!w30*/ /*!w30*/  return (struct flow_object* _Opt) p;
 }
-
-#pragma CAKE diagnostic pop
 
 
 void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p)
