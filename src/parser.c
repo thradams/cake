@@ -7968,7 +7968,7 @@ bool first_of_attribute(const struct parser_ctx* ctx)
 
     return false;
 }
-enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
+enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p_attribute, struct attribute_specifier* p_attribute_specifier)
 {
     enum attribute_flags attribute_flags = 0;
 
@@ -7981,6 +7981,8 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute_sp
         }
 
         struct token* attr_token = ctx->current;
+
+        p_attribute->attribute_token = attr_token;
 
         bool is_standard_attribute = false;
         if (strcmp(attr_token->lexeme, "deprecated") == 0)
@@ -8047,6 +8049,8 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute_sp
 
         if (ctx->current->type == '::')
         {
+            p_attribute->attribute_prefix = p_attribute->attribute_token;
+            
             parser_match(ctx);
             if (is_cake_attr)
             {
@@ -8072,9 +8076,10 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute_sp
                 unexpected_end_of_file(ctx);
                 throw;
             }
-
+            
             if (token_is_identifier_or_keyword(ctx->current->type))
             {
+                p_attribute->attribute_token = ctx->current;
                 parser_match(ctx);
             }
             else
@@ -8113,7 +8118,7 @@ struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute
         if (p_attribute == NULL)
             throw;
 
-        enum attribute_flags attribute_flags = attribute_token(ctx, p_attribute_specifier);
+        enum attribute_flags attribute_flags = attribute_token(ctx, p_attribute , p_attribute_specifier);
 
         if (ctx->current == NULL)
         {
@@ -8189,6 +8194,7 @@ void balanced_token_sequence_delete(struct balanced_token_sequence* _Owner _Opt 
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx)
 {
     struct balanced_token_sequence* _Owner _Opt p_balanced_token_sequence = calloc(1, sizeof(struct balanced_token_sequence));
+    struct balanced_token* current_balanced_token = NULL;
     try
     {
         if (p_balanced_token_sequence == NULL)
@@ -8220,6 +8226,19 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
                 count2--;
             else if (ctx->current->type == '{')
                 count3--;
+            
+            struct balanced_token* new_token = calloc(1, sizeof(struct balanced_token));
+            new_token->token = ctx->current;
+            if(current_balanced_token == NULL)
+            {
+                p_balanced_token_sequence->head = new_token;
+            }
+            else
+            {
+                current_balanced_token->next = new_token;
+            }
+            p_balanced_token_sequence->tail = new_token;
+            
             parser_match(ctx);
         }
         if (count2 != 0)
@@ -11153,7 +11172,6 @@ struct ast get_ast(struct options* options,
 
     return ast;
 }
-
 
 void ast_destroy(_Dtor struct ast* ast)
 {
