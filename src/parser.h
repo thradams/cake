@@ -1564,7 +1564,10 @@ struct attribute
     enum msvc_declspec_flags msvc_declspec_flags;
     enum attribute_flags  attributes_flags;
     struct attribute_argument_clause* _Owner attribute_argument_clause;
+    
+    
     struct token* attribute_token;
+    struct token* attribute_prefix;
     struct attribute* _Owner _Opt next;
 };
 
