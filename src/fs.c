@@ -460,12 +460,21 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
 {
     char* _Owner _Opt data = NULL;
     FILE* _Owner _Opt file = NULL;
-    struct stat info = { 0 };
+    long file_size;
 
-    if (stat(path, &info) != 0)
+    file = fopen(path, "r");
+    if (file == NULL)
+    {
+        free(data);
         return NULL;
+    }
 
-    size_t mem_size_bytes = sizeof(char) * info.st_size + 1 /* \0 */ + 1 /*newline*/;
+    // get file size
+    fseek(file, 0, SEEK_END);
+    file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    unsigned mem_size_bytes = sizeof(char) * file_size + 1 /* \0 */ + 1 /*newline*/;
 
     if (mem_size_bytes < 4)
     {
@@ -476,13 +485,6 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
     data = malloc(mem_size_bytes);
     if (data == NULL)
         return NULL;
-
-    file = fopen(path, "r");
-    if (file == NULL)
-    {
-        free(data);
-        return NULL;
-    }
 
     /* first we read 3 bytes */
     size_t bytes_read = fread(data, 1, 3, file);
@@ -512,11 +514,11 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
         (unsigned char)data[2] == (unsigned char)0xBF)
     {
         /* in this case we skip this BOM, reading again*/
-        bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
+        bytes_read_part2 = fread(&data[0], 1, file_size - 3, file);
     }
     else
     {
-        bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
+        bytes_read_part2 = fread(&data[3], 1, file_size - 3, file);
         bytes_read_part2 = bytes_read_part2 + 3;
     }
 
@@ -537,7 +539,6 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
     fclose(file);
     return data;
 }
-
 
 
 #else
