@@ -14,26 +14,28 @@
 
 #include "build.h"
 
+#define CAKE_LIB_SOURCE_FILES \
+    " token.c "               \
+    " hashmap.c "             \
+    " console.c "             \
+    " tokenizer.c "           \
+    " osstream.c "            \
+    " fs.c "                  \
+    " options.c "             \
+    " object.c "              \
+    " expressions.c "         \
+    " pre_expressions.c "     \
+    " parser.c "              \
+    " compile.c "             \
+    " visit_defer.c "         \
+    " visit_il.c "            \
+    " flow.c "                \
+    " error.c "               \
+    " target.c "              \
+    " type.c "
 
 #define CAKE_SOURCE_FILES \
-    " token.c "           \
-    " hashmap.c "         \
-    " console.c "         \
-    " tokenizer.c "       \
-    " osstream.c "        \
-    " fs.c "              \
-    " options.c "         \
-    " object.c "          \
-    " expressions.c "     \
-    " pre_expressions.c " \
-    " parser.c "          \
-    " compile.c "         \
-    " visit_defer.c "     \
-    " visit_il.c "        \
-    " flow.c "            \
-    " error.c "           \
-    " target.c "          \
-    " type.c "            \
+    CAKE_LIB_SOURCE_FILES \
     " main.c "
 
 #define HOEDOWN_SOURCE_FILES \
@@ -170,7 +172,7 @@ int main()
     HEADER("Build amalgamated file");
 
 
-    execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_SOURCE_FILES);
+    execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_LIB_SOURCE_FILES);
     remove("amalgamator.exe");
 
 
