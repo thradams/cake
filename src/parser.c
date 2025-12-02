@@ -8194,7 +8194,6 @@ void balanced_token_sequence_delete(struct balanced_token_sequence* _Owner _Opt 
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx)
 {
     struct balanced_token_sequence* _Owner _Opt p_balanced_token_sequence = calloc(1, sizeof(struct balanced_token_sequence));
-    struct balanced_token* current_balanced_token = NULL;
     try
     {
         if (p_balanced_token_sequence == NULL)
@@ -8227,17 +8226,20 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
             else if (ctx->current->type == '{')
                 count3--;
             
-            struct balanced_token* new_token = calloc(1, sizeof(struct balanced_token));
-            new_token->token = ctx->current;
-            if(current_balanced_token == NULL)
+            if(ctx->current->type != TK_COMMA)
             {
-                p_balanced_token_sequence->head = new_token;
+                struct balanced_token* new_token = calloc(1, sizeof(struct balanced_token));
+                new_token->token = ctx->current;
+                if(p_balanced_token_sequence->tail == NULL)
+                {
+                    p_balanced_token_sequence->head = new_token;
+                }
+                else
+                {
+                    p_balanced_token_sequence->tail->next = new_token;
+                }
+                p_balanced_token_sequence->tail = new_token;
             }
-            else
-            {
-                current_balanced_token->next = new_token;
-            }
-            p_balanced_token_sequence->tail = new_token;
             
             parser_match(ctx);
         }
