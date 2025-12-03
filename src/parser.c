@@ -8239,6 +8239,24 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
                 count2--;
             else if (ctx->current->type == '{')
                 count3--;
+            
+            if(ctx->current->type != TK_COMMA)
+            {
+                struct balanced_token* new_token = calloc(1, sizeof(struct balanced_token));
+                if (new_token == NULL) throw;
+
+                new_token->token = ctx->current;
+                if(p_balanced_token_sequence->tail == NULL)
+                {
+                    p_balanced_token_sequence->head = new_token;
+                }
+                else
+                {
+                    p_balanced_token_sequence->tail->next = new_token;
+                }
+                p_balanced_token_sequence->tail = new_token;
+            }
+            
             parser_match(ctx);
         }
         if (count2 != 0)
