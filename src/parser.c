@@ -2294,7 +2294,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 struct defer_visit_ctx ctx2 = { .ctx = ctx };
                 defer_start_visit_declaration(&ctx2, p_declaration);
                 defer_visit_ctx_destroy(&ctx2);
-                
+
                 if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
                 {
                     /*
@@ -6952,7 +6952,7 @@ void defer_list_clear(struct defer_list* p)
         free(item);
         item = next;
     }
-    
+
     p->head = NULL;
     p->tail = NULL;
 }
@@ -8064,7 +8064,7 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p
         if (ctx->current->type == '::')
         {
             p_attribute->attribute_prefix = p_attribute->attribute_token;
-            
+
             parser_match(ctx);
             if (is_cake_attr)
             {
@@ -8090,7 +8090,7 @@ enum attribute_flags attribute_token(struct parser_ctx* ctx, struct attribute* p
                 unexpected_end_of_file(ctx);
                 throw;
             }
-            
+
             if (token_is_identifier_or_keyword(ctx->current->type))
             {
                 p_attribute->attribute_token = ctx->current;
@@ -8132,7 +8132,7 @@ struct attribute* _Owner _Opt attribute(struct parser_ctx* ctx, struct attribute
         if (p_attribute == NULL)
             throw;
 
-        enum attribute_flags attribute_flags = attribute_token(ctx, p_attribute , p_attribute_specifier);
+        enum attribute_flags attribute_flags = attribute_token(ctx, p_attribute, p_attribute_specifier);
 
         if (ctx->current == NULL)
         {
@@ -8239,14 +8239,14 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
                 count2--;
             else if (ctx->current->type == '{')
                 count3--;
-            
-            if(ctx->current->type != TK_COMMA)
+
+            if (ctx->current->type != TK_COMMA)
             {
                 struct balanced_token* new_token = calloc(1, sizeof(struct balanced_token));
                 if (new_token == NULL) throw;
 
                 new_token->token = ctx->current;
-                if(p_balanced_token_sequence->tail == NULL)
+                if (p_balanced_token_sequence->tail == NULL)
                 {
                     p_balanced_token_sequence->head = new_token;
                 }
@@ -8256,7 +8256,7 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
                 }
                 p_balanced_token_sequence->tail = new_token;
             }
-            
+
             parser_match(ctx);
         }
         if (count2 != 0)
@@ -8344,7 +8344,7 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
             p_primary_block->iteration_statement = iteration_statement(ctx);
             if (p_primary_block->iteration_statement == NULL)
                 throw;
-        }        
+        }
         else if (ctx->current->type == TK_KEYWORD_CAKE_TRY ||
                  ctx->current->type == TK_KEYWORD_MSVC__TRY)
         {
@@ -8485,7 +8485,7 @@ void primary_block_delete(struct primary_block* _Owner _Opt p)
 {
     if (p)
     {
-        compound_statement_delete(p->compound_statement);        
+        compound_statement_delete(p->compound_statement);
         iteration_statement_delete(p->iteration_statement);
         selection_statement_delete(p->selection_statement);
         try_statement_delete(p->try_statement);
@@ -8500,7 +8500,7 @@ static bool first_of_primary_block(const struct parser_ctx* ctx)
 
     if (first_of_compound_statement(ctx) ||
         first_of_selection_statement(ctx) ||
-        first_of_iteration_statement(ctx) ||        
+        first_of_iteration_statement(ctx) ||
         ctx->current->type == TK_KEYWORD_CAKE_TRY /*extension*/ ||
         ctx->current->type == TK_KEYWORD_MSVC__TRY ||
         ctx->current->type == TK_KEYWORD__ASM
@@ -10051,7 +10051,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         assert(p_selection_statement->secondary_block == NULL);
         p_selection_statement->secondary_block = p_secondary_block;
 
-     
+
         ctx->p_current_selection_statement = previous;
 
 
@@ -10158,7 +10158,7 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
 
         struct unlabeled_statement* _Owner _Opt p_unlabeled_statement = unlabeled_statement(ctx, NULL); //TODO unlabeled_statement
         if (p_unlabeled_statement == NULL) throw;
-        
+
 
         p_defer_statement->unlabeled_statement = p_unlabeled_statement;
         if (ctx->previous == NULL) throw;
@@ -10479,7 +10479,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_BREAK)
         {
-            const bool in_switch  =
+            const bool in_switch =
                 ctx->p_current_selection_statement && ctx->p_current_selection_statement->first_token->type == TK_KEYWORD_SWITCH;
 
             if (ctx->p_current_iteration_statement == NULL && !in_switch)
