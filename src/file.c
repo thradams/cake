@@ -1,8 +1,16 @@
 int main()
 {
-    int j = 0;
-    for (int i = 0; i < 10; i++)
+
+    do
     {
-        defer j++;
-    }
+        int i;
+        if (i) break;
+        defer i =1;
+
+        int i2;
+        if (i2) break;
+        defer i = 2;
+
+
+    } while (0);
 }

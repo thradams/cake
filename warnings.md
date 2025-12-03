@@ -1261,7 +1261,9 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-### 1200 (unused)
+### 1200 jump out of defer
+
+### 1201 jump over defer
 
 ### 1210 Missing macro argument
 ```c

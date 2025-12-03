@@ -588,7 +588,7 @@ int main(){
 
 ### C11 \_Noreturn
 
-<button onclick="Try(this)">try</button>
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1478.htm
 
 ```c
 _Noreturn void f () {
@@ -597,6 +597,9 @@ _Noreturn void f () {
 ```
 
 `_Noreturn` became `[[noreturn]]` in C23.
+
+<button onclick="Try(this)">try</button>
+
 
 ###  C11 Thread_local/Atomic
 
@@ -809,6 +812,7 @@ int main()
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf
 
 ```c
+
 #if true
 #warning yes..
 #endif
@@ -860,7 +864,6 @@ auto qA = &A;
 ```
 
 <button onclick="Try(this)">try</button>
-
 
 
 ###  C23 typeof / typeof_unqual
@@ -1000,12 +1003,12 @@ int main() {
 <button onclick="Try(this)">try</button>
 
 
-###  C23 Attributes
+###  C23 [[Attributes]]
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf
 
-### C23 fallthrough attribute
+### C23 [[fallthrough]] attribute
 TODO
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf
@@ -1032,7 +1035,7 @@ void f(int n) {
 ```
 <button onclick="Try(this)">try</button>
 
-### C23 deprecated attribute
+### C23 [[deprecated]] attribute
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf
 
@@ -1051,7 +1054,7 @@ int main(void) {
 
 <button onclick="Try(this)">try</button>
 
-### C23 maybe_unused attribute
+### C23 [[maybe_unused]] attribute
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf
 
@@ -1068,7 +1071,7 @@ void f( [[maybe_unused]] int arg1, int arg2) //warning C0006: 'arg2': unreferenc
 
 <button onclick="Try(this)">try</button>
 
-### C23 nodiscard attribute
+### C23 [[nodiscard]] attribute
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf
 
@@ -1125,8 +1128,9 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2799.pdf
 ```c
 
 #if __has_c_attribute(fallthrough)
+#warning YES
 #else
-#warning at this moment we return 0 for all attributes
+#warning NO
 #endif
 ```
 <button onclick="Try(this)">try</button>
@@ -1418,28 +1422,628 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3733.htm
 
+
 ```c
+// 12 EXAMPLE 1 Defer statements cannot be jumped over.
 #include <stdio.h>
 
-int main() {
-  do {
-     FILE* f = fopen("in.txt", "r");
-     if (f == NULL) break;
-     _Defer fclose(f);
+int main() 
+{    
+    goto target;  // constraint violation
+ 
+    _Defer { fputs(" meow", stdout); }
+    
+    target:
 
-     FILE* f2 = fopen("out.txt", "w");
-     if (f2 == NULL) break;
-     _Defer fclose(f2);
-     //...    
-  }
-  while(0);
+    fputs("cat says", stdout);
+    return 1;
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+
+/*g*/
+
+#include <stdio.h>
+
+int main()
+{
+    // print "cat says" to standard output
+    return fputs("cat says", stdout);
+
+    _Defer { fputs(" meow", stdout); }  // okay: no constraint violation,
+
+    // not executed
+}
+
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+/*h*/
+
+#include <stdio.h>
+int main()
+{    
+    goto target;
+    {
+        // okay: no constraint violation
+        _Defer { fputs(" meow", stdout); }
+    }
+
+    target:
+
+    fputs("cat says", stdout);
+    return 1;  // prints "cat says" to standard output
 }
 ```
 <button onclick="Try(this)">try</button>
 
-###  C2Y Function literals and local functions
+```c
 
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf
+/*i*/
+
+#include <stdio.h>
+int main()
+{    
+    {
+        _Defer { fputs("cat says", stdout); }
+
+        // okay: no constraint violation
+        goto target;
+    }
+
+target:
+
+    fputs(" meow", stdout);
+    return 1;  // prints "cat says meow" to standard output
+}
+
+```
+
+<button onclick="Try(this)">try</button>
+
+
+```c
+/*j*/
+
+#include <stdio.h>
+int main()
+{    
+    _Defer {
+        goto target;  // constraint violation
+        fputs(" meow", stdout);
+    }
+
+target:
+
+    fputs("cat says", stdout);
+    return 1;
+
+}
+```
+<button onclick="Try(this)">try</button>
+
+
+```c
+
+/*k*/
+
+#include <stdio.h>
+int main()
+{    
+    _Defer {
+        return 5;  // constraint violation
+        fputs(" meow", stdout);
+    }
+
+    fputs("cat says", stdout);
+    return 1;
+}
+```
+<button onclick="Try(this)">try</button>
+
+
+
+```c
+/*l*/
+#include <stdio.h>
+int main()
+{    
+    _Defer 
+    {
+        target:
+        fputs(" meow", stdout);
+    }
+    goto target;  // constraint violation
+
+    fputs("cat says", stdout);
+    return 1;
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+
+```c
+/*m*/
+
+#include <stdio.h>
+int main()
+{   
+    goto target;  // okay: no constraint violation
+
+    {
+        target:
+        _Defer { fputs("cat says", stdout); }
+    }
+
+    fputs(" meow", stdout);
+
+    return 1;  // prints "cat says meow" to standard output
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+
+```c
+/*n*/
+
+#include <stdio.h>
+int main()
+{    
+    goto target;  // constraint violation!!
+
+    {
+       _Defer {fputs(" meow", stdout); }
+       target:
+    }
+
+    fputs("cat says", stdout);
+    return 1;
+
+}
+```
+<button onclick="Try(this)">try</button>
+
+```c
+/*o*/
+
+#include <stdio.h>
+int main()
+{   
+    {
+        _Defer fputs("cat says", stdout);
+        goto target;
+    }
+
+target:;
+
+    fputs(" meow", stdout);
+    return 1;  // prints "cat says meow"
+
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+/*p*/
+#include <stdio.h>
+int main()
+{    
+    {
+        goto target;
+        _Defer fputs(" meow", stdout);
+    }
+
+target:;
+
+    fputs("cat says", stdout);
+    return 1;  // prints "cat says" 
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+/*q*/
+
+#include <stdio.h>
+int main()
+{    
+    {
+        _Defer { fputs(" meow", stdout); }
+        target:
+    }
+
+    goto target;  // constraint violation !!
+
+    fputs("cat says", stdout);
+    return 1;
+
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+/*r*/
+
+#include <stdio.h>
+int main()
+{   
+    {
+        target:
+        _Defer { fputs("cat says", stdout); }
+    }
+
+    goto target;  // ok
+
+    fputs(" meow\n", stdout);
+
+    return 1;  // prints "cat says" repeatedly
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+/*s*/
+#include <stdio.h>
+int main()
+{    
+   {
+       target:
+        _Defer { fputs("cat says", stdout); }
+       goto target;  // ok
+   }
+   
+   // never reached
+   
+   fputs(" meow", stdout);
+   
+   return 1;  // prints "cat says" repeatedly
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+/*t*/
+
+#include <stdio.h>
+int main()
+{   
+    int count = 0;
+    {
+        target:
+
+        _Defer { fputs("cat says ", stdout); }
+
+        ++count;
+        if (count <= 2) {
+            goto target;  // ok
+        }
+    }
+
+    fputs("meow", stdout);
+
+    return 1;  // prints "cat says cat says cat says meow"
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+/*u*/
+#include <stdio.h>
+int main()
+{   
+    int count = 0;
+    
+    {
+        _Defer { fputs("cat says", stdout); }
+
+        target:
+        
+        if (count < 5) {
+            ++count;
+            goto target;  // ok
+        }
+    }
+
+    fputs(" meow", stdout);
+    return 1;  // prints "cat says meow"
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+
+```c
+/*v*/
+#include <stdio.h>
+int main()
+{   
+    int count = 0;
+ 
+    target:
+
+    if (count >= 2) {
+        fputs("meow", stdout);
+        return 1;  // prints "cat says cat says meow "
+    }
+
+    _Defer { fputs("cat says ", stdout); }
+
+    count++;
+    goto target;
+
+    return 0;  // never reached
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+#include <stdio.h>
+
+/*
+   13 EXAMPLE 2 All the expressions and statements of an 
+   enclosing block are  evaluated before executing defer 
+   statements, including any conversions. After all defer 
+   statements are executed, the block is then exited.
+*/
+
+int main()
+{   
+    int r = 4;
+    int* p = &r;
+    _Defer { *p = 5; }
+    return *p;  // return 4;
+
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+
+```c
+
+#include <stddef.h>
+#include <stdlib.h>
+
+int use_buffer(size_t n, void* buf) 
+{
+    /* ... */
+    return 0;
+}
+
+int main()
+{
+    const int size = 20;
+    void* buf = malloc(size);
+    _Defer { free(buf); }
+    // buffer is not freed until AFTER use_buffer returns
+    return use_buffer(size, buf);
+}
+
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+
+/*
+  14 EXAMPLE 3 It is not defined if defer statements execute 
+  their deferred blocks if the exiting / non- returning 
+  functions detailed previously are called.
+*/
+
+#include <stdlib.h>
+
+int f() 
+{
+    void* p = malloc(1);
+
+    if (p == NULL) {
+        return 0;
+    }
+
+    _Defer free(p);
+
+    exit(1);  // "p" may be leaked
+    return 1;
+}
+
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+
+
+/*
+ 15 EXAMPLE 4 Defer statements, when execution reaches them, 
+ are tied to the scope of the defer statement within their 
+ enclosing block, even if it is a secondary block without 
+ braces.
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() 
+{
+    {
+        _Defer { fputs(" meow", stdout); }
+        if (true) _Defer fputs("cat", stdout);
+        fputs(" says", stdout);
+    }
+    // "cat says meow" is printed to standard output
+    exit(0);
+}
+
+```
+
+<button onclick="Try(this)">try</button>
+
+
+```c
+/*
+  16 This applies to any enclosing block, even for loops 
+  without braces around its body.
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+int main() {
+    const char* arr[] = {"cat", "kitty", "ferocious little baby"};
+    _Defer { fputs(" meow", stdout); }
+    for (unsigned int i = 0; i < 3; ++i) _Defer printf("my %s,\n", arr[i]);
+    fputs("says", stdout);
+    // "my cat,
+    // my kitty,
+    // my ferocious little baby,
+    // says meow"
+    // is printed to standard output
+    return 0;
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+
+/*
+ 17 EXAMPLE 5 Defer statements execute their deferred blocks 
+ in reverse order of the appearance of the defer statements, 
+ and nested defer statements execute their deferred blocks 
+ in reverse order but at the end of the deferred block they 
+ were invoked within. The following program:
+*/
+
+int main() {
+    int r = 0;
+    {
+        _Defer {
+            _Defer r *= 4;
+            r *= 2;
+            _Defer { r += 3; }
+        }
+        _Defer r += 1;
+    }
+    return r;  // return 20;
+}
+
+```
+<button onclick="Try(this)">try</button>
+
+```c
+
+/*
+   18 EXAMPLE 6 Defer statements can be executed within a 
+   switch, but a switch cannot be used to jump into the scope 
+   of a defer statement.
+*/
+
+#include <stdlib.h>
+int main() 
+{
+    void* p = malloc(1);
+
+    switch (1) {
+        _Defer free(p);  // constraint violation
+        default:
+            _Defer free(p);
+            break;
+    }
+    return 0;
+}
+
+
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+
+/*
+  19 EXAMPLE 7 Defer statements can not be exited by means 
+  of break or continue
+*/
+
+int main() {
+    switch (1) {
+        default:
+            _Defer {
+                break;  // constraint violation
+            }
+    }
+    for (;;) {
+        _Defer {
+            break;  // constraint violation
+        }
+    }
+    for (;;) {
+        _Defer {
+            continue;  // constraint violation
+        }
+    }
+    return 0;
+}
+
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+
+/*
+ 20 EXAMPLE 8 Defer statements that are not reached are 
+ not executed.
+*/
+ 
+#include <stdlib.h>
+int main() {
+    void* p = malloc(1);
+    return 0;
+    _Defer free(p);  // not executed, p is leaked
+}
+
+
+```
+
+<button onclick="Try(this)">try</button>
+
+```c
+
+/*
+  21 EXAMPLE 9 Defer statements can contain other 
+  compound statements.
+*/
+
+typedef struct meow* handle;
+extern int purr(handle* h);
+extern void un_purr(handle h);
+
+int main()
+{
+    handle h;
+    int err = purr(&h);
+    _Defer if (!err) un_purr(h);
+    return 0;
+}
+
+
+```
+
+<button onclick="Try(this)">try</button>
 
 
 ###  C2Y if declarations, v4

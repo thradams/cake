@@ -59,7 +59,7 @@ void defer_statement_delete(struct defer_statement* _Owner _Opt p)
 {
     if (p)
     {
-        secondary_block_delete(p->secondary_block);
+        unlabeled_statement_delete(p->unlabeled_statement);
         free(p);
     }
 }
@@ -2294,8 +2294,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 struct defer_visit_ctx ctx2 = { .ctx = ctx };
                 defer_start_visit_declaration(&ctx2, p_declaration);
                 defer_visit_ctx_destroy(&ctx2);
-
-                if (ctx->options.flow_analysis)
+                
+                if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
                 {
                     /*
                      Now we have the full function AST let´s visit to Analise
@@ -6939,8 +6939,22 @@ void defer_list_destroy(_Dtor struct defer_list* p)
         free(item);
         item = next;
     }
-    free(p);
+    //free(p);
+}
 
+void defer_list_clear(struct defer_list* p)
+{
+    struct defer_list_item* _Owner _Opt item = p->head;
+    while (item)
+    {
+        struct defer_list_item* _Owner _Opt next = item->next;
+        item->next = NULL;
+        free(item);
+        item = next;
+    }
+    
+    p->head = NULL;
+    p->tail = NULL;
 }
 
 
@@ -8194,7 +8208,6 @@ void balanced_token_sequence_delete(struct balanced_token_sequence* _Owner _Opt 
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx)
 {
     struct balanced_token_sequence* _Owner _Opt p_balanced_token_sequence = calloc(1, sizeof(struct balanced_token_sequence));
-    struct balanced_token* current_balanced_token = NULL;
     try
     {
         if (p_balanced_token_sequence == NULL)
@@ -8226,19 +8239,6 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
                 count2--;
             else if (ctx->current->type == '{')
                 count3--;
-            
-            struct balanced_token* new_token = calloc(1, sizeof(struct balanced_token));
-            new_token->token = ctx->current;
-            if(current_balanced_token == NULL)
-            {
-                p_balanced_token_sequence->head = new_token;
-            }
-            else
-            {
-                current_balanced_token->next = new_token;
-            }
-            p_balanced_token_sequence->tail = new_token;
-            
             parser_match(ctx);
         }
         if (count2 != 0)
@@ -8326,13 +8326,7 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
             p_primary_block->iteration_statement = iteration_statement(ctx);
             if (p_primary_block->iteration_statement == NULL)
                 throw;
-        }
-        else if (ctx->current->type == TK_KEYWORD_DEFER)
-        {
-            p_primary_block->defer_statement = defer_statement(ctx);
-            if (p_primary_block->defer_statement == NULL)
-                throw;
-        }
+        }        
         else if (ctx->current->type == TK_KEYWORD_CAKE_TRY ||
                  ctx->current->type == TK_KEYWORD_MSVC__TRY)
         {
@@ -8473,8 +8467,7 @@ void primary_block_delete(struct primary_block* _Owner _Opt p)
 {
     if (p)
     {
-        compound_statement_delete(p->compound_statement);
-        defer_statement_delete(p->defer_statement);
+        compound_statement_delete(p->compound_statement);        
         iteration_statement_delete(p->iteration_statement);
         selection_statement_delete(p->selection_statement);
         try_statement_delete(p->try_statement);
@@ -8489,8 +8482,7 @@ static bool first_of_primary_block(const struct parser_ctx* ctx)
 
     if (first_of_compound_statement(ctx) ||
         first_of_selection_statement(ctx) ||
-        first_of_iteration_statement(ctx) ||
-        ctx->current->type == TK_KEYWORD_DEFER /*extension*/ ||
+        first_of_iteration_statement(ctx) ||        
         ctx->current->type == TK_KEYWORD_CAKE_TRY /*extension*/ ||
         ctx->current->type == TK_KEYWORD_MSVC__TRY ||
         ctx->current->type == TK_KEYWORD__ASM
@@ -8508,6 +8500,7 @@ void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p)
         expression_statement_delete(p->expression_statement);
         jump_statement_delete(p->jump_statement);
         primary_block_delete(p->primary_block);
+        defer_statement_delete(p->defer_statement);
         free(p);
     }
 }
@@ -8566,9 +8559,10 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 {
     /*
      unlabeled-statement:
-       expression-statement
-       attribute-specifier-sequence opt primary-block
-       attribute-specifier-sequence opt jump-statement
+        expression-statement
+        attribute-specifier-sequence opt primary-block
+        attribute-specifier-sequence opt jump-statement
+        attribute-specifier-sequence opt defer-statement
     */
     struct unlabeled_statement* _Owner _Opt p_unlabeled_statement = calloc(1, sizeof(struct unlabeled_statement));
     try
@@ -8618,6 +8612,12 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 
 
             if (p_unlabeled_statement->jump_statement == NULL)
+                throw;
+        }
+        else if (ctx->current->type == TK_KEYWORD_DEFER)
+        {
+            p_unlabeled_statement->defer_statement = defer_statement(ctx);
+            if (p_unlabeled_statement->defer_statement == NULL)
                 throw;
         }
         else
@@ -10137,22 +10137,12 @@ struct defer_statement* _Owner _Opt defer_statement(struct parser_ctx* ctx)
 
         ctx->p_current_defer_statement_opt = p_defer_statement;
 
-        /*
-          Defer statements can not be exited by means of break or continue.
-        */
-        const struct iteration_statement* p_current_iteration_statement = ctx->p_current_iteration_statement;
-        ctx->p_current_iteration_statement = NULL;
 
-        struct selection_statement* p_current_selection_statement = ctx->p_current_selection_statement;
-        ctx->p_current_selection_statement = NULL;
-
-        struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx); //TODO unlabeled_statement
-        if (p_secondary_block == NULL) throw;
+        struct unlabeled_statement* _Owner _Opt p_unlabeled_statement = unlabeled_statement(ctx, NULL); //TODO unlabeled_statement
+        if (p_unlabeled_statement == NULL) throw;
         
-        ctx->p_current_iteration_statement = p_current_iteration_statement; //restore
-        ctx->p_current_selection_statement = p_current_selection_statement; //restore
 
-        p_defer_statement->secondary_block = p_secondary_block;
+        p_defer_statement->unlabeled_statement = p_unlabeled_statement;
         if (ctx->previous == NULL) throw;
 
         p_defer_statement->last_token = ctx->previous;
@@ -11172,6 +11162,7 @@ struct ast get_ast(struct options* options,
 
     return ast;
 }
+
 
 void ast_destroy(_Dtor struct ast* ast)
 {

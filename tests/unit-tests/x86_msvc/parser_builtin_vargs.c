@@ -1,4 +1,4 @@
-/* Cake 0.12.26 x86_msvc */
+/* Cake x86_msvc */
 
 int add_nums_C23(int count, ...)
 {

@@ -205,7 +205,7 @@ static void il_print_defer_new(struct d_visit_ctx* ctx, struct osstream* oss, st
     if (p_item->defer_statement == NULL)
         return;
 
-    d_visit_secondary_block(ctx, oss, p_item->defer_statement->secondary_block);
+    d_visit_unlabeled_statement(ctx, oss, p_item->defer_statement->unlabeled_statement);
 }
 
 static int il_defer_count(struct defer_list* p_defer_list)
@@ -1494,7 +1494,20 @@ static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, str
 
 static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block)
 {
-    d_visit_statement(ctx, oss, p_secondary_block->statement);
+    if (p_secondary_block->statement &&
+        p_secondary_block->statement->unlabeled_statement &&
+        p_secondary_block->statement->unlabeled_statement->defer_statement)
+    {
+        /*
+           When defer is the only statement of the secondary block
+           if (1) defer a = 1;
+        */
+        d_visit_unlabeled_statement(ctx, oss, p_secondary_block->statement->unlabeled_statement->defer_statement->unlabeled_statement);
+    }
+    else
+    {
+        d_visit_statement(ctx, oss, p_secondary_block->statement);
+    }
 }
 
 static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct iteration_statement* p_iteration_statement)
@@ -1879,11 +1892,8 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
 
 static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct primary_block* p_primary_block)
 {
-    if (p_primary_block->defer_statement)
-    {
-        //visit_defer_statement(ctx, p_primary_block->defer_statement);
-    }
-    else if (p_primary_block->compound_statement)
+
+    if (p_primary_block->compound_statement)
     {
         d_visit_compound_statement(ctx, oss, p_primary_block->compound_statement);
     }
@@ -1927,6 +1937,12 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
     else if (p_unlabeled_statement->jump_statement)
     {
         d_visit_jump_statement(ctx, oss, p_unlabeled_statement->jump_statement);
+    }
+    else if (p_unlabeled_statement->defer_statement)
+    {
+        /*
+           nothing
+        */
     }
     else
     {

@@ -1,4 +1,4 @@
-/* Cake 0.12.26 x86_msvc */
+/* Cake x86_msvc */
 
 int strcmp(char * s1, char * s2);
 

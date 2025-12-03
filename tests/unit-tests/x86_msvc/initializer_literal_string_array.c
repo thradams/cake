@@ -1,4 +1,4 @@
-/* Cake 0.12.26 x86_msvc */
+/* Cake x86_msvc */
 
 static void _cake_memcpy(void * dest, const void * src, unsigned int n)
 {

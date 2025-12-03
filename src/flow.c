@@ -18,6 +18,8 @@
 #include <limits.h>
 #include "console.h"
 
+static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
+
 struct object_visitor
 {
     int member_index;
@@ -3936,7 +3938,7 @@ static void flow_exit_block_visit_defer_item(struct flow_visit_ctx* ctx,
         const int warnings_count = ctx->ctx->p_report->warnings_count;
         const int info_count = ctx->ctx->p_report->info_count;
 
-        flow_visit_secondary_block(ctx, p_item->defer_statement->secondary_block);
+        flow_visit_unlabeled_statement(ctx, p_item->defer_statement->unlabeled_statement);
 
         if (error_count != ctx->ctx->p_report->error_count ||
             warnings_count != ctx->ctx->p_report->warnings_count ||
@@ -6659,28 +6661,21 @@ static void flow_visit_labeled_statement(struct flow_visit_ctx* ctx, struct labe
 static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_block* p_primary_block)
 {
 
-    if (p_primary_block->defer_statement)
+    if (p_primary_block->compound_statement)
     {
-        flow_visit_defer_statement(ctx, p_primary_block->defer_statement);
+        flow_visit_compound_statement(ctx, p_primary_block->compound_statement);
     }
-    else
+    else if (p_primary_block->iteration_statement)
     {
-        if (p_primary_block->compound_statement)
-        {
-            flow_visit_compound_statement(ctx, p_primary_block->compound_statement);
-        }
-        else if (p_primary_block->iteration_statement)
-        {
-            flow_visit_iteration_statement(ctx, p_primary_block->iteration_statement);
-        }
-        else if (p_primary_block->selection_statement)
-        {
-            flow_visit_selection_statement(ctx, p_primary_block->selection_statement);
-        }
-        else if (p_primary_block->try_statement)
-        {
-            flow_visit_try_statement(ctx, p_primary_block->try_statement);
-        }
+        flow_visit_iteration_statement(ctx, p_primary_block->iteration_statement);
+    }
+    else if (p_primary_block->selection_statement)
+    {
+        flow_visit_selection_statement(ctx, p_primary_block->selection_statement);
+    }
+    else if (p_primary_block->try_statement)
+    {
+        flow_visit_try_statement(ctx, p_primary_block->try_statement);
     }
 }
 
@@ -6704,6 +6699,10 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
     else if (p_unlabeled_statement->expression_statement)
     {
         flow_visit_expression_statement(ctx, p_unlabeled_statement->expression_statement);
+    }
+    else if (p_unlabeled_statement->defer_statement)
+    {
+        flow_visit_defer_statement(ctx, p_unlabeled_statement->defer_statement);
     }
     else if (p_unlabeled_statement->jump_statement)
     {

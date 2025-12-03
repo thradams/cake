@@ -187,19 +187,19 @@
 <a href="#toc_49">C23 Enhancements to Enumerations</a>
 </li>
 <li>
-<a href="#toc_50">C23 Attributes</a>
+<a href="#toc_50">C23 [[Attributes]]</a>
 </li>
 <li>
-<a href="#toc_51">C23 fallthrough attribute</a>
+<a href="#toc_51">C23 [[fallthrough]] attribute</a>
 </li>
 <li>
-<a href="#toc_52">C23 deprecated attribute</a>
+<a href="#toc_52">C23 [[deprecated]] attribute</a>
 </li>
 <li>
-<a href="#toc_53">C23 maybe_unused attribute</a>
+<a href="#toc_53">C23 [[maybe_unused]] attribute</a>
 </li>
 <li>
-<a href="#toc_54">C23 nodiscard attribute</a>
+<a href="#toc_54">C23 [[nodiscard]] attribute</a>
 </li>
 <li>
 <a href="#toc_55">C23 [[unsequenced]] and [[reproducible]]</a>
@@ -249,59 +249,56 @@
 <a href="#toc_69">C2Y defer</a>
 </li>
 <li>
-<a href="#toc_70">C2Y Function literals and local functions</a>
+<a href="#toc_70">C2Y if declarations, v4</a>
 </li>
 <li>
-<a href="#toc_71">C2Y if declarations, v4</a>
+<a href="#toc_71">C2Y typename on _Generic</a>
 </li>
 <li>
-<a href="#toc_72">C2Y typename on _Generic</a>
+<a href="#toc_72">C2Y __COUNTER__</a>
 </li>
 <li>
-<a href="#toc_73">C2Y __COUNTER__</a>
+<a href="#toc_73">C2Y Local functions</a>
 </li>
 <li>
-<a href="#toc_74">C2Y Local functions</a>
+<a href="#toc_74">C2Y Function Literals</a>
 </li>
 <li>
-<a href="#toc_75">C2Y Function Literals</a>
-</li>
-<li>
-<a href="#toc_76">C2Y Statement expressions</a>
+<a href="#toc_75">C2Y Statement expressions</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_77">Cake Extensions</a>
+<a href="#toc_76">Cake Extensions</a>
 <ul>
 <li>
-<a href="#toc_78">Pre-defined macros in Cake</a>
+<a href="#toc_77">Pre-defined macros in Cake</a>
 </li>
 <li>
-<a href="#toc_79">assert built-in</a>
+<a href="#toc_78">assert built-in</a>
 </li>
 <li>
-<a href="#toc_80">try { throw; } catch {}</a>
+<a href="#toc_79">try { throw; } catch {}</a>
 </li>
 <li>
-<a href="#toc_81">#pragma dir</a>
+<a href="#toc_80">#pragma dir</a>
 </li>
 <li>
-<a href="#toc_82">offsetof</a>
+<a href="#toc_81">offsetof</a>
 </li>
 <li>
-<a href="#toc_83">Type traits</a>
+<a href="#toc_82">Type traits</a>
 </li>
 <li>
-<a href="#toc_84">Extension - Object lifetime checks</a>
+<a href="#toc_83">Extension - Object lifetime checks</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_85">GCC extensions</a>
+<a href="#toc_84">GCC extensions</a>
 </li>
 <li>
-<a href="#toc_86">MSVC extensions</a>
+<a href="#toc_85">MSVC extensions</a>
 </li>
 </ul>
 <h2 id="toc_0">Using cake</h2>
@@ -834,7 +831,7 @@ int main(){
 
 <h3 id="toc_26">C11 _Noreturn</h3>
 
-<p><button onclick="Try(this)">try</button></p>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1478.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1478.htm</a></p>
 
 <pre><code class="language-c">_Noreturn void f () {
   abort(); // ok
@@ -842,6 +839,8 @@ int main(){
 </code></pre>
 
 <p><code>_Noreturn</code> became <code>[[noreturn]]</code> in C23.</p>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_27">C11 Thread_local/Atomic</h3>
 
@@ -1041,7 +1040,8 @@ int main()
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf</a></p>
 
-<pre><code class="language-c">#if true
+<pre><code class="language-c">
+#if true
 #warning yes..
 #endif
 
@@ -1223,12 +1223,12 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_50">C23 Attributes</h3>
+<h3 id="toc_50">C23 [[Attributes]]</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf</a>
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf</a></p>
 
-<h3 id="toc_51">C23 fallthrough attribute</h3>
+<h3 id="toc_51">C23 [[fallthrough]] attribute</h3>
 
 <p>TODO</p>
 
@@ -1256,7 +1256,7 @@ void f(int n) {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_52">C23 deprecated attribute</h3>
+<h3 id="toc_52">C23 [[deprecated]] attribute</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf</a></p>
 
@@ -1274,7 +1274,7 @@ int main(void) {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_53">C23 maybe_unused attribute</h3>
+<h3 id="toc_53">C23 [[maybe_unused]] attribute</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf</a></p>
 
@@ -1290,7 +1290,7 @@ void f( [[maybe_unused]] int arg1, int arg2) //warning C0006: &#39;arg2&#39;: un
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_54">C23 nodiscard attribute</h3>
+<h3 id="toc_54">C23 [[nodiscard]] attribute</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf</a></p>
 
@@ -1344,8 +1344,9 @@ extern g_t [[unsequenced]] g;                    // valid, applies to type speci
 
 <pre><code class="language-c">
 #if __has_c_attribute(fallthrough)
+#warning YES
 #else
-#warning at this moment we return 0 for all attributes
+#warning NO
 #endif
 </code></pre>
 
@@ -1625,30 +1626,598 @@ int main() { }
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3733.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3733.htm</a></p>
 
-<pre><code class="language-c">#include &lt;stdio.h&gt;
+<pre><code class="language-c">// 12 EXAMPLE 1 Defer statements cannot be jumped over.
+#include &lt;stdio.h&gt;
 
-int main() {
-  do {
-     FILE* f = fopen(&quot;in.txt&quot;, &quot;r&quot;);
-     if (f == NULL) break;
-     _Defer fclose(f);
+int main() 
+{    
+    goto target;  // constraint violation
+ 
+    _Defer { fputs(&quot; meow&quot;, stdout); }
+    
+    target:
 
-     FILE* f2 = fopen(&quot;out.txt&quot;, &quot;w&quot;);
-     if (f2 == NULL) break;
-     _Defer fclose(f2);
-     //...    
-  }
-  while(0);
+    fputs(&quot;cat says&quot;, stdout);
+    return 1;
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_70">C2Y Function literals and local functions</h3>
+<pre><code class="language-c">
+/*g*/
 
-<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3645.pdf</a></p>
+#include &lt;stdio.h&gt;
 
-<h3 id="toc_71">C2Y if declarations, v4</h3>
+int main()
+{
+    // print &quot;cat says&quot; to standard output
+    return fputs(&quot;cat says&quot;, stdout);
+
+    _Defer { fputs(&quot; meow&quot;, stdout); }  // okay: no constraint violation,
+
+    // not executed
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*h*/
+
+#include &lt;stdio.h&gt;
+int main()
+{    
+    goto target;
+    {
+        // okay: no constraint violation
+        _Defer { fputs(&quot; meow&quot;, stdout); }
+    }
+
+    target:
+
+    fputs(&quot;cat says&quot;, stdout);
+    return 1;  // prints &quot;cat says&quot; to standard output
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*i*/
+
+#include &lt;stdio.h&gt;
+int main()
+{    
+    {
+        _Defer { fputs(&quot;cat says&quot;, stdout); }
+
+        // okay: no constraint violation
+        goto target;
+    }
+
+target:
+
+    fputs(&quot; meow&quot;, stdout);
+    return 1;  // prints &quot;cat says meow&quot; to standard output
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*j*/
+
+#include &lt;stdio.h&gt;
+int main()
+{    
+    _Defer {
+        goto target;  // constraint violation
+        fputs(&quot; meow&quot;, stdout);
+    }
+
+target:
+
+    fputs(&quot;cat says&quot;, stdout);
+    return 1;
+
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*k*/
+
+#include &lt;stdio.h&gt;
+int main()
+{    
+    _Defer {
+        return 5;  // constraint violation
+        fputs(&quot; meow&quot;, stdout);
+    }
+
+    fputs(&quot;cat says&quot;, stdout);
+    return 1;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*l*/
+#include &lt;stdio.h&gt;
+int main()
+{    
+    _Defer 
+    {
+        target:
+        fputs(&quot; meow&quot;, stdout);
+    }
+    goto target;  // constraint violation
+
+    fputs(&quot;cat says&quot;, stdout);
+    return 1;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*m*/
+
+#include &lt;stdio.h&gt;
+int main()
+{   
+    goto target;  // okay: no constraint violation
+
+    {
+        target:
+        _Defer { fputs(&quot;cat says&quot;, stdout); }
+    }
+
+    fputs(&quot; meow&quot;, stdout);
+
+    return 1;  // prints &quot;cat says meow&quot; to standard output
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*n*/
+
+#include &lt;stdio.h&gt;
+int main()
+{    
+    goto target;  // constraint violation!!
+
+    {
+       _Defer {fputs(&quot; meow&quot;, stdout); }
+       target:
+    }
+
+    fputs(&quot;cat says&quot;, stdout);
+    return 1;
+
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*o*/
+
+#include &lt;stdio.h&gt;
+int main()
+{   
+    {
+        _Defer fputs(&quot;cat says&quot;, stdout);
+        goto target;
+    }
+
+target:;
+
+    fputs(&quot; meow&quot;, stdout);
+    return 1;  // prints &quot;cat says meow&quot;
+
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*p*/
+#include &lt;stdio.h&gt;
+int main()
+{    
+    {
+        goto target;
+        _Defer fputs(&quot; meow&quot;, stdout);
+    }
+
+target:;
+
+    fputs(&quot;cat says&quot;, stdout);
+    return 1;  // prints &quot;cat says&quot; 
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*q*/
+
+#include &lt;stdio.h&gt;
+int main()
+{    
+    {
+        _Defer { fputs(&quot; meow&quot;, stdout); }
+        target:
+    }
+
+    goto target;  // constraint violation !!
+
+    fputs(&quot;cat says&quot;, stdout);
+    return 1;
+
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*r*/
+
+#include &lt;stdio.h&gt;
+int main()
+{   
+    {
+        target:
+        _Defer { fputs(&quot;cat says&quot;, stdout); }
+    }
+
+    goto target;  // ok
+
+    fputs(&quot; meow\n&quot;, stdout);
+
+    return 1;  // prints &quot;cat says&quot; repeatedly
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*s*/
+#include &lt;stdio.h&gt;
+int main()
+{    
+   {
+       target:
+        _Defer { fputs(&quot;cat says&quot;, stdout); }
+       goto target;  // ok
+   }
+   
+   // never reached
+   
+   fputs(&quot; meow&quot;, stdout);
+   
+   return 1;  // prints &quot;cat says&quot; repeatedly
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*t*/
+
+#include &lt;stdio.h&gt;
+int main()
+{   
+    int count = 0;
+    {
+        target:
+
+        _Defer { fputs(&quot;cat says &quot;, stdout); }
+
+        ++count;
+        if (count &lt;= 2) {
+            goto target;  // ok
+        }
+    }
+
+    fputs(&quot;meow&quot;, stdout);
+
+    return 1;  // prints &quot;cat says cat says cat says meow&quot;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*u*/
+#include &lt;stdio.h&gt;
+int main()
+{   
+    int count = 0;
+    
+    {
+        _Defer { fputs(&quot;cat says&quot;, stdout); }
+
+        target:
+        
+        if (count &lt; 5) {
+            ++count;
+            goto target;  // ok
+        }
+    }
+
+    fputs(&quot; meow&quot;, stdout);
+    return 1;  // prints &quot;cat says meow&quot;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*v*/
+#include &lt;stdio.h&gt;
+int main()
+{   
+    int count = 0;
+ 
+    target:
+
+    if (count &gt;= 2) {
+        fputs(&quot;meow&quot;, stdout);
+        return 1;  // prints &quot;cat says cat says meow &quot;
+    }
+
+    _Defer { fputs(&quot;cat says &quot;, stdout); }
+
+    count++;
+    goto target;
+
+    return 0;  // never reached
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+/*
+   13 EXAMPLE 2 All the expressions and statements of an 
+   enclosing block are  evaluated before executing defer 
+   statements, including any conversions. After all defer 
+   statements are executed, the block is then exited.
+*/
+
+int main()
+{   
+    int r = 4;
+    int* p = &amp;r;
+    _Defer { *p = 5; }
+    return *p;  // return 4;
+
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+#include &lt;stddef.h&gt;
+#include &lt;stdlib.h&gt;
+
+int use_buffer(size_t n, void* buf) 
+{
+    /* ... */
+    return 0;
+}
+
+int main()
+{
+    const int size = 20;
+    void* buf = malloc(size);
+    _Defer { free(buf); }
+    // buffer is not freed until AFTER use_buffer returns
+    return use_buffer(size, buf);
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*
+  14 EXAMPLE 3 It is not defined if defer statements execute 
+  their deferred blocks if the exiting / non- returning 
+  functions detailed previously are called.
+*/
+
+#include &lt;stdlib.h&gt;
+
+int f() 
+{
+    void* p = malloc(1);
+
+    if (p == NULL) {
+        return 0;
+    }
+
+    _Defer free(p);
+
+    exit(1);  // &quot;p&quot; may be leaked
+    return 1;
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+
+/*
+ 15 EXAMPLE 4 Defer statements, when execution reaches them, 
+ are tied to the scope of the defer statement within their 
+ enclosing block, even if it is a secondary block without 
+ braces.
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+int main() 
+{
+    {
+        _Defer { fputs(&quot; meow&quot;, stdout); }
+        if (true) _Defer fputs(&quot;cat&quot;, stdout);
+        fputs(&quot; says&quot;, stdout);
+    }
+    // &quot;cat says meow&quot; is printed to standard output
+    exit(0);
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">/*
+  16 This applies to any enclosing block, even for loops 
+  without braces around its body.
+*/
+
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+int main() {
+    const char* arr[] = {&quot;cat&quot;, &quot;kitty&quot;, &quot;ferocious little baby&quot;};
+    _Defer { fputs(&quot; meow&quot;, stdout); }
+    for (unsigned int i = 0; i &lt; 3; ++i) _Defer printf(&quot;my %s,\n&quot;, arr[i]);
+    fputs(&quot;says&quot;, stdout);
+    // &quot;my cat,
+    // my kitty,
+    // my ferocious little baby,
+    // says meow&quot;
+    // is printed to standard output
+    return 0;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*
+ 17 EXAMPLE 5 Defer statements execute their deferred blocks 
+ in reverse order of the appearance of the defer statements, 
+ and nested defer statements execute their deferred blocks 
+ in reverse order but at the end of the deferred block they 
+ were invoked within. The following program:
+*/
+
+int main() {
+    int r = 0;
+    {
+        _Defer {
+            _Defer r *= 4;
+            r *= 2;
+            _Defer { r += 3; }
+        }
+        _Defer r += 1;
+    }
+    return r;  // return 20;
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*
+   18 EXAMPLE 6 Defer statements can be executed within a 
+   switch, but a switch cannot be used to jump into the scope 
+   of a defer statement.
+*/
+
+#include &lt;stdlib.h&gt;
+int main() 
+{
+    void* p = malloc(1);
+
+    switch (1) {
+        _Defer free(p);  // constraint violation
+        default:
+            _Defer free(p);
+            break;
+    }
+    return 0;
+}
+
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*
+  19 EXAMPLE 7 Defer statements can not be exited by means 
+  of break or continue
+*/
+
+int main() {
+    switch (1) {
+        default:
+            _Defer {
+                break;  // constraint violation
+            }
+    }
+    for (;;) {
+        _Defer {
+            break;  // constraint violation
+        }
+    }
+    for (;;) {
+        _Defer {
+            continue;  // constraint violation
+        }
+    }
+    return 0;
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*
+ 20 EXAMPLE 8 Defer statements that are not reached are 
+ not executed.
+*/
+ 
+#include &lt;stdlib.h&gt;
+int main() {
+    void* p = malloc(1);
+    return 0;
+    _Defer free(p);  // not executed, p is leaked
+}
+
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*
+  21 EXAMPLE 9 Defer statements can contain other 
+  compound statements.
+*/
+
+typedef struct meow* handle;
+extern int purr(handle* h);
+extern void un_purr(handle h);
+
+int main()
+{
+    handle h;
+    int err = purr(&amp;h);
+    _Defer if (!err) un_purr(h);
+    return 0;
+}
+
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_70">C2Y if declarations, v4</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm</a></p>
 
@@ -1672,7 +2241,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_72">C2Y typename on _Generic</h3>
+<h3 id="toc_71">C2Y typename on _Generic</h3>
 
 <p>This feature was created in Cake and now it is part of C2Y!</p>
 
@@ -1691,7 +2260,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_73">C2Y __COUNTER__</h3>
+<h3 id="toc_72">C2Y __COUNTER__</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm</a></p>
 
@@ -1708,7 +2277,7 @@ X(__COUNTER__) // 1 1
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_74">C2Y Local functions</h3>
+<h3 id="toc_73">C2Y Local functions</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf</a></p>
 
@@ -1721,7 +2290,7 @@ X(__COUNTER__) // 1 1
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_75">C2Y Function Literals</h3>
+<h3 id="toc_74">C2Y Function Literals</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3679.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3679.pdf</a></p>
 
@@ -1737,7 +2306,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_76">C2Y Statement expressions</h3>
+<h3 id="toc_75">C2Y Statement expressions</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm</a></p>
 
@@ -1756,16 +2325,16 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h2 id="toc_77">Cake Extensions</h2>
+<h2 id="toc_76">Cake Extensions</h2>
 
-<h3 id="toc_78">Pre-defined macros in Cake</h3>
+<h3 id="toc_77">Pre-defined macros in Cake</h3>
 
 <pre><code class="language-c"> #define __CAKE__           202311L
  #define __STDC_VERSION__   202311L
  
 </code></pre>
 
-<h3 id="toc_79">assert built-in</h3>
+<h3 id="toc_78">assert built-in</h3>
 
 <p>In cake assert is an built-in function.
 The reason is because it works as tips for flow analysis.</p>
@@ -1819,7 +2388,7 @@ assert works as a state selector, similar to what happens in if statements but w
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_80">try { throw; } catch {}</h3>
+<h3 id="toc_79">try { throw; } catch {}</h3>
 
 <pre><code>   try-statement:
       try secondary-block
@@ -1860,14 +2429,14 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_81">#pragma dir</h3>
+<h3 id="toc_80">#pragma dir</h3>
 
 <pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
 </code></pre>
 
 <p>Add the path to the list of directory paths used to seach include files.</p>
 
-<h3 id="toc_82">offsetof</h3>
+<h3 id="toc_81">offsetof</h3>
 
 <p>In cake offset (<a href="https://en.cppreference.com/w/cpp/types/offsetof.html">https://en.cppreference.com/w/cpp/types/offsetof.html</a>) is an operator</p>
 
@@ -1892,7 +2461,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_83">Type traits</h3>
+<h3 id="toc_82">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.</p>
 
@@ -1927,7 +2496,7 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 <p>Note: Type traits that can be easily created with _Generic will be removed.
 _</p>
 
-<h3 id="toc_84">Extension - Object lifetime checks</h3>
+<h3 id="toc_83">Extension - Object lifetime checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
@@ -1936,7 +2505,7 @@ _Opt
 _View
 </code></pre>
 
-<h2 id="toc_85">GCC extensions</h2>
+<h2 id="toc_84">GCC extensions</h2>
 
 <ul>
 <li>__builtin_va_list</li>
@@ -1957,7 +2526,7 @@ _View
 
 <p>See <code>\src\include\x86_x64_gcc_builtins.h</code></p>
 
-<h2 id="toc_86">MSVC extensions</h2>
+<h2 id="toc_85">MSVC extensions</h2>
 
 <ul>
 <li>__ptr32, __ptr64</li>

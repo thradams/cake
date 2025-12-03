@@ -1,4 +1,4 @@
-/* Cake 0.12.26 x86_msvc */
+/* Cake x86_msvc */
 
 void *calloc(unsigned long n, unsigned long size);
 void free(void * ptr);
