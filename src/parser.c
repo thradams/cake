@@ -2294,7 +2294,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 struct defer_visit_ctx ctx2 = { .ctx = ctx };
                 defer_start_visit_declaration(&ctx2, p_declaration);
                 defer_visit_ctx_destroy(&ctx2);
-
+                
+                
                 if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
                 {
                     /*

@@ -1263,7 +1263,48 @@ int main()
 
 ### 1200 jump out of defer
 
+```c
+
+int main()
+{    
+    _Defer 
+    {
+        goto target;  // constraint violation
+    }
+
+target:
+    return 1;
+}
+```
+
+<button onclick="Try(this)">try</button>
+
 ### 1201 jump over defer
+
+```c
+void f(int n)
+{
+    goto  target;
+    _Defer {};    
+    target:
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+
+### 1202 jump over VLA
+
+```c
+void f(int n)
+{
+    goto  target;
+    int a[n];    
+    target:
+}
+```
+
+<button onclick="Try(this)">try</button>
 
 ### 1210 Missing macro argument
 ```c

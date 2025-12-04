@@ -1172,7 +1172,7 @@ foo(2)
 
 
 
-sample["C2Y"]["defer inside try blocks"] =
+sample["C2Y"]["_Defer inside try blocks"] =
     `
 /*
   https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm
@@ -1187,11 +1187,11 @@ int main()
   {
      FILE* f = fopen("in.txt", "r");
      if (f == NULL) throw;
-     defer fclose(f);
+     _Defer fclose(f);
 
      FILE* f2 = fopen("out.txt", "w");
      if (f2 == NULL) throw;
-     defer fclose(f2);
+     _Defer fclose(f2);
 
      //...
 
@@ -1207,7 +1207,7 @@ int main()
 
 `;
 
-sample["C2Y"]["defer with breaks III"] =
+sample["C2Y"]["_Defer with breaks III"] =
     `
 
 #include <stdio.h>
@@ -1219,11 +1219,11 @@ int main()
   {
      FILE* f = fopen("in.txt", "r");
      if (f == NULL) break;
-     defer fclose(f);
+     _Defer fclose(f);
 
      FILE* f2 = fopen("out.txt", "w");
      if (f2 == NULL) break;
-     defer fclose(f2);
+     _Defer fclose(f2);
 
      //...
 
@@ -1237,7 +1237,7 @@ int main()
 `;
 
 
-sample["C2Y"]["defer with breaks IV"] =
+sample["C2Y"]["_Defer with breaks IV"] =
     `
 
 #include <stdio.h>
@@ -1245,7 +1245,7 @@ sample["C2Y"]["defer with breaks IV"] =
 int main()
 {
   FILE* f = NULL;
-  defer if (f) fclose(f);
+  _Defer if (f) fclose(f);
 
   do
   {
@@ -1259,7 +1259,7 @@ int main()
 `;
 
 
-sample["C2Y"]["defer with return V"] =
+sample["C2Y"]["_Defer with return V"] =
     `
 
 #include <stdio.h>
@@ -1268,11 +1268,11 @@ int main()
 {
   FILE* f = fopen("in.txt", "r");
   if (f == NULL) return 1;
-  defer fclose(f);
+  _Defer fclose(f);
 
   FILE* f2 = fopen("out.txt", "w");
   if (f2 == NULL) return 1;
-  defer fclose(f2);
+  _Defer fclose(f2);
 
   return 0;
 }
@@ -1281,7 +1281,7 @@ int main()
 `;
 
 
-sample["C2Y"]["defer goto VI"] =
+sample["C2Y"]["_Defer goto VI"] =
     `
 
 #include <stdio.h>
@@ -1291,11 +1291,11 @@ int main()
   FILE* f = fopen("in.txt", "r");
   if (f != NULL)
   {
-     defer fclose(f);
+     _Defer fclose(f);
 
      FILE* f2 = fopen("out.txt", "w");
      if (f2 == NULL) goto LEND;
-     defer fclose(f2);
+     _Defer fclose(f2);
   }
   LEND:
   return 0;
@@ -1304,7 +1304,7 @@ int main()
 `;
 
 
-sample["C2Y"]["defer and flow analysis"] =
+sample["C2Y"]["_Defer and flow analysis"] =
     `
 #pragma flow enable
 
@@ -1312,7 +1312,7 @@ void f2(int i){}
 void f(int k)
 {
   int i;
-  defer f2(i);
+  _Defer f2(i);
   
   if (k > 1)
    return;
@@ -1321,12 +1321,12 @@ void f(int k)
 `;
 
 
-sample["C2Y"]["defer interleaved with return"] =
+sample["C2Y"]["_Defer interleaved with return"] =
     `
 
 int f(){
   int i = 1;
-  defer {
+  _Defer {
     i = 0;
   }
   return i++;
@@ -1334,7 +1334,7 @@ int f(){
 
 void f0(){
   int i = 1;
-  defer {
+  _Defer {
     i = 0;
   }
   return; //empty or constant expression

@@ -1,16 +1,6 @@
-int main()
+void f(int n)
 {
-
-    do
-    {
-        int i;
-        if (i) break;
-        defer i =1;
-
-        int i2;
-        if (i2) break;
-        defer i = 2;
-
-
-    } while (0);
+    goto  target;
+    int a[n];    
+    target:
 }

@@ -132,6 +132,7 @@ static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -200,6 +201,7 @@ static void defer_visit_if_statement(struct defer_visit_ctx* ctx, struct selecti
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -227,6 +229,7 @@ static void defer_visit_try_statement(struct defer_visit_ctx* ctx, struct try_st
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -243,6 +246,7 @@ static void defer_visit_switch_statement(struct defer_visit_ctx* ctx, struct sel
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -292,6 +296,7 @@ static void defer_visit_compound_statement(struct defer_visit_ctx* ctx, struct c
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -310,6 +315,7 @@ static void defer_visit_do_while_statement(struct defer_visit_ctx* ctx, struct i
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -333,6 +339,7 @@ static void defer_visit_while_statement(struct defer_visit_ctx* ctx, struct iter
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -356,6 +363,7 @@ static void defer_visit_for_statement(struct defer_visit_ctx* ctx, struct iterat
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -439,7 +447,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                     item->declarator = p->p_declarator;
                     defer_list_add(&p_jump_statement->defer_list, item);
-                    
+
                 }
                 else if (p->p_defer_statement)
                 {
@@ -447,7 +455,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     if (item == NULL) throw;
 
                     item->defer_statement = p->p_defer_statement;
-                    defer_list_add(&p_jump_statement->defer_list, item);                    
+                    defer_list_add(&p_jump_statement->defer_list, item);
                 }
                 if (p->p_defer_block)
                 {
@@ -468,7 +476,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     if (item == NULL) throw;
 
                     item->declarator = p->p_declarator;
-                    defer_list_add(&p_jump_statement->defer_list, item);                    
+                    defer_list_add(&p_jump_statement->defer_list, item);
                 }
                 else if (p->p_defer_statement)
                 {
@@ -476,7 +484,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     if (item == NULL) throw;
 
                     item->defer_statement = p->p_defer_statement;
-                    defer_list_add(&p_jump_statement->defer_list, item);                    
+                    defer_list_add(&p_jump_statement->defer_list, item);
                 }
 
                 if (p->p_defer_block)
@@ -528,7 +536,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     if (break_jump)
                         compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "break cannot jump out of defer");
                     else
-                        compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "continue cannot jump out of defer");                    
+                        compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "continue cannot jump out of defer");
                 }
                 p = p->previous;
             }
@@ -573,6 +581,27 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                         compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over defer. from here");
                         compiler_diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
                         compiler_diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");
+                    }
+                }
+                else if (p1->p_declarator && type_is_vla(&p1->p_declarator->type))
+                {
+                    bool found = false;
+                    struct defer_scope* _Owner _Opt p0 = ctx->tail_block;
+                    while (p0)
+                    {
+                        if (p0->p_declarator == p1->p_declarator)
+                        {
+                            found = true; //quando acha 1 acha todos??
+                            break;
+                        }
+                        p0 = p0->previous;
+                    }
+
+                    if (!found)
+                    {
+                        compiler_diagnostic(C_ERROR_JUMP_OVER_VLA, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over vla. from here");
+                        compiler_diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
+                        compiler_diagnostic(W_LOCATION, ctx->ctx, p1->p_declarator->first_token_opt, NULL, "declarator");
                     }
                 }
                 else if (p1->p_defer_block)
@@ -623,14 +652,14 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                             struct defer_list_item* item = calloc(1, sizeof * item);
                             if (item == NULL) throw;
                             item->declarator = p2->p_declarator;
-                            defer_list_add(&p_jump_statement->defer_list, item);                            
+                            defer_list_add(&p_jump_statement->defer_list, item);
                         }
                         else if (p2->p_defer_statement)
                         {
                             struct defer_list_item* item = calloc(1, sizeof * item);
                             if (item == NULL) throw;
                             item->defer_statement = p2->p_defer_statement;
-                            defer_list_add(&p_jump_statement->defer_list, item);                            
+                            defer_list_add(&p_jump_statement->defer_list, item);
                         }
 
                         if (p->p_defer_block)
@@ -686,6 +715,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -828,24 +858,62 @@ static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_ite
         }
         else if (p_block_item->label)
         {
-            if (ctx->searching_label_mode)
+            if (p_block_item->first_token->type == TK_IDENTIFIER)
             {
-                assert(ctx->label_name != NULL);
-
-                if (strcmp(ctx->label_name, p_block_item->label->p_first_token->lexeme) == 0)
+                if (ctx->searching_label_mode)
                 {
-                    ctx->p_label = p_block_item->label;
-                    return;
+                    assert(ctx->label_name != NULL);
+
+                    if (strcmp(ctx->label_name, p_block_item->label->p_first_token->lexeme) == 0)
+                    {
+                        ctx->p_label = p_block_item->label;
+                        return;
+                    }
+                }
+
+                struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
+                if (p_defer == NULL) throw;
+                p_defer->label = p_block_item->label;
+            }
+            else if (p_block_item->first_token->type == TK_KEYWORD_CASE)
+            {
+                /*
+                   switch (i)
+                   {
+                     _Defer {}  // constraint violation
+                     case 1:
+                     break;
+                   }
+
+                   switch (i)
+                   {
+                     _Defer {
+                       case 1: // constraint violation
+                     }
+                     break;
+                   }
+                */
+                struct defer_scope* _Opt p = ctx->tail_block;
+                while (p)
+                {
+                    if (p->p_selection_statement && p->p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
+                    {
+                        //ok we found the switch
+                        break;
+                    }
+
+                    if (p->p_defer_statement)
+                    {
+                        compiler_diagnostic(C_ERROR_JUMP_OVER_DEFER, ctx->ctx, p->p_defer_statement->first_token, NULL, "switch is jumping over or into defer");
+                    }
+                    p = p->previous;
                 }
             }
-
-            struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
-            if (p_defer == NULL) throw;
-            p_defer->label = p_block_item->label;
         }
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -911,6 +979,7 @@ static void defer_visit_declarator(struct defer_visit_ctx* ctx, struct declarato
     }
     catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
@@ -970,19 +1039,20 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
         else
         {
             struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
-            if (p_defer == NULL) throw;            
+            if (p_defer == NULL) throw;
             defer_visit_declaration(ctx, p_declaration);
         }
     }
-    catch 
+    catch
     {
+        compiler_diagnostic(C_ERROR_UNEXPECTED, ctx->ctx, ctx->ctx->current, NULL, "unexpected");
     }
 }
 
 void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 {
     if (p->tail_block != NULL)
-    {        
+    {
         assert(p->tail_block->previous == NULL);
         free(p->tail_block);
     }
