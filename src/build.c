@@ -165,16 +165,13 @@ int main()
     HEADER("Build embedded files");
 
 
-
     execute_cmd(RUN "embed.exe \"./include\" ");
 
 
     HEADER("Build amalgamated file");
 
-
-    execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_SOURCE_FILES);
+    execute_cmd(RUN "amalgamator.exe -olib.c" CAKE_LIB_SOURCE_FILES);
     remove("amalgamator.exe");
-
 
 
     HEADER("Build cake");
