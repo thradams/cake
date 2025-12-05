@@ -59,15 +59,7 @@
 <a href="#toc_7">Code transition Strategy</a>
 </li>
 <li>
-<a href="#toc_8">Glossary</a>
-<ul>
-<li>
-<a href="#toc_9">non-value representation (C23)</a>
-</li>
-</ul>
-</li>
-<li>
-<a href="#toc_10">References</a>
+<a href="#toc_8">References</a>
 </li>
 </ul>
 <p>Last Updated 5 December 2025</p>
@@ -266,8 +258,29 @@ void f() {
 
 <p><button onclick="Try(this)">try</button></p>
 
+<p>The non-nullable pointer can also transition from null-uninitialized to non-null. 
+The null-uninitialized state is invalid for non-nullable pointers, just as the 
+uninitialized state is for any pointer.</p>
+
+<pre><code class="language-c">#pragma nullable enable  
+char * _Opt strdup(const char * src);  
+
+struct X {  char * text; };  
+
+void f() {  
+   char * _Opt s = strdup(&quot;a&quot;);
+   if (s == nullptr)
+     return;
+   struct X x = {};
+   x.text = s; //ok
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
 <p>How do we know when the object is fully constructed?
-We don&#39;t need to.  Attempting to read an uninitialized or partially initialized object will result in a warning.</p>
+We don&#39;t need to.  Attempting to read an uninitialized or null-uninitialized 
+or partially initialized object will result in a warning.</p>
 
 <p>For instance.</p>
 
@@ -276,30 +289,18 @@ struct X {  char * text; };
 
 struct X f() {  
    struct X x;
-   return x;
+   return x; //warning 30: returning an uninitialized &#39;x.text&#39; object
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>More non-nullable members initialization patterns</p>
-
 <pre><code class="language-c">#pragma nullable enable  
-char * _Opt strdup(const char * src);  
-  
 struct X {  char * text; };  
 
-void f() {  
-  struct X x = {}; //warning  
-}  
-void g() {  
-   struct X x = {.text = strdup(&quot;a&quot;) }; //warning
-}
-void h() {  
-   char * _Opt s = strdup(&quot;a&quot;);
-   if (s == nullptr)
-     return;
-   struct X x = {.text = s }; //ok
+struct X f() {  
+   struct X x = {};
+   return x;  //warning 35: returning a possible null pointer &#39;x.text&#39; to non-nullable pointer
 }
 </code></pre>
 
@@ -326,14 +327,6 @@ void f() {
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
-
-<p>We could remove this built-in some something like</p>
-
-<pre><code class="language-c">#pragma nullable enable  
-_Uninitialized void * _Opt malloc(unsigned int sz);
-</code></pre>
-
-<p>This is not implemented yet.</p>
 
 <p><code>calloc</code> has a built in semantics indicating the object is zero-initialized. </p>
 
@@ -411,7 +404,7 @@ For example:</p>
 <h4>mutable</h4>
 
 <p>In the same way we removed the implicit non-nullable  qualifier, we also could remove the const qualifier. 
-The anti const qualifier could be named as <code>mutable</code>.</p>
+The anti-const qualifier could be named as <code>mutable</code>.</p>
 
 <p>For instance:</p>
 
@@ -428,60 +421,9 @@ The anti const qualifier could be named as <code>mutable</code>.</p>
 <pre><code class="language-c">struct X { char * text; };
 </code></pre>
 
-<p>But instead of having anti-const and anti-non-nullable qualifier the mutable has been 
-considered to remove both because they may happen together.</p>
-
-<p>Consider the following code example:</p>
-
-<pre><code class="language-c">struct X {
-  const char * const name; // const and non-nullable
-};  
-
-struct X * _Opt makeX(const char* name)
-{
-  mutable struct X * p = calloc(1, sizeof *p);  
-  if (p == NULL) 
-    return NULL;
-  
-  char * _Opt temp = strdup(name);
-  if (temp == NULL)
-    return NULL;  
-
-  p-&gt;name = temp;  // OK!!
-  return p;
-}
-</code></pre>
-
 <blockquote>
-<p>OBS: mutable qualifier is not yet implemented in Cake. </p>
+<p>OBS: mutable qualifier is not implemented in Cake. </p>
 </blockquote>
-
-<p>Since mutability may be useful for constructors and destructors, 
-the idea of mutable could imply that change may happen only once. 
-This naturally occurs when assigning a non-nullable pointer for the 
-first time—because afterward, it cannot become nullable again. 
-Similarly, for const objects, it could mean that once initialized, 
-a const object cannot change anymore. In this context, &#39;constructor&#39; 
-or &#39;destructor&#39; might be a more suitable term.</p>
-
-<pre><code class="language-c">struct X {
-  const char * const name; // const and non-nullable
-};  
-
-struct X * _Opt makeX(const char* name)
-{
-  [[constructor]] struct X * p = calloc(1, sizeof *p);  
-  if (p == NULL) 
-    return NULL;
-  
-  char * _Opt temp = strdup(name);
-  if (temp == NULL)
-    return NULL;  
-
-  p-&gt;name = temp;  // OK!!
-  return p;
-}
-</code></pre>
 
 <h3 id="toc_3">Object lifetime checks</h3>
 
@@ -544,7 +486,7 @@ int main()
     if (f)
     {
     }
-    //warning: assignment of possible null object &#39;p&#39; to non-opt pointer [-Wnullable-to-non-nullable]
+    // warning 35: passing a possible null pointer &#39;f&#39; to non-nullable pointer parameter
     fclose(f);
 }    
 </code></pre>
@@ -648,7 +590,8 @@ int main() {
 struct X
 {
     int i;
-}
+};
+
 int main(){
 
   struct X * _Opt p = nullptr;
@@ -797,7 +740,7 @@ struct X {
 
 void x_delete(struct X * _Owner _Opt p) { 
   if (p) {
-    free(x-&gt;text); 
+    free(p-&gt;text); 
     free(p);
   }
 }
@@ -865,9 +808,9 @@ int main() {
 
 <p>However in C, structs are typically passed by pointer rather than by value. </p>
 
-<h4>_Dtor type annotation attribute</h4>
+<h4>[[dtor]] contract attribute</h4>
 
-<p>_Dtor or [[dtor]] tells the static analyzer that the object will have all its 
+<p>[[dtor]] attribute tells the static analyzer that the object will have all its 
 contents moved, and the contents that are owner references will 
 become uninitialized.</p>
 
@@ -875,9 +818,9 @@ become uninitialized.</p>
 the implementation.</p>
 
 <p>The next sample illustrates how to implement a destructor 
-using a _Dtor annotation.</p>
+using a [[dtor]] annotation.</p>
 
-<p><strong>Sample - Implementing a destructor using _Dtor</strong></p>
+<p>**Sample - Implementing a destructor using [[dtor]]</p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -887,7 +830,7 @@ struct X {
     char * _Owner _Opt text;
 };
 
-void x_destroy(_Opt _Dtor struct X * x) {
+void x_destroy( [[dtor]] struct X * x) {
     free(x-&gt;text);    
     
     /*
@@ -923,7 +866,7 @@ struct X {
   char * _Owner _Opt text; 
 };
 
-void x_destroy(_Opt _Dtor struct X * x) { 
+void x_destroy( [[dtor]] struct X * x) { 
   free(x-&gt;text); 
 }
 
@@ -950,8 +893,6 @@ int main() {
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
-
-<p>See also _Ctor.</p>
 
 <h4>Qualifiers in Arrays</h4>
 
@@ -1084,12 +1025,12 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h4>_Ctor type annotation</h4>
+<h4>[[ctor]] contract attribute</h4>
 
 <p>A common scenario where uninitialized objects are utilized 
 is when a pointer to an uninitialized object is passed to an &quot;init&quot; function.</p>
 
-<p>This situation is addressed by the attribute <strong>_Ctor</strong> or [[ctor]].</p>
+<p>This situation is addressed by the contract attribute [[ctor]].</p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -1100,7 +1041,7 @@ struct X {
   char * _Owner _Opt text;
 };
 
-int init(_Ctor struct X *p)
+int init( [[ctor]] struct X *p)
 {
   p-&gt;text = strdup(&quot;a&quot;);
   
@@ -1126,7 +1067,7 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>With the _Ctor qualifier, caller is informed that the argument must be uninitialized.</p>
+<p>With the [[ctor]] contract attribute, caller is informed that the argument must be uninitialized.</p>
 
 <p>The implementation is aware that it can safely override the contents of the 
 object <code>p-&gt;text</code> without causing a memory leak.</p>
@@ -1137,9 +1078,9 @@ object <code>p-&gt;text</code> without causing a memory leak.</p>
 
 <p><strong>Rule:</strong> All objects passed as arguments must be initialized and all objects reachable must be initialized.</p>
 
-<p><strong>Rule:</strong> By default, the parameters of a function are considered initialized. The exception is created with _Out qualifier.</p>
+<p><strong>Rule:</strong> By default, the parameters of a function are considered initialized. The exception is created with [[ctor]] attribute.</p>
 
-<p><strong>Rule:</strong> We cannot pass initialized objects, or reachable initialized objects to <strong>_Ctor</strong> object.</p>
+<p><strong>Rule:</strong> We cannot pass initialized objects, or reachable initialized objects to [[ctor]] annotated object.</p>
 
 <p>For instance, at set implementation we need free text before assignment.</p>
 
@@ -1152,7 +1093,7 @@ struct X {
   char * _Owner _Opt text;
 };
 
-int init(_Ctor struct X *p, const char * text)
+int init([[ctor]] struct X *p, const char * text)
 {
    p-&gt;text = strdup(text); //safe
 }
@@ -1186,7 +1127,7 @@ struct X {
   char * _Owner _Opt name;
 };
 
-void x_destroy(_Dtor struct X * p) {
+void x_destroy([[ctor]] struct X * p) {
   free(p-&gt;name); 
 }
 
@@ -1220,7 +1161,7 @@ struct X
   char * _Owner _Opt name;
 };
 
-void x_destroy(_Dtor struct X * p)
+void x_destroy( [[dtor]] struct X * p)
 {
   free(p-&gt;name); 
 }
@@ -1250,9 +1191,12 @@ initialized independently of the result.</p>
 
 <p><a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out">https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out</a></p>
 
-<p>The _Ctor is the inverse of _Dtor.
-With _Ctor, the object is uninitialized as input and initialized as output.
-With _Dtor, the object is initialized as input and uninitialized as output.</p>
+<p>The [[dtor]] is the inverse of [[ctor]].
+With [[dtor]], the object is uninitialized as input and initialized as output.
+With [[ctor]], the object is initialized as input and uninitialized as output.</p>
+
+<p>C# also has attributes to especify other compile time contracts.
+<a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis">https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis</a></p>
 
 <h4>Null and Not-Null state</h4>
 
@@ -1443,47 +1387,6 @@ void list_append(struct list* list, struct node* _Owner node)
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>Now, consider the same example of a linked list using the contracts mentioned earlier</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;string.h&gt;
-#include &lt;stdlib.h&gt;
-
-struct node {
- char * _Owner text;
- struct node* _Owner _Opt next;
-};
-
-struct list {
-  struct node * _Owner _Opt head;
-  struct node * _Opt tail;
-};
-
-bool list_is_empty(const struct list* list)
- true(list-&gt;head == nullptr &amp;&amp; list-&gt;tail == nullptr),
- false(list-&gt;head != nullptr &amp;&amp; list-&gt;tail != nullptr &amp;&amp; list-&gt;tail-&gt;next == nullptr)
-{
-    return list-&gt;head == nullptr;
-}
-
-void list_append(struct list* list, struct node* _Owner node)
-{
-  if (list_is_empty(list)) 
-  {
-     list-&gt;head = node;
-  }
-  else
-  {      
-     list-&gt;tail-&gt;next = node;
-  }
-   list-&gt;tail = node;
-}
-
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
 <h2 id="toc_6">Cake&#39;s static analysis limitations</h2>
 
 <p>While Cake tracks possible states, such as maybe-null, it does not track 
@@ -1531,90 +1434,9 @@ rules themselves.</p>
 
 <h2 id="toc_7">Code transition Strategy</h2>
 
-<p>If the compiler supports ownership checks it must define  <code>__STDC_OWNERSHIP__</code>. </p>
+<p>A header <code>safe.h</code> can define all cake extensions as empty macros.</p>
 
-<p>If the compiler supports nullable types it must define  <code>__STDC_NULLABLE__</code>. </p>
-
-<p>If the compiler supports flow analysis it must define  <code>__STDC_FLOW__</code>. </p>
-
-<p>A header like this <code>safe.h</code> can be created.</p>
-
-<pre><code class="language-c">
-#ifdef  __STDC_FLOW__
- #pragma flow enable
-#endif
-
-#ifdef  __STDC_OWNERSHIP__
- #pragma ownership enable
-#else
-  /*empty macros*/
-
-  #define _Out
-  #define _Owner
-  #define _Dtor
-  #define _View
-
-#endif
-
-#ifdef  __STDC_NULLABLE__
- #pragma nullable enable
-  #pragma flow enable
-#else
-  /*empty macros*/
-  #define _Opt
-#endif
-
-</code></pre>
-
-<pre><code class="language-c">#include &lt;safe.h&gt;
-int main()
-{
-}
-</code></pre>
-
-<h2 id="toc_8">Glossary</h2>
-
-<h4>undefined behavior (From C23)</h4>
-
-<p>behavior, upon use of a nonportable or erroneous program construct or of erroneous data, for which
-this document imposes no requirements
-2 Note 1 to entry: Possible undefined behavior ranges from ignoring the situation completely with unpredictable results,
-to behaving during translation or program execution in a documented manner characteristic of the environment (with or
-without the issuance of a diagnostic message), to terminating a translation or execution (with the issuance of a diagnostic
-message).</p>
-
-<h4>indeterminate representation (From C23)</h4>
-
-<p>object representation that either represents an unspecified value or is a non-value representation  </p>
-
-<h4>unspecified value (From C23)</h4>
-
-<p>valid value of the relevant type where this document imposes no requirements on which value is  </p>
-
-<h4>unspecified behavior (From C23)</h4>
-
-<p>behavior, that results from the use of an unspecified value, or other behavior upon which this
-document provides two or more possibilities and imposes no further requirements on which is
-chosen in any instance</p>
-
-<h4>lifetime (From C23)</h4>
-
-<p>The lifetime of an object is the portion of program execution during which storage is guaranteed
-to be reserved for it. An object exists, has a constant address36), and retains its last-stored value
-throughout its lifetime37) If an object is referred to outside of its lifetime, the behavior is undefined.
-If a pointer value is used in an evaluation after the object the pointer points to (or just past) reaches
-the end of its lifetime, the behavior is undefined. The representation of a pointer object becomes
-indeterminate when the object the pointer points to (or just past) reaches the end of its lifetime</p>
-
-<h4>object (From C23)</h4>
-
-<p>region of data storage in the execution environment, the contents of which can represent values</p>
-
-<h3 id="toc_9">non-value representation (C23)</h3>
-
-<p>an object representation that does not represent a value of the object type</p>
-
-<h2 id="toc_10">References</h2>
+<h2 id="toc_8">References</h2>
 
 <p>[1] <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>, <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
 

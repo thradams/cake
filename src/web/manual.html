@@ -290,7 +290,7 @@
 <a href="#toc_82">Type traits</a>
 </li>
 <li>
-<a href="#toc_83">Object lifetime checks</a>
+<a href="#toc_83">Extension - Object lifetime checks</a>
 </li>
 </ul>
 </li>
@@ -307,8 +307,6 @@
 This approach makes Cake useful in real and existing programs. </p>
 
 <p>When applicable, Cake uses the same command line options of MSVC and GCC.</p>
-
-<p>For static analysis see: <a href="ownership.html">ownership</a></p>
 
 <h3 id="toc_1">Include directories</h3>
 
@@ -2468,6 +2466,9 @@ int main()
 <p>We have some compile time functions to infer properties of types.</p>
 
 <pre><code class="language-c">
+_is_char()
+The three types char, signed char, and unsigned char are collectively called the character types.
+
 _is_pointer
 Pointer to object or function
 
@@ -2477,11 +2478,25 @@ Array type
 _is_function
 A function type describes a function with specified return type. 
 
+_is_floating_point
+float, double, and long double return true
+
+_is_integral
+The standard signed integer types and standard unsigned integer types are collectively called the
+standard integer types;
+
+_is_arithmetic
+Integer and floating types are collectively called arithmetic types. 
+
+_is_scalar
+Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
+
 </code></pre>
 
-<p>_</p>
+<p>Note: Type traits that can be easily created with _Generic will be removed.
+_</p>
 
-<h3 id="toc_83">Object lifetime checks</h3>
+<h3 id="toc_83">Extension - Object lifetime checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 

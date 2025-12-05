@@ -28720,7 +28720,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.66"
+#define CAKE_VERSION "0.12.67"
 
 
 
@@ -49259,7 +49259,7 @@ static void flow_assignment_core(
                        ctx->ctx,
                        NULL,
                        p_b_marker,
-                       "passing a possibly null pointer '%s' to non-nullable pointer parameter", buffer);
+                       "passing a possible null pointer '%s' to non-nullable pointer parameter", buffer);
             }
             else if (assigment_type == ASSIGMENT_TYPE_RETURN)
             {
@@ -49267,7 +49267,7 @@ static void flow_assignment_core(
                        ctx->ctx,
                        NULL,
                        p_b_marker,
-                       "returning a possibly null pointer '%s' to a non-nullable pointer", buffer);
+                       "returning a possible null pointer '%s' to non-nullable pointer", buffer);
             }
             else
             {
@@ -49275,7 +49275,7 @@ static void flow_assignment_core(
                        ctx->ctx,
                        NULL,
                        p_b_marker,
-                       "assigning a possibly null '%s' to a non-nullable pointer", buffer);
+                       "assignment of possible null pointer '%s' to non-nullable pointer", buffer);
             }
         }
     }

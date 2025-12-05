@@ -1,8 +1,6 @@
-#pragma safety enable
-
-struct X { char* s; };
-struct X f()
+void f(int n)
 {
-    struct X x = {};
-    return x;
+    goto  target;
+    int a[n];    
+    target:
 }

@@ -6,8 +6,6 @@ This approach makes Cake useful in real and existing programs.
 
 When applicable, Cake uses the same command line options of MSVC and GCC.
 
-For static analysis see: [ownership](ownership.html)
-
 ### Include directories
 
 Include directories are specified in `cakeconfig.h` file.
@@ -2308,6 +2306,9 @@ We have some compile time functions to infer properties of types.
 
 ```c
 
+_is_char()
+The three types char, signed char, and unsigned char are collectively called the character types.
+
 _is_pointer
 Pointer to object or function
 
@@ -2317,10 +2318,24 @@ Array type
 _is_function
 A function type describes a function with specified return type. 
 
+_is_floating_point
+float, double, and long double return true
+
+_is_integral
+The standard signed integer types and standard unsigned integer types are collectively called the
+standard integer types;
+
+_is_arithmetic
+Integer and floating types are collectively called arithmetic types. 
+
+_is_scalar
+Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
+
 ```
 
+Note: Type traits that can be easily created with \_Generic will be removed.
 _
-### Object lifetime checks
+### Extension - Object lifetime checks
 
 See [ownership](ownership.html)
 
