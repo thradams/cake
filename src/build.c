@@ -299,11 +299,11 @@ int main()
     //uses cakeconfig
 #else
     //Generates cakeconfig.h with the include dir used by gcc
-    execute_cmd("./cake  -autoconfig");
+    execute_cmd(RUN "cake  -autoconfig");
 #endif
 
     //Uses previouly generated cakeconfig.h to find include dir
-    execute_cmd("./cake "
+    execute_cmd(RUN "cake "
                " -fanalyzer "
                CAKE_SOURCE_FILES);
 
@@ -329,7 +329,7 @@ int main()
     //uses cakeconfig
 #else
     //Generates cakeconfig.h with the include dir used by gcc
-    execute_cmd("./cake  -autoconfig");
+    execute_cmd(RUN "cake  -autoconfig");
 #endif
 
     
@@ -337,7 +337,7 @@ int main()
     
 
     //Uses previouly generated cakeconfig.h to find include dir
-    execute_cmd("./cake -DTEST -fanalyzer " CAKE_SOURCE_FILES);
+    execute_cmd(RUN "cake -DTEST -fanalyzer " CAKE_SOURCE_FILES);
 
 
     echo_chdir("./x86_x64_gcc/");
@@ -350,7 +350,6 @@ int main()
 #endif
 
 #ifdef TEST
-    
     HEADER("Runs tests");
     
 
