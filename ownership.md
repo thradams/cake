@@ -1,5 +1,5 @@
   
-Last Updated 3 March 2025
+Last Updated 5 December 2025
   
 This is a work in progress. Cake source is currently being used to validate the concepts. It's in the process of transitioning to include annotated nullable checks, which was the last feature added.  
 
@@ -159,42 +159,8 @@ If `is_empty` changes, it could potentially invalidate the assert on the caller'
 Although a runtime check is in place, it is not as safe as a compile-time check because it may occur 
 within a rarely used branch, allowing the bug to remain inactive.
 
-For this reason, a 'contract' approach is also being developed in Cake, *__although it 
-is still in the early stages of design__*.
-
-We can specify the post-conditions for the results of true and false branches using `true` and `false`
-at the function declaration, as well as for void functions using `post`
-
-```c
-#pragma safety enable
-
-struct X {
-    int * _Opt data;
-};
-
-bool is_empty(const struct X * p)
-  true(p->data == 0),
-  false(p->data != 0)
-{
-    return p->data == nullptr;
-}
-
-void clear(struct X * p)
-  post(p->data == 0)  
-{
-    p->data = nullptr;
-}
-
-void f(struct X * p) 
-{
-   if (!is_empty(p)) {      
-      /*assert not required anymore*/
-      *p->data = 1;
-   }
-}
-```  
-
-<button onclick="Try(this)">try</button>
+For this reason, a 'contract' approach is also being developed in Cake with the objective of moving
+the assert to function `is_empty` contract.
 
 The advantage of contracts, as mentioned earlier, is that the postconditions are 
 located in a single place. This is useful not only to avoid code repetition but 
@@ -203,9 +169,6 @@ which are assumed to be true and may be dangerous if they are out of sync
 with the implementation.
 On the other hand, placing the contracts alongside the function declaration 
 keeps the contract closer to its implementation. 
-Compilers (though Cake is not currently doing this yet) could create proxy 
-functions to check postconditions at runtime. (See C++ 26 contracts)
-
 
 
 #### Non nullable members initialization
@@ -309,17 +272,7 @@ void f() {
 
 <button onclick="Try(this)">try</button>
   
-We could remove this built-in some something like
-
-```c
-#pragma nullable enable  
-_Uninitialized void * _Opt malloc(unsigned int sz);
-```
-
-This is not implemented yet.
-
-
- `calloc` has a built in semantics indicating the object is zero-initialized. 
+`calloc` has a built in semantics indicating the object is zero-initialized. 
 
 ```c
 #pragma nullable enable  
@@ -454,7 +407,7 @@ struct X * _Opt makeX(const char* name)
 Since mutability may be useful for constructors and destructors, 
 the idea of mutable could imply that change may happen only once. 
 This naturally occurs when assigning a non-nullable pointer for the 
-first time—because afterward, it cannot become nullable again. 
+first timeâ€”because afterward, it cannot become nullable again. 
 Similarly, for const objects, it could mean that once initialized, 
 a const object cannot change anymore. In this context, 'constructor' 
 or 'destructor' might be a more suitable term.
@@ -1542,7 +1495,7 @@ int f(int c)
 ```
 
 In the following example, Cake recognizes that the pointed object is 'maybe deleted.' 
-However, if the object is deleted, it doesn’t matter because the pointer is null. 
+However, if the object is deleted, it doesnâ€™t matter because the pointer is null. 
 These relationships between states are not tracked.
 
 ```c

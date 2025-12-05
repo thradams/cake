@@ -70,7 +70,7 @@
 <a href="#toc_10">References</a>
 </li>
 </ul>
-<p>Last Updated 3 March 2025</p>
+<p>Last Updated 5 December 2025</p>
 
 <p>This is a work in progress. Cake source is currently being used to validate the concepts. It&#39;s in the process of transitioning to include annotated nullable checks, which was the last feature added.  </p>
 
@@ -220,41 +220,8 @@ If <code>is_empty</code> changes, it could potentially invalidate the assert on 
 Although a runtime check is in place, it is not as safe as a compile-time check because it may occur 
 within a rarely used branch, allowing the bug to remain inactive.</p>
 
-<p>For this reason, a &#39;contract&#39; approach is also being developed in Cake, <em><strong>although it 
-is still in the early stages of design</strong></em>.</p>
-
-<p>We can specify the post-conditions for the results of true and false branches using <code>true</code> and <code>false</code>
-at the function declaration, as well as for void functions using <code>post</code></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-struct X {
-    int * _Opt data;
-};
-
-bool is_empty(const struct X * p)
-  true(p-&gt;data == 0),
-  false(p-&gt;data != 0)
-{
-    return p-&gt;data == nullptr;
-}
-
-void clear(struct X * p)
-  post(p-&gt;data == 0)  
-{
-    p-&gt;data = nullptr;
-}
-
-void f(struct X * p) 
-{
-   if (!is_empty(p)) {      
-      /*assert not required anymore*/
-      *p-&gt;data = 1;
-   }
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
+<p>For this reason, a &#39;contract&#39; approach is also being developed in Cake with the objective of moving
+the assert to function <code>is_empty</code> contract.</p>
 
 <p>The advantage of contracts, as mentioned earlier, is that the postconditions are 
 located in a single place. This is useful not only to avoid code repetition but 
@@ -262,9 +229,7 @@ also because assertions function as unproven statements at compile time,
 which are assumed to be true and may be dangerous if they are out of sync 
 with the implementation.
 On the other hand, placing the contracts alongside the function declaration 
-keeps the contract closer to its implementation. 
-Compilers (though Cake is not currently doing this yet) could create proxy 
-functions to check postconditions at runtime. (See C++ 26 contracts)</p>
+keeps the contract closer to its implementation. </p>
 
 <h4>Non nullable members initialization</h4>
 
@@ -494,7 +459,7 @@ struct X * _Opt makeX(const char* name)
 <p>Since mutability may be useful for constructors and destructors, 
 the idea of mutable could imply that change may happen only once. 
 This naturally occurs when assigning a non-nullable pointer for the 
-first time—because afterward, it cannot become nullable again. 
+first timeâ€”because afterward, it cannot become nullable again. 
 Similarly, for const objects, it could mean that once initialized, 
 a const object cannot change anymore. In this context, &#39;constructor&#39; 
 or &#39;destructor&#39; might be a more suitable term.</p>
@@ -1540,7 +1505,7 @@ the origin or relationships between these states. </p>
 </code></pre>
 
 <p>In the following example, Cake recognizes that the pointed object is &#39;maybe deleted.&#39; 
-However, if the object is deleted, it doesn’t matter because the pointer is null. 
+However, if the object is deleted, it doesnâ€™t matter because the pointer is null. 
 These relationships between states are not tracked.</p>
 
 <pre><code class="language-c">#pragma safety enable
