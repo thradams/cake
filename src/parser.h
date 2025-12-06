@@ -110,7 +110,7 @@ struct parser_ctx
     /*
     * Points to the selection_statement we're in. Or null.
     */
-    struct selection_statement* _Opt p_current_selection_statement;
+    struct selection_statement* _Opt p_current_switch_statement;
     const struct iteration_statement* _Opt p_current_iteration_statement;
 
 

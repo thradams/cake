@@ -16193,7 +16193,7 @@ struct parser_ctx
     /*
     * Points to the selection_statement we're in. Or null.
     */
-    struct selection_statement* _Opt p_current_selection_statement;
+    struct selection_statement* _Opt p_current_switch_statement;
     const struct iteration_statement* _Opt p_current_iteration_statement;
 
 
@@ -28720,7 +28720,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.67"
+#define CAKE_VERSION "0.12.68"
 
 
 
@@ -31051,8 +31051,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 struct defer_visit_ctx ctx2 = { .ctx = ctx };
                 defer_start_visit_declaration(&ctx2, p_declaration);
                 defer_visit_ctx_destroy(&ctx2);
-                
-                
+
+
                 if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
                 {
                     /*
@@ -37545,8 +37545,8 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         else if (ctx->current->type == TK_KEYWORD_CASE)
         {
 
-            if (ctx->p_current_selection_statement == NULL ||
-                ctx->p_current_selection_statement->condition == NULL)
+            if (ctx->p_current_switch_statement == NULL ||
+                ctx->p_current_switch_statement->condition == NULL)
             {
                 //unexpected because we are in case
                 compiler_diagnostic(C_ERROR_CASE_NOT_IN_SWITCH,
@@ -37584,7 +37584,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 */
 
                 struct label* _Opt p_existing_label = case_label_list_find_range(ctx,
-                    &ctx->p_current_selection_statement->label_list,
+                    &ctx->p_current_switch_statement->label_list,
                     &p_label->constant_expression->object,
                     &p_label->constant_expression_end->object);
 
@@ -37614,7 +37614,10 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
             }
             else
             {
-                struct label* _Opt p_existing_label = case_label_list_find(ctx, &ctx->p_current_selection_statement->label_list, &p_label->constant_expression->object);
+                struct label* _Opt p_existing_label = 
+                    case_label_list_find(ctx, &ctx->p_current_switch_statement->label_list, &p_label->constant_expression->object);
+                
+
                 if (p_existing_label)
                 {
 
@@ -37638,20 +37641,20 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
 
-            case_label_list_push(&ctx->p_current_selection_statement->label_list, p_label);
+            case_label_list_push(&ctx->p_current_switch_statement->label_list, p_label);
 
-            if (ctx->p_current_selection_statement &&
-                ctx->p_current_selection_statement->condition &&
-                ctx->p_current_selection_statement->condition->expression)
+            if (ctx->p_current_switch_statement &&
+                ctx->p_current_switch_statement->condition &&
+                ctx->p_current_switch_statement->condition->expression)
             {
-                if (type_is_enum(&ctx->p_current_selection_statement->condition->expression->type))
+                if (type_is_enum(&ctx->p_current_switch_statement->condition->expression->type))
                 {
                     if (type_is_enum(&p_label->constant_expression->type))
                     {
                         check_diferent_enuns(ctx,
                                     p_label->constant_expression->first_token,
                                     p_label->constant_expression,
-                                    ctx->p_current_selection_statement->condition->expression,
+                                    ctx->p_current_switch_statement->condition->expression,
                                     "mismatch in enumeration types");
                     }
                     else
@@ -37660,7 +37663,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     }
                 }
 
-                if (ctx->p_current_selection_statement == NULL)
+                if (ctx->p_current_switch_statement == NULL)
                 {
                     //unexpected because we have case inside switch
                     throw;
@@ -37668,11 +37671,11 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
 
                 const struct enum_specifier* _Opt p_enum_specifier = NULL;
 
-                if (ctx->p_current_selection_statement->condition &&
-                    ctx->p_current_selection_statement->condition->expression &&
-                    ctx->p_current_selection_statement->condition->expression->type.enum_specifier)
+                if (ctx->p_current_switch_statement->condition &&
+                    ctx->p_current_switch_statement->condition->expression &&
+                    ctx->p_current_switch_statement->condition->expression->type.enum_specifier)
                 {
-                    p_enum_specifier = get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
+                    p_enum_specifier = get_complete_enum_specifier(ctx->p_current_switch_statement->condition->expression->type.enum_specifier);
                 }
 
                 if (p_enum_specifier)
@@ -37700,8 +37703,8 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         }
         else if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
-            if (ctx->p_current_selection_statement == NULL ||
-                ctx->p_current_selection_statement->condition == NULL)
+            if (ctx->p_current_switch_statement == NULL ||
+                ctx->p_current_switch_statement->condition == NULL)
             {
                 //unexpected because we are in case
                 compiler_diagnostic(C_ERROR_CASE_NOT_IN_SWITCH,
@@ -37713,7 +37716,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 throw;
             }
 
-            struct label* _Opt p_existing_default_label = case_label_list_find_default(ctx, &ctx->p_current_selection_statement->label_list);
+            struct label* _Opt p_existing_default_label = case_label_list_find_default(ctx, &ctx->p_current_switch_statement->label_list);
 
             if (p_existing_default_label)
             {
@@ -37738,7 +37741,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
 
-            case_label_list_push(&ctx->p_current_selection_statement->label_list, p_label);
+            case_label_list_push(&ctx->p_current_switch_statement->label_list, p_label);
         }
         // attribute_specifier_sequence_opt identifier ':'
         // attribute_specifier_sequence_opt 'case' constant_expression ':'
@@ -38783,8 +38786,12 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             }
         }
 
-        struct selection_statement* _Opt previous = ctx->p_current_selection_statement;
-        ctx->p_current_selection_statement = p_selection_statement;
+        struct selection_statement* _Opt previous = ctx->p_current_switch_statement;
+
+        if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
+        {
+            ctx->p_current_switch_statement = p_selection_statement;
+        }
 
         struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
 
@@ -38810,7 +38817,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         p_selection_statement->secondary_block = p_secondary_block;
 
 
-        ctx->p_current_selection_statement = previous;
+        ctx->p_current_switch_statement = previous;
 
 
         if (is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE)
@@ -39238,7 +39245,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         else if (ctx->current->type == TK_KEYWORD_BREAK)
         {
             const bool in_switch =
-                ctx->p_current_selection_statement && ctx->p_current_selection_statement->first_token->type == TK_KEYWORD_SWITCH;
+                ctx->p_current_switch_statement && ctx->p_current_switch_statement->first_token->type == TK_KEYWORD_SWITCH;
 
             if (ctx->p_current_iteration_statement == NULL && !in_switch)
             {
@@ -39807,8 +39814,8 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     const struct defer_statement* _Opt p_current_defer_statement_opt = ctx->p_current_defer_statement_opt;
     ctx->p_current_defer_statement_opt = NULL;
 
-    struct selection_statement* _Opt p_current_selection_statement = ctx->p_current_selection_statement;
-    ctx->p_current_selection_statement = NULL;
+    struct selection_statement* _Opt p_current_switch_statement = ctx->p_current_switch_statement;
+    ctx->p_current_switch_statement = NULL;
 
     struct label_list label_list = { 0 };
     label_list_swap(&label_list, &ctx->label_list);
@@ -39824,7 +39831,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     ctx->label_id = label_id;
     ctx->p_current_try_statement_opt = p_current_try_statement_opt;
     ctx->p_current_defer_statement_opt = p_current_defer_statement_opt;
-    ctx->p_current_selection_statement = p_current_selection_statement;
+    ctx->p_current_switch_statement = p_current_switch_statement;
 
     label_list_clear(&label_list);
 

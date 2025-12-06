@@ -1,6 +1,9 @@
-void f(int n)
-{
-    goto  target;
-    int a[n];    
-    target:
+void main() {
+    int i;
+    switch (i) {
+    case 0:
+      if (1) {
+        break;
+      }
+  }
 }
