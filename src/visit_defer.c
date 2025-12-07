@@ -138,6 +138,11 @@ static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_
 
 static void defer_visit_secondary_block(struct defer_visit_ctx* ctx, struct secondary_block* p_secondary_block)
 {
+    if (ctx->searching_label_mode && ctx->p_label)
+    {
+        return;
+    }
+
     defer_visit_statement(ctx, p_secondary_block->statement);
 }
 

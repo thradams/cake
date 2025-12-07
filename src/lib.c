@@ -28720,7 +28720,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.68"
+#define CAKE_VERSION "0.12.69"
 
 
 
@@ -42098,6 +42098,11 @@ static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_
 
 static void defer_visit_secondary_block(struct defer_visit_ctx* ctx, struct secondary_block* p_secondary_block)
 {
+    if (ctx->searching_label_mode && ctx->p_label)
+    {
+        return;
+    }
+
     defer_visit_statement(ctx, p_secondary_block->statement);
 }
 

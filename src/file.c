@@ -1,9 +1,14 @@
-void main() {
-    int i;
-    switch (i) {
-    case 0:
-      if (1) {
-        break;
-      }
+int main(int argc, char *argv[]) {
+  while (1) {
+    if (argc) {
+      goto one;
+    }
+    else {
+      goto zero;
+    }
+    zero: 
+       return 0;
+    one: 
+       return 1;
   }
 }

@@ -26,7 +26,7 @@
 </script></head>
 <body>
     <article style="max-width: 40em; margin:auto">
-<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Ownership</a> | <a href="playground.html">Playground</a></p>
 <article>
 <h1>Cake - C23 and Beyond</h1>
 <ul>
@@ -64,16 +64,14 @@
 </ul>
 <p>Last Updated 5 December 2025</p>
 
-<p>This is a work in progress. Cake source is currently being used to validate the concepts. It&#39;s in the process of transitioning to include annotated nullable checks, which was the last feature added.  </p>
+<p>This is a work in progress. Cake source is currently being used to validate the concepts. </p>
 
 <h2 id="toc_0">Abstract</h2>
 
 <p>The objective is to statically check code and prevent bugs, including memory bugs like double free, 
-null dereference and memory leaks. New type-annotations have been created to extend the type system 
-and insert information that defines contracts.</p>
+null dereference and memory leaks. </p>
 
-<p>Ultimately, we still have the same language, but with an improved type system that checks these 
-contracts.</p>
+<p>Type-annotations have been created to extend the type system and insert information that defines contracts.</p>
 
 <p>These new type-annotations can be ignored, the language <strong>and existing code patterns</strong> remains unmodified. </p>
 
@@ -98,8 +96,9 @@ contracts.</p>
 existing code will naturally conflict with the new rules, as some unqualified pointers in the 
 existing code can be nullable; they simply are not reviewed yet.</p>
 
-<p>The directive <code>#pragma nullable enable/disable</code> can be used during the process of upgrading code. 
-<code>nullable enable</code> means that the new rules apply, while <code>nullable disable</code> indicates that all pointers 
+<p>The directive <code>#pragma nullable enable/disable</code> can be used during the process of upgrading code. </p>
+
+<p><code>#pragma nullable enable</code> means that the new rules apply, while <code>#pragma nullable disable</code> indicates that all pointers 
 are nullable. Similar approach has been used in C# [1].</p>
 
 <p>It is important to note that, although the semantics change, this only affects static analysis; 

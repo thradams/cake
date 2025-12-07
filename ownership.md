@@ -1,20 +1,17 @@
   
 Last Updated 5 December 2025
   
-This is a work in progress. Cake source is currently being used to validate the concepts. It's in the process of transitioning to include annotated nullable checks, which was the last feature added.  
+This is a work in progress. Cake source is currently being used to validate the concepts. 
 
 
 ## Abstract
   
 The objective is to statically check code and prevent bugs, including memory bugs like double free, 
-null dereference and memory leaks. New type-annotations have been created to extend the type system 
-and insert information that defines contracts.
+null dereference and memory leaks. 
 
-Ultimately, we still have the same language, but with an improved type system that checks these 
-contracts.
+Type-annotations have been created to extend the type system and insert information that defines contracts.
 
 These new type-annotations can be ignored, the language **and existing code patterns** remains unmodified. 
-
 
 ## Concepts
 
@@ -39,7 +36,8 @@ existing code will naturally conflict with the new rules, as some unqualified po
 existing code can be nullable; they simply are not reviewed yet.
 
 The directive `#pragma nullable enable/disable` can be used during the process of upgrading code. 
-`nullable enable` means that the new rules apply, while `nullable disable` indicates that all pointers 
+
+`#pragma nullable enable` means that the new rules apply, while `#pragma nullable disable` indicates that all pointers 
 are nullable. Similar approach has been used in C# [1].
 
 It is important to note that, although the semantics change, this only affects static analysis; 
