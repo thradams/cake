@@ -597,7 +597,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = cake_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -630,7 +630,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = cake_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -663,7 +663,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = cake_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -712,7 +712,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             while (*p != '\'')
             {
                 unsigned int c = 0;
-                p = utf8_decode(p, &c);
+                p = cake_utf8_decode(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -763,7 +763,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             while (*p != '\'')
             {
                 unsigned int c = 0;
-                p = utf8_decode(p, &c);
+                p = cake_utf8_decode(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -1336,7 +1336,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                     if (is_bigger_than_char)
                     {
-                        it = utf8_decode(it, &c);
+                        it = cake_utf8_decode(it, &c);
                         if (it == NULL)
                         {                            
                             throw;
