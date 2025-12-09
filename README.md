@@ -40,6 +40,8 @@ or old compilers to produce executables.
 Cake aims to enhance C's safety by providing high-quality [warning messages](warnings.md) and advanced 
 flow analysis, including [object lifetime](ownership.md) checks.
 
+
+
 # Web Playground
 
 This is the best way to try.
@@ -64,6 +66,9 @@ Cake is also a cross-compiler. For example, on Windows it can use Linux
 headers and generate GCC-compatible code for Linux, and vice versa. 
 This makes it very useful when developing multiplatform code.
 
+Another use of Cake is as a library to parse source code and build an AST, 
+which can then be used for other purposes; for instance, automatic serialization,
+automatic documentation and more.
 
 # Features
 
@@ -168,7 +173,7 @@ DISCORD SERVER
 [https://discord.gg/YRekr2N65S](https://discord.gg/YRekr2N65S)
 
 
-# How cake is developed?
+# How cake is developed ?
 
 I use Visual Studio 2022 IDE to write and debug the Cake source.
 Cake parses itself using the MSVC includes and generates the X\_86\_msvc 
@@ -191,6 +196,8 @@ of C while supporting experimentation and open contributions to the
 language's evolution.
 
 
+# License
+Cake uses the same license of GCC. GPLv3
 
 
  

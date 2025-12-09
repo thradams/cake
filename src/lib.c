@@ -662,7 +662,7 @@ bool style_has_space(const struct token*  token);
 bool style_has_one_space(const struct token*  token);
 
 enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char erromsg[100]);
-const unsigned char* _Opt utf8_decode(const unsigned char* s, _Ctor unsigned int* c);
+const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned int* c);
 const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value);
 
 
@@ -2857,7 +2857,7 @@ enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char errm
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt utf8_decode(const unsigned char* s, _Ctor unsigned int* c)
+const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned int* c)
 {
     *c = 0; //out
 
@@ -21537,7 +21537,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -21570,7 +21570,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -21603,7 +21603,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -21652,7 +21652,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             while (*p != '\'')
             {
                 unsigned int c = 0;
-                p = utf8_decode(p, &c);
+                p = str_utf8_decode(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -21703,7 +21703,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
             while (*p != '\'')
             {
                 unsigned int c = 0;
-                p = utf8_decode(p, &c);
+                p = str_utf8_decode(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -22276,7 +22276,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
 
                     if (is_bigger_than_char)
                     {
-                        it = utf8_decode(it, &c);
+                        it = str_utf8_decode(it, &c);
                         if (it == NULL)
                         {                            
                             throw;
@@ -27528,7 +27528,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             // A UTF-8 character constant has type char8_t.
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -27563,7 +27563,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -27598,7 +27598,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -27646,7 +27646,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             while (*p != '\'')
             {
                 unsigned int c = 0;
-                p = utf8_decode(p, &c);
+                p = str_utf8_decode(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -27688,7 +27688,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             while (*p != '\'')
             {
                 unsigned int c = 0;
-                p = utf8_decode(p, &c);
+                p = str_utf8_decode(p, &c);
                 if (p == NULL)
                 {
                     throw;

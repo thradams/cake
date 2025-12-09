@@ -281,21 +281,28 @@ void f() {
 
 <button onclick="Try(this)">try</button>
   
-`calloc` has a built in semantics indicating the object is zero-initialized. 
+`calloc` has a built in semantics indicating the object is zero-initialized. (This can be an attribute in the future)
 
 ```c
-#pragma nullable enable  
+#pragma safety enable  
+
 char * _Opt strdup(const char * src);  
 void * _Opt calloc(unsigned int n, unsigned int sz);
 
-struct X {  char * text; };  
+struct X {  
+    char * text; //non-nullable
+};  
+
+void f0(struct X* p) { }
 
 void f() {     
-   struct X * _Opt pX = calloc(1, sizeof *pX); //warning
+   struct X * _Opt pX = calloc(1, sizeof * pX);
    if (pX)
-   {          
+   {
+      f0(pX); //warning 33: non-nullable pointer 'pX.text' may be null          
    }
 }
+
 ```
 <button onclick="Try(this)">try</button>
 
@@ -794,7 +801,7 @@ the implementation.
 The next sample illustrates how to implement a destructor 
 using a [[dtor]] annotation.
 
-**Sample - Implementing a destructor using [[dtor]]
+** Sample - Implementing a destructor using `[[dtor]]` **
 
 ```c
 #pragma safety enable
@@ -824,7 +831,7 @@ int main() {
     x_destroy(&x);
     
     /*
-     The contents of the object x where moved
+     The contents of the object x were moved
     */
 }
 ```
@@ -1109,13 +1116,13 @@ struct X {
   char * _Owner _Opt name;
 };
 
-void x_destroy([[ctor]] struct X * p) {
+void x_destroy( [[dtor]] struct X * p) {
   free(p->name); 
 }
 
 struct Y {
    struct X x;
-}
+};
 
 void f(struct Y * p) {   
    x_destroy(&p->x); //breaking the rule

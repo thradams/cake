@@ -7,40 +7,25 @@
 
 
 int embed(const char* filename)
-
 {
 
     char file_out_name[200] = { 0 };
-
     if (snprintf(file_out_name, sizeof file_out_name, "%s.include", filename) >= sizeof file_out_name)
-
         return 0;
-
-
 
     FILE* file_out = fopen(file_out_name, "w");
-
     if (file_out == NULL)
-
         return 0;
-
-
 
     FILE* file = fopen(filename, "rb");
 
     if (file == NULL)
     {
-
         fclose(file_out);
-
         return 0;
-
     }
 
-
-
     int count = 0;
-
     unsigned char ch;
 
     while (fread(&ch, 1, 1, file))
@@ -49,7 +34,6 @@ int embed(const char* filename)
             continue; /*where are not printing to avoid changes with linux/windows*/
 
         if (count % 25 == 0)
-
             fprintf(file_out, "\n");
 
 
@@ -64,7 +48,6 @@ int embed(const char* filename)
     fclose(file);
     fclose(file_out);
     return count;
-
 }
 
 

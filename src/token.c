@@ -1453,7 +1453,7 @@ enum token_type parse_number(const char* lexeme, char suffix[4], _Ctor char errm
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt utf8_decode(const unsigned char* s, _Ctor unsigned int* c)
+const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned int* c)
 {
     *c = 0; //out
 

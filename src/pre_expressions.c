@@ -150,7 +150,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             // A UTF-8 character constant has type char8_t.
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -185,7 +185,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -220,7 +220,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
 
             unsigned int c = 0;
-            p = utf8_decode(p, &c);
+            p = str_utf8_decode(p, &c);
             if (p == NULL)
             {
                 throw;
@@ -268,7 +268,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             while (*p != '\'')
             {
                 unsigned int c = 0;
-                p = utf8_decode(p, &c);
+                p = str_utf8_decode(p, &c);
                 if (p == NULL)
                 {
                     throw;
@@ -310,7 +310,7 @@ static struct object char_constant_to_value(const char* s, char error_message[/*
             while (*p != '\'')
             {
                 unsigned int c = 0;
-                p = utf8_decode(p, &c);
+                p = str_utf8_decode(p, &c);
                 if (p == NULL)
                 {
                     throw;
