@@ -596,7 +596,9 @@ void print_help()
     print_option("-no-discard", "Makes [[nodiscard]] default implicitly");
     print_option("-w -wd", "Enables or disable warning number");
     print_option("-wall", "Enables all warnings");
-    print_option("-fanalyzer ", "Runs flow analysis -  required for ownership");
+    print_option("-fanalyzer ", "Enable flow analysis");
+    print_option("-ownership=enable/disable", "Enables ownership checks");
+    print_option("-nullable=enabled/disable", "Enables nullable checks");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");

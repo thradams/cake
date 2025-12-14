@@ -1,17 +1,16 @@
   
 Last Updated 5 December 2025
   
-This is a work in progress. Cake source is currently being used to validate the concepts. 
+## Cake Static Analysis
 
-
-## Abstract
   
-The objective is to statically check code and prevent bugs, including memory bugs like double free, 
-null dereference and memory leaks. 
+  Cake provides a set of annotations and extended qualifiers that are recognized by 
+  the static analyzer. 
+  With ownership qualifiers, it is possible to achieve the same or even stronger guarantees 
+  than those provided by C++ RAII. It also introduces the concept of nullable pointers, 
+  which helps express when a pointer may be null and prevents mistakes such as 
+  accidentally dereferencing a null pointer.
 
-Type-annotations have been created to extend the type system and insert information that defines contracts.
-
-These new type-annotations can be ignored, the language **and existing code patterns** remains unmodified. 
 
 ## Concepts
 
@@ -838,6 +837,8 @@ int main() {
 
 <button onclick="Try(this)">try</button>
 
+Obs: [[ctor]] in cake is similar of \_Out  in Microsoft SAL
+
 
 **Sample - Using `x_destroy` to implement `x_delete`**
 
@@ -856,7 +857,7 @@ void x_destroy( [[dtor]] struct X * x) {
 
 void x_delete(_Opt struct X * _Owner _Opt p) { 
   if (p) {
-    x_destroy(p)
+    x_destroy(p);
     
     /*
      contents of *p where moved
@@ -1395,7 +1396,7 @@ void list_append(struct list* list, struct node* _Owner node)
 <button onclick="Try(this)">try</button>
 
 
-## Cake's static analysis limitations 
+## Limitations 
 
 While Cake tracks possible states, such as maybe-null, it does not track 
 the origin or relationships between these states. 
@@ -1450,7 +1451,12 @@ A header `safe.h` can define all cake extensions as empty macros.
 
 ## References
 
-[1] https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references, https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations
+[1] https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references,
 
+https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations
 
 https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates
+
+Microsoft SAL
+https://learn.microsoft.com/en-us/cpp/code-quality/understanding-sal?view=msvc-170
+

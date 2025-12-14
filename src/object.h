@@ -39,7 +39,7 @@ struct object_list
     size_t count;
 };
 
-void object_list_push(struct object_list* list, struct object* item);
+void object_list_push(struct object_list* list, struct object* _Owner item);
 
 
 struct object

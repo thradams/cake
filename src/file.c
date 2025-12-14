@@ -1,14 +1,9 @@
-int main(int argc, char *argv[]) {
-  while (1) {
-    if (argc) {
-      goto one;
-    }
-    else {
-      goto zero;
-    }
-    zero: 
-       return 0;
-    one: 
-       return 1;
-  }
+#include <ctype.h>
+ 
+int main(void)
+{
+    unsigned char c = '\xdf'; // German letter ß in ISO-8859-1
+ 
+    isalnum(c);
+     
 }

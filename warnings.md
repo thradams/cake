@@ -326,6 +326,10 @@ int main() {}
 <button onclick="Try(this)">try</button>
 
 ### 30 Uninitialized value (flow analysis)
+
+This warning is issued when a local variable is used before it has 
+been initialized. 
+
 ```c
 #pragma safety enable
 
@@ -408,6 +412,8 @@ int main() {
 <button onclick="Try(this)">try</button>
 
 ### 33 Null dereference (flow analysis)
+
+This warning indicates that your code dereferences a potentially null pointer. 
 
 ```c
 #pragma safety enable

@@ -326,7 +326,7 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
     return true;
 }
 
-void object_list_push(struct object_list* list, struct object* pnew)
+void object_list_push(struct object_list* list, struct object* _Owner pnew)
 {
     if (list->head == NULL)
     {

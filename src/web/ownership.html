@@ -26,12 +26,12 @@
 </script></head>
 <body>
     <article style="max-width: 40em; margin:auto">
-<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Ownership</a> | <a href="playground.html">Playground</a></p>
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a> | <a href="playground.html">Playground</a></p>
 <article>
 <h1>Cake - C23 and Beyond</h1>
 <ul>
 <li>
-<a href="#toc_0">Abstract</a>
+<a href="#toc_0">Cake Static Analysis</a>
 </li>
 <li>
 <a href="#toc_1">Concepts</a>
@@ -53,7 +53,7 @@
 </ul>
 </li>
 <li>
-<a href="#toc_6">Cake&#39;s static analysis limitations</a>
+<a href="#toc_6">Limitations</a>
 </li>
 <li>
 <a href="#toc_7">Code transition Strategy</a>
@@ -64,16 +64,14 @@
 </ul>
 <p>Last Updated 5 December 2025</p>
 
-<p>This is a work in progress. Cake source is currently being used to validate the concepts. </p>
+<h2 id="toc_0">Cake Static Analysis</h2>
 
-<h2 id="toc_0">Abstract</h2>
-
-<p>The objective is to statically check code and prevent bugs, including memory bugs like double free, 
-null dereference and memory leaks. </p>
-
-<p>Type-annotations have been created to extend the type system and insert information that defines contracts.</p>
-
-<p>These new type-annotations can be ignored, the language <strong>and existing code patterns</strong> remains unmodified. </p>
+<p>Cake provides a set of annotations and extended qualifiers that are recognized by 
+  the static analyzer. 
+  With ownership qualifiers, it is possible to achieve the same or even stronger guarantees 
+  than those provided by C++ RAII. It also introduces the concept of nullable pointers, 
+  which helps express when a pointer may be null and prevents mistakes such as 
+  accidentally dereferencing a null pointer.</p>
 
 <h2 id="toc_1">Concepts</h2>
 
@@ -862,6 +860,8 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
+<p>Obs: [[ctor]] in cake is similar of _Out  in Microsoft SAL</p>
+
 <p><strong>Sample - Using <code>x_destroy</code> to implement <code>x_delete</code></strong></p>
 
 <pre><code class="language-c">#pragma safety enable
@@ -878,7 +878,7 @@ void x_destroy( [[dtor]] struct X * x) {
 
 void x_delete(_Opt struct X * _Owner _Opt p) { 
   if (p) {
-    x_destroy(p)
+    x_destroy(p);
     
     /*
      contents of *p where moved
@@ -1393,7 +1393,7 @@ void list_append(struct list* list, struct node* _Owner node)
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h2 id="toc_6">Cake&#39;s static analysis limitations</h2>
+<h2 id="toc_6">Limitations</h2>
 
 <p>While Cake tracks possible states, such as maybe-null, it does not track 
 the origin or relationships between these states. </p>
@@ -1444,7 +1444,12 @@ rules themselves.</p>
 
 <h2 id="toc_8">References</h2>
 
-<p>[1] <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>, <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
+<p>[1] <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>,</p>
+
+<p><a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
 
 <p><a href="https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates">https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates</a></p>
+
+<p>Microsoft SAL
+<a href="https://learn.microsoft.com/en-us/cpp/code-quality/understanding-sal?view=msvc-170">https://learn.microsoft.com/en-us/cpp/code-quality/understanding-sal?view=msvc-170</a></p>
 </article></body></html>

@@ -82,7 +82,7 @@ static void generate_doc(const char* mdfilename, const char* outfile)
         "</head>\n"
         "<body>\n"
         "    <article style=\"max-width: 40em; margin:auto\">\n"
-        "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"ownership.html\">Ownership</a> | <a href=\"playground.html\">Playground</a></p>\n"
+        "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"ownership.html\">Static Analysis</a> | <a href=\"playground.html\">Playground</a></p>\n"
         "<article>\n"
         "<h1>Cake - C23 and Beyond</h1>\n";
 

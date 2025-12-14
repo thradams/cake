@@ -1905,9 +1905,9 @@ int main(void)
 }
 `;
 
-sample["Enable Safety"] = [];
+sample["Static Analysis"] = [];
 
-sample["Enable Safety"]["malloc/free"] =
+sample["Static Analysis"]["malloc/free"] =
     `
 #pragma safety enable
 
@@ -1921,7 +1921,7 @@ int main() {
 
 `;
 
-sample["Enable Safety"]["static_state/static_debug"] =
+sample["Static Analysis"]["static_state/static_debug"] =
     `
 #pragma safety enable
 
@@ -1942,7 +1942,7 @@ int main() {
 
 `;
 
-sample["Enable Safety"]["implementing a destructor I"] =
+sample["Static Analysis"]["implementing a destructor I"] =
     `
 #pragma safety enable
 
@@ -1968,7 +1968,7 @@ int main() {
 `;
 
 
-sample["Enable Safety"]["implementing a destructor II"] =
+sample["Static Analysis"]["implementing a destructor II"] =
     `
 #pragma safety enable
 
@@ -1992,7 +1992,7 @@ int main() {
 
 `;
 
-sample["Enable Safety"]["ctor and dtor"] =
+sample["Static Analysis"]["ctor and dtor"] =
     `
 #pragma safety enable
 
@@ -2023,7 +2023,7 @@ int main() {
 `;
 
 
-sample["Enable Safety"]["_View qualifier"] =
+sample["Static Analysis"]["_View qualifier"] =
     `
 #pragma safety enable 
 
@@ -2054,7 +2054,7 @@ int main() {
 
 
 
-sample["Enable Safety"]["implementing delete"] =
+sample["Static Analysis"]["implementing delete"] =
     `
 #pragma safety enable 
 
@@ -2088,7 +2088,7 @@ int main() {
 `;
 
 
-sample["Enable Safety"]["fix-me 1"] =
+sample["Static Analysis"]["fix-me 1"] =
     `
 #pragma safety disable
 
@@ -2105,7 +2105,7 @@ int main() {
 }
 `;
 
-sample["Enable Safety"]["Linked list"] =
+sample["Static Analysis"]["Linked list"] =
     `#pragma safety enable
 
 #include <stdlib.h>
@@ -2196,7 +2196,7 @@ int main(int argc, char* argv[])
 }
 `;
 
-sample["Enable Safety"]["dynamic array"] =
+sample["Static Analysis"]["dynamic array"] =
     `
 #pragma safety enable
 
@@ -2275,7 +2275,7 @@ int main()
 }
 `;
 
-sample["Enable Safety"]["using moved object"] =
+sample["Static Analysis"]["using moved object"] =
     `
 #pragma safety enable
 
@@ -2300,7 +2300,7 @@ int main()
 }
 `;
 
-sample["Enable Safety"]["static_set/realloc"] =
+sample["Static Analysis"]["static_set/realloc"] =
     `
 #pragma safety enable
 
@@ -2323,7 +2323,7 @@ void f()
 
 `;
 
-sample["Enable Safety"]["mtx_t"] =
+sample["Static Analysis"]["mtx_t"] =
     `
 #pragma safety enable
 
@@ -2361,7 +2361,7 @@ int main()
 
 `;
 
-sample["Enable Safety"]["socket"] =
+sample["Static Analysis"]["socket"] =
     `
 _Owner int socket();
 void close(_Owner int fd);
@@ -2381,7 +2381,7 @@ int main()
 `;
 
 
-sample["Enable Safety"]["owner assignment"] =
+sample["Static Analysis"]["owner assignment"] =
     `
 #pragma safety enable
 
@@ -2402,7 +2402,7 @@ int main()
 
 
 
-sample["Enable Safety"]["takes_ownership"] =
+sample["Static Analysis"]["takes_ownership"] =
     `
 #pragma safety enable
 
@@ -2428,7 +2428,7 @@ int main()
 `;
 
 
-sample["Enable Safety"]["gives ownership"] =
+sample["Static Analysis"]["gives ownership"] =
     `
 #pragma safety enable
 
@@ -2447,7 +2447,7 @@ int main(){
 
 `;
 
-sample["Enable Safety"]["moving parts of _View"] =
+sample["Static Analysis"]["moving parts of _View"] =
     `
 #pragma safety enable
 
@@ -2484,7 +2484,7 @@ int main() {
 
 `;
 
-sample["Enable Safety"]["_Owner pointer owns two objects"] =
+sample["Static Analysis"]["_Owner pointer owns two objects"] =
     `
 #pragma safety enable
 
@@ -2513,7 +2513,7 @@ int main()
 `;
 
 
-sample["Enable Safety"]["checking double free"] =
+sample["Static Analysis"]["checking double free"] =
     `
 #pragma safety enable
 

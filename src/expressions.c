@@ -1568,7 +1568,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                    the braces, the construct has type void, and thus effectively no value.) 
                 */
                 struct expression* _Opt p_last_expression = NULL;
-                struct block_item* _Owner _Opt  p = p_expression_node->compound_statement->block_item_list.head;
+                struct block_item* _Opt p = p_expression_node->compound_statement->block_item_list.head;
                 while (p)
                 {
                     if (p->next == NULL && 
@@ -3271,7 +3271,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
-                        struct enumerator* _Owner _Opt p =
+                        struct enumerator* _Opt p =
                             p_enum_specifier->enumerator_list.head;
                         while (p)
                         {
@@ -3339,7 +3339,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
-                        struct enumerator* _Owner _Opt p =
+                        struct enumerator* _Opt p =
                             p_enum_specifier->enumerator_list.head;
                         while (p)
                         {

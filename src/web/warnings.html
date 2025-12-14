@@ -26,7 +26,7 @@
 </script></head>
 <body>
     <article style="max-width: 40em; margin:auto">
-<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Ownership</a> | <a href="playground.html">Playground</a></p>
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a> | <a href="playground.html">Playground</a></p>
 <article>
 <h1>Cake - C23 and Beyond</h1>
 <ul>
@@ -863,6 +863,9 @@ int main() {}
 
 <h3 id="toc_30">30 Uninitialized value (flow analysis)</h3>
 
+<p>This warning is issued when a local variable is used before it has 
+been initialized. </p>
+
 <pre><code class="language-c">#pragma safety enable
 
 void f(int i)
@@ -943,6 +946,8 @@ int main() {
 <p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_33">33 Null dereference (flow analysis)</h3>
+
+<p>This warning indicates that your code dereferences a potentially null pointer. </p>
 
 <pre><code class="language-c">#pragma safety enable
 int main()
