@@ -1718,6 +1718,7 @@ struct ast
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
+struct ast get_ast_with_flags(int argc, const char **argv, const char* filename, const char* source, struct report* report);
 void ast_destroy(_Dtor struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
