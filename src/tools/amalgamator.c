@@ -65,7 +65,10 @@ void mark_as_included(const char* filename0, struct strlist_node** s_included)
 bool strlist_has(const char* filename0, struct strlist_node** s_included)
 {
     char filename[200];
-    realpath(filename0, filename);
+    if(realpath(filename0, filename) == NULL)
+    {
+        return false;
+    }
 
     bool result = false;
     struct strlist_node* pCurrent = *s_included;
