@@ -11189,6 +11189,61 @@ struct ast get_ast(struct options* options,
     return ast;
 }
 
+struct ast get_ast_with_flags(int argc,
+    const char **argv,
+    const char* filename,
+    const char* source,
+    struct report* report)
+{
+    int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx);
+    
+    struct ast ast = { 0 };
+    struct tokenizer_ctx tctx = { 0 };
+
+    struct token_list list = tokenizer(&tctx, source, filename, 0, TK_FLAG_NONE);
+
+    struct preprocessor_ctx prectx = { 0 };
+
+    _Opt struct parser_ctx ctx = { 0 };
+    ctx.p_report = report;
+
+    try
+    {
+        struct options options = { 0 };
+        fill_options(&options, argc, argv);
+        
+        struct preprocessor_ctx prectx = { 0 };
+        
+        prectx.options = options;
+        prectx.macros.capacity = 5000;
+        fill_preprocessor_options(argc, argv, &prectx);
+        add_standard_macros(&prectx, options.target);
+
+#ifdef __EMSCRIPTEN__
+        /*we mock web version to include from c*/
+        include_dir_add(&prectx.include_dir, "c:/");
+#endif
+
+        ast.token_list = preprocessor(&prectx, &list, 0);
+        if (prectx.n_errors != 0)
+            throw;
+
+        ctx.options = options;
+
+        bool berror = false;
+        ast.declaration_list = parse(&ctx, &ast.token_list, &berror);
+        if (berror)
+            throw;
+    }
+    catch
+    {
+    }
+    parser_ctx_destroy(&ctx);
+    token_list_destroy(&list);
+    preprocessor_ctx_destroy(&prectx);
+
+    return ast;
+}
 
 void ast_destroy(_Dtor struct ast* ast)
 {
