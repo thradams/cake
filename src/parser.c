@@ -11189,13 +11189,15 @@ struct ast get_ast(struct options* options,
     return ast;
 }
 
+int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx);
+
 struct ast get_ast_with_flags(int argc,
     const char **argv,
     const char* filename,
     const char* source,
     struct report* report)
 {
-    int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx);
+    
     
     struct ast ast = { 0 };
     struct tokenizer_ctx tctx = { 0 };
@@ -11211,8 +11213,6 @@ struct ast get_ast_with_flags(int argc,
     {
         struct options options = { 0 };
         fill_options(&options, argc, argv);
-        
-        struct preprocessor_ctx prectx = { 0 };
         
         prectx.options = options;
         prectx.macros.capacity = 5000;
