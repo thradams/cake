@@ -21870,16 +21870,16 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
         const bool suffix_none = (suffix[0] == '\0');
         const bool suffix_u = (suffix[0] == 'U' && suffix[1] == '\0');
-        
+
         const bool suffix_l = ((suffix[0] == 'L' && suffix[1] == '\0')) ||
-                              ((suffix[0] == 'i' && suffix[1] == '3' && suffix[2] == '2' && suffix[3] == '\0'));
-                              
-        const bool suffix_ul =  (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0');
+            ((suffix[0] == 'i' && suffix[1] == '3' && suffix[2] == '2' && suffix[3] == '\0'));
+
+        const bool suffix_ul = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0');
 
         const bool suffix_ll = (suffix[0] == 'L' && suffix[1] == 'L' && suffix[2] == '\0') ||
-                               (suffix[0] == 'i'  && suffix[1] == '6' || suffix[2] == '4' && suffix[2] == '\0');
+            (suffix[0] == 'i' && suffix[1] == '6' || suffix[2] == '4' && suffix[2] == '\0');
 
-        const bool suffix_ull =  (suffix[0] == 'U' && suffix[1] == 'L'  && suffix[2] == 'L' && suffix[3] == '\0');
+        const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
 
         object_destroy(&p_expression_node->object);
 
@@ -22368,7 +22368,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     {
                         it = str_utf8_decode(it, &c);
                         if (it == NULL)
-                        {                            
+                        {
                             throw;
                         }
                     }
@@ -22411,7 +22411,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                         //u8"" also are char not (char8_t)
                         *p_new = object_make_char(ctx->options.target, value);
                     }
-                    object_list_push(&p_expression_node->object.members, p_new);        
+                    object_list_push(&p_expression_node->object.members, p_new);
                 }
 
                 parser_match(ctx);
@@ -22580,7 +22580,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 */
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_STATEMENT_EXPRESSION;
-                
+
                 bool e = is_diagnostic_enabled(&ctx->options, W_EXPRESSION_RESULT_NOT_USED);
                 options_set_warning(&ctx->options, W_EXPRESSION_RESULT_NOT_USED, false);
                 p_expression_node->compound_statement = compound_statement(ctx);
@@ -22590,20 +22590,20 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 {
                     throw;
                 }
-                
+
                 /*
-                   The last thing in the compound statement should be an expression followed 
-                   by a semicolon; the value of this subexpression serves as the value of 
-                   the entire construct. (If you use some other kind of statement last within 
-                   the braces, the construct has type void, and thus effectively no value.) 
+                   The last thing in the compound statement should be an expression followed
+                   by a semicolon; the value of this subexpression serves as the value of
+                   the entire construct. (If you use some other kind of statement last within
+                   the braces, the construct has type void, and thus effectively no value.)
                 */
                 struct expression* _Opt p_last_expression = NULL;
                 struct block_item* _Opt p = p_expression_node->compound_statement->block_item_list.head;
                 while (p)
                 {
-                    if (p->next == NULL && 
+                    if (p->next == NULL &&
                         p->unlabeled_statement &&
-                        p->unlabeled_statement->expression_statement && 
+                        p->unlabeled_statement->expression_statement &&
                         p->unlabeled_statement->expression_statement->expression_opt)
                     {
                         p_last_expression = p->unlabeled_statement->expression_statement->expression_opt;
@@ -22619,7 +22619,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 else
                 {
                     p_expression_node->type = make_void_type();
-                }                                
+                }
             }
             else
             {
@@ -26662,7 +26662,7 @@ void expression_delete(struct expression* _Owner _Opt p)
         //explodindo
         //object_destroy(&p->object);
 
-        
+
         free(p);
     }
 }
@@ -40036,13 +40036,15 @@ struct ast get_ast(struct options* options,
     return ast;
 }
 
+int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx);
+
 struct ast get_ast_with_flags(int argc,
     const char **argv,
     const char* filename,
     const char* source,
     struct report* report)
 {
-    int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx);
+    
     
     struct ast ast = { 0 };
     struct tokenizer_ctx tctx = { 0 };
@@ -40058,8 +40060,6 @@ struct ast get_ast_with_flags(int argc,
     {
         struct options options = { 0 };
         fill_options(&options, argc, argv);
-        
-        struct preprocessor_ctx prectx = { 0 };
         
         prectx.options = options;
         prectx.macros.capacity = 5000;
