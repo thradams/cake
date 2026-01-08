@@ -124,8 +124,10 @@ after <code>#pragma nullable enable</code> and the pointer is not qualified with
 
 <p>The conversion from a non-nullable pointer to a nullable one is allowed, as shown below:</p>
 
-<pre><code class="language-c">#pragma nullable enable  
-char * get_name();  
+<pre><code class="language-c">#pragma nullable enable
+
+char * get_name();
+
 int main(){
   char * _Opt s = get_name(); 
 }
@@ -210,7 +212,7 @@ Although a runtime check is in place, it is not as safe as a compile-time check 
 within a rarely used branch, allowing the bug to remain inactive.</p>
 
 <p>For this reason, a &#39;contract&#39; approach is also being developed in Cake with the objective of moving
-the assert to function <code>is_empty</code> contract.</p>
+the assert close to function <code>is_empty</code>.</p>
 
 <p>The advantage of contracts, as mentioned earlier, is that the postconditions are 
 located in a single place. This is useful not only to avoid code repetition but 
@@ -239,7 +241,8 @@ int main(){
 
 <p>The non-nullable on the other hand can transitioning from uninitialized to non-null.</p>
 
-<pre><code class="language-c">#pragma nullable enable  
+<pre><code class="language-c">#pragma nullable enable
+
 char * _Opt strdup(const char * src);  
 
 struct X {  char * text; };  
@@ -259,7 +262,8 @@ void f() {
 The null-uninitialized state is invalid for non-nullable pointers, just as the 
 uninitialized state is for any pointer.</p>
 
-<pre><code class="language-c">#pragma nullable enable  
+<pre><code class="language-c">#pragma nullable enable
+
 char * _Opt strdup(const char * src);  
 
 struct X {  char * text; };  
@@ -281,7 +285,8 @@ or partially initialized object will result in a warning.</p>
 
 <p>For instance.</p>
 
-<pre><code class="language-c">#pragma nullable enable  
+<pre><code class="language-c">#pragma nullable enable
+
 struct X {  char * text; };  
 
 struct X f() {  
@@ -292,7 +297,8 @@ struct X f() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<pre><code class="language-c">#pragma nullable enable  
+<pre><code class="language-c">#pragma nullable enable
+
 struct X {  char * text; };  
 
 struct X f() {  
@@ -305,7 +311,8 @@ struct X f() {
 
 <p><code>malloc</code> has a built-in semantics indicating the object is uninitialized. </p>
 
-<pre><code class="language-c">#pragma nullable enable  
+<pre><code class="language-c">#pragma nullable enable
+
 char * _Opt strdup(const char * src);  
 void * _Opt malloc(unsigned int sz);
 
@@ -355,7 +362,8 @@ Applying <code>_Opt</code> qualifier to structs makes all members nullable.</p>
 
 <p>For instance, the previous calloc sample can be written as.</p>
 
-<pre><code class="language-c">#pragma nullable enable  
+<pre><code class="language-c">#pragma nullable enable
+
 char * _Opt strdup(const char * src);  
 void * _Opt calloc(unsigned int n, unsigned int sz);
 
@@ -463,18 +471,28 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h5>#pragma ownership enabled</h5>
+<pre><code class="language-c">#pragma safety enable
 
+#include &lt;stdio.h&gt;
+
+int main()
+{
+    FILE *_Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    if (f)
+    {
+       // fclose(f);
+    }
+} // warning 
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<blockquote>
 <p>Object lifetime checks are enabled with the <code>#pragma ownership enable</code>.<br>
 Qualifiers like <code>_Owner</code> can be used when ownership is disabled but they are ignored.</p>
 
-<h5>#pragma safety enabled</h5>
-
-<p><code>#pragma safety enable</code> is equivalent of :</p>
-
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
-</code></pre>
+<p><code>#pragma safety enable</code> is equivalent of <code>#pragma nullable enable</code> + <code>#pragma ownership enable</code></p>
+</blockquote>
 
 <p>Sample:  </p>
 

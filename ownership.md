@@ -67,8 +67,10 @@ Assign `p` to `nullptr` will generate a warning, because `p` is non nullable.
 The conversion from a non-nullable pointer to a nullable one is allowed, as shown below:
 
 ```c
-#pragma nullable enable  
-char * get_name();  
+#pragma nullable enable
+
+char * get_name();
+
 int main(){
   char * _Opt s = get_name(); 
 }
@@ -157,7 +159,7 @@ Although a runtime check is in place, it is not as safe as a compile-time check 
 within a rarely used branch, allowing the bug to remain inactive.
 
 For this reason, a 'contract' approach is also being developed in Cake with the objective of moving
-the assert to function `is_empty` contract.
+the assert close to function `is_empty`.
 
 The advantage of contracts, as mentioned earlier, is that the postconditions are 
 located in a single place. This is useful not only to avoid code repetition but 
@@ -189,7 +191,8 @@ int main(){
 The non-nullable on the other hand can transitioning from uninitialized to non-null.
 
 ```c
-#pragma nullable enable  
+#pragma nullable enable
+
 char * _Opt strdup(const char * src);  
 
 struct X {  char * text; };  
@@ -210,7 +213,8 @@ The null-uninitialized state is invalid for non-nullable pointers, just as the
 uninitialized state is for any pointer.
 
 ```c
-#pragma nullable enable  
+#pragma nullable enable
+
 char * _Opt strdup(const char * src);  
 
 struct X {  char * text; };  
@@ -233,7 +237,8 @@ or partially initialized object will result in a warning.
 For instance.
 
 ```c
-#pragma nullable enable  
+#pragma nullable enable
+
 struct X {  char * text; };  
 
 struct X f() {  
@@ -246,7 +251,8 @@ struct X f() {
   
   
 ```c
-#pragma nullable enable  
+#pragma nullable enable
+
 struct X {  char * text; };  
 
 struct X f() {  
@@ -260,7 +266,8 @@ struct X f() {
 `malloc` has a built-in semantics indicating the object is uninitialized. 
 
 ```c
-#pragma nullable enable  
+#pragma nullable enable
+
 char * _Opt strdup(const char * src);  
 void * _Opt malloc(unsigned int sz);
 
@@ -312,7 +319,8 @@ Applying `_Opt` qualifier to structs makes all members nullable.
 For instance, the previous calloc sample can be written as.
 
 ```c  
-#pragma nullable enable  
+#pragma nullable enable
+
 char * _Opt strdup(const char * src);  
 void * _Opt calloc(unsigned int n, unsigned int sz);
 
@@ -428,19 +436,30 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
-##### \#pragma ownership enabled
-
-Object lifetime checks are enabled with the `#pragma ownership enable`.      
-Qualifiers like `_Owner` can be used when ownership is disabled but they are ignored.
-
-##### \#pragma safety enabled  
-
-`#pragma safety enable` is equivalent of :
 
 ```c
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
+#include <stdio.h>
+
+int main()
+{
+    FILE *_Owner _Opt f = fopen("file.txt", "r");
+    if (f)
+    {
+       // fclose(f);
+    }
+} // warning 
 ```
+
+<button onclick="Try(this)">try</button>
+
+
+> Object lifetime checks are enabled with the `#pragma ownership enable`.      
+> Qualifiers like `_Owner` can be used when ownership is disabled but they are ignored.
+
+
+> `#pragma safety enable` is equivalent of `#pragma nullable enable` + `#pragma ownership enable`
 
 Sample:  
 
