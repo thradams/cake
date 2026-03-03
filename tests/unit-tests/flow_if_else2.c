@@ -9,7 +9,7 @@ struct X { char* _Owner _Opt name; };
 void x_destroy(_Dtor struct X*  p);
 struct X f();
 
-void f()
+void g()
 {
     {
         struct X x = {0};   

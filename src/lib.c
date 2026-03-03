@@ -11776,12 +11776,6 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #pragma comment (lib, "Rpcrt4.lib")
 
 #else
-
-
-#include <uuid/uuid.h>
-/*
-caso nao tenha este arquivos apt-get install uuid-dev
-*/
 #endif
 
 
@@ -16865,6 +16859,7 @@ struct declarator
     bool declarator_renamed;
 };
 
+struct function_declarator* declarator_find_function_declarator(const struct declarator* p_declarator);
 const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p);
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
@@ -28810,7 +28805,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.70"
+#define CAKE_VERSION "0.12.71"
 
 
 
@@ -31022,20 +31017,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             assert(p_declaration->init_declarator_list.head != NULL); //because functions definitions have names
 
-            struct declarator* inner = p_declaration->init_declarator_list.head->p_declarator;
-            for (;;)
-            {
-                if (inner->direct_declarator &&
-                    inner->direct_declarator->function_declarator &&
-                    inner->direct_declarator->function_declarator->direct_declarator &&
-                    inner->direct_declarator->function_declarator->direct_declarator->declarator)
-                {
-                    inner = inner->direct_declarator->function_declarator->direct_declarator->declarator;
-                }
-                else
-                    break;
-            }
-
 
             if (ctx->current == NULL)
             {
@@ -31056,17 +31037,20 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             ctx->p_current_function_opt = p_declarator;
 
 
-            if (inner->direct_declarator->function_declarator == NULL)
+            if (p_declarator->name_opt == NULL)
             {
-                if (inner->first_token_opt)
-                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, inner->first_token_opt, NULL, "missing function declarator");
+                if (p_declarator->first_token_opt)
+                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_declarator->first_token_opt, NULL, "missing function declarator");
                 else
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "missing function declarator");
 
                 throw;
             }
 
-            struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
+            struct function_declarator* pfuncdecl = declarator_find_function_declarator(p_declarator);
+            if (pfuncdecl == NULL) throw;
+
+            struct scope* parameters_scope = &pfuncdecl->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
 
             struct scope* _Opt p_current_function_scope_opt = ctx->p_current_function_scope_opt;
@@ -34506,21 +34490,24 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
     return p_declarator;
 }
 
-const char* _Opt declarator_get_name(struct declarator* p_declarator)
+struct function_declarator* declarator_find_function_declarator(const struct declarator* p_declarator)
 {
+    
     if (p_declarator->direct_declarator)
     {
-        if (p_declarator->direct_declarator->name_opt)
-            return p_declarator->direct_declarator->name_opt->lexeme;
+        if (p_declarator->direct_declarator->declarator)
+            return declarator_find_function_declarator(p_declarator->direct_declarator->declarator);
+        if (p_declarator->direct_declarator->function_declarator)
+        {
+            if (p_declarator->direct_declarator->function_declarator->direct_declarator &&
+                p_declarator->direct_declarator->function_declarator->direct_declarator->declarator)
+            {
+                return declarator_find_function_declarator(p_declarator->direct_declarator->function_declarator->direct_declarator->declarator);
+            }
+            return p_declarator->direct_declarator->function_declarator;
+        }
     }
-
     return NULL;
-}
-
-bool declarator_is_function(struct declarator* p_declarator)
-{
-    return (p_declarator->direct_declarator &&
-        p_declarator->direct_declarator->function_declarator != NULL);
 }
 
 struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
@@ -58023,18 +58010,24 @@ static bool type_is_same_core(const struct type* a,
                 return false;
             }
 
-            struct param* _Opt p_param_a = pa->params.head;
-            struct param* _Opt p_param_b = pb->params.head;
-            while (p_param_a && p_param_b)
+            if (!pa->params.is_void && !pb->params.is_void)
             {
-                if (!type_is_same(&p_param_a->type, &p_param_b->type, compare_qualifiers))
+                struct param* _Opt p_param_a = pa->params.head;
+                struct param* _Opt p_param_b = pb->params.head;
+                while (p_param_a && p_param_b)
+                {
+                    if (!type_is_same(&p_param_a->type, &p_param_b->type, compare_qualifiers))
+                    {
+                        return false;
+                    }
+                    p_param_a = p_param_a->next;
+                    p_param_b = p_param_b->next;
+                }
+                if (p_param_a != NULL || p_param_b != NULL)
                 {
                     return false;
                 }
-                p_param_a = p_param_a->next;
-                p_param_b = p_param_b->next;
             }
-            return p_param_a == NULL && p_param_b == NULL;
         }
 
         if (pa->struct_or_union_specifier &&
@@ -58363,6 +58356,10 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             {
                 p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;
                 p_func->params.is_void = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_void;
+            }
+            else
+            {
+                p_func->params.is_void = true;
             }
 
             if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&

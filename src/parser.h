@@ -780,6 +780,7 @@ struct declarator
     bool declarator_renamed;
 };
 
+struct function_declarator* declarator_find_function_declarator(const struct declarator* p_declarator);
 const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p);
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);

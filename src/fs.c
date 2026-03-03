@@ -36,10 +36,6 @@
 #else
 #include <stdlib.h>
 #include <unistd.h>
-#include <uuid/uuid.h>
-/*
-caso nao tenha este arquivos apt-get install uuid-dev
-*/
 #endif
 
 #include <assert.h>
