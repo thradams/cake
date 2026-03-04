@@ -1954,7 +1954,11 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     }
                     else
                     {
-                        //TODO overflow
+                        if (item_size > SIZE_MAX - size)
+                        {
+                            sizeof_error = ESIZEOF_OVERLOW;
+                            throw;
+                        }
                         size += item_size;
                     }
                     type_destroy(&t);
@@ -2079,7 +2083,11 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     }
                     else
                     {
-                        //TODO overflow
+                        if (item_size > SIZE_MAX - size)
+                        {
+                            sizeof_error = ESIZEOF_OVERLOW;
+                            throw;
+                        }
                         size += item_size;
                     }
                     type_destroy(&t);

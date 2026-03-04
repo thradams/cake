@@ -921,7 +921,7 @@ enum diagnostic_id {
     W_FLOAT_RANGE = 63,
 
     
-    W_UNUSED_WARNING_64 = 64,
+    W_WARNING_LIT_STRING = 64,
     W_UNUSED_WARNING_65 = 65,
     W_UNUSED_WARNING_66 = 66,
     W_UNUSED_WARNING_67 = 67,
@@ -22340,9 +22340,23 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
               but since we keep the source format here it was an alternative
             */
 
+            const struct token* first_string_token = ctx->current;
             while (ctx->current->type == TK_STRING_LITERAL)
             {
-                //"part1" "part2" TODO check different types
+                if (ctx->current != first_string_token)
+                {
+                    // check that prefixes match (e.g. don't mix L"" with u"")
+                    const char* p1 = first_string_token->lexeme;
+                    const char* p2 = ctx->current->lexeme;
+                    int len1 = 0, len2 = 0;
+                    while (p1[len1] != '"') len1++;
+                    while (p2[len2] != '"') len2++;
+                    if (len1 != len2 || strncmp(p1, p2, len1) != 0)
+                    {
+                        compiler_diagnostic(W_WARNING_LIT_STRING, ctx, ctx->current, NULL,
+                            "concatenation of string literals with different encoding prefixes");
+                    }
+                }
 
 
                 const unsigned char* _Opt it = (unsigned char*)ctx->current->lexeme;
@@ -24095,8 +24109,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             if (ctx->current->type != TK_IDENTIFIER)
             {
-                //TODO
-                //https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html#Offsetof
+                // GCC extension: __builtin_offsetof supports designators like
+                // s.field or arr[0].field, but only simple identifier is currently
+                // implemented. https://gcc.gnu.org/onlinedocs/gcc/Offsetof.html
+                compiler_diagnostic(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, NULL,
+                    "__builtin_offsetof: only a simple member name is supported");
                 expression_delete(new_expression);
                 throw;
             }
@@ -25501,7 +25518,44 @@ static void check_comparison(struct parser_ctx* ctx,
     struct expression* p_b_expression,
     const struct token* op_token)
 {
-    //TODO more checks unsigned < 0
+    // unsigned_expr < 0 is always false; unsigned_expr >= 0 is always true
+    if (type_is_unsigned_integer(&p_a_expression->type) && expression_is_zero(p_b_expression))
+    {
+        if (op_token->type == '<')
+        {
+            compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT,
+                                ctx,
+                                op_token, NULL,
+                                "comparison of unsigned expression < 0 is always false");
+        }
+        else if (op_token->type == '>=')
+        {
+            compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT,
+                                ctx,
+                                op_token, NULL,
+                                "comparison of unsigned expression >= 0 is always true");
+        }
+    }
+
+    // 0 > unsigned_expr is always false; 0 <= unsigned_expr is always true
+    if (type_is_unsigned_integer(&p_b_expression->type) && expression_is_zero(p_a_expression))
+    {
+        if (op_token->type == '>')
+        {
+            compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT,
+                                ctx,
+                                op_token, NULL,
+                                "comparison 0 > unsigned expression is always false");
+        }
+        else if (op_token->type == '<=')
+        {
+            compiler_diagnostic(W_CONDITIONAL_IS_CONSTANT,
+                                ctx,
+                                op_token, NULL,
+                                "comparison 0 <= unsigned expression is always true");
+        }
+    }
+
     bool equal_not_equal =
         op_token->type == '!=' ||
         op_token->type == '==';
@@ -28805,7 +28859,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.71"
+#define CAKE_VERSION "0.12.72"
 
 
 
@@ -32978,14 +33032,42 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             if (p_complete->attribute_specifier_sequence_opt &&
                 p_complete->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
             {
+                // extract optional reason from [[deprecated("reason")]]
+                const char* _Opt deprecated_reason = NULL;
+                const struct attribute_specifier* _Opt p_as = p_complete->attribute_specifier_sequence_opt->head;
+                while (p_as && deprecated_reason == NULL)
+                {
+                    if (p_as->attribute_list)
+                    {
+                        const struct attribute* _Opt p_a = p_as->attribute_list->head;
+                        while (p_a)
+                        {
+                            if ((p_a->attributes_flags & STD_ATTRIBUTE_DEPRECATED) &&
+                                p_a->attribute_argument_clause &&
+                                p_a->attribute_argument_clause->p_balanced_token_sequence &&
+                                p_a->attribute_argument_clause->p_balanced_token_sequence->head)
+                            {
+                                deprecated_reason = p_a->attribute_argument_clause->p_balanced_token_sequence->head->token->lexeme;
+                            }
+                            p_a = p_a->next;
+                        }
+                    }
+                    p_as = p_as->next;
+                }
+
                 if (p_struct_or_union_specifier->tagtoken)
                 {
-                    // TODO add deprecated message
-                    compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                    if (deprecated_reason)
+                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated: %s", p_struct_or_union_specifier->tagtoken->lexeme, deprecated_reason);
+                    else
+                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
                 }
                 else
                 {
-                    compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated");
+                    if (deprecated_reason)
+                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated: %s", deprecated_reason);
+                    else
+                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated");
                 }
             }
         }
@@ -57053,7 +57135,11 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     }
                     else
                     {
-                        //TODO overflow
+                        if (item_size > SIZE_MAX - size)
+                        {
+                            sizeof_error = ESIZEOF_OVERLOW;
+                            throw;
+                        }
                         size += item_size;
                     }
                     type_destroy(&t);
@@ -57178,7 +57264,11 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     }
                     else
                     {
-                        //TODO overflow
+                        if (item_size > SIZE_MAX - size)
+                        {
+                            sizeof_error = ESIZEOF_OVERLOW;
+                            throw;
+                        }
                         size += item_size;
                     }
                     type_destroy(&t);

@@ -4136,14 +4136,42 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             if (p_complete->attribute_specifier_sequence_opt &&
                 p_complete->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
             {
+                // extract optional reason from [[deprecated("reason")]]
+                const char* _Opt deprecated_reason = NULL;
+                const struct attribute_specifier* _Opt p_as = p_complete->attribute_specifier_sequence_opt->head;
+                while (p_as && deprecated_reason == NULL)
+                {
+                    if (p_as->attribute_list)
+                    {
+                        const struct attribute* _Opt p_a = p_as->attribute_list->head;
+                        while (p_a)
+                        {
+                            if ((p_a->attributes_flags & STD_ATTRIBUTE_DEPRECATED) &&
+                                p_a->attribute_argument_clause &&
+                                p_a->attribute_argument_clause->p_balanced_token_sequence &&
+                                p_a->attribute_argument_clause->p_balanced_token_sequence->head)
+                            {
+                                deprecated_reason = p_a->attribute_argument_clause->p_balanced_token_sequence->head->token->lexeme;
+                            }
+                            p_a = p_a->next;
+                        }
+                    }
+                    p_as = p_as->next;
+                }
+
                 if (p_struct_or_union_specifier->tagtoken)
                 {
-                    // TODO add deprecated message
-                    compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                    if (deprecated_reason)
+                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated: %s", p_struct_or_union_specifier->tagtoken->lexeme, deprecated_reason);
+                    else
+                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
                 }
                 else
                 {
-                    compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated");
+                    if (deprecated_reason)
+                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated: %s", deprecated_reason);
+                    else
+                        compiler_diagnostic(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, NULL, "deprecated");
                 }
             }
         }

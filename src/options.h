@@ -92,7 +92,7 @@ enum diagnostic_id {
     W_FLOAT_RANGE = 63,
 
     
-    W_UNUSED_WARNING_64 = 64,
+    W_WARNING_LIT_STRING = 64,
     W_UNUSED_WARNING_65 = 65,
     W_UNUSED_WARNING_66 = 66,
     W_UNUSED_WARNING_67 = 67,
