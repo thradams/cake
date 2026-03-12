@@ -1,6 +1,10 @@
 
-struct [[deprecated("asdsa")]] X { int i;  };
-
-int main() {    
-    struct X x;
+int f(int a)
+{
+    return a * 2;
+}
+int main()
+{
+    int r = f(2);
+    return r;
 }

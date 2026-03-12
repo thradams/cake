@@ -294,6 +294,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-S") == 0)
+        {
+            options->asm_output = true;
+            continue;
+        }
+
         if (strcmp(argv[i], "-preprocess-def-macro") == 0)
         {
             options->preprocess_def_macro = true;

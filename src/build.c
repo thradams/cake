@@ -29,6 +29,7 @@
     " compile.c "             \
     " visit_defer.c "         \
     " visit_il.c "            \
+    " visit_asm.c "           \
     " flow.c "                \
     " error.c "               \
     " target.c "              \

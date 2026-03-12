@@ -30,6 +30,7 @@
 #endif
 
 #include "visit_il.h"
+#include "visit_asm.h"
 #include <time.h>
 
 
@@ -458,12 +459,25 @@ int compile_one_file(const char* file_name,
             {
 
                 struct osstream ss = { 0 };
-                struct d_visit_ctx ctx2 = { 0 };
-                ctx2.ast = ast;
-                ctx2.options = ctx.options;
-                d_visit(&ctx2, &ss);
-                p_output_string = ss.c_str; //MOVE
-                d_visit_ctx_destroy(&ctx2);
+
+                if (options->asm_output)
+                {
+                    struct asm_visit_ctx actx = { 0 };
+                    actx.ast = ast;
+                    actx.options = ctx.options;
+                    asm_visit(&actx, &ss);
+                    p_output_string = ss.c_str; //MOVE
+                    asm_visit_ctx_destroy(&actx);
+                }
+                else
+                {
+                    struct d_visit_ctx ctx2 = { 0 };
+                    ctx2.ast = ast;
+                    ctx2.options = ctx.options;
+                    d_visit(&ctx2, &ss);
+                    p_output_string = ss.c_str; //MOVE
+                    d_visit_ctx_destroy(&ctx2);
+                }
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
@@ -995,14 +1009,25 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
 
 
             struct osstream ss = { 0 };
-            struct d_visit_ctx ctx2 = { 0 };
-            ctx2.ast = ast;
-            ctx2.options = options;
-            d_visit(&ctx2, &ss);
-            s = ss.c_str; //MOVED                
-            //ss.c_str = NULL;
-            //ss_close(&ss);
-            d_visit_ctx_destroy(&ctx2);
+
+            if (options.asm_output)
+            {
+                struct asm_visit_ctx actx = { 0 };
+                actx.ast = ast;
+                actx.options = options;
+                asm_visit(&actx, &ss);
+                s = ss.c_str; //MOVED
+                asm_visit_ctx_destroy(&actx);
+            }
+            else
+            {
+                struct d_visit_ctx ctx2 = { 0 };
+                ctx2.ast = ast;
+                ctx2.options = options;
+                d_visit(&ctx2, &ss);
+                s = ss.c_str; //MOVED
+                d_visit_ctx_destroy(&ctx2);
+            }
 
 
         }
