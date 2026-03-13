@@ -14,7 +14,6 @@
 #include "error.h"
 #include "parser.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 #include <math.h>
 
@@ -457,7 +456,6 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     case TYPE_SIGNED_SHORT:
     case TYPE_SIGNED_INT:
         snprintf(str, n, "%lld", a->value.host_long_long);
-        break;
         break;
 
     case TYPE_SIGNED_LONG:

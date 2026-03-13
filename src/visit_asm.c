@@ -736,7 +736,7 @@ static void asm_visit_expression(struct asm_visit_ctx* ctx, struct osstream* oss
     }
     break;
 
-    case PRIMARY_EXPRESSION_PARENTESIS:
+    case PRIMARY_EXPRESSION_PARENTHESIS:
         assert(p_expression->right != NULL);
         asm_visit_expression(ctx, oss, p_expression->right);
         break;
@@ -2225,8 +2225,6 @@ static void asm_visit_init_declarator(struct asm_visit_ctx* ctx, struct osstream
     const bool is_block_scope = (storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE);
     const bool is_function_body = p_init_declarator->p_declarator->function_body != NULL;
 
-    fprintf(stderr, "DEBUG init_declarator: is_function=%d is_typedef=%d is_extern=%d is_static=%d is_block_scope=%d is_function_body=%d\n",
-        is_function, is_typedef, is_extern, is_static, is_block_scope, is_function_body);
 
     if (is_typedef) return;
     if (is_extern && !is_function_body) return; /* extern declarations - linker resolves */
@@ -2235,7 +2233,6 @@ static void asm_visit_init_declarator(struct asm_visit_ctx* ctx, struct osstream
     if (p_init_declarator->p_declarator->name_opt)
         name = p_init_declarator->p_declarator->name_opt->lexeme;
 
-    fprintf(stderr, "DEBUG init_declarator: name='%s'\n", name);
 
     if (is_function && is_function_body)
     {
@@ -2434,12 +2431,10 @@ void asm_visit(struct asm_visit_ctx* ctx, struct osstream* oss)
     int decl_count = 0;
     while (p_declaration)
     {
-        decl_count++;
-        fprintf(stderr, "DEBUG: declaration %d, init_declarator_list.head=%p\n", decl_count, (void*)p_declaration->init_declarator_list.head);
+        decl_count++;        
         asm_visit_declaration(ctx, oss, p_declaration);
         p_declaration = p_declaration->next;
     }
-    fprintf(stderr, "DEBUG: total declarations: %d\n", decl_count);
 
     /* Emit .rodata section (string literals, float constants) */
     if (ctx->rodata_section.size > 0)

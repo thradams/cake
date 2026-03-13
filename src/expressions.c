@@ -46,7 +46,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
 struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
-struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
+
 
 
 static int compare_function_arguments(struct parser_ctx* ctx,
@@ -934,7 +934,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         const bool suffix_ul = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0');
 
         const bool suffix_ll = (suffix[0] == 'L' && suffix[1] == 'L' && suffix[2] == '\0') ||
-            (suffix[0] == 'i' && suffix[1] == '6' || suffix[2] == '4' && suffix[2] == '\0');
+              (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0');
 
         const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
 
@@ -1110,7 +1110,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
             }
             else if ((value > 0 && value > (double)FLT_MAX) ||
-                     (value < 0 && value < (double)FLT_MAX))
+                     (value < 0 && value < -(double)FLT_MAX))
             {
                 compiler_diagnostic(W_FLOAT_RANGE,
                                     ctx,
@@ -1631,7 +1631,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
-            p_expression_node->expression_type = PRIMARY_EXPRESSION_PARENTESIS;
+            p_expression_node->expression_type = PRIMARY_EXPRESSION_PARENTHESIS;
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -4509,7 +4509,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            new_expression->right = multiplicative_expression(ctx, eval_mode);
+            new_expression->right = additive_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -6211,7 +6211,7 @@ bool expression_is_lvalue(const struct expression* expr)
         break;
     }
 
-    if (expr->expression_type == PRIMARY_EXPRESSION_PARENTESIS &&
+    if (expr->expression_type == PRIMARY_EXPRESSION_PARENTHESIS &&
         expr->right)
     {
         return expression_is_lvalue(expr->right);

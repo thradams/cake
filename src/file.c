@@ -1,10 +1,7 @@
 
-int f(int a)
-{
-    return a * 2;
-}
-int main()
-{
-    int r = f(2);
-    return r;
-}
+#define abs_val(x) _Generic((x),  \
+    int:    ((x) < 0 ? -(x) : (x)), \
+    double: ((x) < 0 ? -(x) : (x)))
+
+_Static_assert(abs_val(-5)   == 5,   "_Generic abs int");
+

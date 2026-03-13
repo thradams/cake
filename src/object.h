@@ -3,7 +3,14 @@
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
  *
- *  struct object is used to compute the compile time expressions (including constexpr)
+ *  This file implements the `object` system used for compile-time constant
+ *  value tracking and folding in the Cake C compiler.
+ *
+ *  An `object` represents a typed value (integer, float, or composite) that
+ *  the compiler tracks statically. Each object carries a value_type
+ *  (e.g. TYPE_SIGNED_INT, TYPE_DOUBLE), a state indicating whether the value
+ *  is a known constant, unknown, or a reference to another object, and the
+ *  actual value stored in a union of host integer/float types.
  *
 */
 

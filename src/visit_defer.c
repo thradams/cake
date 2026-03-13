@@ -9,10 +9,8 @@
 
 #include <assert.h>
 #include <string.h>
-#include <assert.h>
 #include "visit_defer.h"
 #include "expressions.h"
-#include "ownership.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -46,7 +44,7 @@ struct defer_scope
 
 void defer_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_declaration);
 static void defer_visit_declarator(struct defer_visit_ctx* ctx, struct declarator* p_declarator);
-static void defer_visit_init_declarator_list(struct defer_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);;
+static void defer_visit_init_declarator_list(struct defer_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
 static void defer_visit_secondary_block(struct defer_visit_ctx* ctx, struct secondary_block* p_secondary_block);
 static void defer_visit_statement(struct defer_visit_ctx* ctx, struct statement* p_statement);
 static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_item* p_block_item);

@@ -193,7 +193,6 @@ int generate_config_file(const char* configpath)
         FILE* fp = popen(command, "r");
         if (fp == NULL)
         {
-            fprintf(stderr, "Failed to run command\n");
             error = errno;
             throw;
         }
@@ -631,9 +630,6 @@ static int compile_many_files(const char* file_name,
             /* skip self and parent */
             continue;
         }
-
-        char fromlocal[257] = { 0 };
-        snprintf(fromlocal, sizeof fromlocal, "%s/%s", "", dp->d_name);
 
         if (dp->d_type & DT_DIR)
         {

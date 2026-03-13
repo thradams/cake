@@ -713,10 +713,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         object_print_value(oss, &p_expression->object, ctx->options.target);
         break;
 
-    case PRIMARY_EXPRESSION_PARENTESIS:
+    case PRIMARY_EXPRESSION_PARENTHESIS:
 
         assert(p_expression->right != NULL);
-        if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
+        if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
         {
             //removes extra (()) ,we also could remove from other..
             d_visit_expression(ctx, oss, p_expression->right);

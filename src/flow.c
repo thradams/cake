@@ -8,10 +8,8 @@
 #include "ownership.h"
 #include <assert.h>
 #include <string.h>
-#include <assert.h>
 #include "flow.h"
 #include "expressions.h"
-#include "ownership.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -3096,7 +3094,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             p_object->is_temporary = true;
             return p_object;
         }
-        else if (p_expression->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
+        else if (p_expression->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
         {
             assert(p_expression->right != NULL);
             return expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
@@ -5296,7 +5294,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
-    case PRIMARY_EXPRESSION_PARENTESIS:
+    case PRIMARY_EXPRESSION_PARENTHESIS:
         assert(p_expression->right != NULL);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         break;
