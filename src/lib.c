@@ -2793,8 +2793,9 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
 
         if (stream->current[0] == '.')
         {
+            stream_match(stream);
             type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
-            hexadecimal_digit_sequence(stream);
+            digit_sequence_opt(stream);
             floating_suffix_opt(stream, suffix);
         }
     }
@@ -28887,7 +28888,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.76"
+#define CAKE_VERSION "0.12.77"
 
 
 

@@ -1,2 +1,1 @@
-
-static_assert(_Generic(0, int: -1) == -1);
+static_assert(sizeof(0.0f) == sizeof(float));
