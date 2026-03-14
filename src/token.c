@@ -1381,9 +1381,8 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
 
         if (stream->current[0] == '.')
         {
-            stream_match(stream);
             type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
-            digit_sequence_opt(stream);
+            hexadecimal_digit_sequence(stream);
             floating_suffix_opt(stream, suffix);
         }
     }
