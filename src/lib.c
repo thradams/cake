@@ -810,6 +810,8 @@ const char* target_get_builtins(enum target e);
 
 
 long long target_signed_max(enum  target target, enum object_type type);
+long long target_signed_min(enum  target target, enum object_type type);
+
 unsigned long long target_unsigned_max(enum  target target, enum object_type type);
 
 
@@ -18385,7 +18387,7 @@ void object_increment_value(enum target target, struct object* a)
     case TYPE_UNSIGNED_INT:
     case TYPE_UNSIGNED_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
-        a->value.host_u_long_long = wrap_signed_integer(a->value.host_u_long_long + 1, target_get_num_of_bits(target, a->value_type));
+        a->value.host_u_long_long = wrap_unsigned_integer(a->value.host_u_long_long + 1, target_get_num_of_bits(target, a->value_type));
         break;
 
     case TYPE_FLOAT:
@@ -18422,6 +18424,7 @@ struct object object_make_signed_short(signed short value)
 struct object object_make_uint8(enum target target, uint8_t value)
 {
     struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(get_platform(target)->int8_type);
     r.value.host_u_long_long = wrap_unsigned_integer(value, 8);
     return r;
@@ -18429,6 +18432,7 @@ struct object object_make_uint8(enum target target, uint8_t value)
 struct object object_make_uint16(enum target target, uint16_t value)
 {
     struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(get_platform(target)->int16_type);
     r.value.host_u_long_long = wrap_unsigned_integer(value, 16);
     return r;
@@ -18436,6 +18440,7 @@ struct object object_make_uint16(enum target target, uint16_t value)
 struct object object_make_uint32(enum target target, uint32_t value)
 {
     struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(get_platform(target)->int32_type);
     r.value.host_u_long_long = wrap_unsigned_integer(value, 32);
     return r;
@@ -18455,7 +18460,7 @@ struct object object_make_unsigned_int(enum target target, unsigned long long va
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_INT;
-    r.value.host_long_long = wrap_unsigned_integer(value, get_platform(target)->int_n_bits);
+    r.value.host_u_long_long = wrap_unsigned_integer(value, get_platform(target)->int_n_bits);
     return r;
 }
 
@@ -18632,7 +18637,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_long_long = wrap_unsigned_integer(v->value.host_long_long, dest_n_bits);
+            r.value.host_u_long_long = wrap_unsigned_integer(v->value.host_long_long, dest_n_bits);
         }
         else
         {
@@ -18683,7 +18688,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = wrap_unsigned_integer((long long)v->value.host_long_double, dest_n_bits);
+            r.value.host_u_long_long = wrap_unsigned_integer((unsigned long long)v->value.host_long_double, dest_n_bits);
         }
         else
         {
@@ -18701,7 +18706,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
         }
         else if (object_type_is_unsigned_integer(dest_type))
         {
-            r.value.host_u_long_long = wrap_unsigned_integer((long long)v->value.host_long_double, dest_n_bits);
+            r.value.host_u_long_long = wrap_unsigned_integer((unsigned long long)v->value.host_long_double, dest_n_bits);
         }
         else
         {
@@ -19465,7 +19470,7 @@ void object_print_to_debug_core(const struct object* object, int n, enum target 
         case CONSTANT_VALUE_STATE_ANY:printf(" unknown "); break;
         case CONSTANT_VALUE_EQUAL:printf(" exact "); break;
         case CONSTANT_VALUE_STATE_CONSTANT:printf(" constant_exact "); break;
-
+        case CONSTANT_VALUE_NOT_EQUAL:printf(" not_equal "); break;
         }
 
         printf("\n");
@@ -20394,6 +20399,14 @@ struct object object_div(enum target target,
             return r;
         }
 
+        const long long m = target_signed_min(target, common_type);
+        if (a0.value.host_long_long == m && b0.value.host_long_long == -1)
+        {
+            snprintf(warning_message, 200, "integer overflow");
+            r.value.host_long_long = m; /* wrapped result stays m */
+            break;
+        }
+
         r.value.host_long_long =
             wrap_signed_integer(a0.value.host_long_long / b0.value.host_long_long, target_get_num_of_bits(target, common_type));
     }
@@ -20556,8 +20569,7 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (!a->value.host_long_double);
-        r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+        r.value.host_long_long = (!a->value.host_long_double);
         break;
     }
 
@@ -20962,8 +20974,6 @@ struct object object_shift_right(enum target target,
 
     return r;
 }
-
-
 
 /*
  *  This file is part of cake compiler
@@ -28877,7 +28887,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.74"
+#define CAKE_VERSION "0.12.75"
 
 
 
@@ -57644,6 +57654,19 @@ long long target_signed_max(enum target target, enum object_type type)
     return (1LL << (bits - 1)) - 1; // 2^(bits-1) - 1    
 }
 
+long long target_signed_min(enum target target, enum object_type type)
+{
+    const int bits = target_get_num_of_bits(target, type);
+    assert(bits <= sizeof(long long) * CHAR_BIT);
+
+    if (bits >= sizeof(long long) * CHAR_BIT)
+    {
+        return LLONG_MIN;
+    }
+
+    return -(1LL << (bits - 1));
+}
+
 unsigned long long target_unsigned_max(enum  target target, enum object_type type)
 {
     const int bits = target_get_num_of_bits(target, type);
@@ -57725,42 +57748,42 @@ const char* target_get_builtins(enum target e)
 
 #ifdef TEST
 
-    void target_self_test()
-    {
-        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
-        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
-        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
-        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
-        assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
+void target_self_test()
+{
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_INT) == UINT_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG) == ULONG_MAX);
+    assert(target_unsigned_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
 
-        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
-        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
-        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
-        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
-        assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == CHAR_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == SHRT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == INT_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == LONG_MAX);
+    assert(target_signed_max(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
 
-        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
-        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
-        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
-        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
-        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
-        
-        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_LONG_DOUBLE) == sizeof(long double) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_INT) == sizeof(int) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG) == sizeof(long) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_SIGNED_LONG_LONG) == sizeof(long long) * CHAR_BIT);
+
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, TYPE_LONG_DOUBLE) == sizeof(long double) * CHAR_BIT);
 
 
-        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->size_t_type) == sizeof(sizeof(1)) * CHAR_BIT);
 
-        assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
+    assert(target_get_num_of_bits(CAKE_COMPILE_TIME_SELECTED_TARGET, get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->wchar_t_type) == sizeof(L' ') * CHAR_BIT);
 
 
 #if CHAR_MIN < 0
-        assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
+    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_SIGNED_CHAR);
 #else
-        assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
+    assert(get_platform(CAKE_COMPILE_TIME_SELECTED_TARGET)->char_t_type == TYPE_UNSIGNED_CHAR);
 #endif
 
 
-    }
+}
 #endif
 
 

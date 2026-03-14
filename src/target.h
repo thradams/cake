@@ -98,6 +98,8 @@ const char* target_get_builtins(enum target e);
 
 
 long long target_signed_max(enum  target target, enum object_type type);
+long long target_signed_min(enum  target target, enum object_type type);
+
 unsigned long long target_unsigned_max(enum  target target, enum object_type type);
 
 

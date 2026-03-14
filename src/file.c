@@ -1,7 +1,10 @@
+int main()
+{
+    //warning: division by zero
+    [[cake::w37]]
+    int a = 2 / 0;
 
-#define abs_val(x) _Generic((x),  \
-    int:    ((x) < 0 ? -(x) : (x)), \
-    double: ((x) < 0 ? -(x) : (x)))
+    [[cake::w37]]
+    static_assert((-2147483647-1)/-1 == -2147483648);
 
-_Static_assert(abs_val(-5)   == 5,   "_Generic abs int");
-
+}
