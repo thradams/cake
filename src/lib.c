@@ -21283,7 +21283,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, enum 
         struct generic_association* _Opt p_default_generic_association = NULL;
 
         struct generic_association* _Owner _Opt p_generic_association =
-            generic_association(ctx, EXPRESSION_EVAL_MODE_TYPE);
+            generic_association(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
         if (p_generic_association == NULL)
             throw;
@@ -28887,7 +28887,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.75"
+#define CAKE_VERSION "0.12.76"
 
 
 

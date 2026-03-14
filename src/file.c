@@ -1,10 +1,2 @@
-int main()
-{
-    //warning: division by zero
-    [[cake::w37]]
-    int a = 2 / 0;
 
-    [[cake::w37]]
-    static_assert((-2147483647-1)/-1 == -2147483648);
-
-}
+static_assert(_Generic(0, int: -1) == -1);
