@@ -1459,7 +1459,6 @@ static void asm_visit_expression(struct asm_visit_ctx* ctx, struct osstream* oss
     case CONDITIONAL_EXPRESSION:
     {
         assert(p_expression->condition_expr != NULL);
-        assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
         int label_false = asm_new_label(ctx);
@@ -1469,7 +1468,12 @@ static void asm_visit_expression(struct asm_visit_ctx* ctx, struct osstream* oss
         emit_line(oss, "testq %%rax, %%rax");
         emit_line(oss, "je .L%d", label_false);
 
-        asm_visit_expression(ctx, oss, p_expression->left);
+        if (p_expression->left != NULL)
+        {
+            /* Normal ternary: evaluate the explicit true-branch expression */
+            asm_visit_expression(ctx, oss, p_expression->left);
+        }
+        /* Elvis (left == NULL): condition result already in %rax, nothing to do */
         emit_line(oss, "jmp .L%d", label_end);
 
         emit_label(oss, label_false);

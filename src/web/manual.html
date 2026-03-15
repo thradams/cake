@@ -223,7 +223,7 @@
 <a href="#toc_61">C23 __VA_OPT__</a>
 </li>
 <li>
-<a href="#toc_62">C23 BitInt(N))</a>
+<a href="#toc_62">C23 BitInt(N)</a>
 </li>
 <li>
 <a href="#toc_63">C23 Compound Literals with storage specifier</a>
@@ -266,39 +266,42 @@
 <li>
 <a href="#toc_75">C2Y Statement expressions</a>
 </li>
+<li>
+<a href="#toc_76">C2Y Elvis operator <code>?:</code></a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_76">Cake Extensions</a>
+<a href="#toc_77">Cake Extensions</a>
 <ul>
 <li>
-<a href="#toc_77">Pre-defined macros in Cake</a>
+<a href="#toc_78">Pre-defined macros in Cake</a>
 </li>
 <li>
-<a href="#toc_78">assert built-in</a>
+<a href="#toc_79">assert built-in</a>
 </li>
 <li>
-<a href="#toc_79">try { throw; } catch {}</a>
+<a href="#toc_80">try { throw; } catch {}</a>
 </li>
 <li>
-<a href="#toc_80">#pragma dir</a>
+<a href="#toc_81">#pragma dir</a>
 </li>
 <li>
-<a href="#toc_81">offsetof</a>
+<a href="#toc_82">offsetof</a>
 </li>
 <li>
-<a href="#toc_82">Type traits</a>
+<a href="#toc_83">Type traits</a>
 </li>
 <li>
-<a href="#toc_83">Extension - Object lifetime checks</a>
+<a href="#toc_84">Extension - Object lifetime checks</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_84">GCC extensions</a>
+<a href="#toc_85">GCC extensions</a>
 </li>
 <li>
-<a href="#toc_85">MSVC extensions</a>
+<a href="#toc_86">MSVC extensions</a>
 </li>
 </ul>
 <h2 id="toc_0">Using cake</h2>
@@ -328,7 +331,7 @@ Visual Studio command prompt the command:</p>
 <pre><code class="language-c">
 #ifdef __linux__
 /*
-   To find the include directories used my GCC type:   
+   To find the include directories used by GCC type:   
    echo | gcc -E -Wp,-v -
 */
 #pragma dir &quot;/usr/lib/gcc/x86_64-linux-gnu/11/include&quot;
@@ -340,10 +343,10 @@ Visual Studio command prompt the command:</p>
 
 #ifdef _WIN32
 /*
-   To find the include directories used my  MSVC,
-   open Visual Studio Developer Commmand prompt and type:
+   To find the include directories used by MSVC,
+   open Visual Studio Developer Command prompt and type:
    echo %INCLUDE%.
-   Running Cake inside mscv command prompt uses %INCLUDE% automatically.
+   Running Cake inside MSVC command prompt uses %INCLUDE% automatically.
 */
 #pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/include&quot;
 #pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/ATLMFC/include&quot;
@@ -386,7 +389,7 @@ SAMPLES
     Compiles source.c and outputs /[default-target]/source.c
 
     cake -target=X86_msvc source.c
-    Compiles source.c and outputs C11 code at /X86_msvc/source.c
+    Compiles source.c and outputs C89 code at /X86_msvc/source.c
 
     cake file.c -o file.cc &amp;&amp; cl file.cc
     Compiles file.c and outputs file.cc then use cl to compile file.cc
@@ -413,10 +416,10 @@ Output tokens before preprocessor</p></li>
 Enables or disable warnings.
 See <a href="warnings.html">warnings</a></p></li>
 <li><p><code>-disable-assert</code>
-Disable cake extension where assert is an statement.</p></li>
+Disable cake extension where assert is a statement.</p></li>
 <li><p><code>-H</code> (same as gcc, /showIncludes in MSVC)
 Causes the compiler to output a list of the include files. </p></li>
-<li><p><code>*-preprocess-def-macro</code>
+<li><p><code>-preprocess-def-macro</code>
 preprocess def macros after expansion</p></li>
 <li><p><code>-Wall</code>
 Enables all warnings</p></li>
@@ -429,13 +432,13 @@ Specifies the Sarif output dir. &quot;Visual Studio -&gt; External Tools&quot;
 <li><p><code>-target</code>
 Defines how the source code is interpreted (integers sizes, align etc) and specifies the
 C89 output that is compatible with the target compiler.
-Options: x86_x64_gcc, x64_msvc, x64_msvc, catalina, ccu8</p></li>
+Options: x86<em>x64</em>gcc, x86<em>msvc, x64</em>msvc, catalina, ccu8</p></li>
 <li><p><code>-msvc-output</code> Output is compatible with Visual Studio IDE. </p></li>
 <li><p><code>-fdiagnostics-color=never</code> (same as GCC) Output will not use colors</p></li>
 <li><p><code>-fanalyzer</code> runs cake flow analysis</p></li>
 <li><p><code>-auto-config</code> Generates cakeconfig.h header (see includes)</p></li>
 <li><p><code>-style=name</code> Set the style used in (w011) style warnings. Options are <code>-style=cake</code>, <code>-style=gnu</code>, <code>-style=microsoft</code></p></li>
-<li><p><code>-comment-to-attr</code> Converts at preprocessor phase, comment like this <code>/*w12*/</code> to attributes <code>[[cake::w12]]</code></p></li>
+<li><p><code>-comment-to-attr</code> Converts at the preprocessor phase, comment like this <code>/*w12*/</code> to attributes <code>[[cake::w12]]</code></p></li>
 <li><p><code>-const-literal</code> Makes the compiler handle string literals as const char[] rather than char[].</p></li>
 </ul>
 
@@ -917,7 +920,7 @@ char * s2 = u8&quot;maca&quot;;
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf</a></p>
 
-<pre><code class="language-c">#define __STDC_VERSION__ 201710L  //C17
+<pre><code class="language-c">#define __STDC_VERSION__ 201710L  //C17 (Cake accepts C17 source)
 #define __STDC_VERSION__ 202311L  //C23
 </code></pre>
 
@@ -1140,7 +1143,7 @@ int main()
 
 <h3 id="toc_47">C23 Improved Normal Enumerations</h3>
 
-<p>//TODO</p>
+<p>TODO</p>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm</a></p>
 
@@ -1260,7 +1263,7 @@ void f(int n) {
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf</a></p>
 
-<pre><code class="language-c">// Compil with -w03
+<pre><code class="language-c">// Compile with -w03
 [[deprecated]] void f2() {}
 struct [[deprecated]] S {  int a;};
 enum [[deprecated]] E1 { one };
@@ -1323,7 +1326,7 @@ void call(void) {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>Cake implementation is missing the message.</p>
+<p>Cake implementation does not yet support the optional message argument of <code>[[nodiscard(&quot;message&quot;)]]</code>.</p>
 
 <h3 id="toc_55">C23 [[unsequenced]] and [[reproducible]]</h3>
 
@@ -1450,7 +1453,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_62">C23 BitInt(N))</h3>
+<h3 id="toc_62">C23 BitInt(N)</h3>
 
 <p>TODO 
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf</a></p>
@@ -2325,16 +2328,108 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h2 id="toc_76">Cake Extensions</h2>
+<h3 id="toc_76">C2Y Elvis operator <code>?:</code></h3>
 
-<h3 id="toc_77">Pre-defined macros in Cake</h3>
+<p><a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt</a></p>
+
+<p>The elvis operator is a shorthand for the ternary operator where the middle operand
+is omitted. When the condition is true, the condition&#39;s own value is returned — evaluated only <strong>once</strong>.</p>
+
+<pre><code>a ?: b
+</code></pre>
+
+<p>is equivalent to <code>a ? a : b</code>, except <code>a</code> is evaluated exactly once.</p>
+
+<h4>Basic usage</h4>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int main()
+{
+    int x = 0;
+    int y = 5;
+
+    /* returns y because x is 0 (falsy) */
+    int r1 = x ?: y;
+    printf(&quot;%d\n&quot;, r1); /* 5 */
+
+    /* returns x because x is non-zero */
+    x = 3;
+    int r2 = x ?: y;
+    printf(&quot;%d\n&quot;, r2); /* 3 */
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h4>Pointer fallback</h4>
+
+<p>The most common use case — return a pointer if non-null, otherwise a default:</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+const char *get_name(void);
+
+int main()
+{
+    const char *name = get_name();
+    const char *display = name ?: &quot;unknown&quot;;
+    printf(&quot;%s\n&quot;, display);
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h4>Constant expressions</h4>
+
+<p>The elvis operator works in constant expressions:</p>
+
+<pre><code class="language-c">static_assert(1 ?: 0 == 1);
+static_assert(0 ?: 1 == 1);
+
+enum { DEFAULT = 0 ?: 42 };
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h4>Side effects — condition evaluated once</h4>
+
+<p>When the condition has side effects, it is guaranteed to be evaluated exactly once.
+Cake introduces a temporary variable in the C89 output to ensure this:</p>
+
+<pre><code class="language-c">int i = 0;
+int b = 10;
+int r = i++ ?: b;
+/* i is now 1, r is 10 (i++ yielded 0, which is falsy) */
+</code></pre>
+
+<p>C89 output:</p>
+
+<pre><code class="language-c">int __v0;
+__v0 = i++;
+int r = __v0 ? __v0 : b;
+</code></pre>
+
+<h4>Nested elvis</h4>
+
+<p>Elvis associates right-to-left like the ternary operator:</p>
+
+<pre><code class="language-c">int a = 0, b = 0, c = 7;
+int r = a ?: b ?: c; /* 7 */
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h2 id="toc_77">Cake Extensions</h2>
+
+<h3 id="toc_78">Pre-defined macros in Cake</h3>
 
 <pre><code class="language-c"> #define __CAKE__           202311L
  #define __STDC_VERSION__   202311L
  
 </code></pre>
 
-<h3 id="toc_78">assert built-in</h3>
+<h3 id="toc_79">assert built-in</h3>
 
 <p>In cake assert is an built-in function.
 The reason is because it works as tips for flow analysis.</p>
@@ -2388,7 +2483,7 @@ assert works as a state selector, similar to what happens in if statements but w
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_79">try { throw; } catch {}</h3>
+<h3 id="toc_80">try { throw; } catch {}</h3>
 
 <pre><code>   try-statement:
       try secondary-block
@@ -2429,14 +2524,14 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_80">#pragma dir</h3>
+<h3 id="toc_81">#pragma dir</h3>
 
 <pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
 </code></pre>
 
 <p>Add the path to the list of directory paths used to seach include files.</p>
 
-<h3 id="toc_81">offsetof</h3>
+<h3 id="toc_82">offsetof</h3>
 
 <p>In cake offset (<a href="https://en.cppreference.com/w/cpp/types/offsetof.html">https://en.cppreference.com/w/cpp/types/offsetof.html</a>) is an operator</p>
 
@@ -2461,7 +2556,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_82">Type traits</h3>
+<h3 id="toc_83">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.</p>
 
@@ -2496,7 +2591,7 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 <p>Note: Type traits that can be easily created with _Generic will be removed.
 _</p>
 
-<h3 id="toc_83">Extension - Object lifetime checks</h3>
+<h3 id="toc_84">Extension - Object lifetime checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
@@ -2505,7 +2600,7 @@ _Opt
 _View
 </code></pre>
 
-<h2 id="toc_84">GCC extensions</h2>
+<h2 id="toc_85">GCC extensions</h2>
 
 <ul>
 <li>__builtin_va_list</li>
@@ -2526,7 +2621,7 @@ _View
 
 <p>See <code>\src\include\x86_x64_gcc_builtins.h</code></p>
 
-<h2 id="toc_85">MSVC extensions</h2>
+<h2 id="toc_86">MSVC extensions</h2>
 
 <ul>
 <li>__ptr32, __ptr64</li>

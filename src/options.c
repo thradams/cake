@@ -420,7 +420,7 @@ int fill_options(struct options* options,
             }
             if (strcmp(argv[i], "-style=microsoft") == 0)
             {
-                options->style = STYLE_GNU;
+                options->style = STYLE_MICROSOFT;
                 continue;
             }
 

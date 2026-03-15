@@ -700,7 +700,7 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
     {
         struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
         if (p_entry &&
-            p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
+            p_entry->type == TAG_TYPE_ENUM_SPECIFIER)
         {
             assert(p_entry->data.p_enum_specifier != NULL);
 
@@ -11980,7 +11980,20 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                             throw;
                         }
                         //current_object->type2.num_of_elements = num_of_elements;
-                        p_current_object_type->num_of_elements = num_of_elements;
+                        if (compute_array_size)
+                        {
+                            p_current_object_type->num_of_elements = num_of_elements;
+                        }
+                        else
+                        {
+                            if (num_of_elements > p_current_object_type->num_of_elements)
+                            {
+                                compiler_diagnostic(W_ARRAY_SIZE, ctx,
+                                    p_initializer_list_item2->initializer->assignment_expression->first_token,
+                                    NULL,
+                                    "initializer-string for char array is too long");
+                            }
+                        }
 
                         //printf("\n");
                         //object_print_to_debug(current_object);

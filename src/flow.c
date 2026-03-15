@@ -3323,13 +3323,17 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
         }
         else if (p_expression->expression_type == CONDITIONAL_EXPRESSION)
         {
-            assert(p_expression->left != NULL);
             assert(p_expression->right != NULL);
 
             struct flow_object* _Opt p_object = make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
 
-            struct flow_object* _Opt p_obj1 = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
+            /* Elvis (left == NULL): reuse condition's flow object as the true branch */
+            struct flow_object* _Opt p_obj1 =
+                expression_get_flow_object(ctx,
+                    p_expression->left ? p_expression->left
+                                       : p_expression->condition_expr,
+                    nullable_enabled);
 
             struct flow_object* _Opt p_obj2 = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
 
@@ -6206,8 +6210,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
         assert(p_expression->condition_expr != NULL);
         assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
-
 
         struct true_false_set true_false_set = { 0 };
 
@@ -6219,7 +6221,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
 
         struct true_false_set set = { 0 };
-        flow_visit_expression(ctx, p_expression->left, &set);
+        /* Elvis (left == NULL): condition result is the true branch — visit
+           condition_expr again so flow sees its state on the true path */
+        flow_visit_expression(ctx,
+            p_expression->left ? p_expression->left
+                               : p_expression->condition_expr,
+            &set);
         true_false_set_destroy(&set);
 
 

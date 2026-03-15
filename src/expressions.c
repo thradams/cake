@@ -5995,14 +5995,24 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 break;
             }
 
-            struct expression* _Owner _Opt p_left = expression(ctx, true_eval_mode);
+            struct expression* _Owner _Opt p_left = NULL;
 
-            if (p_left == NULL)
+            if (ctx->current->type == TK_COLON)
             {
-                expression_delete(p_conditional_expression);
-                throw;
+                /*
+                 * Elvis operator:  a ?: b
+                 */
             }
-            p_conditional_expression->left = p_left;
+            else
+            {
+                p_left = expression(ctx, true_eval_mode);
+                if (p_left == NULL)
+                {
+                    expression_delete(p_conditional_expression);
+                    throw;
+                }
+                p_conditional_expression->left = p_left;
+            }
 
 
             if (parser_match_tk(ctx, TK_COLON) != 0)
@@ -6033,7 +6043,15 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             {
                 if (object_is_true(&p_conditional_expression->condition_expr->object))
                 {
-                    p_conditional_expression->object = object_make_reference(&p_conditional_expression->left->object);
+                    /*
+                     * For elvis (left == NULL) the condition result is the
+                     * true-branch value — use the condition's own object.
+                     */
+                    struct object* true_obj =
+                        (p_conditional_expression->left != NULL)
+                            ? &p_conditional_expression->left->object
+                            : &p_conditional_expression->condition_expr->object;
+                    p_conditional_expression->object = object_make_reference(true_obj);
                 }
                 else
                 {
@@ -6041,13 +6059,22 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 }
             }
 
-            if (expression_is_subjected_to_lvalue_conversion(p_conditional_expression->left))
+            /*
+             * For elvis (left == NULL), the true-branch type is the
+             * condition's own type.
+             */
+            const struct expression* p_left_or_cond =
+                (p_conditional_expression->left != NULL)
+                    ? p_conditional_expression->left
+                    : p_conditional_expression->condition_expr;
+
+            if (expression_is_subjected_to_lvalue_conversion(p_left_or_cond))
             {
-                left_type = type_lvalue_conversion(&p_conditional_expression->left->type, ctx->options.null_checks_enabled);
+                left_type = type_lvalue_conversion(&p_left_or_cond->type, ctx->options.null_checks_enabled);
             }
             else
             {
-                left_type = type_dup(&p_conditional_expression->left->type);
+                left_type = type_dup(&p_left_or_cond->type);
             }
 
             if (expression_is_subjected_to_lvalue_conversion(p_conditional_expression->right))
@@ -6133,7 +6160,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             }
             else if (type_is_pointer(&right_type))
             {
-                if (expression_is_null_pointer_constant(p_conditional_expression->left) ||
+                if (expression_is_null_pointer_constant(p_left_or_cond) ||
                     type_is_nullptr_t(&left_type) ||
                     type_is_void_ptr(&left_type))
                 {
@@ -6221,6 +6248,46 @@ bool expression_is_lvalue(const struct expression* expr)
     {
         return expression_is_lvalue(expr->left);
     }
+
+    return false;
+}
+
+bool expression_has_side_effects(const struct expression* expr)
+{
+    switch (expr->expression_type)
+    {
+    /* assignments */
+    case ASSIGNMENT_EXPRESSION_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+    /* increment / decrement */
+    case POSTFIX_INCREMENT:
+    case POSTFIX_DECREMENT:
+    case UNARY_EXPRESSION_INCREMENT:
+    case UNARY_EXPRESSION_DECREMENT:
+    /* function calls may have arbitrary side effects */
+    case POSTFIX_FUNCTION_CALL:
+        return true;
+
+    default:
+        break;
+    }
+
+    /* recurse into sub-expressions */
+    if (expression_has_side_effects(expr->condition_expr))
+        return true;
+    if (expression_has_side_effects(expr->left))
+        return true;
+    if (expression_has_side_effects(expr->right))
+        return true;
 
     return false;
 }

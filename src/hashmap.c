@@ -49,7 +49,7 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
     {
     case TAG_TYPE_NUMBER:break;
 
-    case TAG_TYPE_ENUN_SPECIFIER:
+    case TAG_TYPE_ENUM_SPECIFIER:
         enum_specifier_delete(p->data.p_enum_specifier);
         break;
     case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
@@ -149,6 +149,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt 
                 void* _Opt p = p_entry->data.p_declarator;
                 free((void* _Owner)p_entry->key);
                 free((void* _Owner)p_entry);
+                map->size--;
 
                 return p;
             }
@@ -192,7 +193,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
     }
     else if (item->p_enum_specifier)
     {
-        type = TAG_TYPE_ENUN_SPECIFIER;
+        type = TAG_TYPE_ENUM_SPECIFIER;
         p = item->p_enum_specifier;
         item->p_enum_specifier = NULL;
 
@@ -291,7 +292,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 {
                 case TAG_TYPE_NUMBER:break;
 
-                case TAG_TYPE_ENUN_SPECIFIER:
+                case TAG_TYPE_ENUM_SPECIFIER:
                     assert(pentry->data.p_enum_specifier != NULL);
                     item->p_enum_specifier = pentry->data.p_enum_specifier;
                     break;
@@ -333,4 +334,3 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
     }
     return result;
 }
-

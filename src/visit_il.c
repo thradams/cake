@@ -1,4 +1,3 @@
-
 #pragma safety enable
 #include "version.h"
 #include "ownership.h"
@@ -1311,13 +1310,48 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case CONDITIONAL_EXPRESSION:
         assert(p_expression->condition_expr != NULL);
-        assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->condition_expr);
-        ss_fprintf(oss, " ? ");
-        d_visit_expression(ctx, oss, p_expression->left);
-        ss_fprintf(oss, " : ");
+        if (p_expression->left == NULL)
+        {
+            if (expression_has_side_effects(p_expression->condition_expr))
+            {
+                char name[100] = { 0 };
+                snprintf(name, sizeof name, CAKE_LOCAL_PREFIX "%d",
+                         ctx->cake_local_declarator_number++);
+
+                struct osstream decl = { 0 };
+                print_identation_core(&decl, ctx->indentation);
+                d_print_type(ctx, &decl,
+                             &p_expression->condition_expr->type, name, false);
+                ss_fprintf(&decl, ";\n");
+                ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+                ss_close(&decl);
+
+                print_identation_core(&ctx->add_this_before, ctx->indentation);
+                ss_fprintf(&ctx->add_this_before, "%s = ", name);
+                d_visit_expression(ctx, &ctx->add_this_before,
+                                   p_expression->condition_expr);
+                ss_fprintf(&ctx->add_this_before, ";\n");
+
+                ss_fprintf(oss, "%s ? %s : ", name, name);
+            }
+            else
+            {
+                /* No side effects — safe to repeat the condition */
+                d_visit_expression(ctx, oss, p_expression->condition_expr);
+                ss_fprintf(oss, " ? ");
+                d_visit_expression(ctx, oss, p_expression->condition_expr);
+                ss_fprintf(oss, " : ");
+            }
+        }
+        else
+        {
+            d_visit_expression(ctx, oss, p_expression->condition_expr);
+            ss_fprintf(oss, " ? ");
+            d_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, " : ");
+        }
         d_visit_expression(ctx, oss, p_expression->right);
         break;
     }

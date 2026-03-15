@@ -259,7 +259,7 @@ enum tag
 {
     TAG_TYPE_NUMBER,
 
-    TAG_TYPE_ENUN_SPECIFIER,
+    TAG_TYPE_ENUM_SPECIFIER,
     TAG_TYPE_STRUCT_OR_UNION_SPECIFIER,
 
     TAG_TYPE_ENUMERATOR,
@@ -3115,7 +3115,7 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
     {
     case TAG_TYPE_NUMBER:break;
 
-    case TAG_TYPE_ENUN_SPECIFIER:
+    case TAG_TYPE_ENUM_SPECIFIER:
         enum_specifier_delete(p->data.p_enum_specifier);
         break;
     case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
@@ -3215,6 +3215,7 @@ void* _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt 
                 void* _Opt p = p_entry->data.p_declarator;
                 free((void* _Owner)p_entry->key);
                 free((void* _Owner)p_entry);
+                map->size--;
 
                 return p;
             }
@@ -3258,7 +3259,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
     }
     else if (item->p_enum_specifier)
     {
-        type = TAG_TYPE_ENUN_SPECIFIER;
+        type = TAG_TYPE_ENUM_SPECIFIER;
         p = item->p_enum_specifier;
         item->p_enum_specifier = NULL;
 
@@ -3357,7 +3358,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
                 {
                 case TAG_TYPE_NUMBER:break;
 
-                case TAG_TYPE_ENUN_SPECIFIER:
+                case TAG_TYPE_ENUM_SPECIFIER:
                     assert(pentry->data.p_enum_specifier != NULL);
                     item->p_enum_specifier = pentry->data.p_enum_specifier;
                     break;
@@ -3399,8 +3400,6 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
     }
     return result;
 }
-
-
 
 /*
  *  This file is part of cake compiler
@@ -14866,7 +14865,7 @@ int fill_options(struct options* options,
             }
             if (strcmp(argv[i], "-style=microsoft") == 0)
             {
-                options->style = STYLE_GNU;
+                options->style = STYLE_MICROSOFT;
                 continue;
             }
 
@@ -16099,6 +16098,8 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
 bool expression_is_lvalue(const struct expression* expr);
 
+bool expression_has_side_effects(const struct expression* expr);
+
 bool expression_is_one(const struct expression* expression);
 bool expression_is_zero(const struct expression* expression);
 bool expression_is_null_pointer_constant(const struct expression* expression);
@@ -16113,9 +16114,6 @@ void check_assigment(struct parser_ctx* ctx,
     const struct type* left_type,
     const struct expression* right,
     enum assigment_type assigment_type);
-
-
-
 
 
 struct scope
@@ -26962,14 +26960,24 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 break;
             }
 
-            struct expression* _Owner _Opt p_left = expression(ctx, true_eval_mode);
+            struct expression* _Owner _Opt p_left = NULL;
 
-            if (p_left == NULL)
+            if (ctx->current->type == TK_COLON)
             {
-                expression_delete(p_conditional_expression);
-                throw;
+                /*
+                 * Elvis operator:  a ?: b
+                 */
             }
-            p_conditional_expression->left = p_left;
+            else
+            {
+                p_left = expression(ctx, true_eval_mode);
+                if (p_left == NULL)
+                {
+                    expression_delete(p_conditional_expression);
+                    throw;
+                }
+                p_conditional_expression->left = p_left;
+            }
 
 
             if (parser_match_tk(ctx, TK_COLON) != 0)
@@ -27000,7 +27008,15 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             {
                 if (object_is_true(&p_conditional_expression->condition_expr->object))
                 {
-                    p_conditional_expression->object = object_make_reference(&p_conditional_expression->left->object);
+                    /*
+                     * For elvis (left == NULL) the condition result is the
+                     * true-branch value — use the condition's own object.
+                     */
+                    struct object* true_obj =
+                        (p_conditional_expression->left != NULL)
+                            ? &p_conditional_expression->left->object
+                            : &p_conditional_expression->condition_expr->object;
+                    p_conditional_expression->object = object_make_reference(true_obj);
                 }
                 else
                 {
@@ -27008,13 +27024,22 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                 }
             }
 
-            if (expression_is_subjected_to_lvalue_conversion(p_conditional_expression->left))
+            /*
+             * For elvis (left == NULL), the true-branch type is the
+             * condition's own type.
+             */
+            const struct expression* p_left_or_cond =
+                (p_conditional_expression->left != NULL)
+                    ? p_conditional_expression->left
+                    : p_conditional_expression->condition_expr;
+
+            if (expression_is_subjected_to_lvalue_conversion(p_left_or_cond))
             {
-                left_type = type_lvalue_conversion(&p_conditional_expression->left->type, ctx->options.null_checks_enabled);
+                left_type = type_lvalue_conversion(&p_left_or_cond->type, ctx->options.null_checks_enabled);
             }
             else
             {
-                left_type = type_dup(&p_conditional_expression->left->type);
+                left_type = type_dup(&p_left_or_cond->type);
             }
 
             if (expression_is_subjected_to_lvalue_conversion(p_conditional_expression->right))
@@ -27100,7 +27125,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
             }
             else if (type_is_pointer(&right_type))
             {
-                if (expression_is_null_pointer_constant(p_conditional_expression->left) ||
+                if (expression_is_null_pointer_constant(p_left_or_cond) ||
                     type_is_nullptr_t(&left_type) ||
                     type_is_void_ptr(&left_type))
                 {
@@ -27188,6 +27213,46 @@ bool expression_is_lvalue(const struct expression* expr)
     {
         return expression_is_lvalue(expr->left);
     }
+
+    return false;
+}
+
+bool expression_has_side_effects(const struct expression* expr)
+{
+    switch (expr->expression_type)
+    {
+    /* assignments */
+    case ASSIGNMENT_EXPRESSION_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MULTI_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_DIV_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_MOD_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_SHIFT_LEFT_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_SHIFT_RIGHT_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
+    case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
+    /* increment / decrement */
+    case POSTFIX_INCREMENT:
+    case POSTFIX_DECREMENT:
+    case UNARY_EXPRESSION_INCREMENT:
+    case UNARY_EXPRESSION_DECREMENT:
+    /* function calls may have arbitrary side effects */
+    case POSTFIX_FUNCTION_CALL:
+        return true;
+
+    default:
+        break;
+    }
+
+    /* recurse into sub-expressions */
+    if (expression_has_side_effects(expr->condition_expr))
+        return true;
+    if (expression_has_side_effects(expr->left))
+        return true;
+    if (expression_has_side_effects(expr->right))
+        return true;
 
     return false;
 }
@@ -27552,7 +27617,6 @@ void check_assigment(struct parser_ctx* ctx,
 
 
 }
-
 
 /*
  *  This file is part of cake compiler
@@ -28888,7 +28952,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.77"
+#define CAKE_VERSION "0.12.78"
 
 
 
@@ -29625,7 +29689,7 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
     {
         struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
         if (p_entry &&
-            p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
+            p_entry->type == TAG_TYPE_ENUM_SPECIFIER)
         {
             assert(p_entry->data.p_enum_specifier != NULL);
 
@@ -40905,7 +40969,20 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                             throw;
                         }
                         //current_object->type2.num_of_elements = num_of_elements;
-                        p_current_object_type->num_of_elements = num_of_elements;
+                        if (compute_array_size)
+                        {
+                            p_current_object_type->num_of_elements = num_of_elements;
+                        }
+                        else
+                        {
+                            if (num_of_elements > p_current_object_type->num_of_elements)
+                            {
+                                compiler_diagnostic(W_ARRAY_SIZE, ctx,
+                                    p_initializer_list_item2->initializer->assignment_expression->first_token,
+                                    NULL,
+                                    "initializer-string for char array is too long");
+                            }
+                        }
 
                         //printf("\n");
                         //object_print_to_debug(current_object);
@@ -41163,7 +41240,6 @@ int initializer_init_new(struct parser_ctx* ctx,
 
     return 0;
 }
-
 
 /*
  *  This file is part of cake compiler
@@ -43373,7 +43449,6 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 
-
 #pragma safety enable
 
 
@@ -44676,13 +44751,48 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case CONDITIONAL_EXPRESSION:
         assert(p_expression->condition_expr != NULL);
-        assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        d_visit_expression(ctx, oss, p_expression->condition_expr);
-        ss_fprintf(oss, " ? ");
-        d_visit_expression(ctx, oss, p_expression->left);
-        ss_fprintf(oss, " : ");
+        if (p_expression->left == NULL)
+        {
+            if (expression_has_side_effects(p_expression->condition_expr))
+            {
+                char name[100] = { 0 };
+                snprintf(name, sizeof name, CAKE_LOCAL_PREFIX "%d",
+                         ctx->cake_local_declarator_number++);
+
+                struct osstream decl = { 0 };
+                print_identation_core(&decl, ctx->indentation);
+                d_print_type(ctx, &decl,
+                             &p_expression->condition_expr->type, name, false);
+                ss_fprintf(&decl, ";\n");
+                ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+                ss_close(&decl);
+
+                print_identation_core(&ctx->add_this_before, ctx->indentation);
+                ss_fprintf(&ctx->add_this_before, "%s = ", name);
+                d_visit_expression(ctx, &ctx->add_this_before,
+                                   p_expression->condition_expr);
+                ss_fprintf(&ctx->add_this_before, ";\n");
+
+                ss_fprintf(oss, "%s ? %s : ", name, name);
+            }
+            else
+            {
+                /* No side effects — safe to repeat the condition */
+                d_visit_expression(ctx, oss, p_expression->condition_expr);
+                ss_fprintf(oss, " ? ");
+                d_visit_expression(ctx, oss, p_expression->condition_expr);
+                ss_fprintf(oss, " : ");
+            }
+        }
+        else
+        {
+            d_visit_expression(ctx, oss, p_expression->condition_expr);
+            ss_fprintf(oss, " ? ");
+            d_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, " : ");
+        }
         d_visit_expression(ctx, oss, p_expression->right);
         break;
     }
@@ -48430,7 +48540,6 @@ static void asm_visit_expression(struct asm_visit_ctx* ctx, struct osstream* oss
     case CONDITIONAL_EXPRESSION:
     {
         assert(p_expression->condition_expr != NULL);
-        assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
         int label_false = asm_new_label(ctx);
@@ -48440,7 +48549,12 @@ static void asm_visit_expression(struct asm_visit_ctx* ctx, struct osstream* oss
         emit_line(oss, "testq %%rax, %%rax");
         emit_line(oss, "je .L%d", label_false);
 
-        asm_visit_expression(ctx, oss, p_expression->left);
+        if (p_expression->left != NULL)
+        {
+            /* Normal ternary: evaluate the explicit true-branch expression */
+            asm_visit_expression(ctx, oss, p_expression->left);
+        }
+        /* Elvis (left == NULL): condition result already in %rax, nothing to do */
         emit_line(oss, "jmp .L%d", label_end);
 
         emit_label(oss, label_false);
@@ -52747,13 +52861,17 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
         }
         else if (p_expression->expression_type == CONDITIONAL_EXPRESSION)
         {
-            assert(p_expression->left != NULL);
             assert(p_expression->right != NULL);
 
             struct flow_object* _Opt p_object = make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
 
-            struct flow_object* _Opt p_obj1 = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
+            /* Elvis (left == NULL): reuse condition's flow object as the true branch */
+            struct flow_object* _Opt p_obj1 =
+                expression_get_flow_object(ctx,
+                    p_expression->left ? p_expression->left
+                                       : p_expression->condition_expr,
+                    nullable_enabled);
 
             struct flow_object* _Opt p_obj2 = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
 
@@ -55630,8 +55748,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
         assert(p_expression->condition_expr != NULL);
         assert(p_expression->right != NULL);
-        assert(p_expression->left != NULL);
-
 
         struct true_false_set true_false_set = { 0 };
 
@@ -55643,7 +55759,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
 
         struct true_false_set set = { 0 };
-        flow_visit_expression(ctx, p_expression->left, &set);
+        /* Elvis (left == NULL): condition result is the true branch — visit
+           condition_expr again so flow sees its state on the true path */
+        flow_visit_expression(ctx,
+            p_expression->left ? p_expression->left
+                               : p_expression->condition_expr,
+            &set);
         true_false_set_destroy(&set);
 
 

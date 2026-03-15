@@ -1,4 +1,3 @@
-
 ## Using cake
 
 Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux.
@@ -30,7 +29,7 @@ Sample of `cakeconfig.h`
 
 #ifdef __linux__
 /*
-   To find the include directories used my GCC type:   
+   To find the include directories used by GCC type:   
    echo | gcc -E -Wp,-v -
 */
 #pragma dir "/usr/lib/gcc/x86_64-linux-gnu/11/include"
@@ -42,10 +41,10 @@ Sample of `cakeconfig.h`
 
 #ifdef _WIN32
 /*
-   To find the include directories used my  MSVC,
-   open Visual Studio Developer Commmand prompt and type:
+   To find the include directories used by MSVC,
+   open Visual Studio Developer Command prompt and type:
    echo %INCLUDE%.
-   Running Cake inside mscv command prompt uses %INCLUDE% automatically.
+   Running Cake inside MSVC command prompt uses %INCLUDE% automatically.
 */
 #pragma dir "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/include"
 #pragma dir "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/ATLMFC/include"
@@ -92,7 +91,7 @@ SAMPLES
     Compiles source.c and outputs /[default-target]/source.c
 
     cake -target=X86_msvc source.c
-    Compiles source.c and outputs C11 code at /X86_msvc/source.c
+    Compiles source.c and outputs C89 code at /X86_msvc/source.c
 
     cake file.c -o file.cc && cl file.cc
     Compiles file.c and outputs file.cc then use cl to compile file.cc
@@ -125,12 +124,12 @@ Enables or disable warnings.
 See [warnings](warnings.html)
 
 * `-disable-assert`
-Disable cake extension where assert is an statement.
+Disable cake extension where assert is a statement.
 
 * `-H` (same as gcc, /showIncludes in MSVC)
 Causes the compiler to output a list of the include files. 
 
-* `*-preprocess-def-macro`
+* `-preprocess-def-macro`
 preprocess def macros after expansion
 
 * `-Wall`
@@ -147,7 +146,7 @@ Specifies the Sarif output dir. "Visual Studio -> External Tools"
 *  `-target`
 Defines how the source code is interpreted (integers sizes, align etc) and specifies the
 C89 output that is compatible with the target compiler.
-Options: x86\_x64_gcc, x64\_msvc, x64\_msvc, catalina, ccu8
+Options: x86_x64_gcc, x86_msvc, x64_msvc, catalina, ccu8
 
 *  `-msvc-output` Output is compatible with Visual Studio IDE. 
 
@@ -159,7 +158,7 @@ Options: x86\_x64_gcc, x64\_msvc, x64\_msvc, catalina, ccu8
 
 * `-style=name` Set the style used in (w011) style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`
 
-* `-comment-to-attr` Converts at preprocessor phase, comment like this `/*w12*/` to attributes `[[cake::w12]]`
+* `-comment-to-attr` Converts at the preprocessor phase, comment like this `/*w12*/` to attributes `[[cake::w12]]`
  
 * `-const-literal` Makes the compiler handle string literals as const char[] rather than char[].
 
@@ -680,7 +679,7 @@ Uses `__declspec(align(n))` in MSVC output and `__attribute__((aligned(n)))` in 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf
 
 ```c
-#define __STDC_VERSION__ 201710L  //C17
+#define __STDC_VERSION__ 201710L  //C17 (Cake accepts C17 source)
 #define __STDC_VERSION__ 202311L  //C23
 ```
 
@@ -917,7 +916,7 @@ int main()
 
 ### C23 Improved Normal Enumerations
 
-//TODO
+TODO
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm
 
@@ -1040,7 +1039,7 @@ void f(int n) {
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf
 
 ```c
-// Compil with -w03
+// Compile with -w03
 [[deprecated]] void f2() {}
 struct [[deprecated]] S {  int a;};
 enum [[deprecated]] E1 { one };
@@ -1105,7 +1104,7 @@ void call(void) {
 
 <button onclick="Try(this)">try</button>
 
-Cake implementation is missing the message.
+Cake implementation does not yet support the optional message argument of `[[nodiscard("message")]]`.
 
 ### C23 [[unsequenced]] and [[reproducible]]
 
@@ -1241,7 +1240,7 @@ int main()
 <button onclick="Try(this)">try</button>
 
 
-###  C23 BitInt(N))
+###  C23 BitInt(N)
 
 TODO 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf
@@ -2151,6 +2150,105 @@ int main()
   printf("%d", maxint(1, 2));
 }
 
+```
+
+<button onclick="Try(this)">try</button>
+
+### C2Y Elvis operator `?:`
+
+https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt
+
+The elvis operator is a shorthand for the ternary operator where the middle operand
+is omitted. When the condition is true, the condition's own value is returned — evaluated only **once**.
+
+```
+a ?: b
+```
+
+is equivalent to `a ? a : b`, except `a` is evaluated exactly once.
+
+#### Basic usage
+
+```c
+#include <stdio.h>
+
+int main()
+{
+    int x = 0;
+    int y = 5;
+
+    /* returns y because x is 0 (falsy) */
+    int r1 = x ?: y;
+    printf("%d\n", r1); /* 5 */
+
+    /* returns x because x is non-zero */
+    x = 3;
+    int r2 = x ?: y;
+    printf("%d\n", r2); /* 3 */
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+#### Pointer fallback
+
+The most common use case — return a pointer if non-null, otherwise a default:
+
+```c
+#include <stdio.h>
+
+const char *get_name(void);
+
+int main()
+{
+    const char *name = get_name();
+    const char *display = name ?: "unknown";
+    printf("%s\n", display);
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+#### Constant expressions
+
+The elvis operator works in constant expressions:
+
+```c
+static_assert(1 ?: 0 == 1);
+static_assert(0 ?: 1 == 1);
+
+enum { DEFAULT = 0 ?: 42 };
+```
+
+<button onclick="Try(this)">try</button>
+
+#### Side effects — condition evaluated once
+
+When the condition has side effects, it is guaranteed to be evaluated exactly once.
+Cake introduces a temporary variable in the C89 output to ensure this:
+
+```c
+int i = 0;
+int b = 10;
+int r = i++ ?: b;
+/* i is now 1, r is 10 (i++ yielded 0, which is falsy) */
+```
+
+C89 output:
+
+```c
+int __v0;
+__v0 = i++;
+int r = __v0 ? __v0 : b;
+```
+
+#### Nested elvis
+
+Elvis associates right-to-left like the ternary operator:
+
+```c
+int a = 0, b = 0, c = 7;
+int r = a ?: b ?: c; /* 7 */
 ```
 
 <button onclick="Try(this)">try</button>
