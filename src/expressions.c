@@ -6282,11 +6282,11 @@ bool expression_has_side_effects(const struct expression* expr)
     }
 
     /* recurse into sub-expressions */
-    if (expression_has_side_effects(expr->condition_expr))
+    if (expr->condition_expr && expression_has_side_effects(expr->condition_expr))
         return true;
-    if (expression_has_side_effects(expr->left))
+    if (expr->left && expression_has_side_effects(expr->left))
         return true;
-    if (expression_has_side_effects(expr->right))
+    if (expr->right && expression_has_side_effects(expr->right))
         return true;
 
     return false;

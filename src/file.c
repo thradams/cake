@@ -1,44 +1,28 @@
-#include <stdio.h>
-#include <stdlib.h>
 
-/* -------------------------------------------------------
-   1. Basic 1-D VLA
-   ------------------------------------------------------- */
-void fill_1d(int n)
-{
-    int a[n];          /* VLA */
-    int i;
-    for (i = 0; i < n; i++)
-        a[i] = i * 2;
+int f(int x);
 
-    for (i = 0; i < n; i++)
-        printf("%d ", a[i]);
-    printf("\n");
+int test_simple(int a, int b) {
+    return a ?: b;
 }
 
-/* -------------------------------------------------------
-   2. 2-D VLA  —  subscript rewriting a[i][j] → flat ptr
-   ------------------------------------------------------- */
-void fill_2d(int m, int n)
-{
-    int a[m][n];       /* 2-D VLA */
-    int i, j;
-    for (i = 0; i < m; i++)
-        for (j = 0; j < n; j++)
-            a[i][j] = i * n + j;
-
-    for (i = 0; i < m; i++)
-    {
-        for (j = 0; j < n; j++)
-            printf("%3d", a[i][j]);
-        printf("\n");
-    }
+int * test_pointer(int * p, int * fallback) {
+    return p ?: fallback;
 }
 
-/* -------------------------------------------------------
-   3. sizeof(VLA)  →  runtime size expression
-   ------------------------------------------------------- */
-void print_sizes(int n)
-{
-    int a[n];
-    printf("sizeof(a)         = %zu\n"
+int test_side_effect(int i, int b) {
+
+    return i++ ?: b;
+}
+
+int test_call(int b) {
+    return f(1) ?: b;
+}
+int test_nested(int a, int b, int c) {
+    return a ?: (b ? b : c);
+}
+
+int test_return(int x) {
+    return x ?: 42;
+}
+
+static_assert( 1?: 0 == 1);
