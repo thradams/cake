@@ -28952,7 +28952,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.80"
+#define CAKE_VERSION "0.12.81"
 
 
 
@@ -44677,8 +44677,39 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         char name[100] = { 0 };
         snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
-        if (ctx->is_local)
+        const bool is_static =
+            p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
+
+        if (is_static || !ctx->is_local)
         {
+            /*
+             * C23 static storage compound literal:  (static int[]){1, 2, 3}
+             * OR a compound literal at file scope.
+             *
+             * Both cases require a static-duration variable.  In C89 output
+             * we emit a file-scope static declaration with a constant initializer,
+             * hoisted via add_this_before_external_decl.
+             *
+             * C23 6.5.2.5p6: A compound literal with static storage duration
+             * has the same lifetime as an object declared with static storage
+             * duration at file scope.  Its address is constant and the same
+             * object is used across all invocations (no per-call copy).
+             */
+            struct osstream local = { 0 };
+            print_identation_core(&local, ctx->indentation);
+            ss_fprintf(&local, "static ");
+            d_print_type(ctx, &local, &p_expression->type, name, false);
+            bool first = true;
+            ss_fprintf(&local, " = {");
+            object_print_constant_initialization(ctx, &local, &p_expression->object, &first);
+            ss_fprintf(&local, "};\n");
+            ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
+            ss_close(&local);
+            ss_fprintf(oss, "%s", name);
+        }
+        else
+        {
+            /* block-scope compound literal — automatic storage duration */
             struct osstream local = { 0 };
             ss_swap(&ctx->block_scope_declarators, &local);
             print_identation_core(&local, ctx->indentation);
@@ -44694,20 +44725,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
             ss_close(&local);
             ss_fprintf(oss, "%s", name);
-        }
-        else
-        {
-            struct osstream local = { 0 };
-            print_identation_core(&local, ctx->indentation);
-            d_print_type(ctx, &local, &p_expression->type, name, false);
-            bool first = true;
-            ss_fprintf(&local, " = {");
-            object_print_constant_initialization(ctx, &local, &p_expression->object, &first);
-            ss_fprintf(&local, "};\n");
-            ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
-            ss_close(&local);
-            ss_fprintf(oss, "%s", name);
-
         }
     }
     break;
@@ -45946,7 +45963,111 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     ctx->indentation = 0;
     const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
     ctx->p_current_function_opt = function_definition;
-    d_visit_compound_statement(ctx, oss, function_definition->function_body);
+
+    /*
+     * VM parameter dimension snapshots.
+     *
+     * When a function has VM pointer parameters whose dimensions reference
+     * earlier integer parameters:
+     *
+     *   void fill(int n, int m, int (*grid)[n][m])
+     *
+     * We snapshot n and m at function entry so subscript linearisation
+     * uses stable values even if n or m are modified in the body:
+     *
+     *   void fill(int n, int m, int *grid)
+     *   {
+     *       int __v0 = n;    <- snapshot at entry
+     *       int __v1 = m;
+     *       ...((int*)grid)[(i)*__v1+(j)]...
+     *   }
+     *
+     * We collect dims here, visit the compound statement, then inject the
+     * snapshot locals by post-processing: the compound statement emits
+     * "{\n<decls>\n<body>}\n" — we insert our snapshot lines right after
+     * the opening "{\n".
+     *
+     * Snapshots are emitted as combined declaration+initialization on one
+     * line (int __v0 = n;) to keep the output simple — C89 allows
+     * initialised declarations at block start.
+     */
+
+    /* Collect all VM parameter dimensions */
+    struct vm_dim_snapshot all_dims[VM_MAX_DIMS * 4];
+    int all_dim_count = 0;
+
+    const struct type* _Opt func_type = &function_definition->type;
+    while (func_type && func_type->category != TYPE_CATEGORY_FUNCTION)
+        func_type = func_type->next;
+
+    if (func_type != NULL)
+    {
+        struct param* _Opt pa = func_type->params.head;
+        while (pa && all_dim_count < VM_MAX_DIMS * 4)
+        {
+            if (type_is_vm(&pa->type))
+            {
+                struct vm_dim_snapshot dims[VM_MAX_DIMS];
+                int count = vm_collect_dims(ctx, &pa->type, dims);
+                for (int i = 0; i < count && all_dim_count < VM_MAX_DIMS * 4; i++)
+                    all_dims[all_dim_count++] = dims[i];
+            }
+            pa = pa->next;
+        }
+    }
+
+    if (all_dim_count == 0)
+    {
+        /* No VM params — normal path */
+        d_visit_compound_statement(ctx, oss, function_definition->function_body);
+    }
+    else
+    {
+        /*
+         * Capture the compound statement output into a temporary stream,
+         * then inject snapshot declarations right after the opening "{".
+         */
+        struct osstream body = { 0 };
+        d_visit_compound_statement(ctx, &body, function_definition->function_body);
+
+        /* Build snapshot lines:  "    int __v0 = (n);\n" */
+        struct osstream snaps = { 0 };
+        for (int i = 0; i < all_dim_count; i++)
+        {
+            ss_fprintf(&snaps, "    int %s = (", all_dims[i].snap_name);
+            d_visit_expression(ctx, &snaps, all_dims[i].expr);
+            ss_fprintf(&snaps, ");\n");
+        }
+
+        /*
+         * The body stream starts with "{\n".
+         * Inject snapshot lines right after that.
+         */
+        if (body.c_str && snaps.c_str)
+        {
+            const char* open_brace = "{\n";
+            size_t prefix_len = strlen(open_brace);
+            if (strncmp(body.c_str, open_brace, prefix_len) == 0)
+            {
+                ss_fprintf(oss, "{\n");
+                ss_fprintf(oss, "%s", snaps.c_str);
+                ss_fprintf(oss, "%s", body.c_str + prefix_len);
+            }
+            else
+            {
+                /* fallback: just append */
+                ss_fprintf(oss, "%s", body.c_str);
+            }
+        }
+        else if (body.c_str)
+        {
+            ss_fprintf(oss, "%s", body.c_str);
+        }
+
+        ss_close(&snaps);
+        ss_close(&body);
+    }
+
     ctx->p_current_function_opt = previous_func;//restore
     ctx->indentation = indentation; //restore
 }
@@ -47039,7 +47160,7 @@ static int vm_collect_dims(struct d_visit_ctx* ctx,
              * Register expression pointer -> snap number in the hashmap so
              * that sizeof rewriting in d_visit_expression can look up the
              * snapshot name without access to the dims[] array.
-             * Key: "__snap:0x<ptr>"  Value: snap_num stored in .number
+             * Key: "__snap:<expr_ptr>"  Value: snap_num stored in .number
              */
             char snap_key[64];
             snprintf(snap_key, sizeof(snap_key),
