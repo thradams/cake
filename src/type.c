@@ -955,6 +955,25 @@ bool type_is_character(const struct type* p_type)
         p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR;
 }
 
+/*
+ * type_is_vla — true if the type is a Variable Length Array object.
+ *
+ * A VLA is an array whose size is not an integer constant expression.
+ * The head of the type chain must be an array node — this function only
+ * inspects leading TYPE_CATEGORY_ARRAY nodes, so pointer-to-VLA types
+ * (e.g. int (*p)[n]) return false.
+ *
+ * Standard status:
+ *   C99:  mandatory
+ *   C11:  optional  (__STDC_NO_VLA__ may be defined)
+ *   C23:  optional  (__STDC_NO_VLA__ may be defined)
+ *
+ * Use type_is_vm() to detect the broader category of variably modified
+ * types, which includes pointers to VLAs and remains mandatory in C23.
+ *
+ * In C89 code generation, type_is_vla() identifies types that require
+ * stack allocation to be replaced with malloc/free.
+ */
 bool type_is_vla(const struct type* p_type)
 {
     const struct type* _Opt it = p_type;
@@ -969,6 +988,47 @@ bool type_is_vla(const struct type* p_type)
                 //if any of the array is not constant then it is vla
                 return true;
             }
+        }
+        it = it->next;
+    }
+    return false;
+}
+
+/*
+ * type_is_vm — true if the type is a Variably Modified type.
+ *
+ * A type is variably modified if it is a VLA or if it is derived from a
+ * variably modified type (C99 6.7.5p3 / C23 6.7.6p3).  This includes:
+ *
+ *   int a[n]          — VLA object            (type_is_vla also true)
+ *   int (*p)[n]       — pointer to VLA        (type_is_vla false)
+ *   int (*p)[n][m]    — pointer to 2-D VLA    (type_is_vla false)
+ *   typedef int T[n]  — VM typedef            (type_is_vla true if T is array)
+ *
+ * Standard status:
+ *   C99:  mandatory
+ *   C11:  mandatory
+ *   C23:  mandatory  (VM types are ALWAYS supported, even when __STDC_NO_VLA__)
+ *
+ * This is the key distinction from type_is_vla():
+ *   __STDC_NO_VLA__ disables VLA *objects* (stack-allocated arrays with
+ *   runtime size), but NOT VM types (pointers to such arrays).  A C23
+ *   implementation may define __STDC_NO_VLA__ and still require support
+ *   for  void f(int n, int (*p)[n])  — the parameter p is a VM type.
+ *
+ * In C89 code generation, type_is_vm() identifies types whose sizeof
+ * must be evaluated at runtime using dimension snapshots.
+ */
+bool type_is_vm(const struct type* p_type)
+{
+    const struct type* _Opt it = p_type;
+    while (it)
+    {
+        if (it->category == TYPE_CATEGORY_ARRAY &&
+            it->array_num_elements_expression != NULL &&
+            !object_has_constant_value(&it->array_num_elements_expression->object))
+        {
+            return true;
         }
         it = it->next;
     }
@@ -1440,6 +1500,78 @@ struct type type_remove_pointer(const struct type* p_type)
     r.type_qualifier_flags = p_type->next->type_qualifier_flags;
 
     return r;
+}
+
+/*
+ * type_remove_vm_arrays — strip all VM (variably-modified) array nodes
+ * from a pointer-to-VM type, returning a plain pointer-to-element type.
+ *
+ * For  int (*p)[n][m]  the type chain is:
+ *   PTR -> ARRAY[n] -> ARRAY[m] -> INT
+ *
+ * This function returns a new owned type:
+ *   PTR -> INT   (i.e.  int *)
+ *
+ * This is needed for C89 code generation: the declaration must be a
+ * plain pointer because  int (*p)[n][m]  is still a VM type in C89
+ * (n and m are runtime variables, not compile-time constants).
+ *
+ * If p_type is not a pointer-to-VM, returns a full dup unchanged.
+ */
+struct type type_remove_vm_arrays(const struct type* p_type)
+{
+    if (!type_is_pointer(p_type) || !type_is_vm(p_type))
+    {
+        return type_dup(p_type);
+    }
+
+    try
+    {
+        /* Dup the pointer node only — do NOT follow next yet */
+        struct type* _Owner _Opt ptr_node = calloc(1, sizeof(struct type));
+        if (ptr_node == NULL) throw;
+
+        *ptr_node = *p_type;
+        static_set(ptr_node->next, "uninitialized");
+        ptr_node->next = NULL;
+        if (p_type->name_opt)
+            ptr_node->name_opt = strdup(p_type->name_opt);
+
+        /* Find the element type: skip all array nodes after the pointer */
+        const struct type* _Opt elem = p_type->next;
+        while (elem && type_is_array(elem))
+            elem = elem->next;
+
+        if (elem == NULL)
+        {
+            /* Degenerate: no element type found, fall back to full dup */
+            type_delete(ptr_node);
+            return type_dup(p_type);
+        }
+
+        /* Dup the element type chain */
+        struct type* _Owner _Opt elem_dup = calloc(1, sizeof(struct type));
+        if (elem_dup == NULL)
+        {
+            type_delete(ptr_node);
+            throw;
+        }
+        *elem_dup = type_dup(elem);
+
+        /* Link: PTR -> elem */
+        ptr_node->next = elem_dup;
+
+        /* Return the pointer node as the root of the new chain */
+        struct type r = *ptr_node;
+        free(ptr_node);
+        return r;
+    }
+    catch
+    {
+    }
+
+    struct type empty = { 0 };
+    return empty;
 }
 
 
@@ -3720,4 +3852,3 @@ const struct type* type_get_specifer_part(const struct type* p_type)
     while (p->next) p = p->next;
     return p;
 }
-

@@ -2833,6 +2833,18 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
             if (type_is_vla(&p_init_declarator->p_declarator->type))
             {
+                /*
+                 * VLA objects (int a[n]) are not supported.
+                 * VM types (int (*p)[n]) are supported — they are mandatory
+                 * in C23 and handled in code generation.
+                 */
+                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                    ctx,
+                    p_init_declarator->p_declarator->name_opt,
+                    NULL,
+                    "variable length arrays are not supported; "
+                    "use a pointer to a variably modified type instead "
+                    "(e.g. 'int (*p)[n] = malloc(sizeof *p);')");
             }
             else if (type_is_function(&p_init_declarator->p_declarator->type))
             {

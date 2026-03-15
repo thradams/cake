@@ -57,7 +57,7 @@
 <a href="#toc_7">C99 restrict pointers</a>
 </li>
 <li>
-<a href="#toc_8">C99 Variable-length array (VLA)</a>
+<a href="#toc_8">C99 Variably-Modified (VM) types</a>
 </li>
 <li>
 <a href="#toc_9">C99 Flexible array members</a>
@@ -139,97 +139,97 @@
 <a href="#toc_33">C23</a>
 <ul>
 <li>
-<a href="#toc_34">C23 _Decimal32, _Decimal64, and _Decimal128</a>
+<a href="#toc_34">C23 Variably-Modified (VM) types mandatory</a>
 </li>
 <li>
-<a href="#toc_35">C23 static_assert / single-argument static_assert</a>
+<a href="#toc_35">C23 _Decimal32, _Decimal64, and _Decimal128</a>
 </li>
 <li>
-<a href="#toc_36">C23 u8 character prefix</a>
+<a href="#toc_36">C23 static_assert / single-argument static_assert</a>
 </li>
 <li>
-<a href="#toc_37">C23 No function declarators without prototypes</a>
+<a href="#toc_37">C23 u8 character prefix</a>
 </li>
 <li>
-<a href="#toc_38">C23 Improved Tag Compatibility</a>
+<a href="#toc_38">C23 No function declarators without prototypes</a>
 </li>
 <li>
-<a href="#toc_39">C23 Unnamed parameters in function definitions</a>
+<a href="#toc_39">C23 Improved Tag Compatibility</a>
 </li>
 <li>
-<a href="#toc_40">C23 Digit separators</a>
+<a href="#toc_40">C23 Unnamed parameters in function definitions</a>
 </li>
 <li>
-<a href="#toc_41">C23 Binary literals</a>
+<a href="#toc_41">C23 Digit separators</a>
 </li>
 <li>
-<a href="#toc_42">C23 Introduce the nullptr constant</a>
+<a href="#toc_42">C23 Binary literals</a>
 </li>
 <li>
-<a href="#toc_43">C23 Make false and true first-class language features</a>
+<a href="#toc_43">C23 Introduce the nullptr constant</a>
 </li>
 <li>
-<a href="#toc_44">C23 {} empty initializer</a>
+<a href="#toc_44">C23 Make false and true first-class language features</a>
 </li>
 <li>
-<a href="#toc_45">C23 auto</a>
+<a href="#toc_45">C23 {} empty initializer</a>
 </li>
 <li>
-<a href="#toc_46">C23 typeof / typeof_unqual</a>
+<a href="#toc_46">C23 auto</a>
 </li>
 <li>
-<a href="#toc_47">C23 Improved Normal Enumerations</a>
+<a href="#toc_47">C23 typeof / typeof_unqual</a>
 </li>
 <li>
-<a href="#toc_48">C23 constexpr</a>
+<a href="#toc_48">C23 Improved Normal Enumerations</a>
 </li>
 <li>
-<a href="#toc_49">C23 Enhancements to Enumerations</a>
+<a href="#toc_49">C23 constexpr</a>
 </li>
 <li>
-<a href="#toc_50">C23 [[Attributes]]</a>
+<a href="#toc_50">C23 Enhancements to Enumerations</a>
 </li>
 <li>
-<a href="#toc_51">C23 [[fallthrough]] attribute</a>
+<a href="#toc_51">C23 [[Attributes]]</a>
 </li>
 <li>
-<a href="#toc_52">C23 [[deprecated]] attribute</a>
+<a href="#toc_52">C23 [[fallthrough]] attribute</a>
 </li>
 <li>
-<a href="#toc_53">C23 [[maybe_unused]] attribute</a>
+<a href="#toc_53">C23 [[deprecated]] attribute</a>
 </li>
 <li>
-<a href="#toc_54">C23 [[nodiscard]] attribute</a>
+<a href="#toc_54">C23 [[maybe_unused]] attribute</a>
 </li>
 <li>
-<a href="#toc_55">C23 [[unsequenced]] and [[reproducible]]</a>
+<a href="#toc_55">C23 [[nodiscard]] attribute</a>
 </li>
 <li>
-<a href="#toc_56">C23 __has_attribute</a>
+<a href="#toc_56">C23 [[unsequenced]] and [[reproducible]]</a>
 </li>
 <li>
-<a href="#toc_57">C23 __has_include</a>
+<a href="#toc_57">C23 __has_attribute</a>
 </li>
 <li>
-<a href="#toc_58">C23 #warning</a>
+<a href="#toc_58">C23 __has_include</a>
 </li>
 <li>
-<a href="#toc_59">C23 #embed</a>
+<a href="#toc_59">C23 #warning</a>
 </li>
 <li>
-<a href="#toc_60">C23 #elifdef #elifndef</a>
+<a href="#toc_60">C23 #embed</a>
 </li>
 <li>
-<a href="#toc_61">C23 __VA_OPT__</a>
+<a href="#toc_61">C23 #elifdef #elifndef</a>
 </li>
 <li>
-<a href="#toc_62">C23 BitInt(N)</a>
+<a href="#toc_62">C23 __VA_OPT__</a>
 </li>
 <li>
-<a href="#toc_63">C23 Compound Literals with storage specifier</a>
+<a href="#toc_63">C23 BitInt(N)</a>
 </li>
 <li>
-<a href="#toc_64">C23 Variably-modified (VM) types</a>
+<a href="#toc_64">C23 Compound Literals with storage specifier</a>
 </li>
 </ul>
 </li>
@@ -522,7 +522,21 @@ int main(){
 
 <p>Currently restrict is being removed on the generated code.</p>
 
-<h3 id="toc_8">C99 Variable-length array (VLA)</h3>
+<h3 id="toc_8">C99 Variably-Modified (VM) types</h3>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm</a></p>
+
+<p>In C99/C23, there are two related but distinct concepts:</p>
+
+<ul>
+<li><strong>VLA objects</strong> (<code>int a[n]</code>) - a local array whose storage is allocated on the stack at runtime. Optional in C11/C23 (controlled by <code>__STDC_NO_VLA__</code>).</li>
+<li><strong>VM types</strong> (<code>int (*p)[n]</code>) - any type derived from a runtime-sized array, including pointers to VLAs. <strong>Mandatory</strong> in C23 even when <code>__STDC_NO_VLA__</code> is defined.</li>
+</ul>
+
+<p>Cake supports <strong>VM types</strong> and converts them to C89-compatible code.
+Cake does <strong>not</strong> support VLA objects - a diagnostic is emitted instead, pointing to the VM type alternative.</p>
+
+<h4>VM type pointer declarations</h4>
 
 <pre><code class="language-c">#include &lt;stdlib.h&gt;
 #include &lt;stdio.h&gt;
@@ -530,20 +544,75 @@ int main(){
 int main() {
     int n = 2;
     int m = 3;
-    int (*p)[n][m] = malloc(sizeof * p);
+    int (*p)[n][m] = malloc(sizeof *p);
 
     printf(&quot;%zu\n&quot;, sizeof(*p));
 
     free(p);
 }
-
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm</a></p>
+<p>The C89 output captures the dimensions into snapshot variables at declaration time,
+so that later mutation of <code>n</code> or <code>m</code> does not affect the allocation size or <code>sizeof</code> results:</p>
 
-<p>Not implemented yet.</p>
+<pre><code class="language-c">int __v0;
+int __v1;
+int *p;
+__v0 = (n);
+__v1 = (m);
+p = (int *)malloc(sizeof(int) * __v0 * __v1);
+printf(&quot;%zu\n&quot;, (sizeof(int) * __v0 * __v1));
+free(p);
+</code></pre>
+
+<h4>VM type function parameters</h4>
+
+<p>VM pointer parameters are also rewritten to flat pointers. Subscript expressions
+through the pointer are linearised automatically.</p>
+
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+#include &lt;stdio.h&gt;
+
+void fill(int n, int m, int (*grid)[n][m])
+{
+    int i, j;
+    for (i = 0; i &lt; n; i++)
+        for (j = 0; j &lt; m; j++)
+            (*grid)[i][j] = i * 10 + j;
+}
+
+int main() {
+    int n = 3, m = 4;
+    int (*p)[n][m] = malloc(sizeof *p);
+    fill(n, m, p);
+    free(p);
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>C89 output for <code>fill</code>:</p>
+
+<pre><code class="language-c">void fill(int n, int m, int *grid)
+{
+    int i, j;
+    for (i = 0; i &lt; n; i++)
+        for (j = 0; j &lt; m; j++)
+            ((int*)grid)[(i) * m + (j)] = i * 10 + j;
+}
+</code></pre>
+
+<h4>VLA objects are not supported</h4>
+
+<pre><code class="language-c">int main() {
+    int n = 5;
+    int a[n]; /* error: variable length arrays are not supported;
+                 use a pointer to a variably modified type instead
+                 (e.g. &#39;int (*p)[n] = malloc(sizeof *p);&#39;) */
+}
+</code></pre>
 
 <h3 id="toc_9">C99 Flexible array members</h3>
 
@@ -924,12 +993,55 @@ char * s2 = u8&quot;maca&quot;;
 #define __STDC_VERSION__ 202311L  //C23
 </code></pre>
 
-<h3 id="toc_34">C23 _Decimal32, _Decimal64, and _Decimal128</h3>
+<h3 id="toc_34">C23 Variably-Modified (VM) types mandatory</h3>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf</a></p>
+
+<p>C23 formally separates two concepts that were bundled together in C99:</p>
+
+<ul>
+<li><strong>VLA objects</strong> (<code>int a[n]</code>) - arrays with automatic storage duration whose
+size is determined at runtime. These remain <strong>optional</strong> in C23. An implementation
+that defines <code>__STDC_NO_VLA__</code> does not support them.</li>
+<li><strong>VM types</strong> (<code>int (*p)[n]</code>) - variably-modified types: any type derived from a
+runtime-sized array dimension, including pointers to VLAs. These are <strong>mandatory</strong>
+in C23. Every conforming implementation must support them regardless of
+<code>__STDC_NO_VLA__</code>.</li>
+</ul>
+
+<p>The rationale (N2778, Martin Uecker): VM types encode array bounds in the type
+system, allowing compilers to detect out-of-bounds accesses at compile time or
+at runtime. They are a form of dependent type and their implementation cost is
+much lower than stack-allocated VLAs.</p>
+
+<pre><code class="language-c">/* VM type - mandatory in C23, supported by Cake */
+void foo(int n, double (*x)[n])
+{
+    (*x)[0] = 1.0;  /* bounds visible in the type */
+}
+</code></pre>
+
+<p>In C23, <code>__STDC_NO_VLA__</code> only indicates that VLA objects with automatic storage
+duration are not supported. It does <strong>not</strong> mean VM types are unavailable.</p>
+
+<p>Cake reflects this split exactly:</p>
+
+<ul>
+<li>VLA object declarations produce a compile-time error with a suggestion to use
+a VM type pointer instead.</li>
+<li>VM type pointers, parameters, and <code>sizeof</code> expressions are fully supported and
+translated to C89-compatible code.</li>
+</ul>
+
+<p>See the <a href="#c99-variably-modified-vm-types">C99 VM types</a> section for full details
+and C89 output examples.</p>
+
+<h3 id="toc_35">C23 _Decimal32, _Decimal64, and _Decimal128</h3>
 
 <p>Not implemented.
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1107.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1107.htm</a></p>
 
-<h3 id="toc_35">C23 static_assert / single-argument static_assert</h3>
+<h3 id="toc_36">C23 static_assert / single-argument static_assert</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf</a></p>
 
@@ -941,7 +1053,7 @@ char * s2 = u8&quot;maca&quot;;
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_36">C23 u8 character prefix</h3>
+<h3 id="toc_37">C23 u8 character prefix</h3>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf</a></p>
 
@@ -952,7 +1064,7 @@ char * s2 = u8&quot;maca&quot;;
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_37">C23 No function declarators without prototypes</h3>
+<h3 id="toc_38">C23 No function declarators without prototypes</h3>
 
 <p><a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm</a></p>
 
@@ -967,7 +1079,7 @@ char * s2 = u8&quot;maca&quot;;
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf</a></p>
 
-<h3 id="toc_38">C23 Improved Tag Compatibility</h3>
+<h3 id="toc_39">C23 Improved Tag Compatibility</h3>
 
 <p>Not implemented yet.</p>
 
@@ -983,7 +1095,7 @@ void bar(void)
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_39">C23 Unnamed parameters in function definitions</h3>
+<h3 id="toc_40">C23 Unnamed parameters in function definitions</h3>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf</a></p>
 
@@ -997,7 +1109,7 @@ int f(int ) {
 
 <p>Missing a dummy name when generating c89.</p>
 
-<h3 id="toc_40">C23 Digit separators</h3>
+<h3 id="toc_41">C23 Digit separators</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf</a></p>
 
@@ -1009,7 +1121,7 @@ int f(int ) {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_41">C23 Binary literals</h3>
+<h3 id="toc_42">C23 Binary literals</h3>
 
 <p><button onclick="Try(this)">try</button></p>
 
@@ -1023,7 +1135,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_42">C23 Introduce the nullptr constant</h3>
+<h3 id="toc_43">C23 Introduce the nullptr constant</h3>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm</a></p>
 
@@ -1039,7 +1151,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_43">C23 Make false and true first-class language features</h3>
+<h3 id="toc_44">C23 Make false and true first-class language features</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf</a></p>
 
@@ -1056,7 +1168,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_44">C23 {} empty initializer</h3>
+<h3 id="toc_45">C23 {} empty initializer</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm</a>
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3011.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3011.htm</a></p>
@@ -1080,7 +1192,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_45">C23 auto</h3>
+<h3 id="toc_46">C23 auto</h3>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm</a></p>
 
@@ -1094,7 +1206,7 @@ auto qA = &amp;A;
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_46">C23 typeof / typeof_unqual</h3>
+<h3 id="toc_47">C23 typeof / typeof_unqual</h3>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm</a>
 <a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf</a></p>
@@ -1141,7 +1253,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_47">C23 Improved Normal Enumerations</h3>
+<h3 id="toc_48">C23 Improved Normal Enumerations</h3>
 
 <p>TODO</p>
 
@@ -1161,7 +1273,7 @@ static_assert(_Generic(a0,
 
 <p>The type of the enum must be adjusted.</p>
 
-<h3 id="toc_48">C23 constexpr</h3>
+<h3 id="toc_49">C23 constexpr</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm</a></p>
 
@@ -1211,7 +1323,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_49">C23 Enhancements to Enumerations</h3>
+<h3 id="toc_50">C23 Enhancements to Enumerations</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm</a></p>
 
@@ -1226,12 +1338,12 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_50">C23 [[Attributes]]</h3>
+<h3 id="toc_51">C23 [[Attributes]]</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf</a>
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf</a></p>
 
-<h3 id="toc_51">C23 [[fallthrough]] attribute</h3>
+<h3 id="toc_52">C23 [[fallthrough]] attribute</h3>
 
 <p>TODO</p>
 
@@ -1259,7 +1371,7 @@ void f(int n) {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_52">C23 [[deprecated]] attribute</h3>
+<h3 id="toc_53">C23 [[deprecated]] attribute</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf</a></p>
 
@@ -1277,7 +1389,7 @@ int main(void) {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_53">C23 [[maybe_unused]] attribute</h3>
+<h3 id="toc_54">C23 [[maybe_unused]] attribute</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf</a></p>
 
@@ -1293,7 +1405,7 @@ void f( [[maybe_unused]] int arg1, int arg2) //warning C0006: &#39;arg2&#39;: un
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_54">C23 [[nodiscard]] attribute</h3>
+<h3 id="toc_55">C23 [[nodiscard]] attribute</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf</a></p>
 
@@ -1328,7 +1440,7 @@ void call(void) {
 
 <p>Cake implementation does not yet support the optional message argument of <code>[[nodiscard(&quot;message&quot;)]]</code>.</p>
 
-<h3 id="toc_55">C23 [[unsequenced]] and [[reproducible]]</h3>
+<h3 id="toc_56">C23 [[unsequenced]] and [[reproducible]]</h3>
 
 <p>TODO</p>
 
@@ -1341,7 +1453,7 @@ extern typeof(double(double)) [[unsequenced]] g; // valid, applies to type speci
 extern g_t [[unsequenced]] g;                    // valid, applies to type specifier
 </code></pre>
 
-<h3 id="toc_56">C23 __has_attribute</h3>
+<h3 id="toc_57">C23 __has_attribute</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2799.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2799.pdf</a></p>
 
@@ -1355,7 +1467,7 @@ extern g_t [[unsequenced]] g;                    // valid, applies to type speci
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_57">C23 __has_include</h3>
+<h3 id="toc_58">C23 __has_include</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2799.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2799.pdf</a></p>
 
@@ -1374,7 +1486,7 @@ extern g_t [[unsequenced]] g;                    // valid, applies to type speci
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_58">C23 #warning</h3>
+<h3 id="toc_59">C23 #warning</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf</a></p>
 
@@ -1386,7 +1498,7 @@ extern g_t [[unsequenced]] g;                    // valid, applies to type speci
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_59">C23 #embed</h3>
+<h3 id="toc_60">C23 #embed</h3>
 
 <p>Partially implemented.</p>
 
@@ -1405,7 +1517,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_60">C23 #elifdef #elifndef</h3>
+<h3 id="toc_61">C23 #elifdef #elifndef</h3>
 
 <p><button onclick="Try(this)">try</button></p>
 
@@ -1420,7 +1532,7 @@ int main()
 #endif
 </code></pre>
 
-<h3 id="toc_61">C23 __VA_OPT__</h3>
+<h3 id="toc_62">C23 __VA_OPT__</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm</a></p>
 
@@ -1453,7 +1565,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_62">C23 BitInt(N)</h3>
+<h3 id="toc_63">C23 BitInt(N)</h3>
 
 <p>TODO 
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2763.pdf</a></p>
@@ -1469,7 +1581,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_63">C23 Compound Literals with storage specifier</h3>
+<h3 id="toc_64">C23 Compound Literals with storage specifier</h3>
 
 <p>TODO</p>
 
@@ -1484,15 +1596,6 @@ int main()
 <p><button onclick="Try(this)">try</button></p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm</a></p>
-
-<h3 id="toc_64">C23 Variably-modified (VM) types</h3>
-
-<p>TODO</p>
-
-<p>Variably modified types part of C23. 
-<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf</a></p>
-
-<p>Only variable length arrays with automatic storage duration that are optional.</p>
 
 <h2 id="toc_65">C2Y</h2>
 
@@ -2333,7 +2436,7 @@ int main()
 <p><a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt</a></p>
 
 <p>The elvis operator is a shorthand for the ternary operator where the middle operand
-is omitted. When the condition is true, the condition&#39;s own value is returned — evaluated only <strong>once</strong>.</p>
+is omitted. When the condition is true, the condition&#39;s own value is returned - evaluated only <strong>once</strong>.</p>
 
 <pre><code>a ?: b
 </code></pre>
@@ -2364,7 +2467,7 @@ int main()
 
 <h4>Pointer fallback</h4>
 
-<p>The most common use case — return a pointer if non-null, otherwise a default:</p>
+<p>The most common use case - return a pointer if non-null, otherwise a default:</p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
@@ -2392,7 +2495,7 @@ enum { DEFAULT = 0 ?: 42 };
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h4>Side effects — condition evaluated once</h4>
+<h4>Side effects - condition evaluated once</h4>
 
 <p>When the condition has side effects, it is guaranteed to be evaluated exactly once.
 Cake introduces a temporary variable in the C89 output to ensure this:</p>

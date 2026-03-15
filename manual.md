@@ -248,29 +248,98 @@ int main(){
 Currently restrict is being removed on the generated code.
 
 
-###  C99 Variable-length array (VLA) 
+###  C99 Variably-Modified (VM) types
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
+
+In C99/C23, there are two related but distinct concepts:
+
+- **VLA objects** (`int a[n]`) - a local array whose storage is allocated on the stack at runtime. Optional in C11/C23 (controlled by `__STDC_NO_VLA__`).
+- **VM types** (`int (*p)[n]`) - any type derived from a runtime-sized array, including pointers to VLAs. **Mandatory** in C23 even when `__STDC_NO_VLA__` is defined.
+
+Cake supports **VM types** and converts them to C89-compatible code.
+Cake does **not** support VLA objects - a diagnostic is emitted instead, pointing to the VM type alternative.
+
+#### VM type pointer declarations
 
 ```c
 #include <stdlib.h>
 #include <stdio.h>
 
 int main() {
-	int n = 2;
-	int m = 3;
-	int (*p)[n][m] = malloc(sizeof * p);
+    int n = 2;
+    int m = 3;
+    int (*p)[n][m] = malloc(sizeof *p);
 
-	printf("%zu\n", sizeof(*p));
+    printf("%zu\n", sizeof(*p));
 
-	free(p);
+    free(p);
 }
-
 ```
 <button onclick="Try(this)">try</button>
 
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
+The C89 output captures the dimensions into snapshot variables at declaration time,
+so that later mutation of `n` or `m` does not affect the allocation size or `sizeof` results:
 
-Not implemented yet.
+```c
+int __v0;
+int __v1;
+int *p;
+__v0 = (n);
+__v1 = (m);
+p = (int *)malloc(sizeof(int) * __v0 * __v1);
+printf("%zu\n", (sizeof(int) * __v0 * __v1));
+free(p);
+```
+
+#### VM type function parameters
+
+VM pointer parameters are also rewritten to flat pointers. Subscript expressions
+through the pointer are linearised automatically.
+
+```c
+#include <stdlib.h>
+#include <stdio.h>
+
+void fill(int n, int m, int (*grid)[n][m])
+{
+    int i, j;
+    for (i = 0; i < n; i++)
+        for (j = 0; j < m; j++)
+            (*grid)[i][j] = i * 10 + j;
+}
+
+int main() {
+    int n = 3, m = 4;
+    int (*p)[n][m] = malloc(sizeof *p);
+    fill(n, m, p);
+    free(p);
+}
+```
+<button onclick="Try(this)">try</button>
+
+C89 output for `fill`:
+
+```c
+void fill(int n, int m, int *grid)
+{
+    int i, j;
+    for (i = 0; i < n; i++)
+        for (j = 0; j < m; j++)
+            ((int*)grid)[(i) * m + (j)] = i * 10 + j;
+}
+```
+
+#### VLA objects are not supported
+
+```c
+int main() {
+    int n = 5;
+    int a[n]; /* error: variable length arrays are not supported;
+                 use a pointer to a variably modified type instead
+                 (e.g. 'int (*p)[n] = malloc(sizeof *p);') */
+}
+```
 
 ### C99 Flexible array members
 
@@ -682,6 +751,46 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf
 #define __STDC_VERSION__ 201710L  //C17 (Cake accepts C17 source)
 #define __STDC_VERSION__ 202311L  //C23
 ```
+
+### C23 Variably-Modified (VM) types mandatory
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
+
+C23 formally separates two concepts that were bundled together in C99:
+
+- **VLA objects** (`int a[n]`) - arrays with automatic storage duration whose
+  size is determined at runtime. These remain **optional** in C23. An implementation
+  that defines `__STDC_NO_VLA__` does not support them.
+- **VM types** (`int (*p)[n]`) - variably-modified types: any type derived from a
+  runtime-sized array dimension, including pointers to VLAs. These are **mandatory**
+  in C23. Every conforming implementation must support them regardless of
+  `__STDC_NO_VLA__`.
+
+The rationale (N2778, Martin Uecker): VM types encode array bounds in the type
+system, allowing compilers to detect out-of-bounds accesses at compile time or
+at runtime. They are a form of dependent type and their implementation cost is
+much lower than stack-allocated VLAs.
+
+```c
+/* VM type - mandatory in C23, supported by Cake */
+void foo(int n, double (*x)[n])
+{
+    (*x)[0] = 1.0;  /* bounds visible in the type */
+}
+```
+
+In C23, `__STDC_NO_VLA__` only indicates that VLA objects with automatic storage
+duration are not supported. It does **not** mean VM types are unavailable.
+
+Cake reflects this split exactly:
+
+- VLA object declarations produce a compile-time error with a suggestion to use
+  a VM type pointer instead.
+- VM type pointers, parameters, and `sizeof` expressions are fully supported and
+  translated to C89-compatible code.
+
+See the [C99 VM types](#c99-variably-modified-vm-types) section for full details
+and C89 output examples.
 
 ###  C23 \_Decimal32, \_Decimal64, and \_Decimal128
 
@@ -1273,14 +1382,6 @@ int main()
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 
-### C23 Variably-modified (VM) types
-
-TODO
-
-Variably modified types part of C23. 
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
-
-Only variable length arrays with automatic storage duration that are optional.
 
 ## C2Y
 
@@ -2159,7 +2260,7 @@ int main()
 https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt
 
 The elvis operator is a shorthand for the ternary operator where the middle operand
-is omitted. When the condition is true, the condition's own value is returned — evaluated only **once**.
+is omitted. When the condition is true, the condition's own value is returned - evaluated only **once**.
 
 ```
 a ?: b
@@ -2192,7 +2293,7 @@ int main()
 
 #### Pointer fallback
 
-The most common use case — return a pointer if non-null, otherwise a default:
+The most common use case - return a pointer if non-null, otherwise a default:
 
 ```c
 #include <stdio.h>
@@ -2222,7 +2323,7 @@ enum { DEFAULT = 0 ?: 42 };
 
 <button onclick="Try(this)">try</button>
 
-#### Side effects — condition evaluated once
+#### Side effects - condition evaluated once
 
 When the condition has side effects, it is guaranteed to be evaluated exactly once.
 Cake introduces a temporary variable in the C89 output to ensure this:
