@@ -1267,12 +1267,12 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object->type = type_dup(p_type);
             p_object->member_designator = strdup(member_designator);
 
-            if (p_type->num_of_elements > 0)
+            if (p_type->array_num_elements > 0)
             {
                 struct type array_item_type = get_array_item_type(p_type);
 
                 //too big..
-                const unsigned long long max_elements = p_type->num_of_elements > 1000 ? 1000 : p_type->num_of_elements;
+                const unsigned long long max_elements = p_type->array_num_elements > 1000 ? 1000 : p_type->array_num_elements;
 
 
                 for (unsigned long long i = 0; i < max_elements; i++)

@@ -11,15 +11,6 @@
 #include "expressions.h"
 
 /*
- * Forward declaration for type_is_vm (defined in type.c, declared in type.h).
- * Listed here so visit_il.c compiles independently of type.h changes.
- */
-bool type_is_vm(const struct type* p_type);
-struct type type_remove_vm_arrays(const struct type* p_type);
-
-
-
-/*
 *    Prefix used to create local variables
 */
 #define CAKE_LOCAL_PREFIX  "__v" 
@@ -34,19 +25,21 @@ struct type type_remove_vm_arrays(const struct type* p_type);
 */
 #define CAKE_PREFIX_LABEL "__L"
 
-/* Maximum number of VM dimensions we snapshot per declarator */
-#define VM_MAX_DIMS 8
 
-/*
- * One captured VM dimension snapshot.
- *   expr      — the original runtime expression node (from array_num_elements_expression)
- *   snap_name — the generated const local name  (e.g. "__v3")
- */
+
 struct vm_dim_snapshot
 {
     struct expression* expr;
-    char snap_name[32];
+    int snap_num;
 };
+static int vm_collect_dims(struct d_visit_ctx* ctx,
+                            const struct type* p_type,
+                            struct vm_dim_snapshot dims[],
+                            int max_dims);
+static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
+                                    struct osstream* oss_body,
+                                    const struct vm_dim_snapshot dims[],
+                                    int dim_count);
 
 static void print_initializer(struct d_visit_ctx* ctx,
     struct osstream* oss,
@@ -82,7 +75,6 @@ struct struct_entry_list
     int size;
     int capacity;
 };
-
 
 
 struct struct_entry
@@ -203,12 +195,6 @@ static void d_print_type(struct d_visit_ctx* ctx,
     const char* _Opt name_opt,
     bool print_storage_qualifier);
 
-/* VLA / VM -> C89 helpers — defined near d_visit_init_declarator */
-static const struct type* _Opt vm_find_first_vla_array(const struct type* p_type);
-static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx, struct osstream* oss, const struct type* p_type);
-static int  vm_collect_dims(struct d_visit_ctx* ctx, const struct type* p_type, struct vm_dim_snapshot dims[VM_MAX_DIMS]);
-static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx, struct osstream* oss_body, const struct vm_dim_snapshot dims[VM_MAX_DIMS], int dim_count);
-static bool vm_find_snap_name(struct d_visit_ctx* ctx, const struct expression* expr, char snap_name_out[32]);
 
 static void print_identation_core(struct osstream* ss, int indentation)
 {
@@ -514,6 +500,134 @@ static const char* get_op_by_expression_type(enum expression_type type)
 
 static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
+
+
+static bool vm_find_snap_num(struct d_visit_ctx* ctx, const struct expression* expr, size_t* num)
+{
+    char snap_key[64];
+    snprintf(snap_key, sizeof(snap_key), "%p", (void*)expr);
+    struct map_entry* _Opt p = hashmap_find(&ctx->vm_expression_to_dim_var, snap_key);
+    if (p == NULL)
+    {
+        return false;
+    }
+    *num = p->data.number;
+    return true;
+}
+
+static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
+                                     struct osstream* oss,
+                                     const struct type* p_type,
+                                     size_t* size)
+{
+    *size = 0; //out
+    const  enum  target target = ctx->options.target;
+    const enum type_category category = type_get_category(p_type);
+
+    if (category == TYPE_CATEGORY_ARRAY &&
+        !(p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER))
+    {
+        unsigned long long arraysize;
+
+        if (p_type->array_num_elements <= 0)
+        {
+            size_t num = 0;
+            if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
+            {
+                if (oss->size > 0)
+                    ss_fprintf(oss, " * ");
+
+                ss_fprintf(oss, CAKE_LOCAL_PREFIX "%d", num);
+            }
+
+            arraysize = 1;
+        }
+        else
+        {
+            arraysize = p_type->array_num_elements;
+        }
+
+        struct type type = get_array_item_type(p_type);
+        size_t sz = 0;
+        const enum sizeof_result er = vm_emit_sizeof_expr_core(ctx,
+                                      oss,
+                                      &type,
+                                      &sz);
+
+        if (er != SIZEOF_RESULT_OK)
+        {
+            sz = 1;
+        }
+        type_destroy(&type);
+
+        unsigned long long result = 0;
+        if (unsigned_long_long_mul(&result, sz, arraysize))
+        {
+            if (result > SIZE_MAX)
+            {
+                return SIZEOF_RESULT_OVERLOW;
+            }
+
+            //
+            if (result > /*SIZEMAX*/ 4294967295)
+            {
+                return SIZEOF_RESULT_OVERLOW;
+            }
+            *size = (size_t)result;
+        }
+        else
+        {
+            return SIZEOF_RESULT_OVERLOW;
+        }
+        return SIZEOF_RESULT_OK;
+    }
+    assert(p_type->next == NULL);
+    size_t sz2;
+    enum sizeof_result r = type_get_sizeof(p_type, &sz2, target);
+    *size = sz2;
+    assert(r != SIZEOF_RESULT_RUNTIME);
+    return r;
+}
+
+static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx,
+                                struct osstream* oss,
+                                const struct type* p_type)
+{
+    struct osstream local = { 0 };
+    size_t sz = 0;
+    vm_emit_sizeof_expr_core(ctx,
+                             &local,
+                             p_type,
+                             &sz);
+    ss_fprintf(oss, "(%zu", sz);
+
+    if (local.size > 0)
+        ss_fprintf(oss, " * %s)", local.c_str);
+
+    ss_close(&local);
+}
+
+static void vm_emit_countof_expr(struct d_visit_ctx* ctx,
+                                 struct osstream* oss,
+                                 const struct type* p_type)
+{
+    if (p_type->p_array_num_elements_expression != NULL &&
+        p_type->array_num_elements <= 0)
+    {
+        size_t num = 0;
+        if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
+        {
+            ss_fprintf(oss, CAKE_LOCAL_PREFIX "%d", num);
+        }
+    }
+    else if (p_type->array_num_elements > 0)
+    {
+        ss_fprintf(oss, "%zu", p_type->array_num_elements);
+    }
+}
+
+
+
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
 
@@ -544,6 +658,41 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             return;
         }
     }
+#if 0
+    
+    /* 
+      VM types can be used inside the expression cast, sizeof, compound literal etc
+      Here we register these VM types
+    */
+    struct vm_dim_snapshot dims[50];
+
+    if (p_expression)
+    {
+        int dim_count = vm_collect_dims(ctx, &p_expression->type, dims, _Countof(dims));
+        if (dim_count > 0)
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
+    }
+
+    if (p_expression->left)
+    {
+        int dim_count = vm_collect_dims(ctx, &p_expression->left->type, dims, _Countof(dims));
+        if (dim_count > 0)
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
+    }
+    if (p_expression->right)
+    {
+        int dim_count = vm_collect_dims(ctx, &p_expression->right->type, dims, _Countof(dims));
+        if (dim_count > 0)
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
+    }
+
+    if (p_expression->type_name != NULL)
+    {
+        int dim_count = vm_collect_dims(ctx, &p_expression->type_name->type, dims, _Countof(dims));
+        if (dim_count > 0)
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
+    }
+#endif
 
     ctx->address_of_argument = false;
 
@@ -569,8 +718,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             snprintf(func_name, sizeof func_name, "unnamed");
             snprintf(name, sizeof(name), "__cake_func_%p", ctx->p_current_function_opt);
         }
-
-
 
         if (!ctx->is__func__predefined_identifier_added)
         {
@@ -678,7 +825,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
-
             /*
                local static declarators are generated on-demand.
             */
@@ -745,7 +891,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->right != NULL);
         if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
         {
-            //removes extra (()) ,we also could remove from other..
+            /* remove extra (()) — could also be removed from other cases */
             d_visit_expression(ctx, oss, p_expression->right);
         }
         else
@@ -821,7 +967,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ss_fprintf(oss, ")");
             //TODO to convert to C89 we need to insert the first parameter
             //at the caller and at the implementation
-            //ss_fprintf(oss, ", __first_va_arg");            
+            /* ss_fprintf(oss, ", __first_va_arg"); */
         }
         break;
 
@@ -911,205 +1057,66 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        /*
-         * Subscript rewriting for VM types.
-         *
-         * After flattening, all VM pointers are plain pointers (int *p).
-         * Multi-dimensional access  (*p)[i][j]  must become  p[i*__v1 + j].
-         *
-         * The AST for (*p)[i][j] is:
-         *   POSTFIX_ARRAY {
-         *     left = POSTFIX_ARRAY {
-         *              left = UNARY_CONTENT(p),   type: int[n][m]
-         *              right = i
-         *            }                            type: int[m]
-         *     right = j
-         *   }
-         *
-         * Strategy: walk UP the left chain collecting all subscript indices
-         * and dimension sizes, then emit one flat index.
-         *
-         * We detect "this is a VM subscript chain" when the BOTTOM of the
-         * left chain is a UNARY_CONTENT(*ptr) where ptr is pointer-to-VM,
-         * OR when left->type is a VM array that still has inner dimensions.
-         *
-         * To avoid partial rewrites we only act at the OUTERMOST node of
-         * the chain — i.e. when the result type of THIS node is NOT an array.
-         * Inner nodes (whose result is still an array) are skipped and the
-         * outermost fires the full linearisation.
-         */
+        if (type_is_vm(&p_expression->left->type))
         {
-            /* Is the result of this subscript still an array? If so, we are
-             * an inner node — the outer node will handle full linearisation.
-             * Just emit normally and let the outer call deal with it. */
-            bool result_is_array = type_is_array(&p_expression->type);
+            /*
+               A[i0][i1][i2]...[ik]
 
-            /* Is the left operand (after unwrapping *) a VM base? */
-            struct expression* left = p_expression->left;
-            bool left_is_vm_array =
-                type_is_vla(&left->type) && type_is_array(&left->type);
+               Lower to:
 
-            /* Unwrap UNARY_CONTENT(*ptr) where ptr is pointer-to-VM */
-            bool left_is_deref_of_vm =
-                left->expression_type == UNARY_EXPRESSION_CONTENT &&
-                left->right != NULL &&
-                type_is_vm(&left->right->type);
+               offset =
+                   i0 * (d1*d2*...*dk)
+                 + i1 * (d2*d3*...*dk)
+                 + ...
+                 + ik
 
-            if (!result_is_array && (left_is_vm_array || left_is_deref_of_vm))
+               A[offset]
+            */
+
+            struct osstream offset_flat = { 0 };
+
+            struct expression* expr = p_expression;
+            while (expr->expression_type == POSTFIX_ARRAY)
             {
-                /*
-                 * This is the OUTERMOST subscript of a VM access.
-                 * Walk down the left chain to collect:
-                 *   - indices[]:   the subscript expressions (outermost first)
-                 *   - dim_exprs[]: the dimension expressions (for strides)
-                 *   - base:        the flat pointer (innermost expression)
-                 *
-                 * For  (*p)[i][j]:
-                 *   indices[0] = j,  indices[1] = i
-                 *   dim_exprs[0] = m  (stride for j's dimension)
-                 *   base = p
-                 */
-#define VM_MAX_SUBSCRIPT_DIMS 8
-                struct expression* indices[VM_MAX_SUBSCRIPT_DIMS];
-                struct expression* dim_exprs[VM_MAX_SUBSCRIPT_DIMS];
-                int ndims = 0;
+                if (offset_flat.size > 0)
+                    ss_fprintf(&offset_flat, " + ");
+                d_visit_expression(ctx, &offset_flat, expr->right);
 
-                struct expression* cur = p_expression;
-                while (cur->expression_type == POSTFIX_ARRAY &&
-                       ndims < VM_MAX_SUBSCRIPT_DIMS)
+                struct type* p_type = expr->left->type.next;
+                while (type_is_array(p_type))
                 {
-                    indices[ndims] = cur->right;  /* this level's index */
-
-                    /* record the dimension of the left's type (if still array) */
-                    if (type_is_array(&cur->left->type))
-                        dim_exprs[ndims] = (struct expression*)cur->left->type.array_num_elements_expression;
-                    else
-                        dim_exprs[ndims] = NULL;
-
-                    ndims++;
-                    cur = cur->left;
-
-                    /* unwrap UNARY_CONTENT(*ptr) */
-                    if (cur->expression_type == UNARY_EXPRESSION_CONTENT &&
-                        cur->right != NULL &&
-                        type_is_vm(&cur->right->type))
+                    if (p_type->array_num_elements > 0)
                     {
-                        cur = cur->right;
-                        break;
-                    }
-
-                    /* stop when we reach the base (not an array subscript) */
-                    if (cur->expression_type != POSTFIX_ARRAY &&
-                        !(cur->expression_type == UNARY_EXPRESSION_CONTENT &&
-                          cur->right != NULL &&
-                          type_is_vm(&cur->right->type)))
-                    {
-                        break;
-                    }
-                }
-
-                /* cur is now the flat base pointer */
-                struct expression* base = cur;
-
-                /*
-                 * Emit: base[ indices[n-1]*dim[n-2]*...*dim[0]
-                 *             + indices[n-2]*dim[n-3]*...*dim[0]
-                 *             + ...
-                 *             + indices[0] ]
-                 *
-                 * indices[] is outermost-first, so indices[ndims-1] is the
-                 * most-significant (row) index and indices[0] is the column.
-                 *
-                 * Example: (*p)[i][j], ndims=2
-                 *   indices[0]=j, dim_exprs[0]=m
-                 *   indices[1]=i, dim_exprs[1]=n (ignored for last)
-                 *   -> base[ i * m + j ]
-                 */
-                /*
-                 * Emit: ((elem_type*)base)[flat_index]
-                 *
-                 * We always cast base to a flat element pointer before
-                 * applying the single computed index.  This is necessary
-                 * when base is a VM pointer parameter (int (*grid)[n][m])
-                 * that has not been locally rewritten — without the cast,
-                 * base[flat] would yield int[m], not int.
-                 *
-                 * Finding the element type: skip the pointer node (if any)
-                 * then all array nodes; what remains is the element type.
-                 */
-                {
-                    const struct type* _Opt elem_t = &base->type;
-                    /* skip pointer */
-                    if (elem_t->category == TYPE_CATEGORY_POINTER && elem_t->next)
-                        elem_t = elem_t->next;
-                    /* skip arrays */
-                    while (elem_t && type_is_array(elem_t))
-                        elem_t = elem_t->next;
-
-                    if (elem_t && elem_t != &base->type)
-                    {
-                        struct osstream cast_ss = { 0 };
-                        d_print_type(ctx, &cast_ss, elem_t, NULL, false);
-                        ss_fprintf(oss, "((%s*)", cast_ss.c_str);
-                        d_visit_expression(ctx, oss, base);
-                        ss_fprintf(oss, ")");
-                        ss_close(&cast_ss);
+                        ss_fprintf(&offset_flat, "* %zu", p_type->array_num_elements);
                     }
                     else
                     {
-                        /* base is already a flat pointer */
-                        d_visit_expression(ctx, oss, base);
-                    }
-                }
-                ss_fprintf(oss, "[");
-
-                /* emit from most-significant index down */
-                for (int k = ndims - 1; k >= 0; k--)
-                {
-                    /* emit indices[k] */
-                    ss_fprintf(oss, "(");
-                    d_visit_expression(ctx, oss, indices[k]);
-                    ss_fprintf(oss, ")");
-
-                    /* multiply by all inner dimensions */
-                    for (int d = k - 1; d >= 0; d--)
-                    {
-                        if (dim_exprs[d] != NULL &&
-                            !object_has_constant_value(&dim_exprs[d]->object))
+                        size_t num;
+                        if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
                         {
-                            char snap_name[32];
-                            ss_fprintf(oss, " * ");
-                            if (vm_find_snap_name(ctx, dim_exprs[d], snap_name))
-                                ss_fprintf(oss, "%s", snap_name);
-                            else
-                                d_visit_expression(ctx, oss,
-                                    (struct expression*)dim_exprs[d]);
-                        }
-                        else if (dim_exprs[d] != NULL)
-                        {
-                            /* constant dimension */
-                            ss_fprintf(oss, " * ");
-                            d_visit_expression(ctx, oss,
-                                (struct expression*)dim_exprs[d]);
+                            ss_fprintf(&offset_flat, "* " CAKE_LOCAL_PREFIX "%d", num);
                         }
                     }
-
-                    if (k > 0)
-                        ss_fprintf(oss, " + ");
+                    p_type = p_type->next;
                 }
 
-                ss_fprintf(oss, "]");
-#undef VM_MAX_SUBSCRIPT_DIMS
+                expr = expr->left;
             }
-            else
-            {
-                /* normal subscript — no VM rewriting needed */
-                d_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, "[");
-                d_visit_expression(ctx, oss, p_expression->right);
-                ss_fprintf(oss, "]");
-            }
+
+            d_visit_expression(ctx, oss, expr);
+            ss_fprintf(oss, "[");
+            ss_fprintf(oss, "%s", offset_flat.c_str);
+            ss_fprintf(oss, "]");
+            ss_close(&offset_flat);
         }
+        else
+        {
+            d_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, "[");
+            d_visit_expression(ctx, oss, p_expression->right);
+            ss_fprintf(oss, "]");
+        }
+
         break;
 
     case POSTFIX_FUNCTION_CALL:
@@ -1229,19 +1236,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         if (is_static || !ctx->is_local)
         {
-            /*
-             * C23 static storage compound literal:  (static int[]){1, 2, 3}
-             * OR a compound literal at file scope.
-             *
-             * Both cases require a static-duration variable.  In C89 output
-             * we emit a file-scope static declaration with a constant initializer,
-             * hoisted via add_this_before_external_decl.
-             *
-             * C23 6.5.2.5p6: A compound literal with static storage duration
-             * has the same lifetime as an object declared with static storage
-             * duration at file scope.  Its address is constant and the same
-             * object is used across all invocations (no per-call copy).
-             */
             struct osstream local = { 0 };
             print_identation_core(&local, ctx->indentation);
             ss_fprintf(&local, "static ");
@@ -1277,32 +1271,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-        /*
-         * sizeof on a VM operand is a runtime operation in C99/C23.
-         * In C89 there are no VM types, so we replace sizeof with
-         * the equivalent expression:  sizeof(elem_type) * dim0 * dim1 ...
-         * using dimension snapshot names so the result is stable even
-         * if the original variables change after declaration.
-         *
-         * We use type_is_vm() not type_is_vla() because sizeof must be
-         * rewritten for ALL VM types — including pointer-to-VM which is
-         * MANDATORY in C23 even when __STDC_NO_VLA__ disables VLA objects:
-         *
-         *   int a[n]         type_is_vla=true,  type_is_vm=true
-         *   int (*p)[n][m]   type_is_vla=false, type_is_vm=true
-         *   sizeof(*p) where p : int(*)[n][m]
-         *     right->type is int[n][m]  -> type_is_vm=true
-         *     -> emit  (sizeof(int) * __v0 * __v1)
-         *
-         * If the operand is not VM the object holds a compile-time
-         * constant and object_print_value() is correct as before.
-         */
         if (p_expression->right != NULL &&
             type_is_vm(&p_expression->right->type))
         {
-            ss_fprintf(oss, "(");
             vm_emit_sizeof_expr(ctx, oss, &p_expression->right->type);
-            ss_fprintf(oss, ")");
         }
         else
         {
@@ -1311,10 +1283,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-        /*
-         * sizeof(type) where type is VM.
-         * Covers  sizeof(int[n][m])  and  sizeof(int(*)[n])  etc.
-         */
         if (p_expression->type_name != NULL &&
             type_is_vm(&p_expression->type_name->type))
         {
@@ -1330,8 +1298,24 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
     case UNARY_EXPRESSION_ALIGNOF_TYPE:
-    case UNARY_EXPRESSION_COUNTOF:
         object_print_value(oss, &p_expression->object, ctx->options.target);
+        break;
+
+    case UNARY_EXPRESSION_COUNTOF:
+        if (p_expression->right != NULL &&
+            type_is_vm(&p_expression->right->type))
+        {
+            vm_emit_countof_expr(ctx, oss, &p_expression->right->type);
+        }
+        else if (p_expression->type_name != NULL &&
+                 type_is_vm(&p_expression->type_name->type))
+        {
+            vm_emit_countof_expr(ctx, oss, &p_expression->type_name->type);
+        }
+        else
+        {
+            object_print_value(oss, &p_expression->object, ctx->options.target);
+        }
         break;
 
     case UNARY_EXPRESSION_CONSTEVAL:
@@ -1376,35 +1360,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case UNARY_EXPRESSION_CONTENT:
-
         assert(p_expression->right != NULL);
-
-        /*
-         * Pointer-to-VM dereference suppression.
-         *
-         * In C99:  int (*p)[n][m];   (*p) has type int[n][m]
-         * In C89:  int *p;           (*p) would dereference a single int
-         *
-         * When we rewrote the declaration to a flat pointer, all uses of
-         * (*p) must become just p.  We detect this by checking whether the
-         * operand (right) has a pointer-to-VM type — meaning the dereference
-         * result would have been a VM array, which no longer makes sense
-         * after the pointer was flattened.
-         *
-         * (*p)[i]  is POSTFIX_ARRAY{ left=UNARY_CONTENT(p), right=i }
-         * The POSTFIX_ARRAY handler will see left->type as VM array and
-         * emit  p[i]  correctly, as long as this UNARY_CONTENT emits just p.
-         */
-        if (type_is_vm(&p_expression->right->type))
-        {
-            /* operand is pointer-to-VM: suppress *, emit inner expr only */
-            d_visit_expression(ctx, oss, p_expression->right);
-        }
-        else
-        {
-            ss_fprintf(oss, "*");
-            d_visit_expression(ctx, oss, p_expression->right);
-        }
+        ss_fprintf(oss, "*");
+        d_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_ASSERT:
@@ -2438,7 +2396,7 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
     {
         if (p_block_item->next == NULL)
         {
-            /*last*/
+            /* last */
 
             if (p_block_item->unlabeled_statement &&
                 p_block_item->unlabeled_statement->expression_statement &&
@@ -2493,6 +2451,48 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
 }
 
 
+static int vm_collect_dims(struct d_visit_ctx* ctx,
+                            const struct type* p_type,
+                            struct vm_dim_snapshot dims[],
+                            int max_dims)
+{
+    int count = 0;
+    const struct type* _Opt it = p_type;
+    while (it && count < max_dims)
+    {
+        if (it->category == TYPE_CATEGORY_ARRAY &&
+            it->p_array_num_elements_expression != NULL &&
+            !object_has_constant_value(&it->p_array_num_elements_expression->object))
+        {
+
+            char snap_key[64];
+            snprintf(snap_key, sizeof(snap_key), "%p", (void*)it->p_array_num_elements_expression);
+
+            size_t num;
+            bool r = vm_find_snap_num(ctx, it->p_array_num_elements_expression, &num);
+            if (r)
+            {
+                dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
+                dims[count].snap_num = num;
+            }
+            else {
+                int snap_num = ctx->cake_local_declarator_number++;
+                dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
+                dims[count].snap_num = snap_num;
+                
+                struct hash_item_set item = { 0 };
+                item.number = snap_num;
+                hashmap_set(&ctx->vm_expression_to_dim_var, snap_key, &item);
+                hash_item_set_destroy(&item);
+            }
+
+            count++;
+        }
+        it = it->next;
+    }
+    return count;
+}
+
 static void d_visit_function_body(struct d_visit_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition)
@@ -2504,43 +2504,16 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
         return;
     }
 
-    ctx->cake_local_declarator_number = 0; //reset
+    hashmap_remove_all(&ctx->vm_expression_to_dim_var);  /* reset */
+    ctx->cake_local_declarator_number = 0; /* reset */
 
     int indentation = ctx->indentation;
     ctx->indentation = 0;
     const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
     ctx->p_current_function_opt = function_definition;
 
-    /*
-     * VM parameter dimension snapshots.
-     *
-     * When a function has VM pointer parameters whose dimensions reference
-     * earlier integer parameters:
-     *
-     *   void fill(int n, int m, int (*grid)[n][m])
-     *
-     * We snapshot n and m at function entry so subscript linearisation
-     * uses stable values even if n or m are modified in the body:
-     *
-     *   void fill(int n, int m, int *grid)
-     *   {
-     *       int __v0 = n;    <- snapshot at entry
-     *       int __v1 = m;
-     *       ...((int*)grid)[(i)*__v1+(j)]...
-     *   }
-     *
-     * We collect dims here, visit the compound statement, then inject the
-     * snapshot locals by post-processing: the compound statement emits
-     * "{\n<decls>\n<body>}\n" — we insert our snapshot lines right after
-     * the opening "{\n".
-     *
-     * Snapshots are emitted as combined declaration+initialization on one
-     * line (int __v0 = n;) to keep the output simple — C89 allows
-     * initialised declarations at block start.
-     */
 
-    /* Collect all VM parameter dimensions */
-    struct vm_dim_snapshot all_dims[VM_MAX_DIMS * 4];
+    struct vm_dim_snapshot all_dims[32];
     int all_dim_count = 0;
 
     const struct type* _Opt func_type = &function_definition->type;
@@ -2550,13 +2523,13 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     if (func_type != NULL)
     {
         struct param* _Opt pa = func_type->params.head;
-        while (pa && all_dim_count < VM_MAX_DIMS * 4)
+        while (pa && all_dim_count < _Countof(all_dims))
         {
             if (type_is_vm(&pa->type))
             {
-                struct vm_dim_snapshot dims[VM_MAX_DIMS];
-                int count = vm_collect_dims(ctx, &pa->type, dims);
-                for (int i = 0; i < count && all_dim_count < VM_MAX_DIMS * 4; i++)
+                struct vm_dim_snapshot dims[32];
+                int count = vm_collect_dims(ctx, &pa->type, dims, _Countof(dims));
+                for (int i = 0; i < count && all_dim_count < _Countof(dims); i++)
                     all_dims[all_dim_count++] = dims[i];
             }
             pa = pa->next;
@@ -2577,14 +2550,23 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
         struct osstream body = { 0 };
         d_visit_compound_statement(ctx, &body, function_definition->function_body);
 
+        struct osstream size_t_str = { 0 };
+        bool first = true;
+        print_type_specifier_flags(&size_t_str,
+            &first,
+            object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
+
+
         /* Build snapshot lines:  "    int __v0 = (n);\n" */
         struct osstream snaps = { 0 };
         for (int i = 0; i < all_dim_count; i++)
         {
-            ss_fprintf(&snaps, "    int %s = (", all_dims[i].snap_name);
+            print_identation_core(&snaps, 1);
+            ss_fprintf(&snaps, "%s " CAKE_LOCAL_PREFIX "%d = ", size_t_str.c_str, all_dims[i].snap_num);
             d_visit_expression(ctx, &snaps, all_dims[i].expr);
-            ss_fprintf(&snaps, ");\n");
+            ss_fprintf(&snaps, ";\n");
         }
+        ss_close(&size_t_str);
 
         /*
          * The body stream starts with "{\n".
@@ -2884,6 +2866,7 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
         print_item(ss, first, "volatile");
 }
 
+
 static void d_print_type_core(struct d_visit_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type0,
@@ -2979,13 +2962,24 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
         break;
         case TYPE_CATEGORY_ARRAY:
+        {
+            const struct type* it = p_type;
+            bool vm = false;
+            while (it->category == TYPE_CATEGORY_ARRAY)
+            {
+                if (it->array_num_elements <= 0)
+                {
+                    vm = true;
+                }
+
+                it = it->next;
+            }
 
             if (name_opt)
             {
                 ss_fprintf(ss, "%s", name_opt);
                 name_opt = NULL;
             }
-
             ss_fprintf(ss, "[");
 
             bool b = true;
@@ -2993,45 +2987,31 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             if (ctx->print_qualifiers)
                 d_print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
 
-            if (p_type->num_of_elements > 0)
+            if (vm)
             {
-                /* constant-size array dimension */
-                if (!b)
-                    ss_fprintf(ss, " ");
+                ss_fprintf(ss, "1");
+            }
+            else
+            {
+                if (p_type->array_num_elements > 0)
+                {
+                    /* constant-size array dimension */
+                    if (!b)
+                        ss_fprintf(ss, " ");
 
-                ss_fprintf(ss, "%zu", p_type->num_of_elements);
+                    ss_fprintf(ss, "%zu", p_type->array_num_elements);
+                }
+
             }
-            else if (p_type->array_num_elements_expression != NULL &&
-                     !object_has_constant_value(
-                         &p_type->array_num_elements_expression->object))
-            {
-                /*
-                 * VLA dimension — the size is a runtime expression.
-                 *
-                 * In C89 output we cannot use VLA syntax at all.
-                 * For function *parameters* the outermost array dimension
-                 * always decays to a pointer, so emitting [] is fine and
-                 * the C89 compiler accepts it.  Inner VLA dimensions of
-                 * a multi-dimensional parameter are also emitted as their
-                 * expression so the pointer arithmetic is correct when the
-                 * caller passes the address.
-                 *
-                 * For local variable declarations this path should NOT be
-                 * reached because d_visit_init_declarator intercepts VLA
-                 * locals and rewrites them as malloc'd pointers before ever
-                 * calling d_print_type.  If we do reach here unexpectedly,
-                 * fall back to emitting the expression so the output is at
-                 * least syntactically complete (the C89 compiler will then
-                 * reject it, making the bug visible).
-                 */
-                d_visit_expression(ctx, ss,
-                                   (struct expression*)p_type->array_num_elements_expression);
-            }
-            /* else: empty [], e.g. function parameter int a[] — leave blank */
 
             ss_fprintf(ss, "]");
-
-            break;
+            if (vm)
+            {
+                p_type = it;
+                continue;
+            }
+        }
+        break;
 
         case TYPE_CATEGORY_FUNCTION:
 
@@ -3066,21 +3046,9 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 struct osstream sslocal = { 0 };
                 struct osstream local2 = { 0 };
 
-                if (type_is_vm(&pa->type))
-                {
-                    /*
-                     * VM pointer parameter: int (*grid)[n][m]
-                     * Rewrite to flat pointer:  int *grid
-                     * Same transformation applied to local VM declarations.
-                     */
-                    struct type flat = type_remove_vm_arrays(&pa->type);
-                    d_print_type_core(ctx, &local2, &flat, pa->type.name_opt);
-                    type_destroy(&flat);
-                }
-                else
-                {
-                    d_print_type_core(ctx, &local2, &pa->type, pa->type.name_opt);
-                }
+
+                d_print_type_core(ctx, &local2, &pa->type, pa->type.name_opt);
+
 
                 ss_fprintf(&sslocal, "%s", local2.c_str);
                 ss_fprintf(ss, "%s", sslocal.c_str);
@@ -3108,7 +3076,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             struct osstream local = { 0 };
             if (p_type->next && (
                 (p_type->next->category == TYPE_CATEGORY_FUNCTION ||
-                    p_type->next->category == TYPE_CATEGORY_ARRAY)))
+                    (p_type->next->category == TYPE_CATEGORY_ARRAY))))
             {
                 ss_fprintf(&local, "(");
             }
@@ -3126,10 +3094,12 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 ss_fprintf(&local, "__cdecl ");
             }
 
+
             ss_fprintf(&local, "*");
+
             bool first = false;
             if (ctx->print_qualifiers)
-                d_print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
+                d_print_type_qualifier_flags(ss, &first, p_type->type_qualifier_flags);
 
             if (name_opt)
             {
@@ -3147,13 +3117,14 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             if (p_type->next &&
                 (p_type->next->category == TYPE_CATEGORY_FUNCTION ||
-                    p_type->next->category == TYPE_CATEGORY_ARRAY))
+                    (p_type->next->category == TYPE_CATEGORY_ARRAY)))
             {
                 ss_fprintf(&local, ")", ss->c_str);
             }
 
             ss_swap(ss, &local);
             ss_close(&local);
+
 
         }
         break;
@@ -3170,18 +3141,11 @@ static void d_print_type(struct d_visit_ctx* ctx,
     const char* _Opt name_opt,
     bool print_storage_qualifiers)
 {
-
-
     register_struct_types_and_functions(ctx, p_type, NULL);
-
 
     struct osstream local = { 0 };
 
-
-    d_print_type_core(ctx,
-    &local,
-    p_type,
-    name_opt);
+    d_print_type_core(ctx, &local, p_type, name_opt);
 
 
     if (print_storage_qualifiers && p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
@@ -3204,7 +3168,7 @@ static void d_print_type(struct d_visit_ctx* ctx,
     ss_close(&local);
 }
 
-//return true se todas as expressoes constantes sao 0, as nao constantes nao sao consideradas
+/* returns true if all constant expressions are 0; non-constant expressions are not considered */
 static bool is_all_zero(const struct object* object)
 {
     if (object_is_reference(object))
@@ -3264,7 +3228,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
     {
         if (type_is_union(&object->type))
         {
-            //In c89 only the first member can be initialized
+            /* in C89, only the first member can be initialized */
             //we could make the first member be array of unsigned int
             //then initialize it
             struct object* _Opt member = object->members.head;
@@ -3330,25 +3294,23 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
     {
         if (type_is_union(&object->type))
         {
-            //In c89 only the first member can be initialized
+            /* in C89, only the first member can be initialized */
             struct object* _Opt member = object->members.head;
 
             if (member->p_init_expression &&
                 object_has_constant_value(&member->p_init_expression->object) &&
                 !all)
             {
-                //already initialized
+                /* already initialized */
             }
             else
             {
-                //TODO external declarations bug
-                /*
-                */
+                /* TODO: external declarations bug */
                 while (member)
                 {
                     if (member->p_init_expression)
                     {
-                        //object_print_non_constant_initialization(ctx, ss, member, declarator_name);
+                        /* object_print_non_constant_initialization(ctx, ss, member, declarator_name); */
                         print_identation_core(ss, ctx->indentation);
                         ss_fprintf(ss, "%s%s = ", declarator_name, member->member_designator);
                         struct osstream local = { 0 };
@@ -3381,7 +3343,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                size_t string_size = object->p_init_expression->type.num_of_elements;
+                size_t string_size = object->p_init_expression->type.array_num_elements;
                 ss_fprintf(ss, "%s, %zu", local.c_str, string_size);
 
                 ss_fprintf(ss, ");\n");
@@ -3497,7 +3459,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                     ss_fprintf(oss, "_cake_memcpy(%s, ", p_init_declarator->p_declarator->name_opt->lexeme);
                     struct osstream local = { 0 };
                     d_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
-                    ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.num_of_elements);
+                    ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.array_num_elements);
 
                     ss_fprintf(oss, ");\n");
                     ss_close(&local);
@@ -3544,7 +3506,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                                 throw;
                             }
 
-                            // ss_fprintf(oss, ";\n");
+                            /* ss_fprintf(oss, ";\n"); */
                             print_identation_core(oss, ctx->indentation);
                             ss_fprintf(oss, "_cake_zmem(&%s, %zu);\n",
                             p_init_declarator->p_declarator->name_opt->lexeme,
@@ -3607,286 +3569,33 @@ static void print_initializer(struct d_visit_ctx* ctx,
     }
 }
 
-
-/*
- * -----------------------------------------------------------------------
- *  VM (Variably Modified) type → C89 helpers
- *
- *  C99 VM types fall into two categories:
- *
- *  A) Plain VLA:  head of the type chain is TYPE_CATEGORY_ARRAY with a
- *     runtime dimension.
- *       int a[n]       →  int *a; + malloc + free
- *       int a[n][m]    →  int *a; + malloc(sizeof(int)*(n)*(m)) + free
- *       char b[k]      →  char *b; + malloc + free
- *
- *  B) Pointer-to-VM:  head is TYPE_CATEGORY_POINTER but somewhere in the
- *     chain there is a runtime-sized array.
- *       int (*p)[n]        declaration stays as  int (*p)[n]  — it is
- *       int (*p)[n][m]     already a pointer, no malloc needed.
- *       The user allocates explicitly, e.g.:
- *           int (*p)[n][m] = malloc(sizeof *p);
- *       Our job is only to rewrite  sizeof(*p)  →  sizeof(int)*(n)*(m)
- *       so that the expression is valid in C89.
- *       d_print_type_core already handles the type printing; the array
- *       dimension expression is emitted inside [].
- *
- *  The helpers below cover both cases.
- * -----------------------------------------------------------------------
- */
-
-/*
- * Find the first array node anywhere in the type chain that has a runtime
- * (VLA) dimension.  Returns NULL if there is none.
- */
-/*
- * -----------------------------------------------------------------------
- *  VM (Variably Modified) type -> C89 helpers
- *
- *  C99 VM types fall into two categories:
- *
- *  A) Plain VLA:  head of the type chain is TYPE_CATEGORY_ARRAY.
- *       int a[n]       ->  int *a; + malloc + free
- *       int a[n][m]    ->  int *a; + malloc(sizeof(int)*(n)*(m)) + free
- *
- *  B) Pointer-to-VM:  head is TYPE_CATEGORY_POINTER but the chain
- *     contains a runtime-sized array dimension.
- *       int (*p)[n]
- *       int (*p)[n][m] = malloc(sizeof *p);
- *     Declaration stays as-is (already a pointer).
- *     sizeof(*p) is rewritten.
- *
- *  DIMENSION SNAPSHOTS
- *  -------------------
- *  C99 captures VLA dimensions at the point of declaration.  The
- *  variables n, m may change later but the allocation size must not.
- *  We emit a const snapshot local for each runtime dimension:
- *
- *    int (*p)[n][m] = malloc(sizeof *p);
- *
- *  becomes:
- *
- *    int __v0 = (n);     <- hoisted, captured once
- *    int __v1 = (m);     <- hoisted, captured once
- *    int (*p)[__v0][__v1];     <- declaration uses snapshots
- *    p = malloc(sizeof(int) * __v0 * __v1);
- *
- *  The snapshot names are built as  CAKE_LOCAL_PREFIX + counter  using
- *  the existing ctx->cake_local_declarator_number counter, then stored
- *  in a small vm_dim_snapshot array so every part of the declaration
- *  (type print, malloc size, sizeof rewrite) uses the same names.
- * -----------------------------------------------------------------------
- */
-
-/*
- * Collect all VM dimension expressions from a type chain into an array.
- * Returns the number of dimensions found (0 if not a VM type).
- * Also generates a unique snap_name for each using ctx->cake_local_declarator_number.
- *
- * Only dimensions that are runtime (not compile-time constant) get entries.
- * Constant dimensions are NOT snapshotted — they are emitted as literals.
- */
-static int vm_collect_dims(struct d_visit_ctx* ctx,
-                            const struct type* p_type,
-                            struct vm_dim_snapshot dims[VM_MAX_DIMS])
-{
-    int count = 0;
-    const struct type* _Opt it = p_type;
-    while (it && count < VM_MAX_DIMS)
-    {
-        if (it->category == TYPE_CATEGORY_ARRAY &&
-            it->array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->array_num_elements_expression->object))
-        {
-            int snap_num = ctx->cake_local_declarator_number++;
-            dims[count].expr = (struct expression*)it->array_num_elements_expression;
-            snprintf(dims[count].snap_name, sizeof(dims[count].snap_name),
-                     CAKE_LOCAL_PREFIX "%d", snap_num);
-
-            /*
-             * Register expression pointer -> snap number in the hashmap so
-             * that sizeof rewriting in d_visit_expression can look up the
-             * snapshot name without access to the dims[] array.
-             * Key: "__snap:<expr_ptr>"  Value: snap_num stored in .number
-             */
-            char snap_key[64];
-            snprintf(snap_key, sizeof(snap_key),
-                     "__snap:%p", (void*)it->array_num_elements_expression);
-            struct hash_item_set item = { 0 };
-            item.number = snap_num;
-            hashmap_set(&ctx->file_scope_declarator_map, snap_key, &item);
-            hash_item_set_destroy(&item);
-
-            count++;
-        }
-        it = it->next;
-    }
-    return count;
-}
-
-/*
- * Hoist const snapshot declarations into ctx->block_scope_declarators.
- *
- *   int __v0 = (n);
- *   int __v1 = (m);
- */
-
-/*
- * Look up the snapshot name for a given VM dimension expression.
- * Returns true and fills snap_name_out if found; returns false otherwise.
- * Used by sizeof rewriting in d_visit_expression.
- */
-static bool vm_find_snap_name(struct d_visit_ctx* ctx,
-                               const struct expression* expr,
-                               char snap_name_out[32])
-{
-    char snap_key[64];
-    snprintf(snap_key, sizeof(snap_key), "__snap:%p", (void*)expr);
-    struct map_entry* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, snap_key);
-    if (p == NULL)
-        return false;
-    snprintf(snap_name_out, 32, CAKE_LOCAL_PREFIX "%d", (int)p->data.number);
-    return true;
-}
-
-/*
- * The declaration  "int __vN;"  goes into ctx->block_scope_declarators
- * (hoisted to the top of the block per C89 rules).
- *
- * The assignment   "__vN = (expr);"  goes into oss_body
- * (emitted as a statement in the body, before the malloc/use).
- *
- * No const — C89 does not require or benefit from it, and keeping
- * them as plain int is simpler and more portable.
- */
 static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
                                     struct osstream* oss_body,
-                                    const struct vm_dim_snapshot dims[VM_MAX_DIMS],
+                                    const struct vm_dim_snapshot dims[],
                                     int dim_count)
 {
+    struct osstream size_t_str = { 0 };
+    bool first = true;
+    print_type_specifier_flags(&size_t_str,
+        &first,
+        object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
+
     for (int i = 0; i < dim_count; i++)
     {
         /* declaration hoisted to block top */
         print_identation(ctx, &ctx->block_scope_declarators);
         ss_fprintf(&ctx->block_scope_declarators,
-                   "int %s;\n", dims[i].snap_name);
+                   "%s " CAKE_LOCAL_PREFIX "%d;\n", size_t_str.c_str, dims[i].snap_num);
 
         /* assignment emitted as a statement in the body */
         print_identation(ctx, oss_body);
-        ss_fprintf(oss_body, "%s = (", dims[i].snap_name);
+        ss_fprintf(oss_body, CAKE_LOCAL_PREFIX "%d = ", dims[i].snap_num);
         d_visit_expression(ctx, oss_body, dims[i].expr);
-        ss_fprintf(oss_body, ");\n");
+        ss_fprintf(oss_body, ";\n");
     }
+    ss_close(&size_t_str);
 }
 
-
-/*
- * Emit a type where every runtime VLA dimension is replaced by its
- * snapshot name.  Used to print  int (*p)[__v0][__v1]  in the hoisted
- * declaration of a pointer-to-VM variable.
- *
- * We emit the type by walking the chain manually rather than calling
- * d_print_type, because we need to substitute dimension names.
- * For simplicity, for the common case of a plain pointer-to-array we
- * delegate to d_print_type_core after temporarily patching the expression
- * objects — but that would mutate shared AST nodes.
- *
- * Instead we just emit the sizeof expression in a comment and use the
- * snapshot names directly in the malloc call.  The declaration itself
- * is emitted by d_print_type (which calls d_print_type_core which re-emits
- * the original expression) — this is fine for the declaration because C89
- * compilers will not see VLA syntax in the declaration: the declaration is
- * for a pointer, so only the pointer part matters.  The dimension inside []
- * is informational in a pointer-to-array declaration and the C89 compiler
- * will use whatever expression we give it.
- *
- * So: the declaration uses snapshot names; malloc uses snapshot names;
- * sizeof uses snapshot names.  We achieve this by emitting the declaration
- * manually here.
- */
-static const struct type* _Opt vm_find_first_vla_array(const struct type* p_type)
-{
-    const struct type* _Opt it = p_type;
-    while (it)
-    {
-        if (it->category == TYPE_CATEGORY_ARRAY &&
-            it->array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->array_num_elements_expression->object))
-        {
-            return it;
-        }
-        it = it->next;
-    }
-    return NULL;
-}
-
-/*
- * Emit the runtime sizeof expression for a VM type.
- *
- * For each runtime dimension, we first look up whether a snapshot local
- * was registered in ctx->file_scope_declarator_map by vm_collect_dims().
- * If found, we emit the snapshot name (__v0, __v1, ...) — this is the
- * correct value even if the original variable has been modified since
- * the declaration.
- * If not found (e.g. a VM parameter type with no local snapshot), we
- * fall back to emitting the original expression.
- */
-static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx,
-                                struct osstream* oss,
-                                const struct type* p_type)
-{
-    const struct type* _Opt arr = vm_find_first_vla_array(p_type);
-    if (arr == NULL)
-    {
-        struct osstream et = { 0 };
-        d_print_type(ctx, &et, p_type, NULL, false);
-        ss_fprintf(oss, "sizeof(%s)", et.c_str);
-        ss_close(&et);
-        return;
-    }
-
-    /* element type */
-    const struct type* _Opt elem = arr;
-    while (elem && type_is_array(elem))
-        elem = elem->next;
-    if (elem == NULL) elem = arr;
-
-    struct osstream et = { 0 };
-    d_print_type(ctx, &et, elem, NULL, false);
-    ss_fprintf(oss, "sizeof(%s)", et.c_str);
-    ss_close(&et);
-
-    /* multiply each dimension — prefer snapshot name over original expr */
-    const struct type* _Opt it = arr;
-    while (it && type_is_array(it))
-    {
-        if (it->array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->array_num_elements_expression->object))
-        {
-            char snap_name[32];
-            if (vm_find_snap_name(ctx,
-                                  it->array_num_elements_expression,
-                                  snap_name))
-            {
-                /* snapshot available — always use it */
-                ss_fprintf(oss, " * %s", snap_name);
-            }
-            else
-            {
-                /* no snapshot — emit the original expression (e.g. parameter) */
-                ss_fprintf(oss, " * (");
-                d_visit_expression(ctx, oss,
-                    (struct expression*)it->array_num_elements_expression);
-                ss_fprintf(oss, ")");
-            }
-        }
-        else if (it->num_of_elements > 0)
-        {
-            ss_fprintf(oss, " * %zu", it->num_of_elements);
-        }
-        it = it->next;
-    }
-}
 
 static void d_visit_init_declarator(struct d_visit_ctx* ctx,
     struct osstream* oss0,
@@ -3937,7 +3646,6 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
     if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
     {
-        //int i;
 
         struct hash_item_set i = { 0 };
         i.number = 1;
@@ -3971,56 +3679,15 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
         if (type_is_vm(decl_type))
         {
-            /*
-             * Pointer-to-VM type — head is TYPE_CATEGORY_POINTER but the
-             * chain contains a runtime-sized array dimension.
-             *
-             * This is the MANDATORY part in C23: even when __STDC_NO_VLA__
-             * is defined (disabling VLA objects), VM types like int (*p)[n]
-             * must still be supported.  We do NOT insert malloc/free here —
-             * the pointer is already a pointer and the user allocates manually.
-             * Our job is only to:
-             *   1. Snapshot the dimensions into plain int locals.
-             *   2. Flatten the declaration to a plain pointer (int *p).
-             *   3. Rewrite sizeof(*p) to use the snapshot names.
-             *   4. Rewrite (*p)[i] access to p[i].
-             *
-             *   C99:  int (*p)[n][m] = malloc(sizeof *p);
-             *
-             *   C89:  int __v0;                           (hoisted decl)
-             *         int __v1;                           (hoisted decl)
-             *         int *p;                             (hoisted decl — flat ptr)
-             *         __v0 = (n);                         (body: snapshot assign)
-             *         __v1 = (m);                         (body: snapshot assign)
-             *         p = malloc(sizeof(int)*__v0*__v1);  (body: initializer)
-             *
-             * We cannot emit  int (*p)[__v0][__v1]  — that is still a VM
-             * type because __v0/__v1 are runtime variables, not compile-time
-             * constants.  The declaration must be a plain pointer via
-             * type_remove_vm_arrays().
-             */
-            struct vm_dim_snapshot dims[VM_MAX_DIMS];
-            int dim_count = vm_collect_dims(ctx, decl_type, dims);
-
-            /* 1. Hoisted snapshot locals + body assignments */
+            struct vm_dim_snapshot dims[50];
+            int dim_count = vm_collect_dims(ctx, decl_type, dims, _Countof(dims));
             vm_emit_snapshot_decls(ctx, oss0, dims, dim_count);
 
-            /* 2. Hoisted flat pointer declaration: elem_type *var
-             *
-             * Use type_remove_vm_arrays to transform the full VM type chain
-             *   PTR -> ARRAY[n] -> ARRAY[m] -> INT
-             * into a plain pointer-to-element type
-             *   PTR -> INT   (prints as  int *var)
-             *
-             * We must NOT emit the original type through d_print_type because
-             * d_print_type_core would produce  int (*var)[n][m]  which is still
-             * a VM type in C89.
-             */
             struct osstream ss = { 0 };
             print_identation(ctx, &ss);
-            struct type flat_type = type_remove_vm_arrays(decl_type);
-            d_print_type(ctx, &ss, &flat_type, var_name, false);
-            type_destroy(&flat_type);
+
+            d_print_type(ctx, &ss, decl_type, var_name, false);
+
             ss_fprintf(&ss, ";\n");
             ss_fprintf(&ctx->block_scope_declarators, "%s", ss.c_str);
             ss_close(&ss);
@@ -4077,12 +3744,12 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         bool rename_declarator = false;
         if (!is_extern && is_block_scope && !is_inline && is_static && !is_function)
         {
-            //{ static int i; }
+            /* { static int i; } */
             rename_declarator = true;
         }
         else if (!is_inline && !is_static && !is_auto && is_function && !is_function_body)
         {
-            //void f();
+            /* void f(); */
         }
         else if (!is_extern && is_block_scope && is_function)
         {
@@ -4212,13 +3879,13 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
                     ss_fprintf(ss, "    ");
 
                     if (type_is_array(&member_declarator->declarator->type) &&
-                        member_declarator->declarator->type.num_of_elements == 0)
+                        member_declarator->declarator->type.array_num_elements == 0)
                     {
                         //Flexible array members - we print as [1] instead 
                         // of [0] or []
                         //sizeof is not used in generated code, so this will not cause 
                         //problems
-                        member_declarator->declarator->type.num_of_elements = 1;
+                        member_declarator->declarator->type.array_num_elements = 1;
 
                         d_print_type(ctx,
                          ss,
@@ -4226,7 +3893,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
                          member_declarator->declarator->name_opt->lexeme,
                             false);
 
-                        member_declarator->declarator->type.num_of_elements = 0; //restore
+                        member_declarator->declarator->type.array_num_elements = 0; //restore
                     }
                     else
                     {
@@ -4430,7 +4097,6 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     {
         ss_fprintf(oss, "%s", declarations.c_str);
     }
-
 
     ss_close(&declarations);
 }

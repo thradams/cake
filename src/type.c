@@ -502,12 +502,12 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
             print_type_qualifier_flags(ss, &b, p->type_qualifier_flags);
 
-            if (p->num_of_elements > 0)
+            if (p->array_num_elements > 0)
             {
                 if (!b)
                     ss_fprintf(ss, " ");
 
-                ss_fprintf(ss, "%d", p->num_of_elements);
+                ss_fprintf(ss, "%d", p->array_num_elements);
             }
             ss_fprintf(ss, "]");
 
@@ -955,34 +955,15 @@ bool type_is_character(const struct type* p_type)
         p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR;
 }
 
-/*
- * type_is_vla — true if the type is a Variable Length Array object.
- *
- * A VLA is an array whose size is not an integer constant expression.
- * The head of the type chain must be an array node — this function only
- * inspects leading TYPE_CATEGORY_ARRAY nodes, so pointer-to-VLA types
- * (e.g. int (*p)[n]) return false.
- *
- * Standard status:
- *   C99:  mandatory
- *   C11:  optional  (__STDC_NO_VLA__ may be defined)
- *   C23:  optional  (__STDC_NO_VLA__ may be defined)
- *
- * Use type_is_vm() to detect the broader category of variably modified
- * types, which includes pointers to VLAs and remains mandatory in C23.
- *
- * In C89 code generation, type_is_vla() identifies types that require
- * stack allocation to be replaced with malloc/free.
- */
 bool type_is_vla(const struct type* p_type)
 {
     const struct type* _Opt it = p_type;
 
     while (it && type_is_array(it))
     {
-        if (it->array_num_elements_expression)
+        if (it->p_array_num_elements_expression)
         {
-            if (!object_has_constant_value(&it->array_num_elements_expression->object))
+            if (!object_has_constant_value(&it->p_array_num_elements_expression->object))
             {
                 // int a[7][n]
                 //if any of the array is not constant then it is vla
@@ -994,43 +975,53 @@ bool type_is_vla(const struct type* p_type)
     return false;
 }
 
-/*
- * type_is_vm — true if the type is a Variably Modified type.
- *
- * A type is variably modified if it is a VLA or if it is derived from a
- * variably modified type (C99 6.7.5p3 / C23 6.7.6p3).  This includes:
- *
- *   int a[n]          — VLA object            (type_is_vla also true)
- *   int (*p)[n]       — pointer to VLA        (type_is_vla false)
- *   int (*p)[n][m]    — pointer to 2-D VLA    (type_is_vla false)
- *   typedef int T[n]  — VM typedef            (type_is_vla true if T is array)
- *
- * Standard status:
- *   C99:  mandatory
- *   C11:  mandatory
- *   C23:  mandatory  (VM types are ALWAYS supported, even when __STDC_NO_VLA__)
- *
- * This is the key distinction from type_is_vla():
- *   __STDC_NO_VLA__ disables VLA *objects* (stack-allocated arrays with
- *   runtime size), but NOT VM types (pointers to such arrays).  A C23
- *   implementation may define __STDC_NO_VLA__ and still require support
- *   for  void f(int n, int (*p)[n])  — the parameter p is a VM type.
- *
- * In C89 code generation, type_is_vm() identifies types whose sizeof
- * must be evaluated at runtime using dimension snapshots.
- */
+
 bool type_is_vm(const struct type* p_type)
 {
-    const struct type* _Opt it = p_type;
-    while (it)
+    const struct type* _Opt p = p_type;
+
+    while (p)
     {
-        if (it->category == TYPE_CATEGORY_ARRAY &&
-            it->array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->array_num_elements_expression->object))
+        switch (p->category)
+        {        
+        case TYPE_CATEGORY_ARRAY:
+            if (p->array_num_elements > 0)
+            {      
+                /* constant size */
+            }
+            else
+            {
+                if (p->p_array_num_elements_expression == NULL) {
+                    /*
+                    * size is unknown but not vm. 
+                    * int a[]
+                    */
+                }
+                else
+                    return true;                
+            }
+            break;
+
+        case TYPE_CATEGORY_FUNCTION:
         {
-            return true;
+            struct param* _Opt pa = p->params.head;
+
+            while (pa)
+            {
+                if (type_is_vm(&pa->type))
+                    return true;
+
+                pa = pa->next;
+            }
         }
-        it = it->next;
+        break;
+
+        case TYPE_CATEGORY_ITSELF:            
+        case TYPE_CATEGORY_POINTER:
+            break;
+        }
+
+        p = p->next;
     }
     return false;
 }
@@ -1502,79 +1493,6 @@ struct type type_remove_pointer(const struct type* p_type)
     return r;
 }
 
-/*
- * type_remove_vm_arrays — strip all VM (variably-modified) array nodes
- * from a pointer-to-VM type, returning a plain pointer-to-element type.
- *
- * For  int (*p)[n][m]  the type chain is:
- *   PTR -> ARRAY[n] -> ARRAY[m] -> INT
- *
- * This function returns a new owned type:
- *   PTR -> INT   (i.e.  int *)
- *
- * This is needed for C89 code generation: the declaration must be a
- * plain pointer because  int (*p)[n][m]  is still a VM type in C89
- * (n and m are runtime variables, not compile-time constants).
- *
- * If p_type is not a pointer-to-VM, returns a full dup unchanged.
- */
-struct type type_remove_vm_arrays(const struct type* p_type)
-{
-    if (!type_is_pointer(p_type) || !type_is_vm(p_type))
-    {
-        return type_dup(p_type);
-    }
-
-    try
-    {
-        /* Dup the pointer node only — do NOT follow next yet */
-        struct type* _Owner _Opt ptr_node = calloc(1, sizeof(struct type));
-        if (ptr_node == NULL) throw;
-
-        *ptr_node = *p_type;
-        static_set(ptr_node->next, "uninitialized");
-        ptr_node->next = NULL;
-        if (p_type->name_opt)
-            ptr_node->name_opt = strdup(p_type->name_opt);
-
-        /* Find the element type: skip all array nodes after the pointer */
-        const struct type* _Opt elem = p_type->next;
-        while (elem && type_is_array(elem))
-            elem = elem->next;
-
-        if (elem == NULL)
-        {
-            /* Degenerate: no element type found, fall back to full dup */
-            type_delete(ptr_node);
-            return type_dup(p_type);
-        }
-
-        /* Dup the element type chain */
-        struct type* _Owner _Opt elem_dup = calloc(1, sizeof(struct type));
-        if (elem_dup == NULL)
-        {
-            type_delete(ptr_node);
-            throw;
-        }
-        *elem_dup = type_dup(elem);
-
-        /* Link: PTR -> elem */
-        ptr_node->next = elem_dup;
-
-        /* Return the pointer node as the root of the new chain */
-        struct type r = *ptr_node;
-        free(ptr_node);
-        return r;
-    }
-    catch
-    {
-    }
-
-    struct type empty = { 0 };
-    return empty;
-}
-
-
 struct type get_array_item_type(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
@@ -1986,10 +1904,10 @@ struct type type_dup(const struct type* p_type)
     return empty;
 }
 
-static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
+static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
     const char* member, size_t* sz, enum target target)
 {
-    enum sizeof_error sizeof_error = ESIZEOF_NONE;
+    enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
@@ -2027,12 +1945,12 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                         if (strcmp(md->declarator->name_opt->lexeme, member) == 0)
                         {
                             *sz = size;
-                            return ESIZEOF_NONE;
+                            return SIZEOF_RESULT_OK;
                         }
 
                         size_t item_size = 0;
-                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size, target);
-                        if (sizeof_error != 0)
+                        sizeof_result = type_get_sizeof(&md->declarator->type, &item_size, target);
+                        if (sizeof_result != 0)
                             throw;
 
                         if (is_union)
@@ -2047,7 +1965,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     }
                     else
                     {
-                        sizeof_error = ESIZEOF_INCOMPLETE;
+                        sizeof_result = SIZEOF_RESULT_INCOMPLETE;
                         throw;
                     }
 
@@ -2075,8 +1993,8 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     }
                     size_t item_size = 0;
 
-                    sizeof_error = type_get_sizeof(&t, &item_size, target);
-                    if (sizeof_error != 0)
+                    sizeof_result = type_get_sizeof(&t, &item_size, target);
+                    if (sizeof_result != 0)
                         throw;
 
                     if (is_union)
@@ -2088,7 +2006,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     {
                         if (item_size > SIZE_MAX - size)
                         {
-                            sizeof_error = ESIZEOF_OVERLOW;
+                            sizeof_result = SIZEOF_RESULT_OVERLOW;
                             throw;
                         }
                         size += item_size;
@@ -2097,7 +2015,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                 }
                 else
                 {
-                    sizeof_error = ESIZEOF_INCOMPLETE;
+                    sizeof_result = SIZEOF_RESULT_INCOMPLETE;
                     throw;
                 }
             }
@@ -2113,22 +2031,22 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
         }
         else
         {
-            sizeof_error = ESIZEOF_INCOMPLETE;
+            sizeof_result = SIZEOF_RESULT_INCOMPLETE;
             throw;
         }
     }
     catch
     {
-        return sizeof_error;
+        return sizeof_result;
     }
 
     *sz = size;
-    return sizeof_error;
+    return sizeof_result;
 }
 
-enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, enum target target)
+enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, enum target target)
 {
-    enum sizeof_error sizeof_error = ESIZEOF_NONE;
+    enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
@@ -2161,8 +2079,8 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                             size += align - (size % align);
                         }
                         size_t item_size = 0;
-                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size, target);
-                        if (sizeof_error != 0)
+                        sizeof_result = type_get_sizeof(&md->declarator->type, &item_size, target);
+                        if (sizeof_result != 0)
                             throw;
 
                         if (is_union)
@@ -2177,7 +2095,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     }
                     else
                     {
-                        sizeof_error = ESIZEOF_INCOMPLETE;
+                        sizeof_result = SIZEOF_RESULT_INCOMPLETE;
                         throw;
                     }
                     md = md->next;
@@ -2204,8 +2122,8 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     }
                     size_t item_size = 0;
 
-                    sizeof_error = type_get_sizeof(&t, &item_size, target);
-                    if (sizeof_error != 0)
+                    sizeof_result = type_get_sizeof(&t, &item_size, target);
+                    if (sizeof_result != 0)
                         throw;
 
                     if (is_union)
@@ -2217,7 +2135,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     {
                         if (item_size > SIZE_MAX - size)
                         {
-                            sizeof_error = ESIZEOF_OVERLOW;
+                            sizeof_result = SIZEOF_RESULT_OVERLOW;
                             throw;
                         }
                         size += item_size;
@@ -2226,7 +2144,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                 }
                 else
                 {
-                    sizeof_error = ESIZEOF_INCOMPLETE;
+                    sizeof_result = SIZEOF_RESULT_INCOMPLETE;
                     throw;
                 }
             }
@@ -2241,17 +2159,17 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
         }
         else
         {
-            sizeof_error = ESIZEOF_INCOMPLETE;
+            sizeof_result = SIZEOF_RESULT_INCOMPLETE;
             throw;
         }
     }
     catch
     {
-        return sizeof_error;
+        return sizeof_result;
     }
 
     *sz = size;
-    return sizeof_error;
+    return sizeof_result;
 }
 
 size_t type_get_alignof(const struct type* p_type, enum target target);
@@ -2473,7 +2391,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
     return align;
 }
 
-enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target)
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target)
 {
     *size = 0; //out
 
@@ -2482,29 +2400,29 @@ enum sizeof_error type_get_offsetof(const struct type* p_type, const char* membe
     if (category != TYPE_CATEGORY_ITSELF)
     {
         *size = sizeof(void*);
-        return ESIZEOF_FUNCTION;
+        return SIZEOF_RESULT_FUNCTION;
     }
 
     if (!(p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
     {
-        return ESIZEOF_INCOMPLETE;
+        return SIZEOF_RESULT_INCOMPLETE;
     }
 
     if (p_type->struct_or_union_specifier == NULL)
     {
-        return ESIZEOF_INCOMPLETE;
+        return SIZEOF_RESULT_INCOMPLETE;
     }
 
     struct struct_or_union_specifier* _Opt p_complete =
         get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
     if (p_complete == NULL)
-        return ESIZEOF_INCOMPLETE;
+        return SIZEOF_RESULT_INCOMPLETE;
 
     return get_offsetof_struct(p_complete, member, size, target);
 }
 
-enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum target target)
+enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target)
 {
     *size = 0; //out
 
@@ -2513,12 +2431,13 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
     if (category == TYPE_CATEGORY_POINTER)
     {
         *size = get_platform(target)->pointer_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (category == TYPE_CATEGORY_FUNCTION)
     {
-        return ESIZEOF_FUNCTION;
+        *size = get_platform(target)->pointer_n_bits / 8;
+        return SIZEOF_RESULT_FUNCTION;
     }
 
     if (category == TYPE_CATEGORY_ARRAY)
@@ -2527,21 +2446,20 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         {
             //void f(int a[2])            
             *size = get_platform(target)->pointer_n_bits / 8;
-            return ESIZEOF_NONE;
+            return SIZEOF_RESULT_OK;
         }
         else
         {
-            if (type_is_vla(p_type))
-                return ESIZEOF_VLA;
+            if (p_type->array_num_elements <= 0)
+                return SIZEOF_RESULT_RUNTIME;
 
-            unsigned long long arraysize = p_type->num_of_elements;
+            unsigned long long arraysize = p_type->array_num_elements;
             struct type type = get_array_item_type(p_type);
-
 
             size_t sz = 0;
 
-            const enum sizeof_error er = type_get_sizeof(&type, &sz, target);
-            if (er != ESIZEOF_NONE)
+            const enum sizeof_result er = type_get_sizeof(&type, &sz, target);
+            if (er != SIZEOF_RESULT_OK)
             {
                 type_destroy(&type);
                 return er;
@@ -2554,21 +2472,21 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
             {
                 if (result > SIZE_MAX)
                 {
-                    return ESIZEOF_OVERLOW;
+                    return SIZEOF_RESULT_OVERLOW;
                 }
 
                 //
                 if (result > /*SIZEMAX*/ 4294967295)
                 {
-                    return ESIZEOF_OVERLOW;
+                    return SIZEOF_RESULT_OVERLOW;
                 }
                 *size = (size_t)result;
             }
             else
             {
-                return ESIZEOF_OVERLOW;
+                return SIZEOF_RESULT_OVERLOW;
             }
-            return ESIZEOF_NONE;
+            return SIZEOF_RESULT_OK;
         }
     }
 
@@ -2578,19 +2496,19 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
         *size = get_platform(target)->char_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
     {
         *size = get_platform(target)->bool_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
         *size = get_platform(target)->short_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
@@ -2600,45 +2518,45 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
 #else
         * size = get_platform(target)->pointer_n_bits / 8;
 #endif
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     /*must be before long*/
     if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
     {
         *size = get_platform(target)->long_double_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
     {
         *size = get_platform(target)->long_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
         *size = get_platform(target)->long_long_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
     {
         //typedef long unsigned int uint64_t;
         *size = get_platform(target)->int_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
         *size = get_platform(target)->float_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
         *size = get_platform(target)->double_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
 
@@ -2647,14 +2565,14 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
     {
         if (p_type->struct_or_union_specifier == NULL)
         {
-            return ESIZEOF_INCOMPLETE;
+            return SIZEOF_RESULT_INCOMPLETE;
         }
 
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         if (p_complete == NULL)
-            return ESIZEOF_INCOMPLETE;
+            return SIZEOF_RESULT_INCOMPLETE;
 
         return get_sizeof_struct(p_complete, size, target);
     }
@@ -2667,7 +2585,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
                 get_enum_type_specifier_flags(p_type->enum_specifier);
 
             struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
-            enum sizeof_error e = type_get_sizeof(&t, size, target);
+            enum sizeof_result e = type_get_sizeof(&t, size, target);
             type_destroy(&t);
             return e;
         }
@@ -2675,47 +2593,47 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         {
             *size = get_platform(target)->int_n_bits / 8;
         }
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
     {
         *size = 0;
-        return ESIZEOF_INCOMPLETE;
+        return SIZEOF_RESULT_INCOMPLETE;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
     {
         *size = 1;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
     {
         *size = get_platform(target)->pointer_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL32)
     {
         *size = 4;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL64)
     {
         *size = 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL128)
     {
         *size = 16;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
 
-    return ESIZEOF_INCOMPLETE;
+    return SIZEOF_RESULT_INCOMPLETE;
 }
 
 void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
@@ -2934,7 +2852,7 @@ struct type type_make_literal_string(int number_of_chars_including_zero,
         if (p2 == NULL) throw;
 
         t.category = TYPE_CATEGORY_ARRAY;
-        t.num_of_elements = number_of_chars_including_zero;
+        t.array_num_elements = number_of_chars_including_zero;
 
         p2->category = TYPE_CATEGORY_ITSELF;
         p2->type_specifier_flags = chartype;
@@ -3005,7 +2923,7 @@ static bool type_is_same_core(const struct type* a,
 
     while (pa && pb)
     {
-        if (pa->num_of_elements != pb->num_of_elements)
+        if (pa->array_num_elements != pb->array_num_elements)
             return false;
 
         if (pa->category != pb->category)
@@ -3451,10 +3369,15 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             p->category = TYPE_CATEGORY_ARRAY;
 
 
-            p->num_of_elements =
-                array_declarator_get_size(pdirectdeclarator->array_declarator);
-
-            p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
+            p->array_num_elements = 0;
+            p->p_array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
+            if (p->p_array_num_elements_expression)
+            {
+                if (object_has_constant_value(&p->p_array_num_elements_expression->object))
+                {
+                    p->array_num_elements = (size_t)object_to_unsigned_long_long(&p->p_array_num_elements_expression->object);
+                }
+            }
 
             if (pdirectdeclarator->array_declarator->static_token_opt)
             {

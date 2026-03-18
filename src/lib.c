@@ -909,7 +909,7 @@ enum diagnostic_id {
     W_ARRAY_SIZE = 52,
 
 
-    W_UNUSED_WARNING_53 = 53,
+    W_SIZEOF_FUNCTION = 53,
     W_ERROR_INCOMPATIBLE_TYPES = 54,
     W_UNUSED_LABEL = 55,
     W_REDEFINING_BUITIN_MACRO = 56,
@@ -3545,7 +3545,7 @@ void c_gotoxy(int x, int y)
    │   ├──►│   ├──►│   ├──►│   │──► NULL
    └───┘   └───┘   └───┘   └───┘
 
-   The list is then expanded using includes and macros through a preprocessor.
+   The list is then expanded via includes and macros by the preprocessor.
 
 
    ┌───┐                  ┌───┐   ┌───┐   ┌───┐
@@ -3558,7 +3558,7 @@ void c_gotoxy(int x, int y)
 
     Each item in the list has additional properties:
 
-    level         :  An integer indicating the level of inclusion.
+    level          : An integer indicating the inclusion depth.
 
     bmacroexpanded: A boolean indicating whether the token was generated
                     from macro expansion.
@@ -4223,7 +4223,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
     struct token_list r = { 0 };
     struct token* _Opt current = list->head; /*null is fine*/
 
-    // skip all leading white spaces
+    /* skip all leading whitespace */
     while (current &&
         (token_is_blank(current) ||
             current->type == TK_NEWLINE))
@@ -4231,7 +4231,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
         current = current->next;
     }
 
-    // Removes leading space flag if present
+    /* Remove leading space flag if present */
     bool is_first = true;
 
     for (; current;)
@@ -5407,7 +5407,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->col = col;
                 set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
-                /*bNewLine = false;*/ //deixa assim
+                /* bNewLine = false; */ /* leave as-is */
                 has_space = true;
 
                 continue;
@@ -6227,7 +6227,7 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
     return r;
 }
 
-//todo passar lista para reotnro
+/* TODO: pass list as return value */
 long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list* output_list,
     struct token_list* input_list,
@@ -6264,7 +6264,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     int flags = ctx->flags;
     ctx->flags |= PREPROCESSOR_CTX_FLAGS_ONLY_FINAL;
 
-    /*defined X  por exemplo é mantido sem ser expandido*/
+    /* defined X, for example, is kept without being expanded */
 
     struct token_list list2 = preprocessor(ctx, &list1, 1);
     ctx->flags = flags;
@@ -6277,7 +6277,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     }
     else
     {
-        /*aonde defined has_c_aatribute sao transformados em constantes*/
+        /* here defined and has_c_attribute are transformed into constants */
         struct token_list list3 = process_defined(ctx, &list2);
 
         struct token_list list4 = process_identifiers(ctx, &list3);
@@ -7255,7 +7255,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
     {
         if (!is_active)
         {
-            //se nao esta ativo eh ignorado
+            /* if not active, it is ignored */
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
@@ -7479,7 +7479,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         }
         else if (strcmp(input_list->head->lexeme, "define") == 0)
         {
-            //TODO strcmp nao pode ser usado temos que criar uma funcao especial
+            /* TODO: strcmp cannot be used here; we need a special comparison function */
 
             /*
              #de\
@@ -7919,13 +7919,13 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 
         int count = 1;
 
-        //skip spaces after macro name
+        /* skip spaces after macro name */
         skip_blanks_including_newline(ctx, &macro_argument_list.tokens, input_list);
 
-        //macro is a function
+        /* macro is function-like */
         match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
 
-        //skip spaces after (
+        /* skip spaces after ( */
         skip_blanks_including_newline(ctx, &macro_argument_list.tokens, input_list);
 
         if (input_list->head == NULL)
@@ -8098,7 +8098,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
     struct token_list  r = { 0 };
     try
     {
-        //todo juntar tokens mesmo objet macro
+        /* TODO: merge tokens from the same macro object */
         //struct token* p_previousNonBlank = 0;
         while (input_list->head)
         {
@@ -8133,7 +8133,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                     ss_fprintf(&ss, "%s", input_list->head->lexeme);
 
 
-                //copiar o level para gerar um novo igual
+                /* copy the level to generate a new matching token */
                 int level = input_list->head ? input_list->head->level : 0;
 
                 /*
@@ -8182,7 +8182,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                 */
                 token_list_pop_back(&r);
 
-                /*adiciona novo token no fim do r*/
+                /* append the new token to the end of r */
                 token_list_append_list(&r, &newlist);
 
                 ss_close(&ss);
@@ -8604,7 +8604,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     try
     {
-        //replacement_list_reexamination
+        /* replacement_list_reexamination */
         /*
         For both object-like and function-like macro invocations, before the replacement list is reexamined
         for more macro names to replace, each instance of a ## preprocessing token in the replacement list
@@ -8807,7 +8807,7 @@ struct token_list  copy_replacement_list_core(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     struct token* _Opt current = list->head;
 
-    //get off all initial whites
+    /* remove all leading whitespace */
     if (!new_line_is_space)
     {
         while (current && token_is_blank(current))
@@ -8823,7 +8823,7 @@ struct token_list  copy_replacement_list_core(struct preprocessor_ctx* ctx,
         }
     }
 
-    //remove space flag before if present
+    /* remove leading space flag if present */
     bool is_first = true;
 
     for (; current;)
@@ -9097,7 +9097,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
             }
             if (macro)
             {
-                // "Tetris" effect
+                /* "Tetris" effect */
                 // #define f(a) a
                 // #define F g
                 // F(1)
@@ -9238,7 +9238,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     }
                     else
                     {
-                        token_list_pop_front(input_list);//todo deletar
+                        token_list_pop_front(input_list);/* TODO: delete */
                     }
                 }
                 else
@@ -9250,7 +9250,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             prematch(&r, input_list);
                         }
                         else
-                            token_list_pop_front(input_list);//todo deletar
+                            token_list_pop_front(input_list);/* TODO: delete */
                     }
                     else
                     {
@@ -9273,7 +9273,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             }
                             else
                             {
-                                token_list_pop_front(input_list);//todo deletar
+                                token_list_pop_front(input_list);/* TODO: delete */
                             }
                         }
                     }
@@ -9342,7 +9342,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
                     input_list->head,
                     "invalid preprocessor directive '#%s'\n", directive_name);
             }
-            //here I will consume the # inside to make it symmetrical
+            /* consume the # to keep it symmetrical */
             return non_directive(ctx, input_list, level);
         }
     }
@@ -9553,7 +9553,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
 
-    //nao quer ver warning de nao usado nestas macros padrao
+    /* do not warn about unused standard macros */
     mark_macros_as_used(&ctx->macros);
     token_list_destroy(&l);
     token_list_destroy(&l10);
@@ -10349,7 +10349,7 @@ static bool is_screaming_case(const char* text)
             (*text >= '0' && *text <= '9') ||
             (*text == '_'))
         {
-            //ok
+            /* ok */
             screaming_case = true;
         }
         else
@@ -11017,7 +11017,7 @@ int EXAMPLE5()
 
 void recursivetest1()
 {
-    //acho que este vai sero caso que precisa do hidden set.
+    /* this is likely the case that requires the hidden set */
     const char* input =
         "#define x 2\n"
         "#define f(a) f(x * (a))\n"
@@ -15416,9 +15416,13 @@ struct type
     const struct enum_specifier* _Opt enum_specifier;
 
     //Expression used as array size. Can be constant or not constant (VLA)
-    const struct expression* _Opt array_num_elements_expression;
+    const struct expression* _Opt p_array_num_elements_expression;
+    /*
+    * array_num_elements is zero when p_array_num_elements_expression is null
+    * or not constant
+    */
+    size_t array_num_elements;
 
-    size_t num_of_elements;
     bool has_static_array_size;
     
 
@@ -15513,6 +15517,7 @@ bool type_is_unsigned_int(const struct type* p_type);
 bool type_is_empty(const struct type* p_type);
 
 bool type_is_vla(const struct type* p_type);
+bool type_is_vm(const struct type* p_type);
 
 struct type type_get_enum_type(const struct type* p_type);
 
@@ -15555,17 +15560,17 @@ struct type get_function_return_type(const struct type* p_type);
 bool function_returns_void(const struct type* p_type);
 
 
-enum sizeof_error
+enum sizeof_result
 {
-    ESIZEOF_NONE = 0,
-    ESIZEOF_OVERLOW,
-    ESIZEOF_VLA,
-    ESIZEOF_INCOMPLETE,
-    ESIZEOF_FUNCTION
+    SIZEOF_RESULT_OK = 0,
+    SIZEOF_RESULT_OVERLOW,
+    SIZEOF_RESULT_RUNTIME,
+    SIZEOF_RESULT_INCOMPLETE,
+    SIZEOF_RESULT_FUNCTION
 };
 
-enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
-enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
+enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
 
 size_t type_get_alignof(const struct type* p_type, enum target target);
 
@@ -16920,7 +16925,6 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p);
 /*
   Return a value > 0 if it has constant size
 */
-size_t  array_declarator_get_size(const struct array_declarator* p_array_declarator);
 size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator);
 
 struct function_declarator
@@ -19099,12 +19103,12 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
             p_object->type = type_dup(p_type);
             p_object->member_designator = strdup(member_designator);
 
-            if (p_type->num_of_elements > 0)
+            if (p_type->array_num_elements > 0)
             {
                 struct type array_item_type = get_array_item_type(p_type);
 
                 //too big..
-                const unsigned long long max_elements = p_type->num_of_elements > 1000 ? 1000 : p_type->num_of_elements;
+                const unsigned long long max_elements = p_type->array_num_elements > 1000 ? 1000 : p_type->array_num_elements;
 
 
                 for (unsigned long long i = 0; i < max_elements; i++)
@@ -21899,7 +21903,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         const bool suffix_ul = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0');
 
         const bool suffix_ll = (suffix[0] == 'L' && suffix[1] == 'L' && suffix[2] == '\0') ||
-              (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0');
+            (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0');
 
         const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
 
@@ -22774,7 +22778,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
 
 bool first_of_postfix_expression(const struct parser_ctx* ctx)
 {
-    //( type-name )  postfix confunde com (expression) primary
+    /* ( type-name ) confusable with (expression) primary — need to distinguish */
     if (first_of_type_name_ahead(ctx))
         return true;// I don't think it's necessary because primary also works for postfix
     return is_first_of_primary_expression(ctx);
@@ -22873,7 +22877,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
-                // the result of the subscription operator ([])
+                /* result of the subscript operator [] */
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
@@ -22902,7 +22906,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
-                /*contem a expresao de dentro do  [ ] */
+                /* contains the expression inside [ ] */
                 p_expression_node_new->right = expression(ctx, eval_mode);
                 if (p_expression_node_new->right == NULL)
                 {
@@ -22926,9 +22930,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         object_to_unsigned_long_long(&p_expression_node_new->right->object);
                     if (type_is_array(&p_expression_node->type))
                     {
-                        if (p_expression_node->type.num_of_elements > 0)
+                        if (p_expression_node->type.array_num_elements > 0)
                         {
-                            if (index >= (unsigned long long)p_expression_node->type.num_of_elements)
+                            if (index >= (unsigned long long)p_expression_node->type.array_num_elements)
                             {
                                 compiler_diagnostic(W_OUT_OF_BOUNDS,
                                                             ctx,
@@ -23082,8 +23086,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             }
                             else
                             {
-                                //not fixed yet
-                                 //assert(false);                                    
+                                /* not fixed yet */
+                                 /* assert(false); */                                    
                             }
                         }
                         else
@@ -23103,7 +23107,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                  ctx->current, NULL,
                                                  "incomplete struct type '%s'",
                                                  p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
-                        //print_scope(&ctx->scopes);
+                        /* print_scope(&ctx->scopes); */
                     }
                     if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
                     {
@@ -23119,7 +23123,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 ctx->current, NULL,
                                                 "structure or union required");
                 }
-                // todo apontar pro nome?
+                /* TODO: point to the name? */
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '->')
@@ -23139,7 +23143,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->last_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
 
-                // the result of a member access through pointer -> operator is lvalue
+                /* result of a member access via -> operator is an lvalue */
 
                 parser_match(ctx);
                 if (ctx->current == NULL)
@@ -23435,7 +23439,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                          is_constant,
                          requires_constant_initialization);
 
-            //initializer_destroy(&initializer); explodindo
+            /* initializer_destroy(&initializer); */
         }
 
         if (ctx->previous == NULL)
@@ -23479,9 +23483,9 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, enum e
     {
 
 
-        if (first_of_type_name_ahead(ctx)) // aqui preciso ver se nao eh primary
+        if (first_of_type_name_ahead(ctx)) /* need to check if this is not a primary expression */
         {
-            assert(false); // este caso esta pegando lá dentro deo cast expression.
+            assert(false); /* this case is handled inside cast_expression */
             p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL)
                 throw;
@@ -23613,9 +23617,23 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
 
     if (category == TYPE_CATEGORY_FUNCTION)
     {
-        //In GCC returns 1
+        /* In GCC this returns 1 */
 
-        //The sizeof operator shall not be applied to an expression that has function type or an incomplete type
+        /* The sizeof operator shall not be applied to an expression that has function type or an incomplete type */
+    }
+    else if (type_is_void(p_type))
+    {
+        /*
+         * C11 6.5.3.4/1 — the sizeof operator shall not be applied to
+         * an expression that has an incomplete type.  void is incomplete
+         * and can never be completed.
+         */
+        compiler_diagnostic(C_ERROR_INVALID_TYPE,
+                            ctx,
+                            p_expression->first_token,
+                            NULL,
+                            "invalid application of 'sizeof' to void type");
+        return -1;
     }
     else if (category == TYPE_CATEGORY_ITSELF &&
             p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
@@ -23626,7 +23644,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
         if (p_complete == NULL)
         {
-            //The sizeof operator shall not be applied to an expression that has function type or an incomplete type
+            /* The sizeof operator shall not be applied to an expression that has function type or an incomplete type */
             compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
                                        ctx,
                                        p_expression->first_token,
@@ -23637,23 +23655,13 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     }
     else if (category == TYPE_CATEGORY_ARRAY)
     {
-        if (type_is_vla(p_type))
-        {
-            return 0;
-        }
-
         if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
-            //GCC
-            //<source>:4:21: warning: 'sizeof' on array function parameter 'a' will return size of 'int *' [-Wsizeof-array-argument]
-            //CLANG
-            //<source>:4:21: warning: sizeof on array function parameter will return size of 'int *' instead of 'int[]' [-Wsizeof-array-argument]
-
             compiler_diagnostic(W_SIZEOF_ARRAY_ARGUMENT,
                                         ctx,
                                         p_expression->first_token,
                                         NULL,
-                                        "sizeof applied to array function parameter");
+                                        "sizeof applied to an array function parameter");
 
         }
     }
@@ -23728,7 +23736,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             new_expression->first_token = ctx->current;
 
-            struct token* op_position = ctx->current; // marcar posicao
+            struct token* op_position = ctx->current; /* mark position */
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -23738,7 +23746,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 throw;
             }
 #if 0
-            //visual studio formater is adding spaces..
+            /* Visual Studio formatter is adding spaces... */
             if (style_has_space(ctx->current))
             {
                 compiler_diagnostic(W_STYLE, ctx, ctx->current, "don't use spaces");
@@ -23807,7 +23815,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 else
                     new_expression->expression_type = UNARY_EXPRESSION_PLUS;
 
-                //promote
+                /* promote */
                 new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type, ctx->options.target);
 
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
@@ -23829,7 +23837,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             else if (op == '*')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_CONTENT;
-                // the result of the indirection(unary*) operator applied to a pointer to object
+                /* result of the indirection (unary *) operator applied to a pointer to object */
 
                 if (!type_is_pointer_or_array(&new_expression->right->type))
                 {
@@ -24158,13 +24166,22 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             size_t offset_of = 0;
 
-            enum sizeof_error e =
+            enum sizeof_result e =
                 type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offset_of, ctx->options.target);
 
-            if (e != 0)
+            switch (e)
             {
-                expression_delete(new_expression);
-                throw;
+            case SIZEOF_RESULT_OK:
+                break;
+            case SIZEOF_RESULT_OVERLOW:
+            case SIZEOF_RESULT_RUNTIME:
+            case SIZEOF_RESULT_INCOMPLETE:
+            case SIZEOF_RESULT_FUNCTION:
+                compiler_diagnostic(W_SIZEOF_FUNCTION,
+               ctx,
+               new_expression->first_token,
+               NULL,
+               "size of function");
             }
 
             new_expression->object = object_make_size_t(ctx->options.target, offset_of);
@@ -24227,7 +24244,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 {
                     if (type_is_vla(&new_expression->type_name->abstract_declarator->type))
                     {
-                        //not constant
+                        /* not a constant */
                     }
                     else
                     {
@@ -24259,19 +24276,40 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     throw;
                 }
 
-                if (type_is_vla(&new_expression->right->type))
+                size_t sz3 = 0;
+                enum sizeof_result res =
+                    type_get_sizeof(&new_expression->right->type, &sz3, ctx->options.target);
+
+                switch (res)
                 {
-                    //not constant
+                case SIZEOF_RESULT_OK:
+                    break;
+                case  SIZEOF_RESULT_OVERLOW:
+                    expression_delete(new_expression);
+                    throw;
+                case SIZEOF_RESULT_RUNTIME:
+                    break;
+                case SIZEOF_RESULT_INCOMPLETE:
+                    expression_delete(new_expression);
+                    throw;
+                    break;
+
+                case SIZEOF_RESULT_FUNCTION:
+                    compiler_diagnostic(W_SIZEOF_FUNCTION,
+                                        ctx,
+                                        new_expression->first_token,
+                                        NULL,
+                                        "size of function");
+                    break;
+                }
+
+                if (res == SIZEOF_RESULT_RUNTIME)
+                {
+                    /* not a constant */
                 }
                 else
                 {
-                    size_t sz = 0;
-                    if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
-                    {
-                        expression_delete(new_expression);
-                        throw;
-                    }
-                    new_expression->object = object_make_size_t(ctx->options.target, sz);
+                    new_expression->object = object_make_size_t(ctx->options.target, sz3);
                 }
             }
 
@@ -24282,7 +24320,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
         }
         else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
-            // defer would be nice here...
+            /* a defer statement would be useful here */
 
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
@@ -24352,7 +24390,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 }
                 else if (type_is_array(&new_expression->type_name->abstract_declarator->type))
                 {
-                    size_t nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
+                    size_t nelements = new_expression->type_name->abstract_declarator->type.array_num_elements;
                     if (nelements > 0)
                         new_expression->object = object_make_size_t(ctx->options.target, nelements);
                 }
@@ -24421,14 +24459,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 }
                 else if (type_is_array(&new_expression->right->type))
                 {
-                    size_t nelements = new_expression->right->type.num_of_elements;
+                    size_t nelements = new_expression->right->type.array_num_elements;
                     if (nelements > 0)
                     {
                         new_expression->object = object_make_size_t(ctx->options.target, nelements);
                     }
                     else
                     {
-                        //vla [n][2] but not vla[2][n]
+                        /* VLA [n][2] but not VLA[2][n] */
                     }
                 }
                 else
@@ -24556,7 +24594,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 {
                     if (type_is_vla(&new_expression->type_name->abstract_declarator->type))
                     {
-                        //not constant
+                        /* not a constant */
                     }
                     else
                     {
@@ -24586,7 +24624,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
                 if (type_is_vla(&new_expression->right->type))
                 {
-                    //not constant
+                    /* not a constant */
                 }
                 else
                 {
@@ -25054,7 +25092,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
             if (op == '%')
             {
-                /*The operands of the % operator shall have integer type*/
+                /* The operands of the % operator shall have integer type */
                 if (!type_is_integer(&new_expression->left->type))
                 {
                     compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER,
@@ -25075,7 +25113,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
             }
             else
             {
-                /*Each of the operands shall have arithmetic type.*/
+                /* Each of the operands shall have arithmetic type */
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
                     compiler_diagnostic(C_ERROR_LEFT_IS_NOT_ARITHMETIC,
@@ -25494,7 +25532,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
 
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            //Each of the operands shall have integer type.
+            /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
             {
                 expression_delete(new_expression);
@@ -25545,7 +25583,7 @@ static void check_comparison(struct parser_ctx* ctx,
     struct expression* p_b_expression,
     const struct token* op_token)
 {
-    // unsigned_expr < 0 is always false; unsigned_expr >= 0 is always true
+    /* unsigned_expr < 0 is always false; unsigned_expr >= 0 is always true */
     if (type_is_unsigned_integer(&p_a_expression->type) && expression_is_zero(p_b_expression))
     {
         if (op_token->type == '<')
@@ -25564,7 +25602,7 @@ static void check_comparison(struct parser_ctx* ctx,
         }
     }
 
-    // 0 > unsigned_expr is always false; 0 <= unsigned_expr is always true
+    /* 0 > unsigned_expr is always false; 0 <= unsigned_expr is always true */
     if (type_is_unsigned_integer(&p_b_expression->type) && expression_is_zero(p_a_expression))
     {
         if (op_token->type == '>')
@@ -25599,7 +25637,7 @@ static void check_comparison(struct parser_ctx* ctx,
         }
         else
         {
-            //array functions..
+            /* array functions */
             compiler_diagnostic(W_ENUN_CONVERSION,
                                         ctx,
                                         op_token, NULL,
@@ -25613,7 +25651,7 @@ static void check_comparison(struct parser_ctx* ctx,
         if (equal_not_equal && (object_is_zero(&p_b_expression->object) ||
             object_is_one(&p_b_expression->object)))
         {
-            //no warning when comparing == 0 == 1 != 0 != 0
+            /* no warning when comparing == 0, == 1, != 0, != 1 */
         }
         else
         {
@@ -25632,7 +25670,7 @@ static void check_comparison(struct parser_ctx* ctx,
             (object_is_zero(&p_a_expression->object) ||
                 object_is_one(&p_a_expression->object)))
         {
-            //no warning when comparing == 0 == 1 != 0 != 0
+            /* no warning when comparing == 0, == 1, != 0, != 1 */
         }
         else
         {
@@ -25730,7 +25768,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                 new_expression->expression_type = RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN;
             }
 
-            //Each of the operands shall have arithmetic type
+            /* Each of the operands shall have arithmetic type */
             if (type_is_arithmetic(&new_expression->left->type) &&
                 type_is_arithmetic(&new_expression->right->type))
             {
@@ -26041,7 +26079,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
 
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            //Each of the operands shall have integer type.
+            /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
             {
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
@@ -26120,7 +26158,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
             new_expression->last_token = new_expression->right->last_token;
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            //Each of the operands shall have integer type.
+            /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
             {
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
@@ -26307,12 +26345,12 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
                     bool a = object_is_true(&new_expression->left->object);
                     if (a == 0)
                     {
-                        // 0 && something
+                        /* 0 && something */
                         new_expression->object = object_make_signed_int(ctx->options.target, 0);
                     }
                     else
                     {
-                        // 1 && something
+                        /* 1 && something */
                         if (object_has_constant_value(&new_expression->right->object))
                         {
                             bool b = object_is_true(&new_expression->right->object);
@@ -26322,7 +26360,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
                 }
             }
 
-            //Each of the operands shall have scalar type
+            /* Each of the operands shall have scalar type */
             if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
@@ -26337,7 +26375,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
                 throw;
             }
 
-            //The result has type int
+            /* The result has type int */
             new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
@@ -26431,12 +26469,12 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
                     bool a = object_is_true(&new_expression->left->object);
                     if (a == 1)
                     {
-                        // 1 || something
+                        /* 1 || something */
                         new_expression->object = object_make_signed_int(ctx->options.target, 1);
                     }
                     else
                     {
-                        // 0 || something
+                        /* 0 || something */
                         if (object_has_constant_value(&new_expression->right->object))
                         {
                             bool b = object_is_true(&new_expression->right->object);
@@ -26447,7 +26485,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
             }
 
 
-            //Each of the operands shall have scalar type
+            /* Each of the operands shall have scalar type */
             if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
@@ -26462,7 +26500,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
                 throw;
             }
 
-            //The result has type int
+            /* The result has type int */
             new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
@@ -26735,7 +26773,7 @@ void expression_delete(struct expression* _Owner _Opt p)
         type_destroy(&p->type);
         argument_expression_list_destroy(&p->argument_expression_list);
 
-        //explodindo
+        /* crashing */
         //object_destroy(&p->object);
 
 
@@ -26821,7 +26859,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
                 }
             }
 
-            /*same type of the last expression*/
+            /* same type as the last expression */
             type_destroy(&p_expression_node->type);
             p_expression_node->type = type_dup(&p_expression_node->right->type);
         }
@@ -27014,8 +27052,8 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                      */
                     struct object* true_obj =
                         (p_conditional_expression->left != NULL)
-                            ? &p_conditional_expression->left->object
-                            : &p_conditional_expression->condition_expr->object;
+                        ? &p_conditional_expression->left->object
+                        : &p_conditional_expression->condition_expr->object;
                     p_conditional_expression->object = object_make_reference(true_obj);
                 }
                 else
@@ -27030,8 +27068,8 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
              */
             const struct expression* p_left_or_cond =
                 (p_conditional_expression->left != NULL)
-                    ? p_conditional_expression->left
-                    : p_conditional_expression->condition_expr;
+                ? p_conditional_expression->left
+                : p_conditional_expression->condition_expr;
 
             if (expression_is_subjected_to_lvalue_conversion(p_left_or_cond))
             {
@@ -27187,7 +27225,7 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
 
 bool expression_is_lvalue(const struct expression* expr)
 {
-    // https://en.cppreference.com/w/c/language/value_category
+    /* https://en.cppreference.com/w/c/language/value_category */
 
     switch (expr->expression_type)
     {
@@ -27221,7 +27259,7 @@ bool expression_has_side_effects(const struct expression* expr)
 {
     switch (expr->expression_type)
     {
-    /* assignments */
+        /* assignments */
     case ASSIGNMENT_EXPRESSION_ASSIGN:
     case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
     case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
@@ -27233,12 +27271,12 @@ bool expression_has_side_effects(const struct expression* expr)
     case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
     case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
     case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
-    /* increment / decrement */
+        /* increment / decrement */
     case POSTFIX_INCREMENT:
     case POSTFIX_DECREMENT:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
-    /* function calls may have arbitrary side effects */
+        /* function calls may have arbitrary side effects */
     case POSTFIX_FUNCTION_CALL:
         return true;
 
@@ -27290,6 +27328,20 @@ void check_assigment(struct parser_ctx* ctx,
     const struct type* const p_b_type = &p_b_expression->type;
 
     const bool is_null_pointer_constant = expression_is_null_pointer_constant(p_b_expression);
+
+    /*
+     * C11 6.3.2.2 — the (nonexistent) value of a void expression shall
+     * not be used in any context that requires a value.
+     */
+    if (type_is_void(p_b_type) && !type_is_void(p_a_type))
+    {
+        compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+                            ctx,
+                            p_b_expression->first_token,
+                            NULL,
+                            "void value is not ignored as it ought to be");
+        return;
+    }
 
     if (type_is_pointer(p_a_type))
     {
@@ -27473,7 +27525,7 @@ void check_assigment(struct parser_ctx* ctx,
         // F(0) when passing null we will check if the parameter
         //have the anotation [[_Opt]]
 
-        /*can be converted to any type*/
+        /* can be converted to any type */
 
         type_destroy(&b_type_lvalue);
         //type_destroy(&t2);
@@ -27500,7 +27552,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (type_is_void_ptr(p_b_type))
         {
-            /*void pointer can be converted to any type*/
+            /* void pointer can be converted to any type */
 
             type_destroy(&b_type_lvalue);
             //type_destroy(&t2);
@@ -27509,15 +27561,30 @@ void check_assigment(struct parser_ctx* ctx,
 
         if (type_is_void_ptr(p_a_type))
         {
-            /*any pointer can be converted to void* */
-
+            /*
+             * Any pointer can be converted to void*, but if the source
+             * points to const and the destination is a plain void* (not
+             * const void*) the const qualifier is silently dropped.
+             *
+             *   const int *p;
+             *   void *q = p;   // discards const
+             */
+            struct type b_pointed = type_remove_pointer(&b_type_lvalue);
+            struct type a_pointed = type_remove_pointer(p_a_type);
+            if (type_is_const(&b_pointed) && !type_is_const(&a_pointed))
+            {
+                compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
+                    p_b_expression->first_token, NULL,
+                    "discarding const qualifier via void pointer");
+            }
+            type_destroy(&b_pointed);
+            type_destroy(&a_pointed);
             type_destroy(&b_type_lvalue);
-            // type_destroy(&t2);
             return;
         }
 
 
-        //TODO  lvalue
+        /* TODO: lvalue */
 
         struct type a_type_lvalue = { 0 };
 
@@ -27525,10 +27592,10 @@ void check_assigment(struct parser_ctx* ctx,
         {
             if (assignment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                size_t parameter_array_size = p_a_type->num_of_elements;
+                size_t parameter_array_size = p_a_type->array_num_elements;
                 if (type_is_array(p_b_type))
                 {
-                    size_t argument_array_size = p_b_type->num_of_elements;
+                    size_t argument_array_size = p_b_type->array_num_elements;
                     if (parameter_array_size != 0 &&
                         argument_array_size < parameter_array_size)
                     {
@@ -27564,42 +27631,49 @@ void check_assigment(struct parser_ctx* ctx,
         }
 
 
-        if (assignment_type == ASSIGMENT_TYPE_PARAMETER)
+        /*
+         * Walk all pointer levels and check that no const qualifier is
+         * dropped at any level.
+         *
+         *   int *        <- const int *      level 1: drop!
+         *   int **       <- const int **     level 1: ok, level 2: drop!
+         *   const int ** <- int **           ok (adding const is always fine)
+         *
+         * We use the already-computed lvalue types so array decay is applied.
+         */
+        if (type_is_pointer(&b_type_lvalue) && type_is_pointer(&a_type_lvalue))
         {
-            if (type_is_pointer(&b_type_lvalue) && type_is_pointer(&a_type_lvalue))
+            struct type b_cur = type_dup(&b_type_lvalue);
+            struct type a_cur = type_dup(&a_type_lvalue);
+
+            while (type_is_pointer(&b_cur) && type_is_pointer(&a_cur))
             {
-                //parameter pointer do non const
-                //argument const.
-                struct type b_pointed_type_lvalue = type_remove_pointer(&b_type_lvalue);
-                struct type a_lvalue_pointed_type = type_remove_pointer(&a_type_lvalue);
-                if (type_is_const(&b_pointed_type_lvalue) && !type_is_const(&a_lvalue_pointed_type))
+                struct type b_next = type_remove_pointer(&b_cur);
+                struct type a_next = type_remove_pointer(&a_cur);
+
+                if (type_is_const(&b_next) && !type_is_const(&a_next))
                 {
                     compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                         p_b_expression->first_token, NULL,
-                        " discarding const at argument ");
+                        assignment_type == ASSIGMENT_TYPE_PARAMETER
+                            ? "discarding const qualifier at argument"
+                            : "discarding const qualifier");
+                    type_destroy(&b_next);
+                    type_destroy(&a_next);
+                    break; /* one diagnostic per assignment is enough */
                 }
-                type_destroy(&b_pointed_type_lvalue);
-                type_destroy(&a_lvalue_pointed_type);
+
+                type_destroy(&b_cur);
+                type_destroy(&a_cur);
+                b_cur = b_next;
+                a_cur = a_next;
             }
-        }
-        else
-        {
-            if (type_is_pointer(p_a_type) && type_is_pointer(&b_type_lvalue))
-            {
-                struct type b_pointed_type = type_remove_pointer(&b_type_lvalue);
-                struct type a_pointed_type = type_remove_pointer(p_a_type);
-                if (type_is_const(&b_pointed_type) && !type_is_const(&a_pointed_type))
-                {
-                    compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
-                        p_b_expression->first_token, NULL,
-                        " discarding const");
-                }
-                type_destroy(&b_pointed_type);
-                type_destroy(&a_pointed_type);
-            }
+
+            type_destroy(&b_cur);
+            type_destroy(&a_cur);
         }
 
-        //return true;
+        /* return true; */
         type_destroy(&a_type_lvalue);
     }
 
@@ -28952,7 +29026,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.81"
+#define CAKE_VERSION "0.12.86"
 
 
 
@@ -28993,6 +29067,11 @@ struct d_visit_ctx
     struct hash_map file_scope_declarator_map;
     struct hash_map instantiated_function_literals;
     
+    /*
+     * maps the VM expression with the variable number that stores the result
+    */
+    struct hash_map vm_expression_to_dim_var;
+
     struct osstream block_scope_declarators;
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;
@@ -29025,6 +29104,7 @@ struct d_visit_ctx
 
 void d_visit(struct d_visit_ctx* ctx, struct osstream* oss);
 void d_visit_ctx_destroy( _Dtor struct d_visit_ctx* ctx);
+
 
 
 
@@ -29067,7 +29147,7 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
 {
-    // token points to {
+    /* token points to { */
 
     if (token->level == 0 &&
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
@@ -29092,7 +29172,7 @@ static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
 
 static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
 {
-    // token points to {
+    /* token points to { */
 
     if (token->level == 0 &&
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
@@ -29117,7 +29197,7 @@ static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
 
 static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* token)
 {
-    // token points to {
+    /* token points to { */
 
     if (token->level == 0 &&
         !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
@@ -29137,29 +29217,11 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
         }
     }
 }
-/*
+
 static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* token)
 {
-    //token points to {
-
-    if (token->level == 0 &&
-        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
-        token->type == '}' &&
-        parser_is_warning_enabled(ctx, W_STYLE))
-    {
-        if (ctx->options.style == STYLE_CAKE)
-        {
-            if (token->prev->prev->type == TK_NEWLINE)
-            {
-            }
-            else
-            {
-                compiler_diagnostic(W_STYLE, ctx, token, "not following correct close brace style }");
-            }
-        }
-    }
+ 
 }
-*/
 
 
 void scope_destroy(_Dtor struct scope* p)
@@ -29698,12 +29760,12 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
                 return best; // OK bem completo
             else
             {
-                // it's not complete let's keep going up
+                /* not complete, keep searching up the scope chain */
             }
         }
         scope = scope->previous;
     }
-    return best; // mesmo que nao seja tao completo vamos retornar.
+    return best; /* return even if not complete */
 }
 
 struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(const struct parser_ctx* ctx, const char* lexeme)
@@ -29761,17 +29823,17 @@ bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
 
     if (p_token->type != TK_IDENTIFIER)
     {
-        // no need to check
+        /* no need to check */
         return false;
     }
     if (p_token->flags & TK_FLAG_IDENTIFIER_IS_TYPEDEF)
     {
-        // it has already been verified that it is a typedef
+        /* already verified as a typedef */
         return true;
     }
     if (p_token->flags & TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF)
     {
-        // it has already been verified that it is NOT a typedef
+        /* already verified as NOT a typedef */
         return false;
     }
 
@@ -29878,7 +29940,7 @@ bool first_of_jump_statement(const struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_CONTINUE ||
         ctx->current->type == TK_KEYWORD_BREAK ||
         ctx->current->type == TK_KEYWORD_RETURN ||
-        ctx->current->type == TK_KEYWORD_CAKE_THROW /*extension*/;
+        ctx->current->type == TK_KEYWORD_CAKE_THROW /* extension */;
 }
 
 bool first_of_selection_statement(const struct parser_ctx* ctx)
@@ -30020,11 +30082,11 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("auto", text) == 0)
             return TK_KEYWORD_AUTO;
         if (strcmp("alignas", text) == 0)
-            return TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
+            return TK_KEYWORD__ALIGNAS; /* C23 alternate spelling for _Alignas */
         if (strcmp("alignof", text) == 0)
-            return TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+            return TK_KEYWORD__ALIGNAS; /* C23 alternate spelling for _Alignof */
         if (strcmp("assert", text) == 0)
-            return TK_KEYWORD_ASSERT; /*extension*/
+            return TK_KEYWORD_ASSERT; /* extension */
         if (strcmp("asm", text) == 0)
             return TK_KEYWORD__ASM;
         break;
@@ -30033,7 +30095,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("break", text) == 0)
             return TK_KEYWORD_BREAK;
         if (strcmp("bool", text) == 0)
-            return TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
+            return TK_KEYWORD__BOOL; /* C23 alternate spelling for _Bool */
         break;
 
     case 'c':
@@ -30132,7 +30194,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("switch", text) == 0)
             return TK_KEYWORD_SWITCH;
         if (strcmp("static_assert", text) == 0)
-            return TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
+            return TK_KEYWORD__STATIC_ASSERT; /* C23 alternate spelling for _Static_assert */
         if (strcmp("static_debug", text) == 0)
             return TK_KEYWORD_CAKE_STATIC_DEBUG;
         if (strcmp("static_debug_ex", text) == 0)
@@ -30147,13 +30209,13 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("typedef", text) == 0)
             return TK_KEYWORD_TYPEDEF;
         if (strcmp("typeof", text) == 0)
-            return TK_KEYWORD_TYPEOF; /*C23*/
+            return TK_KEYWORD_TYPEOF; /* C23 */
         if (strcmp("typeof_unqual", text) == 0)
-            return TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
+            return TK_KEYWORD_TYPEOF_UNQUAL; /* C23 */
         if (strcmp("true", text) == 0)
-            return TK_KEYWORD_TRUE; /*C23*/
+            return TK_KEYWORD_TRUE; /* C23 */
         if (strcmp("thread_local", text) == 0)
-            return TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
+            return TK_KEYWORD__THREAD_LOCAL; /* C23 alternate spelling for _Thread_local */
         if (strcmp("try", text) == 0)
             return TK_KEYWORD_CAKE_TRY;
         if (strcmp("throw", text) == 0)
@@ -30182,22 +30244,22 @@ enum token_type is_keyword(const char* text, enum target target)
 
         /*ownership*/
         if (strcmp("_Ctor", text) == 0)
-            return TK_KEYWORD__CTOR; /*extension*/
+            return TK_KEYWORD__CTOR; /* extension */
         if (strcmp("_Owner", text) == 0)
-            return TK_KEYWORD_CAKE_OWNER; /*extension*/
+            return TK_KEYWORD_CAKE_OWNER; /* extension */
         if (strcmp("_Dtor", text) == 0)
-            return TK_KEYWORD__DTOR; /*extension*/
+            return TK_KEYWORD__DTOR; /* extension */
         if (strcmp("_Opt", text) == 0)
-            return TK_KEYWORD_CAKE_OPT; /*extension*/
+            return TK_KEYWORD_CAKE_OPT; /* extension */
 
         if (strcmp("_Defer", text) == 0)
             return TK_KEYWORD_DEFER;
 
         if (strcmp("_View", text) == 0)
-            return TK_KEYWORD_CAKE_VIEW; /*extension*/
+            return TK_KEYWORD_CAKE_VIEW; /* extension */
 
         if (strcmp("_Countof", text) == 0)
-            return TK_KEYWORD__COUNTOF; /*C2Y*/
+            return TK_KEYWORD__COUNTOF; /* C2Y */
 
         /*TRAITS EXTENSION*/
         if (strcmp("_is_lvalue", text) == 0)
@@ -30275,7 +30337,7 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD__IMAGINARY;
 
         if (strcmp("_Noreturn", text) == 0)
-            return TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
+            return TK_KEYWORD__NORETURN; /* _Noreturn is deprecated in C23 */
 
         if (strcmp("_Static_assert", text) == 0)
             return TK_KEYWORD__STATIC_ASSERT;
@@ -30284,10 +30346,10 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD__THREAD_LOCAL;
 
         if (strcmp("_BitInt", text) == 0)
-            return TK_KEYWORD__BITINT; /*(C23)*/
+            return TK_KEYWORD__BITINT; /* C23 */
 
         if (strcmp("__typeof__", text) == 0)
-            return TK_KEYWORD_TYPEOF; /*(C23)*/
+            return TK_KEYWORD_TYPEOF; /* C23 */
 
         if (strcmp("__asm__", text) == 0 || strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
             return TK_KEYWORD__ASM;
@@ -30536,7 +30598,7 @@ int final_specifier(struct parser_ctx* ctx, enum type_specifier_flags* flags)
     if (((*flags) & TYPE_SPECIFIER_UNSIGNED) ||
         ((*flags) & TYPE_SPECIFIER_SIGNED))
     {
-        //TODO leave as it is..and check at comparison 
+        /* TODO: leave as-is and check at comparison */
         if (!type_specifier_is_integer(*flags))
         {
             // if you didn't specify anything, it becomes integer
@@ -30556,19 +30618,19 @@ int add_specifier(struct parser_ctx* ctx,
         in
         TYPE_SPECIFIER_LONG_LONG
     */
-    if (new_flag & TYPE_SPECIFIER_LONG) // adding a long
+    if (new_flag & TYPE_SPECIFIER_LONG) /* adding a long */
     {
-        if ((*flags) & TYPE_SPECIFIER_LONG_LONG) // ja tinha long long
+        if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
         {
             compiler_diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long' declaration specifier");
             return 1;
         }
-        else if ((*flags) & TYPE_SPECIFIER_LONG) // ja tinha um long
+        else if ((*flags) & TYPE_SPECIFIER_LONG) /* already had one long */
         {
             (*flags) = (*flags) & ~TYPE_SPECIFIER_LONG;
             (*flags) |= TYPE_SPECIFIER_LONG_LONG;
         }
-        else // nao tinha nenhum long
+        else /* no long yet */
         {
             (*flags) = (*flags) & ~TYPE_SPECIFIER_INT;
             (*flags) |= TYPE_SPECIFIER_LONG;
@@ -30579,7 +30641,7 @@ int add_specifier(struct parser_ctx* ctx,
         (*flags) |= new_flag;
     }
 
-    //Following 6.7.2 we check possible combinations
+    /* following C standard 6.7.2, check valid combinations */
     switch ((unsigned int)*flags)
     {
     case TYPE_SPECIFIER_NONE:  //void
@@ -30728,7 +30790,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                         &p_declaration_specifiers->type_specifier_flags,
                         p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
                     {
-                        //not fatal error
+                        /* not a fatal error */
                     }
 
                     if (p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier)
@@ -30820,7 +30882,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
 
         p_declaration_specifiers->last_token = prev;
 
-        // int main() { static int i; } // i is not automatic
+        /* int main() { static int i; } -- i is not automatic */
         final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
 
         p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
@@ -30876,7 +30938,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         {
             p_declaration->last_token = ctx->current;
             parser_match(ctx);
-            // empty declaration
+            /* empty declaration */
 
 
 
@@ -31205,8 +31267,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
 
-            ctx->p_current_function_scope_opt = p_current_function_scope_opt; //restore
-            ctx->p_current_function_opt = p_current_function_opt; //restore
+            ctx->p_current_function_scope_opt = p_current_function_scope_opt; /* restore */
+            ctx->p_current_function_opt = p_current_function_opt; /* restore */
             scope_list_pop(&ctx->scopes);
 
             if (p_function_body == NULL)
@@ -31281,7 +31343,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                      jumps
                     */
 
-                    /*we are going to visit the function again.. lets put the same diagnostic state*/
+                    /* visiting the function again; restore the same diagnostic state */
                     ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
 
                     struct flow_visit_ctx ctx3 = { 0 };
@@ -31403,6 +31465,7 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
     }
 }
 
+static bool declarator_has_vm_type(const struct declarator* p_declarator);
 
 struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers)
@@ -31490,7 +31553,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     */
                     if (strcmp(declarator_name, "__C_ASSERT__") != 0)
                     {
-                        //TODO type_is_same needs changes see #164
+                        /* TODO: type_is_same needs changes, see issue #164 */
                         if (!type_is_same(&p_previous_declarator->type, &p_init_declarator->p_declarator->type, false))
                         {
                             struct osstream ss = { 0 };
@@ -31537,10 +31600,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 hashmap_set(&ctx->scopes.tail->variables, declarator_name, &item);
                 hash_item_set_destroy(&item);
 
-                /*global scope no warning...*/
+                /* no warning at global scope */
                 if (out_scope->scope_level != 0)
                 {
-                    /*but redeclaration at function scope we show warning*/
+                    /* but show warning for redeclaration at function scope */
                     if (compiler_diagnostic(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "declaration of '%s' hides previous declaration", declarator_name))
                     {
                         compiler_diagnostic(W_LOCATION, ctx, p_previous_declarator->first_token_opt, NULL, "previous declaration is here");
@@ -31550,7 +31613,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            /*first time we see this declarator*/
+            /* first time we see this declarator */
             struct hash_item_set item = { 0 };
             item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
             hashmap_set(&ctx->scopes.tail->variables, declarator_name, &item);
@@ -31617,22 +31680,22 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                    char s[]={ "123" };
                    static_assert(sizeof(s) == 4);
                 */
-                p_init_declarator->p_declarator->object.type.num_of_elements =
-                    p_init_declarator->p_declarator->type.num_of_elements;
+                p_init_declarator->p_declarator->object.type.array_num_elements =
+                    p_init_declarator->p_declarator->type.array_num_elements;
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
                 if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    const unsigned long long array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
+                    const unsigned long long array_size_elements = p_init_declarator->p_declarator->type.array_num_elements;
                     if (array_size_elements == 0)
                     {
-                        p_init_declarator->p_declarator->type.num_of_elements =
-                            p_init_declarator->initializer->assignment_expression->type.num_of_elements;
+                        p_init_declarator->p_declarator->type.array_num_elements =
+                            p_init_declarator->initializer->assignment_expression->type.array_num_elements;
                     }
                     else
                     {
-                        if (p_init_declarator->initializer->assignment_expression->type.num_of_elements > array_size_elements)
+                        if (p_init_declarator->initializer->assignment_expression->type.array_num_elements > array_size_elements)
                         {
                             if (p_init_declarator->p_declarator->first_token_opt)
                             {
@@ -31757,7 +31820,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
                     if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
                     {
-                        //no warning on typedefs
+                        /* no warning for typedefs */
                     }
                     else
                     {
@@ -31814,76 +31877,78 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
             }
         }
+        if (ctx->scopes.tail->scope_level == 0 &&
+            type_is_vm(&p_init_declarator->p_declarator->type))
+        {
+            /*
+              MSVC accepts this as constant expression. Cake does not.              
+              static_assert(&((struct X { int i; }*) 0)->i) == 0);
+
+
+            winnt.h:2602:1: error 1270: '__C_ASSERT__' declared as variably modified at file scope
+                2602 |C_ASSERT(TYPE_ALIGNMENT(LARGE_INTEGER) == 8)typedefchar__C_ASSERT__[(((LONG)(LONG_PTR)&(((struct{charx;LARGE_INTEGERtest;}*)0)->test))==8)?1:-1]
+            */
+            /*
+             compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                   ctx,
+                   p_init_declarator->p_declarator->name_opt,
+                   NULL,
+                   "'%s' declared as variably modified at file scope",
+                   p_init_declarator->p_declarator->name_opt->lexeme);
+            throw;
+            */
+        }
 
         if (
             !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) &&
             !type_is_function(&p_init_declarator->p_declarator->type))
         {
+            size_t sz = 0;
+            enum sizeof_result size_result =
+                type_get_sizeof(&p_init_declarator->p_declarator->type, &sz, ctx->options.target);
 
-            if (type_is_vla(&p_init_declarator->p_declarator->type))
+            switch (size_result)
             {
-                /*
-                 * VLA objects (int a[n]) are not supported.
-                 * VM types (int (*p)[n]) are supported — they are mandatory
-                 * in C23 and handled in code generation.
-                 */
+            case SIZEOF_RESULT_OK:
+                break;
+
+            case SIZEOF_RESULT_OVERLOW:
+                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_init_declarator->p_declarator->name_opt, NULL,
+                "sizeof '%s' is too large",
+                p_init_declarator->p_declarator->name_opt->lexeme);
+                throw;
+                break;
+
+            case SIZEOF_RESULT_RUNTIME:
+
                 compiler_diagnostic(C_ERROR_STORAGE_SIZE,
                     ctx,
                     p_init_declarator->p_declarator->name_opt,
                     NULL,
-                    "variable length arrays are not supported; "
-                    "use a pointer to a variably modified type instead "
-                    "(e.g. 'int (*p)[n] = malloc(sizeof *p);')");
-            }
-            else if (type_is_function(&p_init_declarator->p_declarator->type))
-            {
-                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
-                  ctx,
-                  p_init_declarator->p_declarator->name_opt, NULL,
-                  "invalid application of 'sizeof' to a function type");
-            }
-            else
-            {
-                size_t sz = 0;
-                enum sizeof_error size_result = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz, ctx->options.target);
+                    "'%s' vla is not suported",
+                    p_init_declarator->p_declarator->name_opt->lexeme);
 
-                if (size_result == ESIZEOF_NONE)
+                break;
+
+            case SIZEOF_RESULT_INCOMPLETE:
+                
+                if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
                 {
-                    //ok
-                }
-                else if (size_result == ESIZEOF_INCOMPLETE)
-                {
-                    if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
-                    {
-                        //this is not a problem for extern variables
-                    }
-                    else
-                    {
-                        // clang warning: array 'c' assumed to have one element
-                        // gcc "error: storage size of '%s' isn't known"
-                        compiler_diagnostic(C_ERROR_STORAGE_SIZE,
-                            ctx,
-                            p_init_declarator->p_declarator->name_opt, NULL,
-                            "storage size of '%s' isn't known",
-                            p_init_declarator->p_declarator->name_opt->lexeme);
-                    }
-                }
-                else if (size_result == ESIZEOF_OVERLOW)
-                {
-                    compiler_diagnostic(C_ERROR_STORAGE_SIZE,
-                            ctx,
-                            p_init_declarator->p_declarator->name_opt, NULL,
-                            "sizeof '%s' is too large",
-                            p_init_declarator->p_declarator->name_opt->lexeme);
+                    /* extern variables do not need to be complete */
                 }
                 else
                 {
                     compiler_diagnostic(C_ERROR_STORAGE_SIZE,
-                        ctx,
-                        p_init_declarator->p_declarator->name_opt, NULL,
-                        "storage size of '%s' isn't known",
-                        p_init_declarator->p_declarator->name_opt->lexeme);
+                       ctx,
+                       p_init_declarator->p_declarator->name_opt, NULL,
+                       "storage size of '%s' isn't known because the type is incomplete",
+                       p_init_declarator->p_declarator->name_opt->lexeme);
                 }
+                throw;
+            case SIZEOF_RESULT_FUNCTION:
+                break;
             }
         }
     }
@@ -32712,7 +32777,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             return p_type_specifier;
 
         default:
-            // Do nothing
+            /* do nothing */
             break;
         }
 
@@ -32775,7 +32840,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
             p_type_specifier->typedef_declarator =
                 find_declarator(ctx, ctx->current->lexeme, NULL);
 
-            // Ser chegou aqui já tem que exitir (reaprovecitar?)
+            /* if we got here, it must already exist (reuse?) */
             assert(p_type_specifier->typedef_declarator != NULL);
 
             parser_match(ctx);
@@ -32969,7 +33034,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             struct map_entry* _Opt p_entry = hashmap_find(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tagtoken->lexeme);
             if (p_entry)
             {
-                /*this tag already exist in this scope*/
+                /* this tag already exists in this scope */
                 if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
                 {
                     if (p_struct_or_union_specifier->first_token->type ==
@@ -33021,7 +33086,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                     struct struct_or_union_specifier* _Opt p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tagtoken->lexeme);
                     if (p_first_tag_previous_scopes == NULL)
                     {
-                        /*tag not found, so it is the first appearance*/
+                        /* tag not found; this is its first appearance */
 
                         p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
 
@@ -33037,7 +33102,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                         if (p_first_tag_previous_scopes->first_token->type ==
                             p_struct_or_union_specifier->first_token->type)
                         {
-                            /*tag already exists in some scope*/
+                            /* tag already exists in some scope */
                             p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
                         }
                     }
@@ -33047,7 +33112,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         }
         else
         {
-            /*struct without a tag, in this case we make one*/
+            /* struct without a tag; generate one */
             snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, CAKE_GENERATED_TAG_PREFIX "%d", ctx->anonymous_struct_count++);
             p_struct_or_union_specifier->has_anonymous_tag = true;
             p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
@@ -33106,7 +33171,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
 #pragma cake diagnostic pop
 
-                //we cannot have an empty struct
+                /* an empty struct is not allowed */
                 if (p_struct_or_union_specifier->member_declaration_list.head == NULL) throw;
             }
 
@@ -33137,7 +33202,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             if (p_complete->attribute_specifier_sequence_opt &&
                 p_complete->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
             {
-                // extract optional reason from [[deprecated("reason")]]
+                /* extract optional reason from [[deprecated("reason")]] */
                 const char* _Opt deprecated_reason = NULL;
                 const struct attribute_specifier* _Opt p_as = p_complete->attribute_specifier_sequence_opt->head;
                 while (p_as && deprecated_reason == NULL)
@@ -33233,10 +33298,37 @@ struct member_declarator* _Owner _Opt member_declarator(
             throw;
         }
 
-        /*extension*/
+        if (type_is_pointer(&p_member_declarator->declarator->type) &&
+            declarator_has_vm_type(p_member_declarator->declarator))
+        {
+            /*
+             * C11 §6.7.6p3 / C23 §6.7.7p3:
+             * A variably modified type cannot appear as a struct or union
+             * member because the struct itself may have static storage
+             * duration.
+             *
+             * Example:
+             *   int n;
+             *   struct X { int (*a)[n]; };  // error: VM member
+             */
+            struct token* p_token =
+                p_member_declarator->declarator->first_token_opt;
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_token,
+                NULL,
+                "variably modified type cannot be a struct or union member");
+
+            throw;
+        }
+
+        /* extension */
         if (type_is_owner(&p_member_declarator->declarator->type))
         {
-            /*having at least 1 _Owner member, the struct type is _Owner by default*/
+            /* having at least one _Owner member makes the struct type _Owner by default */
             p_struct_or_union_specifier->is_owner = true;
         }
 
@@ -34025,7 +34117,7 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
         {
             if (!ctx->inside_generic_association)
             {
-                /*C23*/
+                /* C23 */
                 parser_match(ctx);
                 p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
                 if (p_enum_specifier->specifier_qualifier_list == NULL)
@@ -34106,12 +34198,12 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
             {
                 //p_existing_enum_specifier->p_complete_enum_specifier = p_enum_specifier;
                 //ja existe
-                //verificar o caso de ser outro tag no memso escopo
+                /* check for another tag with the same name in this scope */
                 p_enum_specifier->p_complete_enum_specifier = p_existing_enum_specifier;
             }
             else
             {
-                //nao existe lugar nenhum vamos adicionar
+                /* tag not found anywhere; add it */
                 struct hash_item_set item = { 0 };
                 item.p_enum_specifier = enum_specifier_add_ref(p_enum_specifier);
                 hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, &item);
@@ -34185,7 +34277,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
-            parser_match(ctx); /*pode ter uma , vazia no fim*/
+            parser_match(ctx); /* trailing comma is allowed */
 
             if (ctx->current && ctx->current->type != '}')
             {
@@ -34238,7 +34330,7 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
     struct object* p_next_enumerator_value)
 {
-    // TODO VALUE    
+    /* TODO: value */
     struct enumerator* _Owner _Opt p_enumerator = NULL;
     try
     {
@@ -34664,7 +34756,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* _Owner _Opt p = attribute_specifier_sequence_opt(ctx);
     attribute_specifier_sequence_delete(p);
 
-    if (ctx->current->type == TK_KEYWORD__ASM)
+    if (ctx->current && ctx->current->type == TK_KEYWORD__ASM)
     {
         /*
             int var __asm__("real_name_in_asm");
@@ -34679,18 +34771,23 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
 struct function_declarator* declarator_find_function_declarator(const struct declarator* p_declarator)
 {
-    
+
     if (p_declarator->direct_declarator)
     {
         if (p_declarator->direct_declarator->declarator)
             return declarator_find_function_declarator(p_declarator->direct_declarator->declarator);
+        
         if (p_declarator->direct_declarator->function_declarator)
         {
             if (p_declarator->direct_declarator->function_declarator->direct_declarator &&
                 p_declarator->direct_declarator->function_declarator->direct_declarator->declarator)
             {
-                return declarator_find_function_declarator(p_declarator->direct_declarator->function_declarator->direct_declarator->declarator);
+                struct function_declarator* p = 
+                    declarator_find_function_declarator(p_declarator->direct_declarator->function_declarator->direct_declarator->declarator);
+               if (p)
+                   return p;
             }
+
             return p_declarator->direct_declarator->function_declarator;
         }
     }
@@ -34795,7 +34892,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
                 ahead->type != ')' &&
                 ahead->type != '...')
             {
-                // look ahead para nao confundir (declarator) com parametros funcao ex void (int)
+                /* look ahead to avoid confusing (declarator) with function parameters, e.g. void (int) */
                 // or function int ()
 
                 parser_match(ctx);
@@ -34878,16 +34975,45 @@ size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator
     return false;
 }
 
-size_t array_declarator_get_size(const struct array_declarator* p_array_declarator)
+/*
+ * Returns true if the declarator tree contains a variably-modified (VM) type,
+ * i.e. somewhere beneath a pointer level there is a VLA array dimension.
+ *
+ * Examples that return true:
+ *   int (*a)[n]      pointer to VLA
+ *   int (**a)[n]     pointer-to-pointer to VLA
+ *
+ * Examples that return false:
+ *   int (*a)[4]      pointer to constant-size array (not VM)
+ *   int *a           plain pointer
+ */
+static bool declarator_has_vm_type(const struct declarator* p_declarator)
 {
-    if (p_array_declarator->assignment_expression)
+    if (p_declarator == NULL)
+        return false;
+
+    const struct direct_declarator* dd = p_declarator->direct_declarator;
+    if (dd == NULL)
+        return false;
+
+    /* ( declarator ) grouping — descend into the inner declarator */
+    if (dd->declarator)
+        return declarator_has_vm_type(dd->declarator);
+
+    /* array suffix — check whether this dimension is a VLA */
+    if (dd->array_declarator)
     {
-        if (object_has_constant_value(&p_array_declarator->assignment_expression->object))
-        {
-            return (size_t)object_to_unsigned_long_long(&p_array_declarator->assignment_expression->object);
-        }
+        if (array_declarator_is_vla(dd->array_declarator))
+            return true;
+
+        /* recurse into the base of the array declarator */
+        if (dd->array_declarator->direct_declarator &&
+            dd->array_declarator->direct_declarator->declarator)
+            return declarator_has_vm_type(
+                dd->array_declarator->direct_declarator->declarator);
     }
-    return 0;
+
+    return false;
 }
 
 struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* _Owner p_direct_declarator, struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
@@ -35316,7 +35442,7 @@ struct parameter_type_list* _Owner _Opt parameter_type_list(struct parser_ctx* c
             throw;
         }
 
-        /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
+        /* already exiting with the comma consumed from parameter_list to avoid look-ahead */
         if (ctx->current->type == '...')
         {
             parser_match(ctx);
@@ -35527,12 +35653,12 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 
             assert(p_parameter_declaration->declarator->name_opt != NULL); //add_ref will not change that
 
-            // parametro void nao te name
+            /* void parameter has no name */
             hashmap_set(&ctx->scopes.tail->variables,
                 p_parameter_declaration->declarator->name_opt->lexeme,
                 &item);
 
-            // print_scope(ctx->current_scope);
+            /* print_scope(ctx->current_scope); */
             hash_item_set_destroy(&item);
         }
     }
@@ -35629,7 +35755,7 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
     if (p_direct_declarator->name_opt && !is_abstract)
     {
-        // Se is_abstract for true é pedido para nao imprimir o nome do indentificador
+        /* if is_abstract is true, do not print the identifier name */
         ss_fprintf(ss, "%s", p_direct_declarator->name_opt->lexeme);
     }
 
@@ -37523,7 +37649,7 @@ static bool first_of_primary_block(const struct parser_ctx* ctx)
     if (first_of_compound_statement(ctx) ||
         first_of_selection_statement(ctx) ||
         first_of_iteration_statement(ctx) ||
-        ctx->current->type == TK_KEYWORD_CAKE_TRY /*extension*/ ||
+        ctx->current->type == TK_KEYWORD_CAKE_TRY /* extension */ ||
         ctx->current->type == TK_KEYWORD_MSVC__TRY ||
         ctx->current->type == TK_KEYWORD__ASM
         )
@@ -37577,7 +37703,7 @@ void warn_unrecognized_warnings(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
     struct diagnostic_id_stack* _Opt p_diagnostic_id_stack)
 {
-    ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; //restore
+    ctx->p_diagnostic_id_stack = p_diagnostic_id_stack; /* restore */
 
     if (p_attribute_specifier_sequence == NULL)
     {
@@ -37612,7 +37738,7 @@ struct unlabeled_statement* _Owner _Opt unlabeled_statement(struct parser_ctx* c
 
         if (first_of_primary_block(ctx))
         {
-            //TODO colocar em uma stack no ctx 
+            /* TODO: push onto a stack in ctx */
             p_unlabeled_statement->p_attribute_specifier_sequence = p_attribute_specifier_sequence;
             p_attribute_specifier_sequence = NULL;
 
@@ -37878,9 +38004,9 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
             }
             else
             {
-                struct label* _Opt p_existing_label = 
+                struct label* _Opt p_existing_label =
                     case_label_list_find(ctx, &ctx->p_current_switch_statement->label_list, &p_label->constant_expression->object);
-                
+
 
                 if (p_existing_label)
                 {
@@ -38213,7 +38339,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
         if (parser_match_tk(ctx, '}') != 0)
             throw;
 
-        // TODO ver quem nao foi usado.
+        /* TODO: check who was not used */
 
         for (int i = 0; i < block_scope.variables.capacity; i++)
         {
@@ -38414,7 +38540,7 @@ struct block_item* _Owner _Opt block_item(struct parser_ctx* ctx)
         }
         else if (first_of_label(ctx))
         {
-            // so identifier confunde com expression
+            /* identifier can be confused with an expression here */
             p_block_item->label = label(ctx, p_attribute_specifier_sequence);
             p_attribute_specifier_sequence = NULL; //MOVED
 
@@ -39048,6 +39174,19 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                             NULL,
                             "switch condition has boolean value"); //[-Wswitch-bool]
             }
+
+            /*
+             * C11 6.8.4.2/1 — the controlling expression of a switch statement
+             * shall have integer type (not merely scalar — float is not allowed).
+             */
+            if (!type_is_integer(&p_selection_statement->condition->expression->type))
+            {
+                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                                    ctx,
+                                    p_selection_statement->condition->first_token,
+                                    NULL,
+                                    "switch controlling expression must have integer type");
+            }
         }
 
         struct selection_statement* _Opt previous = ctx->p_current_switch_statement;
@@ -39267,6 +39406,15 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 throw;
 
             p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            if (p_iteration_statement->expression1 != NULL &&
+                !type_is_scalar_decay(&p_iteration_statement->expression1->type))
+            {
+                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                                    ctx,
+                                    p_iteration_statement->expression1->first_token,
+                                    NULL,
+                                    "controlling expression must have scalar type");
+            }
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
             if (parser_match_tk(ctx, ';') != 0)
@@ -39279,6 +39427,15 @@ struct iteration_statement* _Owner _Opt iteration_statement(struct parser_ctx* c
                 throw;
 
             p_iteration_statement->expression1 = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            if (p_iteration_statement->expression1 != NULL &&
+                !type_is_scalar_decay(&p_iteration_statement->expression1->type))
+            {
+                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                                    ctx,
+                                    p_iteration_statement->expression1->first_token,
+                                    NULL,
+                                    "controlling expression must have scalar type");
+            }
             if (parser_match_tk(ctx, ')') != 0)
                 throw;
             struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
@@ -39776,6 +39933,19 @@ struct condition* _Owner _Opt condition(struct parser_ctx* ctx)
             p_condition->expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
             if (p_condition->expression == NULL)
                 throw;
+
+            /*
+             * C11 6.8.4.1/1, 6.8.5/2 — the controlling expression of an
+             * if/switch/while/for/do statement shall have scalar type.
+             */
+            if (!type_is_scalar_decay(&p_condition->expression->type))
+            {
+                compiler_diagnostic(C_ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+                                    ctx,
+                                    p_condition->expression->first_token,
+                                    NULL,
+                                    "controlling expression must have scalar type");
+            }
         }
 
         if (ctx->current == NULL)
@@ -40213,13 +40383,13 @@ struct ast get_ast(struct options* options,
 int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx);
 
 struct ast get_ast_with_flags(int argc,
-    const char **argv,
+    const char** argv,
     const char* filename,
     const char* source,
     struct report* report)
 {
-    
-    
+
+
     struct ast ast = { 0 };
     struct tokenizer_ctx tctx = { 0 };
 
@@ -40234,7 +40404,7 @@ struct ast get_ast_with_flags(int argc,
     {
         struct options options = { 0 };
         fill_options(&options, argc, argv);
-        
+
         prectx.options = options;
         prectx.macros.capacity = 5000;
         fill_preprocessor_options(argc, argv, &prectx);
@@ -40770,7 +40940,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
         }
         else if (type_is_array(p_current_object_type))
         {
-            const bool compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
+            const bool compute_array_size = p_current_object_type->p_array_num_elements_expression == NULL;
             long long index = -1;
             long long max_index = -1;
             struct type array_item_type = get_array_item_type(p_current_object_type);
@@ -40802,7 +40972,7 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
                                                   NULL,
                                                   "array designator value '%d' is negative", index);
                     }
-                    else if (index > (int)p_current_object_type->num_of_elements)
+                    else if (index > (int)p_current_object_type->array_num_elements)
                     {
                         compiler_diagnostic(
                                                   C_ERROR_STRUCT_MEMBER_NOT_FOUND,
@@ -40949,7 +41119,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         if (type_is_array(p_current_object_type))
         {
             array_item_type = get_array_item_type(p_current_object_type);
-            compute_array_size = p_current_object_type->array_num_elements_expression == NULL;
+            compute_array_size = p_current_object_type->p_array_num_elements_expression == NULL;
             if (type_is_char(&array_item_type))
             {
                 struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
@@ -40963,7 +41133,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                     if (p_initializer_list_item2->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
                     {
                         size_t num_of_elements =
-                            p_initializer_list_item2->initializer->assignment_expression->type.num_of_elements;
+                            p_initializer_list_item2->initializer->assignment_expression->type.array_num_elements;
 
                         if (compute_array_size)
                         {
@@ -40983,11 +41153,11 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                         //current_object->type2.num_of_elements = num_of_elements;
                         if (compute_array_size)
                         {
-                            p_current_object_type->num_of_elements = num_of_elements;
+                            p_current_object_type->array_num_elements = num_of_elements;
                         }
                         else
                         {
-                            if (num_of_elements > p_current_object_type->num_of_elements)
+                            if (num_of_elements > p_current_object_type->array_num_elements)
                             {
                                 compiler_diagnostic(W_ARRAY_SIZE, ctx,
                                     p_initializer_list_item2->initializer->assignment_expression->first_token,
@@ -41195,11 +41365,11 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         }
         if (compute_array_size)
         {
-            current_object->type.num_of_elements = array_to_expand_max_index + 1;
-            p_current_object_type->num_of_elements = array_to_expand_max_index + 1;
+            current_object->type.array_num_elements = array_to_expand_max_index + 1;
+            p_current_object_type->array_num_elements = array_to_expand_max_index + 1;
         }
 
-        current_object->parent = parent_copy; //restore
+        current_object->parent = parent_copy; /* restore */
         type_destroy(&array_item_type);
     }
     catch
@@ -42984,7 +43154,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                         compiler_diagnostic(W_LOCATION, ctx->ctx, p1->p_defer_statement->first_token, NULL, "defer");
                     }
                 }
-                else if (p1->p_declarator && type_is_vla(&p1->p_declarator->type))
+                else if (p1->p_declarator && type_is_vm(&p1->p_declarator->type))
                 {
                     bool found = false;
                     struct defer_scope* _Owner _Opt p0 = ctx->tail_block;
@@ -43000,7 +43170,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
                     if (!found)
                     {
-                        compiler_diagnostic(C_ERROR_JUMP_OVER_VLA, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over vla. from here");
+                        compiler_diagnostic(C_ERROR_JUMP_OVER_VLA, ctx->ctx, p_jump_statement->first_token, NULL, "jumping over vm. from here");
                         compiler_diagnostic(W_LOCATION, ctx->ctx, label_ctx.p_label->p_first_token, NULL, "to here");
                         compiler_diagnostic(W_LOCATION, ctx->ctx, p1->p_declarator->first_token_opt, NULL, "declarator");
                     }
@@ -43464,15 +43634,6 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 #pragma safety enable
 
 /*
- * Forward declaration for type_is_vm (defined in type.c, declared in type.h).
- * Listed here so visit_il.c compiles independently of type.h changes.
- */
-bool type_is_vm(const struct type* p_type);
-struct type type_remove_vm_arrays(const struct type* p_type);
-
-
-
-/*
 *    Prefix used to create local variables
 */
 #define CAKE_LOCAL_PREFIX  "__v" 
@@ -43487,19 +43648,21 @@ struct type type_remove_vm_arrays(const struct type* p_type);
 */
 #define CAKE_PREFIX_LABEL "__L"
 
-/* Maximum number of VM dimensions we snapshot per declarator */
-#define VM_MAX_DIMS 8
 
-/*
- * One captured VM dimension snapshot.
- *   expr      — the original runtime expression node (from array_num_elements_expression)
- *   snap_name — the generated const local name  (e.g. "__v3")
- */
+
 struct vm_dim_snapshot
 {
     struct expression* expr;
-    char snap_name[32];
+    int snap_num;
 };
+static int vm_collect_dims(struct d_visit_ctx* ctx,
+                            const struct type* p_type,
+                            struct vm_dim_snapshot dims[],
+                            int max_dims);
+static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
+                                    struct osstream* oss_body,
+                                    const struct vm_dim_snapshot dims[],
+                                    int dim_count);
 
 static void print_initializer(struct d_visit_ctx* ctx,
     struct osstream* oss,
@@ -43535,7 +43698,6 @@ struct struct_entry_list
     int size;
     int capacity;
 };
-
 
 
 struct struct_entry
@@ -43656,12 +43818,6 @@ static void d_print_type(struct d_visit_ctx* ctx,
     const char* _Opt name_opt,
     bool print_storage_qualifier);
 
-/* VLA / VM -> C89 helpers — defined near d_visit_init_declarator */
-static const struct type* _Opt vm_find_first_vla_array(const struct type* p_type);
-static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx, struct osstream* oss, const struct type* p_type);
-static int  vm_collect_dims(struct d_visit_ctx* ctx, const struct type* p_type, struct vm_dim_snapshot dims[VM_MAX_DIMS]);
-static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx, struct osstream* oss_body, const struct vm_dim_snapshot dims[VM_MAX_DIMS], int dim_count);
-static bool vm_find_snap_name(struct d_visit_ctx* ctx, const struct expression* expr, char snap_name_out[32]);
 
 static void print_identation_core(struct osstream* ss, int indentation)
 {
@@ -43967,6 +44123,134 @@ static const char* get_op_by_expression_type(enum expression_type type)
 
 static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
+
+
+static bool vm_find_snap_num(struct d_visit_ctx* ctx, const struct expression* expr, size_t* num)
+{
+    char snap_key[64];
+    snprintf(snap_key, sizeof(snap_key), "%p", (void*)expr);
+    struct map_entry* _Opt p = hashmap_find(&ctx->vm_expression_to_dim_var, snap_key);
+    if (p == NULL)
+    {
+        return false;
+    }
+    *num = p->data.number;
+    return true;
+}
+
+static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
+                                     struct osstream* oss,
+                                     const struct type* p_type,
+                                     size_t* size)
+{
+    *size = 0; //out
+    const  enum  target target = ctx->options.target;
+    const enum type_category category = type_get_category(p_type);
+
+    if (category == TYPE_CATEGORY_ARRAY &&
+        !(p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER))
+    {
+        unsigned long long arraysize;
+
+        if (p_type->array_num_elements <= 0)
+        {
+            size_t num = 0;
+            if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
+            {
+                if (oss->size > 0)
+                    ss_fprintf(oss, " * ");
+
+                ss_fprintf(oss, CAKE_LOCAL_PREFIX "%d", num);
+            }
+
+            arraysize = 1;
+        }
+        else
+        {
+            arraysize = p_type->array_num_elements;
+        }
+
+        struct type type = get_array_item_type(p_type);
+        size_t sz = 0;
+        const enum sizeof_result er = vm_emit_sizeof_expr_core(ctx,
+                                      oss,
+                                      &type,
+                                      &sz);
+
+        if (er != SIZEOF_RESULT_OK)
+        {
+            sz = 1;
+        }
+        type_destroy(&type);
+
+        unsigned long long result = 0;
+        if (unsigned_long_long_mul(&result, sz, arraysize))
+        {
+            if (result > SIZE_MAX)
+            {
+                return SIZEOF_RESULT_OVERLOW;
+            }
+
+            //
+            if (result > /*SIZEMAX*/ 4294967295)
+            {
+                return SIZEOF_RESULT_OVERLOW;
+            }
+            *size = (size_t)result;
+        }
+        else
+        {
+            return SIZEOF_RESULT_OVERLOW;
+        }
+        return SIZEOF_RESULT_OK;
+    }
+    assert(p_type->next == NULL);
+    size_t sz2;
+    enum sizeof_result r = type_get_sizeof(p_type, &sz2, target);
+    *size = sz2;
+    assert(r != SIZEOF_RESULT_RUNTIME);
+    return r;
+}
+
+static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx,
+                                struct osstream* oss,
+                                const struct type* p_type)
+{
+    struct osstream local = { 0 };
+    size_t sz = 0;
+    vm_emit_sizeof_expr_core(ctx,
+                             &local,
+                             p_type,
+                             &sz);
+    ss_fprintf(oss, "(%zu", sz);
+
+    if (local.size > 0)
+        ss_fprintf(oss, " * %s)", local.c_str);
+
+    ss_close(&local);
+}
+
+static void vm_emit_countof_expr(struct d_visit_ctx* ctx,
+                                 struct osstream* oss,
+                                 const struct type* p_type)
+{
+    if (p_type->p_array_num_elements_expression != NULL &&
+        p_type->array_num_elements <= 0)
+    {
+        size_t num = 0;
+        if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
+        {
+            ss_fprintf(oss, CAKE_LOCAL_PREFIX "%d", num);
+        }
+    }
+    else if (p_type->array_num_elements > 0)
+    {
+        ss_fprintf(oss, "%zu", p_type->array_num_elements);
+    }
+}
+
+
+
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
 
@@ -43997,6 +44281,41 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             return;
         }
     }
+#if 0
+    
+    /* 
+      VM types can be used inside the expression cast, sizeof, compound literal etc
+      Here we register these VM types
+    */
+    struct vm_dim_snapshot dims[50];
+
+    if (p_expression)
+    {
+        int dim_count = vm_collect_dims(ctx, &p_expression->type, dims, _Countof(dims));
+        if (dim_count > 0)
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
+    }
+
+    if (p_expression->left)
+    {
+        int dim_count = vm_collect_dims(ctx, &p_expression->left->type, dims, _Countof(dims));
+        if (dim_count > 0)
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
+    }
+    if (p_expression->right)
+    {
+        int dim_count = vm_collect_dims(ctx, &p_expression->right->type, dims, _Countof(dims));
+        if (dim_count > 0)
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
+    }
+
+    if (p_expression->type_name != NULL)
+    {
+        int dim_count = vm_collect_dims(ctx, &p_expression->type_name->type, dims, _Countof(dims));
+        if (dim_count > 0)
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
+    }
+#endif
 
     ctx->address_of_argument = false;
 
@@ -44022,8 +44341,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             snprintf(func_name, sizeof func_name, "unnamed");
             snprintf(name, sizeof(name), "__cake_func_%p", ctx->p_current_function_opt);
         }
-
-
 
         if (!ctx->is__func__predefined_identifier_added)
         {
@@ -44131,7 +44448,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
-
             /*
                local static declarators are generated on-demand.
             */
@@ -44198,7 +44514,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->right != NULL);
         if (p_expression->right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
         {
-            //removes extra (()) ,we also could remove from other..
+            /* remove extra (()) — could also be removed from other cases */
             d_visit_expression(ctx, oss, p_expression->right);
         }
         else
@@ -44274,7 +44590,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ss_fprintf(oss, ")");
             //TODO to convert to C89 we need to insert the first parameter
             //at the caller and at the implementation
-            //ss_fprintf(oss, ", __first_va_arg");            
+            /* ss_fprintf(oss, ", __first_va_arg"); */
         }
         break;
 
@@ -44364,205 +44680,66 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        /*
-         * Subscript rewriting for VM types.
-         *
-         * After flattening, all VM pointers are plain pointers (int *p).
-         * Multi-dimensional access  (*p)[i][j]  must become  p[i*__v1 + j].
-         *
-         * The AST for (*p)[i][j] is:
-         *   POSTFIX_ARRAY {
-         *     left = POSTFIX_ARRAY {
-         *              left = UNARY_CONTENT(p),   type: int[n][m]
-         *              right = i
-         *            }                            type: int[m]
-         *     right = j
-         *   }
-         *
-         * Strategy: walk UP the left chain collecting all subscript indices
-         * and dimension sizes, then emit one flat index.
-         *
-         * We detect "this is a VM subscript chain" when the BOTTOM of the
-         * left chain is a UNARY_CONTENT(*ptr) where ptr is pointer-to-VM,
-         * OR when left->type is a VM array that still has inner dimensions.
-         *
-         * To avoid partial rewrites we only act at the OUTERMOST node of
-         * the chain — i.e. when the result type of THIS node is NOT an array.
-         * Inner nodes (whose result is still an array) are skipped and the
-         * outermost fires the full linearisation.
-         */
+        if (type_is_vm(&p_expression->left->type))
         {
-            /* Is the result of this subscript still an array? If so, we are
-             * an inner node — the outer node will handle full linearisation.
-             * Just emit normally and let the outer call deal with it. */
-            bool result_is_array = type_is_array(&p_expression->type);
+            /*
+               A[i0][i1][i2]...[ik]
 
-            /* Is the left operand (after unwrapping *) a VM base? */
-            struct expression* left = p_expression->left;
-            bool left_is_vm_array =
-                type_is_vla(&left->type) && type_is_array(&left->type);
+               Lower to:
 
-            /* Unwrap UNARY_CONTENT(*ptr) where ptr is pointer-to-VM */
-            bool left_is_deref_of_vm =
-                left->expression_type == UNARY_EXPRESSION_CONTENT &&
-                left->right != NULL &&
-                type_is_vm(&left->right->type);
+               offset =
+                   i0 * (d1*d2*...*dk)
+                 + i1 * (d2*d3*...*dk)
+                 + ...
+                 + ik
 
-            if (!result_is_array && (left_is_vm_array || left_is_deref_of_vm))
+               A[offset]
+            */
+
+            struct osstream offset_flat = { 0 };
+
+            struct expression* expr = p_expression;
+            while (expr->expression_type == POSTFIX_ARRAY)
             {
-                /*
-                 * This is the OUTERMOST subscript of a VM access.
-                 * Walk down the left chain to collect:
-                 *   - indices[]:   the subscript expressions (outermost first)
-                 *   - dim_exprs[]: the dimension expressions (for strides)
-                 *   - base:        the flat pointer (innermost expression)
-                 *
-                 * For  (*p)[i][j]:
-                 *   indices[0] = j,  indices[1] = i
-                 *   dim_exprs[0] = m  (stride for j's dimension)
-                 *   base = p
-                 */
-#define VM_MAX_SUBSCRIPT_DIMS 8
-                struct expression* indices[VM_MAX_SUBSCRIPT_DIMS];
-                struct expression* dim_exprs[VM_MAX_SUBSCRIPT_DIMS];
-                int ndims = 0;
+                if (offset_flat.size > 0)
+                    ss_fprintf(&offset_flat, " + ");
+                d_visit_expression(ctx, &offset_flat, expr->right);
 
-                struct expression* cur = p_expression;
-                while (cur->expression_type == POSTFIX_ARRAY &&
-                       ndims < VM_MAX_SUBSCRIPT_DIMS)
+                struct type* p_type = expr->left->type.next;
+                while (type_is_array(p_type))
                 {
-                    indices[ndims] = cur->right;  /* this level's index */
-
-                    /* record the dimension of the left's type (if still array) */
-                    if (type_is_array(&cur->left->type))
-                        dim_exprs[ndims] = (struct expression*)cur->left->type.array_num_elements_expression;
-                    else
-                        dim_exprs[ndims] = NULL;
-
-                    ndims++;
-                    cur = cur->left;
-
-                    /* unwrap UNARY_CONTENT(*ptr) */
-                    if (cur->expression_type == UNARY_EXPRESSION_CONTENT &&
-                        cur->right != NULL &&
-                        type_is_vm(&cur->right->type))
+                    if (p_type->array_num_elements > 0)
                     {
-                        cur = cur->right;
-                        break;
-                    }
-
-                    /* stop when we reach the base (not an array subscript) */
-                    if (cur->expression_type != POSTFIX_ARRAY &&
-                        !(cur->expression_type == UNARY_EXPRESSION_CONTENT &&
-                          cur->right != NULL &&
-                          type_is_vm(&cur->right->type)))
-                    {
-                        break;
-                    }
-                }
-
-                /* cur is now the flat base pointer */
-                struct expression* base = cur;
-
-                /*
-                 * Emit: base[ indices[n-1]*dim[n-2]*...*dim[0]
-                 *             + indices[n-2]*dim[n-3]*...*dim[0]
-                 *             + ...
-                 *             + indices[0] ]
-                 *
-                 * indices[] is outermost-first, so indices[ndims-1] is the
-                 * most-significant (row) index and indices[0] is the column.
-                 *
-                 * Example: (*p)[i][j], ndims=2
-                 *   indices[0]=j, dim_exprs[0]=m
-                 *   indices[1]=i, dim_exprs[1]=n (ignored for last)
-                 *   -> base[ i * m + j ]
-                 */
-                /*
-                 * Emit: ((elem_type*)base)[flat_index]
-                 *
-                 * We always cast base to a flat element pointer before
-                 * applying the single computed index.  This is necessary
-                 * when base is a VM pointer parameter (int (*grid)[n][m])
-                 * that has not been locally rewritten — without the cast,
-                 * base[flat] would yield int[m], not int.
-                 *
-                 * Finding the element type: skip the pointer node (if any)
-                 * then all array nodes; what remains is the element type.
-                 */
-                {
-                    const struct type* _Opt elem_t = &base->type;
-                    /* skip pointer */
-                    if (elem_t->category == TYPE_CATEGORY_POINTER && elem_t->next)
-                        elem_t = elem_t->next;
-                    /* skip arrays */
-                    while (elem_t && type_is_array(elem_t))
-                        elem_t = elem_t->next;
-
-                    if (elem_t && elem_t != &base->type)
-                    {
-                        struct osstream cast_ss = { 0 };
-                        d_print_type(ctx, &cast_ss, elem_t, NULL, false);
-                        ss_fprintf(oss, "((%s*)", cast_ss.c_str);
-                        d_visit_expression(ctx, oss, base);
-                        ss_fprintf(oss, ")");
-                        ss_close(&cast_ss);
+                        ss_fprintf(&offset_flat, "* %zu", p_type->array_num_elements);
                     }
                     else
                     {
-                        /* base is already a flat pointer */
-                        d_visit_expression(ctx, oss, base);
-                    }
-                }
-                ss_fprintf(oss, "[");
-
-                /* emit from most-significant index down */
-                for (int k = ndims - 1; k >= 0; k--)
-                {
-                    /* emit indices[k] */
-                    ss_fprintf(oss, "(");
-                    d_visit_expression(ctx, oss, indices[k]);
-                    ss_fprintf(oss, ")");
-
-                    /* multiply by all inner dimensions */
-                    for (int d = k - 1; d >= 0; d--)
-                    {
-                        if (dim_exprs[d] != NULL &&
-                            !object_has_constant_value(&dim_exprs[d]->object))
+                        size_t num;
+                        if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
                         {
-                            char snap_name[32];
-                            ss_fprintf(oss, " * ");
-                            if (vm_find_snap_name(ctx, dim_exprs[d], snap_name))
-                                ss_fprintf(oss, "%s", snap_name);
-                            else
-                                d_visit_expression(ctx, oss,
-                                    (struct expression*)dim_exprs[d]);
-                        }
-                        else if (dim_exprs[d] != NULL)
-                        {
-                            /* constant dimension */
-                            ss_fprintf(oss, " * ");
-                            d_visit_expression(ctx, oss,
-                                (struct expression*)dim_exprs[d]);
+                            ss_fprintf(&offset_flat, "* " CAKE_LOCAL_PREFIX "%d", num);
                         }
                     }
-
-                    if (k > 0)
-                        ss_fprintf(oss, " + ");
+                    p_type = p_type->next;
                 }
 
-                ss_fprintf(oss, "]");
-#undef VM_MAX_SUBSCRIPT_DIMS
+                expr = expr->left;
             }
-            else
-            {
-                /* normal subscript — no VM rewriting needed */
-                d_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, "[");
-                d_visit_expression(ctx, oss, p_expression->right);
-                ss_fprintf(oss, "]");
-            }
+
+            d_visit_expression(ctx, oss, expr);
+            ss_fprintf(oss, "[");
+            ss_fprintf(oss, "%s", offset_flat.c_str);
+            ss_fprintf(oss, "]");
+            ss_close(&offset_flat);
         }
+        else
+        {
+            d_visit_expression(ctx, oss, p_expression->left);
+            ss_fprintf(oss, "[");
+            d_visit_expression(ctx, oss, p_expression->right);
+            ss_fprintf(oss, "]");
+        }
+
         break;
 
     case POSTFIX_FUNCTION_CALL:
@@ -44682,19 +44859,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         if (is_static || !ctx->is_local)
         {
-            /*
-             * C23 static storage compound literal:  (static int[]){1, 2, 3}
-             * OR a compound literal at file scope.
-             *
-             * Both cases require a static-duration variable.  In C89 output
-             * we emit a file-scope static declaration with a constant initializer,
-             * hoisted via add_this_before_external_decl.
-             *
-             * C23 6.5.2.5p6: A compound literal with static storage duration
-             * has the same lifetime as an object declared with static storage
-             * duration at file scope.  Its address is constant and the same
-             * object is used across all invocations (no per-call copy).
-             */
             struct osstream local = { 0 };
             print_identation_core(&local, ctx->indentation);
             ss_fprintf(&local, "static ");
@@ -44730,32 +44894,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-        /*
-         * sizeof on a VM operand is a runtime operation in C99/C23.
-         * In C89 there are no VM types, so we replace sizeof with
-         * the equivalent expression:  sizeof(elem_type) * dim0 * dim1 ...
-         * using dimension snapshot names so the result is stable even
-         * if the original variables change after declaration.
-         *
-         * We use type_is_vm() not type_is_vla() because sizeof must be
-         * rewritten for ALL VM types — including pointer-to-VM which is
-         * MANDATORY in C23 even when __STDC_NO_VLA__ disables VLA objects:
-         *
-         *   int a[n]         type_is_vla=true,  type_is_vm=true
-         *   int (*p)[n][m]   type_is_vla=false, type_is_vm=true
-         *   sizeof(*p) where p : int(*)[n][m]
-         *     right->type is int[n][m]  -> type_is_vm=true
-         *     -> emit  (sizeof(int) * __v0 * __v1)
-         *
-         * If the operand is not VM the object holds a compile-time
-         * constant and object_print_value() is correct as before.
-         */
         if (p_expression->right != NULL &&
             type_is_vm(&p_expression->right->type))
         {
-            ss_fprintf(oss, "(");
             vm_emit_sizeof_expr(ctx, oss, &p_expression->right->type);
-            ss_fprintf(oss, ")");
         }
         else
         {
@@ -44764,10 +44906,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
-        /*
-         * sizeof(type) where type is VM.
-         * Covers  sizeof(int[n][m])  and  sizeof(int(*)[n])  etc.
-         */
         if (p_expression->type_name != NULL &&
             type_is_vm(&p_expression->type_name->type))
         {
@@ -44783,8 +44921,24 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
     case UNARY_EXPRESSION_ALIGNOF_EXPRESSION:
     case UNARY_EXPRESSION_ALIGNOF_TYPE:
-    case UNARY_EXPRESSION_COUNTOF:
         object_print_value(oss, &p_expression->object, ctx->options.target);
+        break;
+
+    case UNARY_EXPRESSION_COUNTOF:
+        if (p_expression->right != NULL &&
+            type_is_vm(&p_expression->right->type))
+        {
+            vm_emit_countof_expr(ctx, oss, &p_expression->right->type);
+        }
+        else if (p_expression->type_name != NULL &&
+                 type_is_vm(&p_expression->type_name->type))
+        {
+            vm_emit_countof_expr(ctx, oss, &p_expression->type_name->type);
+        }
+        else
+        {
+            object_print_value(oss, &p_expression->object, ctx->options.target);
+        }
         break;
 
     case UNARY_EXPRESSION_CONSTEVAL:
@@ -44829,35 +44983,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case UNARY_EXPRESSION_CONTENT:
-
         assert(p_expression->right != NULL);
-
-        /*
-         * Pointer-to-VM dereference suppression.
-         *
-         * In C99:  int (*p)[n][m];   (*p) has type int[n][m]
-         * In C89:  int *p;           (*p) would dereference a single int
-         *
-         * When we rewrote the declaration to a flat pointer, all uses of
-         * (*p) must become just p.  We detect this by checking whether the
-         * operand (right) has a pointer-to-VM type — meaning the dereference
-         * result would have been a VM array, which no longer makes sense
-         * after the pointer was flattened.
-         *
-         * (*p)[i]  is POSTFIX_ARRAY{ left=UNARY_CONTENT(p), right=i }
-         * The POSTFIX_ARRAY handler will see left->type as VM array and
-         * emit  p[i]  correctly, as long as this UNARY_CONTENT emits just p.
-         */
-        if (type_is_vm(&p_expression->right->type))
-        {
-            /* operand is pointer-to-VM: suppress *, emit inner expr only */
-            d_visit_expression(ctx, oss, p_expression->right);
-        }
-        else
-        {
-            ss_fprintf(oss, "*");
-            d_visit_expression(ctx, oss, p_expression->right);
-        }
+        ss_fprintf(oss, "*");
+        d_visit_expression(ctx, oss, p_expression->right);
         break;
 
     case UNARY_EXPRESSION_ASSERT:
@@ -45891,7 +46019,7 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
     {
         if (p_block_item->next == NULL)
         {
-            /*last*/
+            /* last */
 
             if (p_block_item->unlabeled_statement &&
                 p_block_item->unlabeled_statement->expression_statement &&
@@ -45946,6 +46074,48 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
 }
 
 
+static int vm_collect_dims(struct d_visit_ctx* ctx,
+                            const struct type* p_type,
+                            struct vm_dim_snapshot dims[],
+                            int max_dims)
+{
+    int count = 0;
+    const struct type* _Opt it = p_type;
+    while (it && count < max_dims)
+    {
+        if (it->category == TYPE_CATEGORY_ARRAY &&
+            it->p_array_num_elements_expression != NULL &&
+            !object_has_constant_value(&it->p_array_num_elements_expression->object))
+        {
+
+            char snap_key[64];
+            snprintf(snap_key, sizeof(snap_key), "%p", (void*)it->p_array_num_elements_expression);
+
+            size_t num;
+            bool r = vm_find_snap_num(ctx, it->p_array_num_elements_expression, &num);
+            if (r)
+            {
+                dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
+                dims[count].snap_num = num;
+            }
+            else {
+                int snap_num = ctx->cake_local_declarator_number++;
+                dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
+                dims[count].snap_num = snap_num;
+                
+                struct hash_item_set item = { 0 };
+                item.number = snap_num;
+                hashmap_set(&ctx->vm_expression_to_dim_var, snap_key, &item);
+                hash_item_set_destroy(&item);
+            }
+
+            count++;
+        }
+        it = it->next;
+    }
+    return count;
+}
+
 static void d_visit_function_body(struct d_visit_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition)
@@ -45957,43 +46127,16 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
         return;
     }
 
-    ctx->cake_local_declarator_number = 0; //reset
+    hashmap_remove_all(&ctx->vm_expression_to_dim_var);  /* reset */
+    ctx->cake_local_declarator_number = 0; /* reset */
 
     int indentation = ctx->indentation;
     ctx->indentation = 0;
     const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
     ctx->p_current_function_opt = function_definition;
 
-    /*
-     * VM parameter dimension snapshots.
-     *
-     * When a function has VM pointer parameters whose dimensions reference
-     * earlier integer parameters:
-     *
-     *   void fill(int n, int m, int (*grid)[n][m])
-     *
-     * We snapshot n and m at function entry so subscript linearisation
-     * uses stable values even if n or m are modified in the body:
-     *
-     *   void fill(int n, int m, int *grid)
-     *   {
-     *       int __v0 = n;    <- snapshot at entry
-     *       int __v1 = m;
-     *       ...((int*)grid)[(i)*__v1+(j)]...
-     *   }
-     *
-     * We collect dims here, visit the compound statement, then inject the
-     * snapshot locals by post-processing: the compound statement emits
-     * "{\n<decls>\n<body>}\n" — we insert our snapshot lines right after
-     * the opening "{\n".
-     *
-     * Snapshots are emitted as combined declaration+initialization on one
-     * line (int __v0 = n;) to keep the output simple — C89 allows
-     * initialised declarations at block start.
-     */
 
-    /* Collect all VM parameter dimensions */
-    struct vm_dim_snapshot all_dims[VM_MAX_DIMS * 4];
+    struct vm_dim_snapshot all_dims[32];
     int all_dim_count = 0;
 
     const struct type* _Opt func_type = &function_definition->type;
@@ -46003,13 +46146,13 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     if (func_type != NULL)
     {
         struct param* _Opt pa = func_type->params.head;
-        while (pa && all_dim_count < VM_MAX_DIMS * 4)
+        while (pa && all_dim_count < _Countof(all_dims))
         {
             if (type_is_vm(&pa->type))
             {
-                struct vm_dim_snapshot dims[VM_MAX_DIMS];
-                int count = vm_collect_dims(ctx, &pa->type, dims);
-                for (int i = 0; i < count && all_dim_count < VM_MAX_DIMS * 4; i++)
+                struct vm_dim_snapshot dims[32];
+                int count = vm_collect_dims(ctx, &pa->type, dims, _Countof(dims));
+                for (int i = 0; i < count && all_dim_count < _Countof(dims); i++)
                     all_dims[all_dim_count++] = dims[i];
             }
             pa = pa->next;
@@ -46030,14 +46173,23 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
         struct osstream body = { 0 };
         d_visit_compound_statement(ctx, &body, function_definition->function_body);
 
+        struct osstream size_t_str = { 0 };
+        bool first = true;
+        print_type_specifier_flags(&size_t_str,
+            &first,
+            object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
+
+
         /* Build snapshot lines:  "    int __v0 = (n);\n" */
         struct osstream snaps = { 0 };
         for (int i = 0; i < all_dim_count; i++)
         {
-            ss_fprintf(&snaps, "    int %s = (", all_dims[i].snap_name);
+            print_identation_core(&snaps, 1);
+            ss_fprintf(&snaps, "%s " CAKE_LOCAL_PREFIX "%d = ", size_t_str.c_str, all_dims[i].snap_num);
             d_visit_expression(ctx, &snaps, all_dims[i].expr);
-            ss_fprintf(&snaps, ");\n");
+            ss_fprintf(&snaps, ";\n");
         }
+        ss_close(&size_t_str);
 
         /*
          * The body stream starts with "{\n".
@@ -46337,6 +46489,7 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
         print_item(ss, first, "volatile");
 }
 
+
 static void d_print_type_core(struct d_visit_ctx* ctx,
     struct osstream* ss,
     const struct type* p_type0,
@@ -46432,13 +46585,24 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
         break;
         case TYPE_CATEGORY_ARRAY:
+        {
+            const struct type* it = p_type;
+            bool vm = false;
+            while (it->category == TYPE_CATEGORY_ARRAY)
+            {
+                if (it->array_num_elements <= 0)
+                {
+                    vm = true;
+                }
+
+                it = it->next;
+            }
 
             if (name_opt)
             {
                 ss_fprintf(ss, "%s", name_opt);
                 name_opt = NULL;
             }
-
             ss_fprintf(ss, "[");
 
             bool b = true;
@@ -46446,45 +46610,31 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             if (ctx->print_qualifiers)
                 d_print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
 
-            if (p_type->num_of_elements > 0)
+            if (vm)
             {
-                /* constant-size array dimension */
-                if (!b)
-                    ss_fprintf(ss, " ");
+                ss_fprintf(ss, "1");
+            }
+            else
+            {
+                if (p_type->array_num_elements > 0)
+                {
+                    /* constant-size array dimension */
+                    if (!b)
+                        ss_fprintf(ss, " ");
 
-                ss_fprintf(ss, "%zu", p_type->num_of_elements);
+                    ss_fprintf(ss, "%zu", p_type->array_num_elements);
+                }
+
             }
-            else if (p_type->array_num_elements_expression != NULL &&
-                     !object_has_constant_value(
-                         &p_type->array_num_elements_expression->object))
-            {
-                /*
-                 * VLA dimension — the size is a runtime expression.
-                 *
-                 * In C89 output we cannot use VLA syntax at all.
-                 * For function *parameters* the outermost array dimension
-                 * always decays to a pointer, so emitting [] is fine and
-                 * the C89 compiler accepts it.  Inner VLA dimensions of
-                 * a multi-dimensional parameter are also emitted as their
-                 * expression so the pointer arithmetic is correct when the
-                 * caller passes the address.
-                 *
-                 * For local variable declarations this path should NOT be
-                 * reached because d_visit_init_declarator intercepts VLA
-                 * locals and rewrites them as malloc'd pointers before ever
-                 * calling d_print_type.  If we do reach here unexpectedly,
-                 * fall back to emitting the expression so the output is at
-                 * least syntactically complete (the C89 compiler will then
-                 * reject it, making the bug visible).
-                 */
-                d_visit_expression(ctx, ss,
-                                   (struct expression*)p_type->array_num_elements_expression);
-            }
-            /* else: empty [], e.g. function parameter int a[] — leave blank */
 
             ss_fprintf(ss, "]");
-
-            break;
+            if (vm)
+            {
+                p_type = it;
+                continue;
+            }
+        }
+        break;
 
         case TYPE_CATEGORY_FUNCTION:
 
@@ -46519,21 +46669,9 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 struct osstream sslocal = { 0 };
                 struct osstream local2 = { 0 };
 
-                if (type_is_vm(&pa->type))
-                {
-                    /*
-                     * VM pointer parameter: int (*grid)[n][m]
-                     * Rewrite to flat pointer:  int *grid
-                     * Same transformation applied to local VM declarations.
-                     */
-                    struct type flat = type_remove_vm_arrays(&pa->type);
-                    d_print_type_core(ctx, &local2, &flat, pa->type.name_opt);
-                    type_destroy(&flat);
-                }
-                else
-                {
-                    d_print_type_core(ctx, &local2, &pa->type, pa->type.name_opt);
-                }
+
+                d_print_type_core(ctx, &local2, &pa->type, pa->type.name_opt);
+
 
                 ss_fprintf(&sslocal, "%s", local2.c_str);
                 ss_fprintf(ss, "%s", sslocal.c_str);
@@ -46561,7 +46699,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
             struct osstream local = { 0 };
             if (p_type->next && (
                 (p_type->next->category == TYPE_CATEGORY_FUNCTION ||
-                    p_type->next->category == TYPE_CATEGORY_ARRAY)))
+                    (p_type->next->category == TYPE_CATEGORY_ARRAY))))
             {
                 ss_fprintf(&local, "(");
             }
@@ -46579,10 +46717,12 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
                 ss_fprintf(&local, "__cdecl ");
             }
 
+
             ss_fprintf(&local, "*");
+
             bool first = false;
             if (ctx->print_qualifiers)
-                d_print_type_qualifier_flags(ss, &b, p_type->type_qualifier_flags);
+                d_print_type_qualifier_flags(ss, &first, p_type->type_qualifier_flags);
 
             if (name_opt)
             {
@@ -46600,13 +46740,14 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             if (p_type->next &&
                 (p_type->next->category == TYPE_CATEGORY_FUNCTION ||
-                    p_type->next->category == TYPE_CATEGORY_ARRAY))
+                    (p_type->next->category == TYPE_CATEGORY_ARRAY)))
             {
                 ss_fprintf(&local, ")", ss->c_str);
             }
 
             ss_swap(ss, &local);
             ss_close(&local);
+
 
         }
         break;
@@ -46623,18 +46764,11 @@ static void d_print_type(struct d_visit_ctx* ctx,
     const char* _Opt name_opt,
     bool print_storage_qualifiers)
 {
-
-
     register_struct_types_and_functions(ctx, p_type, NULL);
-
 
     struct osstream local = { 0 };
 
-
-    d_print_type_core(ctx,
-    &local,
-    p_type,
-    name_opt);
+    d_print_type_core(ctx, &local, p_type, name_opt);
 
 
     if (print_storage_qualifiers && p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
@@ -46657,7 +46791,7 @@ static void d_print_type(struct d_visit_ctx* ctx,
     ss_close(&local);
 }
 
-//return true se todas as expressoes constantes sao 0, as nao constantes nao sao consideradas
+/* returns true if all constant expressions are 0; non-constant expressions are not considered */
 static bool is_all_zero(const struct object* object)
 {
     if (object_is_reference(object))
@@ -46717,7 +46851,7 @@ static void object_print_constant_initialization(struct d_visit_ctx* ctx, struct
     {
         if (type_is_union(&object->type))
         {
-            //In c89 only the first member can be initialized
+            /* in C89, only the first member can be initialized */
             //we could make the first member be array of unsigned int
             //then initialize it
             struct object* _Opt member = object->members.head;
@@ -46783,25 +46917,23 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
     {
         if (type_is_union(&object->type))
         {
-            //In c89 only the first member can be initialized
+            /* in C89, only the first member can be initialized */
             struct object* _Opt member = object->members.head;
 
             if (member->p_init_expression &&
                 object_has_constant_value(&member->p_init_expression->object) &&
                 !all)
             {
-                //already initialized
+                /* already initialized */
             }
             else
             {
-                //TODO external declarations bug
-                /*
-                */
+                /* TODO: external declarations bug */
                 while (member)
                 {
                     if (member->p_init_expression)
                     {
-                        //object_print_non_constant_initialization(ctx, ss, member, declarator_name);
+                        /* object_print_non_constant_initialization(ctx, ss, member, declarator_name); */
                         print_identation_core(ss, ctx->indentation);
                         ss_fprintf(ss, "%s%s = ", declarator_name, member->member_designator);
                         struct osstream local = { 0 };
@@ -46834,7 +46966,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 ss_fprintf(ss, "_cake_memcpy(%s%s, ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
                 d_visit_expression(ctx, &local, object->p_init_expression);
-                size_t string_size = object->p_init_expression->type.num_of_elements;
+                size_t string_size = object->p_init_expression->type.array_num_elements;
                 ss_fprintf(ss, "%s, %zu", local.c_str, string_size);
 
                 ss_fprintf(ss, ");\n");
@@ -46950,7 +47082,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                     ss_fprintf(oss, "_cake_memcpy(%s, ", p_init_declarator->p_declarator->name_opt->lexeme);
                     struct osstream local = { 0 };
                     d_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression);
-                    ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.num_of_elements);
+                    ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->type.array_num_elements);
 
                     ss_fprintf(oss, ");\n");
                     ss_close(&local);
@@ -46997,7 +47129,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                                 throw;
                             }
 
-                            // ss_fprintf(oss, ";\n");
+                            /* ss_fprintf(oss, ";\n"); */
                             print_identation_core(oss, ctx->indentation);
                             ss_fprintf(oss, "_cake_zmem(&%s, %zu);\n",
                             p_init_declarator->p_declarator->name_opt->lexeme,
@@ -47060,286 +47192,33 @@ static void print_initializer(struct d_visit_ctx* ctx,
     }
 }
 
-
-/*
- * -----------------------------------------------------------------------
- *  VM (Variably Modified) type → C89 helpers
- *
- *  C99 VM types fall into two categories:
- *
- *  A) Plain VLA:  head of the type chain is TYPE_CATEGORY_ARRAY with a
- *     runtime dimension.
- *       int a[n]       →  int *a; + malloc + free
- *       int a[n][m]    →  int *a; + malloc(sizeof(int)*(n)*(m)) + free
- *       char b[k]      →  char *b; + malloc + free
- *
- *  B) Pointer-to-VM:  head is TYPE_CATEGORY_POINTER but somewhere in the
- *     chain there is a runtime-sized array.
- *       int (*p)[n]        declaration stays as  int (*p)[n]  — it is
- *       int (*p)[n][m]     already a pointer, no malloc needed.
- *       The user allocates explicitly, e.g.:
- *           int (*p)[n][m] = malloc(sizeof *p);
- *       Our job is only to rewrite  sizeof(*p)  →  sizeof(int)*(n)*(m)
- *       so that the expression is valid in C89.
- *       d_print_type_core already handles the type printing; the array
- *       dimension expression is emitted inside [].
- *
- *  The helpers below cover both cases.
- * -----------------------------------------------------------------------
- */
-
-/*
- * Find the first array node anywhere in the type chain that has a runtime
- * (VLA) dimension.  Returns NULL if there is none.
- */
-/*
- * -----------------------------------------------------------------------
- *  VM (Variably Modified) type -> C89 helpers
- *
- *  C99 VM types fall into two categories:
- *
- *  A) Plain VLA:  head of the type chain is TYPE_CATEGORY_ARRAY.
- *       int a[n]       ->  int *a; + malloc + free
- *       int a[n][m]    ->  int *a; + malloc(sizeof(int)*(n)*(m)) + free
- *
- *  B) Pointer-to-VM:  head is TYPE_CATEGORY_POINTER but the chain
- *     contains a runtime-sized array dimension.
- *       int (*p)[n]
- *       int (*p)[n][m] = malloc(sizeof *p);
- *     Declaration stays as-is (already a pointer).
- *     sizeof(*p) is rewritten.
- *
- *  DIMENSION SNAPSHOTS
- *  -------------------
- *  C99 captures VLA dimensions at the point of declaration.  The
- *  variables n, m may change later but the allocation size must not.
- *  We emit a const snapshot local for each runtime dimension:
- *
- *    int (*p)[n][m] = malloc(sizeof *p);
- *
- *  becomes:
- *
- *    int __v0 = (n);     <- hoisted, captured once
- *    int __v1 = (m);     <- hoisted, captured once
- *    int (*p)[__v0][__v1];     <- declaration uses snapshots
- *    p = malloc(sizeof(int) * __v0 * __v1);
- *
- *  The snapshot names are built as  CAKE_LOCAL_PREFIX + counter  using
- *  the existing ctx->cake_local_declarator_number counter, then stored
- *  in a small vm_dim_snapshot array so every part of the declaration
- *  (type print, malloc size, sizeof rewrite) uses the same names.
- * -----------------------------------------------------------------------
- */
-
-/*
- * Collect all VM dimension expressions from a type chain into an array.
- * Returns the number of dimensions found (0 if not a VM type).
- * Also generates a unique snap_name for each using ctx->cake_local_declarator_number.
- *
- * Only dimensions that are runtime (not compile-time constant) get entries.
- * Constant dimensions are NOT snapshotted — they are emitted as literals.
- */
-static int vm_collect_dims(struct d_visit_ctx* ctx,
-                            const struct type* p_type,
-                            struct vm_dim_snapshot dims[VM_MAX_DIMS])
-{
-    int count = 0;
-    const struct type* _Opt it = p_type;
-    while (it && count < VM_MAX_DIMS)
-    {
-        if (it->category == TYPE_CATEGORY_ARRAY &&
-            it->array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->array_num_elements_expression->object))
-        {
-            int snap_num = ctx->cake_local_declarator_number++;
-            dims[count].expr = (struct expression*)it->array_num_elements_expression;
-            snprintf(dims[count].snap_name, sizeof(dims[count].snap_name),
-                     CAKE_LOCAL_PREFIX "%d", snap_num);
-
-            /*
-             * Register expression pointer -> snap number in the hashmap so
-             * that sizeof rewriting in d_visit_expression can look up the
-             * snapshot name without access to the dims[] array.
-             * Key: "__snap:<expr_ptr>"  Value: snap_num stored in .number
-             */
-            char snap_key[64];
-            snprintf(snap_key, sizeof(snap_key),
-                     "__snap:%p", (void*)it->array_num_elements_expression);
-            struct hash_item_set item = { 0 };
-            item.number = snap_num;
-            hashmap_set(&ctx->file_scope_declarator_map, snap_key, &item);
-            hash_item_set_destroy(&item);
-
-            count++;
-        }
-        it = it->next;
-    }
-    return count;
-}
-
-/*
- * Hoist const snapshot declarations into ctx->block_scope_declarators.
- *
- *   int __v0 = (n);
- *   int __v1 = (m);
- */
-
-/*
- * Look up the snapshot name for a given VM dimension expression.
- * Returns true and fills snap_name_out if found; returns false otherwise.
- * Used by sizeof rewriting in d_visit_expression.
- */
-static bool vm_find_snap_name(struct d_visit_ctx* ctx,
-                               const struct expression* expr,
-                               char snap_name_out[32])
-{
-    char snap_key[64];
-    snprintf(snap_key, sizeof(snap_key), "__snap:%p", (void*)expr);
-    struct map_entry* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, snap_key);
-    if (p == NULL)
-        return false;
-    snprintf(snap_name_out, 32, CAKE_LOCAL_PREFIX "%d", (int)p->data.number);
-    return true;
-}
-
-/*
- * The declaration  "int __vN;"  goes into ctx->block_scope_declarators
- * (hoisted to the top of the block per C89 rules).
- *
- * The assignment   "__vN = (expr);"  goes into oss_body
- * (emitted as a statement in the body, before the malloc/use).
- *
- * No const — C89 does not require or benefit from it, and keeping
- * them as plain int is simpler and more portable.
- */
 static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
                                     struct osstream* oss_body,
-                                    const struct vm_dim_snapshot dims[VM_MAX_DIMS],
+                                    const struct vm_dim_snapshot dims[],
                                     int dim_count)
 {
+    struct osstream size_t_str = { 0 };
+    bool first = true;
+    print_type_specifier_flags(&size_t_str,
+        &first,
+        object_type_to_type_specifier(get_platform(ctx->options.target)->size_t_type));
+
     for (int i = 0; i < dim_count; i++)
     {
         /* declaration hoisted to block top */
         print_identation(ctx, &ctx->block_scope_declarators);
         ss_fprintf(&ctx->block_scope_declarators,
-                   "int %s;\n", dims[i].snap_name);
+                   "%s " CAKE_LOCAL_PREFIX "%d;\n", size_t_str.c_str, dims[i].snap_num);
 
         /* assignment emitted as a statement in the body */
         print_identation(ctx, oss_body);
-        ss_fprintf(oss_body, "%s = (", dims[i].snap_name);
+        ss_fprintf(oss_body, CAKE_LOCAL_PREFIX "%d = ", dims[i].snap_num);
         d_visit_expression(ctx, oss_body, dims[i].expr);
-        ss_fprintf(oss_body, ");\n");
+        ss_fprintf(oss_body, ";\n");
     }
+    ss_close(&size_t_str);
 }
 
-
-/*
- * Emit a type where every runtime VLA dimension is replaced by its
- * snapshot name.  Used to print  int (*p)[__v0][__v1]  in the hoisted
- * declaration of a pointer-to-VM variable.
- *
- * We emit the type by walking the chain manually rather than calling
- * d_print_type, because we need to substitute dimension names.
- * For simplicity, for the common case of a plain pointer-to-array we
- * delegate to d_print_type_core after temporarily patching the expression
- * objects — but that would mutate shared AST nodes.
- *
- * Instead we just emit the sizeof expression in a comment and use the
- * snapshot names directly in the malloc call.  The declaration itself
- * is emitted by d_print_type (which calls d_print_type_core which re-emits
- * the original expression) — this is fine for the declaration because C89
- * compilers will not see VLA syntax in the declaration: the declaration is
- * for a pointer, so only the pointer part matters.  The dimension inside []
- * is informational in a pointer-to-array declaration and the C89 compiler
- * will use whatever expression we give it.
- *
- * So: the declaration uses snapshot names; malloc uses snapshot names;
- * sizeof uses snapshot names.  We achieve this by emitting the declaration
- * manually here.
- */
-static const struct type* _Opt vm_find_first_vla_array(const struct type* p_type)
-{
-    const struct type* _Opt it = p_type;
-    while (it)
-    {
-        if (it->category == TYPE_CATEGORY_ARRAY &&
-            it->array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->array_num_elements_expression->object))
-        {
-            return it;
-        }
-        it = it->next;
-    }
-    return NULL;
-}
-
-/*
- * Emit the runtime sizeof expression for a VM type.
- *
- * For each runtime dimension, we first look up whether a snapshot local
- * was registered in ctx->file_scope_declarator_map by vm_collect_dims().
- * If found, we emit the snapshot name (__v0, __v1, ...) — this is the
- * correct value even if the original variable has been modified since
- * the declaration.
- * If not found (e.g. a VM parameter type with no local snapshot), we
- * fall back to emitting the original expression.
- */
-static void vm_emit_sizeof_expr(struct d_visit_ctx* ctx,
-                                struct osstream* oss,
-                                const struct type* p_type)
-{
-    const struct type* _Opt arr = vm_find_first_vla_array(p_type);
-    if (arr == NULL)
-    {
-        struct osstream et = { 0 };
-        d_print_type(ctx, &et, p_type, NULL, false);
-        ss_fprintf(oss, "sizeof(%s)", et.c_str);
-        ss_close(&et);
-        return;
-    }
-
-    /* element type */
-    const struct type* _Opt elem = arr;
-    while (elem && type_is_array(elem))
-        elem = elem->next;
-    if (elem == NULL) elem = arr;
-
-    struct osstream et = { 0 };
-    d_print_type(ctx, &et, elem, NULL, false);
-    ss_fprintf(oss, "sizeof(%s)", et.c_str);
-    ss_close(&et);
-
-    /* multiply each dimension — prefer snapshot name over original expr */
-    const struct type* _Opt it = arr;
-    while (it && type_is_array(it))
-    {
-        if (it->array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->array_num_elements_expression->object))
-        {
-            char snap_name[32];
-            if (vm_find_snap_name(ctx,
-                                  it->array_num_elements_expression,
-                                  snap_name))
-            {
-                /* snapshot available — always use it */
-                ss_fprintf(oss, " * %s", snap_name);
-            }
-            else
-            {
-                /* no snapshot — emit the original expression (e.g. parameter) */
-                ss_fprintf(oss, " * (");
-                d_visit_expression(ctx, oss,
-                    (struct expression*)it->array_num_elements_expression);
-                ss_fprintf(oss, ")");
-            }
-        }
-        else if (it->num_of_elements > 0)
-        {
-            ss_fprintf(oss, " * %zu", it->num_of_elements);
-        }
-        it = it->next;
-    }
-}
 
 static void d_visit_init_declarator(struct d_visit_ctx* ctx,
     struct osstream* oss0,
@@ -47390,7 +47269,6 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
     if (!is_extern && !is_block_scope && !is_inline && !is_static && !is_function && !is_function_body)
     {
-        //int i;
 
         struct hash_item_set i = { 0 };
         i.number = 1;
@@ -47424,56 +47302,15 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
         if (type_is_vm(decl_type))
         {
-            /*
-             * Pointer-to-VM type — head is TYPE_CATEGORY_POINTER but the
-             * chain contains a runtime-sized array dimension.
-             *
-             * This is the MANDATORY part in C23: even when __STDC_NO_VLA__
-             * is defined (disabling VLA objects), VM types like int (*p)[n]
-             * must still be supported.  We do NOT insert malloc/free here —
-             * the pointer is already a pointer and the user allocates manually.
-             * Our job is only to:
-             *   1. Snapshot the dimensions into plain int locals.
-             *   2. Flatten the declaration to a plain pointer (int *p).
-             *   3. Rewrite sizeof(*p) to use the snapshot names.
-             *   4. Rewrite (*p)[i] access to p[i].
-             *
-             *   C99:  int (*p)[n][m] = malloc(sizeof *p);
-             *
-             *   C89:  int __v0;                           (hoisted decl)
-             *         int __v1;                           (hoisted decl)
-             *         int *p;                             (hoisted decl — flat ptr)
-             *         __v0 = (n);                         (body: snapshot assign)
-             *         __v1 = (m);                         (body: snapshot assign)
-             *         p = malloc(sizeof(int)*__v0*__v1);  (body: initializer)
-             *
-             * We cannot emit  int (*p)[__v0][__v1]  — that is still a VM
-             * type because __v0/__v1 are runtime variables, not compile-time
-             * constants.  The declaration must be a plain pointer via
-             * type_remove_vm_arrays().
-             */
-            struct vm_dim_snapshot dims[VM_MAX_DIMS];
-            int dim_count = vm_collect_dims(ctx, decl_type, dims);
-
-            /* 1. Hoisted snapshot locals + body assignments */
+            struct vm_dim_snapshot dims[50];
+            int dim_count = vm_collect_dims(ctx, decl_type, dims, _Countof(dims));
             vm_emit_snapshot_decls(ctx, oss0, dims, dim_count);
 
-            /* 2. Hoisted flat pointer declaration: elem_type *var
-             *
-             * Use type_remove_vm_arrays to transform the full VM type chain
-             *   PTR -> ARRAY[n] -> ARRAY[m] -> INT
-             * into a plain pointer-to-element type
-             *   PTR -> INT   (prints as  int *var)
-             *
-             * We must NOT emit the original type through d_print_type because
-             * d_print_type_core would produce  int (*var)[n][m]  which is still
-             * a VM type in C89.
-             */
             struct osstream ss = { 0 };
             print_identation(ctx, &ss);
-            struct type flat_type = type_remove_vm_arrays(decl_type);
-            d_print_type(ctx, &ss, &flat_type, var_name, false);
-            type_destroy(&flat_type);
+
+            d_print_type(ctx, &ss, decl_type, var_name, false);
+
             ss_fprintf(&ss, ";\n");
             ss_fprintf(&ctx->block_scope_declarators, "%s", ss.c_str);
             ss_close(&ss);
@@ -47530,12 +47367,12 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         bool rename_declarator = false;
         if (!is_extern && is_block_scope && !is_inline && is_static && !is_function)
         {
-            //{ static int i; }
+            /* { static int i; } */
             rename_declarator = true;
         }
         else if (!is_inline && !is_static && !is_auto && is_function && !is_function_body)
         {
-            //void f();
+            /* void f(); */
         }
         else if (!is_extern && is_block_scope && is_function)
         {
@@ -47665,13 +47502,13 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
                     ss_fprintf(ss, "    ");
 
                     if (type_is_array(&member_declarator->declarator->type) &&
-                        member_declarator->declarator->type.num_of_elements == 0)
+                        member_declarator->declarator->type.array_num_elements == 0)
                     {
                         //Flexible array members - we print as [1] instead 
                         // of [0] or []
                         //sizeof is not used in generated code, so this will not cause 
                         //problems
-                        member_declarator->declarator->type.num_of_elements = 1;
+                        member_declarator->declarator->type.array_num_elements = 1;
 
                         d_print_type(ctx,
                          ss,
@@ -47679,7 +47516,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
                          member_declarator->declarator->name_opt->lexeme,
                             false);
 
-                        member_declarator->declarator->type.num_of_elements = 0; //restore
+                        member_declarator->declarator->type.array_num_elements = 0; //restore
                     }
                     else
                     {
@@ -47884,9 +47721,9 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         ss_fprintf(oss, "%s", declarations.c_str);
     }
 
-
     ss_close(&declarations);
 }
+
 
 
 #pragma safety enable
@@ -59203,12 +59040,12 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
             print_type_qualifier_flags(ss, &b, p->type_qualifier_flags);
 
-            if (p->num_of_elements > 0)
+            if (p->array_num_elements > 0)
             {
                 if (!b)
                     ss_fprintf(ss, " ");
 
-                ss_fprintf(ss, "%d", p->num_of_elements);
+                ss_fprintf(ss, "%d", p->array_num_elements);
             }
             ss_fprintf(ss, "]");
 
@@ -59656,34 +59493,15 @@ bool type_is_character(const struct type* p_type)
         p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR;
 }
 
-/*
- * type_is_vla — true if the type is a Variable Length Array object.
- *
- * A VLA is an array whose size is not an integer constant expression.
- * The head of the type chain must be an array node — this function only
- * inspects leading TYPE_CATEGORY_ARRAY nodes, so pointer-to-VLA types
- * (e.g. int (*p)[n]) return false.
- *
- * Standard status:
- *   C99:  mandatory
- *   C11:  optional  (__STDC_NO_VLA__ may be defined)
- *   C23:  optional  (__STDC_NO_VLA__ may be defined)
- *
- * Use type_is_vm() to detect the broader category of variably modified
- * types, which includes pointers to VLAs and remains mandatory in C23.
- *
- * In C89 code generation, type_is_vla() identifies types that require
- * stack allocation to be replaced with malloc/free.
- */
 bool type_is_vla(const struct type* p_type)
 {
     const struct type* _Opt it = p_type;
 
     while (it && type_is_array(it))
     {
-        if (it->array_num_elements_expression)
+        if (it->p_array_num_elements_expression)
         {
-            if (!object_has_constant_value(&it->array_num_elements_expression->object))
+            if (!object_has_constant_value(&it->p_array_num_elements_expression->object))
             {
                 // int a[7][n]
                 //if any of the array is not constant then it is vla
@@ -59695,43 +59513,53 @@ bool type_is_vla(const struct type* p_type)
     return false;
 }
 
-/*
- * type_is_vm — true if the type is a Variably Modified type.
- *
- * A type is variably modified if it is a VLA or if it is derived from a
- * variably modified type (C99 6.7.5p3 / C23 6.7.6p3).  This includes:
- *
- *   int a[n]          — VLA object            (type_is_vla also true)
- *   int (*p)[n]       — pointer to VLA        (type_is_vla false)
- *   int (*p)[n][m]    — pointer to 2-D VLA    (type_is_vla false)
- *   typedef int T[n]  — VM typedef            (type_is_vla true if T is array)
- *
- * Standard status:
- *   C99:  mandatory
- *   C11:  mandatory
- *   C23:  mandatory  (VM types are ALWAYS supported, even when __STDC_NO_VLA__)
- *
- * This is the key distinction from type_is_vla():
- *   __STDC_NO_VLA__ disables VLA *objects* (stack-allocated arrays with
- *   runtime size), but NOT VM types (pointers to such arrays).  A C23
- *   implementation may define __STDC_NO_VLA__ and still require support
- *   for  void f(int n, int (*p)[n])  — the parameter p is a VM type.
- *
- * In C89 code generation, type_is_vm() identifies types whose sizeof
- * must be evaluated at runtime using dimension snapshots.
- */
+
 bool type_is_vm(const struct type* p_type)
 {
-    const struct type* _Opt it = p_type;
-    while (it)
+    const struct type* _Opt p = p_type;
+
+    while (p)
     {
-        if (it->category == TYPE_CATEGORY_ARRAY &&
-            it->array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->array_num_elements_expression->object))
+        switch (p->category)
+        {        
+        case TYPE_CATEGORY_ARRAY:
+            if (p->array_num_elements > 0)
+            {      
+                /* constant size */
+            }
+            else
+            {
+                if (p->p_array_num_elements_expression == NULL) {
+                    /*
+                    * size is unknown but not vm. 
+                    * int a[]
+                    */
+                }
+                else
+                    return true;                
+            }
+            break;
+
+        case TYPE_CATEGORY_FUNCTION:
         {
-            return true;
+            struct param* _Opt pa = p->params.head;
+
+            while (pa)
+            {
+                if (type_is_vm(&pa->type))
+                    return true;
+
+                pa = pa->next;
+            }
         }
-        it = it->next;
+        break;
+
+        case TYPE_CATEGORY_ITSELF:            
+        case TYPE_CATEGORY_POINTER:
+            break;
+        }
+
+        p = p->next;
     }
     return false;
 }
@@ -60203,79 +60031,6 @@ struct type type_remove_pointer(const struct type* p_type)
     return r;
 }
 
-/*
- * type_remove_vm_arrays — strip all VM (variably-modified) array nodes
- * from a pointer-to-VM type, returning a plain pointer-to-element type.
- *
- * For  int (*p)[n][m]  the type chain is:
- *   PTR -> ARRAY[n] -> ARRAY[m] -> INT
- *
- * This function returns a new owned type:
- *   PTR -> INT   (i.e.  int *)
- *
- * This is needed for C89 code generation: the declaration must be a
- * plain pointer because  int (*p)[n][m]  is still a VM type in C89
- * (n and m are runtime variables, not compile-time constants).
- *
- * If p_type is not a pointer-to-VM, returns a full dup unchanged.
- */
-struct type type_remove_vm_arrays(const struct type* p_type)
-{
-    if (!type_is_pointer(p_type) || !type_is_vm(p_type))
-    {
-        return type_dup(p_type);
-    }
-
-    try
-    {
-        /* Dup the pointer node only — do NOT follow next yet */
-        struct type* _Owner _Opt ptr_node = calloc(1, sizeof(struct type));
-        if (ptr_node == NULL) throw;
-
-        *ptr_node = *p_type;
-        static_set(ptr_node->next, "uninitialized");
-        ptr_node->next = NULL;
-        if (p_type->name_opt)
-            ptr_node->name_opt = strdup(p_type->name_opt);
-
-        /* Find the element type: skip all array nodes after the pointer */
-        const struct type* _Opt elem = p_type->next;
-        while (elem && type_is_array(elem))
-            elem = elem->next;
-
-        if (elem == NULL)
-        {
-            /* Degenerate: no element type found, fall back to full dup */
-            type_delete(ptr_node);
-            return type_dup(p_type);
-        }
-
-        /* Dup the element type chain */
-        struct type* _Owner _Opt elem_dup = calloc(1, sizeof(struct type));
-        if (elem_dup == NULL)
-        {
-            type_delete(ptr_node);
-            throw;
-        }
-        *elem_dup = type_dup(elem);
-
-        /* Link: PTR -> elem */
-        ptr_node->next = elem_dup;
-
-        /* Return the pointer node as the root of the new chain */
-        struct type r = *ptr_node;
-        free(ptr_node);
-        return r;
-    }
-    catch
-    {
-    }
-
-    struct type empty = { 0 };
-    return empty;
-}
-
-
 struct type get_array_item_type(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
@@ -60687,10 +60442,10 @@ struct type type_dup(const struct type* p_type)
     return empty;
 }
 
-static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
+static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
     const char* member, size_t* sz, enum target target)
 {
-    enum sizeof_error sizeof_error = ESIZEOF_NONE;
+    enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
@@ -60728,12 +60483,12 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                         if (strcmp(md->declarator->name_opt->lexeme, member) == 0)
                         {
                             *sz = size;
-                            return ESIZEOF_NONE;
+                            return SIZEOF_RESULT_OK;
                         }
 
                         size_t item_size = 0;
-                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size, target);
-                        if (sizeof_error != 0)
+                        sizeof_result = type_get_sizeof(&md->declarator->type, &item_size, target);
+                        if (sizeof_result != 0)
                             throw;
 
                         if (is_union)
@@ -60748,7 +60503,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     }
                     else
                     {
-                        sizeof_error = ESIZEOF_INCOMPLETE;
+                        sizeof_result = SIZEOF_RESULT_INCOMPLETE;
                         throw;
                     }
 
@@ -60776,8 +60531,8 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     }
                     size_t item_size = 0;
 
-                    sizeof_error = type_get_sizeof(&t, &item_size, target);
-                    if (sizeof_error != 0)
+                    sizeof_result = type_get_sizeof(&t, &item_size, target);
+                    if (sizeof_result != 0)
                         throw;
 
                     if (is_union)
@@ -60789,7 +60544,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                     {
                         if (item_size > SIZE_MAX - size)
                         {
-                            sizeof_error = ESIZEOF_OVERLOW;
+                            sizeof_result = SIZEOF_RESULT_OVERLOW;
                             throw;
                         }
                         size += item_size;
@@ -60798,7 +60553,7 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
                 }
                 else
                 {
-                    sizeof_error = ESIZEOF_INCOMPLETE;
+                    sizeof_result = SIZEOF_RESULT_INCOMPLETE;
                     throw;
                 }
             }
@@ -60814,22 +60569,22 @@ static enum sizeof_error get_offsetof_struct(struct struct_or_union_specifier* c
         }
         else
         {
-            sizeof_error = ESIZEOF_INCOMPLETE;
+            sizeof_result = SIZEOF_RESULT_INCOMPLETE;
             throw;
         }
     }
     catch
     {
-        return sizeof_error;
+        return sizeof_result;
     }
 
     *sz = size;
-    return sizeof_error;
+    return sizeof_result;
 }
 
-enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, enum target target)
+enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, enum target target)
 {
-    enum sizeof_error sizeof_error = ESIZEOF_NONE;
+    enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
@@ -60862,8 +60617,8 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                             size += align - (size % align);
                         }
                         size_t item_size = 0;
-                        sizeof_error = type_get_sizeof(&md->declarator->type, &item_size, target);
-                        if (sizeof_error != 0)
+                        sizeof_result = type_get_sizeof(&md->declarator->type, &item_size, target);
+                        if (sizeof_result != 0)
                             throw;
 
                         if (is_union)
@@ -60878,7 +60633,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     }
                     else
                     {
-                        sizeof_error = ESIZEOF_INCOMPLETE;
+                        sizeof_result = SIZEOF_RESULT_INCOMPLETE;
                         throw;
                     }
                     md = md->next;
@@ -60905,8 +60660,8 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     }
                     size_t item_size = 0;
 
-                    sizeof_error = type_get_sizeof(&t, &item_size, target);
-                    if (sizeof_error != 0)
+                    sizeof_result = type_get_sizeof(&t, &item_size, target);
+                    if (sizeof_result != 0)
                         throw;
 
                     if (is_union)
@@ -60918,7 +60673,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                     {
                         if (item_size > SIZE_MAX - size)
                         {
-                            sizeof_error = ESIZEOF_OVERLOW;
+                            sizeof_result = SIZEOF_RESULT_OVERLOW;
                             throw;
                         }
                         size += item_size;
@@ -60927,7 +60682,7 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
                 }
                 else
                 {
-                    sizeof_error = ESIZEOF_INCOMPLETE;
+                    sizeof_result = SIZEOF_RESULT_INCOMPLETE;
                     throw;
                 }
             }
@@ -60942,17 +60697,17 @@ enum sizeof_error get_sizeof_struct(struct struct_or_union_specifier* complete_s
         }
         else
         {
-            sizeof_error = ESIZEOF_INCOMPLETE;
+            sizeof_result = SIZEOF_RESULT_INCOMPLETE;
             throw;
         }
     }
     catch
     {
-        return sizeof_error;
+        return sizeof_result;
     }
 
     *sz = size;
-    return sizeof_error;
+    return sizeof_result;
 }
 
 size_t type_get_alignof(const struct type* p_type, enum target target);
@@ -61174,7 +60929,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
     return align;
 }
 
-enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target)
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target)
 {
     *size = 0; //out
 
@@ -61183,29 +60938,29 @@ enum sizeof_error type_get_offsetof(const struct type* p_type, const char* membe
     if (category != TYPE_CATEGORY_ITSELF)
     {
         *size = sizeof(void*);
-        return ESIZEOF_FUNCTION;
+        return SIZEOF_RESULT_FUNCTION;
     }
 
     if (!(p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
     {
-        return ESIZEOF_INCOMPLETE;
+        return SIZEOF_RESULT_INCOMPLETE;
     }
 
     if (p_type->struct_or_union_specifier == NULL)
     {
-        return ESIZEOF_INCOMPLETE;
+        return SIZEOF_RESULT_INCOMPLETE;
     }
 
     struct struct_or_union_specifier* _Opt p_complete =
         get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
     if (p_complete == NULL)
-        return ESIZEOF_INCOMPLETE;
+        return SIZEOF_RESULT_INCOMPLETE;
 
     return get_offsetof_struct(p_complete, member, size, target);
 }
 
-enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum target target)
+enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target)
 {
     *size = 0; //out
 
@@ -61214,12 +60969,13 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
     if (category == TYPE_CATEGORY_POINTER)
     {
         *size = get_platform(target)->pointer_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (category == TYPE_CATEGORY_FUNCTION)
     {
-        return ESIZEOF_FUNCTION;
+        *size = get_platform(target)->pointer_n_bits / 8;
+        return SIZEOF_RESULT_FUNCTION;
     }
 
     if (category == TYPE_CATEGORY_ARRAY)
@@ -61228,21 +60984,20 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         {
             //void f(int a[2])            
             *size = get_platform(target)->pointer_n_bits / 8;
-            return ESIZEOF_NONE;
+            return SIZEOF_RESULT_OK;
         }
         else
         {
-            if (type_is_vla(p_type))
-                return ESIZEOF_VLA;
+            if (p_type->array_num_elements <= 0)
+                return SIZEOF_RESULT_RUNTIME;
 
-            unsigned long long arraysize = p_type->num_of_elements;
+            unsigned long long arraysize = p_type->array_num_elements;
             struct type type = get_array_item_type(p_type);
-
 
             size_t sz = 0;
 
-            const enum sizeof_error er = type_get_sizeof(&type, &sz, target);
-            if (er != ESIZEOF_NONE)
+            const enum sizeof_result er = type_get_sizeof(&type, &sz, target);
+            if (er != SIZEOF_RESULT_OK)
             {
                 type_destroy(&type);
                 return er;
@@ -61255,21 +61010,21 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
             {
                 if (result > SIZE_MAX)
                 {
-                    return ESIZEOF_OVERLOW;
+                    return SIZEOF_RESULT_OVERLOW;
                 }
 
                 //
                 if (result > /*SIZEMAX*/ 4294967295)
                 {
-                    return ESIZEOF_OVERLOW;
+                    return SIZEOF_RESULT_OVERLOW;
                 }
                 *size = (size_t)result;
             }
             else
             {
-                return ESIZEOF_OVERLOW;
+                return SIZEOF_RESULT_OVERLOW;
             }
-            return ESIZEOF_NONE;
+            return SIZEOF_RESULT_OK;
         }
     }
 
@@ -61279,19 +61034,19 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
         *size = get_platform(target)->char_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
     {
         *size = get_platform(target)->bool_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
         *size = get_platform(target)->short_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
@@ -61301,45 +61056,45 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
 #else
         * size = get_platform(target)->pointer_n_bits / 8;
 #endif
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     /*must be before long*/
     if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
     {
         *size = get_platform(target)->long_double_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
     {
         *size = get_platform(target)->long_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
         *size = get_platform(target)->long_long_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
     {
         //typedef long unsigned int uint64_t;
         *size = get_platform(target)->int_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
         *size = get_platform(target)->float_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
         *size = get_platform(target)->double_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
 
@@ -61348,14 +61103,14 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
     {
         if (p_type->struct_or_union_specifier == NULL)
         {
-            return ESIZEOF_INCOMPLETE;
+            return SIZEOF_RESULT_INCOMPLETE;
         }
 
         struct struct_or_union_specifier* _Opt p_complete =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         if (p_complete == NULL)
-            return ESIZEOF_INCOMPLETE;
+            return SIZEOF_RESULT_INCOMPLETE;
 
         return get_sizeof_struct(p_complete, size, target);
     }
@@ -61368,7 +61123,7 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
                 get_enum_type_specifier_flags(p_type->enum_specifier);
 
             struct type t = make_with_type_specifier_flags(enum_type_specifier_flags);
-            enum sizeof_error e = type_get_sizeof(&t, size, target);
+            enum sizeof_result e = type_get_sizeof(&t, size, target);
             type_destroy(&t);
             return e;
         }
@@ -61376,47 +61131,47 @@ enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum 
         {
             *size = get_platform(target)->int_n_bits / 8;
         }
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
     {
         *size = 0;
-        return ESIZEOF_INCOMPLETE;
+        return SIZEOF_RESULT_INCOMPLETE;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
     {
         *size = 1;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
     {
         *size = get_platform(target)->pointer_n_bits / 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL32)
     {
         *size = 4;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL64)
     {
         *size = 8;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_DECIMAL128)
     {
         *size = 16;
-        return ESIZEOF_NONE;
+        return SIZEOF_RESULT_OK;
     }
 
 
-    return ESIZEOF_INCOMPLETE;
+    return SIZEOF_RESULT_INCOMPLETE;
 }
 
 void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
@@ -61635,7 +61390,7 @@ struct type type_make_literal_string(int number_of_chars_including_zero,
         if (p2 == NULL) throw;
 
         t.category = TYPE_CATEGORY_ARRAY;
-        t.num_of_elements = number_of_chars_including_zero;
+        t.array_num_elements = number_of_chars_including_zero;
 
         p2->category = TYPE_CATEGORY_ITSELF;
         p2->type_specifier_flags = chartype;
@@ -61706,7 +61461,7 @@ static bool type_is_same_core(const struct type* a,
 
     while (pa && pb)
     {
-        if (pa->num_of_elements != pb->num_of_elements)
+        if (pa->array_num_elements != pb->array_num_elements)
             return false;
 
         if (pa->category != pb->category)
@@ -62152,10 +61907,15 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             p->category = TYPE_CATEGORY_ARRAY;
 
 
-            p->num_of_elements =
-                array_declarator_get_size(pdirectdeclarator->array_declarator);
-
-            p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
+            p->array_num_elements = 0;
+            p->p_array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
+            if (p->p_array_num_elements_expression)
+            {
+                if (object_has_constant_value(&p->p_array_num_elements_expression->object))
+                {
+                    p->array_num_elements = (size_t)object_to_unsigned_long_long(&p->p_array_num_elements_expression->object);
+                }
+            }
 
             if (pdirectdeclarator->array_declarator->static_token_opt)
             {

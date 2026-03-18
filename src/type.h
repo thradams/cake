@@ -247,9 +247,13 @@ struct type
     const struct enum_specifier* _Opt enum_specifier;
 
     //Expression used as array size. Can be constant or not constant (VLA)
-    const struct expression* _Opt array_num_elements_expression;
+    const struct expression* _Opt p_array_num_elements_expression;
+    /*
+    * array_num_elements is zero when p_array_num_elements_expression is null
+    * or not constant
+    */
+    size_t array_num_elements;
 
-    size_t num_of_elements;
     bool has_static_array_size;
     
 
@@ -344,6 +348,7 @@ bool type_is_unsigned_int(const struct type* p_type);
 bool type_is_empty(const struct type* p_type);
 
 bool type_is_vla(const struct type* p_type);
+bool type_is_vm(const struct type* p_type);
 
 struct type type_get_enum_type(const struct type* p_type);
 
@@ -386,17 +391,17 @@ struct type get_function_return_type(const struct type* p_type);
 bool function_returns_void(const struct type* p_type);
 
 
-enum sizeof_error
+enum sizeof_result
 {
-    ESIZEOF_NONE = 0,
-    ESIZEOF_OVERLOW,
-    ESIZEOF_VLA,
-    ESIZEOF_INCOMPLETE,
-    ESIZEOF_FUNCTION
+    SIZEOF_RESULT_OK = 0,
+    SIZEOF_RESULT_OVERLOW,
+    SIZEOF_RESULT_RUNTIME,
+    SIZEOF_RESULT_INCOMPLETE,
+    SIZEOF_RESULT_FUNCTION
 };
 
-enum sizeof_error type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
-enum sizeof_error type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
+enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, enum target target);
 
 size_t type_get_alignof(const struct type* p_type, enum target target);
 

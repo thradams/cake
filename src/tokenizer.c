@@ -14,7 +14,7 @@
    │   ├──►│   ├──►│   ├──►│   │──► NULL
    └───┘   └───┘   └───┘   └───┘
 
-   The list is then expanded using includes and macros through a preprocessor.
+   The list is then expanded via includes and macros by the preprocessor.
 
 
    ┌───┐                  ┌───┐   ┌───┐   ┌───┐
@@ -27,7 +27,7 @@
 
     Each item in the list has additional properties:
 
-    level         :  An integer indicating the level of inclusion.
+    level          : An integer indicating the inclusion depth.
 
     bmacroexpanded: A boolean indicating whether the token was generated
                     from macro expansion.
@@ -569,7 +569,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
     struct token_list r = { 0 };
     struct token* _Opt current = list->head; /*null is fine*/
 
-    // skip all leading white spaces
+    /* skip all leading whitespace */
     while (current &&
         (token_is_blank(current) ||
             current->type == TK_NEWLINE))
@@ -577,7 +577,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
         current = current->next;
     }
 
-    // Removes leading space flag if present
+    /* Remove leading space flag if present */
     bool is_first = true;
 
     for (; current;)
@@ -1753,7 +1753,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->col = col;
                 set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
-                /*bNewLine = false;*/ //deixa assim
+                /* bNewLine = false; */ /* leave as-is */
                 has_space = true;
 
                 continue;
@@ -2573,7 +2573,7 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
     return r;
 }
 
-//todo passar lista para reotnro
+/* TODO: pass list as return value */
 long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list* output_list,
     struct token_list* input_list,
@@ -2610,7 +2610,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     int flags = ctx->flags;
     ctx->flags |= PREPROCESSOR_CTX_FLAGS_ONLY_FINAL;
 
-    /*defined X  por exemplo é mantido sem ser expandido*/
+    /* defined X, for example, is kept without being expanded */
 
     struct token_list list2 = preprocessor(ctx, &list1, 1);
     ctx->flags = flags;
@@ -2623,7 +2623,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     }
     else
     {
-        /*aonde defined has_c_aatribute sao transformados em constantes*/
+        /* here defined and has_c_attribute are transformed into constants */
         struct token_list list3 = process_defined(ctx, &list2);
 
         struct token_list list4 = process_identifiers(ctx, &list3);
@@ -3601,7 +3601,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
     {
         if (!is_active)
         {
-            //se nao esta ativo eh ignorado
+            /* if not active, it is ignored */
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
@@ -3825,7 +3825,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         }
         else if (strcmp(input_list->head->lexeme, "define") == 0)
         {
-            //TODO strcmp nao pode ser usado temos que criar uma funcao especial
+            /* TODO: strcmp cannot be used here; we need a special comparison function */
 
             /*
              #de\
@@ -4265,13 +4265,13 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 
         int count = 1;
 
-        //skip spaces after macro name
+        /* skip spaces after macro name */
         skip_blanks_including_newline(ctx, &macro_argument_list.tokens, input_list);
 
-        //macro is a function
+        /* macro is function-like */
         match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
 
-        //skip spaces after (
+        /* skip spaces after ( */
         skip_blanks_including_newline(ctx, &macro_argument_list.tokens, input_list);
 
         if (input_list->head == NULL)
@@ -4444,7 +4444,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
     struct token_list  r = { 0 };
     try
     {
-        //todo juntar tokens mesmo objet macro
+        /* TODO: merge tokens from the same macro object */
         //struct token* p_previousNonBlank = 0;
         while (input_list->head)
         {
@@ -4479,7 +4479,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                     ss_fprintf(&ss, "%s", input_list->head->lexeme);
 
 
-                //copiar o level para gerar um novo igual
+                /* copy the level to generate a new matching token */
                 int level = input_list->head ? input_list->head->level : 0;
 
                 /*
@@ -4528,7 +4528,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                 */
                 token_list_pop_back(&r);
 
-                /*adiciona novo token no fim do r*/
+                /* append the new token to the end of r */
                 token_list_append_list(&r, &newlist);
 
                 ss_close(&ss);
@@ -4950,7 +4950,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     try
     {
-        //replacement_list_reexamination
+        /* replacement_list_reexamination */
         /*
         For both object-like and function-like macro invocations, before the replacement list is reexamined
         for more macro names to replace, each instance of a ## preprocessing token in the replacement list
@@ -5153,7 +5153,7 @@ struct token_list  copy_replacement_list_core(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     struct token* _Opt current = list->head;
 
-    //get off all initial whites
+    /* remove all leading whitespace */
     if (!new_line_is_space)
     {
         while (current && token_is_blank(current))
@@ -5169,7 +5169,7 @@ struct token_list  copy_replacement_list_core(struct preprocessor_ctx* ctx,
         }
     }
 
-    //remove space flag before if present
+    /* remove leading space flag if present */
     bool is_first = true;
 
     for (; current;)
@@ -5443,7 +5443,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
             }
             if (macro)
             {
-                // "Tetris" effect
+                /* "Tetris" effect */
                 // #define f(a) a
                 // #define F g
                 // F(1)
@@ -5584,7 +5584,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     }
                     else
                     {
-                        token_list_pop_front(input_list);//todo deletar
+                        token_list_pop_front(input_list);/* TODO: delete */
                     }
                 }
                 else
@@ -5596,7 +5596,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             prematch(&r, input_list);
                         }
                         else
-                            token_list_pop_front(input_list);//todo deletar
+                            token_list_pop_front(input_list);/* TODO: delete */
                     }
                     else
                     {
@@ -5619,7 +5619,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             }
                             else
                             {
-                                token_list_pop_front(input_list);//todo deletar
+                                token_list_pop_front(input_list);/* TODO: delete */
                             }
                         }
                     }
@@ -5688,7 +5688,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
                     input_list->head,
                     "invalid preprocessor directive '#%s'\n", directive_name);
             }
-            //here I will consume the # inside to make it symmetrical
+            /* consume the # to keep it symmetrical */
             return non_directive(ctx, input_list, level);
         }
     }
@@ -5899,7 +5899,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
 
-    //nao quer ver warning de nao usado nestas macros padrao
+    /* do not warn about unused standard macros */
     mark_macros_as_used(&ctx->macros);
     token_list_destroy(&l);
     token_list_destroy(&l10);
@@ -6695,7 +6695,7 @@ static bool is_screaming_case(const char* text)
             (*text >= '0' && *text <= '9') ||
             (*text == '_'))
         {
-            //ok
+            /* ok */
             screaming_case = true;
         }
         else
@@ -7322,7 +7322,7 @@ int EXAMPLE5()
 
 void recursivetest1()
 {
-    //acho que este vai sero caso que precisa do hidden set.
+    /* this is likely the case that requires the hidden set */
     const char* input =
         "#define x 2\n"
         "#define f(a) f(x * (a))\n"

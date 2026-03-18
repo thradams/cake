@@ -287,6 +287,27 @@ sample["C99"]["VM Types"] =
 #include <stdio.h>
 #include <stdlib.h>
 
+void print2D(int n, int m, int a[n][m])
+{
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < m; j++)
+        {
+            printf("%d ", a[i][j]);
+        }
+        printf("\\n");
+    }
+}
+
+void print1D(int n, int a[n])
+{
+    for (int i = 0; i < n; i++)
+    {
+        printf(" %d", a[i]);        
+    }
+    printf("\\n");
+}
+
 void test_1d(int n)
 {
     int (*p)[n] = malloc(sizeof *p);

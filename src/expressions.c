@@ -934,7 +934,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         const bool suffix_ul = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == '\0');
 
         const bool suffix_ll = (suffix[0] == 'L' && suffix[1] == 'L' && suffix[2] == '\0') ||
-              (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0');
+            (suffix[0] == 'i' && suffix[1] == '6' && suffix[2] == '4' && suffix[3] == '\0');
 
         const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
 
@@ -1809,7 +1809,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
 
 bool first_of_postfix_expression(const struct parser_ctx* ctx)
 {
-    //( type-name )  postfix confunde com (expression) primary
+    /* ( type-name ) confusable with (expression) primary — need to distinguish */
     if (first_of_type_name_ahead(ctx))
         return true;// I don't think it's necessary because primary also works for postfix
     return is_first_of_primary_expression(ctx);
@@ -1908,7 +1908,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
-                // the result of the subscription operator ([])
+                /* result of the subscript operator [] */
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
@@ -1937,7 +1937,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     throw;
                 }
 
-                /*contem a expresao de dentro do  [ ] */
+                /* contains the expression inside [ ] */
                 p_expression_node_new->right = expression(ctx, eval_mode);
                 if (p_expression_node_new->right == NULL)
                 {
@@ -1961,9 +1961,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                         object_to_unsigned_long_long(&p_expression_node_new->right->object);
                     if (type_is_array(&p_expression_node->type))
                     {
-                        if (p_expression_node->type.num_of_elements > 0)
+                        if (p_expression_node->type.array_num_elements > 0)
                         {
-                            if (index >= (unsigned long long)p_expression_node->type.num_of_elements)
+                            if (index >= (unsigned long long)p_expression_node->type.array_num_elements)
                             {
                                 compiler_diagnostic(W_OUT_OF_BOUNDS,
                                                             ctx,
@@ -2117,8 +2117,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             }
                             else
                             {
-                                //not fixed yet
-                                 //assert(false);                                    
+                                /* not fixed yet */
+                                 /* assert(false); */                                    
                             }
                         }
                         else
@@ -2138,7 +2138,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                  ctx->current, NULL,
                                                  "incomplete struct type '%s'",
                                                  p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
-                        //print_scope(&ctx->scopes);
+                        /* print_scope(&ctx->scopes); */
                     }
                     if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
                     {
@@ -2154,7 +2154,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 ctx->current, NULL,
                                                 "structure or union required");
                 }
-                // todo apontar pro nome?
+                /* TODO: point to the name? */
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '->')
@@ -2174,7 +2174,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->last_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
 
-                // the result of a member access through pointer -> operator is lvalue
+                /* result of a member access via -> operator is an lvalue */
 
                 parser_match(ctx);
                 if (ctx->current == NULL)
@@ -2470,7 +2470,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                          is_constant,
                          requires_constant_initialization);
 
-            //initializer_destroy(&initializer); explodindo
+            /* initializer_destroy(&initializer); */
         }
 
         if (ctx->previous == NULL)
@@ -2514,9 +2514,9 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, enum e
     {
 
 
-        if (first_of_type_name_ahead(ctx)) // aqui preciso ver se nao eh primary
+        if (first_of_type_name_ahead(ctx)) /* need to check if this is not a primary expression */
         {
-            assert(false); // este caso esta pegando lá dentro deo cast expression.
+            assert(false); /* this case is handled inside cast_expression */
             p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL)
                 throw;
@@ -2648,9 +2648,23 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
 
     if (category == TYPE_CATEGORY_FUNCTION)
     {
-        //In GCC returns 1
+        /* In GCC this returns 1 */
 
-        //The sizeof operator shall not be applied to an expression that has function type or an incomplete type
+        /* The sizeof operator shall not be applied to an expression that has function type or an incomplete type */
+    }
+    else if (type_is_void(p_type))
+    {
+        /*
+         * C11 6.5.3.4/1 — the sizeof operator shall not be applied to
+         * an expression that has an incomplete type.  void is incomplete
+         * and can never be completed.
+         */
+        compiler_diagnostic(C_ERROR_INVALID_TYPE,
+                            ctx,
+                            p_expression->first_token,
+                            NULL,
+                            "invalid application of 'sizeof' to void type");
+        return -1;
     }
     else if (category == TYPE_CATEGORY_ITSELF &&
             p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
@@ -2661,7 +2675,7 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
         if (p_complete == NULL)
         {
-            //The sizeof operator shall not be applied to an expression that has function type or an incomplete type
+            /* The sizeof operator shall not be applied to an expression that has function type or an incomplete type */
             compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE,
                                        ctx,
                                        p_expression->first_token,
@@ -2672,23 +2686,13 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     }
     else if (category == TYPE_CATEGORY_ARRAY)
     {
-        if (type_is_vla(p_type))
-        {
-            return 0;
-        }
-
         if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
-            //GCC
-            //<source>:4:21: warning: 'sizeof' on array function parameter 'a' will return size of 'int *' [-Wsizeof-array-argument]
-            //CLANG
-            //<source>:4:21: warning: sizeof on array function parameter will return size of 'int *' instead of 'int[]' [-Wsizeof-array-argument]
-
             compiler_diagnostic(W_SIZEOF_ARRAY_ARGUMENT,
                                         ctx,
                                         p_expression->first_token,
                                         NULL,
-                                        "sizeof applied to array function parameter");
+                                        "sizeof applied to an array function parameter");
 
         }
     }
@@ -2763,7 +2767,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             new_expression->first_token = ctx->current;
 
-            struct token* op_position = ctx->current; // marcar posicao
+            struct token* op_position = ctx->current; /* mark position */
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             if (ctx->current == NULL)
@@ -2773,7 +2777,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 throw;
             }
 #if 0
-            //visual studio formater is adding spaces..
+            /* Visual Studio formatter is adding spaces... */
             if (style_has_space(ctx->current))
             {
                 compiler_diagnostic(W_STYLE, ctx, ctx->current, "don't use spaces");
@@ -2842,7 +2846,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 else
                     new_expression->expression_type = UNARY_EXPRESSION_PLUS;
 
-                //promote
+                /* promote */
                 new_expression->type = type_common(&new_expression->right->type, &new_expression->right->type, ctx->options.target);
 
                 if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
@@ -2864,7 +2868,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             else if (op == '*')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_CONTENT;
-                // the result of the indirection(unary*) operator applied to a pointer to object
+                /* result of the indirection (unary *) operator applied to a pointer to object */
 
                 if (!type_is_pointer_or_array(&new_expression->right->type))
                 {
@@ -3193,13 +3197,22 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
             size_t offset_of = 0;
 
-            enum sizeof_error e =
+            enum sizeof_result e =
                 type_get_offsetof(&new_expression->type_name->type, new_expression->offsetof_member_designator->lexeme, &offset_of, ctx->options.target);
 
-            if (e != 0)
+            switch (e)
             {
-                expression_delete(new_expression);
-                throw;
+            case SIZEOF_RESULT_OK:
+                break;
+            case SIZEOF_RESULT_OVERLOW:
+            case SIZEOF_RESULT_RUNTIME:
+            case SIZEOF_RESULT_INCOMPLETE:
+            case SIZEOF_RESULT_FUNCTION:
+                compiler_diagnostic(W_SIZEOF_FUNCTION,
+               ctx,
+               new_expression->first_token,
+               NULL,
+               "size of function");
             }
 
             new_expression->object = object_make_size_t(ctx->options.target, offset_of);
@@ -3262,7 +3275,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 {
                     if (type_is_vla(&new_expression->type_name->abstract_declarator->type))
                     {
-                        //not constant
+                        /* not a constant */
                     }
                     else
                     {
@@ -3294,19 +3307,40 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     throw;
                 }
 
-                if (type_is_vla(&new_expression->right->type))
+                size_t sz3 = 0;
+                enum sizeof_result res =
+                    type_get_sizeof(&new_expression->right->type, &sz3, ctx->options.target);
+
+                switch (res)
                 {
-                    //not constant
+                case SIZEOF_RESULT_OK:
+                    break;
+                case  SIZEOF_RESULT_OVERLOW:
+                    expression_delete(new_expression);
+                    throw;
+                case SIZEOF_RESULT_RUNTIME:
+                    break;
+                case SIZEOF_RESULT_INCOMPLETE:
+                    expression_delete(new_expression);
+                    throw;
+                    break;
+
+                case SIZEOF_RESULT_FUNCTION:
+                    compiler_diagnostic(W_SIZEOF_FUNCTION,
+                                        ctx,
+                                        new_expression->first_token,
+                                        NULL,
+                                        "size of function");
+                    break;
+                }
+
+                if (res == SIZEOF_RESULT_RUNTIME)
+                {
+                    /* not a constant */
                 }
                 else
                 {
-                    size_t sz = 0;
-                    if (type_get_sizeof(&new_expression->right->type, &sz, ctx->options.target) != 0)
-                    {
-                        expression_delete(new_expression);
-                        throw;
-                    }
-                    new_expression->object = object_make_size_t(ctx->options.target, sz);
+                    new_expression->object = object_make_size_t(ctx->options.target, sz3);
                 }
             }
 
@@ -3317,7 +3351,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
         }
         else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
-            // defer would be nice here...
+            /* a defer statement would be useful here */
 
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
@@ -3387,7 +3421,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 }
                 else if (type_is_array(&new_expression->type_name->abstract_declarator->type))
                 {
-                    size_t nelements = new_expression->type_name->abstract_declarator->type.num_of_elements;
+                    size_t nelements = new_expression->type_name->abstract_declarator->type.array_num_elements;
                     if (nelements > 0)
                         new_expression->object = object_make_size_t(ctx->options.target, nelements);
                 }
@@ -3456,14 +3490,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 }
                 else if (type_is_array(&new_expression->right->type))
                 {
-                    size_t nelements = new_expression->right->type.num_of_elements;
+                    size_t nelements = new_expression->right->type.array_num_elements;
                     if (nelements > 0)
                     {
                         new_expression->object = object_make_size_t(ctx->options.target, nelements);
                     }
                     else
                     {
-                        //vla [n][2] but not vla[2][n]
+                        /* VLA [n][2] but not VLA[2][n] */
                     }
                 }
                 else
@@ -3591,7 +3625,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 {
                     if (type_is_vla(&new_expression->type_name->abstract_declarator->type))
                     {
-                        //not constant
+                        /* not a constant */
                     }
                     else
                     {
@@ -3621,7 +3655,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
 
                 if (type_is_vla(&new_expression->right->type))
                 {
-                    //not constant
+                    /* not a constant */
                 }
                 else
                 {
@@ -4089,7 +4123,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
 
             if (op == '%')
             {
-                /*The operands of the % operator shall have integer type*/
+                /* The operands of the % operator shall have integer type */
                 if (!type_is_integer(&new_expression->left->type))
                 {
                     compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER,
@@ -4110,7 +4144,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
             }
             else
             {
-                /*Each of the operands shall have arithmetic type.*/
+                /* Each of the operands shall have arithmetic type */
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
                     compiler_diagnostic(C_ERROR_LEFT_IS_NOT_ARITHMETIC,
@@ -4529,7 +4563,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, enum exp
 
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            //Each of the operands shall have integer type.
+            /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
             {
                 expression_delete(new_expression);
@@ -4580,7 +4614,7 @@ static void check_comparison(struct parser_ctx* ctx,
     struct expression* p_b_expression,
     const struct token* op_token)
 {
-    // unsigned_expr < 0 is always false; unsigned_expr >= 0 is always true
+    /* unsigned_expr < 0 is always false; unsigned_expr >= 0 is always true */
     if (type_is_unsigned_integer(&p_a_expression->type) && expression_is_zero(p_b_expression))
     {
         if (op_token->type == '<')
@@ -4599,7 +4633,7 @@ static void check_comparison(struct parser_ctx* ctx,
         }
     }
 
-    // 0 > unsigned_expr is always false; 0 <= unsigned_expr is always true
+    /* 0 > unsigned_expr is always false; 0 <= unsigned_expr is always true */
     if (type_is_unsigned_integer(&p_b_expression->type) && expression_is_zero(p_a_expression))
     {
         if (op_token->type == '>')
@@ -4634,7 +4668,7 @@ static void check_comparison(struct parser_ctx* ctx,
         }
         else
         {
-            //array functions..
+            /* array functions */
             compiler_diagnostic(W_ENUN_CONVERSION,
                                         ctx,
                                         op_token, NULL,
@@ -4648,7 +4682,7 @@ static void check_comparison(struct parser_ctx* ctx,
         if (equal_not_equal && (object_is_zero(&p_b_expression->object) ||
             object_is_one(&p_b_expression->object)))
         {
-            //no warning when comparing == 0 == 1 != 0 != 0
+            /* no warning when comparing == 0, == 1, != 0, != 1 */
         }
         else
         {
@@ -4667,7 +4701,7 @@ static void check_comparison(struct parser_ctx* ctx,
             (object_is_zero(&p_a_expression->object) ||
                 object_is_one(&p_a_expression->object)))
         {
-            //no warning when comparing == 0 == 1 != 0 != 0
+            /* no warning when comparing == 0, == 1, != 0, != 1 */
         }
         else
         {
@@ -4765,7 +4799,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, enu
                 new_expression->expression_type = RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN;
             }
 
-            //Each of the operands shall have arithmetic type
+            /* Each of the operands shall have arithmetic type */
             if (type_is_arithmetic(&new_expression->left->type) &&
                 type_is_arithmetic(&new_expression->right->type))
             {
@@ -5076,7 +5110,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx, enum expre
 
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            //Each of the operands shall have integer type.
+            /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
             {
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
@@ -5155,7 +5189,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx, 
             new_expression->last_token = new_expression->right->last_token;
             new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, ctx->options.target);
 
-            //Each of the operands shall have integer type.
+            /* Each of the operands shall have integer type */
             if (!type_is_integer(&new_expression->left->type))
             {
                 compiler_diagnostic(C_ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, NULL, "left type must be an integer type");
@@ -5342,12 +5376,12 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
                     bool a = object_is_true(&new_expression->left->object);
                     if (a == 0)
                     {
-                        // 0 && something
+                        /* 0 && something */
                         new_expression->object = object_make_signed_int(ctx->options.target, 0);
                     }
                     else
                     {
-                        // 1 && something
+                        /* 1 && something */
                         if (object_has_constant_value(&new_expression->right->object))
                         {
                             bool b = object_is_true(&new_expression->right->object);
@@ -5357,7 +5391,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
                 }
             }
 
-            //Each of the operands shall have scalar type
+            /* Each of the operands shall have scalar type */
             if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
@@ -5372,7 +5406,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
                 throw;
             }
 
-            //The result has type int
+            /* The result has type int */
             new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
@@ -5466,12 +5500,12 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
                     bool a = object_is_true(&new_expression->left->object);
                     if (a == 1)
                     {
-                        // 1 || something
+                        /* 1 || something */
                         new_expression->object = object_make_signed_int(ctx->options.target, 1);
                     }
                     else
                     {
-                        // 0 || something
+                        /* 0 || something */
                         if (object_has_constant_value(&new_expression->right->object))
                         {
                             bool b = object_is_true(&new_expression->right->object);
@@ -5482,7 +5516,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
             }
 
 
-            //Each of the operands shall have scalar type
+            /* Each of the operands shall have scalar type */
             if (!type_is_scalar_decay(&new_expression->left->type))
             {
                 expression_delete(new_expression);
@@ -5497,7 +5531,7 @@ struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enu
                 throw;
             }
 
-            //The result has type int
+            /* The result has type int */
             new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
@@ -5770,7 +5804,7 @@ void expression_delete(struct expression* _Owner _Opt p)
         type_destroy(&p->type);
         argument_expression_list_destroy(&p->argument_expression_list);
 
-        //explodindo
+        /* crashing */
         //object_destroy(&p->object);
 
 
@@ -5856,7 +5890,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
                 }
             }
 
-            /*same type of the last expression*/
+            /* same type as the last expression */
             type_destroy(&p_expression_node->type);
             p_expression_node->type = type_dup(&p_expression_node->right->type);
         }
@@ -6049,8 +6083,8 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
                      */
                     struct object* true_obj =
                         (p_conditional_expression->left != NULL)
-                            ? &p_conditional_expression->left->object
-                            : &p_conditional_expression->condition_expr->object;
+                        ? &p_conditional_expression->left->object
+                        : &p_conditional_expression->condition_expr->object;
                     p_conditional_expression->object = object_make_reference(true_obj);
                 }
                 else
@@ -6065,8 +6099,8 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, en
              */
             const struct expression* p_left_or_cond =
                 (p_conditional_expression->left != NULL)
-                    ? p_conditional_expression->left
-                    : p_conditional_expression->condition_expr;
+                ? p_conditional_expression->left
+                : p_conditional_expression->condition_expr;
 
             if (expression_is_subjected_to_lvalue_conversion(p_left_or_cond))
             {
@@ -6222,7 +6256,7 @@ struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool 
 
 bool expression_is_lvalue(const struct expression* expr)
 {
-    // https://en.cppreference.com/w/c/language/value_category
+    /* https://en.cppreference.com/w/c/language/value_category */
 
     switch (expr->expression_type)
     {
@@ -6256,7 +6290,7 @@ bool expression_has_side_effects(const struct expression* expr)
 {
     switch (expr->expression_type)
     {
-    /* assignments */
+        /* assignments */
     case ASSIGNMENT_EXPRESSION_ASSIGN:
     case ASSIGNMENT_EXPRESSION_PLUS_ASSIGN:
     case ASSIGNMENT_EXPRESSION_MINUS_ASSIGN:
@@ -6268,12 +6302,12 @@ bool expression_has_side_effects(const struct expression* expr)
     case ASSIGNMENT_EXPRESSION_AND_ASSIGN:
     case ASSIGNMENT_EXPRESSION_OR_ASSIGN:
     case ASSIGNMENT_EXPRESSION_NOT_ASSIGN:
-    /* increment / decrement */
+        /* increment / decrement */
     case POSTFIX_INCREMENT:
     case POSTFIX_DECREMENT:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
-    /* function calls may have arbitrary side effects */
+        /* function calls may have arbitrary side effects */
     case POSTFIX_FUNCTION_CALL:
         return true;
 
@@ -6325,6 +6359,20 @@ void check_assigment(struct parser_ctx* ctx,
     const struct type* const p_b_type = &p_b_expression->type;
 
     const bool is_null_pointer_constant = expression_is_null_pointer_constant(p_b_expression);
+
+    /*
+     * C11 6.3.2.2 — the (nonexistent) value of a void expression shall
+     * not be used in any context that requires a value.
+     */
+    if (type_is_void(p_b_type) && !type_is_void(p_a_type))
+    {
+        compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+                            ctx,
+                            p_b_expression->first_token,
+                            NULL,
+                            "void value is not ignored as it ought to be");
+        return;
+    }
 
     if (type_is_pointer(p_a_type))
     {
@@ -6508,7 +6556,7 @@ void check_assigment(struct parser_ctx* ctx,
         // F(0) when passing null we will check if the parameter
         //have the anotation [[_Opt]]
 
-        /*can be converted to any type*/
+        /* can be converted to any type */
 
         type_destroy(&b_type_lvalue);
         //type_destroy(&t2);
@@ -6535,7 +6583,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (type_is_void_ptr(p_b_type))
         {
-            /*void pointer can be converted to any type*/
+            /* void pointer can be converted to any type */
 
             type_destroy(&b_type_lvalue);
             //type_destroy(&t2);
@@ -6544,15 +6592,30 @@ void check_assigment(struct parser_ctx* ctx,
 
         if (type_is_void_ptr(p_a_type))
         {
-            /*any pointer can be converted to void* */
-
+            /*
+             * Any pointer can be converted to void*, but if the source
+             * points to const and the destination is a plain void* (not
+             * const void*) the const qualifier is silently dropped.
+             *
+             *   const int *p;
+             *   void *q = p;   // discards const
+             */
+            struct type b_pointed = type_remove_pointer(&b_type_lvalue);
+            struct type a_pointed = type_remove_pointer(p_a_type);
+            if (type_is_const(&b_pointed) && !type_is_const(&a_pointed))
+            {
+                compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
+                    p_b_expression->first_token, NULL,
+                    "discarding const qualifier via void pointer");
+            }
+            type_destroy(&b_pointed);
+            type_destroy(&a_pointed);
             type_destroy(&b_type_lvalue);
-            // type_destroy(&t2);
             return;
         }
 
 
-        //TODO  lvalue
+        /* TODO: lvalue */
 
         struct type a_type_lvalue = { 0 };
 
@@ -6560,10 +6623,10 @@ void check_assigment(struct parser_ctx* ctx,
         {
             if (assignment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                size_t parameter_array_size = p_a_type->num_of_elements;
+                size_t parameter_array_size = p_a_type->array_num_elements;
                 if (type_is_array(p_b_type))
                 {
-                    size_t argument_array_size = p_b_type->num_of_elements;
+                    size_t argument_array_size = p_b_type->array_num_elements;
                     if (parameter_array_size != 0 &&
                         argument_array_size < parameter_array_size)
                     {
@@ -6599,42 +6662,49 @@ void check_assigment(struct parser_ctx* ctx,
         }
 
 
-        if (assignment_type == ASSIGMENT_TYPE_PARAMETER)
+        /*
+         * Walk all pointer levels and check that no const qualifier is
+         * dropped at any level.
+         *
+         *   int *        <- const int *      level 1: drop!
+         *   int **       <- const int **     level 1: ok, level 2: drop!
+         *   const int ** <- int **           ok (adding const is always fine)
+         *
+         * We use the already-computed lvalue types so array decay is applied.
+         */
+        if (type_is_pointer(&b_type_lvalue) && type_is_pointer(&a_type_lvalue))
         {
-            if (type_is_pointer(&b_type_lvalue) && type_is_pointer(&a_type_lvalue))
+            struct type b_cur = type_dup(&b_type_lvalue);
+            struct type a_cur = type_dup(&a_type_lvalue);
+
+            while (type_is_pointer(&b_cur) && type_is_pointer(&a_cur))
             {
-                //parameter pointer do non const
-                //argument const.
-                struct type b_pointed_type_lvalue = type_remove_pointer(&b_type_lvalue);
-                struct type a_lvalue_pointed_type = type_remove_pointer(&a_type_lvalue);
-                if (type_is_const(&b_pointed_type_lvalue) && !type_is_const(&a_lvalue_pointed_type))
+                struct type b_next = type_remove_pointer(&b_cur);
+                struct type a_next = type_remove_pointer(&a_cur);
+
+                if (type_is_const(&b_next) && !type_is_const(&a_next))
                 {
                     compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                         p_b_expression->first_token, NULL,
-                        " discarding const at argument ");
+                        assignment_type == ASSIGMENT_TYPE_PARAMETER
+                            ? "discarding const qualifier at argument"
+                            : "discarding const qualifier");
+                    type_destroy(&b_next);
+                    type_destroy(&a_next);
+                    break; /* one diagnostic per assignment is enough */
                 }
-                type_destroy(&b_pointed_type_lvalue);
-                type_destroy(&a_lvalue_pointed_type);
+
+                type_destroy(&b_cur);
+                type_destroy(&a_cur);
+                b_cur = b_next;
+                a_cur = a_next;
             }
-        }
-        else
-        {
-            if (type_is_pointer(p_a_type) && type_is_pointer(&b_type_lvalue))
-            {
-                struct type b_pointed_type = type_remove_pointer(&b_type_lvalue);
-                struct type a_pointed_type = type_remove_pointer(p_a_type);
-                if (type_is_const(&b_pointed_type) && !type_is_const(&a_pointed_type))
-                {
-                    compiler_diagnostic(W_DISCARDED_QUALIFIERS, ctx,
-                        p_b_expression->first_token, NULL,
-                        " discarding const");
-                }
-                type_destroy(&b_pointed_type);
-                type_destroy(&a_pointed_type);
-            }
+
+            type_destroy(&b_cur);
+            type_destroy(&a_cur);
         }
 
-        //return true;
+        /* return true; */
         type_destroy(&a_type_lvalue);
     }
 

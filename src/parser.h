@@ -821,7 +821,6 @@ void array_declarator_delete(struct array_declarator* _Owner _Opt p);
 /*
   Return a value > 0 if it has constant size
 */
-size_t  array_declarator_get_size(const struct array_declarator* p_array_declarator);
 size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator);
 
 struct function_declarator
