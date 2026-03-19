@@ -1,5 +1,11 @@
-char str[]; /* incomplete type */
 
-char str[] = "initializer"; /* complete type */
+struct X
+{
+    int i;
+    int a[0];
+};
 
-void main(void) {}
+int main()
+{
+    sizeof(struct X);
+}

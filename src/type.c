@@ -989,17 +989,19 @@ bool type_is_vm(const struct type* p_type)
             {
                 /* constant size */
             }
+            else if (p->p_array_num_elements_expression == NULL)
+            {
+                /* int [] */
+            }
+            else if (p->array_num_elements == 0 &&
+                     object_is_zero(&p->p_array_num_elements_expression->object))
+            {
+                /* not VM, int [0] , accepted in many compilers*/
+            }
             else
             {
-                if (p->p_array_num_elements_expression == NULL)
-                {
-                    /*
-                    * size is unknown but not vm.
-                    * int a[]
-                    */
-                }
-                else
-                    return true;
+                /* VM, int [expression] */
+                return true;
             }
             break;
 
@@ -2081,8 +2083,17 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         }
                         size_t item_size = 0;
                         sizeof_result = type_get_sizeof(&md->declarator->type, &item_size, target);
-                        if (sizeof_result != 0)
+                        switch (sizeof_result)
+                        {
+                        case SIZEOF_RESULT_OK:
+                            break;
+                        case SIZEOF_RESULT_OVERLOW:
+                        case SIZEOF_RESULT_RUNTIME:
+                        case SIZEOF_RESULT_INCOMPLETE:
+                        case SIZEOF_RESULT_FUNCTION:
                             throw;
+                            break;
+                        }
 
                         if (is_union)
                         {
@@ -2454,9 +2465,23 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
             if (p_type->array_num_elements <= 0)
             {
                 if (p_type->p_array_num_elements_expression == NULL)
+                {
+                    /* int [] */
                     return SIZEOF_RESULT_INCOMPLETE;
+                }
 
-                return SIZEOF_RESULT_RUNTIME;
+                if (object_is_zero(&p_type->p_array_num_elements_expression->object))
+                {
+                    /* 
+                    *  MSVC, GCC, clang..have it
+                    *  int[0]                     
+                    */
+                }
+                else
+                {
+                    /* int [expression] */
+                    return SIZEOF_RESULT_RUNTIME;
+                }
             }
             unsigned long long arraysize = p_type->array_num_elements;
             struct type type = get_array_item_type(p_type);

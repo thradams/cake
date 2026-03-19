@@ -1096,6 +1096,7 @@ enum diagnostic_id {
     C_ERROR_NON_INTEGRAL_ENUM_TYPE = 1850,
     C_ERROR_REQUIRES_COMPILE_TIME_VALUE = 1860,
     C_ERROR_OUTER_SCOPE = 1870,
+    C_ERROR_VARIABLY_MODIFIED_MEMBER = 1880,
 };
 
 
@@ -23087,7 +23088,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             else
                             {
                                 /* not fixed yet */
-                                 /* assert(false); */                                    
+                                 /* assert(false); */
                             }
                         }
                         else
@@ -23609,10 +23610,6 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     const struct expression* p_expression,
     const struct type* const p_type)
 {
-    //sizeof(type)  p_expression is the sizeof expression
-    //sizeof(expression) p_expression is expression
-
-
     enum type_category category = type_get_category(p_type);
 
     if (category == TYPE_CATEGORY_FUNCTION)
@@ -23868,6 +23865,46 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                   "pointer to . . ."
                 */
                 new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
+
+                if (new_expression->right->expression_type == POSTFIX_ARROW &&
+                    object_has_constant_value(&new_expression->right->left->object))
+                {
+                    /*
+                     offsetof pattern evaluated at compile time
+                     
+                     Sample:
+                     & ((struct { int i; int i2; }*)0)->i2
+
+                     If the pointer has a constant value, we compute the member's
+                     offset and then add it to that constant value that is generally zero.
+                    */
+                    
+                    const unsigned long long pointer_value =
+                        object_to_unsigned_long_long(&new_expression->right->left->object);
+
+                    struct type struct_type = type_remove_pointer(&new_expression->right->left->type);
+                    if (type_is_struct_or_union(&struct_type))
+                    {
+                        size_t offset_of;
+                        enum sizeof_result e =
+                            type_get_offsetof(&struct_type,
+                                new_expression->right->last_token->lexeme /*member identifier*/,
+                                &offset_of,
+                                ctx->options.target);
+                        switch (e)
+                        {
+                        case SIZEOF_RESULT_OK:
+                            new_expression->object = object_make_size_t(ctx->options.target, pointer_value + offset_of);
+                            break;
+                        case SIZEOF_RESULT_OVERLOW:
+                        case SIZEOF_RESULT_RUNTIME:
+                        case SIZEOF_RESULT_INCOMPLETE:
+                        case SIZEOF_RESULT_FUNCTION:
+                            break;
+                        }
+                    }
+                    type_destroy(&struct_type);
+                }
 
                 if (!expression_is_lvalue(new_expression->right))
                 {
@@ -24242,20 +24279,23 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 }
                 else
                 {
-                    if (type_is_vla(&new_expression->type_name->abstract_declarator->type))
+                    size_t sz = 0;
+                    enum sizeof_result sizeof_result =
+                        type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &sz, ctx->options.target);
+                    switch (sizeof_result)
                     {
-                        /* not a constant */
-                    }
-                    else
-                    {
-                        size_t type_sizeof = 0;
-                        if (type_get_sizeof(&new_expression->type_name->abstract_declarator->type, &type_sizeof, ctx->options.target) != 0)
-                        {
-                            expression_delete(new_expression);
-                            throw;
-                        }
+                    case SIZEOF_RESULT_OK:
+                        new_expression->object = object_make_size_t(ctx->options.target, sz);
+                        break;
 
-                        new_expression->object = object_make_size_t(ctx->options.target, type_sizeof);
+                    case SIZEOF_RESULT_RUNTIME:
+                        break;
+
+                    case SIZEOF_RESULT_OVERLOW:
+                    case SIZEOF_RESULT_INCOMPLETE:
+                    case SIZEOF_RESULT_FUNCTION:
+                        expression_delete(new_expression);
+                        throw;
                     }
                 }
             }
@@ -24283,12 +24323,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 switch (res)
                 {
                 case SIZEOF_RESULT_OK:
+                    new_expression->object = object_make_size_t(ctx->options.target, sz3);
                     break;
-                case  SIZEOF_RESULT_OVERLOW:
-                    expression_delete(new_expression);
-                    throw;
                 case SIZEOF_RESULT_RUNTIME:
                     break;
+
+                case SIZEOF_RESULT_OVERLOW:
                 case SIZEOF_RESULT_INCOMPLETE:
                     expression_delete(new_expression);
                     throw;
@@ -24301,15 +24341,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                                         NULL,
                                         "size of function");
                     break;
-                }
-
-                if (res == SIZEOF_RESULT_RUNTIME)
-                {
-                    /* not a constant */
-                }
-                else
-                {
-                    new_expression->object = object_make_size_t(ctx->options.target, sz3);
                 }
             }
 
@@ -29026,7 +29057,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.87"
+#define CAKE_VERSION "0.12.88"
 
 
 
@@ -33308,6 +33339,27 @@ struct member_declarator* _Owner _Opt member_declarator(
                 p_token,
                 NULL,
                 "members having a function type are not allowed");
+
+            throw;
+        }
+        
+        if (type_is_vm(&p_member_declarator->declarator->type))
+        {
+            /*
+              A member of a structure or union may have any complete 
+              object type other than a variably modified type
+            */
+
+            struct token* p_token =
+                p_member_declarator->declarator->first_token_opt;
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            compiler_diagnostic(C_ERROR_VARIABLY_MODIFIED_MEMBER,
+                ctx,
+                p_token,
+                NULL,
+                "Variably modified types cannot be used as members of a structure or union.");
 
             throw;
         }
@@ -59541,17 +59593,19 @@ bool type_is_vm(const struct type* p_type)
             {
                 /* constant size */
             }
+            else if (p->p_array_num_elements_expression == NULL)
+            {
+                /* int [] */
+            }
+            else if (p->array_num_elements == 0 &&
+                     object_is_zero(&p->p_array_num_elements_expression->object))
+            {
+                /* not VM, int [0] , accepted in many compilers*/
+            }
             else
             {
-                if (p->p_array_num_elements_expression == NULL)
-                {
-                    /*
-                    * size is unknown but not vm.
-                    * int a[]
-                    */
-                }
-                else
-                    return true;
+                /* VM, int [expression] */
+                return true;
             }
             break;
 
@@ -60633,8 +60687,17 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         }
                         size_t item_size = 0;
                         sizeof_result = type_get_sizeof(&md->declarator->type, &item_size, target);
-                        if (sizeof_result != 0)
+                        switch (sizeof_result)
+                        {
+                        case SIZEOF_RESULT_OK:
+                            break;
+                        case SIZEOF_RESULT_OVERLOW:
+                        case SIZEOF_RESULT_RUNTIME:
+                        case SIZEOF_RESULT_INCOMPLETE:
+                        case SIZEOF_RESULT_FUNCTION:
                             throw;
+                            break;
+                        }
 
                         if (is_union)
                         {
@@ -61006,9 +61069,23 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
             if (p_type->array_num_elements <= 0)
             {
                 if (p_type->p_array_num_elements_expression == NULL)
+                {
+                    /* int [] */
                     return SIZEOF_RESULT_INCOMPLETE;
+                }
 
-                return SIZEOF_RESULT_RUNTIME;
+                if (object_is_zero(&p_type->p_array_num_elements_expression->object))
+                {
+                    /* 
+                    *  MSVC, GCC, clang..have it
+                    *  int[0]                     
+                    */
+                }
+                else
+                {
+                    /* int [expression] */
+                    return SIZEOF_RESULT_RUNTIME;
+                }
             }
             unsigned long long arraysize = p_type->array_num_elements;
             struct type type = get_array_item_type(p_type);

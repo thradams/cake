@@ -4243,6 +4243,27 @@ struct member_declarator* _Owner _Opt member_declarator(
 
             throw;
         }
+        
+        if (type_is_vm(&p_member_declarator->declarator->type))
+        {
+            /*
+              A member of a structure or union may have any complete 
+              object type other than a variably modified type
+            */
+
+            struct token* p_token =
+                p_member_declarator->declarator->first_token_opt;
+            if (p_token == NULL)
+                p_token = ctx->current;
+
+            compiler_diagnostic(C_ERROR_VARIABLY_MODIFIED_MEMBER,
+                ctx,
+                p_token,
+                NULL,
+                "Variably modified types cannot be used as members of a structure or union.");
+
+            throw;
+        }
 
         if (type_is_pointer(&p_member_declarator->declarator->type) &&
             declarator_has_vm_type(p_member_declarator->declarator))
