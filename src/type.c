@@ -983,22 +983,23 @@ bool type_is_vm(const struct type* p_type)
     while (p)
     {
         switch (p->category)
-        {        
+        {
         case TYPE_CATEGORY_ARRAY:
             if (p->array_num_elements > 0)
-            {      
+            {
                 /* constant size */
             }
             else
             {
-                if (p->p_array_num_elements_expression == NULL) {
+                if (p->p_array_num_elements_expression == NULL)
+                {
                     /*
-                    * size is unknown but not vm. 
+                    * size is unknown but not vm.
                     * int a[]
                     */
                 }
                 else
-                    return true;                
+                    return true;
             }
             break;
 
@@ -1016,7 +1017,7 @@ bool type_is_vm(const struct type* p_type)
         }
         break;
 
-        case TYPE_CATEGORY_ITSELF:            
+        case TYPE_CATEGORY_ITSELF:
         case TYPE_CATEGORY_POINTER:
             break;
         }
@@ -2451,8 +2452,12 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
         else
         {
             if (p_type->array_num_elements <= 0)
-                return SIZEOF_RESULT_RUNTIME;
+            {
+                if (p_type->p_array_num_elements_expression == NULL)
+                    return SIZEOF_RESULT_INCOMPLETE;
 
+                return SIZEOF_RESULT_RUNTIME;
+            }
             unsigned long long arraysize = p_type->array_num_elements;
             struct type type = get_array_item_type(p_type);
 

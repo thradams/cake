@@ -534,7 +534,7 @@ int main(){
 </ul>
 
 <p>Cake supports <strong>VM types</strong> and converts them to C89-compatible code.
-Cake does <strong>not</strong> support VLA objects - a diagnostic is emitted instead, pointing to the VM type alternative.</p>
+Cake does <strong>not</strong> support VLA objects.</p>
 
 <h4>VM type pointer declarations</h4>
 
@@ -553,66 +553,6 @@ int main() {
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
-
-<p>The C89 output captures the dimensions into snapshot variables at declaration time,
-so that later mutation of <code>n</code> or <code>m</code> does not affect the allocation size or <code>sizeof</code> results:</p>
-
-<pre><code class="language-c">int __v0;
-int __v1;
-int *p;
-__v0 = (n);
-__v1 = (m);
-p = (int *)malloc(sizeof(int) * __v0 * __v1);
-printf(&quot;%zu\n&quot;, (sizeof(int) * __v0 * __v1));
-free(p);
-</code></pre>
-
-<h4>VM type function parameters</h4>
-
-<p>VM pointer parameters are also rewritten to flat pointers. Subscript expressions
-through the pointer are linearised automatically.</p>
-
-<pre><code class="language-c">#include &lt;stdlib.h&gt;
-#include &lt;stdio.h&gt;
-
-void fill(int n, int m, int (*grid)[n][m])
-{
-    int i, j;
-    for (i = 0; i &lt; n; i++)
-        for (j = 0; j &lt; m; j++)
-            (*grid)[i][j] = i * 10 + j;
-}
-
-int main() {
-    int n = 3, m = 4;
-    int (*p)[n][m] = malloc(sizeof *p);
-    fill(n, m, p);
-    free(p);
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>C89 output for <code>fill</code>:</p>
-
-<pre><code class="language-c">void fill(int n, int m, int *grid)
-{
-    int i, j;
-    for (i = 0; i &lt; n; i++)
-        for (j = 0; j &lt; m; j++)
-            ((int*)grid)[(i) * m + (j)] = i * 10 + j;
-}
-</code></pre>
-
-<h4>VLA objects are not supported</h4>
-
-<pre><code class="language-c">int main() {
-    int n = 5;
-    int a[n]; /* error: variable length arrays are not supported;
-                 use a pointer to a variably modified type instead
-                 (e.g. &#39;int (*p)[n] = malloc(sizeof *p);&#39;) */
-}
-</code></pre>
 
 <h3 id="toc_9">C99 Flexible array members</h3>
 

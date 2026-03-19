@@ -152,7 +152,7 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
 
 static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* token)
 {
- 
+
 }
 
 
@@ -2813,7 +2813,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             type_is_vm(&p_init_declarator->p_declarator->type))
         {
             /*
-              MSVC accepts this as constant expression. Cake does not.              
+              MSVC accepts this as constant expression. Cake does not.
               static_assert(&((struct X { int i; }*) 0)->i) == 0);
 
 
@@ -2865,10 +2865,23 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 break;
 
             case SIZEOF_RESULT_INCOMPLETE:
-                
+
                 if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
                 {
                     /* extern variables do not need to be complete */
+                }
+                else if (ctx->scopes.tail->scope_level == 0)
+                {
+                    /*
+                      FILE SCOPE is diferent here,.
+                      Incomplete objects at file scope are tentatives
+                      (cake needs a last pass to detect this problem)
+                    */
+                    /*
+                       char str[];  //not an error
+                       char str[] = "abc"; complete type
+                       int main() {}
+                    */
                 }
                 else
                 {
@@ -2877,8 +2890,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                        p_init_declarator->p_declarator->name_opt, NULL,
                        "storage size of '%s' isn't known because the type is incomplete",
                        p_init_declarator->p_declarator->name_opt->lexeme);
+                    throw;
                 }
-                throw;
+
             case SIZEOF_RESULT_FUNCTION:
                 break;
             }
@@ -5708,16 +5722,16 @@ struct function_declarator* declarator_find_function_declarator(const struct dec
     {
         if (p_declarator->direct_declarator->declarator)
             return declarator_find_function_declarator(p_declarator->direct_declarator->declarator);
-        
+
         if (p_declarator->direct_declarator->function_declarator)
         {
             if (p_declarator->direct_declarator->function_declarator->direct_declarator &&
                 p_declarator->direct_declarator->function_declarator->direct_declarator->declarator)
             {
-                struct function_declarator* p = 
+                struct function_declarator* p =
                     declarator_find_function_declarator(p_declarator->direct_declarator->function_declarator->direct_declarator->declarator);
-               if (p)
-                   return p;
+                if (p)
+                    return p;
             }
 
             return p_declarator->direct_declarator->function_declarator;

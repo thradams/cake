@@ -258,7 +258,7 @@ In C99/C23, there are two related but distinct concepts:
 - **VM types** (`int (*p)[n]`) - any type derived from a runtime-sized array, including pointers to VLAs. **Mandatory** in C23 even when `__STDC_NO_VLA__` is defined.
 
 Cake supports **VM types** and converts them to C89-compatible code.
-Cake does **not** support VLA objects - a diagnostic is emitted instead, pointing to the VM type alternative.
+Cake does **not** support VLA objects.
 
 #### VM type pointer declarations
 
@@ -278,68 +278,6 @@ int main() {
 ```
 <button onclick="Try(this)">try</button>
 
-The C89 output captures the dimensions into snapshot variables at declaration time,
-so that later mutation of `n` or `m` does not affect the allocation size or `sizeof` results:
-
-```c
-int __v0;
-int __v1;
-int *p;
-__v0 = (n);
-__v1 = (m);
-p = (int *)malloc(sizeof(int) * __v0 * __v1);
-printf("%zu\n", (sizeof(int) * __v0 * __v1));
-free(p);
-```
-
-#### VM type function parameters
-
-VM pointer parameters are also rewritten to flat pointers. Subscript expressions
-through the pointer are linearised automatically.
-
-```c
-#include <stdlib.h>
-#include <stdio.h>
-
-void fill(int n, int m, int (*grid)[n][m])
-{
-    int i, j;
-    for (i = 0; i < n; i++)
-        for (j = 0; j < m; j++)
-            (*grid)[i][j] = i * 10 + j;
-}
-
-int main() {
-    int n = 3, m = 4;
-    int (*p)[n][m] = malloc(sizeof *p);
-    fill(n, m, p);
-    free(p);
-}
-```
-<button onclick="Try(this)">try</button>
-
-C89 output for `fill`:
-
-```c
-void fill(int n, int m, int *grid)
-{
-    int i, j;
-    for (i = 0; i < n; i++)
-        for (j = 0; j < m; j++)
-            ((int*)grid)[(i) * m + (j)] = i * 10 + j;
-}
-```
-
-#### VLA objects are not supported
-
-```c
-int main() {
-    int n = 5;
-    int a[n]; /* error: variable length arrays are not supported;
-                 use a pointer to a variably modified type instead
-                 (e.g. 'int (*p)[n] = malloc(sizeof *p);') */
-}
-```
 
 ### C99 Flexible array members
 
