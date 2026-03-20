@@ -1,11 +1,1 @@
-
-struct X
-{
-    int i;
-    int a[0];
-};
-
-int main()
-{
-    sizeof(struct X);
-}
+unsigned char c = '\xe5'; // letter å in ISO-8859-1

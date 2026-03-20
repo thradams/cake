@@ -839,11 +839,11 @@ unsigned long long target_unsigned_max(enum  target target, enum object_type typ
 
 #include <limits.h>
 
-enum language_version
+enum standard_version
 {
-    LANGUAGE_C23,
-    LANGUAGE_C2Y,
-    LANGUAGE_CAK,
+    STD_C23,
+    STD_C2Y,
+    STD_EXT,
 };
 
 enum diagnostic_id {
@@ -924,7 +924,7 @@ enum diagnostic_id {
 
     
     W_WARNING_LIT_STRING = 64,
-    W_UNUSED_WARNING_65 = 65,
+    W_SIGNED_TO_UNSIGNED = 65,
     W_UNUSED_WARNING_66 = 66,
     W_UNUSED_WARNING_67 = 67,
     W_UNUSED_WARNING_68 = 68,
@@ -1181,7 +1181,7 @@ void diagnostic_id_stack_pop(struct diagnostic_id_stack* diagnostic_stack);
 
 struct options
 {
-    enum language_version input;
+    enum standard_version input;
     enum target target;
 
     /*
@@ -2785,9 +2785,14 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
             //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
             stream_match(stream);
         }
-
-        while (is_octal_digit(stream))
+        
+        while (is_digit(stream))
         {
+            if (!is_octal_digit(stream))
+            {
+                snprintf(errmsg, 100, "invalid octal digit");
+                return TK_NONE;
+            }
             stream_match(stream);
         }
         integer_suffix_opt(stream, suffix);
@@ -14921,12 +14926,12 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-std=c2x") == 0 ||
             strcmp(argv[i], "-std=c23") == 0)
         {
-            options->input = LANGUAGE_C23;
+            options->input = STD_C23;
             continue;
         }
         if (strcmp(argv[i], "-std=cxx") == 0)
         {
-            options->input = LANGUAGE_CAK;
+            options->input = STD_EXT;
             continue;
         }
 
@@ -15525,7 +15530,7 @@ struct type type_get_enum_type(const struct type* p_type);
 struct argument_expression;
 
 
-struct type type_convert_to(const struct type* p_type, enum language_version target);
+struct type type_convert_to(const struct type* p_type, enum standard_version target);
 struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
@@ -16088,6 +16093,9 @@ struct expression
     struct expression* _Owner _Opt right;
 
     bool is_assignment_expression;
+
+    /*  used to check how contexpr can be used inside function literals */
+    bool lvalue_disabled;
 };
 
 //built-in semantics
@@ -22274,15 +22282,20 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                         }
                         if (!inside_current_function_scope)
                         {
-                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
-                                ctx,
-                                p_expression_node->first_token,
-                                NULL,
-                                "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                            /* see . dot and arrow -> */
+                            p_expression_node->lvalue_disabled = true;
+
+                            if (!type_is_constexpr(&p_declarator->type))
+                            {
+                                compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                                    ctx,
+                                    p_expression_node->first_token,
+                                    NULL,
+                                    "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                            }
                         }
                     }
                 }
-
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
@@ -23022,6 +23035,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 p_expression_node = NULL; /*MOVED*/
 
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
@@ -23237,6 +23251,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 "structure or union required");
                 }
 
+                p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -23871,14 +23886,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 {
                     /*
                      offsetof pattern evaluated at compile time
-                     
+
                      Sample:
                      & ((struct { int i; int i2; }*)0)->i2
 
                      If the pointer has a constant value, we compute the member's
                      offset and then add it to that constant value that is generally zero.
                     */
-                    
+
                     const unsigned long long pointer_value =
                         object_to_unsigned_long_long(&new_expression->right->left->object);
 
@@ -23904,6 +23919,16 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                         }
                     }
                     type_destroy(&struct_type);
+                }
+
+
+                if (new_expression->right->lvalue_disabled)
+                {
+                    compiler_diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
+                        ctx,
+                        new_expression->right->first_token,
+                        NULL,
+                        "not accessible");
                 }
 
                 if (!expression_is_lvalue(new_expression->right))
@@ -27522,7 +27547,33 @@ void check_assigment(struct parser_ctx* ctx,
 
     }
 
-
+#if 0
+    /* Too many warnings, we need to reduce cases. See unit test */
+    if (type_is_unsigned_integer(p_a_type) && type_is_signed_integer(p_b_type))
+    {
+        if (object_has_constant_value(&p_b_expression->object))
+        {
+            long long v = object_to_signed_long_long(&p_b_expression->object);
+            if (v < 0)
+            {
+                compiler_diagnostic(W_SIGNED_TO_UNSIGNED,
+                                   ctx,
+                                   p_b_expression->first_token,
+                                   NULL,
+                                   "implicit conversion of negative constant %lld to unsigned type",
+                                   v);
+            }
+        }
+        else
+        {
+            compiler_diagnostic(W_SIGNED_TO_UNSIGNED,
+                               ctx,
+                               p_b_expression->first_token,
+                               NULL,
+                               "implicit conversion from signed to unsigned");
+        }
+    }
+#endif
 
     /*
        less generic tests are first
@@ -29057,7 +29108,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.88"
+#define CAKE_VERSION "0.12.89"
 
 
 
@@ -42550,7 +42601,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
 
     struct preprocessor_ctx prectx = { 0 };
     struct ast ast = { 0 };
-    struct options options = { .input = LANGUAGE_CAK };
+    struct options options = { .input = STD_EXT };
 
 
     try
@@ -44321,6 +44372,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 {
 
     if (!ctx->address_of_argument &&
+        p_expression->expression_type != PRIMARY_EXPRESSION_STATEMENT_EXPRESSION &&
         object_has_constant_value(&p_expression->object))
     {
         if (type_is_void_ptr(&p_expression->type) ||
@@ -44348,8 +44400,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
     }
 #if 0
-    
-    /* 
+
+    /*
       VM types can be used inside the expression cast, sizeof, compound literal etc
       Here we register these VM types
     */
@@ -46164,11 +46216,12 @@ static int vm_collect_dims(struct d_visit_ctx* ctx,
                 dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
                 dims[count].snap_num = num;
             }
-            else {
+            else
+            {
                 int snap_num = ctx->cake_local_declarator_number++;
                 dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
                 dims[count].snap_num = snap_num;
-                
+
                 struct hash_item_set item = { 0 };
                 item.number = snap_num;
                 hashmap_set(&ctx->vm_expression_to_dim_var, snap_key, &item);
@@ -58997,13 +59050,13 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
     return t;
 }
 
-struct type type_convert_to(const struct type* p_type, enum language_version target)
+struct type type_convert_to(const struct type* p_type, enum standard_version target)
 {
     /*
     * Convert types to previous standard format
     */
 
-    if (target < LANGUAGE_C23 && type_is_nullptr_t(p_type))
+    if (target < STD_C23 && type_is_nullptr_t(p_type))
     {
 
         struct type t = make_void_ptr_type();

@@ -355,7 +355,7 @@ struct type type_get_enum_type(const struct type* p_type);
 struct argument_expression;
 
 
-struct type type_convert_to(const struct type* p_type, enum language_version target);
+struct type type_convert_to(const struct type* p_type, enum standard_version target);
 struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_enabled);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);

@@ -715,6 +715,7 @@ int main()
 }
 ```
 <button onclick="Try(this)">try</button>
+
 ### 63 Float out of range
 ```c
 int main() {
@@ -722,6 +723,21 @@ int main() {
 }
 ```
 <button onclick="Try(this)">try</button>
+
+### 63 Signed to unsigned
+```c
+void f(unsigned i) { (void)i; }
+
+int main(void) {
+    int x = -5;
+    f(-1);
+    f(x);
+    unsigned u = -2;
+    return 0;
+}
+```
+<button onclick="Try(this)">try</button>
+
 
 ### 64–127 Reserved / unused warnings
 

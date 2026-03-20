@@ -632,6 +632,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 {
 
     if (!ctx->address_of_argument &&
+        p_expression->expression_type != PRIMARY_EXPRESSION_STATEMENT_EXPRESSION &&
         object_has_constant_value(&p_expression->object))
     {
         if (type_is_void_ptr(&p_expression->type) ||
@@ -659,8 +660,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
     }
 #if 0
-    
-    /* 
+
+    /*
       VM types can be used inside the expression cast, sizeof, compound literal etc
       Here we register these VM types
     */
@@ -2475,11 +2476,12 @@ static int vm_collect_dims(struct d_visit_ctx* ctx,
                 dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
                 dims[count].snap_num = num;
             }
-            else {
+            else
+            {
                 int snap_num = ctx->cake_local_declarator_number++;
                 dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
                 dims[count].snap_num = snap_num;
-                
+
                 struct hash_item_set item = { 0 };
                 item.number = snap_num;
                 hashmap_set(&ctx->vm_expression_to_dim_var, snap_key, &item);

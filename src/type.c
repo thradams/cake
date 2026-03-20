@@ -393,13 +393,13 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
     return t;
 }
 
-struct type type_convert_to(const struct type* p_type, enum language_version target)
+struct type type_convert_to(const struct type* p_type, enum standard_version target)
 {
     /*
     * Convert types to previous standard format
     */
 
-    if (target < LANGUAGE_C23 && type_is_nullptr_t(p_type))
+    if (target < STD_C23 && type_is_nullptr_t(p_type))
     {
 
         struct type t = make_void_ptr_type();

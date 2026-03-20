@@ -970,7 +970,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
 
     struct preprocessor_ctx prectx = { 0 };
     struct ast ast = { 0 };
-    struct options options = { .input = LANGUAGE_CAK };
+    struct options options = { .input = STD_EXT };
 
 
     try

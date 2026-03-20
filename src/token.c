@@ -1372,9 +1372,14 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
             //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
             stream_match(stream);
         }
-
-        while (is_octal_digit(stream))
+        
+        while (is_digit(stream))
         {
+            if (!is_octal_digit(stream))
+            {
+                snprintf(errmsg, 100, "invalid octal digit");
+                return TK_NONE;
+            }
             stream_match(stream);
         }
         integer_suffix_opt(stream, suffix);

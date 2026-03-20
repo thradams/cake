@@ -475,12 +475,12 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-std=c2x") == 0 ||
             strcmp(argv[i], "-std=c23") == 0)
         {
-            options->input = LANGUAGE_C23;
+            options->input = STD_C23;
             continue;
         }
         if (strcmp(argv[i], "-std=cxx") == 0)
         {
-            options->input = LANGUAGE_CAK;
+            options->input = STD_EXT;
             continue;
         }
 

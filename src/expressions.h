@@ -228,6 +228,9 @@ struct expression
     struct expression* _Owner _Opt right;
 
     bool is_assignment_expression;
+
+    /*  used to check how contexpr can be used inside function literals */
+    bool lvalue_disabled;
 };
 
 //built-in semantics

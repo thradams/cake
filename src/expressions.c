@@ -1304,15 +1304,20 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                         }
                         if (!inside_current_function_scope)
                         {
-                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
-                                ctx,
-                                p_expression_node->first_token,
-                                NULL,
-                                "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                            /* see . dot and arrow -> */
+                            p_expression_node->lvalue_disabled = true;
+
+                            if (!type_is_constexpr(&p_declarator->type))
+                            {
+                                compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                                    ctx,
+                                    p_expression_node->first_token,
+                                    NULL,
+                                    "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                            }
                         }
                     }
                 }
-
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
@@ -2052,6 +2057,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 p_expression_node = NULL; /*MOVED*/
 
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
@@ -2267,6 +2273,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                                 "structure or union required");
                 }
 
+                p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -2901,14 +2908,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 {
                     /*
                      offsetof pattern evaluated at compile time
-                     
+
                      Sample:
                      & ((struct { int i; int i2; }*)0)->i2
 
                      If the pointer has a constant value, we compute the member's
                      offset and then add it to that constant value that is generally zero.
                     */
-                    
+
                     const unsigned long long pointer_value =
                         object_to_unsigned_long_long(&new_expression->right->left->object);
 
@@ -2934,6 +2941,16 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                         }
                     }
                     type_destroy(&struct_type);
+                }
+
+
+                if (new_expression->right->lvalue_disabled)
+                {
+                    compiler_diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
+                        ctx,
+                        new_expression->right->first_token,
+                        NULL,
+                        "not accessible");
                 }
 
                 if (!expression_is_lvalue(new_expression->right))
@@ -6552,7 +6569,33 @@ void check_assigment(struct parser_ctx* ctx,
 
     }
 
-
+#if 0
+    /* Too many warnings, we need to reduce cases. See unit test */
+    if (type_is_unsigned_integer(p_a_type) && type_is_signed_integer(p_b_type))
+    {
+        if (object_has_constant_value(&p_b_expression->object))
+        {
+            long long v = object_to_signed_long_long(&p_b_expression->object);
+            if (v < 0)
+            {
+                compiler_diagnostic(W_SIGNED_TO_UNSIGNED,
+                                   ctx,
+                                   p_b_expression->first_token,
+                                   NULL,
+                                   "implicit conversion of negative constant %lld to unsigned type",
+                                   v);
+            }
+        }
+        else
+        {
+            compiler_diagnostic(W_SIGNED_TO_UNSIGNED,
+                               ctx,
+                               p_b_expression->first_token,
+                               NULL,
+                               "implicit conversion from signed to unsigned");
+        }
+    }
+#endif
 
     /*
        less generic tests are first
