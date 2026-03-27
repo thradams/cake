@@ -50,6 +50,7 @@ static void defer_visit_statement(struct defer_visit_ctx* ctx, struct statement*
 static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_item* p_block_item);
 static void defer_visit_compound_statement(struct defer_visit_ctx* ctx, struct compound_statement* p_compound_statement);
 static void defer_visit_unlabeled_statement(struct defer_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
+static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expression* p_expression);
 
 static struct defer_scope* _Opt defer_visit_ctx_push_child(struct defer_visit_ctx* ctx)
 {
@@ -165,6 +166,13 @@ static void defer_visit_defer_statement(struct defer_visit_ctx* ctx, struct defe
 static void defer_visit_init_declarator(struct defer_visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     defer_visit_declarator(ctx, p_init_declarator->p_declarator);
+    if (p_init_declarator->initializer)
+    {
+        if (p_init_declarator->initializer->assignment_expression)
+        {
+            defer_visit_expression(ctx, p_init_declarator->initializer->assignment_expression);
+        }
+    }
 }
 
 static void defer_visit_simple_declaration(struct defer_visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
@@ -770,6 +778,47 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
 
     switch (p_expression->expression_type)
     {
+    case CHECKED_EXPRESSION:
+    {
+        /*similar of throw TODO make a function?*/
+        try
+        {
+            struct defer_scope* _Opt p = ctx->tail_block;
+            while (p)
+            {
+                if (p->p_try_statement)
+                    break;
+
+                if (p->p_declarator)
+                {
+                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    if (item == NULL) throw;
+
+                    item->declarator = p->p_declarator;
+                    defer_list_add(&p_expression->defer_list, item);
+
+                }
+                else if (p->p_defer_statement)
+                {
+                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    if (item == NULL) throw;
+
+                    item->defer_statement = p->p_defer_statement;
+                    defer_list_add(&p_expression->defer_list, item);
+                }
+                if (p->p_defer_block)
+                {
+                    compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
+                }
+                p = p->previous;
+            }
+        }
+        catch
+        {
+        }
+    }
+    break;
+
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
     {
         assert(p_expression->compound_statement != NULL);

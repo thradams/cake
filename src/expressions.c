@@ -46,7 +46,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
 struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
-
+struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
 
 static int compare_function_arguments(struct parser_ctx* ctx,
@@ -285,7 +285,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         if (parser_match_tk(ctx, ':') != 0)
             throw;
 
-        struct expression* _Owner _Opt p_expression_temp = assignment_expression(ctx, eval_mode);
+        struct expression* _Owner _Opt p_expression_temp = checked_expression(ctx, eval_mode);
         if (p_expression_temp == NULL)
         {
             throw;
@@ -482,7 +482,7 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx, 
         }
         else
         {
-            p_generic_selection->expression = assignment_expression(ctx, eval_mode);
+            p_generic_selection->expression = checked_expression(ctx, eval_mode);
             if (p_generic_selection->expression == NULL)
                 throw;
         }
@@ -1761,7 +1761,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
         if (p_argument_expression == NULL)
             throw;
 
-        struct expression* _Owner _Opt p_assignment_expression = assignment_expression(ctx, eval_mode);
+        struct expression* _Owner _Opt p_assignment_expression = checked_expression(ctx, eval_mode);
         if (p_assignment_expression == NULL)
         {
             argument_expression_delete(p_argument_expression);
@@ -1789,7 +1789,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
             struct argument_expression* _Owner _Opt p_argument_expression_2 = calloc(1, sizeof * p_argument_expression_2);
             if (p_argument_expression_2 == NULL)
                 throw;
-            struct expression* _Owner _Opt p_assignment_expression_2 = assignment_expression(ctx, eval_mode);
+            struct expression* _Owner _Opt p_assignment_expression_2 = checked_expression(ctx, eval_mode);
             if (p_assignment_expression_2 == NULL)
             {
                 argument_expression_delete(p_argument_expression_2);
@@ -2445,19 +2445,11 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
             p_expression_node->braced_initializer = braced_initializer(ctx);
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
-            //TODO
-
-            if (p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+            int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
+            if (er != 0)
             {
-            }
-            else
-            {
-                int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
-                if (er != 0)
-                {
-                    compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
-                    throw;
-                }
+                compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
+                throw;
             }
 
             const bool is_constant = type_is_const_or_constexpr(&p_expression_node->type);
@@ -2497,6 +2489,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
     type_name_delete(p_type_name);
     return p_expression_node;
 }
+
 
 struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
@@ -5743,7 +5736,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
                                             "lvalue required as left operand of assignment");
             }
 
-            new_expression->right = assignment_expression(ctx, eval_mode);
+            new_expression->right = checked_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -5772,6 +5765,74 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
             if (new_expression->left->left)
                 new_expression->left->left->is_assignment_expression = true;
             p_expression_node = new_expression;
+        }
+    }
+    catch
+    {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
+    }
+
+    return p_expression_node;
+}
+
+/*cake extension*/
+struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
+{
+    /*
+       checked-expression:
+          assignment_expression !
+    */
+
+    struct expression* _Owner _Opt p_expression_node = NULL;
+    try
+    {
+        p_expression_node = assignment_expression(ctx, eval_mode);
+        if (p_expression_node == NULL)
+            throw;
+
+        assert(p_expression_node->expression_type != EXPRESSION_TYPE_INVALID);
+
+        if (ctx->current != NULL && (ctx->current->type == '!'))
+        {
+            //const struct token* const op_token = ctx->current;
+            
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (ctx->p_current_try_statement_opt == NULL)
+            {
+                compiler_diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "checked expression not within try-catch block");
+                throw;
+            }
+
+            if (!type_is_scalar(&p_expression_node->type))
+            {
+                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->left->first_token, NULL, "left operator is not scalar");
+            }
+
+            struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+            if (p_expression_node_new == NULL) throw;
+
+
+            p_expression_node_new->first_token = ctx->current;
+            p_expression_node_new->expression_type = CHECKED_EXPRESSION;
+
+            p_expression_node_new->type = type_dup(&p_expression_node->type);
+            parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(p_expression_node_new);
+                p_expression_node_new = NULL;
+                throw;
+            }
+
+            p_expression_node_new->left = p_expression_node;
+            p_expression_node = p_expression_node_new;            
         }
     }
     catch
@@ -5873,7 +5934,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
             throw;
         }
 
-        p_expression_node = assignment_expression(ctx, eval_mode);
+        p_expression_node = checked_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 

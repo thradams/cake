@@ -431,13 +431,6 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
 void init_declarator_list_destroy(_Dtor struct init_declarator_list* p);
 void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* _Owner p_item);
 
-struct defer_list_item;
-
-struct defer_list
-{
-    struct defer_list_item* _Opt _Owner head;
-    struct defer_list_item* _Opt tail;
-};
 
 
 struct declaration

@@ -15876,6 +15876,14 @@ struct object object_shift_right(enum target target,
 
 
 struct parser_ctx;
+struct defer_list_item;
+
+struct defer_list
+{
+    struct defer_list_item* _Opt _Owner head;
+    struct defer_list_item* _Opt tail;
+};
+
 
 enum expression_eval_mode
 {
@@ -15907,7 +15915,7 @@ enum expression_type
     POSTFIX_DOT, // .
     POSTFIX_ARROW, // .
     POSTFIX_INCREMENT,
-    POSTFIX_DECREMENT,
+    POSTFIX_DECREMENT,    
 
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
@@ -15978,6 +15986,7 @@ enum expression_type
     ASSIGNMENT_EXPRESSION_OR_ASSIGN,
     ASSIGNMENT_EXPRESSION_NOT_ASSIGN,
                        
+    CHECKED_EXPRESSION,
 
     EXPRESSION_EXPRESSION,
 
@@ -16095,7 +16104,9 @@ struct expression
     bool is_assignment_expression;
 
     /*  used to check how contexpr can be used inside function literals */
-    bool lvalue_disabled;
+    bool lvalue_disabled;       
+
+    struct defer_list defer_list; //arguments
 };
 
 //built-in semantics
@@ -16103,6 +16114,9 @@ bool expression_is_malloc(const struct expression* p);
 bool expression_is_calloc(const struct expression* p);
 
 void expression_delete(struct expression* _Owner _Opt p);
+
+/*cake extension*/
+struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
 struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
@@ -16544,13 +16558,6 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
 void init_declarator_list_destroy(_Dtor struct init_declarator_list* p);
 void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* _Owner p_item);
 
-struct defer_list_item;
-
-struct defer_list
-{
-    struct defer_list_item* _Opt _Owner head;
-    struct defer_list_item* _Opt tail;
-};
 
 
 struct declaration
@@ -21024,7 +21031,7 @@ struct expression* _Owner _Opt logical_and_expression(struct parser_ctx* ctx, en
 struct expression* _Owner _Opt logical_or_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
-
+struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
 
 static int compare_function_arguments(struct parser_ctx* ctx,
@@ -21263,7 +21270,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         if (parser_match_tk(ctx, ':') != 0)
             throw;
 
-        struct expression* _Owner _Opt p_expression_temp = assignment_expression(ctx, eval_mode);
+        struct expression* _Owner _Opt p_expression_temp = checked_expression(ctx, eval_mode);
         if (p_expression_temp == NULL)
         {
             throw;
@@ -21460,7 +21467,7 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx, 
         }
         else
         {
-            p_generic_selection->expression = assignment_expression(ctx, eval_mode);
+            p_generic_selection->expression = checked_expression(ctx, eval_mode);
             if (p_generic_selection->expression == NULL)
                 throw;
         }
@@ -22739,7 +22746,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
         if (p_argument_expression == NULL)
             throw;
 
-        struct expression* _Owner _Opt p_assignment_expression = assignment_expression(ctx, eval_mode);
+        struct expression* _Owner _Opt p_assignment_expression = checked_expression(ctx, eval_mode);
         if (p_assignment_expression == NULL)
         {
             argument_expression_delete(p_argument_expression);
@@ -22767,7 +22774,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
             struct argument_expression* _Owner _Opt p_argument_expression_2 = calloc(1, sizeof * p_argument_expression_2);
             if (p_argument_expression_2 == NULL)
                 throw;
-            struct expression* _Owner _Opt p_assignment_expression_2 = assignment_expression(ctx, eval_mode);
+            struct expression* _Owner _Opt p_assignment_expression_2 = checked_expression(ctx, eval_mode);
             if (p_assignment_expression_2 == NULL)
             {
                 argument_expression_delete(p_argument_expression_2);
@@ -23423,19 +23430,11 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
             p_expression_node->braced_initializer = braced_initializer(ctx);
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
-            //TODO
-
-            if (p_expression_node->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
+            int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
+            if (er != 0)
             {
-            }
-            else
-            {
-                int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
-                if (er != 0)
-                {
-                    compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
-                    throw;
-                }
+                compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
+                throw;
             }
 
             const bool is_constant = type_is_const_or_constexpr(&p_expression_node->type);
@@ -23475,6 +23474,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
     type_name_delete(p_type_name);
     return p_expression_node;
 }
+
 
 struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
@@ -26721,7 +26721,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
                                             "lvalue required as left operand of assignment");
             }
 
-            new_expression->right = assignment_expression(ctx, eval_mode);
+            new_expression->right = checked_expression(ctx, eval_mode);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
@@ -26750,6 +26750,74 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
             if (new_expression->left->left)
                 new_expression->left->left->is_assignment_expression = true;
             p_expression_node = new_expression;
+        }
+    }
+    catch
+    {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
+    }
+
+    return p_expression_node;
+}
+
+/*cake extension*/
+struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
+{
+    /*
+       checked-expression:
+          assignment_expression !
+    */
+
+    struct expression* _Owner _Opt p_expression_node = NULL;
+    try
+    {
+        p_expression_node = assignment_expression(ctx, eval_mode);
+        if (p_expression_node == NULL)
+            throw;
+
+        assert(p_expression_node->expression_type != EXPRESSION_TYPE_INVALID);
+
+        if (ctx->current != NULL && (ctx->current->type == '!'))
+        {
+            //const struct token* const op_token = ctx->current;
+            
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (ctx->p_current_try_statement_opt == NULL)
+            {
+                compiler_diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "checked expression not within try-catch block");
+                throw;
+            }
+
+            if (!type_is_scalar(&p_expression_node->type))
+            {
+                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->left->first_token, NULL, "left operator is not scalar");
+            }
+
+            struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+            if (p_expression_node_new == NULL) throw;
+
+
+            p_expression_node_new->first_token = ctx->current;
+            p_expression_node_new->expression_type = CHECKED_EXPRESSION;
+
+            p_expression_node_new->type = type_dup(&p_expression_node->type);
+            parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                expression_delete(p_expression_node_new);
+                p_expression_node_new = NULL;
+                throw;
+            }
+
+            p_expression_node_new->left = p_expression_node;
+            p_expression_node = p_expression_node_new;            
         }
     }
     catch
@@ -26851,7 +26919,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
             throw;
         }
 
-        p_expression_node = assignment_expression(ctx, eval_mode);
+        p_expression_node = checked_expression(ctx, eval_mode);
         if (p_expression_node == NULL)
             throw;
 
@@ -29108,7 +29176,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.12.89"
+#define CAKE_VERSION "0.13.01"
 
 
 
@@ -29180,6 +29248,7 @@ struct d_visit_ctx
     } break_reference;
 
     bool is__func__predefined_identifier_added;
+    struct try_statement* p_current_try_statement;
 
     _View struct ast ast;    
 };
@@ -35191,7 +35260,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
 
         if (has_static)
         {
-            p_array_declarator->assignment_expression = assignment_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_array_declarator->assignment_expression = checked_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
             if (p_array_declarator->assignment_expression == NULL)
                 throw;
@@ -35212,7 +35281,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
             else if (ctx->current->type != ']')
             {
                 p_array_declarator->assignment_expression =
-                    assignment_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                    checked_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
                 if (p_array_declarator->assignment_expression == NULL)
                     throw;
@@ -36166,7 +36235,7 @@ struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx, enum express
         }
         else
         {
-            p_initializer->assignment_expression = assignment_expression(ctx, eval_mode);
+            p_initializer->assignment_expression = checked_expression(ctx, eval_mode);
             if (p_initializer->assignment_expression == NULL) throw;
         }
     }
@@ -42735,6 +42804,7 @@ static void defer_visit_statement(struct defer_visit_ctx* ctx, struct statement*
 static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_item* p_block_item);
 static void defer_visit_compound_statement(struct defer_visit_ctx* ctx, struct compound_statement* p_compound_statement);
 static void defer_visit_unlabeled_statement(struct defer_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
+static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expression* p_expression);
 
 static struct defer_scope* _Opt defer_visit_ctx_push_child(struct defer_visit_ctx* ctx)
 {
@@ -42850,6 +42920,13 @@ static void defer_visit_defer_statement(struct defer_visit_ctx* ctx, struct defe
 static void defer_visit_init_declarator(struct defer_visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     defer_visit_declarator(ctx, p_init_declarator->p_declarator);
+    if (p_init_declarator->initializer)
+    {
+        if (p_init_declarator->initializer->assignment_expression)
+        {
+            defer_visit_expression(ctx, p_init_declarator->initializer->assignment_expression);
+        }
+    }
 }
 
 static void defer_visit_simple_declaration(struct defer_visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
@@ -43455,6 +43532,47 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
 
     switch (p_expression->expression_type)
     {
+    case CHECKED_EXPRESSION:
+    {
+        /*similar of throw TODO make a function?*/
+        try
+        {
+            struct defer_scope* _Opt p = ctx->tail_block;
+            while (p)
+            {
+                if (p->p_try_statement)
+                    break;
+
+                if (p->p_declarator)
+                {
+                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    if (item == NULL) throw;
+
+                    item->declarator = p->p_declarator;
+                    defer_list_add(&p_expression->defer_list, item);
+
+                }
+                else if (p->p_defer_statement)
+                {
+                    struct defer_list_item* item = calloc(1, sizeof * item);
+                    if (item == NULL) throw;
+
+                    item->defer_statement = p->p_defer_statement;
+                    defer_list_add(&p_expression->defer_list, item);
+                }
+                if (p->p_defer_block)
+                {
+                    compiler_diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "is jumping out of defer");
+                }
+                p = p->previous;
+            }
+        }
+        catch
+        {
+        }
+    }
+    break;
+
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
     {
         assert(p_expression->compound_statement != NULL);
@@ -44370,6 +44488,53 @@ static void vm_emit_countof_expr(struct d_visit_ctx* ctx,
 
 static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, struct expression* p_expression)
 {
+
+    if (p_expression->expression_type == CHECKED_EXPRESSION)
+    {
+
+        struct osstream add_this_before = { 0 };
+
+        char name[100] = { 0 };
+        snprintf(name, sizeof name, CAKE_LOCAL_PREFIX "%d",
+                 ctx->cake_local_declarator_number++);
+
+        struct osstream decl = { 0 };
+        print_identation_core(&decl, ctx->indentation);
+        d_print_type(ctx, &decl,
+                     &p_expression->type, name, false);
+        ss_fprintf(&decl, ";\n");
+        ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+        ss_close(&decl);
+
+
+        print_identation_core(&add_this_before, ctx->indentation);
+        ss_fprintf(&add_this_before, "%s = ", name);
+        d_visit_expression(ctx, &add_this_before, p_expression->left);
+        ss_fprintf(&add_this_before, ";\n");
+
+        //ctx->break_reference.p_iteration_statement->
+        if (ctx->p_current_try_statement)
+        {
+            print_identation_core(&add_this_before, ctx->indentation);
+            ss_fprintf(&add_this_before, "if (!%s)\n", name);
+            print_identation_core(&add_this_before, ctx->indentation);
+            ss_fprintf(&add_this_before, "{\n");
+
+            ctx->indentation++;
+
+            il_print_defer_list(ctx, &add_this_before, &p_expression->defer_list);
+            print_identation_core(&add_this_before, ctx->indentation);
+            ss_fprintf(&add_this_before, "goto " CAKE_PREFIX_LABEL "%d;\n", ctx->p_current_try_statement->catch_label_id);
+            ctx->indentation--;
+
+            print_identation_core(&add_this_before, ctx->indentation);
+            ss_fprintf(&add_this_before, "}\n");           
+        }
+        ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
+        ss_fprintf(oss, "%s", name);
+
+        return;
+    }
 
     if (!ctx->address_of_argument &&
         p_expression->expression_type != PRIMARY_EXPRESSION_STATEMENT_EXPRESSION &&
@@ -45322,7 +45487,69 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         if (p_expression->left == NULL)
         {
-            if (expression_has_side_effects(p_expression->condition_expr))
+            const bool cond_is_stmtexpr =
+                p_expression->condition_expr->expression_type ==
+                PRIMARY_EXPRESSION_STATEMENT_EXPRESSION;
+            const bool right_is_stmtexpr =
+                p_expression->right->expression_type ==
+                PRIMARY_EXPRESSION_STATEMENT_EXPRESSION;
+
+            if (cond_is_stmtexpr || right_is_stmtexpr)
+            {
+                struct osstream add_this_before = { 0 };
+
+                char name[100] = { 0 };
+                snprintf(name, sizeof name, CAKE_LOCAL_PREFIX "%d",
+                         ctx->cake_local_declarator_number++);
+
+                struct osstream decl = { 0 };
+                print_identation_core(&decl, ctx->indentation);
+                d_print_type(ctx, &decl,
+                             &p_expression->condition_expr->type, name, false);
+                ss_fprintf(&decl, ";\n");
+                ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+                ss_close(&decl);
+
+                if (cond_is_stmtexpr)
+                {
+                    assert(p_expression->condition_expr->compound_statement != NULL);
+                    struct osstream stmtexpr_body = { 0 };
+                    d_visit_compound_statement_2(name, ctx, &stmtexpr_body,
+                                                 p_expression->condition_expr->compound_statement);
+                    ss_fprintf(&ctx->add_this_before, "%s", stmtexpr_body.c_str);
+                    ss_close(&stmtexpr_body);
+                }
+                else
+                {
+                    print_identation_core(&add_this_before, ctx->indentation);
+                    ss_fprintf(&add_this_before, "%s = ", name);
+                    d_visit_expression(ctx, &add_this_before, p_expression->condition_expr);
+                    ss_fprintf(&add_this_before, ";\n");
+                }
+
+                if (right_is_stmtexpr)
+                {
+                    print_identation_core(&add_this_before, ctx->indentation);
+                    ss_fprintf(&add_this_before, "if (!%s)\n", name);
+
+                    assert(p_expression->right->compound_statement != NULL);
+                    struct osstream right_body = { 0 };
+                    d_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
+                    ss_fprintf(&add_this_before, "%s", right_body.c_str);
+                    ss_close(&right_body);
+                }
+                else
+                {
+                    print_identation_core(&add_this_before, ctx->indentation);
+                    ss_fprintf(&add_this_before, "if (!%s) %s = ", name, name);
+                    d_visit_expression(ctx, &add_this_before, p_expression->right);
+                    ss_fprintf(&add_this_before, ";\n");
+                }
+
+                ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
+                ss_fprintf(oss, "%s", name);
+            }
+            else if (expression_has_side_effects(p_expression->condition_expr))
             {
                 char name[100] = { 0 };
                 snprintf(name, sizeof name, CAKE_LOCAL_PREFIX "%d",
@@ -45343,6 +45570,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 ss_fprintf(&ctx->add_this_before, ";\n");
 
                 ss_fprintf(oss, "%s ? %s : ", name, name);
+                d_visit_expression(ctx, oss, p_expression->right);
             }
             else
             {
@@ -45351,6 +45579,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 ss_fprintf(oss, " ? ");
                 d_visit_expression(ctx, oss, p_expression->condition_expr);
                 ss_fprintf(oss, " : ");
+                d_visit_expression(ctx, oss, p_expression->right);
             }
         }
         else
@@ -45359,8 +45588,9 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ss_fprintf(oss, " ? ");
             d_visit_expression(ctx, oss, p_expression->left);
             ss_fprintf(oss, " : ");
+            d_visit_expression(ctx, oss, p_expression->right);
         }
-        d_visit_expression(ctx, oss, p_expression->right);
+
         break;
     }
 }
@@ -45896,6 +46126,8 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
 static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
+    struct try_statement* p_old_try_statement = ctx->p_current_try_statement;
+    ctx->p_current_try_statement = p_try_statement;
     print_identation(ctx, oss);
 
     if (p_try_statement->first_token->type == TK_KEYWORD_CAKE_TRY)
@@ -45930,6 +46162,9 @@ static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss,
     {
         d_visit_secondary_block(ctx, oss, p_try_statement->catch_secondary_block_opt);
     }
+
+    ctx->p_current_try_statement = p_old_try_statement;
+
 }
 
 static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct primary_block* p_primary_block)
@@ -53637,6 +53872,13 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
 
             return p_object;
         }
+        else if (p_expression->expression_type == CHECKED_EXPRESSION)
+        {           
+            struct flow_object* _Opt p_object = make_flow_object(ctx, &p_expression->type, NULL, p_expression);
+            if (p_object == NULL) throw;
+            p_object->current.state = FLOW_OBJECT_STATE_NOT_ZERO;
+            return p_object;
+        }
         else if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL ||
                  p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
         {
@@ -55628,7 +55870,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         true_false_set_push_back(expr_true_false_set, &item);
     }
     break;
-
+    
     case POSTFIX_ARROW:
     {
         assert(p_expression->left != NULL);
@@ -55897,6 +56139,17 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         true_false_set_invert(expr_true_false_set);
+        break;
+
+    case CHECKED_EXPRESSION:
+        //state before throw
+        arena_merge_current_state_with_state_number(ctx, ctx->throw_join_state);
+
+        assert(p_expression->left != NULL);
+        flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
+
+        flow_exit_block_visit_defer_list(ctx, &p_expression->defer_list, p_expression->first_token);
+
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
@@ -57709,9 +57962,6 @@ void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p)
 {
     flow_objects_destroy(&p->arena);
 }
-
-
-
 
 /*
  *  This file is part of cake compiler
@@ -59595,6 +59845,7 @@ bool type_is_union(const struct type* p_type)
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
+    
     if (p_type->struct_or_union_specifier == NULL)
         return false;
 
@@ -62414,7 +62665,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
           but we also need to delete the memory
         */
         free(list.head);
-
+                
         type_set_storage_specifiers_using_declarator(&r, pdeclarator);
         type_set_msvc_declspec_using_declarator(&r, pdeclarator);
         type_set_alignment_specifier_flags_using_declarator(&r, pdeclarator);

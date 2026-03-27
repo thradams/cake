@@ -938,6 +938,7 @@ bool type_is_union(const struct type* p_type)
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
+    
     if (p_type->struct_or_union_specifier == NULL)
         return false;
 
@@ -3757,7 +3758,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
           but we also need to delete the memory
         */
         free(list.head);
-
+                
         type_set_storage_specifiers_using_declarator(&r, pdeclarator);
         type_set_msvc_declspec_using_declarator(&r, pdeclarator);
         type_set_alignment_specifier_flags_using_declarator(&r, pdeclarator);

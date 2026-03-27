@@ -6041,7 +6041,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
 
         if (has_static)
         {
-            p_array_declarator->assignment_expression = assignment_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+            p_array_declarator->assignment_expression = checked_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
             if (p_array_declarator->assignment_expression == NULL)
                 throw;
@@ -6062,7 +6062,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
             else if (ctx->current->type != ']')
             {
                 p_array_declarator->assignment_expression =
-                    assignment_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+                    checked_expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
                 if (p_array_declarator->assignment_expression == NULL)
                     throw;
@@ -7016,7 +7016,7 @@ struct initializer* _Owner _Opt initializer(struct parser_ctx* ctx, enum express
         }
         else
         {
-            p_initializer->assignment_expression = assignment_expression(ctx, eval_mode);
+            p_initializer->assignment_expression = checked_expression(ctx, eval_mode);
             if (p_initializer->assignment_expression == NULL) throw;
         }
     }

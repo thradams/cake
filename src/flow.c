@@ -3344,6 +3344,13 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
 
             return p_object;
         }
+        else if (p_expression->expression_type == CHECKED_EXPRESSION)
+        {           
+            struct flow_object* _Opt p_object = make_flow_object(ctx, &p_expression->type, NULL, p_expression);
+            if (p_object == NULL) throw;
+            p_object->current.state = FLOW_OBJECT_STATE_NOT_ZERO;
+            return p_object;
+        }
         else if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL ||
                  p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
         {
@@ -5335,7 +5342,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         true_false_set_push_back(expr_true_false_set, &item);
     }
     break;
-
+    
     case POSTFIX_ARROW:
     {
         assert(p_expression->left != NULL);
@@ -5604,6 +5611,17 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
         flow_visit_expression(ctx, p_expression->right, expr_true_false_set);
         true_false_set_invert(expr_true_false_set);
+        break;
+
+    case CHECKED_EXPRESSION:
+        //state before throw
+        arena_merge_current_state_with_state_number(ctx, ctx->throw_join_state);
+
+        assert(p_expression->left != NULL);
+        flow_visit_expression(ctx, p_expression->left, expr_true_false_set);
+
+        flow_exit_block_visit_defer_list(ctx, &p_expression->defer_list, p_expression->first_token);
+
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
@@ -7416,5 +7434,3 @@ void flow_visit_ctx_destroy(_Dtor struct flow_visit_ctx* p)
 {
     flow_objects_destroy(&p->arena);
 }
-
-

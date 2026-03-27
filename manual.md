@@ -2402,6 +2402,63 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
+### checked expressions
+
+#### Syntax
+
+```
+  checked-expression:
+     assignment-expression
+     assignment-expression !
+```
+
+The checked expression evaluates its operand expression. 
+If the result compares equal to zero, we jump to a catch block.
+Otherwise, the value of the operand is returned unchanged.
+
+This operator can be applied to any scalar expression, including integers 
+and pointers.
+
+```c
+int f();
+int* get_ptr();
+
+int main()
+{
+    try {
+
+      int i = f()!;
+
+      int *p = get_ptr()!;
+      int a = 1, b = 0;
+      int x = (a + b)!;
+    }
+    catch {
+    }
+}
+```
+<button onclick="Try(this)">try</button>
+
+```c
+#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
+
+int main() {
+    try
+    {
+      void * _Owner p = malloc(1)!;
+      free(p);
+    }
+    catch{
+
+    }
+}
+
+```
+<button onclick="Try(this)">try</button>
+
 ### \#pragma dir  
 
 ```c 

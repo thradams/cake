@@ -63,6 +63,7 @@ struct d_visit_ctx
     } break_reference;
 
     bool is__func__predefined_identifier_added;
+    struct try_statement* p_current_try_statement;
 
     _View struct ast ast;    
 };
