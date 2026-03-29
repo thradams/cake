@@ -204,7 +204,7 @@ static int asm_get_local_offset(struct asm_visit_ctx* ctx, const char* name)
     struct map_entry* _Opt p = hashmap_find(&ctx->local_vars, name);
     if (p != NULL)
     {
-        return p->data.number;
+        return (int) p->data.number;
     }
     /* Should not happen - variable not found */
     assert(false);
@@ -255,7 +255,7 @@ static int asm_emit_string_literal(struct asm_visit_ctx* ctx, struct token* firs
         struct map_entry* _Opt p = hashmap_find(&ctx->string_literals_map, content.c_str);
         if (p != NULL)
         {
-            int label = p->data.number;
+            int label = (int) p->data.number;
             ss_close(&content);
             return label;
         }

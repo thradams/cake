@@ -1533,7 +1533,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             object_list_push(&p_expression_node->object.members, p_new);
 
             enum type_qualifier_flags lit_flags = ctx->options.const_literal ? TYPE_QUALIFIER_CONST : TYPE_QUALIFIER_NONE;
-            p_expression_node->type = type_make_literal_string(p_expression_node->object.members.count, char_type_specifiers, lit_flags, ctx->options.target);
+            p_expression_node->type = type_make_literal_string((int)p_expression_node->object.members.count, char_type_specifiers, lit_flags, ctx->options.target);
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
@@ -2444,7 +2444,10 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
             p_expression_node->braced_initializer = braced_initializer(ctx);
+
+            type_destroy(&p_expression_node->type);
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
+
             int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
             if (er != 0)
             {
@@ -5776,10 +5779,10 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
     return p_expression_node;
 }
 
-/*cake extension*/
 struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
+       CAKE EXTENSION
        checked-expression:
           assignment_expression !
     */
@@ -5793,46 +5796,33 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum e
 
         assert(p_expression_node->expression_type != EXPRESSION_TYPE_INVALID);
 
-        if (ctx->current != NULL && (ctx->current->type == '!'))
+        if (ctx->current == NULL)
         {
-            //const struct token* const op_token = ctx->current;
-            
-            if (ctx->current == NULL)
-            {
-                unexpected_end_of_file(ctx);
-                throw;
-            }
+            unexpected_end_of_file(ctx);
+            throw;
+        }
 
+        if (ctx->current->type == '!')
+        {
             if (ctx->p_current_try_statement_opt == NULL)
             {
                 compiler_diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "checked expression not within try-catch block");
-                throw;
             }
 
             if (!type_is_scalar(&p_expression_node->type))
             {
-                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->left->first_token, NULL, "left operator is not scalar");
+                compiler_diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->first_token, NULL, "left operator is not scalar");
             }
 
             struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
             if (p_expression_node_new == NULL) throw;
 
-
             p_expression_node_new->first_token = ctx->current;
             p_expression_node_new->expression_type = CHECKED_EXPRESSION;
-
             p_expression_node_new->type = type_dup(&p_expression_node->type);
             parser_match(ctx);
-            if (ctx->current == NULL)
-            {
-                unexpected_end_of_file(ctx);
-                expression_delete(p_expression_node_new);
-                p_expression_node_new = NULL;
-                throw;
-            }
-
             p_expression_node_new->left = p_expression_node;
-            p_expression_node = p_expression_node_new;            
+            p_expression_node = p_expression_node_new;
         }
     }
     catch

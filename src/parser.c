@@ -11261,10 +11261,6 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         scope_list_push(&ctx->scopes, &file_scope);
 
         const char* builtin = target_get_builtins(ctx->options.target);
-        if (builtin == NULL)
-        {
-            throw;
-        }
 
         builtin_tokens = tokenizer(&tctx, builtin, "builtins", 0, TK_FLAG_NONE);
         built = preprocessor(&prectx, &builtin_tokens, 0);
@@ -11725,7 +11721,7 @@ static struct object* _Opt find_last_suboject_of_suboject(struct type* p_type_no
 
 static struct object* _Opt find_next_subobject_old(struct type* p_top_object_not_used,
     struct object* current_object,
-    struct object* it,
+    struct object* _Opt it,
     struct type* p_type_out,
     bool* sub_object_of_union)
 {

@@ -2591,7 +2591,7 @@ static int vm_collect_dims(struct d_visit_ctx* ctx,
             if (r)
             {
                 dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
-                dims[count].snap_num = num;
+                dims[count].snap_num = (int)num;
             }
             else
             {
