@@ -2209,6 +2209,8 @@ static void asm_visit_function_body(struct asm_visit_ctx* ctx, struct osstream* 
     emit_line(oss, "leave");
     emit_line(oss, "ret");
 
+    type_destroy(&func_type);
+
     ctx->p_current_function_opt = previous_func;
     ctx->is_in_function = (previous_func != NULL);
 }

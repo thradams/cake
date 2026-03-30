@@ -83,6 +83,13 @@ int main(int argc, char** argv)
     struct report report = { 0 };
     int result = compile(argc, (const char**)argv, &report);
 
+#ifdef _CRTDBG_MAP_ALLOC
+    if (_CrtDumpMemoryLeaks())
+    {
+        printf("******* Memory leaks **********************\n");        
+    }
+#endif
+
     return result;
 }
 

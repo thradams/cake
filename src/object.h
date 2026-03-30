@@ -174,15 +174,6 @@ struct object* object_get_non_const_referenced(struct object* p_object);
 
 
 
-struct objects
-{
-    struct object** _Opt items;
-    int size;
-    int capacity;
-};
-
-void objects_destroy(struct objects* arr);
-int objects_push(struct objects* arr, struct object* obj); // returns 0 on success, ENOMEM on alloc fail
 
 void object_print_value(struct osstream* ss, const struct object* a, enum target target);
 

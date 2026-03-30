@@ -183,6 +183,7 @@ int main()
     execute_cmd(CC CAKE_SOURCE_FILES
 
 #if defined DEBUG
+               " /D_CRTDBG_MAP_ALLOC " /*leak detector */
                " /Od /MDd /RTC1 "
                " /Dstrdup=_strdup" /*nao linka em release*/
 #else                              // RELEASE
@@ -216,7 +217,11 @@ int main()
 
                " /link "
                " /NODEFAULTLIB "
+#if defined DEBUG
+               " ucrtd.lib vcruntimed.lib msvcrtd.lib "
+#else
                " ucrt.lib vcruntime.lib msvcrt.lib "
+#endif
                " Kernel32.lib User32.lib Advapi32.lib"
                " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
                " /out:cake.exe ");

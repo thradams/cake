@@ -36,6 +36,7 @@
                     final, the one seen by the parser.
 
 */
+#pragma safety enable
 
 #include "ownership.h"
 #include <ctype.h>
@@ -751,6 +752,7 @@ void macro_parameters_delete(struct macro_parameter* _Owner _Opt parameters)
     {
         struct macro_parameter* _Owner _Opt p_next = p->next;
         free((void* _Owner)p->name);
+        token_list_destroy(&p->expanded_list);
         free(p);
         p = p_next;
     }
@@ -2557,7 +2559,12 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, _Dtor struct
     }
     catch
     {
+        token_list_destroy(list);
     }
+    
+    assert(list->head == NULL);
+    assert(list->tail == NULL);
+
     return list2;
 }
 
@@ -4751,6 +4758,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                         token_list_swap(&p_argument->macro_parameter->expanded_list, &r4);
                         token_list_destroy(&r4);
                         p_argument->macro_parameter->already_expanded = true;
+                        token_list_destroy(&copy_list);
                     }
 
                     //Use the previous expansion
@@ -6805,10 +6813,10 @@ void show_all(struct token* p_token)
 
 void print_preprocessed_to_file(struct token* p_token, const char* filename)
 {
-    FILE* f = fopen(filename, "r");
+    FILE* _Owner _Opt f = fopen(filename, "r");
     if (f)
     {
-        const char* s = print_preprocessed_to_string(p_token);
+        const char* _Owner _Opt s = print_preprocessed_to_string(p_token);
         if (s)
         {
             fprintf(f, "%s", s);

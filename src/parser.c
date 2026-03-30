@@ -1779,12 +1779,8 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 p_declaration_specifiers->p_attribute_specifier_sequence = NULL;//
             }
 
-            if (p_declaration_specifiers->p_attribute_specifier_sequence == NULL)
-            {
-                free(p_declaration_specifiers->p_attribute_specifier_sequence);
-                p_declaration_specifiers->p_attribute_specifier_sequence = NULL;
-            }
 
+            attribute_specifier_sequence_delete(p_declaration_specifiers->p_attribute_specifier_sequence);
             p_declaration_specifiers->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
 
@@ -2173,7 +2169,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 throw;
 
             }
-            struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
             struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_declarator;
 
@@ -2265,24 +2260,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             {
                 struct defer_visit_ctx ctx2 = { .ctx = ctx };
                 defer_start_visit_declaration(&ctx2, p_declaration);
-                defer_visit_ctx_destroy(&ctx2);
-
-
-                if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
-                {
-                    /*
-                     Now we have the full function AST let´s visit to Analise
-                     jumps
-                    */
-
-                    /* visiting the function again; restore the same diagnostic state */
-                    ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
-
-                    struct flow_visit_ctx ctx3 = { 0 };
-                    ctx3.ctx = ctx;
-                    flow_start_visit_declaration(&ctx3, p_declaration);
-                    flow_visit_ctx_destroy(&ctx3);
-                }
+                defer_visit_ctx_destroy(&ctx2);                
             }
 
         }
@@ -2308,6 +2286,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
         p_declaration = NULL;
     }
 
+    assert(p_attribute_specifier_sequence == NULL);
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_declaration;
 
 }
@@ -2322,7 +2302,8 @@ void declaration_specifier_delete(struct declaration_specifier* _Owner _Opt p)
     {
         free(p->function_specifier);
         type_specifier_qualifier_delete(p->type_specifier_qualifier);
-        free(p->storage_class_specifier);
+        storage_class_specifier_delete(p->storage_class_specifier);
+        alignment_specifier_delete(p->alignment_specifier);
         assert(p->next == NULL);
         free(p);
     }
@@ -2424,6 +2405,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 false,
                 &tkname);
             if (p_temp_declarator == NULL) throw;
+            assert(p_init_declarator->p_declarator == NULL);
             p_init_declarator->p_declarator = p_temp_declarator;
         }
 
@@ -4243,11 +4225,11 @@ struct member_declarator* _Owner _Opt member_declarator(
 
             throw;
         }
-        
+
         if (type_is_vm(&p_member_declarator->declarator->type))
         {
             /*
-              A member of a structure or union may have any complete 
+              A member of a structure or union may have any complete
               object type other than a variably modified type
             */
 
@@ -5659,6 +5641,9 @@ void declarator_delete(struct declarator* _Owner _Opt p)
         type_destroy(&p->type);
         direct_declarator_delete(p->direct_declarator);
         pointer_delete(p->pointer);
+        object_destroy(&p->object);
+        expression_delete(p->p_expression_true);
+        expression_delete(p->p_expression_false);
         free(p);
     }
 }
@@ -5729,14 +5714,14 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
             int var __asm__("real_name_in_asm");
             void func(void) __asm__("real_func_name");
         */
-        struct asm_statement* p3 = gcc_asm(ctx, false);
+        struct asm_statement* _Opt _Owner p3 = gcc_asm(ctx, false);
         asm_statement_delete(p3);
     }
 
     return p_declarator;
 }
 
-struct function_declarator* declarator_find_function_declarator(const struct declarator* p_declarator)
+struct function_declarator* _Opt declarator_find_function_declarator(const struct declarator* p_declarator)
 {
 
     if (p_declarator->direct_declarator)
@@ -6591,7 +6576,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
 
         if (p_parameter_declaration->declarator->name_opt)
         {
-            free((void*)p_parameter_declaration->declarator->object.member_designator);
+            free((void* _Owner)p_parameter_declaration->declarator->object.member_designator);
             p_parameter_declaration->declarator->object.member_designator = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
         }
 
@@ -7466,14 +7451,17 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 const bool is_error = strcmp(p_pragma_token->lexeme, "error") == 0;
                 const bool is_warning = strcmp(p_pragma_token->lexeme, "warning") == 0;
                 const bool is_note = strcmp(p_pragma_token->lexeme, "note") == 0;
+                const bool is_ignored = strcmp(p_pragma_token->lexeme, "ignored") == 0;
 
                 p_pragma_token = pragma_declaration_match(p_pragma_token);
                 if (p_pragma_token == NULL)
                     throw;
 
                 if (p_pragma_token->type != TK_STRING_LITERAL)
+                {
+                    compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "string expected");
                     throw;
-
+                }
                 const unsigned long long w = atoi(p_pragma_token->lexeme + 2); /* sample "C0004"*/
 
                 if (is_error)
@@ -7482,6 +7470,12 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                     options_set_warning(&ctx->options, w, true);
                 else if (is_note)
                     options_set_note(&ctx->options, w, true);
+                else if (is_ignored)
+                {
+                    options_set_error(&ctx->options, w, false);
+                    options_set_warning(&ctx->options, w, false);
+                    options_set_note(&ctx->options, w, false);
+                }
             }
             else
             {
@@ -7874,7 +7868,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                     if (ctx->options.target == TARGET_X86_X64_GCC)
                     {
                         /*GCC also uses asm as attribute*/
-                        struct asm_statement _Owner _Opt* p3 = gcc_asm(ctx, false);
+                        struct asm_statement* _Owner _Opt p3 = gcc_asm(ctx, false);
                         asm_statement_delete(p3);
                     }
                 }
@@ -8357,7 +8351,7 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
 
             if (ctx->current->type != TK_COMMA)
             {
-                struct balanced_token* new_token = calloc(1, sizeof(struct balanced_token));
+                struct balanced_token* _Opt _Owner new_token = calloc(1, sizeof(struct balanced_token));
                 if (new_token == NULL) throw;
 
                 new_token->token = ctx->current;
@@ -8604,6 +8598,7 @@ void primary_block_delete(struct primary_block* _Owner _Opt p)
         iteration_statement_delete(p->iteration_statement);
         selection_statement_delete(p->selection_statement);
         try_statement_delete(p->try_statement);
+        asm_statement_delete(p->asm_statement);
         free(p);
     }
 }
@@ -8634,6 +8629,7 @@ void unlabeled_statement_delete(struct unlabeled_statement* _Owner _Opt p)
         jump_statement_delete(p->jump_statement);
         primary_block_delete(p->primary_block);
         defer_statement_delete(p->defer_statement);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
         free(p);
     }
 }
@@ -8835,6 +8831,7 @@ void label_delete(struct label* _Owner _Opt p)
 {
     if (p)
     {
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
         expression_delete(p->constant_expression);
         free(p);
     }
@@ -9113,6 +9110,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         label_delete(p_label);
         p_label = NULL;
     }
+    assert(p_attribute_specifier_sequence == NULL);
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_label;
 }
@@ -9248,6 +9246,7 @@ void compound_statement_delete(struct compound_statement* _Owner _Opt p)
 {
     if (p)
     {
+        defer_list_destroy(&p->defer_list);
         block_item_list_destroy(&p->block_item_list);
         free(p);
     }
@@ -9945,6 +9944,7 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
 
         condition_delete(p->condition);
         init_statement_delete(p->p_init_statement);
+        defer_list_destroy(&p->defer_list);
         free(p);
     }
 }
@@ -10319,6 +10319,7 @@ void iteration_statement_delete(struct iteration_statement* _Owner _Opt p)
         expression_delete(p->expression2);
         declaration_delete(p->declaration);
         secondary_block_delete(p->secondary_block);
+        defer_list_destroy(&p->defer_list);
         free(p);
     }
 }
@@ -10555,6 +10556,7 @@ void jump_statement_delete(struct jump_statement* _Owner _Opt p)
 {
     if (p)
     {
+        defer_list_destroy(&p->defer_list);
         expression_delete(p->expression_opt);
         free(p);
     }
@@ -10998,6 +11000,7 @@ void declaration_delete(struct declaration* _Owner _Opt p)
         pragma_declaration_delete(p->pragma_declaration);
 
         init_declarator_list_destroy(&p->init_declarator_list);
+        defer_list_destroy(&p->defer_list);
         assert(p->next == NULL);
         free(p);
     }
@@ -11038,7 +11041,7 @@ static void check_unused_static_declarators(struct parser_ctx* ctx, struct decla
                        }
                        num_uses if incremented only at the pointer returned by find_variables
                     */
-                    struct declarator* p_declarator_local = NULL;
+                    struct declarator* _Opt p_declarator_local = NULL;
                     if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
                     {
                         p_declarator_local = p_entry->data.p_init_declarator->p_declarator;
@@ -11105,7 +11108,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
                 /*
                   __asm__(".globl my_symbol\nmy_symbol:");
                 */
-                struct asm_statement* p3 = gcc_asm(ctx, true);
+                struct asm_statement* _Opt _Owner p3 = gcc_asm(ctx, true);
                 asm_statement_delete(p3);
             }
 
@@ -11121,6 +11124,25 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
     {
         *berror = true;
     }
+        
+    if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
+    {
+        struct declaration* _Opt it = declaration_list.head;
+        while (it)
+        {
+            struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
+
+            struct flow_visit_ctx ctx3 = { 0 };
+            ctx3.ctx = ctx;
+            flow_start_visit_declaration(&ctx3, it);
+            flow_visit_ctx_destroy(&ctx3);
+
+            /* visiting the function again; restore the same diagnostic state */
+            ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
+            it = it->next;
+        }         
+    }
+
     return declaration_list;
 }
 
@@ -11289,8 +11311,8 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         *berror = true;
     }
     scope_destroy(&file_scope);
-    //token_list_destroy(&builtin_tokens);
-    //token_list_destroy(&built);
+    token_list_destroy(&builtin_tokens);
+    token_list_destroy(&built);
 
     return l;
 }

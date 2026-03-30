@@ -939,6 +939,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
 
         object_destroy(&p_expression_node->object);
+        p_expression_node->object = (struct object){0};
 
         if (suffix_none)
         {
@@ -1243,7 +1244,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 assert(p_entry->data.p_enumerator != NULL);
                 struct enumerator* p_enumerator = p_entry->data.p_enumerator;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
-                p_expression_node->object = p_enumerator->value;
+                p_expression_node->object = object_dup(&p_enumerator->value);
 
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
             }
@@ -1624,7 +1625,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
             {
                 p_expression_node->type = type_dup(&p_expression_node->generic_selection->p_view_selected_expression->type);
 
-                p_expression_node->object = p_expression_node->generic_selection->p_view_selected_expression->object;
+                p_expression_node->object = object_dup(&p_expression_node->generic_selection->p_view_selected_expression->object);
             }
             else
             {
@@ -1690,7 +1691,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 if (p_last_expression)
                 {
                     p_expression_node->type = type_dup(&p_last_expression->type);
-                    p_expression_node->object = p_last_expression->object;
+                    p_expression_node->object = object_dup(&p_last_expression->object);
                 }
                 else
                 {
@@ -1704,7 +1705,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                     throw;
 
                 p_expression_node->type = type_dup(&p_expression_node->right->type);
-                p_expression_node->object = p_expression_node->right->object;
+                p_expression_node->object = object_dup(&p_expression_node->right->object);
             }
 
             if (ctx->current == NULL)
@@ -2459,7 +2460,7 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
 
             object_default_initialization(&p_expression_node->object, is_constant);
 
-            struct initializer initializer = { 0 };
+            _View struct initializer initializer = { 0 };
             initializer.braced_initializer = p_expression_node->braced_initializer;
             initializer.first_token = p_expression_node->first_token;
 
@@ -2472,7 +2473,6 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
                          is_constant,
                          requires_constant_initialization);
 
-            /* initializer_destroy(&initializer); */
         }
 
         if (ctx->previous == NULL)
@@ -2798,8 +2798,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     object_has_constant_value(&new_expression->right->object))
                 {
 
-                    new_expression->object =
-                        object_logical_not(ctx->options.target, &new_expression->right->object, warning_message);
+                    new_expression->object = object_logical_not(ctx->options.target, &new_expression->right->object, warning_message);
                 }
                 new_expression->type = type_make_int_bool_like();
             }
@@ -2834,8 +2833,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                   object_has_constant_value(&new_expression->right->object))
                 {
 
-                    new_expression->object =
-                        object_bitwise_not(ctx->options.target, &new_expression->right->object, warning_message);
+                    new_expression->object = object_bitwise_not(ctx->options.target, &new_expression->right->object, warning_message);
                 }
             }
             else if (op == '-' || op == '+')
@@ -2859,8 +2857,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     }
                     else if (op == '+')
                     {
-                        new_expression->object =
-                            object_unary_plus(ctx->options.target, &new_expression->right->object, warning_message);
+                        new_expression->object = object_unary_plus(ctx->options.target, &new_expression->right->object, warning_message);
                     }
                 }
             }
@@ -3390,8 +3387,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             type_destroy(&new_expression->type);
             new_expression->type = type_make_size_t(ctx->options.target);
             p_expression_node = new_expression;
-
-        }
+            new_expression = NULL; //MOVED
+        } //not leak
         else if (ctx->current->type == TK_KEYWORD__COUNTOF)//C2Y
         {
             /* a defer statement would be useful here */
@@ -5902,8 +5899,8 @@ void expression_delete(struct expression* _Owner _Opt p)
         type_destroy(&p->type);
         argument_expression_list_destroy(&p->argument_expression_list);
 
-        /* crashing */
-        //object_destroy(&p->object);
+        defer_list_destroy(&p->defer_list);
+        object_destroy(&p->object);
 
 
         free(p);

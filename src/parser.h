@@ -59,7 +59,7 @@ struct label_list_item
 {
     struct token* p_last_usage;
     struct token* p_defined;
-    struct label_list_item* next;
+    struct label_list_item* _Owner _Opt  next;
 };
 
 struct label_list
@@ -1211,7 +1211,7 @@ struct try_statement
     struct token* last_token;
     struct token* _Opt catch_token_opt; /*catch*/
 
-    struct expression* msvc_except_expression;
+    struct expression* _Owner _Opt msvc_except_expression;
     int catch_label_id;
 };
 

@@ -52,10 +52,13 @@ void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
     hashmap_destroy(&ctx->structs_map);
     hashmap_destroy(&ctx->file_scope_declarator_map);
     hashmap_destroy(&ctx->instantiated_function_literals);
+    hashmap_destroy(&ctx->vm_expression_to_dim_var);
+
     ss_close(&ctx->block_scope_declarators);
     ss_close(&ctx->add_this_before);
     ss_close(&ctx->add_this_before_external_decl);
     ss_close(&ctx->add_this_after_external_decl);
+    
 }
 
 static struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier2(struct struct_or_union_specifier* p_struct_or_union_specifier)
@@ -674,7 +677,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
         ss_fprintf(oss, "%s", name);
-
+        ss_close(&add_this_before);
         return;
     }
 
@@ -1270,6 +1273,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         ss_fprintf(oss, "%s", generated_function_literal_name);
         ss_close(&function_literal_nameless);
         ss_close(&function_literal);
+        ss_close(&function_literal_body);
     }
     break;
 
@@ -1690,6 +1694,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
                 ss_fprintf(oss, "%s", name);
+                ss_close(&add_this_before);
             }
             else if (expression_has_side_effects(p_expression->condition_expr))
             {

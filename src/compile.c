@@ -315,6 +315,11 @@ int compile_one_file(const char* file_name,
     const char** argv,
     struct report* report)
 {
+#ifdef _CRTDBG_MAP_ALLOC
+    _CrtMemState state1, state2, state_diff;    
+    _CrtMemCheckpoint(&state1);
+#endif
+
     bool color_enabled = !options->color_disabled;
 
     print_path(file_name, true);
@@ -591,6 +596,21 @@ int compile_one_file(const char* file_name,
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
+    
+    
+#ifdef _CRTDBG_MAP_ALLOC
+    _CrtMemCheckpoint(&state2);
+
+    // Compare snapshots
+    if (_CrtMemDifference(&state_diff, &state1, &state2))
+    {
+        printf("==================================================\n");
+        printf("Memory leak\n");
+        printf("==================================================\n");
+        _CrtDumpMemoryLeaks();
+        _CrtMemDumpStatistics(&state_diff);
+    }
+#endif
 
     return report->error_count > 0;
 }

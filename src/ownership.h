@@ -100,3 +100,9 @@ float strtof(char const* _String, char** _Opt _EndPtr);
 
 #endif
 
+//#ifdef _CRTDBG_MAP_ALLOC
+//#include <stdlib.h>
+//#include <crtdbg.h>
+//#endif
+//#pragma CAKE diagnostic error "C0029"
+

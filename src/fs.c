@@ -480,8 +480,10 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
 
     data = malloc(mem_size_bytes);
     if (data == NULL)
+    {
+        fclose(file);
         return NULL;
-
+    }
     /* first we read 3 bytes */
     size_t bytes_read = fread(data, 1, 3, file);
 

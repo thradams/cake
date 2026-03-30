@@ -327,6 +327,8 @@ bool signed_long_long_mul(_Ctor signed long long* result, signed long long a, si
 
 void object_list_push(struct object_list* list, struct object* _Owner pnew)
 {
+    assert(pnew->next == NULL);
+
     if (list->head == NULL)
     {
         list->head = pnew;
@@ -335,6 +337,7 @@ void object_list_push(struct object_list* list, struct object* _Owner pnew)
     else
     {
         assert(list->tail != NULL);
+        assert(list->tail->next == NULL);
         list->tail->next = pnew;
         list->tail = pnew;
     }
@@ -572,7 +575,7 @@ struct object object_make_unsigned_char(enum target target, unsigned char value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_CHAR;
     r.value.host_u_long_long = wrap_unsigned_integer(value, get_platform(target)->char_n_bits);
-    //assert(false);
+    
     return r;
 }
 
@@ -785,7 +788,7 @@ struct object object_cast(enum target target, enum object_type dest_type, const 
 
     //No changes
     if (v->value_type == dest_type)
-        return *v;
+        return object_dup(v);
 
     const enum object_type source_type = v->value_type;
 
@@ -1172,7 +1175,12 @@ int object_set(
             assert(to->members.head == NULL);
 
             to->state = from->state;
-            to->value = object_cast(ctx->options.target, to->value_type, from).value;
+
+            {
+                struct object temp = object_cast(ctx->options.target, to->value_type, from);
+                to->value = temp.value;
+                object_destroy(&temp);
+            }
 
             if (requires_constant_initialization &&
                 !object_has_constant_value(from))
@@ -1409,10 +1417,16 @@ struct object* _Owner _Opt make_object_ptr(const struct type* p_type, enum targe
 
 int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* name, enum target target)
 {
+    object_destroy(obj);
+    memset(obj, 0, sizeof(struct object));
+
+    assert(obj->members.head == NULL);
+    assert(obj->next == NULL);
+
     struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, target);
     if (p)
     {
-        *obj = *p;
+        * obj = *p; //not an error    
         object_fix_parent(obj, obj);
         free(p);
         return 0;
@@ -1422,17 +1436,30 @@ int make_object_with_member_designator(const struct type* p_type, struct object*
 
 struct object object_dup(const struct object* src)
 {
-    assert(src->members.head == NULL);
-    //assert(src->next == NULL); ??
+    struct object result = { 0 };
 
-    struct object result = *src;
-    result.type = type_dup(&src->type);
+    try
+    {
+        result.state = src->state;
+        result.value_type = src->value_type;
+        result.type = type_dup(&src->type);
+        result.member_designator = src->member_designator ? strdup(src->member_designator) : NULL;
+        result.value = src->value;
+        result.parent = NULL;
+        result.p_init_expression = src->p_init_expression;
+        result.p_ref = src->p_ref;
+        result.next = NULL;
 
-    if (src->member_designator)
-        result.member_designator = strdup(src->member_designator);
-
-    result.next = NULL;
-
+        for (struct object* p = src->members.head; p; p = p->next)
+        {
+            struct object* pnew = calloc(1, sizeof * pnew);
+            if (pnew == NULL) throw;
+            *pnew = object_dup(p);
+            object_list_push(&result.members, pnew);
+        }
+    }
+    catch{
+    }
     return result;
 }
 
@@ -1839,41 +1866,6 @@ enum object_type object_common(enum target target, const struct object* a, const
 
 
 
-#define OBJECTS_INITIAL_CAPACITY 8
-
-void objects_destroy(struct objects* arr)
-{
-    free(arr->items);
-}
-
-int objects_push(struct objects* arr, struct object* obj)
-{
-    if (arr->items == NULL)
-    {
-        arr->items = malloc(OBJECTS_INITIAL_CAPACITY * sizeof(struct object*));
-        if (!arr->items)
-        {
-            arr->size = 0;
-            arr->capacity = 0;
-            return ENOMEM;
-        }
-        arr->size = 0;
-        arr->capacity = OBJECTS_INITIAL_CAPACITY;
-    }
-    if (arr->size == arr->capacity)
-    {
-        size_t new_capacity = arr->capacity ? arr->capacity * 2 : OBJECTS_INITIAL_CAPACITY;
-        struct object** _Opt _Owner new_items = realloc(arr->items, new_capacity * sizeof(struct object*));
-        if (!new_items) return ENOMEM;
-        arr->items = new_items;
-        arr->capacity = (int)new_capacity;
-    }
-    arr->items[arr->size++] = obj;
-    return 0;
-}
-
-
-
 void object_print_value(struct osstream* ss, const struct object* a, enum target target)
 {
     a = object_get_referenced(a);
@@ -2023,6 +2015,8 @@ struct object object_equal(enum target target,
         break;
     }
 
+    object_destroy(&a0);
+    object_destroy(&b0);
     return r;
 }
 
@@ -2073,6 +2067,9 @@ struct object object_not_equal(enum target target,
         r.value.host_u_long_long = (a0.value.host_long_double != b0.value.host_long_double);
         break;
     }
+
+    object_destroy(&a0);
+    object_destroy(&b0);
 
     return r;
 }
@@ -2125,7 +2122,8 @@ struct object object_greater_than_or_equal(enum target target,
         r.value.host_u_long_long = (a0.value.host_long_double >= b0.value.host_long_double);
         break;
     }
-
+    object_destroy(&a0);
+    object_destroy(&b0);
     return r;
 }
 
@@ -2176,7 +2174,8 @@ struct object object_greater_than(enum target target,
         r.value.host_u_long_long = (a0.value.host_long_double > b0.value.host_long_double);
         break;
     }
-
+    object_destroy(&a0);
+    object_destroy(&b0);
     return r;
 }
 
@@ -2226,7 +2225,8 @@ struct object object_smaller_than_or_equal(enum target target,
         r.value.host_u_long_long = (a0.value.host_long_double <= b0.value.host_long_double);
         break;
     }
-
+    object_destroy(&a0);
+    object_destroy(&b0);
     return r;
 }
 
@@ -2277,7 +2277,8 @@ struct object object_smaller_than(enum target target,
         r.value.host_u_long_long = (a0.value.host_long_double < b0.value.host_long_double);
         break;
     }
-
+    object_destroy(&a0);
+    object_destroy(&b0);
     return r;
 }
 
@@ -2362,6 +2363,8 @@ struct object object_add(enum target target,
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
     }
 
+    object_destroy(&a0);
+    object_destroy(&b0);
     return r;
 }
 
@@ -2445,6 +2448,9 @@ struct object object_sub(enum target target,
         r.value.host_long_double = a0.value.host_long_double - b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
     }
+
+    object_destroy(&a0);
+    object_destroy(&b0);
 
     return r;
 }
@@ -2531,6 +2537,9 @@ struct object object_mul(enum target target,
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
     }
 
+    object_destroy(&a0);
+    object_destroy(&b0);
+
     return r;
 }
 
@@ -2563,6 +2572,8 @@ struct object object_div(enum target target,
         if (b0.value.host_long_long == 0)
         {
             snprintf(warning_message, 200, "division by zero");
+            object_destroy(&a0);
+            object_destroy(&b0);
             return r;
         }
 
@@ -2588,6 +2599,9 @@ struct object object_div(enum target target,
         if (b0.value.host_u_long_long == 0)
         {
             snprintf(warning_message, 200, "division by zero");
+            object_destroy(&a0);
+            object_destroy(&b0);
+
             return r;
         }
 
@@ -2602,6 +2616,9 @@ struct object object_div(enum target target,
         r.value.host_long_double = a0.value.host_long_double / b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
     }
+
+    object_destroy(&a0);
+    object_destroy(&b0);
 
     return r;
 }
@@ -2634,6 +2651,8 @@ struct object object_mod(enum target target,
         if (b0.value.host_long_long == 0)
         {
             snprintf(warning_message, 200, "division by zero");
+            object_destroy(&a0);
+            object_destroy(&b0);
             return r;
         }
 
@@ -2651,6 +2670,8 @@ struct object object_mod(enum target target,
         if (b0.value.host_u_long_long == 0)
         {
             snprintf(warning_message, 200, "division by zero");
+            object_destroy(&a0);
+            object_destroy(&b0);
             return r;
         }
 
@@ -2667,6 +2688,9 @@ struct object object_mod(enum target target,
         break;
     }
 
+    object_destroy(&a0);
+    object_destroy(&b0);
+
     return r;
 }
 
@@ -2674,28 +2698,37 @@ int object_is_equal(enum target target, const struct object* a, const struct obj
 {
     char message[200];
     struct object r = object_equal(target, a, b, message);
-    return r.value.host_long_long != 0;
+    int i = r.value.host_long_long != 0;
+    object_destroy(&r);
+    return i;
 }
 
 int object_is_not_equal(enum target target, const struct object* a, const struct object* b)
 {
     char message[200];
     struct object r = object_not_equal(target, a, b, message);
-    return r.value.host_long_long != 0;
+    int i = r.value.host_long_long != 0;
+    object_destroy(&r);
+
+    return i;
 }
 
 int object_is_greater_than_or_equal(enum target target, const struct object* a, const struct object* b)
 {
     char message[200];
     struct object r = object_greater_than_or_equal(target, a, b, message);
-    return r.value.host_long_long != 0;
+    int i = r.value.host_long_long != 0;
+    object_destroy(&r);
+    return i;
 }
 
 int object_is_smaller_than_or_equal(enum target target, const struct object* a, const struct object* b)
 {
     char message[200];
     struct object r = object_smaller_than_or_equal(target, a, b, message);
-    return r.value.host_long_long != 0;
+    int i = r.value.host_long_long != 0;
+    object_destroy(&r);
+    return i;
 }
 
 
@@ -2933,6 +2966,9 @@ struct object object_bitwise_xor(enum target target,
         break;
     }
 
+    object_destroy(&a0);
+    object_destroy(&b0);
+
     return r;
 }
 
@@ -2983,6 +3019,9 @@ struct object object_bitwise_or(enum target target,
         snprintf(warning_message, 200, " invalid operands");
         break;
     }
+
+    object_destroy(&a0);
+    object_destroy(&b0);
 
     return r;
 }
@@ -3036,6 +3075,9 @@ struct object object_bitwise_and(enum target target,
         break;
     }
 
+    object_destroy(&a0);
+    object_destroy(&b0);
+
     return r;
 }
 
@@ -3086,7 +3128,8 @@ struct object object_shift_left(enum target target,
         snprintf(warning_message, 200, " invalid operands");
         break;
     }
-
+    object_destroy(&a0);
+    object_destroy(&b0);
     return r;
 }
 
@@ -3138,6 +3181,7 @@ struct object object_shift_right(enum target target,
         snprintf(warning_message, 200, " invalid operands");
         break;
     }
-
+    object_destroy(&a0);
+    object_destroy(&b0);
     return r;
 }

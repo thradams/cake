@@ -4695,8 +4695,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     arena_remove_state(ctx, before_if_state_number);
     arena_remove_state(ctx, left_true_branch_state_number);
-    true_false_set_destroy(&true_false_set);
-
+    true_false_set_destroy(&true_false_set);    
 }
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
@@ -4870,20 +4869,21 @@ static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
 
         while (p_current_argument && p_current_parameter_type)
         {
-
-            struct true_false_set a = { 0 };
-
+            
             struct diagnostic temp =
                 ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index];
 
             //we don´t report W_FLOW_UNINITIALIZED here because it is checked next.. (TODO parts of expression)
             diagnostic_remove(&ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index], W_FLOW_UNINITIALIZED);
 
-            flow_visit_expression(ctx, p_current_argument->expression, &a);
+            {
+                struct true_false_set a2 = { 0 };
+                flow_visit_expression(ctx, p_current_argument->expression, &a2);
+                true_false_set_destroy(&a2);                
+            }
 
-            ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index] = temp;
+            ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index] = temp;            
 
-            true_false_set_destroy(&a);
 
             struct flow_object* _Opt p_argument_object =
                 expression_get_flow_object(ctx, p_current_argument->expression, nullable_enabled);
@@ -5330,10 +5330,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
         assert(p_expression->left != NULL);
 
-        struct true_false_set left_set = { 0 };
-        flow_visit_expression(ctx, p_expression->left, &left_set);
-
-        true_false_set_destroy(&left_set);
+        {
+            struct true_false_set left_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &left_set);
+            true_false_set_destroy(&left_set);
+        }
 
         struct true_false_set_item item;
         item.p_expression = p_expression;
@@ -5347,9 +5348,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
         assert(p_expression->left != NULL);
 
-        struct true_false_set left_set = { 0 };
-        flow_visit_expression(ctx, p_expression->left, &left_set);
-        true_false_set_destroy(&left_set);
+        {
+            struct true_false_set left_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &left_set);
+            true_false_set_destroy(&left_set);
+        }
 
         struct flow_object* _Opt p_object = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
 
@@ -5685,19 +5688,22 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         assert(p_expression->right != NULL);
         assert(p_expression->left != NULL);
 
-        struct true_false_set left_set = { 0 };
-        flow_visit_expression(ctx, p_expression->left, &left_set);
-        true_false_set_swap(expr_true_false_set, &left_set);
-        true_false_set_destroy(&left_set);
+        {
+            struct true_false_set left_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &left_set);
+            true_false_set_swap(expr_true_false_set, &left_set);
+            true_false_set_destroy(&left_set);
+        }
 
-        struct true_false_set right_set = { 0 };
-        flow_visit_expression(ctx, p_expression->right, &right_set);
-        true_false_set_destroy(&right_set);
-
-        //struct object temp_obj1 = { 0 };
+        {
+            struct true_false_set right_set = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &right_set);
+            true_false_set_destroy(&right_set);
+        }
+        
         struct flow_object* const _Opt p_right_object = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
 
-        //struct object temp_obj2 = { 0 };
+        
         struct flow_object* const _Opt p_dest_object = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
 
         if (p_dest_object == NULL || p_right_object == NULL)
@@ -6024,7 +6030,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 true_false_set_invert(expr_true_false_set);
             }
-            true_false_set_destroy(&true_false_set);
+            true_false_set_destroy(&true_false_set);            
         }
         else
         {
@@ -6238,14 +6244,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
 
-        struct true_false_set set = { 0 };
-        /* Elvis (left == NULL): condition result is the true branch — visit
-           condition_expr again so flow sees its state on the true path */
-        flow_visit_expression(ctx,
-            p_expression->left ? p_expression->left
-                               : p_expression->condition_expr,
-            &set);
-        true_false_set_destroy(&set);
+        {
+            struct true_false_set set = { 0 };
+            /* Elvis (left == NULL): condition result is the true branch — visit
+               condition_expr again so flow sees its state on the true path */
+            flow_visit_expression(ctx,
+                p_expression->left ? p_expression->left
+                                   : p_expression->condition_expr,
+                &set);
+            true_false_set_destroy(&set);
+        }
 
 
         const int left_true_branch_state_number = arena_add_copy_of_current_state(ctx, "left-true-branch");
@@ -6254,10 +6262,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         true_false_set_set_objects_to_false_branch(ctx, &true_false_set, nullable_enabled);
 
-        struct true_false_set set2 = { 0 };
-        flow_visit_expression(ctx, p_expression->right, &set2);
-        true_false_set_destroy(&set2);
-
+        {
+            struct true_false_set set2 = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &set2);
+            true_false_set_destroy(&set2);
+        }
         arena_merge_current_state_with_state_number(ctx, left_true_branch_state_number);
 
         arena_restore_current_state_from(ctx, left_true_branch_state_number);
@@ -6385,9 +6394,11 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     //Second pass warning is ON
     diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
 
-    struct true_false_set true_false_set2 = { 0 };
-    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
-    true_false_set_destroy(&true_false_set2);
+    {
+        struct true_false_set true_false_set2 = { 0 };
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
+        true_false_set_destroy(&true_false_set2);
+    }
 
     //visit secondary_block again
     true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
