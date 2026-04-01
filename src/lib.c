@@ -5691,7 +5691,7 @@ bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
 }
 
 
-bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme);
+bool preprocessor_token_ahead_is_identifier(const struct token* _Opt p, const char* lexeme);
 struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level);
 struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -5802,9 +5802,11 @@ static bool preprocessor_token_ahead_skiping_blanks_and_new_line(struct token* p
     return current && current->type == t;
 }
 
-bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
+bool preprocessor_token_ahead_is_identifier(const struct token* _Opt p, const char* lexeme)
 {
-    assert(p != NULL);
+    if (p == NULL)
+       return false;
+
     struct token* _Opt p_token = preprocessor_look_ahead_core(p);
     if (p_token != NULL && p_token->type == TK_IDENTIFIER)
     {
@@ -11709,10 +11711,10 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
     assert(fmt != 0);
     int size = 0;
 
+
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
 #pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
-
 
 
     va_list tmpa = { 0 };
@@ -11725,7 +11727,7 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 
 #pragma CAKE diagnostic pop
 
-    if (size < 0)
+    if (size <= 0)
     {
         return -1;
     }
@@ -29214,7 +29216,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.03"
+#define CAKE_VERSION "0.13.04"
 
 
 
@@ -56721,22 +56723,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             //Tudo que faz left ser true ou right ser true
 
-            bool yes = false;
             for (int i = 0; i < left_set.size; i++)
             {
-                yes = true;
-                struct true_false_set_item item5 = { 0 };
+                struct true_false_set_item item5 = {0};
                 item5.p_expression = left_set.data[i].p_expression;
                 item5.true_branch_state |= (left_set.data[i].true_branch_state | left_set.data[i].false_branch_state);
                 item5.false_branch_state |= left_set.data[i].false_branch_state;
                 true_false_set_push_back(expr_true_false_set, &item5);
-            }
-            if (yes)
-            {
-                printf("*******************************\n");
-                printf("***** ITEM5 *****\n");
-                printf("*******************************\n");
-
             }
 
             for (int k = 0; k < right_set.size; k++)

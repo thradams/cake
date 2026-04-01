@@ -5565,7 +5565,7 @@ unsigned char fread2(void * buffer, unsigned int size, unsigned int count, struc
 }
 
 
-unsigned char preprocessor_token_ahead_is_identifier(struct token * p, char * lexeme);
+unsigned char preprocessor_token_ahead_is_identifier(const struct token * _Opt p, char * lexeme);
 struct token_list group_part(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level);
 
 struct token_list group_opt(struct preprocessor_ctx * ctx, struct token_list * input_list, unsigned char  is_active, int level)
@@ -5645,7 +5645,7 @@ unsigned char preprocessor_token_ahead_is(struct token * p, int t)
 }
 
 
-unsigned char preprocessor_token_ahead_is_identifier(struct token * p, char * lexeme)
+unsigned char preprocessor_token_ahead_is_identifier(const struct token * _Opt p, char * lexeme)
 {
     struct token * p_token;
 

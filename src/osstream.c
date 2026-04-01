@@ -60,10 +60,10 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
     assert(fmt != 0);
     int size = 0;
 
+
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
 #pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
-
 
 
     va_list tmpa = { 0 };
@@ -76,7 +76,7 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 
 #pragma CAKE diagnostic pop
 
-    if (size < 0)
+    if (size <= 0)
     {
         return -1;
     }

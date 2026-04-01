@@ -2025,7 +2025,7 @@ bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
 }
 
 
-bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme);
+bool preprocessor_token_ahead_is_identifier(const struct token* _Opt p, const char* lexeme);
 struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level);
 struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -2136,9 +2136,11 @@ static bool preprocessor_token_ahead_skiping_blanks_and_new_line(struct token* p
     return current && current->type == t;
 }
 
-bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
+bool preprocessor_token_ahead_is_identifier(const struct token* _Opt p, const char* lexeme)
 {
-    assert(p != NULL);
+    if (p == NULL)
+       return false;
+
     struct token* _Opt p_token = preprocessor_look_ahead_core(p);
     if (p_token != NULL && p_token->type == TK_IDENTIFIER)
     {
