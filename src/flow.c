@@ -3345,7 +3345,7 @@ struct flow_object* _Opt  expression_get_flow_object(struct flow_visit_ctx* ctx,
             return p_object;
         }
         else if (p_expression->expression_type == CHECKED_EXPRESSION)
-        {           
+        {
             struct flow_object* _Opt p_object = make_flow_object(ctx, &p_expression->type, NULL, p_expression);
             if (p_object == NULL) throw;
             p_object->current.state = FLOW_OBJECT_STATE_NOT_ZERO;
@@ -4695,7 +4695,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     arena_remove_state(ctx, before_if_state_number);
     arena_remove_state(ctx, left_true_branch_state_number);
-    true_false_set_destroy(&true_false_set);    
+    true_false_set_destroy(&true_false_set);
 }
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
@@ -4869,7 +4869,7 @@ static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
 
         while (p_current_argument && p_current_parameter_type)
         {
-            
+
             struct diagnostic temp =
                 ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index];
 
@@ -4879,10 +4879,10 @@ static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
             {
                 struct true_false_set a2 = { 0 };
                 flow_visit_expression(ctx, p_current_argument->expression, &a2);
-                true_false_set_destroy(&a2);                
+                true_false_set_destroy(&a2);
             }
 
-            ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index] = temp;            
+            ctx->ctx->options.diagnostic_stack.stack[ctx->ctx->options.diagnostic_stack.top_index] = temp;
 
 
             struct flow_object* _Opt p_argument_object =
@@ -5343,7 +5343,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         true_false_set_push_back(expr_true_false_set, &item);
     }
     break;
-    
+
     case POSTFIX_ARROW:
     {
         assert(p_expression->left != NULL);
@@ -5700,10 +5700,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             flow_visit_expression(ctx, p_expression->right, &right_set);
             true_false_set_destroy(&right_set);
         }
-        
+
         struct flow_object* const _Opt p_right_object = expression_get_flow_object(ctx, p_expression->right, nullable_enabled);
 
-        
+
         struct flow_object* const _Opt p_dest_object = expression_get_flow_object(ctx, p_expression->left, nullable_enabled);
 
         if (p_dest_object == NULL || p_right_object == NULL)
@@ -5711,6 +5711,19 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             return;
         }
         //TODO
+
+
+        if (p_expression->expression_type != ASSIGNMENT_EXPRESSION_ASSIGN)
+        {
+            if (flow_object_can_be_uninitialized(p_dest_object))
+            {
+                if (flow_object_is_uninitialized(p_dest_object))
+                    compiler_diagnostic(W_UNINITIALZED, ctx->ctx, p_expression->left->first_token, NULL, "left object is uninitialized");
+                else
+                    compiler_diagnostic(W_UNINITIALZED, ctx->ctx, p_expression->left->first_token, NULL, "left object can be uninitialized");
+            }
+        }
+
 
         struct marker a_marker = {
           .p_token_begin = p_expression->left->first_token,
@@ -6030,7 +6043,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 true_false_set_invert(expr_true_false_set);
             }
-            true_false_set_destroy(&true_false_set);            
+            true_false_set_destroy(&true_false_set);
         }
         else
         {
@@ -6075,8 +6088,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             for (int i = 0; i < left_set.size; i++)
             {
-                struct true_false_set_item item5;
-
+                struct true_false_set_item item5 = {0};
                 item5.p_expression = left_set.data[i].p_expression;
                 item5.true_branch_state |= (left_set.data[i].true_branch_state | left_set.data[i].false_branch_state);
                 item5.false_branch_state |= left_set.data[i].false_branch_state;
