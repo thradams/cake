@@ -1,4 +1,3 @@
-
 .leftSide, .rightSide, .splitter {
     position: absolute;
     height: 100%;
@@ -6,10 +5,16 @@
 }
 
 
-.topSide, .bottomSide, .splitter {
+.topSide, .splitter {
     position: absolute;
     width: 100%;
     overflow: hidden;
+}
+
+.bottomSide {
+    position: absolute;
+    width: 100%;
+    overflow: auto;
 }
 
 
@@ -27,5 +32,3 @@
     width: 100%;
     position: relative;
 }
-
-

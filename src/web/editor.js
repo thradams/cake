@@ -1,4 +1,3 @@
-
 var inputEditor = {};
 var ouputEditor = {};
 var model = {};
@@ -91,6 +90,14 @@ function ReportIssue() {
     window.open(link, '_blank');
 }
 function Share() {
+     var sharelink = document.getElementById("sharelink");
+
+    // Toggle off if already visible
+    if (sharelink.style.display === "block") {
+        sharelink.style.display = "none";
+        return;
+    }
+
     var source = inputEditor.getValue();
     var to = -2;// document.getElementById("outtype").value;
     var options = document.getElementById("options").value;
@@ -99,9 +106,14 @@ function Share() {
         "&to=" + encodeURI(to) +
         "&options=" + encodeURI(options);
 
-    document.getElementById("sharelink").value = link;
-    document.getElementById("sharelink").style.display = "block";
-    document.getElementById("sharelink").select();
+    sharelink.value = link;
+    sharelink.style.display = "block";
+    sharelink.select();
+
+    // Hide when it loses focus
+    sharelink.onblur = function () {
+        sharelink.style.display = "none";
+    };
 }
 
 function OnSwap() {

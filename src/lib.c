@@ -648,7 +648,7 @@ struct marker
 
 void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format);
 
-void print_position(const char* path, int line, int col, bool msvc_format, bool  color_enabled);
+void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool  color_enabled);
 
 struct stream
 {
@@ -1332,7 +1332,13 @@ bool options_diagnostic_is_error(const struct options* options, enum diagnostic_
 bool options_diagnostic_is_warning(const struct options* options, enum diagnostic_id w);
 bool options_diagnostic_is_note(const struct options* options, enum diagnostic_id w);
 
+#if defined(__CATALYST__)
+// Catalyst uses DOS 8.3 file names
+#define CAKE_CONFIG_FILE_NAME "/cakeconf.h"
+#else
 #define CAKE_CONFIG_FILE_NAME "/cakeconfig.h"
+#endif // defined(__CATALYST__)
+
 
 struct include_dir
 {
@@ -2301,10 +2307,10 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");
 }
 
-void print_position(const char* path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
+void print_position(const char* _Opt path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
 {
-
-    if (path == NULL) path = "";
+    if (path == NULL) 
+        path = "";
 
     if (visual_studio_ouput_format)
     {
@@ -3060,12 +3066,12 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
 void token_list_remove_get_test()
 {
     struct token_list list = { 0 };
-    struct token* pnew = calloc(1, sizeof * pnew);
+    struct token* _Opt _Owner pnew = calloc(1, sizeof * pnew);
     token_list_add(&list, pnew);
     struct token_list r = token_list_remove_get(&list, pnew, pnew);
     assert(list.head == NULL);
     assert(list.tail == NULL);
-    r;
+    token_list_destroy(&r);
 }
 
 void token_list_remove_get_test2()
@@ -5758,7 +5764,7 @@ bool is_never_final(enum token_type type)
 
 enum token_type is_keyword(const char* text, enum target target);
 
-struct token* _Opt preprocessor_look_ahead_core(struct token* p)
+struct token* _Opt preprocessor_look_ahead_core(const struct token* p)
 {
     struct token* _Opt current = p->next;
 
@@ -6942,7 +6948,7 @@ struct token_list def_section(struct preprocessor_ctx* ctx, struct token_list* i
     struct token_list r = { 0 };
     try
     {
-        struct macro* p_macro = NULL;
+        struct macro* _Opt p_macro = NULL;
         struct token_list r2 = def_line(ctx, input_list, is_active, level, &p_macro);
         token_list_append_list(&r, &r2);
 
@@ -7228,7 +7234,7 @@ void print_path(const char* path, bool fullpath)
 
     if (!fullpath)
     {
-        const char* last = NULL;
+        const char* _Opt last = NULL;
         while (*p)
         {
             if (*p == '/' || *p == '\\')
@@ -8473,7 +8479,7 @@ static bool macro_already_expanded(struct macro_expanded* _Opt p_list, const cha
     return false;
 }
 
-static char* _Owner decode_pragma_string(const char* literal)
+static char* _Opt _Owner decode_pragma_string(const char* literal)
 {
     /*
       The string literal is destringized
@@ -8513,7 +8519,7 @@ static char* _Owner decode_pragma_string(const char* literal)
         p++;
     }
 
-    char* _Owner result = (char*)malloc(len + 1);
+    char* _Owner result = malloc(len + 1);
     if (!result) return NULL;
 
     char* out = result;
@@ -10611,29 +10617,29 @@ int test_preprossessor_input_output(const char* input, const char* output)
     return 0;
 }
 
-char* normalize_line_end(char* input)
+char* _Opt normalize_line_end(char* input)
 {
     if (input == NULL)
         return NULL;
-    char* pWrite = input;
+    char* pwrite = input;
     const char* p = input;
     while (*p)
     {
         if (p[0] == '\r' && p[1] == '\n')
         {
-            *pWrite = '\n';
+            *pwrite = '\n';
             p++;
             p++;
-            pWrite++;
+            pwrite++;
         }
         else
         {
-            *pWrite = *p;
+            *pwrite = *p;
             p++;
-            pWrite++;
+            pwrite++;
         }
     }
-    *pWrite = 0;
+    *pwrite = 0;
     return input;
 }
 
@@ -10660,7 +10666,7 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
         res = false;
     }
 
-    free((void*)result);
+    free((void* _Owner)result);
 
     return true; //OK
 }
@@ -11502,7 +11508,7 @@ int test_predefined_macros()
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
 
-    const char* result = print_preprocessed_to_string(list2.head);
+    const char* _Opt _Owner result = print_preprocessed_to_string(list2.head);
     if (result == NULL)
     {
         result = strdup("");
@@ -11511,7 +11517,7 @@ int test_predefined_macros()
     {
 
     }
-
+    free(result);
 
     return 0;
 }
@@ -29216,7 +29222,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.04"
+#define CAKE_VERSION "0.13.05"
 
 
 

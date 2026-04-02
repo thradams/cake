@@ -882,10 +882,10 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");
 }
 
-void print_position(const char* path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
+void print_position(const char* _Opt path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
 {
-
-    if (path == NULL) path = "";
+    if (path == NULL) 
+        path = "";
 
     if (visual_studio_ouput_format)
     {
@@ -1641,12 +1641,12 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
 void token_list_remove_get_test()
 {
     struct token_list list = { 0 };
-    struct token* pnew = calloc(1, sizeof * pnew);
+    struct token* _Opt _Owner pnew = calloc(1, sizeof * pnew);
     token_list_add(&list, pnew);
     struct token_list r = token_list_remove_get(&list, pnew, pnew);
     assert(list.head == NULL);
     assert(list.tail == NULL);
-    r;
+    token_list_destroy(&r);
 }
 
 void token_list_remove_get_test2()

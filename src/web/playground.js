@@ -654,7 +654,7 @@ var Module = {
             if (element)
             {
                 element.innerHTML += text + "\n";
-                element.scrollTop = element.scrollHeight; // focus on bottom
+                element.scrollTop = 0;//element.scrollHeight; // focus on bottom
             }
         };
     })(),

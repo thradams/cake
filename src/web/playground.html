@@ -1,121 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
+  <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Cake Playground</title>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link href="SplitterBar.css" type="text/css" rel="stylesheet">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+          <meta charset="utf-8">
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+              <title>Cake Playground</title>
+              <link rel="icon" type="image/x-icon" href="favicon.ico">
+                <link href="SplitterBar.css" type="text/css" rel="stylesheet">
 
-    <script src="samples.js"></script>
-    <script src="playground.js"></script>
-    <script src="editor.js"></script>
-    <script src="splitterbar.js"></script>
-    <script>
-        var require = { paths: { vs: 'min/vs' } };
-    </script>
-    <script src="min/vs/loader.js"></script>
-    <script src="min/vs/editor/editor.main.nls.js"></script>
-    <script src="min/vs/editor/editor.main.js"></script>
+                  <script src="samples.js"></script>
+                  <script src="playground.js"></script>
+                  <script src="editor.js"></script>
+                  <script src="splitterbar.js"></script>
+                  <script>
+                    var require = { paths: { vs: 'min/vs' } };
+                  </script>
+                  <script src="min/vs/loader.js"></script>
+                  <script src="min/vs/editor/editor.main.nls.js"></script>
+                  <script src="min/vs/editor/editor.main.js"></script>
 
-    <script type="text/javascript" src="cakejs.js"></script>
-    <link rel="stylesheet" href="style.css" />
+                  <script type="text/javascript" src="cakejs.js"></script>
+                  <link rel="stylesheet" href="style.css" />
 
-    <style>
-        .containerOne {
-            position: relative;
-            height: 500px;
-            width: 100%;
-            margin: auto;
-        }
+                  <style>
+                    .containerOne {
+                    position: relative;
+                    height: calc(100vh - 36px);
+                    width: 100%;
+                    margin: auto;
+                    }
 
-        #container {
-            height: 400px;
-            background-color: aqua;
-            position: relative;
-            width: 100%;
-            margin: auto;
-        }
+                    #container {
+                    height: 400px;
+                    background-color: aqua;
+                    position: relative;
+                    width: 100%;
+                    margin: auto;
+                    }
 
-        .outputstyle {
-            margin-top: 0px;
-            overflow-y: scroll;
-            height: 100%;
-            line-height: 1.5;
-            border: 1px solid #d2d3d4;
-            font-weight: bolder;
-            background-color: #f5f5f5;
-            color: #007bfd;
-            width: 100%;
-            font-size;
-            12px;
-            font: Consolas,Liberation Mono,Courier,monospace;
-            padding-left: 16px;
-            padding-right: 16px;
-            padding-top: 3px;
-            padding-bottom: 0px;
-        }
-    </style>
+                    .outputstyle {
+                    margin: 0;
+                    overflow-y: scroll;
+                    height: 100%;
+                    box-sizing: border-box;
+                    line-height: 1.5;
+                    border: 1px solid #d2d3d4;
+                    font-weight: bolder;
+                    background-color: #f5f5f5;
+                    color: #007bfd;
+                    width: 100%;
+                    font-size: 12px;
+                    font-family: Consolas, Liberation Mono, Courier, monospace;
+                    padding: 3px 16px 0px 16px;
+                    }
+                  </style>
 
-    <link rel="stylesheet" data-name="min/vs/editor/editor.main" href="min/vs/editor/editor.main.css" />
+                  <link rel="stylesheet" data-name="min/vs/editor/editor.main" href="min/vs/editor/editor.main.css" />
 
-</head>
+                </head>
 
-<body onload="OnLoad()">
+  <body onload="OnLoad()">
 
     <div style="background-color: rgb(244,244,244); padding-top: 2px; padding-bottom: 2px">
 
-        <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a>
+      <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="ownership.html">Static Analysis</a>
 
-        <select id="samples" onchange="OnChangeSelection(this.value)">
-            <option>Select...</option>
-        </select>
+      <select id="samples" onchange="OnChangeSelection(this.value)">
+        <option>Select...</option>
+      </select>
 
-        <select style="width: 10em;" id="sample" onchange="OnChangeSelectionSample(this.value)">
-            <option>Select...</option>
-        </select>
+      <select style="width: 10em;" id="sample" onchange="OnChangeSelectionSample(this.value)">
+        <option>Select...</option>
+      </select>
 
-        <select id="target" onchange="OnCompileButton()">
-            <option value="x86_msvc">x86 msvc</option>
-            <option value="x64_msvc">x64 msvc</option>
-            <option value="x86_x64_gcc">x86-64 gcc</option>
-            <option value="ccu8">ccu8</option>
-            <option value="catalina">catalina</option>
-        </select>
+      <select id="target" onchange="OnCompileButton()">
+        <option value="x86_msvc">x86 msvc</option>
+        <option value="x64_msvc">x64 msvc</option>
+        <option value="x86_x64_gcc">x86-64 gcc</option>
+        <option value="ccu8">ccu8</option>
+        <option value="catalina">catalina</option>
+      </select>
 
-        <!--<button onclick="OnCompileButton()">Compile</button>-->
+      <!--<button onclick="OnCompileButton()">Compile</button>-->
 
 
-        <input oninput="OnCompileButton()" stype="margin:2px" type="text" id="options" placeholder="Compiler options..." />
+      <input oninput="OnCompileButton()" stype="margin:2px" type="text" id="options" placeholder="Compiler options..." />
 
-        <button style="float: right;" onclick="ReportIssue()">Report Issue</button>
-        <button style="float: right;" onclick="Share()">Share</button>
-        <button style="float: right;" onclick="Run()">Run</button>
-        <input type="text" id="sharelink" style="width:100%;display:none" />
+      <button style="float: right;" onclick="ReportIssue()">Report Issue</button>
+      <button style="float: right;" onclick="Share()">Share</button>
+      <button style="float: right;" onclick="Run()">Run</button>
+      <input type="text" id="sharelink" style="width:100%;display:none" />
     </div>
     <div id="containerOne" class="containerOne">
 
-        <div id="containerOne2" class="topSide">
-            <div id="div11" class="leftSide">
-                <div id="in">
+      <div id="containerOne2" class="topSide">
+        <div id="div11" class="leftSide">
+          <div id="in">
 
-                </div>
-            </div>
-            <div id="div22" class="rightSide">
-                <div id="out">
-
-                </div>
-            </div>
+          </div>
         </div>
+        <div id="div22" class="rightSide">
+          <div id="out">
 
-        <div id="div2" class="bottomSide">
-            <pre id="output" class="outputstyle"></pre>
+          </div>
         </div>
+      </div>
+
+      <div id="div2" class="bottomSide">
+        <pre id="output" class="outputstyle"></pre>
+      </div>
     </div>
-</body>
+  </body>
 
 </html>
