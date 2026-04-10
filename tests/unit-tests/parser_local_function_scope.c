@@ -6,7 +6,7 @@ int main()
 
     static int s;
     int i;
-    void local()
+    static void local()
     {
         f(); //ok
         g++;//ok
@@ -17,7 +17,7 @@ int main()
     }
 
 
-    (void())
+    (static void())
     {
         f(); //ok
         g++;//ok
