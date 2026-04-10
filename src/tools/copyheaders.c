@@ -27,7 +27,7 @@
 #ifdef _WIN32
 #include <direct.h>
 #include <io.h>
-#define PATH_SEP '\\\\'
+#define PATH_SEP '\\'
 #else
 #include <unistd.h>
 #include <sys/stat.h>
@@ -97,14 +97,14 @@ static int create_multiple_paths(const char* root)
     int count = 0;
     for (;;)
     {
-        if (*p != '\\0' && *p != '/' && *p != '\\\\')
+        if (*p != '\0' && *p != '/' && *p != '\\')
         {
             count++;
             p++;
             continue;
         }
 
-        if (*p == '\\0')
+        if (*p == '\0')
             break;
 
         char temp[250] = { 0 };
@@ -119,7 +119,7 @@ static int create_multiple_paths(const char* root)
                 return er;
             }
         }
-        if (*p == '\\0')
+        if (*p == '\0')
             break;
         p++;
         count++;
@@ -131,26 +131,26 @@ int main(int argc, char* argv[])
 {
     if (argc != 3)
     {
-        printf( "\n");
-        printf( " Steps:\n");
-        printf( " 1) cake all_headers.h -H\n");
-        printf( "    This command lists all headers used. Execute it with both GCC and MSVC.\n");
-        printf( "    (all_headers is a header file that includes the headers you need)\n");
-        printf( "\n");
-        printf( " It will print something like this:\n");
-        printf( "    C:/Users/thiag/source/repos/cake_private/src/all_headers.h\n");
-        printf( "    .C:/Users/thiag/source/repos/cake_private/src/cakeconfig.h\n");
-        printf( "    .c:\\users\\thiag\\source\\repos\\cake_private\\src\\include\\usr\\include\\assert.h\n");
-        printf( "    ..c:\\users\\thiag\\source\\repos\\cake_private\\src\\include\\usr\\include\\features.h\n");
-        printf( "    ...c:\\users\\thiag\\source\\repos\\cake_private\\src\\include\\usr\\include\\features-time64.h\n");
-        printf( "    ...more...\n");
-        printf( "\n");
+        printf("\n");
+        printf(" Steps:\n");
+        printf(" 1) cake all_headers.h -H\n");
+        printf("    This command lists all headers used. Execute it with both GCC and MSVC.\n");
+        printf("    (all_headers is a header file that includes the headers you need)\n");
+        printf("\n");
+        printf(" It will print something like this:\n");
+        printf("    C:/Users/thiag/source/repos/cake_private/src/all_headers.h\n");
+        printf("    .C:/Users/thiag/source/repos/cake_private/src/cakeconf.h\n");
+        printf("    .c:\\users\\thiag\\source\\repos\\cake_private\\src\\include\\usr\\include\\assert.h\n");
+        printf("    ..c:\\users\\thiag\\source\\repos\\cake_private\\src\\include\\usr\\include\\features.h\n");
+        printf("    ...c:\\users\\thiag\\source\\repos\\cake_private\\src\\include\\usr\\include\\features-time64.h\n");
+        printf("    ...more...\n");
+        printf("\n");
 
-        printf( " 2) Save the output to a file named files.txt, then remove lines with all_headers.h and cakeconfig.h\n");
-        printf( "\n");
-        printf( " 3) Run: copyheaders files.txt include_light\n");
-        printf( "    This command copies all the listed header files to the include_light directory.\n");
-        printf( "\n");
+        printf(" 2) Save the output to a file named files.txt, then remove lines with all_headers.h and cakeconf.h\n");
+        printf("\n");
+        printf(" 3) Run: copyheaders files.txt include_light\n");
+        printf("    This command copies all the listed header files to the include_light directory.\n");
+        printf("\n");
 
         return 1;
     }
@@ -170,10 +170,10 @@ int main(int argc, char* argv[])
     {
         // Remove newline
         size_t len = strlen(line);
-        if (len > 0 && (line[len - 1] == '\\n' || line[len - 1] == '\\r'))
-            line[len - 1] = '\\0';
+        if (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+            line[len - 1] = '\0';
 
-        if (line[0] == '\\0') continue; // skip empty lines
+        if (line[0] == '\0') continue; // skip empty lines
 
         const char* start = line;
         while (*start == '.')
@@ -183,14 +183,15 @@ int main(int argc, char* argv[])
         char dst_path[MAX_PATH_LEN];
         snprintf(dst_path, sizeof(dst_path), "%s%c%s", dst_dir, PATH_SEP, get_filename(start));
 
-        printf("Copying: %s -> %s\\n", start, dst_path);
+        printf("Copying: %s\n", start);
+        printf("  -> %s\n", dst_path);
 
 
         create_multiple_paths(dst_path);
 
         if (copy_file(start, dst_path) != 0)
         {
-            fprintf(stderr, "Failed to copy: %s\\n", start);
+            fprintf(stderr, "Failed to copy: %s\n", start);
         }
     }
 

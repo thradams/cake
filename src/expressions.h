@@ -213,6 +213,7 @@ struct expression
 
     struct type_name* _Owner _Opt type_name;
 
+    struct storage_class_specifiers * _Owner _Opt p_storage_class_specifiers;
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
     struct generic_selection* _Owner _Opt generic_selection; //_Generic

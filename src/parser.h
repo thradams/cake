@@ -336,6 +336,31 @@ struct storage_class_specifier
 struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parser_ctx* ctx);
 void storage_class_specifier_delete(struct storage_class_specifier* _Owner _Opt p);
 
+bool first_of_storage_class_specifier_token(const struct token* p_token);
+
+struct storage_class_specifier_node
+{
+    struct storage_class_specifier storage_class_specifier;
+    struct storage_class_specifier_node* next;
+};
+
+void storage_class_specifier_node_delete(struct storage_class_specifier_node* _Owner _Opt p);
+
+struct storage_class_specifiers
+{
+    /* C23
+         storage-class-specifiers:
+           storage-class-specifier
+           storage-class-specifiers storage-class-specifier
+    */
+    enum storage_class_specifier_flags storage_class_specifier_flags;
+    struct storage_class_specifier_node* _Owner _Opt head;
+    struct storage_class_specifier_node* _Opt tail;
+};
+
+struct storage_class_specifiers* _Opt _Owner storage_class_specifiers(struct parser_ctx* ctx);
+void storage_class_specifiers_delete(struct storage_class_specifiers* _Opt _Owner p);
+
 struct function_specifier
 {
     /*
@@ -1669,6 +1694,7 @@ void balanced_token_sequence_delete(struct balanced_token_sequence* _Owner _Opt 
 bool is_first_of_conditional_expression(struct parser_ctx* ctx);
 bool first_of_type_name(const struct parser_ctx* ctx);
 bool first_of_type_name_ahead(const struct parser_ctx* ctx);
+bool first_of_type_name_token(const struct parser_ctx* ctx /*only to typedef*/, struct token* p_token);
 
 struct argument_expression_list argument_expression_list(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 

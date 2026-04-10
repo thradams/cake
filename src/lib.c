@@ -1332,12 +1332,8 @@ bool options_diagnostic_is_error(const struct options* options, enum diagnostic_
 bool options_diagnostic_is_warning(const struct options* options, enum diagnostic_id w);
 bool options_diagnostic_is_note(const struct options* options, enum diagnostic_id w);
 
-#if defined(__CATALYST__)
-// Catalyst uses DOS 8.3 file names
-#define CAKE_CONFIG_FILE_NAME "/cakeconf.h"
-#else
-#define CAKE_CONFIG_FILE_NAME "/cakeconfig.h"
-#endif // defined(__CATALYST__)
+
+#define CAKE_CONFIG_FILE_NAME "cakeconf.h"
 
 
 struct include_dir
@@ -9455,7 +9451,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s", file_name);
     dirname(local_cakeconfig_path);
 
-    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, local_cakeconfig_path);
+    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, local_cakeconfig_path);
 
     char* _Owner _Opt str = read_file(local_cakeconfig_path, true);
 
@@ -9485,7 +9481,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         get_self_path(executable_path, sizeof(executable_path));
         dirname(executable_path);
         char root_cakeconfig_path[FS_MAX_PATH] = { 0 };
-        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, executable_path);
+        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
         str = read_file(root_cakeconfig_path, true);
         if (str && ctx->options.show_includes)
         {
@@ -9497,7 +9493,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     {
         if (ctx->options.show_includes)
         {
-            printf(".(cakeconfig.h not found)\n");
+            printf(".(" CAKE_CONFIG_FILE_NAME " not found)\n");
         }
         //"No such file or directory";
         return  ENOENT;
@@ -15069,7 +15065,7 @@ void print_help()
     printf("%s", sample);
 
     print_option("-I", "Adds a directory to the list of directories searched for include files");
-    print_option("-auto-config", "Generates cakeconfig.h with include directories");
+    print_option("-auto-config", "Generates cakeconf.h with include directories");
     print_option("-no-output", "Cake will not generate output");
     print_option("-D", "Defines a preprocessing symbol for a source file");
     print_option("-E", "Copies preprocessor output to standard output");
@@ -16093,6 +16089,7 @@ struct expression
 
     struct type_name* _Owner _Opt type_name;
 
+    struct storage_class_specifiers * _Owner _Opt p_storage_class_specifiers;
     struct braced_initializer* _Owner _Opt braced_initializer;
     struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
     struct generic_selection* _Owner _Opt generic_selection; //_Generic
@@ -16477,6 +16474,31 @@ struct storage_class_specifier
 
 struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parser_ctx* ctx);
 void storage_class_specifier_delete(struct storage_class_specifier* _Owner _Opt p);
+
+bool first_of_storage_class_specifier_token(const struct token* p_token);
+
+struct storage_class_specifier_node
+{
+    struct storage_class_specifier storage_class_specifier;
+    struct storage_class_specifier_node* next;
+};
+
+void storage_class_specifier_node_delete(struct storage_class_specifier_node* _Owner _Opt p);
+
+struct storage_class_specifiers
+{
+    /* C23
+         storage-class-specifiers:
+           storage-class-specifier
+           storage-class-specifiers storage-class-specifier
+    */
+    enum storage_class_specifier_flags storage_class_specifier_flags;
+    struct storage_class_specifier_node* _Owner _Opt head;
+    struct storage_class_specifier_node* _Opt tail;
+};
+
+struct storage_class_specifiers* _Opt _Owner storage_class_specifiers(struct parser_ctx* ctx);
+void storage_class_specifiers_delete(struct storage_class_specifiers* _Opt _Owner p);
 
 struct function_specifier
 {
@@ -17811,6 +17833,7 @@ void balanced_token_sequence_delete(struct balanced_token_sequence* _Owner _Opt 
 bool is_first_of_conditional_expression(struct parser_ctx* ctx);
 bool first_of_type_name(const struct parser_ctx* ctx);
 bool first_of_type_name_ahead(const struct parser_ctx* ctx);
+bool first_of_type_name_token(const struct parser_ctx* ctx /*only to typedef*/, struct token* p_token);
 
 struct argument_expression_list argument_expression_list(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
@@ -21983,7 +22006,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
 
         object_destroy(&p_expression_node->object);
-        p_expression_node->object = (struct object){0};
+        p_expression_node->object = (struct object){ 0 };
 
         if (suffix_none)
         {
@@ -23421,15 +23444,19 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* _Owner p_type_name_par, enum expression_eval_mode eval_mode)
+struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct parser_ctx* ctx,
+    struct type_name* _Owner p_type_name_par,
+    struct storage_class_specifiers* _Owner _Opt p_storage_class_specifiers,
+    struct token* p_first_token,
+    enum expression_eval_mode eval_mode)
 {
     /*
-        ( type-name ) { initializer-ctx }
-        ( type-name ) { initializer-ctx , }
+      compound-literal:
+             ( storage-class-specifiers opt type-name ) braced-initializer
 
-        //My extension : if type-name is function then follow is compound-statement
-        ( type-name ) compound-statement
-
+            storage-class-specifiers:
+                      storage-class-specifier
+                      storage-class-specifiers storage-class-specifier
     */
     struct type_name* _Owner _Opt p_type_name = p_type_name_par; //MOVED
     struct expression* _Owner _Opt p_expression_node = NULL;
@@ -23441,13 +23468,8 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             throw;
 
         assert(p_expression_node->type_name == NULL);
-
-        struct token* _Opt p_previous = previous_parser_token(p_type_name->first_token);
-        if (p_previous == NULL)
-            throw;
-
-        p_expression_node->first_token = p_previous;
-        assert(p_expression_node->first_token->type == '(');
+        p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers /*moved*/;
+        p_expression_node->first_token = p_first_token;
 
         p_expression_node->type_name = p_type_name; /*MOVED*/
         p_type_name = NULL; /*MOVED*/
@@ -23461,6 +23483,18 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             {
                 compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing function declarator");
                 throw;
+            }
+
+            if (p_storage_class_specifiers)
+            {
+                if (p_storage_class_specifiers->storage_class_specifier_flags != STORAGE_SPECIFIER_STATIC)
+                {
+                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "only static is allowed");
+                }
+            }
+            else
+            {
+                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing static");
             }
 
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
@@ -24911,8 +24945,6 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
       unary-expression
       ( type-name ) cast-expression
 
-
-      ( type-name ) //<- extension void value
     */
 
     struct expression* _Owner _Opt p_expression_node = NULL;
@@ -24924,48 +24956,83 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
             throw;
         }
 
-        if (first_of_type_name_ahead(ctx))
+        struct storage_class_specifiers* p_storage_class_specifiers = NULL;
+        struct token* _Opt open_parenthesis_token = ctx->current;
+        struct type_name* p_type_name = NULL;
+        if (ctx->current->type == '(')
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
-            if (p_expression_node == NULL)
-                throw;
-
-            p_expression_node->first_token = ctx->current;
-            p_expression_node->expression_type = CAST_EXPRESSION;
-            if (parser_match_tk(ctx, '(') != 0)
-                throw;
-
-            p_expression_node->type_name = type_name(ctx);
-            if (p_expression_node->type_name == NULL)
+            /*
+              We cannot detect a unary-expression expression -> postfix-expression -> compound-literal
+              without parsing (type-name) first.
+              ( ...
+            */
+            struct token* _Opt token_ahead = parser_look_ahead(ctx);
+            if (token_ahead)
             {
-                expression_delete(p_expression_node);
-                p_expression_node = NULL;
-                throw;
+                if (first_of_storage_class_specifier_token(token_ahead))
+                {
+                    if (parser_match_tk(ctx, '(') != 0)
+                        throw;
+
+                    /*
+                       ( static
+                    */
+                    p_storage_class_specifiers = storage_class_specifiers(ctx);
+                    p_type_name = type_name(ctx);
+                    if (p_type_name == NULL) throw;
+                    if (parser_match_tk(ctx, ')') != 0) throw;
+                }
+                else if (first_of_type_name_token(ctx /*only to typedef*/, token_ahead))
+                {
+                    if (parser_match_tk(ctx, '(') != 0)
+                        throw;
+                    /*
+                       ( type-name
+                    */
+                    p_type_name = type_name(ctx);
+                    if (p_type_name == NULL) throw;
+                    if (parser_match_tk(ctx, ')') != 0)
+                        throw;
+                }
             }
+        }
 
-            p_expression_node->type = type_dup(&p_expression_node->type_name->type);
-
-
-            if (parser_match_tk(ctx, ')') != 0)
-                throw;
-
+        if (p_type_name)
+        {
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
 
+            if (ctx->current->type != '{')
+            {
+                p_expression_node = calloc(1, sizeof * p_expression_node);
+                if (p_expression_node == NULL)
+                    throw;
+
+                p_expression_node->first_token = open_parenthesis_token;
+                p_expression_node->expression_type = CAST_EXPRESSION;
+                p_expression_node->type_name = p_type_name; /*moved*/
+                p_type_name = NULL;
+
+                p_expression_node->type = type_dup(&p_expression_node->type_name->type);
+            }
+
             if (ctx->current->type == '{')
             {
+                /*
+                    ( storage-class-specifier opt type-name ) { ... }
+                */
                 // Thinking it was a cast expression was a mistake... 
                 // because the { appeared then it is a compound literal which is a postfix.
-                struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, eval_mode);
-                p_expression_node->type_name = NULL; // MOVED
+                p_expression_node = postfix_expression_compound_func_literal(ctx,
+                    p_type_name /*MOVED*/,
+                    p_storage_class_specifiers /*MOVED*/,
+                    open_parenthesis_token,
+                    eval_mode);
 
-                if (new_expression == NULL) throw;
-
-                expression_delete(p_expression_node);
-                p_expression_node = new_expression;
+                if (p_expression_node == NULL) throw;
             }
             else if (is_first_of_unary_expression(ctx))
             {
@@ -26932,6 +26999,7 @@ void expression_delete(struct expression* _Owner _Opt p)
 {
     if (p)
     {
+        storage_class_specifiers_delete(p->p_storage_class_specifiers);
         expression_delete(p->condition_expr);
         compound_statement_delete(p->compound_statement);
         type_name_delete(p->type_name);
@@ -29839,18 +29907,25 @@ bool first_of_atomic_type_specifier(const struct parser_ctx* ctx)
     return false;
 }
 
+bool first_of_storage_class_specifier_token(const struct token* p_token)
+{
+
+    return p_token->type == TK_KEYWORD_TYPEDEF ||
+        p_token->type == TK_KEYWORD_CONSTEXPR ||
+        p_token->type == TK_KEYWORD_EXTERN ||
+        p_token->type == TK_KEYWORD_STATIC ||
+        p_token->type == TK_KEYWORD__THREAD_LOCAL ||
+        p_token->type == TK_KEYWORD_AUTO ||
+        p_token->type == TK_KEYWORD_REGISTER;
+}
+
+
 bool first_of_storage_class_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
 
-    return ctx->current->type == TK_KEYWORD_TYPEDEF ||
-        ctx->current->type == TK_KEYWORD_CONSTEXPR ||
-        ctx->current->type == TK_KEYWORD_EXTERN ||
-        ctx->current->type == TK_KEYWORD_STATIC ||
-        ctx->current->type == TK_KEYWORD__THREAD_LOCAL ||
-        ctx->current->type == TK_KEYWORD_AUTO ||
-        ctx->current->type == TK_KEYWORD_REGISTER;
+    return first_of_storage_class_specifier_token(ctx->current);
 }
 
 bool first_of_struct_or_union_token(const struct token* token)
@@ -30069,6 +30144,11 @@ bool first_of_type_name_ahead(const struct parser_ctx* ctx)
 
     return first_of_type_specifier_token(ctx, token_ahead) ||
         first_of_type_qualifier_token(token_ahead);
+}
+
+bool first_of_type_name_token(const struct parser_ctx* ctx, struct token* p_token)
+{
+    return first_of_type_specifier_token(ctx, p_token) || first_of_type_qualifier_token(p_token);
 }
 
 bool first_of_type_name(const struct parser_ctx* ctx)
@@ -31525,7 +31605,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             {
                 struct defer_visit_ctx ctx2 = { .ctx = ctx };
                 defer_start_visit_declaration(&ctx2, p_declaration);
-                defer_visit_ctx_destroy(&ctx2);                
+                defer_visit_ctx_destroy(&ctx2);
             }
 
         }
@@ -32290,6 +32370,80 @@ struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parse
     }
 
     return p_storage_class_specifier;
+}
+
+void storage_class_specifiers_push(struct storage_class_specifiers* p,
+                                   struct storage_class_specifier* _Owner p_storage_class_specifier)
+{
+    try
+    {
+        struct storage_class_specifier_node* pnew = calloc(1, sizeof * pnew);
+        if (pnew == NULL) throw;
+
+        pnew->storage_class_specifier = *p_storage_class_specifier;
+        storage_class_specifier_delete(p_storage_class_specifier);
+
+        if (p->head == NULL)
+        {
+            p->head = pnew;
+            p->tail = pnew;
+        }
+        else
+        {
+            assert(p->tail != NULL);
+            p->tail->next = pnew;
+            p->tail = pnew;
+        }
+
+        p->storage_class_specifier_flags |= pnew->storage_class_specifier.flags;
+    }
+    catch
+    {
+    }
+}
+void storage_class_specifier_node_delete(struct storage_class_specifier_node* _Owner _Opt p)
+{
+    if (p)
+    {
+       //storage_class_specifier_destroy(p->storage_class_specifier);
+       free(p);
+    }
+}
+
+void storage_class_specifiers_delete(struct storage_class_specifiers* _Opt _Owner p)
+{
+    if (p)
+    {
+        struct storage_class_specifier_node* _Owner _Opt item = p->head;
+        while (item)
+        {
+            struct storage_class_specifier_node* _Owner _Opt next = item->next;
+            item->next = NULL;
+            storage_class_specifier_node_delete(item);
+            item = next;
+        }
+
+        free(p);
+    }
+}
+
+struct storage_class_specifiers* _Opt _Owner storage_class_specifiers(struct parser_ctx* ctx)
+{
+    struct storage_class_specifiers* _Opt _Owner p = calloc(1, sizeof * p);
+    try
+    {
+        while (first_of_storage_class_specifier(ctx))
+        {
+            struct storage_class_specifier* _Owner _Opt p_storage_class_specifier = storage_class_specifier(ctx);
+            if (p_storage_class_specifier == NULL) throw;
+            storage_class_specifiers_push(p, p_storage_class_specifier);
+        }
+    }
+    catch
+    {
+    }
+
+    return p;
 }
 
 struct typeof_specifier_argument* _Owner _Opt typeof_specifier_argument(struct parser_ctx* ctx)
@@ -40389,7 +40543,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
     {
         *berror = true;
     }
-        
+
     if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
     {
         struct declaration* _Opt it = declaration_list.head;
@@ -40405,7 +40559,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             /* visiting the function again; restore the same diagnostic state */
             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
             it = it->next;
-        }         
+        }
     }
 
     return declaration_list;
@@ -42097,7 +42251,7 @@ int compile_one_file(const char* file_name,
 
     if (include_config_header(&prectx, file_name) != 0)
     {
-        //cakeconfig.h is optional               
+        //cakeconf.h is optional               
     }
     // print_all_macros(&prectx);
 
@@ -42598,7 +42752,7 @@ int compile(int argc, const char** argv, struct report* report)
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);
     char cakeconfig_path[FS_MAX_PATH] = { 0 };
-    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, executable_path);
+    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
 
     if (options.auto_config) //-autoconfig
     {
@@ -45249,13 +45403,11 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         char name[100] = { 0 };
         snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
-        const bool is_static =
-            p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
+        const bool is_static = (p_expression->p_storage_class_specifiers != NULL);
 
         if (is_static || !ctx->is_local)
         {
             struct osstream local = { 0 };
-            print_identation_core(&local, ctx->indentation);
             ss_fprintf(&local, "static ");
             d_print_type(ctx, &local, &p_expression->type, name, false);
             bool first = true;

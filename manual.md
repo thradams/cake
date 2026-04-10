@@ -7,7 +7,7 @@ When applicable, Cake uses the same command line options of MSVC and GCC.
 
 ### Include directories
 
-Include directories are specified in `cakeconfig.h` file.
+Include directories are specified in `cakeconf.h` file.
 
 On Windows, to manually discover which directories are included, you can run at 
 Visual Studio command prompt the command:
@@ -23,7 +23,7 @@ To find out what are the directories used by GCC type:
 echo | gcc -E -Wp,-v -
 ```
   
-Sample of `cakeconfig.h`
+Sample of `cakeconf.h`
 
 ```c
 
@@ -62,16 +62,16 @@ Sample of `cakeconfig.h`
 
 The command line `cake -autoconfig` generates the cake config file.
 
-We can have a `cakeconfig.h` per project and call a more generic `cakeconfig.h` for system includes.
+We can have a `cakeconf.h` per project and call a more generic `cakeconf.h` for system includes.
 
 Sample: 
 
-`yourproject\cakeconfig.h`
+`yourproject\cakeconf.h`
 
 ```c
 
 //system includes...etc
-#include "C:\Program Files (x86)\cake\cakeconfig.h"
+#include "C:\Program Files (x86)\cake\cakeconf.h"
 
 //project extra includes
 #pragma dir ".\openssl\include"
@@ -154,7 +154,7 @@ Options: x86_x64_gcc, x86_msvc, x64_msvc, catalina, ccu8
 
 *  `-fanalyzer` runs cake flow analysis
 
-* `-auto-config` Generates cakeconfig.h header (see includes)
+* `-auto-config` Generates cakeconf.h header (see includes)
 
 * `-style=name` Set the style used in (w011) style warnings. Options are `-style=cake`, `-style=gnu`, `-style=microsoft`
 
@@ -1306,14 +1306,13 @@ int main()
 
 ### C23 Compound Literals with storage specifier
   
-TODO
 
 ```c
 void F(int *p){}
 
 int main()
 {
-   F((static int []){1, 2, 3, 0})
+   F((static int []){1, 2, 3, 0});
 }
 ```
 <button onclick="Try(this)">try</button>

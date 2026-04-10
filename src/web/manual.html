@@ -316,7 +316,7 @@ This approach makes Cake useful in real and existing programs. </p>
 
 <h3 id="toc_1">Include directories</h3>
 
-<p>Include directories are specified in <code>cakeconfig.h</code> file.</p>
+<p>Include directories are specified in <code>cakeconf.h</code> file.</p>
 
 <p>On Windows, to manually discover which directories are included, you can run at 
 Visual Studio command prompt the command:</p>
@@ -329,7 +329,7 @@ Visual Studio command prompt the command:</p>
 <pre><code>echo | gcc -E -Wp,-v -
 </code></pre>
 
-<p>Sample of <code>cakeconfig.h</code></p>
+<p>Sample of <code>cakeconf.h</code></p>
 
 <pre><code class="language-c">
 #ifdef __linux__
@@ -367,15 +367,15 @@ Visual Studio command prompt the command:</p>
 
 <p>The command line <code>cake -autoconfig</code> generates the cake config file.</p>
 
-<p>We can have a <code>cakeconfig.h</code> per project and call a more generic <code>cakeconfig.h</code> for system includes.</p>
+<p>We can have a <code>cakeconf.h</code> per project and call a more generic <code>cakeconf.h</code> for system includes.</p>
 
 <p>Sample: </p>
 
-<p><code>yourproject\cakeconfig.h</code></p>
+<p><code>yourproject\cakeconf.h</code></p>
 
 <pre><code class="language-c">
 //system includes...etc
-#include &quot;C:\Program Files (x86)\cake\cakeconfig.h&quot;
+#include &quot;C:\Program Files (x86)\cake\cakeconf.h&quot;
 
 //project extra includes
 #pragma dir &quot;.\openssl\include&quot;
@@ -439,7 +439,7 @@ Options: x86<em>x64</em>gcc, x86<em>msvc, x64</em>msvc, catalina, ccu8</p></li>
 <li><p><code>-msvc-output</code> Output is compatible with Visual Studio IDE. </p></li>
 <li><p><code>-fdiagnostics-color=never</code> (same as GCC) Output will not use colors</p></li>
 <li><p><code>-fanalyzer</code> runs cake flow analysis</p></li>
-<li><p><code>-auto-config</code> Generates cakeconfig.h header (see includes)</p></li>
+<li><p><code>-auto-config</code> Generates cakeconf.h header (see includes)</p></li>
 <li><p><code>-style=name</code> Set the style used in (w011) style warnings. Options are <code>-style=cake</code>, <code>-style=gnu</code>, <code>-style=microsoft</code></p></li>
 <li><p><code>-comment-to-attr</code> Converts at the preprocessor phase, comment like this <code>/*w12*/</code> to attributes <code>[[cake::w12]]</code></p></li>
 <li><p><code>-const-literal</code> Makes the compiler handle string literals as const char[] rather than char[].</p></li>
@@ -1526,13 +1526,11 @@ int main()
 
 <h3 id="toc_64">C23 Compound Literals with storage specifier</h3>
 
-<p>TODO</p>
-
 <pre><code class="language-c">void F(int *p){}
 
 int main()
 {
-   F((static int []){1, 2, 3, 0})
+   F((static int []){1, 2, 3, 0});
 }
 </code></pre>
 

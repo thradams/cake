@@ -333,7 +333,7 @@ int compile_one_file(const char* file_name,
 
     if (include_config_header(&prectx, file_name) != 0)
     {
-        //cakeconfig.h is optional               
+        //cakeconf.h is optional               
     }
     // print_all_macros(&prectx);
 
@@ -834,7 +834,7 @@ int compile(int argc, const char** argv, struct report* report)
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);
     char cakeconfig_path[FS_MAX_PATH] = { 0 };
-    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, executable_path);
+    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
 
     if (options.auto_config) //-autoconfig
     {

@@ -1283,13 +1283,11 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         char name[100] = { 0 };
         snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
-        const bool is_static =
-            p_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
+        const bool is_static = (p_expression->p_storage_class_specifiers != NULL);
 
         if (is_static || !ctx->is_local)
         {
             struct osstream local = { 0 };
-            print_identation_core(&local, ctx->indentation);
             ss_fprintf(&local, "static ");
             d_print_type(ctx, &local, &p_expression->type, name, false);
             bool first = true;

@@ -1097,7 +1097,14 @@ int main()
 }
 
 `;
-
+sample["C23"]["static compound literal"] =
+`
+// https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
+int main()
+{
+    int* p = (static int[]) {1, 2, 3};
+}
+`;
 sample["C23"]["typeof / typeof_unqual"] =
     `
 #include <stdlib.h>
@@ -1852,13 +1859,13 @@ int main()
 
 
 sample["C2Y"]["Literal function async I"] =
-    `
+`
 #include <stdlib.h>
 #include <stdio.h>
 
-void async(void (* callback)(int result, void * data), void * data)
+void async(void * capture, void callback(void* capture, int result))
 {
-   callback(1, data);
+   callback(capture, 1);
 }
 
 int main()
@@ -1867,19 +1874,19 @@ int main()
     if (capture == 0) return 1;
 
     capture->value = 123;
-    async((void (int result, void * data))
+    async(capture, (static void (void * capture, int result))
     {
-		struct capture* p = data;
+		struct capture* p = capture;
         printf("result=%d, value=%d\\n", result, p->value);
         free(p);
-    }, capture);
+    });
 }
 
 `;
 
 
 sample["C2Y"]["Literal function async II"] =
-    `
+`
 /*
    Pattern:
    do this -> then that -> then that ....
@@ -1888,31 +1895,32 @@ sample["C2Y"]["Literal function async II"] =
 #include <stdlib.h>
 #include <stdio.h>
 
-void login_async(void (* callback)(int id, void * data), void * data)
+void login_async(void * data, void callback(void* data, int id))
 {
-   callback(1, data);
+   callback(data, 1);
 }
 
-void get_data_async(void (* callback)(const char* email, void * data), void * data)
+void get_data_async(void * data, void callback(const char* email, void * data))
 {
-  callback("your data...", data);
+  callback(data, "your data...");
 }
 
 int main()
 {
 	struct capture { int id; }* capture = calloc(1, sizeof * capture);
-    login_async((void (int id, void * p))
+    login_async(capture, (static void (int id, void * capture))
     {
+        struct capture * cap1 = capture;
+
         printf("login completed. id=%d\\n", id);
-		struct capture * cap1 = p;
         cap1->id = id;
-        get_data_async((void (const char* email, void * data))
+        get_data_async(cap1, (static void (const char* email, void * data))
         {
 		    struct capture * cap2 = data;
             printf("your data='%s'  from id=%d\\n", email, cap2->id);
             free(cap2);
-        }, cap1 /*MOVED*/);
-    }, capture);
+        });
+    });
 }
 
 
@@ -1932,18 +1940,18 @@ void f1(){
 void f2(){
     /*we can use then at discarded expressions*/
     int i = 0;
-    (void(void)){ int k = sizeof(i); }();
+    (static void (void)){ int k = sizeof(i); }();
 }
 
 int g;
 void f3(){
     /*we can use variables from file scope*/
-    (void(void)){ int k = g; }();
+    (static void(void)){ int k = g; }();
 }
 
 
 void f4(){
-    (void(void)){ const char * s = __func__; }();
+    (static void(void)){ const char * s = __func__; }();
 }
 
 `;
@@ -1953,7 +1961,7 @@ sample["C2Y"]["Literal function 1"] =
 #include <stdio.h>
 int main()
 {
-  printf("%d", (int (void)){
+  printf("%d", (static int (void) ){
     return 1;
   }());
 }

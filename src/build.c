@@ -229,7 +229,7 @@ int main()
 #ifdef CAKE_HEADERS
     //uses cakeconfig
 #else
-    //Generates cakeconfig.h with the include dir used by gcc
+    //Generates cakeconf.h with the include dir used by gcc
     execute_cmd("cake.exe -autoconfig");
 #endif
 
@@ -301,11 +301,11 @@ int main()
 #ifdef CAKE_HEADERS
     //uses cakeconfig
 #else
-    //Generates cakeconfig.h with the include dir used by gcc
+    //Generates cakeconf.h with the include dir used by gcc
     execute_cmd("./cake  -autoconfig");
 #endif
 
-    //Uses previouly generated cakeconfig.h to find include dir
+    //Uses previouly generated cakeconf.h to find include dir
     execute_cmd("./cake "
                " -fanalyzer "
                CAKE_SOURCE_FILES);
@@ -331,7 +331,7 @@ int main()
 #ifdef CAKE_HEADERS
     //uses cakeconfig
 #else
-    //Generates cakeconfig.h with the include dir used by gcc
+    //Generates cakeconf.h with the include dir used by gcc
     execute_cmd("./cake  -autoconfig");
 #endif
 
@@ -339,7 +339,7 @@ int main()
     HEADER("Runs cake on its own source");
     
 
-    //Uses previouly generated cakeconfig.h to find include dir
+    //Uses previouly generated cakeconf.h to find include dir
     execute_cmd("./cake -DTEST -fanalyzer " CAKE_SOURCE_FILES);
 
 

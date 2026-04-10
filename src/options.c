@@ -594,7 +594,7 @@ void print_help()
     printf("%s", sample);
 
     print_option("-I", "Adds a directory to the list of directories searched for include files");
-    print_option("-auto-config", "Generates cakeconfig.h with include directories");
+    print_option("-auto-config", "Generates cakeconf.h with include directories");
     print_option("-no-output", "Cake will not generate output");
     print_option("-D", "Defines a preprocessing symbol for a source file");
     print_option("-E", "Copies preprocessor output to standard output");

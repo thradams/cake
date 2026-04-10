@@ -939,7 +939,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         const bool suffix_ull = (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L' && suffix[3] == '\0');
 
         object_destroy(&p_expression_node->object);
-        p_expression_node->object = (struct object){0};
+        p_expression_node->object = (struct object){ 0 };
 
         if (suffix_none)
         {
@@ -2377,15 +2377,19 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
     return p_expression_node;
 }
 
-struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* _Owner p_type_name_par, enum expression_eval_mode eval_mode)
+struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct parser_ctx* ctx,
+    struct type_name* _Owner p_type_name_par,
+    struct storage_class_specifiers* _Owner _Opt p_storage_class_specifiers,
+    struct token* p_first_token,
+    enum expression_eval_mode eval_mode)
 {
     /*
-        ( type-name ) { initializer-ctx }
-        ( type-name ) { initializer-ctx , }
+      compound-literal:
+             ( storage-class-specifiers opt type-name ) braced-initializer
 
-        //My extension : if type-name is function then follow is compound-statement
-        ( type-name ) compound-statement
-
+            storage-class-specifiers:
+                      storage-class-specifier
+                      storage-class-specifiers storage-class-specifier
     */
     struct type_name* _Owner _Opt p_type_name = p_type_name_par; //MOVED
     struct expression* _Owner _Opt p_expression_node = NULL;
@@ -2397,13 +2401,8 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             throw;
 
         assert(p_expression_node->type_name == NULL);
-
-        struct token* _Opt p_previous = previous_parser_token(p_type_name->first_token);
-        if (p_previous == NULL)
-            throw;
-
-        p_expression_node->first_token = p_previous;
-        assert(p_expression_node->first_token->type == '(');
+        p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers /*moved*/;
+        p_expression_node->first_token = p_first_token;
 
         p_expression_node->type_name = p_type_name; /*MOVED*/
         p_type_name = NULL; /*MOVED*/
@@ -2417,6 +2416,18 @@ struct expression* _Owner _Opt postfix_expression_type_name(struct parser_ctx* c
             {
                 compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing function declarator");
                 throw;
+            }
+
+            if (p_storage_class_specifiers)
+            {
+                if (p_storage_class_specifiers->storage_class_specifier_flags != STORAGE_SPECIFIER_STATIC)
+                {
+                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "only static is allowed");
+                }
+            }
+            else
+            {
+                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing static");
             }
 
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
@@ -3867,8 +3878,6 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
       unary-expression
       ( type-name ) cast-expression
 
-
-      ( type-name ) //<- extension void value
     */
 
     struct expression* _Owner _Opt p_expression_node = NULL;
@@ -3880,48 +3889,83 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
             throw;
         }
 
-        if (first_of_type_name_ahead(ctx))
+        struct storage_class_specifiers* p_storage_class_specifiers = NULL;
+        struct token* _Opt open_parenthesis_token = ctx->current;
+        struct type_name* p_type_name = NULL;
+        if (ctx->current->type == '(')
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
-            if (p_expression_node == NULL)
-                throw;
-
-            p_expression_node->first_token = ctx->current;
-            p_expression_node->expression_type = CAST_EXPRESSION;
-            if (parser_match_tk(ctx, '(') != 0)
-                throw;
-
-            p_expression_node->type_name = type_name(ctx);
-            if (p_expression_node->type_name == NULL)
+            /*
+              We cannot detect a unary-expression expression -> postfix-expression -> compound-literal
+              without parsing (type-name) first.
+              ( ...
+            */
+            struct token* _Opt token_ahead = parser_look_ahead(ctx);
+            if (token_ahead)
             {
-                expression_delete(p_expression_node);
-                p_expression_node = NULL;
-                throw;
+                if (first_of_storage_class_specifier_token(token_ahead))
+                {
+                    if (parser_match_tk(ctx, '(') != 0)
+                        throw;
+
+                    /*
+                       ( static
+                    */
+                    p_storage_class_specifiers = storage_class_specifiers(ctx);
+                    p_type_name = type_name(ctx);
+                    if (p_type_name == NULL) throw;
+                    if (parser_match_tk(ctx, ')') != 0) throw;
+                }
+                else if (first_of_type_name_token(ctx /*only to typedef*/, token_ahead))
+                {
+                    if (parser_match_tk(ctx, '(') != 0)
+                        throw;
+                    /*
+                       ( type-name
+                    */
+                    p_type_name = type_name(ctx);
+                    if (p_type_name == NULL) throw;
+                    if (parser_match_tk(ctx, ')') != 0)
+                        throw;
+                }
             }
+        }
 
-            p_expression_node->type = type_dup(&p_expression_node->type_name->type);
-
-
-            if (parser_match_tk(ctx, ')') != 0)
-                throw;
-
+        if (p_type_name)
+        {
             if (ctx->current == NULL)
             {
                 unexpected_end_of_file(ctx);
                 throw;
             }
 
+            if (ctx->current->type != '{')
+            {
+                p_expression_node = calloc(1, sizeof * p_expression_node);
+                if (p_expression_node == NULL)
+                    throw;
+
+                p_expression_node->first_token = open_parenthesis_token;
+                p_expression_node->expression_type = CAST_EXPRESSION;
+                p_expression_node->type_name = p_type_name; /*moved*/
+                p_type_name = NULL;
+
+                p_expression_node->type = type_dup(&p_expression_node->type_name->type);
+            }
+
             if (ctx->current->type == '{')
             {
+                /*
+                    ( storage-class-specifier opt type-name ) { ... }
+                */
                 // Thinking it was a cast expression was a mistake... 
                 // because the { appeared then it is a compound literal which is a postfix.
-                struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, eval_mode);
-                p_expression_node->type_name = NULL; // MOVED
+                p_expression_node = postfix_expression_compound_func_literal(ctx,
+                    p_type_name /*MOVED*/,
+                    p_storage_class_specifiers /*MOVED*/,
+                    open_parenthesis_token,
+                    eval_mode);
 
-                if (new_expression == NULL) throw;
-
-                expression_delete(p_expression_node);
-                p_expression_node = new_expression;
+                if (p_expression_node == NULL) throw;
             }
             else if (is_first_of_unary_expression(ctx))
             {
@@ -5888,6 +5932,7 @@ void expression_delete(struct expression* _Owner _Opt p)
 {
     if (p)
     {
+        storage_class_specifiers_delete(p->p_storage_class_specifiers);
         expression_delete(p->condition_expr);
         compound_statement_delete(p->compound_statement);
         type_name_delete(p->type_name);

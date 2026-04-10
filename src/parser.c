@@ -574,18 +574,25 @@ bool first_of_atomic_type_specifier(const struct parser_ctx* ctx)
     return false;
 }
 
+bool first_of_storage_class_specifier_token(const struct token* p_token)
+{
+
+    return p_token->type == TK_KEYWORD_TYPEDEF ||
+        p_token->type == TK_KEYWORD_CONSTEXPR ||
+        p_token->type == TK_KEYWORD_EXTERN ||
+        p_token->type == TK_KEYWORD_STATIC ||
+        p_token->type == TK_KEYWORD__THREAD_LOCAL ||
+        p_token->type == TK_KEYWORD_AUTO ||
+        p_token->type == TK_KEYWORD_REGISTER;
+}
+
+
 bool first_of_storage_class_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
 
-    return ctx->current->type == TK_KEYWORD_TYPEDEF ||
-        ctx->current->type == TK_KEYWORD_CONSTEXPR ||
-        ctx->current->type == TK_KEYWORD_EXTERN ||
-        ctx->current->type == TK_KEYWORD_STATIC ||
-        ctx->current->type == TK_KEYWORD__THREAD_LOCAL ||
-        ctx->current->type == TK_KEYWORD_AUTO ||
-        ctx->current->type == TK_KEYWORD_REGISTER;
+    return first_of_storage_class_specifier_token(ctx->current);
 }
 
 bool first_of_struct_or_union_token(const struct token* token)
@@ -804,6 +811,11 @@ bool first_of_type_name_ahead(const struct parser_ctx* ctx)
 
     return first_of_type_specifier_token(ctx, token_ahead) ||
         first_of_type_qualifier_token(token_ahead);
+}
+
+bool first_of_type_name_token(const struct parser_ctx* ctx, struct token* p_token)
+{
+    return first_of_type_specifier_token(ctx, p_token) || first_of_type_qualifier_token(p_token);
 }
 
 bool first_of_type_name(const struct parser_ctx* ctx)
@@ -2260,7 +2272,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             {
                 struct defer_visit_ctx ctx2 = { .ctx = ctx };
                 defer_start_visit_declaration(&ctx2, p_declaration);
-                defer_visit_ctx_destroy(&ctx2);                
+                defer_visit_ctx_destroy(&ctx2);
             }
 
         }
@@ -3025,6 +3037,80 @@ struct storage_class_specifier* _Owner _Opt storage_class_specifier(struct parse
     }
 
     return p_storage_class_specifier;
+}
+
+void storage_class_specifiers_push(struct storage_class_specifiers* p,
+                                   struct storage_class_specifier* _Owner p_storage_class_specifier)
+{
+    try
+    {
+        struct storage_class_specifier_node* pnew = calloc(1, sizeof * pnew);
+        if (pnew == NULL) throw;
+
+        pnew->storage_class_specifier = *p_storage_class_specifier;
+        storage_class_specifier_delete(p_storage_class_specifier);
+
+        if (p->head == NULL)
+        {
+            p->head = pnew;
+            p->tail = pnew;
+        }
+        else
+        {
+            assert(p->tail != NULL);
+            p->tail->next = pnew;
+            p->tail = pnew;
+        }
+
+        p->storage_class_specifier_flags |= pnew->storage_class_specifier.flags;
+    }
+    catch
+    {
+    }
+}
+void storage_class_specifier_node_delete(struct storage_class_specifier_node* _Owner _Opt p)
+{
+    if (p)
+    {
+       //storage_class_specifier_destroy(p->storage_class_specifier);
+       free(p);
+    }
+}
+
+void storage_class_specifiers_delete(struct storage_class_specifiers* _Opt _Owner p)
+{
+    if (p)
+    {
+        struct storage_class_specifier_node* _Owner _Opt item = p->head;
+        while (item)
+        {
+            struct storage_class_specifier_node* _Owner _Opt next = item->next;
+            item->next = NULL;
+            storage_class_specifier_node_delete(item);
+            item = next;
+        }
+
+        free(p);
+    }
+}
+
+struct storage_class_specifiers* _Opt _Owner storage_class_specifiers(struct parser_ctx* ctx)
+{
+    struct storage_class_specifiers* _Opt _Owner p = calloc(1, sizeof * p);
+    try
+    {
+        while (first_of_storage_class_specifier(ctx))
+        {
+            struct storage_class_specifier* _Owner _Opt p_storage_class_specifier = storage_class_specifier(ctx);
+            if (p_storage_class_specifier == NULL) throw;
+            storage_class_specifiers_push(p, p_storage_class_specifier);
+        }
+    }
+    catch
+    {
+    }
+
+    return p;
 }
 
 struct typeof_specifier_argument* _Owner _Opt typeof_specifier_argument(struct parser_ctx* ctx)
@@ -11124,7 +11210,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
     {
         *berror = true;
     }
-        
+
     if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
     {
         struct declaration* _Opt it = declaration_list.head;
@@ -11140,7 +11226,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             /* visiting the function again; restore the same diagnostic state */
             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
             it = it->next;
-        }         
+        }
     }
 
     return declaration_list;

@@ -10,12 +10,8 @@
 #include "options.h"
 #include "ownership.h"
 
-#if defined(__CATALYST__)
-// Catalyst uses DOS 8.3 file names
-#define CAKE_CONFIG_FILE_NAME "/cakeconf.h"
-#else
-#define CAKE_CONFIG_FILE_NAME "/cakeconfig.h"
-#endif // defined(__CATALYST__)
+
+#define CAKE_CONFIG_FILE_NAME "cakeconf.h"
 
 
 struct include_dir

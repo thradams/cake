@@ -5783,7 +5783,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s", file_name);
     dirname(local_cakeconfig_path);
 
-    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, local_cakeconfig_path);
+    snprintf(local_cakeconfig_path, sizeof local_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, local_cakeconfig_path);
 
     char* _Owner _Opt str = read_file(local_cakeconfig_path, true);
 
@@ -5813,7 +5813,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
         get_self_path(executable_path, sizeof(executable_path));
         dirname(executable_path);
         char root_cakeconfig_path[FS_MAX_PATH] = { 0 };
-        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s" CAKE_CONFIG_FILE_NAME, executable_path);
+        snprintf(root_cakeconfig_path, sizeof root_cakeconfig_path, "%s/" CAKE_CONFIG_FILE_NAME, executable_path);
         str = read_file(root_cakeconfig_path, true);
         if (str && ctx->options.show_includes)
         {
@@ -5825,7 +5825,7 @@ int include_config_header(struct preprocessor_ctx* ctx, const char* file_name)
     {
         if (ctx->options.show_includes)
         {
-            printf(".(cakeconfig.h not found)\n");
+            printf(".(" CAKE_CONFIG_FILE_NAME " not found)\n");
         }
         //"No such file or directory";
         return  ENOENT;
