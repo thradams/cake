@@ -464,12 +464,6 @@ struct options
     int static_debug_lines;
 
     /*
-      -S
-      output x86-64 assembly instead of C89
-    */
-    bool asm_output;
-
-    /*
       -o filename
       defines the ouputfile when 1 file is used
     */

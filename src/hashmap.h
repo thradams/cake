@@ -39,7 +39,8 @@ enum tag
     TAG_TYPE_DECLARATOR,
     TAG_TYPE_INIT_DECLARATOR,
     TAG_TYPE_MACRO,
-    TAG_TYPE_STRUCT_ENTRY
+    TAG_TYPE_STRUCT_ENTRY,
+    TAG_TYPE_TEXT
 };
 
 
@@ -61,6 +62,7 @@ struct map_entry
         struct init_declarator* _Opt _Owner p_init_declarator;
         struct macro* _Opt _Owner p_macro;
         struct struct_entry* _Opt _Owner p_struct_entry;
+        char* _Opt _Owner p_text;
     } data;
     
 };
@@ -91,6 +93,7 @@ struct hash_item_set
     struct init_declarator* _Owner _Opt p_init_declarator;
     struct macro* _Owner _Opt p_macro;
     struct struct_entry* _Owner _Opt p_struct_entry;
+    char* text;
 };
 void hash_item_set_destroy(_Dtor struct hash_item_set* p);
 

@@ -10,6 +10,9 @@
 #include "visit_il.h"
 #include "expressions.h"
 
+#define LITERAL_FUNCTION_BASE_NAME "_fn"
+#define COMPOUND_LITERAL_BASE_NAME "_obj"
+
 /*
 *    Prefix used to create local variables
 */
@@ -58,7 +61,102 @@ void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
     ss_close(&ctx->add_this_before);
     ss_close(&ctx->add_this_before_external_decl);
     ss_close(&ctx->add_this_after_external_decl);
-    
+
+}
+
+int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_name, int sz, char new_name[200])
+{
+    struct map_entry* it =
+        hashmap_find(&ctx->ast.file_scope.variables, current_name);
+    while (it)
+    {
+        if (strcmp(current_name, it->key) == 0)
+        {
+            for (int i = 2; i < 1000000; )
+            {
+                snprintf(new_name, sz, "%s%d", current_name, i);
+                struct map_entry* it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                if (it2 == NULL)
+                {
+                    struct hash_item_set item = { 0 };
+                    hashmap_set(&ctx->ast.file_scope.variables, new_name, &item);
+                    hash_item_set_destroy(&item);
+                    return 1;
+                }
+
+                if (i > 10000)
+                    i += 1000;
+                else if (i > 1000)
+                    i += 100;
+                else if (i > 100)
+                    i += 10;
+                else
+                    i++;
+            }
+            assert(false);
+        }
+        it = it->next;
+    }
+
+    struct hash_item_set item = { 0 };
+    hashmap_set(&ctx->ast.file_scope.variables, current_name, &item);
+    hash_item_set_destroy(&item);
+
+    snprintf(new_name, sz, "%s", current_name);
+
+    return 1;
+}
+
+int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+{
+    char new_name[200];
+    const char* current_name = p_init_declarator->p_declarator->name_opt->lexeme;
+    struct map_entry* it =
+        hashmap_find(&ctx->ast.file_scope.variables, current_name);
+    while (it)
+    {
+        if (strcmp(current_name, it->key) == 0)
+        {
+            for (int i = 2; i < 1000000; )
+            {
+                snprintf(new_name, sizeof(new_name), "%s%d", current_name, i);
+                struct map_entry* it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                if (it2 == NULL)
+                {
+                    struct hash_item_set item = { 0 };
+                    item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
+                    hashmap_set(&ctx->ast.file_scope.variables, new_name, &item);
+                    hash_item_set_destroy(&item);
+
+                    p_init_declarator->p_declarator->declarator_renamed = true;
+                    free(p_init_declarator->p_declarator->name_opt->lexeme);
+                    p_init_declarator->p_declarator->name_opt->lexeme = strdup(new_name);
+                    return 1;
+                }
+
+                if (i > 10000)
+                    i += 1000;
+                else if (i > 1000)
+                    i += 100;
+                else if (i > 100)
+                    i += 10;
+                else
+                    i++;
+            }
+            assert(false);
+        }
+        it = it->next;
+    }
+
+
+    struct hash_item_set item = { 0 };
+    item.p_init_declarator = init_declarator_add_ref(p_init_declarator);
+    hashmap_set(&ctx->ast.file_scope.variables, current_name, &item);
+    hash_item_set_destroy(&item);
+
+    p_init_declarator->p_declarator->declarator_renamed = true;
+
+    return 1;
 }
 
 static struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier2(struct struct_or_union_specifier* p_struct_or_union_specifier)
@@ -673,7 +771,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ctx->indentation--;
 
             print_identation_core(&add_this_before, ctx->indentation);
-            ss_fprintf(&add_this_before, "}\n");           
+            ss_fprintf(&add_this_before, "}\n");
         }
         ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
         ss_fprintf(oss, "%s", name);
@@ -1224,7 +1322,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         assert(p_expression->type_name != NULL);
 
-        char generated_function_literal_name[100] = { 0 };
+        char new_name[200] = { 0 };
 
         print_identation_core(&ctx->add_this_before, ctx->indentation);
 
@@ -1252,25 +1350,22 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
         if (l != NULL)
         {
-            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_FILE_SCOPE_PREFIX "%zu_f", l->data.number);
+            snprintf(new_name, sizeof(new_name), "%s", l->data.p_text);
         }
         else
         {
-            unsigned int current_cake_declarator_number = ctx->cake_file_scope_declarator_number++;
+            generate_file_scope_new_name(ctx, LITERAL_FUNCTION_BASE_NAME, _Countof(new_name), new_name);
             struct hash_item_set i = { 0 };
-            i.number = current_cake_declarator_number;
+            i.text = strdup(new_name);
             hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
             hash_item_set_destroy(&i);
-
-            snprintf(generated_function_literal_name, sizeof(generated_function_literal_name), CAKE_FILE_SCOPE_PREFIX "%d_f", current_cake_declarator_number);
-
             struct osstream lambda_sig = { 0 };
-            d_print_type(ctx, &lambda_sig, &p_expression->type, generated_function_literal_name, false);
+            d_print_type(ctx, &lambda_sig, &p_expression->type, new_name, false);
             ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
             ss_close(&lambda_sig);
         }
 
-        ss_fprintf(oss, "%s", generated_function_literal_name);
+        ss_fprintf(oss, "%s", new_name);
         ss_close(&function_literal_nameless);
         ss_close(&function_literal);
         ss_close(&function_literal_body);
@@ -1281,12 +1376,13 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
     {
         char name[100] = { 0 };
-        snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
 
         const bool is_static = (p_expression->p_storage_class_specifiers != NULL);
 
         if (is_static || !ctx->is_local)
         {
+            generate_file_scope_new_name(ctx, COMPOUND_LITERAL_BASE_NAME, 100, name);
+
             struct osstream local = { 0 };
             ss_fprintf(&local, "static ");
             d_print_type(ctx, &local, &p_expression->type, name, false);
@@ -1300,6 +1396,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         }
         else
         {
+            snprintf(name, sizeof(name), CAKE_LOCAL_PREFIX "%d", ctx->cake_local_declarator_number++);
             /* block-scope compound literal — automatic storage duration */
             struct osstream local = { 0 };
             ss_swap(&ctx->block_scope_declarators, &local);
@@ -3886,25 +3983,12 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         }
 
 
-        if (rename_declarator)
+        if (rename_declarator &&
+            !p_init_declarator->p_declarator->declarator_renamed)
         {
-            if (!p_init_declarator->p_declarator->declarator_renamed)
-            {
-                p_init_declarator->p_declarator->declarator_renamed = true;
-                char name[100] = { 0 };
-                snprintf(name, sizeof(name),
-                    CAKE_FILE_SCOPE_PREFIX "%d_%s",
-                    ctx->cake_file_scope_declarator_number++,
-                    p_init_declarator->p_declarator->name_opt->lexeme
-                );
-
-                free(p_init_declarator->p_declarator->name_opt->lexeme);
-                p_init_declarator->p_declarator->name_opt->lexeme = strdup(name);
-            }
+            rename_file_scope_declarator_if_necessary(ctx, p_init_declarator);
         }
-        return;
     }
-
 }
 
 static void d_visit_init_declarator_list(struct d_visit_ctx* ctx,

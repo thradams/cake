@@ -16,10 +16,6 @@ struct d_visit_ctx
     int indentation;
     bool print_qualifiers;
 
-    /*
-       File scope counter to generate unique names
-    */
-    unsigned int cake_file_scope_declarator_number;
 
     /*
        This counter is reset in each function

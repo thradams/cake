@@ -1733,6 +1733,9 @@ struct ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
+    
+    /* tags and variables from file scope */
+    struct scope file_scope;
 };
 
 
@@ -1742,7 +1745,7 @@ void ast_destroy(_Dtor struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
-struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror);
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* _Opt p_file_scope_out, bool* berror);
 
 
 int initializer_init_new(struct parser_ctx* ctx,

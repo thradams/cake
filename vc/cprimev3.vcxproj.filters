@@ -64,9 +64,6 @@
     <ClCompile Include="..\src\compile.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\visit_asm.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h">
@@ -124,9 +121,6 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\compile.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\visit_asm.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

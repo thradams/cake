@@ -165,28 +165,24 @@ Options: x86_x64_gcc, x86_msvc, x64_msvc, catalina, ccu8
 ### Output
 
 The current backend generates C89-compatible code, which can be pipelined with existing 
-compilers to produce executables. 
+compilers to produce executables. You can create your own C compiler backend.
 
-The output is a simplified version of C89.
-It does not include the following features:
+The output is a simplified version with some K & R and C89.
 
- - preprocessor
- - typedefs
- - enums
- - const
- - auto
- - Structs/unions declared inside other structs/unions
- - constant expressions are pre-computed
+Using C89 as base:
+
+ - no preprocessor
+ - no typedefs
+ - no enums
+ - no const
+ - no constant expressions
+ - no switch
+ - no nested structs/unions
  - no sizeof
- - static variables are non-local.
- - arrays size [] = {...} are pre-calculated
- - no switch 
+ - no local static variables
+ - arrays[size], size is always given and it is integer
+ - function prototypes are generated
  
- 
-The goal is for this simplified version to function as an intermediate language (IL).
-
-One directory called **out** is created keeping the same directory structure of the input files.
-
 For instance:
 
 ```c

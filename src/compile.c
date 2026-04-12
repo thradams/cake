@@ -30,7 +30,6 @@
 #endif
 
 #include "visit_il.h"
-#include "visit_asm.h"
 #include <time.h>
 
 
@@ -316,7 +315,7 @@ int compile_one_file(const char* file_name,
     struct report* report)
 {
 #ifdef _CRTDBG_MAP_ALLOC
-    _CrtMemState state1, state2, state_diff;    
+    _CrtMemState state1, state2, state_diff;
     _CrtMemCheckpoint(&state1);
 #endif
 
@@ -455,7 +454,7 @@ int compile_one_file(const char* file_name,
         else
         {
             bool berror = false;
-            ast.declaration_list = parse(&ctx, &ast.token_list, &berror);
+            ast.declaration_list = parse(&ctx, &ast.token_list, &ast.file_scope, &berror);
             if (berror || report->error_count > 0)
                 throw;
 
@@ -464,24 +463,14 @@ int compile_one_file(const char* file_name,
 
                 struct osstream ss = { 0 };
 
-                if (options->asm_output)
-                {
-                    struct asm_visit_ctx actx = { 0 };
-                    actx.ast = ast;
-                    actx.options = ctx.options;
-                    asm_visit(&actx, &ss);
-                    p_output_string = ss.c_str; //MOVE
-                    asm_visit_ctx_destroy(&actx);
-                }
-                else
-                {
-                    struct d_visit_ctx ctx2 = { 0 };
-                    ctx2.ast = ast;
-                    ctx2.options = ctx.options;
-                    d_visit(&ctx2, &ss);
-                    p_output_string = ss.c_str; //MOVE
-                    d_visit_ctx_destroy(&ctx2);
-                }
+
+                struct d_visit_ctx ctx2 = { 0 };
+                ctx2.ast = ast;
+                ctx2.options = ctx.options;
+                d_visit(&ctx2, &ss);
+                p_output_string = ss.c_str; //MOVE
+                d_visit_ctx_destroy(&ctx2);
+
 
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
@@ -596,8 +585,8 @@ int compile_one_file(const char* file_name,
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
-    
-    
+
+
 #ifdef _CRTDBG_MAP_ALLOC
     _CrtMemCheckpoint(&state2);
 
@@ -1023,29 +1012,13 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             if (report->error_count > 0)
                 throw;
 
-
             struct osstream ss = { 0 };
-
-            if (options.asm_output)
-            {
-                struct asm_visit_ctx actx = { 0 };
-                actx.ast = ast;
-                actx.options = options;
-                asm_visit(&actx, &ss);
-                s = ss.c_str; //MOVED
-                asm_visit_ctx_destroy(&actx);
-            }
-            else
-            {
-                struct d_visit_ctx ctx2 = { 0 };
-                ctx2.ast = ast;
-                ctx2.options = options;
-                d_visit(&ctx2, &ss);
-                s = ss.c_str; //MOVED
-                d_visit_ctx_destroy(&ctx2);
-            }
-
-
+            struct d_visit_ctx ctx2 = { 0 };
+            ctx2.ast = ast;
+            ctx2.options = options;
+            d_visit(&ctx2, &ss);
+            s = ss.c_str; //MOVED
+            d_visit_ctx_destroy(&ctx2);
         }
     }
     catch

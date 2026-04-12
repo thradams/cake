@@ -11347,7 +11347,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
-struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror)
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* p_file_scope_out,  bool* berror)
 {
     *berror = false;
 
@@ -11396,6 +11396,13 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
     {
         *berror = true;
     }
+    
+    if (p_file_scope_out)
+    {
+        *p_file_scope_out = file_scope;
+        memset(&file_scope, 0, sizeof file_scope);
+    }
+
     scope_destroy(&file_scope);
     token_list_destroy(&builtin_tokens);
     token_list_destroy(&built);
@@ -11437,7 +11444,7 @@ struct ast get_ast(struct options* options,
         ctx.options = *options;
 
         bool berror = false;
-        ast.declaration_list = parse(&ctx, &ast.token_list, &berror);
+        ast.declaration_list = parse(&ctx, &ast.token_list, &ast.file_scope, &berror);
         if (berror)
             throw;
     }
@@ -11493,7 +11500,7 @@ struct ast get_ast_with_flags(int argc,
         ctx.options = options;
 
         bool berror = false;
-        ast.declaration_list = parse(&ctx, &ast.token_list, &berror);
+        ast.declaration_list = parse(&ctx, &ast.token_list, &ast.file_scope, &berror);
         if (berror)
             throw;
     }
@@ -11509,6 +11516,7 @@ struct ast get_ast_with_flags(int argc,
 
 void ast_destroy(_Dtor struct ast* ast)
 {
+    scope_destroy(&ast->file_scope);
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);
 }

@@ -448,28 +448,25 @@ Options: x86<em>x64</em>gcc, x86<em>msvc, x64</em>msvc, catalina, ccu8</p></li>
 <h3 id="toc_4">Output</h3>
 
 <p>The current backend generates C89-compatible code, which can be pipelined with existing 
-compilers to produce executables. </p>
+compilers to produce executables. You can create your own C compiler backend.</p>
 
-<p>The output is a simplified version of C89.
-It does not include the following features:</p>
+<p>The output is a simplified version with some K &amp; R and C89.</p>
+
+<p>Using C89 as base:</p>
 
 <ul>
-<li>preprocessor</li>
-<li>typedefs</li>
-<li>enums</li>
-<li>const</li>
-<li>auto</li>
-<li>Structs/unions declared inside other structs/unions</li>
-<li>constant expressions are pre-computed</li>
+<li>no preprocessor</li>
+<li>no typedefs</li>
+<li>no enums</li>
+<li>no const</li>
+<li>no constant expressions</li>
+<li>no switch</li>
+<li>no nested structs/unions</li>
 <li>no sizeof</li>
-<li>static variables are non-local.</li>
-<li>arrays size [] = {...} are pre-calculated</li>
-<li>no switch </li>
+<li>no local static variables</li>
+<li>arrays[size], size is always given and it is integer</li>
+<li>function prototypes are generated</li>
 </ul>
-
-<p>The goal is for this simplified version to function as an intermediate language (IL).</p>
-
-<p>One directory called <strong>out</strong> is created keeping the same directory structure of the input files.</p>
 
 <p>For instance:</p>
 

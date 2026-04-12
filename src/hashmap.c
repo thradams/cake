@@ -1,6 +1,6 @@
 /*
  *  This file is part of cake compiler
- *  https://github.com/thradams/cake 
+ *  https://github.com/thradams/cake
 */
 
 #pragma safety enable
@@ -71,6 +71,10 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
 
     case TAG_TYPE_STRUCT_ENTRY:
         struct_entry_delete(p->data.p_struct_entry);
+        break;
+    
+    case TAG_TYPE_TEXT:
+        free(p->data.p_text);
         break;
     }
 
@@ -168,7 +172,7 @@ void hash_item_set_destroy(_Dtor struct hash_item_set* p)
     init_declarator_delete(p->p_init_declarator);
     struct_or_union_specifier_delete(p->p_struct_or_union_specifier);
     macro_delete(p->p_macro);
-
+    free(p->text);
 }
 
 int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* item /*in out*/)
@@ -223,6 +227,12 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         type = TAG_TYPE_STRUCT_ENTRY;
         p = item->p_struct_entry;
         item->p_struct_entry = NULL;
+    }
+    else if (item->text)
+    {
+        type = TAG_TYPE_TEXT;
+        p = item->text;
+        item->text = NULL;
     }
     else //if (item->number)
     {
