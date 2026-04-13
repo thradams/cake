@@ -938,7 +938,7 @@ bool type_is_union(const struct type* p_type)
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
-    
+
     if (p_type->struct_or_union_specifier == NULL)
         return false;
 
@@ -2090,9 +2090,31 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                             break;
                         case SIZEOF_RESULT_OVERLOW:
                         case SIZEOF_RESULT_RUNTIME:
-                        case SIZEOF_RESULT_INCOMPLETE:
                         case SIZEOF_RESULT_FUNCTION:
                             throw;
+                            break;
+
+                        case SIZEOF_RESULT_INCOMPLETE:
+                            
+                            /* handle C99 flexive array members */
+                            if (md->next == NULL && d->next == NULL)
+                            {
+                                if (type_get_category(&md->declarator->type) == TYPE_CATEGORY_ARRAY)
+                                {
+                                    /*
+                                      struct X {
+                                        int i;
+                                        double data[];
+                                      };
+                                    */
+                                    sizeof_result = SIZEOF_RESULT_OK;
+                                    item_size = 0;                                    
+                                }
+                            }
+                            else
+                            {
+                                throw;
+                            }
                             break;
                         }
 
@@ -2473,9 +2495,9 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 
                 if (object_is_zero(&p_type->p_array_num_elements_expression->object))
                 {
-                    /* 
+                    /*
                     *  MSVC, GCC, clang..have it
-                    *  int[0]                     
+                    *  int[0]
                     */
                 }
                 else
@@ -3758,7 +3780,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
           but we also need to delete the memory
         */
         free(list.head);
-                
+
         type_set_storage_specifiers_using_declarator(&r, pdeclarator);
         type_set_msvc_declspec_using_declarator(&r, pdeclarator);
         type_set_alignment_specifier_flags_using_declarator(&r, pdeclarator);

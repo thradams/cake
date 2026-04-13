@@ -1,5 +1,4 @@
 
-void f2(){
-    (static char* ()){ return __func__;  }; 
-    (static char* ()){ return __func__;  }; 
+int main() {  
+    for (int i = 0; i < 5; i++)  i; 
 }
