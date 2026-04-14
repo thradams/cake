@@ -1,4 +1,9 @@
+inline int f() {
+    int a;
+    a = 2;
 
-int main() {  
-    for (int i = 0; i < 5; i++)  i; 
+    return a*3;
+}
+int main() {
+    f();
 }

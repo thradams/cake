@@ -52,9 +52,9 @@ static int bitset_get(const struct bitset* b, int pos)
 
 bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w)
 {
-        if (w == W_LOCATION)
+    if (w == W_LOCATION)
         return true;
-    
+
     if (w >= BITSET_SIZE)
         return true;
 
@@ -333,6 +333,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-line-directives") == 0)
+        {
+            options->line_directives = true;
+            continue;
+        }
+
         if (has_prefix(argv[i], "-ownership="))
         {
             if (strcmp(argv[i], "-ownership=enable") == 0)
@@ -602,6 +608,8 @@ void print_help()
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");
+    
+    print_option("-line-directives", "Emmits #line directives");
     print_option("-msvc-output", "Output is compatible with visual studio");
     print_option("-fdiagnostics-color=never", "Output will not use colors");
     print_option("-dump-tokens", "Output tokens before preprocessor");
@@ -659,7 +667,7 @@ bool options_diagnostic_is_error(const struct options* options, enum diagnostic_
 {
     if (w == W_LOCATION)
         return false;
-    
+
     if (w >= BITSET_SIZE)
         return true;
 
@@ -671,7 +679,7 @@ bool options_diagnostic_is_warning(const struct options* options, enum diagnosti
 {
     if (w == W_LOCATION)
         return false;
-    
+
     if (w >= BITSET_SIZE)
         return false;
 
@@ -684,7 +692,7 @@ bool options_diagnostic_is_note(const struct options* options, enum diagnostic_i
 {
     if (w == W_LOCATION)
         return false;
-    
+
     if (w >= BITSET_SIZE)
         return false;
 

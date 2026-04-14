@@ -150,12 +150,6 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
     }
 }
 
-static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* token)
-{
-
-}
-
-
 void scope_destroy(_Dtor struct scope* p)
 {
     hashmap_destroy(&p->tags);
@@ -3044,7 +3038,7 @@ void storage_class_specifiers_push(struct storage_class_specifiers* p,
 {
     try
     {
-        struct storage_class_specifier_node* pnew = calloc(1, sizeof * pnew);
+        struct storage_class_specifier_node* _Opt _Owner pnew = calloc(1, sizeof * pnew);
         if (pnew == NULL) throw;
 
         pnew->storage_class_specifier = *p_storage_class_specifier;
@@ -3072,8 +3066,8 @@ void storage_class_specifier_node_delete(struct storage_class_specifier_node* _O
 {
     if (p)
     {
-       //storage_class_specifier_destroy(p->storage_class_specifier);
-       free(p);
+        //storage_class_specifier_destroy(p->storage_class_specifier);
+        free(p);
     }
 }
 
@@ -3479,10 +3473,11 @@ struct attribute* _Owner _Opt msvc_declspec(struct parser_ctx* ctx)
     {
         if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
             throw;
-        parser_match_tk(ctx, TK_KEYWORD_MSVC__DECLSPEC);
-        parser_match_tk(ctx, TK_LEFT_PARENTHESIS);
+        if (parser_match_tk(ctx, TK_KEYWORD_MSVC__DECLSPEC) != 0) throw;
+        if (parser_match_tk(ctx, TK_LEFT_PARENTHESIS) != 0) throw;
+
         p_decl_specifier = extended_decl_modifier_seq(ctx);
-        parser_match_tk(ctx, TK_RIGHT_PARENTHESIS);
+        if (parser_match_tk(ctx, TK_RIGHT_PARENTHESIS) != 0) throw;
     }
     catch
     {
@@ -3533,50 +3528,56 @@ static void gcc_attribute(struct parser_ctx* ctx)
          identifier()
          identifier(attribute-argument-list)
     */
-    if (ctx->current == NULL)
-    {
-        unexpected_end_of_file(ctx);
-        return;
-    }
 
-    if (!token_is_identifier_or_keyword(ctx->current->type))
+    try
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED,
-                          ctx,
-                          ctx->current,
-                          NULL,
-                          "expected identifier");
-        return;
-    }
-
-    parser_match(ctx); //identifier
-
-    if (ctx->current->type == '(')
-    {
-        parser_match(ctx); //(
-        int count = 1;
-        for (;;)
+        if (ctx->current == NULL)
         {
-            if (ctx->current->type == ')')
-            {
-                count--;
-
-                if (count == 0)
-                    break;
-
-                parser_match(ctx);
-            }
-            else if (ctx->current->type == '(')
-            {
-                count++;
-                parser_match(ctx); //(
-            }
-            else
-                parser_match(ctx); //(
+            unexpected_end_of_file(ctx);
+            throw;
         }
-        parser_match_tk(ctx, ')');
-    }
 
+        if (!token_is_identifier_or_keyword(ctx->current->type))
+        {
+            compiler_diagnostic(C_ERROR_UNEXPECTED,
+                              ctx,
+                              ctx->current,
+                              NULL,
+                              "expected identifier");
+            throw;
+        }
+
+        parser_match(ctx); //identifier
+
+        if (ctx->current->type == '(')
+        {
+            parser_match(ctx); //(
+            int count = 1;
+            for (;;)
+            {
+                if (ctx->current->type == ')')
+                {
+                    count--;
+
+                    if (count == 0)
+                        break;
+
+                    parser_match(ctx);
+                }
+                else if (ctx->current->type == '(')
+                {
+                    count++;
+                    parser_match(ctx); //(
+                }
+                else
+                    parser_match(ctx); //(
+            }
+            if (parser_match_tk(ctx, ')') != 0) throw;
+        }
+    }
+    catch
+    {
+    }
 }
 
 static void gcc_attribute_list(struct parser_ctx* ctx)
@@ -3624,12 +3625,18 @@ void gcc_attribute_specifier_opt(struct parser_ctx* ctx)
     if (ctx->current == NULL || ctx->current->type != TK_KEYWORD_GCC__ATTRIBUTE)
         return;
 
-    parser_match(ctx);
-    parser_match_tk(ctx, '(');
-    parser_match_tk(ctx, '(');
-    gcc_attribute_list(ctx);
-    parser_match_tk(ctx, ')');
-    parser_match_tk(ctx, ')');
+    try
+    {
+        parser_match(ctx);
+        if (parser_match_tk(ctx, '(') != 0) throw;
+        if (parser_match_tk(ctx, '(') != 0) throw;
+        gcc_attribute_list(ctx);
+        if (parser_match_tk(ctx, ')') != 0) throw;
+        if (parser_match_tk(ctx, ')') != 0) throw;
+    }
+    catch
+    {
+    }
 }
 
 struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
@@ -4020,7 +4027,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         assert(p_struct_or_union_specifier->attribute_specifier_sequence_opt == NULL);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
-        struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
+        struct struct_or_union_specifier* _Opt p_first_tag_in_this_scope = NULL;
 
         if (ctx->current == NULL)
         {
@@ -5764,7 +5771,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
         if (pp_token_name_opt && *pp_token_name_opt)
         {
-            free((void*)p_declarator->object.member_designator);
+            free((void* _Owner)p_declarator->object.member_designator);
             p_declarator->object.member_designator = strdup((*pp_token_name_opt)->lexeme);
         }
 
@@ -9999,9 +10006,11 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             p_try_statement->catch_token_opt = ctx->current;
             parser_match(ctx);
 
-            parser_match_tk(ctx, '(');
+            if (parser_match_tk(ctx, '(') != 0) throw;
+
             p_try_statement->msvc_except_expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-            parser_match_tk(ctx, ')');
+            
+            if (parser_match_tk(ctx, ')') != 0) throw;
 
             assert(p_try_statement->catch_secondary_block_opt == NULL);
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
@@ -11347,7 +11356,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
-struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* p_file_scope_out,  bool* berror)
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* p_file_scope_out, bool* berror)
 {
     *berror = false;
 
@@ -11396,7 +11405,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, s
     {
         *berror = true;
     }
-    
+
     if (p_file_scope_out)
     {
         *p_file_scope_out = file_scope;

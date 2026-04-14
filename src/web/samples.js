@@ -1818,14 +1818,15 @@ int main()
 `;
 
 sample["C2Y"]["Local functions II"] =
-    `
+`
 #include <stdlib.h>
 
-void async(void (* callback)(int result, void * data), void * data);
+void async(void callback(int result, void * data), void * data);
 
 int main()
 {
 	struct {int value; }* capture = calloc(1, sizeof * capture);
+
     static void callback(int result, void * data)
     {
 		typeof(capture) p = data;
@@ -1998,101 +1999,22 @@ int test_return(int x) {
 static_assert( 1?: 0 == 1);
 `;
 
-sample["C2Y"]["generic functions I"] =
-    `
-#include <assert.h>
-#include <errno.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#define SIZE_MAX 10000
-
-struct int_array {
-    int* data;
-    int size;
-    int capacity;
-};
-
-#def reserve(A, N)
-(int(typeof(A) p, int n)) {
-    if (n > p->capacity) {
-        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0])))) {
-            return EOVERFLOW;
-        }
-
-        void* pnew = realloc(p->data, n * sizeof(p->data[0]));
-        if (pnew == NULL) return ENOMEM;
-
-        p->data = pnew;
-        p->capacity = n;
-    }
-    return 0;
-}
-(A, N)
-#enddef
-
-#def push(A, I)
-    (int(typeof(A) p, typeof(I) value)) {
-    if (p->size == INT_MAX) {
-        return EOVERFLOW;
-    }
-
-    if (p->size + 1 > p->capacity) {
-        int new_capacity = 0;
-        if (p->capacity > (INT_MAX - p->capacity / 2)) {
-            /*overflow*/
-            new_capacity = INT_MAX;
-        } else {
-            new_capacity = p->capacity + p->capacity / 2;
-            if (new_capacity < p->size + 1) {
-                new_capacity = p->size + 1;
-            }
-        }
-
-        int error = reserve(p, new_capacity);
-        if (error != 0) {
-            return error;
-        }
-    }
-
-    p->data[p->size] = value;
-
-    p->size++;
-
-    return 0;
-}
-(A, I)
-#enddef
-
-void int_array_destroy(struct int_array* p) {
-
-    free(p->data);
-}
-
-int main() {
-    struct int_array a = {0};
-    push(&a, 1);
-    int_array_destroy(&a);
-}
-`;
-
 sample["C2Y"]["generic functions"] =
     `
 
-#define SWAP(a, b)\\
-  (void (typeof(a)* arg1, typeof(b)* arg2)) { \\
-    typeof(a) temp = *arg1; *arg1 = *arg2; *arg2 = temp; \\
-  }(&(a), &(b))
-
+#define SWAP(a, b)\
+  (static void (typeof(a) arg1, typeof(b) arg2)) { \
+    typeof(*a) temp = *arg1;\
+    *arg1 = *arg2;\
+    *arg2 = temp; \
+  }(a, b)
 
 int main()
 {
     int a = 1;
     int b = 2;
-    SWAP(a, b);
-    SWAP(a, b);
-    SWAP(a, b);
+    SWAP(&a, &b);
+    SWAP(&a, &b);
 }
 `;
 

@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>file.c </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>file.c -line-directives</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommand>
     </LocalDebuggerCommand>
-    <LocalDebuggerCommandArgumentsHistory>file.c |</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory>file.c |file.c -line-directives|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
     <LocalDebuggerCommandArguments>-selftest</LocalDebuggerCommandArguments>

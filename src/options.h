@@ -373,6 +373,11 @@ struct options
     */
     bool disable_assert;
 
+    /*
+      -line-directives
+    */
+
+    bool line_directives;
 
     /*
        -flow-analysis

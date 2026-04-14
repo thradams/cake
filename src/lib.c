@@ -1213,6 +1213,11 @@ struct options
     */
     bool disable_assert;
 
+    /*
+      -line-directives
+    */
+
+    bool line_directives;
 
     /*
        -flow-analysis
@@ -14530,9 +14535,9 @@ static int bitset_get(const struct bitset* b, int pos)
 
 bool is_diagnostic_enabled(const struct options* options, enum diagnostic_id w)
 {
-        if (w == W_LOCATION)
+    if (w == W_LOCATION)
         return true;
-    
+
     if (w >= BITSET_SIZE)
         return true;
 
@@ -14811,6 +14816,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-line-directives") == 0)
+        {
+            options->line_directives = true;
+            continue;
+        }
+
         if (has_prefix(argv[i], "-ownership="))
         {
             if (strcmp(argv[i], "-ownership=enable") == 0)
@@ -15080,6 +15091,8 @@ void print_help()
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");
+    
+    print_option("-line-directives", "Emmits #line directives");
     print_option("-msvc-output", "Output is compatible with visual studio");
     print_option("-fdiagnostics-color=never", "Output will not use colors");
     print_option("-dump-tokens", "Output tokens before preprocessor");
@@ -15137,7 +15150,7 @@ bool options_diagnostic_is_error(const struct options* options, enum diagnostic_
 {
     if (w == W_LOCATION)
         return false;
-    
+
     if (w >= BITSET_SIZE)
         return true;
 
@@ -15149,7 +15162,7 @@ bool options_diagnostic_is_warning(const struct options* options, enum diagnosti
 {
     if (w == W_LOCATION)
         return false;
-    
+
     if (w >= BITSET_SIZE)
         return false;
 
@@ -15162,7 +15175,7 @@ bool options_diagnostic_is_note(const struct options* options, enum diagnostic_i
 {
     if (w == W_LOCATION)
         return false;
-    
+
     if (w >= BITSET_SIZE)
         return false;
 
@@ -16481,7 +16494,7 @@ bool first_of_storage_class_specifier_token(const struct token* p_token);
 struct storage_class_specifier_node
 {
     struct storage_class_specifier storage_class_specifier;
-    struct storage_class_specifier_node* next;
+    struct storage_class_specifier_node* _Opt _Owner next;
 };
 
 void storage_class_specifier_node_delete(struct storage_class_specifier_node* _Owner _Opt p);
@@ -29294,7 +29307,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.08"
+#define CAKE_VERSION "0.13.09"
 
 
 
@@ -29318,7 +29331,9 @@ struct d_visit_ctx
     struct options options;
     int indentation;
     bool print_qualifiers;
-
+    
+    int         last_line_directive_line;   /* initialise to -1  */
+    const char* last_line_directive_file;   /* initialise to NULL */
 
     /*
        This counter is reset in each function
@@ -29329,6 +29344,12 @@ struct d_visit_ctx
     struct hash_map tag_names;
     struct hash_map structs_map;
     struct hash_map file_scope_declarator_map;
+
+    /*
+       Maps current instantiations.
+       The key is the instantiation without the name.
+       The value is the name of the instantiated function (that can be reused)
+    */
     struct hash_map instantiated_function_literals;
     
     /*
@@ -29482,12 +29503,6 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
         }
     }
 }
-
-static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* token)
-{
-
-}
-
 
 void scope_destroy(_Dtor struct scope* p)
 {
@@ -32377,7 +32392,7 @@ void storage_class_specifiers_push(struct storage_class_specifiers* p,
 {
     try
     {
-        struct storage_class_specifier_node* pnew = calloc(1, sizeof * pnew);
+        struct storage_class_specifier_node* _Opt _Owner pnew = calloc(1, sizeof * pnew);
         if (pnew == NULL) throw;
 
         pnew->storage_class_specifier = *p_storage_class_specifier;
@@ -32405,8 +32420,8 @@ void storage_class_specifier_node_delete(struct storage_class_specifier_node* _O
 {
     if (p)
     {
-       //storage_class_specifier_destroy(p->storage_class_specifier);
-       free(p);
+        //storage_class_specifier_destroy(p->storage_class_specifier);
+        free(p);
     }
 }
 
@@ -32812,10 +32827,11 @@ struct attribute* _Owner _Opt msvc_declspec(struct parser_ctx* ctx)
     {
         if (ctx->current->type != TK_KEYWORD_MSVC__DECLSPEC)
             throw;
-        parser_match_tk(ctx, TK_KEYWORD_MSVC__DECLSPEC);
-        parser_match_tk(ctx, TK_LEFT_PARENTHESIS);
+        if (parser_match_tk(ctx, TK_KEYWORD_MSVC__DECLSPEC) != 0) throw;
+        if (parser_match_tk(ctx, TK_LEFT_PARENTHESIS) != 0) throw;
+
         p_decl_specifier = extended_decl_modifier_seq(ctx);
-        parser_match_tk(ctx, TK_RIGHT_PARENTHESIS);
+        if (parser_match_tk(ctx, TK_RIGHT_PARENTHESIS) != 0) throw;
     }
     catch
     {
@@ -32866,50 +32882,56 @@ static void gcc_attribute(struct parser_ctx* ctx)
          identifier()
          identifier(attribute-argument-list)
     */
-    if (ctx->current == NULL)
-    {
-        unexpected_end_of_file(ctx);
-        return;
-    }
 
-    if (!token_is_identifier_or_keyword(ctx->current->type))
+    try
     {
-        compiler_diagnostic(C_ERROR_UNEXPECTED,
-                          ctx,
-                          ctx->current,
-                          NULL,
-                          "expected identifier");
-        return;
-    }
-
-    parser_match(ctx); //identifier
-
-    if (ctx->current->type == '(')
-    {
-        parser_match(ctx); //(
-        int count = 1;
-        for (;;)
+        if (ctx->current == NULL)
         {
-            if (ctx->current->type == ')')
-            {
-                count--;
-
-                if (count == 0)
-                    break;
-
-                parser_match(ctx);
-            }
-            else if (ctx->current->type == '(')
-            {
-                count++;
-                parser_match(ctx); //(
-            }
-            else
-                parser_match(ctx); //(
+            unexpected_end_of_file(ctx);
+            throw;
         }
-        parser_match_tk(ctx, ')');
-    }
 
+        if (!token_is_identifier_or_keyword(ctx->current->type))
+        {
+            compiler_diagnostic(C_ERROR_UNEXPECTED,
+                              ctx,
+                              ctx->current,
+                              NULL,
+                              "expected identifier");
+            throw;
+        }
+
+        parser_match(ctx); //identifier
+
+        if (ctx->current->type == '(')
+        {
+            parser_match(ctx); //(
+            int count = 1;
+            for (;;)
+            {
+                if (ctx->current->type == ')')
+                {
+                    count--;
+
+                    if (count == 0)
+                        break;
+
+                    parser_match(ctx);
+                }
+                else if (ctx->current->type == '(')
+                {
+                    count++;
+                    parser_match(ctx); //(
+                }
+                else
+                    parser_match(ctx); //(
+            }
+            if (parser_match_tk(ctx, ')') != 0) throw;
+        }
+    }
+    catch
+    {
+    }
 }
 
 static void gcc_attribute_list(struct parser_ctx* ctx)
@@ -32957,12 +32979,18 @@ void gcc_attribute_specifier_opt(struct parser_ctx* ctx)
     if (ctx->current == NULL || ctx->current->type != TK_KEYWORD_GCC__ATTRIBUTE)
         return;
 
-    parser_match(ctx);
-    parser_match_tk(ctx, '(');
-    parser_match_tk(ctx, '(');
-    gcc_attribute_list(ctx);
-    parser_match_tk(ctx, ')');
-    parser_match_tk(ctx, ')');
+    try
+    {
+        parser_match(ctx);
+        if (parser_match_tk(ctx, '(') != 0) throw;
+        if (parser_match_tk(ctx, '(') != 0) throw;
+        gcc_attribute_list(ctx);
+        if (parser_match_tk(ctx, ')') != 0) throw;
+        if (parser_match_tk(ctx, ')') != 0) throw;
+    }
+    catch
+    {
+    }
 }
 
 struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
@@ -33353,7 +33381,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         assert(p_struct_or_union_specifier->attribute_specifier_sequence_opt == NULL);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
-        struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
+        struct struct_or_union_specifier* _Opt p_first_tag_in_this_scope = NULL;
 
         if (ctx->current == NULL)
         {
@@ -35097,7 +35125,7 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
 
         if (pp_token_name_opt && *pp_token_name_opt)
         {
-            free((void*)p_declarator->object.member_designator);
+            free((void* _Owner)p_declarator->object.member_designator);
             p_declarator->object.member_designator = strdup((*pp_token_name_opt)->lexeme);
         }
 
@@ -39332,9 +39360,11 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             p_try_statement->catch_token_opt = ctx->current;
             parser_match(ctx);
 
-            parser_match_tk(ctx, '(');
+            if (parser_match_tk(ctx, '(') != 0) throw;
+
             p_try_statement->msvc_except_expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-            parser_match_tk(ctx, ')');
+            
+            if (parser_match_tk(ctx, ')') != 0) throw;
 
             assert(p_try_statement->catch_secondary_block_opt == NULL);
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
@@ -40680,7 +40710,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
-struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* p_file_scope_out,  bool* berror)
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct scope* p_file_scope_out, bool* berror)
 {
     *berror = false;
 
@@ -40729,7 +40759,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, s
     {
         *berror = true;
     }
-    
+
     if (p_file_scope_out)
     {
         *p_file_scope_out = file_scope;
@@ -44042,6 +44072,39 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 #define CAKE_PREFIX_LABEL "__L"
 
 
+static void emit_line_directive(struct d_visit_ctx* ctx,
+                                struct osstream* oss,
+                                const struct token* tk)
+{
+    if (!ctx->options.line_directives)
+        return;
+
+    if (tk == NULL)
+        return;
+
+    
+    const int   prev_line = ctx->last_line_directive_line;
+    const char* prev_file = ctx->last_line_directive_file;
+
+    ctx->last_line_directive_line = tk->line;
+    ctx->last_line_directive_file = tk->token_origin->lexeme;
+
+    
+    if (tk->line == (prev_line + 1) && prev_file == tk->token_origin->lexeme)
+    {
+        return;
+    }
+    if (prev_file == tk->token_origin->lexeme)
+    {
+        /*same file*/
+        ss_fprintf(oss, "#line %d\n", tk->line);
+    }
+    else
+    {
+        ss_fprintf(oss, "#line %d \"%s\"\n", tk->line, tk->token_origin->lexeme);
+    }
+    
+}
 
 struct vm_dim_snapshot
 {
@@ -44775,8 +44838,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         char name[100] = { 0 };
         generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-        
-        
+
+
 
         struct osstream decl = { 0 };
         print_identation_core(&decl, ctx->indentation);
@@ -44926,7 +44989,24 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         if (p_expression->declarator->name_opt)
             declarator_name = p_expression->declarator->name_opt->lexeme;
 
-        const bool is_function = type_is_function(&p_expression->declarator->type);
+        bool is_function = type_is_function(&p_expression->declarator->type);
+
+        if (is_function &&
+            (p_expression->declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER))
+        {
+
+            /*
+              Function parameters are pointers.
+              Example:
+
+              void f(void callback(void* data)) {
+                callback(0);
+              }
+
+            */
+            is_function = false;
+        }
+
         bool is_local_function_definition = false;
         if (is_function)
         {
@@ -44983,11 +45063,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 if (p_function_defined && (is_static || is_inline || is_auto || is_local_function_definition))
                 {
                     //We need to find the function..
-
+                    
                     struct osstream local3 = { 0 };
-                    struct osstream local4 = { 0 };
+                    struct osstream local4 = { 0 };                    
                     d_print_type(ctx, &local4, &p_function_defined->type, declarator_name, false);
 
+                    emit_line_directive(ctx, &local3, p_function_defined->first_token_opt);
                     ss_fprintf(&local3, "static %s\n", local4.c_str);
 
                     d_visit_function_body(ctx, &local3, p_function_defined);
@@ -45093,7 +45174,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         char name[100] = { 0 };
         generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-        
+
         struct osstream local = { 0 };
 
         ss_swap(&ctx->block_scope_declarators, &local);
@@ -45434,7 +45515,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ss_fprintf(oss, "%s", name);
         }
         else
-        {            
+        {
             generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
 
             /* block-scope compound literal — automatic storage duration */
@@ -45781,7 +45862,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 char name[100] = { 0 };
                 generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-                
+
                 struct osstream decl = { 0 };
                 print_identation_core(&decl, ctx->indentation);
                 d_print_type(ctx, &decl,
@@ -46026,6 +46107,7 @@ static void d_visit_labeled_statement(struct d_visit_ctx* ctx, struct osstream* 
 {
     assert(p_labeled_statement->label != NULL);
 
+    emit_line_directive(ctx, oss, p_labeled_statement->label->p_first_token);
     d_visit_label(ctx, oss, p_labeled_statement->label);
 
 
@@ -46156,9 +46238,9 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         {
             is_compound_statement = true;
         }
-        
+
         if (!is_compound_statement)
-        {            
+        {
             print_identation(ctx, oss);
             ctx->indentation++;
             ss_fprintf(oss, "{\n");
@@ -46509,14 +46591,38 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
 {
     if (p_unlabeled_statement->primary_block)
     {
+        if (p_unlabeled_statement->primary_block)
+        {
+            struct token* tk = NULL;
+            if (p_unlabeled_statement->primary_block->compound_statement)
+                tk = p_unlabeled_statement->primary_block->compound_statement->first_token;
+            else if (p_unlabeled_statement->primary_block->iteration_statement)
+                tk = p_unlabeled_statement->primary_block->iteration_statement->first_token;
+            else if (p_unlabeled_statement->primary_block->selection_statement)
+                tk = p_unlabeled_statement->primary_block->selection_statement->first_token;
+            else if (p_unlabeled_statement->primary_block->try_statement)
+                tk = p_unlabeled_statement->primary_block->try_statement->first_token;
+
+            if (tk)
+            {
+                emit_line_directive(ctx, oss, tk);
+            }
+        }
+            
         d_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
+        if (p_unlabeled_statement->expression_statement->expression_opt &&
+            p_unlabeled_statement->expression_statement->expression_opt->first_token)
+        {
+            emit_line_directive(ctx, oss, p_unlabeled_statement->expression_statement->expression_opt->first_token);
+        }
         d_visit_expression_statement(ctx, oss, p_unlabeled_statement->expression_statement);
     }
     else if (p_unlabeled_statement->jump_statement)
     {
+        emit_line_directive(ctx, oss, p_unlabeled_statement->jump_statement->first_token);
         d_visit_jump_statement(ctx, oss, p_unlabeled_statement->jump_statement);
     }
     else if (p_unlabeled_statement->defer_statement)
@@ -46845,7 +46951,7 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
             print_identation_core(&snaps, 1);
             char name[100] = { 0 };
             generate_name(all_dims[i].snap_num, sizeof name, name);
-            ss_fprintf(&snaps, "%s %s = " ,size_t_str.c_str, name);
+            ss_fprintf(&snaps, "%s %s = ", size_t_str.c_str, name);
             d_visit_expression(ctx, &snaps, all_dims[i].expr);
             ss_fprintf(&snaps, ";\n");
         }
@@ -48006,6 +48112,10 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         //        void f() {} 
         //action = ACTION_DECLARE;
         struct osstream ss = { 0 };
+
+        if (p_init_declarator->p_declarator->first_token_opt)
+            emit_line_directive(ctx, &ss, p_init_declarator->p_declarator->first_token_opt);
+
         d_print_type(ctx, &ss,
            &p_init_declarator->p_declarator->type,
            p_init_declarator->p_declarator->name_opt->lexeme,
@@ -48264,8 +48374,10 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     ctx->print_qualifiers = false; //TODO not ready yet..
 
     ss_fprintf(oss, "/* Cake %s */\n", get_platform(ctx->options.target)->name);
-
+    
     ctx->indentation = 0;
+    
+
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)
     {
@@ -48378,7 +48490,6 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     ss_close(&declarations);
 }
-
 
 /*
  *  This file is part of cake compiler

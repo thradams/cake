@@ -15,7 +15,9 @@ struct d_visit_ctx
     struct options options;
     int indentation;
     bool print_qualifiers;
-
+    
+    int         last_line_directive_line;   /* initialise to -1  */
+    const char* last_line_directive_file;   /* initialise to NULL */
 
     /*
        This counter is reset in each function
@@ -26,6 +28,12 @@ struct d_visit_ctx
     struct hash_map tag_names;
     struct hash_map structs_map;
     struct hash_map file_scope_declarator_map;
+
+    /*
+       Maps current instantiations.
+       The key is the instantiation without the name.
+       The value is the name of the instantiated function (that can be reused)
+    */
     struct hash_map instantiated_function_literals;
     
     /*

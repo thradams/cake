@@ -25,6 +25,39 @@
 #define CAKE_PREFIX_LABEL "__L"
 
 
+static void emit_line_directive(struct d_visit_ctx* ctx,
+                                struct osstream* oss,
+                                const struct token* tk)
+{
+    if (!ctx->options.line_directives)
+        return;
+
+    if (tk == NULL)
+        return;
+
+    
+    const int   prev_line = ctx->last_line_directive_line;
+    const char* prev_file = ctx->last_line_directive_file;
+
+    ctx->last_line_directive_line = tk->line;
+    ctx->last_line_directive_file = tk->token_origin->lexeme;
+
+    
+    if (tk->line == (prev_line + 1) && prev_file == tk->token_origin->lexeme)
+    {
+        return;
+    }
+    if (prev_file == tk->token_origin->lexeme)
+    {
+        /*same file*/
+        ss_fprintf(oss, "#line %d\n", tk->line);
+    }
+    else
+    {
+        ss_fprintf(oss, "#line %d \"%s\"\n", tk->line, tk->token_origin->lexeme);
+    }
+    
+}
 
 struct vm_dim_snapshot
 {
@@ -758,8 +791,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
         char name[100] = { 0 };
         generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-        
-        
+
+
 
         struct osstream decl = { 0 };
         print_identation_core(&decl, ctx->indentation);
@@ -909,7 +942,24 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         if (p_expression->declarator->name_opt)
             declarator_name = p_expression->declarator->name_opt->lexeme;
 
-        const bool is_function = type_is_function(&p_expression->declarator->type);
+        bool is_function = type_is_function(&p_expression->declarator->type);
+
+        if (is_function &&
+            (p_expression->declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER))
+        {
+
+            /*
+              Function parameters are pointers.
+              Example:
+
+              void f(void callback(void* data)) {
+                callback(0);
+              }
+
+            */
+            is_function = false;
+        }
+
         bool is_local_function_definition = false;
         if (is_function)
         {
@@ -966,11 +1016,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 if (p_function_defined && (is_static || is_inline || is_auto || is_local_function_definition))
                 {
                     //We need to find the function..
-
+                    
                     struct osstream local3 = { 0 };
-                    struct osstream local4 = { 0 };
+                    struct osstream local4 = { 0 };                    
                     d_print_type(ctx, &local4, &p_function_defined->type, declarator_name, false);
 
+                    emit_line_directive(ctx, &local3, p_function_defined->first_token_opt);
                     ss_fprintf(&local3, "static %s\n", local4.c_str);
 
                     d_visit_function_body(ctx, &local3, p_function_defined);
@@ -1076,7 +1127,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
     {
         char name[100] = { 0 };
         generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-        
+
         struct osstream local = { 0 };
 
         ss_swap(&ctx->block_scope_declarators, &local);
@@ -1417,7 +1468,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             ss_fprintf(oss, "%s", name);
         }
         else
-        {            
+        {
             generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
 
             /* block-scope compound literal — automatic storage duration */
@@ -1764,7 +1815,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
                 char name[100] = { 0 };
                 generate_name(ctx->cake_local_declarator_number++, sizeof name, name);
-                
+
                 struct osstream decl = { 0 };
                 print_identation_core(&decl, ctx->indentation);
                 d_print_type(ctx, &decl,
@@ -2009,6 +2060,7 @@ static void d_visit_labeled_statement(struct d_visit_ctx* ctx, struct osstream* 
 {
     assert(p_labeled_statement->label != NULL);
 
+    emit_line_directive(ctx, oss, p_labeled_statement->label->p_first_token);
     d_visit_label(ctx, oss, p_labeled_statement->label);
 
 
@@ -2139,9 +2191,9 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         {
             is_compound_statement = true;
         }
-        
+
         if (!is_compound_statement)
-        {            
+        {
             print_identation(ctx, oss);
             ctx->indentation++;
             ss_fprintf(oss, "{\n");
@@ -2492,14 +2544,38 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
 {
     if (p_unlabeled_statement->primary_block)
     {
+        if (p_unlabeled_statement->primary_block)
+        {
+            struct token* tk = NULL;
+            if (p_unlabeled_statement->primary_block->compound_statement)
+                tk = p_unlabeled_statement->primary_block->compound_statement->first_token;
+            else if (p_unlabeled_statement->primary_block->iteration_statement)
+                tk = p_unlabeled_statement->primary_block->iteration_statement->first_token;
+            else if (p_unlabeled_statement->primary_block->selection_statement)
+                tk = p_unlabeled_statement->primary_block->selection_statement->first_token;
+            else if (p_unlabeled_statement->primary_block->try_statement)
+                tk = p_unlabeled_statement->primary_block->try_statement->first_token;
+
+            if (tk)
+            {
+                emit_line_directive(ctx, oss, tk);
+            }
+        }
+            
         d_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
+        if (p_unlabeled_statement->expression_statement->expression_opt &&
+            p_unlabeled_statement->expression_statement->expression_opt->first_token)
+        {
+            emit_line_directive(ctx, oss, p_unlabeled_statement->expression_statement->expression_opt->first_token);
+        }
         d_visit_expression_statement(ctx, oss, p_unlabeled_statement->expression_statement);
     }
     else if (p_unlabeled_statement->jump_statement)
     {
+        emit_line_directive(ctx, oss, p_unlabeled_statement->jump_statement->first_token);
         d_visit_jump_statement(ctx, oss, p_unlabeled_statement->jump_statement);
     }
     else if (p_unlabeled_statement->defer_statement)
@@ -2828,7 +2904,7 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
             print_identation_core(&snaps, 1);
             char name[100] = { 0 };
             generate_name(all_dims[i].snap_num, sizeof name, name);
-            ss_fprintf(&snaps, "%s %s = " ,size_t_str.c_str, name);
+            ss_fprintf(&snaps, "%s %s = ", size_t_str.c_str, name);
             d_visit_expression(ctx, &snaps, all_dims[i].expr);
             ss_fprintf(&snaps, ";\n");
         }
@@ -3989,6 +4065,10 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         //        void f() {} 
         //action = ACTION_DECLARE;
         struct osstream ss = { 0 };
+
+        if (p_init_declarator->p_declarator->first_token_opt)
+            emit_line_directive(ctx, &ss, p_init_declarator->p_declarator->first_token_opt);
+
         d_print_type(ctx, &ss,
            &p_init_declarator->p_declarator->type,
            p_init_declarator->p_declarator->name_opt->lexeme,
@@ -4247,8 +4327,10 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     ctx->print_qualifiers = false; //TODO not ready yet..
 
     ss_fprintf(oss, "/* Cake %s */\n", get_platform(ctx->options.target)->name);
-
+    
     ctx->indentation = 0;
+    
+
     struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)
     {

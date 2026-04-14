@@ -341,7 +341,7 @@ bool first_of_storage_class_specifier_token(const struct token* p_token);
 struct storage_class_specifier_node
 {
     struct storage_class_specifier storage_class_specifier;
-    struct storage_class_specifier_node* next;
+    struct storage_class_specifier_node* _Opt _Owner next;
 };
 
 void storage_class_specifier_node_delete(struct storage_class_specifier_node* _Owner _Opt p);

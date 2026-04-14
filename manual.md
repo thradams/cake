@@ -143,6 +143,9 @@ Sarif Visual Studio plugin https://marketplace.visualstudio.com/items?itemName=W
 Specifies the Sarif output dir. "Visual Studio -> External Tools" 
 `-Wstyle  -msvc-output  -no-output -sarif -sarif-path "$(SolutionDir).sarif" $(ItemPath)`
 
+*  `-line-directives`
+Emmits \#line directives
+
 *  `-target`
 Defines how the source code is interpreted (integers sizes, align etc) and specifies the
 C89 output that is compatible with the target compiler.
