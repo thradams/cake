@@ -128,6 +128,12 @@ static void HEADER(const char* text)
 
 int main()
 {
+#ifdef _WIN32
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c advapi32.lib user32.lib " CC_OUTPUT("install.exe"));
+#else
+    execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS install.c " CC_OUTPUT("install.exe"));
+#endif
+
 
     HEADER("Build tools");
 
@@ -233,9 +239,9 @@ int main()
 #endif
 
     //Runs cake on its own source
-    
+
     HEADER("Runs cake on its own source");
-    
+
 
     execute_cmd("cake.exe -DTEST -const-literal -sarif -sarif-path \"../vc/.sarif\" -ownership=enable -w11 " CAKE_SOURCE_FILES);
 
@@ -334,9 +340,9 @@ int main()
     execute_cmd("./cake  -autoconfig");
 #endif
 
-    
+
     HEADER("Runs cake on its own source");
-    
+
 
     //Uses previouly generated cakeconf.h to find include dir
     execute_cmd("./cake -DTEST -fanalyzer " CAKE_SOURCE_FILES);
@@ -352,9 +358,9 @@ int main()
 #endif
 
 #ifdef TEST
-    
+
     HEADER("Runs tests");
-    
+
 
     execute_cmd(RUN "cake -selftest");
     execute_cmd(RUN "cake -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");
@@ -364,9 +370,9 @@ int main()
     execute_cmd(RUN "cake  -fdiagnostics-color=never -E ../tests/preprocessor/*.c -test-mode-in-out");
 
 
-    
+
     HEADER("Runs tests 89");
-    
+
 
     execute_cmd(RUN "cake89 -selftest");
     execute_cmd(RUN "cake89 -fdiagnostics-color=never ../tests/en-cpp-reference-c/*.c -wd20 -test-mode");

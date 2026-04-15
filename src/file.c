@@ -1,9 +1,10 @@
-inline int f() {
-    int a;
-    a = 2;
+void printf(const char* s, ...);
 
-    return a*3;
-}
-int main() {
-    f();
+void print1D(int n, int a[n])
+{
+    for (int i = 0; i < n; i++)
+    {
+        printf(" %d", a[i]);
+    }
+    printf("\n");
 }

@@ -29307,7 +29307,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.09"
+#define CAKE_VERSION "0.13.10"
 
 
 
@@ -45063,7 +45063,17 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 if (p_function_defined && (is_static || is_inline || is_auto || is_local_function_definition))
                 {
                     //We need to find the function..
-                    
+
+                    int last_line_directive_line = ctx->last_line_directive_line;
+                    const char* last_line_directive_file = ctx->last_line_directive_file;
+
+
+                    /*forces full*/
+
+
+                    ctx->last_line_directive_line = 0;
+                    ctx->last_line_directive_file = NULL;
+
                     struct osstream local3 = { 0 };
                     struct osstream local4 = { 0 };                    
                     d_print_type(ctx, &local4, &p_function_defined->type, declarator_name, false);
@@ -45080,7 +45090,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     ss_fprintf(&ctx->add_this_after_external_decl, "%s", local3.c_str);
 
                     ss_close(&local3);
-                    ss_close(&local4);
+                    ss_close(&local4);                    
+
+                    ctx->last_line_directive_line = last_line_directive_line;
+                    ctx->last_line_directive_file = last_line_directive_file;
                 }
 
                 ss_close(&ss);
@@ -45479,10 +45492,16 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             i.text = strdup(new_name);
             hashmap_set(&ctx->instantiated_function_literals, function_literal.c_str, &i);
             hash_item_set_destroy(&i);
-            struct osstream lambda_sig = { 0 };
+            struct osstream lambda_sig = { 0 };            
             d_print_type(ctx, &lambda_sig, &p_expression->type, new_name, false);
+
+            ctx->last_line_directive_line = 0;
+            ctx->last_line_directive_file = NULL;
+            emit_line_directive(ctx, &ctx->add_this_before_external_decl, p_expression->first_token);
             ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
             ss_close(&lambda_sig);
+            ctx->last_line_directive_line = 0;
+            ctx->last_line_directive_file = NULL;
         }
 
         ss_fprintf(oss, "%s", new_name);
@@ -46187,6 +46206,7 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
             ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
 
             struct osstream local = { 0 };
+            emit_line_directive(ctx, &local, p_iteration_statement->declaration->first_token);
             d_visit_declaration(ctx, &local, p_iteration_statement->declaration);
 
             if (ctx->block_scope_declarators.c_str)
@@ -46200,8 +46220,8 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
 
             ss_swap(&block_scope_declarators, &ctx->block_scope_declarators);
 
-
-            print_identation(ctx, oss);
+            emit_line_directive(ctx, oss, p_iteration_statement->first_token);
+            print_identation(ctx, oss);            
             ss_fprintf(oss, "for (");
             ss_close(&block_scope_declarators);
             ss_close(&local);
@@ -46209,11 +46229,13 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
         }
         else if (p_iteration_statement->expression0)
         {
+            emit_line_directive(ctx, oss, p_iteration_statement->first_token);
             ss_fprintf(oss, "for (");
             d_visit_expression(ctx, oss, p_iteration_statement->expression0);
         }
         else
         {
+            emit_line_directive(ctx, oss, p_iteration_statement->first_token);
             ss_fprintf(oss, "for (");
         }
 
@@ -46245,7 +46267,8 @@ static void d_visit_iteration_statement(struct d_visit_ctx* ctx, struct osstream
             ctx->indentation++;
             ss_fprintf(oss, "{\n");
         }
-
+        
+        emit_line_directive(ctx, oss, p_iteration_statement->secondary_block->first_token);
         d_visit_secondary_block(ctx, oss, p_iteration_statement->secondary_block);
 
         if (!is_compound_statement)
@@ -47794,6 +47817,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
                 }
                 else if (!object_has_constant_value(&object->p_init_expression->object))
                 {
+                    emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                     print_identation_core(ss, ctx->indentation);
                     ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                     struct osstream local = { 0 };
@@ -47805,6 +47829,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
             }
             else
             {
+                emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                 print_identation_core(ss, ctx->indentation);
                 ss_fprintf(ss, "%s%s = ", declarator_name, object->member_designator);
                 struct osstream local = { 0 };
@@ -47818,6 +47843,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx* ctx,
         {
             if (initialize_objects_that_does_not_have_initializer)
             {
+                //emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                 print_identation_core(ss, ctx->indentation);
                 ss_fprintf(ss, "%s%s = 0;\n", declarator_name, object->member_designator);
             }
@@ -48112,6 +48138,11 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         //        void f() {} 
         //action = ACTION_DECLARE;
         struct osstream ss = { 0 };
+
+        /* Force full */
+        
+        ctx->last_line_directive_line = 0;
+        ctx->last_line_directive_file = NULL;
 
         if (p_init_declarator->p_declarator->first_token_opt)
             emit_line_directive(ctx, &ss, p_init_declarator->p_declarator->first_token_opt);
