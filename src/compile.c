@@ -409,6 +409,14 @@ int compile_one_file(const char* file_name,
         if (tctx.n_errors > 0)
             throw;
 
+        const char* builtin = target_get_builtins(ctx.options.target);
+        if (builtin)
+        {
+          struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 0, TK_FLAG_NONE);          
+          token_list_append_list_at_beginning(&tokens, &builtin_tokens);
+          token_list_destroy(&builtin_tokens);
+        }
+
         if (options->dump_tokens)
         {
             print_tokens(color_enabled, tokens.head);
@@ -518,12 +526,18 @@ int compile_one_file(const char* file_name,
 
     if (ctx.options.test_mode_inout)
     {
+        char dir_name[FS_MAX_PATH] = {0};
+        snprintf(dir_name, sizeof dir_name, "%s", file_name);
+        dirname(dir_name);
+
         //lets check if the generated file is the expected
-        char file_name_no_ext[FS_MAX_PATH] = { 0 };
-        remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
+        //char just_file_name[FS_MAX_PATH] = { 0 };
+        //snprintf(just_file_name, sizeof just_file_name, "%s", file_name);
+        char * p_just_file_name = basename(file_name);
+        //remove_file_extension(file_name, sizeof(file_name_no_ext), file_name_no_ext);
 
         char buf[FS_MAX_PATH] = { 0 };
-        snprintf(buf, sizeof buf, "%s_%s.out", file_name_no_ext, get_platform(ctx.options.target)->name);
+        snprintf(buf, sizeof buf, "%s/expected_%s/%s", dir_name, get_platform(ctx.options.target)->name, p_just_file_name);
 
         char* _Owner _Opt content_expected = read_file(buf, false /*append new line*/);
         if (content_expected)
@@ -544,14 +558,22 @@ int compile_one_file(const char* file_name,
 
             if (p_output_string && strcmp(content_expected + content_expected_first_line_len, p_output_string + s_first_line_len) != 0)
             {
-                printf("Output file '%s' is different from expected file '%s'\n", out_file_name, buf);
+                printf("Output file:\n");
+                print_path(out_file_name, true);
+                printf("\n");
+                printf("is different from expected file:\n");
+                print_path(buf, true);
+                printf("\n");
                 report->error_count++;
             }
             free(content_expected);
         }
         else
         {
-            printf("Missing comparison file '%s' (-test-mode-in-out)\n", buf);
+            printf("Missing comparison file: (-test-mode-in-out)\n");
+            print_path(buf, true);
+            printf("\n");
+
             report->test_failed++;
         }
 

@@ -1308,13 +1308,32 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                             /* see . dot and arrow -> */
                             p_expression_node->lvalue_disabled = true;
 
-                            if (!type_is_constexpr(&p_declarator->type))
+                            if (type_is_constexpr(&p_declarator->type))
+                            {
+                                /*
+                                int main()
+                                {
+                                    constexpr int i = 2;
+                                    static int dup(int a) { return i * a; }
+                                    return dup(1);
+                                }
+                                */
+                            }
+                            else if (type_is_const(&p_declarator->type) &&
+                                 object_has_all_members_constants(&p_declarator->object))
+                            {
+                                /*
+                                    const int i = 2;
+                                    static int dup(int a) { return i * a; }
+                                */
+                            }
+                            else
                             {
                                 compiler_diagnostic(C_ERROR_OUTER_SCOPE,
-                                    ctx,
-                                    p_expression_node->first_token,
-                                    NULL,
-                                    "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                                   ctx,
+                                   p_expression_node->first_token,
+                                   NULL,
+                                   "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
                             }
                         }
                     }
@@ -2427,7 +2446,11 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             }
             else
             {
-                compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "missing static");
+                compiler_diagnostic(C_ERROR_UNEXPECTED, 
+                    ctx, 
+                    p_expression_node->type_name->first_token, 
+                    NULL, 
+                    "function literals must have 'static' storage qualifier");
             }
 
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
@@ -2954,7 +2977,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                         ctx,
                         new_expression->right->first_token,
                         NULL,
-                        "not accessible");
+                        "this expression cannot be used as lvalue");
                 }
 
                 if (!expression_is_lvalue(new_expression->right))
@@ -6516,6 +6539,25 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (type_is_pointer(p_a_type))
     {
+        if (type_is_array(p_b_type))
+        {
+            if (p_b_expression->lvalue_disabled)
+            {
+                /*
+                  constexpr struct {int a[2];} c = {};
+                  static int* local() {
+                    int * p = c.a;
+                    return c.a;
+                  }
+                */
+                compiler_diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+                           ctx,
+                           p_b_expression->first_token,
+                           NULL,
+                           "trying to access to object address");
+            }
+        }
+
         if (!type_is_nullptr_t(p_b_type) &&
             !type_is_pointer_or_array(p_b_type) &&
             !type_is_function(p_b_type))

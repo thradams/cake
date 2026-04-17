@@ -12,3 +12,4 @@
 #define _M_IX86 600
 #define __pragma(a)
 
+void *__builtin_alloca (size_t __size);

@@ -3623,6 +3623,30 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
                                             "function returning array");
                 return false;
             }
+            else if (p->next && p->next->category == TYPE_CATEGORY_POINTER)
+            {
+                /*
+                int main(){
+                    int n;
+                    static typeof(int (*)[n]) f(){};
+                }
+                */
+
+                const struct type* _Opt p2 = p->next;
+                while (p2)
+                {
+                    if (p2->category == TYPE_CATEGORY_ARRAY && !p2->has_static_array_size)
+                    {
+                        compiler_diagnostic(C_ERROR_FUNCTION_RETURNS_ARRAY,
+                                            ctx,
+                                            p_token,
+                                            NULL,
+                                            "function returning VM type");
+                        return false;
+                    }    
+                    p2 = p2->next;
+                }                
+            }
         }
         else if (p->category == TYPE_CATEGORY_ITSELF &&
                  p->type_specifier_flags == TYPE_SPECIFIER_NONE)
@@ -3634,8 +3658,9 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
                                         "invalid type");
             return false;
         }
-
-        p = p->next;
+        
+        if (p)
+          p = p->next;
     }
 
     return true;

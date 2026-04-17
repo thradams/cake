@@ -38103,8 +38103,8 @@ static void il_print_string(struct token * first_token, struct token * last_toke
 static int il_visit_literal_string2(struct token * current, struct osstream * oss);
 static int find_member_name(struct type * p_type, int index, char name[100]);
 static struct member_declarator *find_member_declarator_name_by_index(struct member_declaration_list * list, int member_index, char name[100], int * p_count);
-static void object_print_non_constant_initialization(struct d_visit_ctx * ctx, struct osstream * ss, struct object * object, char * declarator_name, unsigned char  all, unsigned char  initialize_objects_that_does_not_have_initializer);
-static void object_print_constant_initialization(struct d_visit_ctx * ctx, struct osstream * ss, struct object * object, unsigned char * first);
+static void assign_each_member_from_initialization(struct d_visit_ctx * ctx, struct osstream * ss, struct object * object, char * declarator_name, unsigned char  all, unsigned char  initialize_objects_that_does_not_have_initializer);
+static void object_print_initialization_list(struct d_visit_ctx * ctx, struct osstream * ss, struct object * object, unsigned char * first);
 static char *get_op_by_expression_type(int type);
 static unsigned char is_all_zero(struct object * object);
 
@@ -39285,7 +39285,7 @@ static int find_member_name(struct type * p_type, int index, char name[100])
     return 1;
 }
 
-static void object_print_non_constant_initialization(struct d_visit_ctx * ctx, struct osstream * ss, struct object * object, char * declarator_name, unsigned char  all, unsigned char  initialize_objects_that_does_not_have_initializer)
+static void assign_each_member_from_initialization(struct d_visit_ctx * ctx, struct osstream * ss, struct object * object, char * declarator_name, unsigned char  all, unsigned char  initialize_objects_that_does_not_have_initializer)
 {
     if (object_is_reference(object))
     {
@@ -39371,7 +39371,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx * ctx, s
                     member = object->members.head;
                     while (member)
                     {
-                        object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, 0);
+                        assign_each_member_from_initialization(ctx, ss, member, declarator_name, all, 0);
                         member = member->next;
                     }
                 }
@@ -39382,7 +39382,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx * ctx, s
                     member = object->members.head;
                     while (member)
                     {
-                        object_print_non_constant_initialization(ctx, ss, member, declarator_name, all, 1);
+                        assign_each_member_from_initialization(ctx, ss, member, declarator_name, all, 1);
                         member = member->next;
                     }
                 }
@@ -39441,7 +39441,7 @@ static void object_print_non_constant_initialization(struct d_visit_ctx * ctx, s
     }
 }
 
-static void object_print_constant_initialization(struct d_visit_ctx * ctx, struct osstream * ss, struct object * object, unsigned char * first)
+static void object_print_initialization_list(struct d_visit_ctx * ctx, struct osstream * ss, struct object * object, unsigned char * first)
 {
     if (object_is_reference(object))
     {
@@ -39464,7 +39464,7 @@ static void object_print_constant_initialization(struct d_visit_ctx * ctx, struc
             struct object * member;
 
             member = object->members.head;
-            object_print_constant_initialization(ctx, ss, member, first);
+            object_print_initialization_list(ctx, ss, member, first);
         }
         else
         {
@@ -39473,7 +39473,7 @@ static void object_print_constant_initialization(struct d_visit_ctx * ctx, struc
             member = object->members.head;
             while (member)
             {
-                object_print_constant_initialization(ctx, ss, member, first);
+                object_print_initialization_list(ctx, ss, member, first);
                 member = member->next;
             }
         }
@@ -40108,7 +40108,7 @@ static void d_visit_expression(struct d_visit_ctx * ctx, struct osstream * oss, 
                     ss_fprintf(&local, ";\n", name);
                     ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
                     ss_clear(&local);
-                    object_print_non_constant_initialization(ctx, &local, &p_expression->object, name, 1, 1);
+                    assign_each_member_from_initialization(ctx, &local, &p_expression->object, name, 1, 1);
                     ;
                     ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
                     ss_close(&local);
@@ -40124,7 +40124,7 @@ static void d_visit_expression(struct d_visit_ctx * ctx, struct osstream * oss, 
                     d_print_type(ctx, &local, &p_expression->type, name, 0);
                     first = 1;
                     ss_fprintf(&local, " = {");
-                    object_print_constant_initialization(ctx, &local, &p_expression->object, &first);
+                    object_print_initialization_list(ctx, &local, &p_expression->object, &first);
                     ss_fprintf(&local, "};\n");
                     ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
                     ss_close(&local);
@@ -40534,13 +40534,13 @@ static void print_initializer(struct d_visit_ctx * ctx, struct osstream * oss, s
                         {
                             ss_fprintf(oss, " = ");
                             ss_fprintf(oss, "{");
-                            object_print_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, &first);
+                            object_print_initialization_list(ctx, oss, &p_init_declarator->p_declarator->object, &first);
                             ss_fprintf(oss, "}");
                             ss_fprintf(oss, ";\n");
                         }
                         else
                         {
-                            object_print_non_constant_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, 1, 1);
+                            assign_each_member_from_initialization(ctx, oss, &p_init_declarator->p_declarator->object, p_init_declarator->p_declarator->name_opt->lexeme, 1, 1);
                         }
                     }
                 }

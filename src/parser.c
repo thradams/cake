@@ -2143,6 +2143,17 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 throw; //unexpected
             }
 
+            if (storage_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE)
+            {
+                if (!(p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
+                {
+                    compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_declaration->first_token,
+                        NULL,
+                        "function defined in block scope must have 'static' storage qualifier");
+                }
+            }
+
+
             struct declarator* p_declarator =
                 p_declaration->init_declarator_list.head->p_declarator;
 
@@ -2509,6 +2520,34 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         if (compiler_diagnostic(C_ERROR_REDECLARATION, ctx, ctx->current, NULL, "redeclaration"))
                         {
                             compiler_diagnostic(W_LOCATION, ctx, p_previous_declarator->name_opt, NULL, "previous declaration");
+                        }
+                    }
+                }
+
+                if (type_is_function(&p_init_declarator->p_declarator->type))
+                {
+                    if (type_is_function(&p_previous_declarator->type))
+                    {
+                        if (!(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+                            )
+                        {
+                            /*
+                              void f();
+                              static void f();
+                            */
+
+                            compiler_diagnostic(C_ERROR_REDECLARATION,
+                                                ctx,
+                                                ctx->current,
+                                                NULL,
+                                                "static declaration of 'f' follows non-static declaration", declarator_name);
+
+                            compiler_diagnostic(W_LOCATION,
+                                ctx,
+                                p_previous_declarator->name_opt,
+                                NULL,
+                                "previous declaration");
                         }
                     }
                 }
@@ -9158,9 +9197,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 ctx,
                 ctx->current,
                 NULL,
-                "default case not within a switch statement");
-
-                throw;
+                "default case not within a switch statement");                
             }
 
             struct label* _Opt p_existing_default_label = case_label_list_find_default(ctx, &ctx->p_current_switch_statement->label_list);
@@ -10009,7 +10046,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, '(') != 0) throw;
 
             p_try_statement->msvc_except_expression = expression(ctx, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
-            
+
             if (parser_match_tk(ctx, ')') != 0) throw;
 
             assert(p_try_statement->catch_secondary_block_opt == NULL);
@@ -10734,8 +10771,11 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
 
             if (ctx->p_current_iteration_statement == NULL && !in_switch)
             {
-                compiler_diagnostic(C_ERROR_BREAK_NOT_WITHIN_ITERATION, ctx, ctx->current, NULL, "'break' statement not in loop or switch statement");
-                throw;
+                compiler_diagnostic(C_ERROR_BREAK_NOT_WITHIN_ITERATION, 
+                    ctx, 
+                    ctx->current, 
+                    NULL, 
+                    "'break' statement not in loop or switch statement");                
             }
             parser_match(ctx);
         }
@@ -11363,36 +11403,11 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, s
     struct declaration_list l = { 0 };
     struct scope file_scope = { 0 };
 
-    struct preprocessor_ctx prectx = { 0 };
-    prectx.options = ctx->options;
-    prectx.macros.capacity = 1000;
-
-    struct tokenizer_ctx tctx = { 0 };
-
-    struct token_list builtin_tokens = { 0 };
-    struct token_list built = { 0 };
-
-
     try
     {
         scope_list_push(&ctx->scopes, &file_scope);
 
-        const char* builtin = target_get_builtins(ctx->options.target);
-
-        builtin_tokens = tokenizer(&tctx, builtin, "builtins", 0, TK_FLAG_NONE);
-        built = preprocessor(&prectx, &builtin_tokens, 0);
-        ctx->input_list = built;
-        ctx->current = ctx->input_list.head;
-        parser_skip_blanks(ctx);
-
         bool local_error = false;
-        l = translation_unit(ctx, &local_error); /*insert buitin declarations at scope*/
-
-        if (local_error)
-        {
-            throw;
-        }
-
         ctx->input_list = *list;
         ctx->current = ctx->input_list.head;
         parser_skip_blanks(ctx);
@@ -11413,9 +11428,6 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, s
     }
 
     scope_destroy(&file_scope);
-    token_list_destroy(&builtin_tokens);
-    token_list_destroy(&built);
-
     return l;
 }
 

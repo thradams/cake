@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>file.c -line-directives</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-line-directives parser.c</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommand>
     </LocalDebuggerCommand>
-    <LocalDebuggerCommandArgumentsHistory>file.c |file.c -line-directives|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory>-targe=catalina -line-directives|-target=catalina -line-directives|-target=catalina -line-directives file.c|-line-directives file.c|-line-directives parser.c|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
     <LocalDebuggerCommandArguments>-selftest</LocalDebuggerCommandArguments>
@@ -21,6 +21,7 @@
     <LocalDebuggerCommandArguments>token.c</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\src\</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArgumentsHistory>token.c|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|x64'">
     <LocalDebuggerCommandArguments>*.c -fanalyzer </LocalDebuggerCommandArguments>

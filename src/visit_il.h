@@ -16,9 +16,6 @@ struct d_visit_ctx
     int indentation;
     bool print_qualifiers;
     
-    int         last_line_directive_line;   /* initialise to -1  */
-    const char* last_line_directive_file;   /* initialise to NULL */
-
     /*
        This counter is reset in each function
     */
@@ -47,8 +44,14 @@ struct d_visit_ctx
     struct osstream add_this_after_external_decl;
     bool is_local;
     
-    bool zero_mem_used;
+    bool memset_used;
+    char memset_function_name[50];
+
+    char size_t_type_name[50];
+
     bool memcpy_used;
+    char memcpy_function_name[50];
+    
 
     bool define_nullptr;
     bool null_pointer_constant_used;

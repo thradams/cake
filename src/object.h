@@ -76,6 +76,7 @@ void object_print_value_debug(const struct object* a);
 void object_destroy(_Opt _Dtor struct object* p);
 void object_delete(struct object* _Opt _Owner p);
 bool object_has_constant_value(const struct object* a);
+bool object_has_all_members_constants(const struct object* object);
 
 
 struct object            object_make_char(enum target target, int value);

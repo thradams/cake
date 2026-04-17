@@ -17,8 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "version.h"
-
-/* ------------------------------------------------------------------ */
+ /* ------------------------------------------------------------------ */
  /*  Platform detection & OS-specific includes                          */
  /* ------------------------------------------------------------------ */
 
@@ -644,14 +643,17 @@ static int rebuild_path_without_app(const char* src,
         strncpy(token, p, seg_len);
         token[seg_len] = '\0';
 
-        /* Drop stale app entries AND the current target (re-added later) */
+        /* Drop stale app entries AND the current target (re-added later).
+         * The current target is silently stripped here and re-appended at
+         * the end – no message, because it is not being removed. */
         if (is_app_path_entry(token))
         {
             if (_strnicmp(token, target_dir, MAX_PATH) != 0)
+            {
                 printf("  [REMOVED] %s\n", token);
-            else
-                printf("  [KEEP]    %s  (current)\n", token);
-            removed++;
+                removed++;   /* only count genuinely stale entries */
+            }
+            /* current target: silently drop here, re-added below */
         }
         else
         {
@@ -708,20 +710,8 @@ static void add_to_system_path(const char* target_dir)
 
     /* ---- Scan: show what will be removed / kept ------------------- */
     printf("  Scanning for stale %s entries...\n\n", APP_DIR_NAME);
-    removed = rebuild_path_without_app(old_path, new_path,
-                                       data_size + MAX_PATH + 4,
-                                       target_dir);
 
-    if (removed > 0)
-    {
-        printf("\n  %d stale PATH entry(s) will be removed.\n", removed);
-    }
-    else
-    {
-        printf("  No stale entries found.\n");
-    }
-
-    /* Check if current target is already present (was not removed above) */
+    /* Check if current target is already present BEFORE rebuilding */
     {
         const char* p = old_path;
         size_t tlen = strlen(target_dir);
@@ -738,9 +728,19 @@ static void add_to_system_path(const char* target_dir)
         }
     }
 
+    removed = rebuild_path_without_app(old_path, new_path,
+                                       data_size + MAX_PATH + 4,
+                                       target_dir);
+
+    if (removed > 0)
+        printf("\n  %d stale PATH entry(s) will be removed.\n", removed);
+    else
+        printf("  No stale entries found.\n");
+
     if (!needs_add && removed == 0)
     {
-        printf("  PATH is already up to date. No changes needed.\n\n");
+        printf("  PATH already contains the correct entry:\n    %s\n"
+               "  No changes needed.\n\n", target_dir);
         free(old_path); free(new_path); return;
     }
 
@@ -1067,7 +1067,6 @@ int main(void)
     print_separator();
     printf("  Installation complete!\n");
     print_separator();
-    printf("\n");
     printf("\n");
     printf("  Press any key to exit...\n");
     fflush(stdout);

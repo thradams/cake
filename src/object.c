@@ -377,6 +377,31 @@ void object_delete(struct object* _Opt _Owner p)
     }
 }
 
+
+
+bool object_has_all_members_constants(const struct object* object)
+{
+    if (object_is_reference(object))
+    {
+        object = object_get_referenced(object);
+    }
+
+    if (object->members.head != NULL)
+    {
+        struct object* _Opt member = object->members.head;
+        while (member)
+        {
+            if (!object_has_all_members_constants(member))
+                return false;
+            member = member->next;
+        }
+        return true; /* all members passed */
+    }
+
+    
+    return object_has_constant_value(object);    
+}
+
 bool object_has_constant_value(const struct object* a)
 {
     a = object_get_referenced(a);
@@ -1185,7 +1210,8 @@ int object_set(
             if (requires_constant_initialization &&
                 !object_has_constant_value(from))
             {
-                if (!type_is_pointer_or_array(&p_init_expression->type) &&
+                if (p_init_expression && 
+                    !type_is_pointer_or_array(&p_init_expression->type) &&
                     !type_is_function(&p_init_expression->type))
                 {
                     struct token* _Opt tk = p_init_expression ?
