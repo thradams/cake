@@ -410,7 +410,7 @@ int compile_one_file(const char* file_name,
             throw;
 
         const char* builtin = target_get_builtins(ctx.options.target);
-        if (builtin)
+        if (builtin[0] != '\0')
         {
           struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 0, TK_FLAG_NONE);          
           token_list_append_list_at_beginning(&tokens, &builtin_tokens);

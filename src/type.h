@@ -138,6 +138,8 @@ enum storage_class_specifier_flags
 
     STORAGE_SPECIFIER_FUNCTION_RETURN = 1 << 13,
     STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD = 1 << 14,
+
+    STORAGE_SPECIFIER_BITFIELD = 1 << 15,
 };
 
 bool is_automatic_variable(enum storage_class_specifier_flags f);
@@ -247,10 +249,11 @@ struct type
     const struct enum_specifier* _Opt enum_specifier;
 
     //Expression used as array size. Can be constant or not constant (VLA)
-    const struct expression* _Opt p_array_num_elements_expression;
+    const struct expression* _Opt p_array_num_elements_expression;    
     /*
     * array_num_elements is zero when p_array_num_elements_expression is null
     * or not constant
+    * also stores bit field size if type is bitfield
     */
     size_t array_num_elements;
 
@@ -350,6 +353,11 @@ bool type_is_empty(const struct type* p_type);
 bool type_is_vla(const struct type* p_type);
 bool type_is_vm(const struct type* p_type);
 
+/* bitfield queries */
+bool type_is_bitfield(const struct type* p_type);
+int  type_get_bitfield_width(const struct type* p_type);
+bool type_is_unnamed_bitfield(const struct type* p_type);
+
 struct type type_get_enum_type(const struct type* p_type);
 
 struct argument_expression;
@@ -397,7 +405,8 @@ enum sizeof_result
     SIZEOF_RESULT_OVERLOW,
     SIZEOF_RESULT_RUNTIME,
     SIZEOF_RESULT_INCOMPLETE,
-    SIZEOF_RESULT_FUNCTION
+    SIZEOF_RESULT_FUNCTION,
+    SIZEOF_RESULT_BITFIELD   /* sizeof applied to a bitfield member — ill-formed in C */
 };
 
 enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target);

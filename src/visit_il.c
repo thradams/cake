@@ -1020,7 +1020,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     ss_fprintf(&ctx->add_this_after_external_decl, "%s", local3.c_str);
 
                     ss_close(&local3);
-                    ss_close(&local4);                    
+                    ss_close(&local4);
                 }
 
                 ss_close(&ss);
@@ -1294,7 +1294,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     if (p_type->array_num_elements > 0)
                     {
-                        ss_fprintf(&offset_flat, "* %zu", p_type->array_num_elements);
+                        ss_fprintf(&offset_flat, " * %zu", p_type->array_num_elements);
                     }
                     else
                     {
@@ -1303,7 +1303,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                         {
                             char name[100] = { 0 };
                             generate_name(num, sizeof name, name);
-                            ss_fprintf(&offset_flat, "* %s", name);
+                            ss_fprintf(&offset_flat, " * %s", name);
                         }
                     }
                     p_type = p_type->next;
@@ -1422,8 +1422,11 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             struct osstream lambda_sig = { 0 };
             d_print_type(ctx, &lambda_sig, &p_expression->type, new_name, false);
 
-            emit_line_directive(ctx, &ctx->add_this_before_external_decl, p_expression->first_token);
-            ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
+            ss_fprintf(&ctx->add_this_before_external_decl, "static %s;\n", lambda_sig.c_str);
+            
+            ss_fprintf(&ctx->add_this_after_external_decl, "\n");
+            emit_line_directive(ctx, &ctx->add_this_after_external_decl, p_expression->first_token);
+            ss_fprintf(&ctx->add_this_after_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
             ss_close(&lambda_sig);
         }
 
@@ -4427,7 +4430,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         //action = ACTION_DECLARE;
         struct osstream ss = { 0 };
 
-        /* Force full */
+        ss_fprintf(&ss, "\n");
 
         if (p_init_declarator->p_declarator->first_token_opt)
             emit_line_directive(ctx, &ss, p_init_declarator->p_declarator->first_token_opt);
@@ -4443,9 +4446,9 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
         ss_fprintf(&ss, "\n");
         d_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
-        ss_fprintf(&ss, "\n");
+        //ss_fprintf(&ss, "\n");
 
-        ss_fprintf(oss0, "%s\n", ss.c_str);
+        ss_fprintf(oss0, "%s", ss.c_str);
         ss_close(&ss);
         hash_item_set_destroy(&i);
         return;
@@ -4531,11 +4534,13 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
     {
         if (struct_or_union_specifier_is_union(p_struct_or_union_specifier))
         {
+            ss_fprintf(ss, "\n");
             ss_fprintf(ss, "union %s;\n\n", p_struct_or_union_specifier->tag_name);
         }
         else
         {
-            ss_fprintf(ss, "struct %s;\n\n", p_struct_or_union_specifier->tag_name);
+            ss_fprintf(ss, "\n");
+            ss_fprintf(ss, "struct %s;\n", p_struct_or_union_specifier->tag_name);
         }
         return;
     }
@@ -4546,10 +4551,12 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
 
     if (struct_or_union_specifier_is_union(p_complete))
     {
+        ss_fprintf(ss, "\n");
         ss_fprintf(ss, "union %s", p_complete->tag_name);
     }
     else
     {
+        ss_fprintf(ss, "\n");
         ss_fprintf(ss, "struct %s", p_complete->tag_name);
     }
 
@@ -4571,8 +4578,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
 
             while (member_declarator)
             {
-                if (member_declarator->declarator &&
-                    member_declarator->declarator->name_opt)
+                if (member_declarator->declarator)
                 {
                     ss_fprintf(ss, IDENTATION_STR);
 
@@ -4595,12 +4601,24 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
                     }
                     else
                     {
+                        /* unnamed bitfields are allowed */
+                        char *name  = 
+                            member_declarator->declarator->name_opt ?
+                            member_declarator->declarator->name_opt->lexeme : "";
+
                         d_print_type(ctx,
                             ss,
                             &member_declarator->declarator->type,
-                            member_declarator->declarator->name_opt->lexeme,
+                            name,
                             false);
                     }
+
+                    if (member_declarator->constant_expression)
+                    {
+                        ss_fprintf(ss, " : ");
+                        object_print_value(ss, &member_declarator->constant_expression->object, ctx->options.target);
+                    }
+
                     ss_fprintf(ss, ";\n");
                 }
                 member_declarator = member_declarator->next;
@@ -4628,7 +4646,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
         member_declaration = member_declaration->next;
     }
     if (p_complete->member_declaration_list.head)
-        ss_fprintf(ss, "};\n\n");
+        ss_fprintf(ss, "};\n");
     else
         ss_fprintf(ss, ";\n");
 }
@@ -4646,7 +4664,6 @@ void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct
         d_print_structs(ctx, ss, p_struct_entry_item);
     }
 
-    bool some_declartions_printed = false;
     /*
        Then we print the struct we need only declaration in case the definition is not printed yet.
     */
@@ -4656,7 +4673,7 @@ void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct
         if (!p_struct_entry_item->definition_was_printed &&
             !p_struct_entry_item->declaration_was_printed)
         {
-            some_declartions_printed = true;
+            ss_fprintf(ss, "\n");
             p_struct_entry_item->declaration_was_printed = true;
             if (struct_or_union_specifier_is_union(p_struct_entry_item->p_struct_or_union_specifier))
             {
@@ -4668,9 +4685,6 @@ void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct
             }
         }
     }
-
-    if (some_declartions_printed)
-        ss_fprintf(ss, "\n");
 
     if (!p_struct_entry->definition_was_printed)
     {
@@ -4837,18 +4851,19 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         struct osstream declaration = { 0 };
         d_visit_declaration(ctx, &declaration, p_declaration);
 
-
         if (ctx->add_this_before.size > 0)
         {
             ss_fprintf(oss, "%s", ctx->add_this_before.c_str);
             ss_clear(&ctx->add_this_before);
 
         }
+
         if (ctx->add_this_before_external_decl.size > 0)
         {
-            ss_fprintf(&declarations, "%s\n", ctx->add_this_before_external_decl.c_str);
+            ss_fprintf(&declarations, "\n%s", ctx->add_this_before_external_decl.c_str);
             ss_clear(&ctx->add_this_before_external_decl);
         }
+
         if (declaration.size > 0)
             ss_fprintf(&declarations, "%s", declaration.c_str);
 
@@ -4871,13 +4886,18 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
             entry = entry->next;
         }
     }
-    ss_fprintf(oss, "\n");
+    //ss_fprintf(oss, "\n");
 
     if (ctx->define_nullptr && ctx->null_pointer_constant_used)
     {
-        ss_fprintf(oss, "static const void* NULL = 0;\n");
+        ss_fprintf(oss, "\n");
+        ss_fprintf(oss, "static void* NULL = 0;\n");
     }
 
+    if (ctx->memcpy_used || ctx->memset_used)
+    {
+        ss_fprintf(oss, "\n");
+    }
 
     if (ctx->memcpy_used)
     {
@@ -4891,19 +4911,16 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
               "static void %s(void *dest, int ch, %s count);\n", ctx->memset_function_name, ctx->size_t_type_name);
     }
 
-    if (ctx->memset_used || ctx->memcpy_used)
-        ss_fprintf(oss, "\n");
-
     if (declarations.c_str)
     {
         ss_fprintf(oss, "%s", declarations.c_str);
     }
 
-    if (ctx->memset_used || ctx->memcpy_used)
-        ss_fprintf(oss, "\n");
+    
 
     if (ctx->memset_used)
     {
+        ss_fprintf(oss, "\n");
         ss_fprintf(oss,
               "static void %s(void *dest, int ch, %s count)\n"
               "{\n"
@@ -4921,6 +4938,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     if (ctx->memcpy_used)
     {
+        ss_fprintf(oss, "\n");
         ss_fprintf(oss,
             "static void %s(void * dest, const void * src, %s n)\n"
             "{\n"
@@ -4943,11 +4961,11 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     if (ctx->options.line_directives)
     {
-      /* Because Cake inserts text out of order recursively, it is hard
-       to produce minimal #line directives, so we perform an extra step
-       to remove unnecessary ones. 
-       */
-       oss->size = clean_line_directives(oss->c_str);
+        /* Because Cake inserts text out of order recursively, it is hard
+         to produce minimal #line directives, so we perform an extra step
+         to remove unnecessary ones.
+         */
+        oss->size = clean_line_directives(oss->c_str);
     }
 
     ss_close(&declarations);

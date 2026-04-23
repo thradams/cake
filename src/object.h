@@ -1,4 +1,3 @@
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -34,7 +33,7 @@ enum object_value_state
     CONSTANT_VALUE_STATE_UNINITIALIZED,
     CONSTANT_VALUE_STATE_ANY,
     CONSTANT_VALUE_STATE_CONSTANT,
-    
+
     /*flow analysis*/
     CONSTANT_VALUE_NOT_EQUAL,
     CONSTANT_VALUE_EQUAL,
@@ -57,7 +56,7 @@ struct object
 
     const char* _Opt _Owner member_designator;
 
-    union 
+    union
     {
         signed long long  host_long_long;
         unsigned long long  host_u_long_long;
@@ -99,6 +98,16 @@ struct object              object_make_float(enum target target, long double val
 struct object             object_make_double(enum target target, long double value);
 struct object        object_make_long_double(enum target target, long double value);
 struct object        object_make_reference(struct object* object);
+
+/* Bitfield constructors: width is 1..128 */
+struct object   object_make_signed_bitfield(int width, long long value);
+struct object object_make_unsigned_bitfield(int width, unsigned long long value);
+
+/* Bitfield type queries */
+bool object_type_is_bitfield(enum object_type t);
+bool object_type_is_signed_bitfield(enum object_type t);
+bool object_type_is_unsigned_bitfield(enum object_type t);
+int  object_type_bitfield_width(enum object_type t);
 
 
 struct object     object_make_uint8(enum target target, uint8_t value);
@@ -172,8 +181,6 @@ void object_print_to_debug(const struct object* object, enum target target);
 
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant, enum target target);
 struct object* object_get_non_const_referenced(struct object* p_object);
-
-
 
 
 void object_print_value(struct osstream* ss, const struct object* a, enum target target);

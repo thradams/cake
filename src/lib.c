@@ -741,7 +741,41 @@ enum object_type
 
     TYPE_FLOAT,
     TYPE_DOUBLE,
-    TYPE_LONG_DOUBLE
+    TYPE_LONG_DOUBLE,
+
+    /* unsigned bitfield = TYPE_UNSIGNED_BITFIELD_1 (13) ... TYPE_UNSIGNED_BITFIELD_128 (140)*/
+    
+    TYPE_UNSIGNED_BITFIELD_1, TYPE_UNSIGNED_BITFIELD_2, TYPE_UNSIGNED_BITFIELD_3, TYPE_UNSIGNED_BITFIELD_4, TYPE_UNSIGNED_BITFIELD_5, TYPE_UNSIGNED_BITFIELD_6, TYPE_UNSIGNED_BITFIELD_7, TYPE_UNSIGNED_BITFIELD_8, TYPE_UNSIGNED_BITFIELD_9, TYPE_UNSIGNED_BITFIELD_10,
+    TYPE_UNSIGNED_BITFIELD_11, TYPE_UNSIGNED_BITFIELD_12, TYPE_UNSIGNED_BITFIELD_13, TYPE_UNSIGNED_BITFIELD_14, TYPE_UNSIGNED_BITFIELD_15, TYPE_UNSIGNED_BITFIELD_16, TYPE_UNSIGNED_BITFIELD_17, TYPE_UNSIGNED_BITFIELD_18, TYPE_UNSIGNED_BITFIELD_19, TYPE_UNSIGNED_BITFIELD_20,
+    TYPE_UNSIGNED_BITFIELD_21, TYPE_UNSIGNED_BITFIELD_22, TYPE_UNSIGNED_BITFIELD_23, TYPE_UNSIGNED_BITFIELD_24, TYPE_UNSIGNED_BITFIELD_25, TYPE_UNSIGNED_BITFIELD_26, TYPE_UNSIGNED_BITFIELD_27, TYPE_UNSIGNED_BITFIELD_28, TYPE_UNSIGNED_BITFIELD_29, TYPE_UNSIGNED_BITFIELD_30,
+    TYPE_UNSIGNED_BITFIELD_31, TYPE_UNSIGNED_BITFIELD_32, TYPE_UNSIGNED_BITFIELD_33, TYPE_UNSIGNED_BITFIELD_34, TYPE_UNSIGNED_BITFIELD_35, TYPE_UNSIGNED_BITFIELD_36, TYPE_UNSIGNED_BITFIELD_37, TYPE_UNSIGNED_BITFIELD_38, TYPE_UNSIGNED_BITFIELD_39, TYPE_UNSIGNED_BITFIELD_40,
+    TYPE_UNSIGNED_BITFIELD_41, TYPE_UNSIGNED_BITFIELD_42, TYPE_UNSIGNED_BITFIELD_43, TYPE_UNSIGNED_BITFIELD_44, TYPE_UNSIGNED_BITFIELD_45, TYPE_UNSIGNED_BITFIELD_46, TYPE_UNSIGNED_BITFIELD_47, TYPE_UNSIGNED_BITFIELD_48, TYPE_UNSIGNED_BITFIELD_49, TYPE_UNSIGNED_BITFIELD_50,
+    TYPE_UNSIGNED_BITFIELD_51, TYPE_UNSIGNED_BITFIELD_52, TYPE_UNSIGNED_BITFIELD_53, TYPE_UNSIGNED_BITFIELD_54, TYPE_UNSIGNED_BITFIELD_55, TYPE_UNSIGNED_BITFIELD_56, TYPE_UNSIGNED_BITFIELD_57, TYPE_UNSIGNED_BITFIELD_58, TYPE_UNSIGNED_BITFIELD_59, TYPE_UNSIGNED_BITFIELD_60,
+    TYPE_UNSIGNED_BITFIELD_61, TYPE_UNSIGNED_BITFIELD_62, TYPE_UNSIGNED_BITFIELD_63, TYPE_UNSIGNED_BITFIELD_64, TYPE_UNSIGNED_BITFIELD_65, TYPE_UNSIGNED_BITFIELD_66, TYPE_UNSIGNED_BITFIELD_67, TYPE_UNSIGNED_BITFIELD_68, TYPE_UNSIGNED_BITFIELD_69, TYPE_UNSIGNED_BITFIELD_70,
+    TYPE_UNSIGNED_BITFIELD_71, TYPE_UNSIGNED_BITFIELD_72, TYPE_UNSIGNED_BITFIELD_73, TYPE_UNSIGNED_BITFIELD_74, TYPE_UNSIGNED_BITFIELD_75, TYPE_UNSIGNED_BITFIELD_76, TYPE_UNSIGNED_BITFIELD_77, TYPE_UNSIGNED_BITFIELD_78, TYPE_UNSIGNED_BITFIELD_79, TYPE_UNSIGNED_BITFIELD_80,
+    TYPE_UNSIGNED_BITFIELD_81, TYPE_UNSIGNED_BITFIELD_82, TYPE_UNSIGNED_BITFIELD_83, TYPE_UNSIGNED_BITFIELD_84, TYPE_UNSIGNED_BITFIELD_85, TYPE_UNSIGNED_BITFIELD_86, TYPE_UNSIGNED_BITFIELD_87, TYPE_UNSIGNED_BITFIELD_88, TYPE_UNSIGNED_BITFIELD_89, TYPE_UNSIGNED_BITFIELD_90,
+    TYPE_UNSIGNED_BITFIELD_91, TYPE_UNSIGNED_BITFIELD_92, TYPE_UNSIGNED_BITFIELD_93, TYPE_UNSIGNED_BITFIELD_94, TYPE_UNSIGNED_BITFIELD_95, TYPE_UNSIGNED_BITFIELD_96, TYPE_UNSIGNED_BITFIELD_97, TYPE_UNSIGNED_BITFIELD_98, TYPE_UNSIGNED_BITFIELD_99, TYPE_UNSIGNED_BITFIELD_100,
+    TYPE_UNSIGNED_BITFIELD_101, TYPE_UNSIGNED_BITFIELD_102, TYPE_UNSIGNED_BITFIELD_103, TYPE_UNSIGNED_BITFIELD_104, TYPE_UNSIGNED_BITFIELD_105, TYPE_UNSIGNED_BITFIELD_106, TYPE_UNSIGNED_BITFIELD_107, TYPE_UNSIGNED_BITFIELD_108, TYPE_UNSIGNED_BITFIELD_109, TYPE_UNSIGNED_BITFIELD_110,
+    TYPE_UNSIGNED_BITFIELD_111, TYPE_UNSIGNED_BITFIELD_112, TYPE_UNSIGNED_BITFIELD_113, TYPE_UNSIGNED_BITFIELD_114, TYPE_UNSIGNED_BITFIELD_115, TYPE_UNSIGNED_BITFIELD_116, TYPE_UNSIGNED_BITFIELD_117, TYPE_UNSIGNED_BITFIELD_118, TYPE_UNSIGNED_BITFIELD_119, TYPE_UNSIGNED_BITFIELD_120,
+    TYPE_UNSIGNED_BITFIELD_121, TYPE_UNSIGNED_BITFIELD_122, TYPE_UNSIGNED_BITFIELD_123, TYPE_UNSIGNED_BITFIELD_124, TYPE_UNSIGNED_BITFIELD_125, TYPE_UNSIGNED_BITFIELD_126, TYPE_UNSIGNED_BITFIELD_127, TYPE_UNSIGNED_BITFIELD_128,
+
+    /* signed bitfield = TYPE_SIGNED_BITFIELD_1(141) ... TYPE_SIGNED_BITFIELD_128 (268)*/
+    
+    TYPE_SIGNED_BITFIELD_1, TYPE_SIGNED_BITFIELD_2, TYPE_SIGNED_BITFIELD_3, TYPE_SIGNED_BITFIELD_4, TYPE_SIGNED_BITFIELD_5, TYPE_SIGNED_BITFIELD_6, TYPE_SIGNED_BITFIELD_7, TYPE_SIGNED_BITFIELD_8, TYPE_SIGNED_BITFIELD_9, TYPE_SIGNED_BITFIELD_10,
+    TYPE_SIGNED_BITFIELD_11, TYPE_SIGNED_BITFIELD_12, TYPE_SIGNED_BITFIELD_13, TYPE_SIGNED_BITFIELD_14, TYPE_SIGNED_BITFIELD_15, TYPE_SIGNED_BITFIELD_16, TYPE_SIGNED_BITFIELD_17, TYPE_SIGNED_BITFIELD_18, TYPE_SIGNED_BITFIELD_19, TYPE_SIGNED_BITFIELD_20,
+    TYPE_SIGNED_BITFIELD_21, TYPE_SIGNED_BITFIELD_22, TYPE_SIGNED_BITFIELD_23, TYPE_SIGNED_BITFIELD_24, TYPE_SIGNED_BITFIELD_25, TYPE_SIGNED_BITFIELD_26, TYPE_SIGNED_BITFIELD_27, TYPE_SIGNED_BITFIELD_28, TYPE_SIGNED_BITFIELD_29, TYPE_SIGNED_BITFIELD_30,
+    TYPE_SIGNED_BITFIELD_31, TYPE_SIGNED_BITFIELD_32, TYPE_SIGNED_BITFIELD_33, TYPE_SIGNED_BITFIELD_34, TYPE_SIGNED_BITFIELD_35, TYPE_SIGNED_BITFIELD_36, TYPE_SIGNED_BITFIELD_37, TYPE_SIGNED_BITFIELD_38, TYPE_SIGNED_BITFIELD_39, TYPE_SIGNED_BITFIELD_40,
+    TYPE_SIGNED_BITFIELD_41, TYPE_SIGNED_BITFIELD_42, TYPE_SIGNED_BITFIELD_43, TYPE_SIGNED_BITFIELD_44, TYPE_SIGNED_BITFIELD_45, TYPE_SIGNED_BITFIELD_46, TYPE_SIGNED_BITFIELD_47, TYPE_SIGNED_BITFIELD_48, TYPE_SIGNED_BITFIELD_49, TYPE_SIGNED_BITFIELD_50,
+    TYPE_SIGNED_BITFIELD_51, TYPE_SIGNED_BITFIELD_52, TYPE_SIGNED_BITFIELD_53, TYPE_SIGNED_BITFIELD_54, TYPE_SIGNED_BITFIELD_55, TYPE_SIGNED_BITFIELD_56, TYPE_SIGNED_BITFIELD_57, TYPE_SIGNED_BITFIELD_58, TYPE_SIGNED_BITFIELD_59, TYPE_SIGNED_BITFIELD_60,
+    TYPE_SIGNED_BITFIELD_61, TYPE_SIGNED_BITFIELD_62, TYPE_SIGNED_BITFIELD_63, TYPE_SIGNED_BITFIELD_64, TYPE_SIGNED_BITFIELD_65, TYPE_SIGNED_BITFIELD_66, TYPE_SIGNED_BITFIELD_67, TYPE_SIGNED_BITFIELD_68, TYPE_SIGNED_BITFIELD_69, TYPE_SIGNED_BITFIELD_70,
+    TYPE_SIGNED_BITFIELD_71, TYPE_SIGNED_BITFIELD_72, TYPE_SIGNED_BITFIELD_73, TYPE_SIGNED_BITFIELD_74, TYPE_SIGNED_BITFIELD_75, TYPE_SIGNED_BITFIELD_76, TYPE_SIGNED_BITFIELD_77, TYPE_SIGNED_BITFIELD_78, TYPE_SIGNED_BITFIELD_79, TYPE_SIGNED_BITFIELD_80,
+    TYPE_SIGNED_BITFIELD_81, TYPE_SIGNED_BITFIELD_82, TYPE_SIGNED_BITFIELD_83, TYPE_SIGNED_BITFIELD_84, TYPE_SIGNED_BITFIELD_85, TYPE_SIGNED_BITFIELD_86, TYPE_SIGNED_BITFIELD_87, TYPE_SIGNED_BITFIELD_88, TYPE_SIGNED_BITFIELD_89, TYPE_SIGNED_BITFIELD_90,
+    TYPE_SIGNED_BITFIELD_91, TYPE_SIGNED_BITFIELD_92, TYPE_SIGNED_BITFIELD_93, TYPE_SIGNED_BITFIELD_94, TYPE_SIGNED_BITFIELD_95, TYPE_SIGNED_BITFIELD_96, TYPE_SIGNED_BITFIELD_97, TYPE_SIGNED_BITFIELD_98, TYPE_SIGNED_BITFIELD_99, TYPE_SIGNED_BITFIELD_100,
+    TYPE_SIGNED_BITFIELD_101, TYPE_SIGNED_BITFIELD_102, TYPE_SIGNED_BITFIELD_103, TYPE_SIGNED_BITFIELD_104, TYPE_SIGNED_BITFIELD_105, TYPE_SIGNED_BITFIELD_106, TYPE_SIGNED_BITFIELD_107, TYPE_SIGNED_BITFIELD_108, TYPE_SIGNED_BITFIELD_109, TYPE_SIGNED_BITFIELD_110,
+    TYPE_SIGNED_BITFIELD_111, TYPE_SIGNED_BITFIELD_112, TYPE_SIGNED_BITFIELD_113, TYPE_SIGNED_BITFIELD_114, TYPE_SIGNED_BITFIELD_115, TYPE_SIGNED_BITFIELD_116, TYPE_SIGNED_BITFIELD_117, TYPE_SIGNED_BITFIELD_118, TYPE_SIGNED_BITFIELD_119, TYPE_SIGNED_BITFIELD_120,
+    TYPE_SIGNED_BITFIELD_121, TYPE_SIGNED_BITFIELD_122, TYPE_SIGNED_BITFIELD_123, TYPE_SIGNED_BITFIELD_124, TYPE_SIGNED_BITFIELD_125, TYPE_SIGNED_BITFIELD_126, TYPE_SIGNED_BITFIELD_127, TYPE_SIGNED_BITFIELD_128,
+
+    
 };
 
 
@@ -749,7 +783,7 @@ enum target
 {
     TARGET_X86_X64_GCC,
     TARGET_X86_MSVC,
-    TARGET_X64_MSVC,    
+    TARGET_X64_MSVC,
     TARGET_CCU8,
     TARGET_LCCU16,
     TARGET_CATALINA,
@@ -760,9 +794,9 @@ enum target
 struct platform
 {
     const char* name;
-    
+
     const char* thread_local_attr;
-    const char * alignas_fmt_must_have_one_percent_d;
+    const char* alignas_fmt_must_have_one_percent_d;
 
     int bool_n_bits;
     int bool_alignment;
@@ -771,7 +805,7 @@ struct platform
     int char_n_bits;
     enum object_type char_t_type;
     int char_alignment;
-    
+
     int short_n_bits;
     int short_alignment;
 
@@ -802,7 +836,7 @@ struct platform
     enum object_type int16_type;
     enum object_type int32_type;
     enum object_type int64_type;
-    
+
     enum object_type size_t_type;
     enum object_type ptrdiff_type;
 };
@@ -1107,6 +1141,7 @@ enum diagnostic_id {
     C_ERROR_OUTER_SCOPE = 1870,
     C_ERROR_VARIABLY_MODIFIED_MEMBER = 1880,
     C_ERROR_LOCAL_FUNCTION_STORAGE = 1890,
+    C_ERROR_TYPEOF_BITFIELD = 1900,
 };
 
 
@@ -15193,7 +15228,6 @@ bool options_diagnostic_is_note(const struct options* options, enum diagnostic_i
 
 
 
-
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -15348,6 +15382,8 @@ enum storage_class_specifier_flags
 
     STORAGE_SPECIFIER_FUNCTION_RETURN = 1 << 13,
     STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD = 1 << 14,
+
+    STORAGE_SPECIFIER_BITFIELD = 1 << 15,
 };
 
 bool is_automatic_variable(enum storage_class_specifier_flags f);
@@ -15457,10 +15493,11 @@ struct type
     const struct enum_specifier* _Opt enum_specifier;
 
     //Expression used as array size. Can be constant or not constant (VLA)
-    const struct expression* _Opt p_array_num_elements_expression;
+    const struct expression* _Opt p_array_num_elements_expression;    
     /*
     * array_num_elements is zero when p_array_num_elements_expression is null
     * or not constant
+    * also stores bit field size if type is bitfield
     */
     size_t array_num_elements;
 
@@ -15560,6 +15597,11 @@ bool type_is_empty(const struct type* p_type);
 bool type_is_vla(const struct type* p_type);
 bool type_is_vm(const struct type* p_type);
 
+/* bitfield queries */
+bool type_is_bitfield(const struct type* p_type);
+int  type_get_bitfield_width(const struct type* p_type);
+bool type_is_unnamed_bitfield(const struct type* p_type);
+
 struct type type_get_enum_type(const struct type* p_type);
 
 struct argument_expression;
@@ -15607,7 +15649,8 @@ enum sizeof_result
     SIZEOF_RESULT_OVERLOW,
     SIZEOF_RESULT_RUNTIME,
     SIZEOF_RESULT_INCOMPLETE,
-    SIZEOF_RESULT_FUNCTION
+    SIZEOF_RESULT_FUNCTION,
+    SIZEOF_RESULT_BITFIELD   /* sizeof applied to a bitfield member — ill-formed in C */
 };
 
 enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
@@ -15647,7 +15690,7 @@ enum object_value_state
     CONSTANT_VALUE_STATE_UNINITIALIZED,
     CONSTANT_VALUE_STATE_ANY,
     CONSTANT_VALUE_STATE_CONSTANT,
-    
+
     /*flow analysis*/
     CONSTANT_VALUE_NOT_EQUAL,
     CONSTANT_VALUE_EQUAL,
@@ -15670,7 +15713,7 @@ struct object
 
     const char* _Opt _Owner member_designator;
 
-    union 
+    union
     {
         signed long long  host_long_long;
         unsigned long long  host_u_long_long;
@@ -15712,6 +15755,16 @@ struct object              object_make_float(enum target target, long double val
 struct object             object_make_double(enum target target, long double value);
 struct object        object_make_long_double(enum target target, long double value);
 struct object        object_make_reference(struct object* object);
+
+/* Bitfield constructors: width is 1..128 */
+struct object   object_make_signed_bitfield(int width, long long value);
+struct object object_make_unsigned_bitfield(int width, unsigned long long value);
+
+/* Bitfield type queries */
+bool object_type_is_bitfield(enum object_type t);
+bool object_type_is_signed_bitfield(enum object_type t);
+bool object_type_is_unsigned_bitfield(enum object_type t);
+int  object_type_bitfield_width(enum object_type t);
 
 
 struct object     object_make_uint8(enum target target, uint8_t value);
@@ -15785,8 +15838,6 @@ void object_print_to_debug(const struct object* object, enum target target);
 
 struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant, enum target target);
 struct object* object_get_non_const_referenced(struct object* p_object);
-
-
 
 
 void object_print_value(struct osstream* ss, const struct object* a, enum target target);
@@ -15882,7 +15933,6 @@ struct object object_shift_right(enum target target,
     const struct object* a,
     const struct object* b,
     char warning_message[200]);
-
 
 
 /*
@@ -17930,7 +17980,42 @@ void warn_unrecognized_warnings(struct parser_ctx* ctx,
 
 #define STATIC_ASSERT(cond) do { typedef char static_assert_error[(cond) ? 1 : -1]; } while (0)
 
+bool object_type_is_unsigned_bitfield(enum object_type t)
+{
+    return t >= TYPE_UNSIGNED_BITFIELD_1 && t <= TYPE_UNSIGNED_BITFIELD_128;
+}
 
+bool object_type_is_signed_bitfield(enum object_type t)
+{
+    return t >= TYPE_SIGNED_BITFIELD_1 && t <= TYPE_SIGNED_BITFIELD_128;
+}
+
+bool object_type_is_bitfield(enum object_type t)
+{
+    return object_type_is_unsigned_bitfield(t) || object_type_is_signed_bitfield(t);
+}
+
+int object_type_bitfield_width(enum object_type t)
+{
+    if (object_type_is_unsigned_bitfield(t))
+        return (int)(t - TYPE_UNSIGNED_BITFIELD_1 + 1);
+
+    if (object_type_is_signed_bitfield(t))
+        return (int)(t - TYPE_SIGNED_BITFIELD_1 + 1);
+
+    assert(false);
+    return 0;
+}
+
+static enum object_type bitfield_to_unsigned(enum object_type t)
+{
+    if (object_type_is_signed_bitfield(t))
+    {
+        int width = object_type_bitfield_width(t);
+        return (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + width - 1);
+    }
+    return t; /* already unsigned */
+}
 
 static unsigned long long wrap_unsigned_integer(unsigned long long value, int bits)
 {
@@ -17979,6 +18064,12 @@ static long double resize_floating_point(long double value, int bits)
 
 static enum object_type to_unsigned(enum object_type t)
 {
+    if (object_type_is_signed_bitfield(t))
+        return bitfield_to_unsigned(t);
+
+    if (object_type_is_unsigned_bitfield(t))
+        return t;
+
     switch (t)
     {
     case TYPE_SIGNED_CHAR: return TYPE_UNSIGNED_CHAR;
@@ -17992,13 +18083,18 @@ static enum object_type to_unsigned(enum object_type t)
     case TYPE_LONG_DOUBLE:
         return t;
 
+    default:        
+        break;
     }
-    assert(false);
+    
     return t;
 }
 
 static bool object_type_is_signed_integer(enum object_type type)
 {
+    if (object_type_is_signed_bitfield(type))
+        return true;
+
     switch (type)
     {
     case TYPE_SIGNED_CHAR:
@@ -18016,6 +18112,9 @@ static bool object_type_is_signed_integer(enum object_type type)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
+        break;
+
+    default:        
         break;
     }
     return false;
@@ -18023,6 +18122,9 @@ static bool object_type_is_signed_integer(enum object_type type)
 
 static bool object_type_is_unsigned_integer(enum object_type type)
 {
+    if (object_type_is_unsigned_bitfield(type))
+        return true;
+
     switch (type)
     {
     case TYPE_SIGNED_CHAR:
@@ -18042,6 +18144,9 @@ static bool object_type_is_unsigned_integer(enum object_type type)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
+        break;
+
+    default:
         break;
     }
     return false;
@@ -18307,8 +18412,8 @@ bool object_has_all_members_constants(const struct object* object)
         return true; /* all members passed */
     }
 
-    
-    return object_has_constant_value(object);    
+
+    return object_has_constant_value(object);
 }
 
 bool object_has_constant_value(const struct object* a)
@@ -18387,6 +18492,17 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
 
     a = object_get_referenced(a);
 
+    if (object_type_is_signed_bitfield(a->value_type))
+    {
+        snprintf(str, n, "%lld", a->value.host_long_long);
+        return 0;
+    }
+    if (object_type_is_unsigned_bitfield(a->value_type))
+    {
+        snprintf(str, n, "%llu", a->value.host_u_long_long);
+        return 0;
+    }
+
     switch (a->value_type)
     {
     case TYPE_SIGNED_CHAR:
@@ -18427,6 +18543,9 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
     case TYPE_LONG_DOUBLE:
         snprintf(str, n, "%LfLF", a->value.host_long_double);
         break;
+
+    default:
+        break;
     }
 
     return 0;
@@ -18437,6 +18556,11 @@ int object_to_str(const struct object* a, int n, char str[/*n*/])
 bool object_is_true(const struct object* a)
 {
     a = object_get_referenced(a);
+
+    if (object_type_is_signed_bitfield(a->value_type))
+        return a->value.host_long_long != 0;
+    if (object_type_is_unsigned_bitfield(a->value_type))
+        return a->value.host_u_long_long != 0;
 
     switch (a->value_type)
     {
@@ -18458,6 +18582,9 @@ bool object_is_true(const struct object* a)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return a->value.host_long_double;
+
+    default:        
+        break;
     }
     assert(0);
     return 0;
@@ -18474,6 +18601,19 @@ struct object object_make_signed_char(signed char value)
 
 void object_increment_value(enum target target, struct object* a)
 {
+    if (object_type_is_signed_bitfield(a->value_type))
+    {
+        int w = object_type_bitfield_width(a->value_type);
+        a->value.host_long_long = wrap_signed_integer(a->value.host_long_long + 1, w);
+        return;
+    }
+    if (object_type_is_unsigned_bitfield(a->value_type))
+    {
+        int w = object_type_bitfield_width(a->value_type);
+        a->value.host_u_long_long = wrap_unsigned_integer(a->value.host_u_long_long + 1, w);
+        return;
+    }
+
     switch (a->value_type)
     {
 
@@ -18500,6 +18640,9 @@ void object_increment_value(enum target target, struct object* a)
         a->value.host_long_double++;
         a->value.host_long_double = resize_floating_point(a->value.host_long_double, target_get_num_of_bits(target, a->value_type));
         break;
+
+    default:
+        break;
     }
 }
 
@@ -18509,7 +18652,7 @@ struct object object_make_unsigned_char(enum target target, unsigned char value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_CHAR;
     r.value.host_u_long_long = wrap_unsigned_integer(value, get_platform(target)->char_n_bits);
-    
+
     return r;
 }
 
@@ -18602,6 +18745,11 @@ signed long long object_to_signed_long_long(const struct object* a)
 {
     a = object_get_referenced(a);
 
+    if (object_type_is_signed_bitfield(a->value_type))
+        return a->value.host_long_long;
+    if (object_type_is_unsigned_bitfield(a->value_type))
+        return (signed long long)a->value.host_u_long_long;
+
     switch (a->value_type)
     {
     case TYPE_SIGNED_CHAR:
@@ -18622,6 +18770,9 @@ signed long long object_to_signed_long_long(const struct object* a)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return (long long)a->value.host_long_double;
+
+    default:
+        break;
     }
     assert(0);
     return 0;
@@ -18639,6 +18790,10 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
 {
     a = object_get_referenced(a);
 
+    if (object_type_is_signed_bitfield(a->value_type))
+        return (unsigned long long)a->value.host_long_long;
+    if (object_type_is_unsigned_bitfield(a->value_type))
+        return a->value.host_u_long_long;
 
     switch (a->value_type)
     {
@@ -18660,6 +18815,9 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return (unsigned long long) a->value.host_long_double;
+
+    default:
+        break;
     }
     assert(0);
     return 0;
@@ -18689,6 +18847,26 @@ struct object object_make_long_double(enum target target, long double value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_LONG_DOUBLE;
     r.value.host_long_double = resize_floating_point(value, target_get_num_of_bits(target, TYPE_LONG_DOUBLE));
+    return r;
+}
+
+struct object object_make_signed_bitfield(int width, long long value)
+{
+    assert(width >= 1 && width <= 128);
+    struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
+    r.value_type = (enum object_type)(TYPE_SIGNED_BITFIELD_1 + width - 1);
+    r.value.host_long_long = wrap_signed_integer(value, width);
+    return r;
+}
+
+struct object object_make_unsigned_bitfield(int width, unsigned long long value)
+{
+    assert(width >= 1 && width <= 128);
+    struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
+    r.value_type = (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + width - 1);
+    r.value.host_u_long_long = wrap_unsigned_integer(value, width);
     return r;
 }
 
@@ -18876,9 +19054,17 @@ const struct object* object_get_referenced(const struct object* p_object)
 }
 
 
-int get_rank(enum object_type t)
+static int get_rank(enum object_type t)
 {
     //https://cigix.me/c23#6.3.1.1
+
+    if (object_type_is_bitfield(t))
+    {
+        //TODO promote to long?
+        /* Bitfields promote to int (rank 40) */
+        return 40;
+    }
+
     if (t == TYPE_SIGNED_LONG_LONG ||
         t == TYPE_UNSIGNED_LONG_LONG)
     {
@@ -18915,6 +19101,8 @@ int target_sizeof(enum target target, enum object_type t)
 
 bool is_signed(enum object_type t)
 {
+    if (object_type_is_signed_bitfield(t)) return true;
+
     switch (t)
     {
 
@@ -18941,6 +19129,8 @@ bool is_signed(enum object_type t)
 
 bool is_unsigned(enum object_type t)
 {
+    if (object_type_is_unsigned_bitfield(t)) return true;
+
     switch (t)
     {
 
@@ -18950,6 +19140,7 @@ bool is_unsigned(enum object_type t)
     case TYPE_UNSIGNED_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
         return true;
+
     default:
         break;
     }
@@ -18975,6 +19166,10 @@ bool object_is_zero(const struct object* p_object)
     if (!object_has_constant_value(p_object))
         return false;
 
+    if (object_type_is_signed_bitfield(p_object->value_type))
+        return p_object->value.host_long_long == 0;
+    if (object_type_is_unsigned_bitfield(p_object->value_type))
+        return p_object->value.host_u_long_long == 0;
 
     switch (p_object->value_type)
     {
@@ -18996,6 +19191,9 @@ bool object_is_zero(const struct object* p_object)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return p_object->value.host_long_double == 0.0;
+
+    default:
+        break;
     }
     assert(0);
     return 0;
@@ -19009,6 +19207,10 @@ bool object_is_one(const struct object* p_object)
     if (!object_has_constant_value(p_object))
         return false;
 
+    if (object_type_is_signed_bitfield(p_object->value_type))
+        return p_object->value.host_long_long == 1;
+    if (object_type_is_unsigned_bitfield(p_object->value_type))
+        return p_object->value.host_u_long_long == 1;
 
     switch (p_object->value_type)
     {
@@ -19030,6 +19232,9 @@ bool object_is_one(const struct object* p_object)
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         return p_object->value.host_long_double == 1.0;
+
+    default:
+        break;
     }
     assert(0);
     return 0;
@@ -19119,7 +19324,7 @@ int object_set(
             if (requires_constant_initialization &&
                 !object_has_constant_value(from))
             {
-                if (p_init_expression && 
+                if (p_init_expression &&
                     !type_is_pointer_or_array(&p_init_expression->type) &&
                     !type_is_function(&p_init_expression->type))
                 {
@@ -19289,8 +19494,16 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type, const
                     if (p_member_declarator->declarator)
                     {
                         char buffer[200] = { 0 };
-                        snprintf(buffer, sizeof buffer, "%s.%s", member_designator, p_member_declarator->declarator->name_opt->lexeme);
-
+                        if (p_member_declarator->declarator->name_opt)
+                        {
+                            snprintf(buffer, sizeof buffer, "%s.%s", member_designator, p_member_declarator->declarator->name_opt->lexeme);
+                        }
+                        else
+                        {
+                            /*
+                            unnamed bit-fields allow for padding
+                            */
+                        }
 
                         struct object* _Owner _Opt p_member_obj = make_object_ptr_core(&p_member_declarator->declarator->type, buffer, target);
                         if (p_member_obj == NULL)
@@ -19361,7 +19574,7 @@ int make_object_with_member_designator(const struct type* p_type, struct object*
     struct object* _Owner _Opt p = make_object_ptr_core(p_type, name, target);
     if (p)
     {
-        * obj = *p; //not an error    
+        *obj = *p; //not an error    
         object_fix_parent(obj, obj);
         free(p);
         return 0;
@@ -19405,6 +19618,12 @@ int make_object(const struct type* p_type, struct object* obj, enum target targe
 
 enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
 {
+    if (object_type_is_signed_bitfield(type))
+        return TYPE_SPECIFIER_INT;
+
+    if (object_type_is_unsigned_bitfield(type))
+        return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+
     switch (type)
     {
     case TYPE_SIGNED_CHAR:
@@ -19426,8 +19645,11 @@ enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
     case TYPE_FLOAT:return TYPE_SPECIFIER_FLOAT;
     case TYPE_DOUBLE:return TYPE_SPECIFIER_DOUBLE;
     case TYPE_LONG_DOUBLE:return TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
+
+    default:        
+        break;
     }
-    assert(false);
+    
     return 0;
 }
 
@@ -19488,6 +19710,30 @@ enum object_type type_to_object_type(const struct type* type, enum target target
         return  get_platform(target)->size_t_type;
     }
 
+    /*
+     * Bitfield members store their width in type->array_num_elements
+     * (set in expressions.c when STORAGE_SPECIFIER_BITFIELD is propagated).
+     * Map them into the TYPE_[UN]SIGNED_BITFIELD_N ranges.
+     */
+    if (type->storage_class_specifier_flags & STORAGE_SPECIFIER_BITFIELD)
+    {
+        int width = (int)type->array_num_elements;
+        if (width < 1)   width = 1;
+        if (width > 128) width = 128;
+
+        bool is_unsigned_base = false;
+
+        if (type_is_bool(type))
+            is_unsigned_base = true;
+        else
+            is_unsigned_base = !!(type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
+
+        if (is_unsigned_base)
+            return (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + (width - 1));           /* TYPE_UNSIGNED_BITFIELD_N */
+        else
+            return (enum object_type)(TYPE_SIGNED_BITFIELD_1 + (width - 1)); /* TYPE_SIGNED_BITFIELD_N  */
+    }
+
     return type_specifier_to_object_type(type->type_specifier_flags, target);
 }
 
@@ -19495,6 +19741,19 @@ enum object_type type_to_object_type(const struct type* type, enum target target
 void object_print_value_debug(const struct object* a)
 {
     a = object_get_referenced(a);
+
+    if (object_type_is_signed_bitfield(a->value_type))
+    {
+        printf("%lld (signed bitfield %d)", a->value.host_long_long,
+               object_type_bitfield_width(a->value_type));
+        return;
+    }
+    if (object_type_is_unsigned_bitfield(a->value_type))
+    {
+        printf("%llu (unsigned bitfield %d)", a->value.host_u_long_long,
+               object_type_bitfield_width(a->value_type));
+        return;
+    }
 
     switch (a->value_type)
     {
@@ -19549,7 +19808,9 @@ void object_print_value_debug(const struct object* a)
     case TYPE_LONG_DOUBLE:
         printf("%Lf (long double)", a->value.host_long_double);
         break;
-
+    
+    default:        
+        break;
     }
 
 }
@@ -19649,6 +19910,11 @@ bool object_is_promoted(const struct object* a)
     /*
       types smaller than int are promoted to int
     */
+    if (object_type_is_bitfield(a->value_type))
+    {
+        return true;
+    }
+
     if (a->value_type == TYPE_SIGNED_CHAR ||
         a->value_type == TYPE_UNSIGNED_CHAR ||
         a->value_type == TYPE_SIGNED_SHORT ||
@@ -19805,6 +20071,17 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
 {
     a = object_get_referenced(a);
 
+    if (object_type_is_signed_bitfield(a->value_type))
+    {
+        ss_fprintf(ss, "%lld", a->value.host_long_long);
+        return;
+    }
+    if (object_type_is_unsigned_bitfield(a->value_type))
+    {
+        ss_fprintf(ss, "%llu", a->value.host_u_long_long);
+        return;
+    }
+
     switch (a->value_type)
     {
     case TYPE_SIGNED_CHAR:
@@ -19897,6 +20174,9 @@ void object_print_value(struct osstream* ss, const struct object* a, enum target
         else if (a->value_type == TYPE_LONG_DOUBLE)
             ss_fprintf(ss, "Lf");
         break;
+
+    default:
+        break;
     }
 
 }
@@ -19947,6 +20227,9 @@ struct object object_equal(enum target target,
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         r.value.host_u_long_long = (a0.value.host_long_double == b0.value.host_long_double);
+        break;
+
+    default:
         break;
     }
 
@@ -20000,6 +20283,9 @@ struct object object_not_equal(enum target target,
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         r.value.host_u_long_long = (a0.value.host_long_double != b0.value.host_long_double);
+        break;
+
+    default:
         break;
     }
 
@@ -20056,6 +20342,9 @@ struct object object_greater_than_or_equal(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_u_long_long = (a0.value.host_long_double >= b0.value.host_long_double);
         break;
+
+    default:
+        break;
     }
     object_destroy(&a0);
     object_destroy(&b0);
@@ -20108,6 +20397,9 @@ struct object object_greater_than(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_u_long_long = (a0.value.host_long_double > b0.value.host_long_double);
         break;
+
+    default:
+        break;
     }
     object_destroy(&a0);
     object_destroy(&b0);
@@ -20158,6 +20450,9 @@ struct object object_smaller_than_or_equal(enum target target,
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         r.value.host_u_long_long = (a0.value.host_long_double <= b0.value.host_long_double);
+        break;
+
+    default:
         break;
     }
     object_destroy(&a0);
@@ -20210,6 +20505,9 @@ struct object object_smaller_than(enum target target,
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         r.value.host_u_long_long = (a0.value.host_long_double < b0.value.host_long_double);
+        break;
+
+    default:
         break;
     }
     object_destroy(&a0);
@@ -20296,6 +20594,9 @@ struct object object_add(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = a0.value.host_long_double + b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+
+    default:
+        break;
     }
 
     object_destroy(&a0);
@@ -20382,6 +20683,9 @@ struct object object_sub(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = a0.value.host_long_double - b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+
+    default:
+        break;
     }
 
     object_destroy(&a0);
@@ -20470,6 +20774,9 @@ struct object object_mul(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = a0.value.host_long_double * b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+
+    default:
+        break;
     }
 
     object_destroy(&a0);
@@ -20550,6 +20857,9 @@ struct object object_div(enum target target,
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = a0.value.host_long_double / b0.value.host_long_double;
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+
+    default:
+        break;
     }
 
     object_destroy(&a0);
@@ -20620,6 +20930,9 @@ struct object object_mod(enum target target,
     case TYPE_LONG_DOUBLE:
         assert(false);
         snprintf(warning_message, 200, " invalid operands for");
+        break;
+
+    default:        
         break;
     }
 
@@ -20706,6 +21019,9 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     case TYPE_LONG_DOUBLE:
         r.value.host_long_long = (!a->value.host_long_double);
         break;
+
+    default:
+        break;
     }
 
     return r;
@@ -20750,6 +21066,9 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         snprintf(warning_message, 200, "invalid operand");
+        break;
+
+    default:
         break;
     }
 
@@ -20796,6 +21115,9 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = -(a->value.host_long_double);
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+        break;
+
+    default:
         break;
     }
 
@@ -20846,6 +21168,9 @@ struct object object_unary_plus(enum target target, const struct object* a, char
     case TYPE_LONG_DOUBLE:
         r.value.host_long_double = +(a->value.host_long_double);
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
+        break;
+
+    default:
         break;
     }
 
@@ -20898,6 +21223,9 @@ struct object object_bitwise_xor(enum target target,
     case TYPE_LONG_DOUBLE:
         assert(false);
         snprintf(warning_message, 200, " invalid operands");
+        break;
+
+    default:
         break;
     }
 
@@ -20952,6 +21280,9 @@ struct object object_bitwise_or(enum target target,
     case TYPE_LONG_DOUBLE:
         assert(false);
         snprintf(warning_message, 200, " invalid operands");
+        break;
+
+    default:
         break;
     }
 
@@ -21008,6 +21339,9 @@ struct object object_bitwise_and(enum target target,
         assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
+
+    default:
+        break;
     }
 
     object_destroy(&a0);
@@ -21062,6 +21396,9 @@ struct object object_shift_left(enum target target,
         assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
+
+    default:
+        break;
     }
     object_destroy(&a0);
     object_destroy(&b0);
@@ -21114,6 +21451,9 @@ struct object object_shift_right(enum target target,
     case TYPE_LONG_DOUBLE:
         assert(false);
         snprintf(warning_message, 200, " invalid operands");
+        break;
+    
+    default:
         break;
     }
     object_destroy(&a0);
@@ -22969,7 +23309,7 @@ static void fix_member_type(struct type* p_type, const struct type* struct_type,
           const struct X x;
           x.i ;//x.i is also local, or parameter etc.
     */
-    p_type->storage_class_specifier_flags = struct_type->storage_class_specifier_flags;
+    p_type->storage_class_specifier_flags |= struct_type->storage_class_specifier_flags;
 
     if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
     {
@@ -23230,6 +23570,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             if (p_member_declarator->declarator)
                             {
                                 p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                                /*
+                                 * Propagate bitfield info from the declarator's type so
+                                 * that subsequent checks (&, sizeof, offsetof) can see it.
+                                 */
+                                if (type_is_bitfield(&p_member_declarator->declarator->type))
+                                {
+                                    p_expression_node_new->type.array_num_elements=
+                                        p_member_declarator->declarator->type.array_num_elements;
+                                    p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
+                                }
                             }
                             else
                             {
@@ -23356,6 +23706,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                     p_expression_node_new->member_index = member_index;
                                     p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
                                     fix_arrow_member_type(&p_expression_node_new->type, &p_expression_node->type, &p_expression_node_new->type);
+                                    /*
+                                     * Propagate bitfield info so & / sizeof / offsetof
+                                     * checks can see it on the expression type.
+                                     */
+                                    if (type_is_bitfield(&p_member_declarator->declarator->type))
+                                    {
+                                        p_expression_node_new->type.array_num_elements=
+                                            p_member_declarator->declarator->type.array_num_elements;
+                                        p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
+                                    }
                                 }
                                 else
                                 {
@@ -23438,6 +23798,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
+                /* postfix ++ yields the old value — not a bitfield designator */
+                p_expression_node_new->type.array_num_elements = 0;
+                p_expression_node_new->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -23478,6 +23841,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
+                /* postfix -- yields the old value — not a bitfield designator */
+                p_expression_node_new->type.array_num_elements = 0;
+                p_expression_node_new->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -23791,6 +24157,19 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
 {
     enum type_category category = type_get_category(p_type);
 
+    /*
+     * C23 6.5.3.4p1: sizeof shall not be applied to a bit-field member.
+     */
+    if (type_is_bitfield(p_type))
+    {
+        compiler_diagnostic(C_ERROR_INVALID_TYPE,
+                            ctx,
+                            p_expression->first_token,
+                            NULL,
+                            "invalid application of 'sizeof' to a bit-field");
+        return -1;
+    }
+
     if (category == TYPE_CATEGORY_FUNCTION)
     {
         /* In GCC this returns 1 */
@@ -23897,6 +24276,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             }
 
             new_expression->type = type_dup(&new_expression->right->type);
+            /* prefix ++/-- yields the new value — not a bitfield designator */
+            new_expression->type.array_num_elements = 0;
+            new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == '&' ||
@@ -24077,6 +24459,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                         case SIZEOF_RESULT_INCOMPLETE:
                         case SIZEOF_RESULT_FUNCTION:
                             break;
+                        case SIZEOF_RESULT_BITFIELD:
+                            /*
+                             * offsetof applied to a bitfield is undefined behaviour in C.
+                             * We silently leave the object unset (not a compile-time constant)
+                             * rather than emitting a wrong value.
+                             */
+                            break;
                         }
                     }
                     type_destroy(&struct_type);
@@ -24090,6 +24479,20 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                         new_expression->right->first_token,
                         NULL,
                         "this expression cannot be used as lvalue");
+                }
+
+                /*
+                 * C23 6.5.3.2p1: the operand of & shall not be a bit-field.
+                 * This is a constraint violation — diagnose it before lvalue
+                 * checking so the error message is more informative.
+                 */
+                if (type_is_bitfield(&new_expression->right->type))
+                {
+                    compiler_diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
+                                        ctx,
+                                        new_expression->right->first_token,
+                                        NULL,
+                                        "cannot take the address of a bit-field member");
                 }
 
                 if (!expression_is_lvalue(new_expression->right))
@@ -24405,6 +24808,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                new_expression->first_token,
                NULL,
                "size of function");
+                break;
+            case SIZEOF_RESULT_BITFIELD:
+                compiler_diagnostic(C_ERROR_INVALID_TYPE,
+                    ctx,
+                    new_expression->first_token,
+                    NULL,
+                    "offsetof applied to a bit-field member is not supported");
+                break;
             }
 
             new_expression->object = object_make_size_t(ctx->options.target, offset_of);
@@ -24480,6 +24891,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     case SIZEOF_RESULT_OVERLOW:
                     case SIZEOF_RESULT_INCOMPLETE:
                     case SIZEOF_RESULT_FUNCTION:
+                    case SIZEOF_RESULT_BITFIELD:
                         expression_delete(new_expression);
                         throw;
                     }
@@ -24526,6 +24938,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                                         new_expression->first_token,
                                         NULL,
                                         "size of function");
+                    break;
+
+                case SIZEOF_RESULT_BITFIELD:
+                    /* check_sizeof_argument already diagnosed this above */
+                    expression_delete(new_expression);
+                    throw;
                     break;
                 }
             }
@@ -26933,6 +27351,13 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
 
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD;
+            /*
+             * The result of an assignment expression is a value, not a bitfield
+             * designator — strip the flag so the result cannot be passed to &
+             * or sizeof.
+             */
+            new_expression->type.array_num_elements = 0;
+            new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
 
             check_diferent_enuns(ctx,
                 op_token,
@@ -29377,7 +29802,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.12"
+#define CAKE_VERSION "0.13.14"
 
 
 
@@ -29410,6 +29835,11 @@ struct d_visit_ctx
     
     struct hash_map tag_names;
     struct hash_map structs_map;
+
+    /*
+    * Keeps track of the instantiated file scope declarators.
+    * For instance, an static function that is used.
+    */
     struct hash_map file_scope_declarator_map;
 
     /*
@@ -32650,10 +33080,28 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
 
         if (p_typeof_specifier->typeof_specifier_argument->expression)
         {
+            if (type_is_bitfield(&p_typeof_specifier->typeof_specifier_argument->expression->type))
+            {
+                compiler_diagnostic(C_ERROR_TYPEOF_BITFIELD,
+                    ctx, 
+                    p_typeof_specifier->typeof_specifier_argument->expression->first_token, 
+                    NULL, 
+                    "typeof used in bit-field");
+                throw;
+            }
             p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->expression->type);
         }
         else if (p_typeof_specifier->typeof_specifier_argument->type_name)
         {
+            if (type_is_bitfield(&p_typeof_specifier->typeof_specifier_argument->type_name->abstract_declarator->type))
+            {
+                compiler_diagnostic(C_ERROR_TYPEOF_BITFIELD,
+                    ctx, 
+                    p_typeof_specifier->typeof_specifier_argument->type_name->first_token,
+                    NULL,
+                    "typeof used in bit-field");
+                throw;
+            }
             p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->type_name->abstract_declarator->type);
         }
 
@@ -33851,8 +34299,48 @@ struct member_declarator* _Owner _Opt member_declarator(
 
         if (ctx->current->type == ':')
         {
+            if (!type_is_integer(&p_member_declarator->declarator->type))
+            {
+                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_member_declarator->declarator->first_token_opt,
+                NULL,
+                "bit-field must be integer type");
+            }
+
+            size_t sz = 0;
+            enum sizeof_result r = type_get_sizeof(&p_member_declarator->declarator->type, &sz, ctx->options.target);
+            if (r != SIZEOF_RESULT_OK)
+                throw;
+            sz = sz * CHAR_BIT;
+
             parser_match(ctx);
             p_member_declarator->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
+
+            long long bit_field_width = 
+                object_to_signed_long_long(&p_member_declarator->constant_expression->object);
+
+            if (bit_field_width < 0)
+            {
+                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_member_declarator->constant_expression->first_token,
+                NULL,
+                "bitfield with must be zero or positive.");
+            }
+
+            if (bit_field_width > sz)
+            {
+                compiler_diagnostic(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_member_declarator->constant_expression->first_token,
+                NULL,
+                "with of bitfield (%zu) exceess type size (%zu)", bit_field_width, sz);
+            }
+
+            /* adjust the type to be bitfield */
+            p_member_declarator->declarator->type.array_num_elements = (size_t) bit_field_width;
+            p_member_declarator->declarator->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
         }
     }
     catch
@@ -38624,7 +39112,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                 ctx,
                 ctx->current,
                 NULL,
-                "default case not within a switch statement");                
+                "default case not within a switch statement");
             }
 
             struct label* _Opt p_existing_default_label = case_label_list_find_default(ctx, &ctx->p_current_switch_statement->label_list);
@@ -40198,11 +40686,11 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
 
             if (ctx->p_current_iteration_statement == NULL && !in_switch)
             {
-                compiler_diagnostic(C_ERROR_BREAK_NOT_WITHIN_ITERATION, 
-                    ctx, 
-                    ctx->current, 
-                    NULL, 
-                    "'break' statement not in loop or switch statement");                
+                compiler_diagnostic(C_ERROR_BREAK_NOT_WITHIN_ITERATION,
+                    ctx,
+                    ctx->current,
+                    NULL,
+                    "'break' statement not in loop or switch statement");
             }
             parser_match(ctx);
         }
@@ -42367,7 +42855,7 @@ int compile_one_file(const char* file_name,
             throw;
 
         const char* builtin = target_get_builtins(ctx.options.target);
-        if (builtin)
+        if (builtin[0] != '\0')
         {
           struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 0, TK_FLAG_NONE);          
           token_list_append_list_at_beginning(&tokens, &builtin_tokens);
@@ -45173,7 +45661,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     ss_fprintf(&ctx->add_this_after_external_decl, "%s", local3.c_str);
 
                     ss_close(&local3);
-                    ss_close(&local4);                    
+                    ss_close(&local4);
                 }
 
                 ss_close(&ss);
@@ -45447,7 +45935,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 {
                     if (p_type->array_num_elements > 0)
                     {
-                        ss_fprintf(&offset_flat, "* %zu", p_type->array_num_elements);
+                        ss_fprintf(&offset_flat, " * %zu", p_type->array_num_elements);
                     }
                     else
                     {
@@ -45456,7 +45944,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                         {
                             char name[100] = { 0 };
                             generate_name(num, sizeof name, name);
-                            ss_fprintf(&offset_flat, "* %s", name);
+                            ss_fprintf(&offset_flat, " * %s", name);
                         }
                     }
                     p_type = p_type->next;
@@ -45575,8 +46063,11 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             struct osstream lambda_sig = { 0 };
             d_print_type(ctx, &lambda_sig, &p_expression->type, new_name, false);
 
-            emit_line_directive(ctx, &ctx->add_this_before_external_decl, p_expression->first_token);
-            ss_fprintf(&ctx->add_this_before_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
+            ss_fprintf(&ctx->add_this_before_external_decl, "static %s;\n", lambda_sig.c_str);
+            
+            ss_fprintf(&ctx->add_this_after_external_decl, "\n");
+            emit_line_directive(ctx, &ctx->add_this_after_external_decl, p_expression->first_token);
+            ss_fprintf(&ctx->add_this_after_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
             ss_close(&lambda_sig);
         }
 
@@ -48580,7 +49071,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         //action = ACTION_DECLARE;
         struct osstream ss = { 0 };
 
-        /* Force full */
+        ss_fprintf(&ss, "\n");
 
         if (p_init_declarator->p_declarator->first_token_opt)
             emit_line_directive(ctx, &ss, p_init_declarator->p_declarator->first_token_opt);
@@ -48596,9 +49087,9 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
         ss_fprintf(&ss, "\n");
         d_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
-        ss_fprintf(&ss, "\n");
+        //ss_fprintf(&ss, "\n");
 
-        ss_fprintf(oss0, "%s\n", ss.c_str);
+        ss_fprintf(oss0, "%s", ss.c_str);
         ss_close(&ss);
         hash_item_set_destroy(&i);
         return;
@@ -48684,11 +49175,13 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
     {
         if (struct_or_union_specifier_is_union(p_struct_or_union_specifier))
         {
+            ss_fprintf(ss, "\n");
             ss_fprintf(ss, "union %s;\n\n", p_struct_or_union_specifier->tag_name);
         }
         else
         {
-            ss_fprintf(ss, "struct %s;\n\n", p_struct_or_union_specifier->tag_name);
+            ss_fprintf(ss, "\n");
+            ss_fprintf(ss, "struct %s;\n", p_struct_or_union_specifier->tag_name);
         }
         return;
     }
@@ -48699,10 +49192,12 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
 
     if (struct_or_union_specifier_is_union(p_complete))
     {
+        ss_fprintf(ss, "\n");
         ss_fprintf(ss, "union %s", p_complete->tag_name);
     }
     else
     {
+        ss_fprintf(ss, "\n");
         ss_fprintf(ss, "struct %s", p_complete->tag_name);
     }
 
@@ -48724,8 +49219,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
 
             while (member_declarator)
             {
-                if (member_declarator->declarator &&
-                    member_declarator->declarator->name_opt)
+                if (member_declarator->declarator)
                 {
                     ss_fprintf(ss, IDENTATION_STR);
 
@@ -48748,12 +49242,24 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
                     }
                     else
                     {
+                        /* unnamed bitfields are allowed */
+                        char *name  = 
+                            member_declarator->declarator->name_opt ?
+                            member_declarator->declarator->name_opt->lexeme : "";
+
                         d_print_type(ctx,
                             ss,
                             &member_declarator->declarator->type,
-                            member_declarator->declarator->name_opt->lexeme,
+                            name,
                             false);
                     }
+
+                    if (member_declarator->constant_expression)
+                    {
+                        ss_fprintf(ss, " : ");
+                        object_print_value(ss, &member_declarator->constant_expression->object, ctx->options.target);
+                    }
+
                     ss_fprintf(ss, ";\n");
                 }
                 member_declarator = member_declarator->next;
@@ -48781,7 +49287,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
         member_declaration = member_declaration->next;
     }
     if (p_complete->member_declaration_list.head)
-        ss_fprintf(ss, "};\n\n");
+        ss_fprintf(ss, "};\n");
     else
         ss_fprintf(ss, ";\n");
 }
@@ -48799,7 +49305,6 @@ void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct
         d_print_structs(ctx, ss, p_struct_entry_item);
     }
 
-    bool some_declartions_printed = false;
     /*
        Then we print the struct we need only declaration in case the definition is not printed yet.
     */
@@ -48809,7 +49314,7 @@ void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct
         if (!p_struct_entry_item->definition_was_printed &&
             !p_struct_entry_item->declaration_was_printed)
         {
-            some_declartions_printed = true;
+            ss_fprintf(ss, "\n");
             p_struct_entry_item->declaration_was_printed = true;
             if (struct_or_union_specifier_is_union(p_struct_entry_item->p_struct_or_union_specifier))
             {
@@ -48821,9 +49326,6 @@ void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct
             }
         }
     }
-
-    if (some_declartions_printed)
-        ss_fprintf(ss, "\n");
 
     if (!p_struct_entry->definition_was_printed)
     {
@@ -48990,18 +49492,19 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         struct osstream declaration = { 0 };
         d_visit_declaration(ctx, &declaration, p_declaration);
 
-
         if (ctx->add_this_before.size > 0)
         {
             ss_fprintf(oss, "%s", ctx->add_this_before.c_str);
             ss_clear(&ctx->add_this_before);
 
         }
+
         if (ctx->add_this_before_external_decl.size > 0)
         {
-            ss_fprintf(&declarations, "%s\n", ctx->add_this_before_external_decl.c_str);
+            ss_fprintf(&declarations, "\n%s", ctx->add_this_before_external_decl.c_str);
             ss_clear(&ctx->add_this_before_external_decl);
         }
+
         if (declaration.size > 0)
             ss_fprintf(&declarations, "%s", declaration.c_str);
 
@@ -49024,13 +49527,18 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
             entry = entry->next;
         }
     }
-    ss_fprintf(oss, "\n");
+    //ss_fprintf(oss, "\n");
 
     if (ctx->define_nullptr && ctx->null_pointer_constant_used)
     {
-        ss_fprintf(oss, "static const void* NULL = 0;\n");
+        ss_fprintf(oss, "\n");
+        ss_fprintf(oss, "static void* NULL = 0;\n");
     }
 
+    if (ctx->memcpy_used || ctx->memset_used)
+    {
+        ss_fprintf(oss, "\n");
+    }
 
     if (ctx->memcpy_used)
     {
@@ -49044,19 +49552,16 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
               "static void %s(void *dest, int ch, %s count);\n", ctx->memset_function_name, ctx->size_t_type_name);
     }
 
-    if (ctx->memset_used || ctx->memcpy_used)
-        ss_fprintf(oss, "\n");
-
     if (declarations.c_str)
     {
         ss_fprintf(oss, "%s", declarations.c_str);
     }
 
-    if (ctx->memset_used || ctx->memcpy_used)
-        ss_fprintf(oss, "\n");
+    
 
     if (ctx->memset_used)
     {
+        ss_fprintf(oss, "\n");
         ss_fprintf(oss,
               "static void %s(void *dest, int ch, %s count)\n"
               "{\n"
@@ -49074,6 +49579,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     if (ctx->memcpy_used)
     {
+        ss_fprintf(oss, "\n");
         ss_fprintf(oss,
             "static void %s(void * dest, const void * src, %s n)\n"
             "{\n"
@@ -49096,11 +49602,11 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     if (ctx->options.line_directives)
     {
-      /* Because Cake inserts text out of order recursively, it is hard
-       to produce minimal #line directives, so we perform an extra step
-       to remove unnecessary ones. 
-       */
-       oss->size = clean_line_directives(oss->c_str);
+        /* Because Cake inserts text out of order recursively, it is hard
+         to produce minimal #line directives, so we perform an extra step
+         to remove unnecessary ones.
+         */
+        oss->size = clean_line_directives(oss->c_str);
     }
 
     ss_close(&declarations);
@@ -57403,6 +57909,16 @@ unsigned long long target_unsigned_max(enum  target target, enum object_type typ
 
 int target_get_num_of_bits(enum target target, enum object_type type)
 {
+    if (type >= TYPE_UNSIGNED_BITFIELD_1 && type <= TYPE_UNSIGNED_BITFIELD_128)
+    {
+        return (int)(type - TYPE_UNSIGNED_BITFIELD_1 + 1);
+    }
+
+    if (type >= TYPE_SIGNED_BITFIELD_1 && type <= TYPE_SIGNED_BITFIELD_128)
+    {
+        return (int)(type - TYPE_SIGNED_BITFIELD_1 + 1);
+    }
+
     switch (type)
     {
     case TYPE_SIGNED_CHAR:
@@ -57890,6 +58406,19 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
     struct type t = type_dup(p_type);
     type_remove_qualifiers(&t);
     t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
+
+    /*
+     * C 6.3.1.1p2: a value of a bit-field undergoes integer promotion when
+     * used in an expression.  The result is no longer a bit-field designator —
+     * clear the flag so downstream checks (sizeof, &, offsetof) are not
+     * confused by a temporary value that happens to have been read from one.
+     */
+    if (type_is_bitfield(&t))
+    {
+        t.array_num_elements= 0;
+        t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+        type_integer_promotion(&t);
+    }
 
     t.category = type_get_category(&t);
 
@@ -58533,8 +59062,28 @@ bool type_is_vm(const struct type* p_type)
     return false;
 }
 
-bool type_is_decimal128(const struct type* p_type)
+bool type_is_bitfield(const struct type* p_type)
 {
+    return p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_BITFIELD;
+}
+
+int type_get_bitfield_width(const struct type* p_type)
+{
+    return p_type->array_num_elements;
+}
+
+/*
+ * An unnamed bitfield is one with is_bitfield true and no name (name_opt == NULL).
+ * The special case int : 0; uses bitfield_width == 0 (zero-width padding);
+ * bitfield_width == -1 is reserved for not-yet-resolved widths.
+ */
+bool type_is_unnamed_bitfield(const struct type* p_type)
+{
+    return p_type->array_num_elements == 0;
+}
+
+
+bool type_is_decimal128(const struct type* p_type){
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL128;
 }
@@ -58643,6 +59192,9 @@ bool type_is_floating_point(const struct type* p_type)
 
 bool type_is_unsigned_integer(const struct type* p_type)
 {
+    if (type_is_bool(p_type))
+        return true;
+
     if (type_is_integer(p_type) &&
         (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED))
     {
@@ -58654,6 +59206,9 @@ bool type_is_unsigned_integer(const struct type* p_type)
 
 bool type_is_signed_integer(const struct type* p_type)
 {
+    if (type_is_bool(p_type))
+        return false;
+
     if (type_is_integer(p_type) &&
         !(p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED))
     {
@@ -59418,11 +59973,16 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
+    const bool msvc_target = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
 
     size_t size = 0;
     try
     {
         size_t maxalign = 0;
+
+        /* bitfield packing state — mirrors get_sizeof_struct exactly */
+        size_t bf_storage_bits = 0;
+        size_t bf_bits_used    = 0;
 
         struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
         while (d)
@@ -59432,22 +59992,112 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                 struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
                 while (md)
                 {
-                    size_t align = 1;
-
-                    if (md->declarator)
+                    if (md->constant_expression)
                     {
+                        /*
+                         * Bitfield member.
+                         * offsetof a bitfield is implementation-defined; we report the
+                         * byte offset of its storage unit — matching GCC/Clang behaviour.
+                         */
+                        unsigned long long bit_width =
+                            object_to_unsigned_long_long(&md->constant_expression->object);
+
+                        size_t field_type_size = 0;
+                        if (md->declarator)
+                        {
+                            /* Temporarily clear is_bitfield so type_get_sizeof doesn't reject it */
+                            struct type tmp = md->declarator->type;
+                            tmp.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+
+                            sizeof_result = type_get_sizeof(&tmp, &field_type_size, target);
+                            if (sizeof_result != SIZEOF_RESULT_OK)
+                                throw;
+                        }
+                        else
+                        {
+                            field_type_size = get_platform(target)->int_n_bits / 8;
+                        }
+
+                        size_t field_align  = field_type_size;
+                        size_t storage_bits = field_type_size * 8;
+
+                        if (field_align > maxalign)
+                            maxalign = field_align;
+
+                        if (bit_width == 0)
+                        {
+                            /* zero-width: flush current storage unit */
+                            if (bf_bits_used > 0)
+                            {
+                                if (!is_union)
+                                    size += bf_storage_bits / 8;
+                                bf_bits_used    = 0;
+                                bf_storage_bits = 0;
+                            }
+                        }
+                        else
+                        {
+                            const bool need_new_unit =
+                                bf_storage_bits == 0 ||
+                                bf_bits_used + bit_width > bf_storage_bits ||
+                                (msvc_target && bf_storage_bits != storage_bits);
+
+                            if (need_new_unit)
+                            {
+                                bool merged = false;
+                                if (!msvc_target &&
+                                    bf_bits_used > 0 &&
+                                    storage_bits > bf_storage_bits &&
+                                    bf_bits_used + bit_width <= storage_bits)
+                                {
+                                    if (!is_union && field_align > 0 && size % field_align != 0)
+                                        size += field_align - (size % field_align);
+                                    bf_storage_bits = storage_bits;
+                                    merged = true;
+                                }
+
+                                if (!merged)
+                                {
+                                    if (bf_bits_used > 0 && !is_union)
+                                        size += bf_storage_bits / 8;
+                                    if (!is_union && field_align > 0 && size % field_align != 0)
+                                        size += field_align - (size % field_align);
+                                    bf_storage_bits = storage_bits;
+                                    bf_bits_used    = 0;
+                                }
+                            }
+
+                            /* Named bitfield: report byte offset of its storage unit */
+                            if (md->declarator && md->declarator->name_opt &&
+                                strcmp(md->declarator->name_opt->lexeme, member) == 0)
+                            {
+                                *sz = size;
+                                return SIZEOF_RESULT_OK;
+                            }
+
+                            bf_bits_used += (size_t)bit_width;
+                        }
+                    }
+                    else if (md->declarator)
+                    {
+                        /* Normal (non-bitfield) member — flush any open bitfield unit first */
+                        if (bf_bits_used > 0)
+                        {
+                            if (!is_union)
+                                size += bf_storage_bits / 8;
+                            bf_bits_used    = 0;
+                            bf_storage_bits = 0;
+                        }
+
                         assert(md->declarator->name_opt != NULL);
 
-                        align = type_get_alignof(&md->declarator->type, target);
+                        size_t align = type_get_alignof(&md->declarator->type, target);
 
                         if (align > maxalign)
-                        {
                             maxalign = align;
-                        }
-                        if (size % align != 0)
-                        {
+
+                        if (!is_union && size % align != 0)
                             size += align - (size % align);
-                        }
 
                         if (strcmp(md->declarator->name_opt->lexeme, member) == 0)
                         {
@@ -59481,6 +60131,15 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
             }
             else if (d->specifier_qualifier_list)
             {
+                /* Flush any open bitfield unit before an anonymous struct/union */
+                if (bf_bits_used > 0)
+                {
+                    if (!is_union)
+                        size += bf_storage_bits / 8;
+                    bf_bits_used    = 0;
+                    bf_storage_bits = 0;
+                }
+
                 if (d->specifier_qualifier_list->struct_or_union_specifier)
                 {
                     struct type t = { 0 };
@@ -59491,13 +60150,11 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                     size_t align = type_get_alignof(&t, target);
 
                     if (align > maxalign)
-                    {
                         maxalign = align;
-                    }
-                    if (size % align != 0)
-                    {
+
+                    if (!is_union && size % align != 0)
                         size += align - (size % align);
-                    }
+
                     size_t item_size = 0;
 
                     sizeof_result = type_get_sizeof(&t, &item_size, target);
@@ -59529,25 +60186,14 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
             d = d->next;
         }
-        if (maxalign != 0)
-        {
-            if (size % maxalign != 0)
-            {
-                size += maxalign - (size % maxalign);
-            }
-        }
-        else
-        {
-            sizeof_result = SIZEOF_RESULT_INCOMPLETE;
-            throw;
-        }
+
+        sizeof_result = SIZEOF_RESULT_INCOMPLETE; /* member not found */
     }
     catch
     {
         return sizeof_result;
     }
 
-    *sz = size;
     return sizeof_result;
 }
 
@@ -59563,6 +60209,16 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
     {
         size_t maxalign = 0;
 
+        /*
+         * Bitfield packing state.
+         * bf_storage_bits: width in bits of the current storage unit (e.g. 32 for int).
+         * bf_bits_used:    how many of those bits have been consumed so far.
+         * When bf_bits_used > 0 a storage unit has been "opened" but not yet
+         * added to `size`.
+         */
+        size_t bf_storage_bits = 0;
+        size_t bf_bits_used    = 0;
+
         struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
         while (d)
         {
@@ -59571,20 +60227,154 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                 struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
                 while (md)
                 {
-                    size_t align = 1;
-
-                    if (md->declarator)
+                    if (md->constant_expression)
                     {
-                        align = type_get_alignof(&md->declarator->type, target);
+                        /*
+                         * Bitfield member:  declarator opt : constant-expression
+                         *
+                         * The declarator may be absent for unnamed bitfields.
+                         * The underlying storage unit is the declared type (or int
+                         * for unnamed bitfields that carry no declarator).
+                         */
+                        unsigned long long bit_width =
+                            object_to_unsigned_long_long(&md->constant_expression->object);
+
+                        size_t field_type_size = 0;
+                        if (md->declarator)
+                        {
+                            enum storage_class_specifier_flags before = md->declarator->type.storage_class_specifier_flags;
+                            md->declarator->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+                            sizeof_result = type_get_sizeof(&md->declarator->type, &field_type_size, target);
+                            md->declarator->type.storage_class_specifier_flags = before;
+
+                            if (sizeof_result != SIZEOF_RESULT_OK)
+                                throw;
+                        }
+                        else
+                        {
+                            /* unnamed bitfield — use int as the storage unit */
+                            field_type_size = get_platform(target)->int_n_bits / 8;
+                        }
+
+                        size_t field_align    = field_type_size;
+                        size_t storage_bits   = field_type_size * 8;
+
+                        if (field_align > maxalign)
+                            maxalign = field_align;
+
+                        if (bit_width == 0)
+                        {
+                            /*
+                             * Zero-width unnamed bitfield (e.g. "int : 0;"):
+                             * flush the current storage unit so the next bitfield
+                             * starts on a fresh storage-unit boundary.
+                             */
+                            if (bf_bits_used > 0)
+                            {
+                                if (!is_union)
+                                    size += bf_storage_bits / 8;
+                                bf_bits_used    = 0;
+                                bf_storage_bits = 0;
+                            }
+                        }
+                        else
+                        {
+                            /*
+                             * Decide whether to open a new storage unit.
+                             *
+                             * MSVC (TARGET_X86_MSVC, TARGET_X64_MSVC):
+                             *   A new unit is required when:
+                             *     (a) no unit is open yet,
+                             *     (b) bits do not fit in remaining capacity, OR
+                             *     (c) the declared type size differs from the
+                             *         current storage unit size.
+                             *   Rule (c) means type changes always force a flush,
+                             *   even when the bits would still fit.
+                             *
+                             * GCC (TARGET_X86_X64_GCC and all other targets):
+                             *   A new unit is required only for (a) and (b).
+                             *   Additionally, when a new unit IS needed and the
+                             *   current field's declared type is larger than the
+                             *   previous unit, GCC re-evaluates whether ALL bits
+                             *   accumulated so far (bf_bits_used + bit_width) fit
+                             *   inside the larger type.  If they do, the previous
+                             *   content is merged into the new, larger unit without
+                             *   flushing — matching the GCC cross-type packing
+                             *   behaviour observed for e.g.:
+                             *     struct { unsigned char a:3; unsigned int b:9; }
+                             *   which GCC lays out as a single int unit (size 4),
+                             *   while MSVC uses a char unit + int unit (size 8).
+                             */
+                            const bool msvc_target =
+                                (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+
+                            const bool need_new_unit =
+                                bf_storage_bits == 0 ||
+                                bf_bits_used + bit_width > bf_storage_bits ||
+                                (msvc_target && bf_storage_bits != storage_bits);
+
+                            if (need_new_unit)
+                            {
+                                /*
+                                 * GCC cross-type merge: if the new field's storage
+                                 * unit is larger than the current one, and ALL bits
+                                 * (previously accumulated + incoming) fit inside it,
+                                 * absorb the old content into the new unit instead
+                                 * of flushing a separate unit to `size`.
+                                 */
+                                bool merged = false;
+                                if (!msvc_target &&
+                                    bf_bits_used > 0 &&
+                                    storage_bits > bf_storage_bits &&
+                                    bf_bits_used + bit_width <= storage_bits)
+                                {
+                                    /* upgrade the open unit to the larger type */
+                                    /* align `size` for the upgraded unit */
+                                    if (!is_union && field_align > 0 && size % field_align != 0)
+                                        size += field_align - (size % field_align);
+                                    bf_storage_bits = storage_bits;
+                                    merged = true;
+                                }
+
+                                if (!merged)
+                                {
+                                    /* flush the previous storage unit */
+                                    if (bf_bits_used > 0 && !is_union)
+                                        size += bf_storage_bits / 8;
+
+                                    /* align `size` for the new storage unit */
+                                    if (!is_union && field_align > 0 && size % field_align != 0)
+                                        size += field_align - (size % field_align);
+
+                                    bf_storage_bits = storage_bits;
+                                    bf_bits_used    = 0;
+                                }
+                            }
+                            bf_bits_used += (size_t)bit_width;
+                        }
+                    }
+                    else if (md->declarator)
+                    {
+                        /*
+                         * Normal (non-bitfield) member.
+                         * First flush any open bitfield storage unit.
+                         */
+                        if (bf_bits_used > 0)
+                        {
+                            if (!is_union)
+                                size += bf_storage_bits / 8;
+                            bf_bits_used    = 0;
+                            bf_storage_bits = 0;
+                        }
+
+                        size_t align = type_get_alignof(&md->declarator->type, target);
 
                         if (align > maxalign)
-                        {
                             maxalign = align;
-                        }
-                        if (size % align != 0)
-                        {
+
+                        if (!is_union && size % align != 0)
                             size += align - (size % align);
-                        }
+
                         size_t item_size = 0;
                         sizeof_result = type_get_sizeof(&md->declarator->type, &item_size, target);
                         switch (sizeof_result)
@@ -59598,8 +60388,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                             break;
 
                         case SIZEOF_RESULT_INCOMPLETE:
-                            
-                            /* handle C99 flexive array members */
+                            /* handle C99 flexible array members */
                             if (md->next == NULL && d->next == NULL)
                             {
                                 if (type_get_category(&md->declarator->type) == TYPE_CATEGORY_ARRAY)
@@ -59611,7 +60400,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                                       };
                                     */
                                     sizeof_result = SIZEOF_RESULT_OK;
-                                    item_size = 0;                                    
+                                    item_size = 0;
                                 }
                             }
                             else
@@ -59641,6 +60430,15 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
             }
             else if (d->specifier_qualifier_list)
             {
+                /* Flush any open bitfield storage unit before an anonymous struct/union */
+                if (bf_bits_used > 0)
+                {
+                    if (!is_union)
+                        size += bf_storage_bits / 8;
+                    bf_bits_used    = 0;
+                    bf_storage_bits = 0;
+                }
+
                 if (d->specifier_qualifier_list->struct_or_union_specifier)
                 {
                     struct type t = { 0 };
@@ -59651,13 +60449,11 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                     size_t align = type_get_alignof(&t, target);
 
                     if (align > maxalign)
-                    {
                         maxalign = align;
-                    }
-                    if (size % align != 0)
-                    {
+
+                    if (!is_union && size % align != 0)
                         size += align - (size % align);
-                    }
+
                     size_t item_size = 0;
 
                     sizeof_result = type_get_sizeof(&t, &item_size, target);
@@ -59688,6 +60484,23 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
             }
             d = d->next;
         }
+
+        /* Flush any trailing open bitfield storage unit */
+        if (bf_bits_used > 0)
+        {
+            if (is_union)
+            {
+                /* For a union, the bitfield storage unit contributes to the max size */
+                size_t unit_bytes = bf_storage_bits / 8;
+                if (unit_bytes > size)
+                    size = unit_bytes;
+            }
+            else
+            {
+                size += bf_storage_bits / 8;
+            }
+        }
+
         if (maxalign != 0)
         {
             if (size % maxalign != 0)
@@ -59713,6 +60526,8 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
 size_t type_get_alignof(const struct type* p_type, enum target target);
 size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, enum target target)
 {
+    const bool msvc_target = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+
     size_t align = 0;
     struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
     while (d)
@@ -59722,18 +60537,59 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
             struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
             while (md)
             {
-                if (md->declarator)
+                if (md->declarator && !md->constant_expression)
                 {
+                    /*
+                     * Normal (non-bitfield) member: always contributes to alignment
+                     * on both GCC and MSVC.
+                     */
                     size_t temp_align = type_get_alignof(&md->declarator->type, target);
                     if (temp_align > align)
-                    {
                         align = temp_align;
+                }
+                else if (md->declarator && md->constant_expression)
+                {
+                    /*
+                     * Named bitfield member.
+                     *
+                     * GCC (struct and union): the storage-unit type always contributes
+                     * to alignment, matching a normal member of that type.
+                     *
+                     * MSVC struct: bitfields contribute their storage-unit type alignment.
+                     *   struct ExactFit { unsigned int a:8; b:8; c:8; d:8; };
+                     *   alignof(ExactFit) == 4   (alignment of unsigned int)
+                     *
+                     * MSVC union: bitfields do NOT contribute to alignment.
+                     * A union whose members are all bitfields gets alignof == 1 on MSVC.
+                     *   union BitUnion { unsigned int lo:16; unsigned int hi:16; };
+                     *   sizeof(BitUnion)  == 4   (one int storage unit)
+                     *   alignof(BitUnion) == 1   (MSVC) vs 4 (GCC)
+                     */
+                    const bool is_union =
+                        (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
+                    if (!msvc_target || !is_union)
+                    {
+                        size_t temp_align = type_get_alignof(&md->declarator->type, target);
+                        if (temp_align > align)
+                            align = temp_align;
+                    }
+                    /* MSVC union: skip — bitfields do not affect union alignment */
+                }
+                else if (md->constant_expression)
+                {
+                    /*
+                     * Unnamed bitfield (e.g. "int : 3;" or "int : 0;").
+                     * GCC counts the storage-unit type toward alignment.
+                     * MSVC ignores unnamed bitfields for alignment purposes.
+                     */
+                    if (!msvc_target)
+                    {
+                        size_t storage_align = get_platform(target)->int_n_bits / 8;
+                        if (storage_align > align)
+                            align = storage_align;
                     }
                 }
-                else
-                {
-                    assert(false);
-                }
+                /* else: truly empty slot — nothing to contribute */
                 md = md->next;
             }
         }
@@ -59776,9 +60632,18 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
         }
         d = d->next;
     }
-    assert(align != 0);
+
+    /*
+     * If all members are bitfields and the target is MSVC, `align` is still 0
+     * here because bitfields were skipped. Fall back to 1 (minimum alignment).
+     * GCC always has at least one member contributing, so align > 0 there.
+     */
+    if (align == 0)
+        align = 1;
+
     return align;
 }
+
 
 size_t type_get_alignof(const struct type* p_type, enum target target)
 {
@@ -59964,6 +60829,10 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 {
     *size = 0; //out
 
+    /* sizeof applied to a bitfield member is ill-formed in C */
+    if (type_is_bitfield(p_type))
+        return SIZEOF_RESULT_BITFIELD;
+
     const enum type_category category = type_get_category(p_type);
 
     if (category == TYPE_CATEGORY_POINTER)
@@ -60048,6 +60917,10 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 
     assert(category == TYPE_CATEGORY_ITSELF);
 
+    if (p_type->array_num_elements > 0)
+    {
+        //sizeof aplied to bitfield
+    }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {

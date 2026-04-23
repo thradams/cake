@@ -1857,7 +1857,7 @@ static void fix_member_type(struct type* p_type, const struct type* struct_type,
           const struct X x;
           x.i ;//x.i is also local, or parameter etc.
     */
-    p_type->storage_class_specifier_flags = struct_type->storage_class_specifier_flags;
+    p_type->storage_class_specifier_flags |= struct_type->storage_class_specifier_flags;
 
     if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
     {
@@ -2118,6 +2118,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                             if (p_member_declarator->declarator)
                             {
                                 p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                                /*
+                                 * Propagate bitfield info from the declarator's type so
+                                 * that subsequent checks (&, sizeof, offsetof) can see it.
+                                 */
+                                if (type_is_bitfield(&p_member_declarator->declarator->type))
+                                {
+                                    p_expression_node_new->type.array_num_elements=
+                                        p_member_declarator->declarator->type.array_num_elements;
+                                    p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
+                                }
                             }
                             else
                             {
@@ -2244,6 +2254,16 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                     p_expression_node_new->member_index = member_index;
                                     p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
                                     fix_arrow_member_type(&p_expression_node_new->type, &p_expression_node->type, &p_expression_node_new->type);
+                                    /*
+                                     * Propagate bitfield info so & / sizeof / offsetof
+                                     * checks can see it on the expression type.
+                                     */
+                                    if (type_is_bitfield(&p_member_declarator->declarator->type))
+                                    {
+                                        p_expression_node_new->type.array_num_elements=
+                                            p_member_declarator->declarator->type.array_num_elements;
+                                        p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
+                                    }
                                 }
                                 else
                                 {
@@ -2326,6 +2346,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
+                /* postfix ++ yields the old value — not a bitfield designator */
+                p_expression_node_new->type.array_num_elements = 0;
+                p_expression_node_new->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -2366,6 +2389,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
+                /* postfix -- yields the old value — not a bitfield designator */
+                p_expression_node_new->type.array_num_elements = 0;
+                p_expression_node_new->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
                 parser_match(ctx);
                 if (ctx->current == NULL)
                 {
@@ -2679,6 +2705,19 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
 {
     enum type_category category = type_get_category(p_type);
 
+    /*
+     * C23 6.5.3.4p1: sizeof shall not be applied to a bit-field member.
+     */
+    if (type_is_bitfield(p_type))
+    {
+        compiler_diagnostic(C_ERROR_INVALID_TYPE,
+                            ctx,
+                            p_expression->first_token,
+                            NULL,
+                            "invalid application of 'sizeof' to a bit-field");
+        return -1;
+    }
+
     if (category == TYPE_CATEGORY_FUNCTION)
     {
         /* In GCC this returns 1 */
@@ -2785,6 +2824,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
             }
 
             new_expression->type = type_dup(&new_expression->right->type);
+            /* prefix ++/-- yields the new value — not a bitfield designator */
+            new_expression->type.array_num_elements = 0;
+            new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == '&' ||
@@ -2965,6 +3007,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                         case SIZEOF_RESULT_INCOMPLETE:
                         case SIZEOF_RESULT_FUNCTION:
                             break;
+                        case SIZEOF_RESULT_BITFIELD:
+                            /*
+                             * offsetof applied to a bitfield is undefined behaviour in C.
+                             * We silently leave the object unset (not a compile-time constant)
+                             * rather than emitting a wrong value.
+                             */
+                            break;
                         }
                     }
                     type_destroy(&struct_type);
@@ -2978,6 +3027,20 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                         new_expression->right->first_token,
                         NULL,
                         "this expression cannot be used as lvalue");
+                }
+
+                /*
+                 * C23 6.5.3.2p1: the operand of & shall not be a bit-field.
+                 * This is a constraint violation — diagnose it before lvalue
+                 * checking so the error message is more informative.
+                 */
+                if (type_is_bitfield(&new_expression->right->type))
+                {
+                    compiler_diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
+                                        ctx,
+                                        new_expression->right->first_token,
+                                        NULL,
+                                        "cannot take the address of a bit-field member");
                 }
 
                 if (!expression_is_lvalue(new_expression->right))
@@ -3293,6 +3356,14 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                new_expression->first_token,
                NULL,
                "size of function");
+                break;
+            case SIZEOF_RESULT_BITFIELD:
+                compiler_diagnostic(C_ERROR_INVALID_TYPE,
+                    ctx,
+                    new_expression->first_token,
+                    NULL,
+                    "offsetof applied to a bit-field member is not supported");
+                break;
             }
 
             new_expression->object = object_make_size_t(ctx->options.target, offset_of);
@@ -3368,6 +3439,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                     case SIZEOF_RESULT_OVERLOW:
                     case SIZEOF_RESULT_INCOMPLETE:
                     case SIZEOF_RESULT_FUNCTION:
+                    case SIZEOF_RESULT_BITFIELD:
                         expression_delete(new_expression);
                         throw;
                     }
@@ -3414,6 +3486,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                                         new_expression->first_token,
                                         NULL,
                                         "size of function");
+                    break;
+
+                case SIZEOF_RESULT_BITFIELD:
+                    /* check_sizeof_argument already diagnosed this above */
+                    expression_delete(new_expression);
+                    throw;
                     break;
                 }
             }
@@ -5821,6 +5899,13 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, enu
 
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD;
+            /*
+             * The result of an assignment expression is a value, not a bitfield
+             * designator — strip the flag so the result cannot be passed to &
+             * or sizeof.
+             */
+            new_expression->type.array_num_elements = 0;
+            new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
 
             check_diferent_enuns(ctx,
                 op_token,

@@ -24,6 +24,11 @@ struct d_visit_ctx
     
     struct hash_map tag_names;
     struct hash_map structs_map;
+
+    /*
+    * Keeps track of the instantiated file scope declarators.
+    * For instance, an static function that is used.
+    */
     struct hash_map file_scope_declarator_map;
 
     /*

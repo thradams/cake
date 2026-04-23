@@ -383,6 +383,16 @@ unsigned long long target_unsigned_max(enum  target target, enum object_type typ
 
 int target_get_num_of_bits(enum target target, enum object_type type)
 {
+    if (type >= TYPE_UNSIGNED_BITFIELD_1 && type <= TYPE_UNSIGNED_BITFIELD_128)
+    {
+        return (int)(type - TYPE_UNSIGNED_BITFIELD_1 + 1);
+    }
+
+    if (type >= TYPE_SIGNED_BITFIELD_1 && type <= TYPE_SIGNED_BITFIELD_128)
+    {
+        return (int)(type - TYPE_SIGNED_BITFIELD_1 + 1);
+    }
+
     switch (type)
     {
     case TYPE_SIGNED_CHAR:

@@ -388,6 +388,19 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
     type_remove_qualifiers(&t);
     t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
 
+    /*
+     * C 6.3.1.1p2: a value of a bit-field undergoes integer promotion when
+     * used in an expression.  The result is no longer a bit-field designator —
+     * clear the flag so downstream checks (sizeof, &, offsetof) are not
+     * confused by a temporary value that happens to have been read from one.
+     */
+    if (type_is_bitfield(&t))
+    {
+        t.array_num_elements= 0;
+        t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+        type_integer_promotion(&t);
+    }
+
     t.category = type_get_category(&t);
 
     return t;
@@ -1030,8 +1043,28 @@ bool type_is_vm(const struct type* p_type)
     return false;
 }
 
-bool type_is_decimal128(const struct type* p_type)
+bool type_is_bitfield(const struct type* p_type)
 {
+    return p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_BITFIELD;
+}
+
+int type_get_bitfield_width(const struct type* p_type)
+{
+    return p_type->array_num_elements;
+}
+
+/*
+ * An unnamed bitfield is one with is_bitfield true and no name (name_opt == NULL).
+ * The special case int : 0; uses bitfield_width == 0 (zero-width padding);
+ * bitfield_width == -1 is reserved for not-yet-resolved widths.
+ */
+bool type_is_unnamed_bitfield(const struct type* p_type)
+{
+    return p_type->array_num_elements == 0;
+}
+
+
+bool type_is_decimal128(const struct type* p_type){
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL128;
 }
@@ -1140,6 +1173,9 @@ bool type_is_floating_point(const struct type* p_type)
 
 bool type_is_unsigned_integer(const struct type* p_type)
 {
+    if (type_is_bool(p_type))
+        return true;
+
     if (type_is_integer(p_type) &&
         (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED))
     {
@@ -1151,6 +1187,9 @@ bool type_is_unsigned_integer(const struct type* p_type)
 
 bool type_is_signed_integer(const struct type* p_type)
 {
+    if (type_is_bool(p_type))
+        return false;
+
     if (type_is_integer(p_type) &&
         !(p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED))
     {
@@ -1915,11 +1954,16 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
+    const bool msvc_target = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
 
     size_t size = 0;
     try
     {
         size_t maxalign = 0;
+
+        /* bitfield packing state — mirrors get_sizeof_struct exactly */
+        size_t bf_storage_bits = 0;
+        size_t bf_bits_used    = 0;
 
         struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
         while (d)
@@ -1929,22 +1973,112 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                 struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
                 while (md)
                 {
-                    size_t align = 1;
-
-                    if (md->declarator)
+                    if (md->constant_expression)
                     {
+                        /*
+                         * Bitfield member.
+                         * offsetof a bitfield is implementation-defined; we report the
+                         * byte offset of its storage unit — matching GCC/Clang behaviour.
+                         */
+                        unsigned long long bit_width =
+                            object_to_unsigned_long_long(&md->constant_expression->object);
+
+                        size_t field_type_size = 0;
+                        if (md->declarator)
+                        {
+                            /* Temporarily clear is_bitfield so type_get_sizeof doesn't reject it */
+                            struct type tmp = md->declarator->type;
+                            tmp.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+
+                            sizeof_result = type_get_sizeof(&tmp, &field_type_size, target);
+                            if (sizeof_result != SIZEOF_RESULT_OK)
+                                throw;
+                        }
+                        else
+                        {
+                            field_type_size = get_platform(target)->int_n_bits / 8;
+                        }
+
+                        size_t field_align  = field_type_size;
+                        size_t storage_bits = field_type_size * 8;
+
+                        if (field_align > maxalign)
+                            maxalign = field_align;
+
+                        if (bit_width == 0)
+                        {
+                            /* zero-width: flush current storage unit */
+                            if (bf_bits_used > 0)
+                            {
+                                if (!is_union)
+                                    size += bf_storage_bits / 8;
+                                bf_bits_used    = 0;
+                                bf_storage_bits = 0;
+                            }
+                        }
+                        else
+                        {
+                            const bool need_new_unit =
+                                bf_storage_bits == 0 ||
+                                bf_bits_used + bit_width > bf_storage_bits ||
+                                (msvc_target && bf_storage_bits != storage_bits);
+
+                            if (need_new_unit)
+                            {
+                                bool merged = false;
+                                if (!msvc_target &&
+                                    bf_bits_used > 0 &&
+                                    storage_bits > bf_storage_bits &&
+                                    bf_bits_used + bit_width <= storage_bits)
+                                {
+                                    if (!is_union && field_align > 0 && size % field_align != 0)
+                                        size += field_align - (size % field_align);
+                                    bf_storage_bits = storage_bits;
+                                    merged = true;
+                                }
+
+                                if (!merged)
+                                {
+                                    if (bf_bits_used > 0 && !is_union)
+                                        size += bf_storage_bits / 8;
+                                    if (!is_union && field_align > 0 && size % field_align != 0)
+                                        size += field_align - (size % field_align);
+                                    bf_storage_bits = storage_bits;
+                                    bf_bits_used    = 0;
+                                }
+                            }
+
+                            /* Named bitfield: report byte offset of its storage unit */
+                            if (md->declarator && md->declarator->name_opt &&
+                                strcmp(md->declarator->name_opt->lexeme, member) == 0)
+                            {
+                                *sz = size;
+                                return SIZEOF_RESULT_OK;
+                            }
+
+                            bf_bits_used += (size_t)bit_width;
+                        }
+                    }
+                    else if (md->declarator)
+                    {
+                        /* Normal (non-bitfield) member — flush any open bitfield unit first */
+                        if (bf_bits_used > 0)
+                        {
+                            if (!is_union)
+                                size += bf_storage_bits / 8;
+                            bf_bits_used    = 0;
+                            bf_storage_bits = 0;
+                        }
+
                         assert(md->declarator->name_opt != NULL);
 
-                        align = type_get_alignof(&md->declarator->type, target);
+                        size_t align = type_get_alignof(&md->declarator->type, target);
 
                         if (align > maxalign)
-                        {
                             maxalign = align;
-                        }
-                        if (size % align != 0)
-                        {
+
+                        if (!is_union && size % align != 0)
                             size += align - (size % align);
-                        }
 
                         if (strcmp(md->declarator->name_opt->lexeme, member) == 0)
                         {
@@ -1978,6 +2112,15 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
             }
             else if (d->specifier_qualifier_list)
             {
+                /* Flush any open bitfield unit before an anonymous struct/union */
+                if (bf_bits_used > 0)
+                {
+                    if (!is_union)
+                        size += bf_storage_bits / 8;
+                    bf_bits_used    = 0;
+                    bf_storage_bits = 0;
+                }
+
                 if (d->specifier_qualifier_list->struct_or_union_specifier)
                 {
                     struct type t = { 0 };
@@ -1988,13 +2131,11 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                     size_t align = type_get_alignof(&t, target);
 
                     if (align > maxalign)
-                    {
                         maxalign = align;
-                    }
-                    if (size % align != 0)
-                    {
+
+                    if (!is_union && size % align != 0)
                         size += align - (size % align);
-                    }
+
                     size_t item_size = 0;
 
                     sizeof_result = type_get_sizeof(&t, &item_size, target);
@@ -2026,25 +2167,14 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
             d = d->next;
         }
-        if (maxalign != 0)
-        {
-            if (size % maxalign != 0)
-            {
-                size += maxalign - (size % maxalign);
-            }
-        }
-        else
-        {
-            sizeof_result = SIZEOF_RESULT_INCOMPLETE;
-            throw;
-        }
+
+        sizeof_result = SIZEOF_RESULT_INCOMPLETE; /* member not found */
     }
     catch
     {
         return sizeof_result;
     }
 
-    *sz = size;
     return sizeof_result;
 }
 
@@ -2060,6 +2190,16 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
     {
         size_t maxalign = 0;
 
+        /*
+         * Bitfield packing state.
+         * bf_storage_bits: width in bits of the current storage unit (e.g. 32 for int).
+         * bf_bits_used:    how many of those bits have been consumed so far.
+         * When bf_bits_used > 0 a storage unit has been "opened" but not yet
+         * added to `size`.
+         */
+        size_t bf_storage_bits = 0;
+        size_t bf_bits_used    = 0;
+
         struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
         while (d)
         {
@@ -2068,20 +2208,154 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                 struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
                 while (md)
                 {
-                    size_t align = 1;
-
-                    if (md->declarator)
+                    if (md->constant_expression)
                     {
-                        align = type_get_alignof(&md->declarator->type, target);
+                        /*
+                         * Bitfield member:  declarator opt : constant-expression
+                         *
+                         * The declarator may be absent for unnamed bitfields.
+                         * The underlying storage unit is the declared type (or int
+                         * for unnamed bitfields that carry no declarator).
+                         */
+                        unsigned long long bit_width =
+                            object_to_unsigned_long_long(&md->constant_expression->object);
+
+                        size_t field_type_size = 0;
+                        if (md->declarator)
+                        {
+                            enum storage_class_specifier_flags before = md->declarator->type.storage_class_specifier_flags;
+                            md->declarator->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+                            sizeof_result = type_get_sizeof(&md->declarator->type, &field_type_size, target);
+                            md->declarator->type.storage_class_specifier_flags = before;
+
+                            if (sizeof_result != SIZEOF_RESULT_OK)
+                                throw;
+                        }
+                        else
+                        {
+                            /* unnamed bitfield — use int as the storage unit */
+                            field_type_size = get_platform(target)->int_n_bits / 8;
+                        }
+
+                        size_t field_align    = field_type_size;
+                        size_t storage_bits   = field_type_size * 8;
+
+                        if (field_align > maxalign)
+                            maxalign = field_align;
+
+                        if (bit_width == 0)
+                        {
+                            /*
+                             * Zero-width unnamed bitfield (e.g. "int : 0;"):
+                             * flush the current storage unit so the next bitfield
+                             * starts on a fresh storage-unit boundary.
+                             */
+                            if (bf_bits_used > 0)
+                            {
+                                if (!is_union)
+                                    size += bf_storage_bits / 8;
+                                bf_bits_used    = 0;
+                                bf_storage_bits = 0;
+                            }
+                        }
+                        else
+                        {
+                            /*
+                             * Decide whether to open a new storage unit.
+                             *
+                             * MSVC (TARGET_X86_MSVC, TARGET_X64_MSVC):
+                             *   A new unit is required when:
+                             *     (a) no unit is open yet,
+                             *     (b) bits do not fit in remaining capacity, OR
+                             *     (c) the declared type size differs from the
+                             *         current storage unit size.
+                             *   Rule (c) means type changes always force a flush,
+                             *   even when the bits would still fit.
+                             *
+                             * GCC (TARGET_X86_X64_GCC and all other targets):
+                             *   A new unit is required only for (a) and (b).
+                             *   Additionally, when a new unit IS needed and the
+                             *   current field's declared type is larger than the
+                             *   previous unit, GCC re-evaluates whether ALL bits
+                             *   accumulated so far (bf_bits_used + bit_width) fit
+                             *   inside the larger type.  If they do, the previous
+                             *   content is merged into the new, larger unit without
+                             *   flushing — matching the GCC cross-type packing
+                             *   behaviour observed for e.g.:
+                             *     struct { unsigned char a:3; unsigned int b:9; }
+                             *   which GCC lays out as a single int unit (size 4),
+                             *   while MSVC uses a char unit + int unit (size 8).
+                             */
+                            const bool msvc_target =
+                                (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+
+                            const bool need_new_unit =
+                                bf_storage_bits == 0 ||
+                                bf_bits_used + bit_width > bf_storage_bits ||
+                                (msvc_target && bf_storage_bits != storage_bits);
+
+                            if (need_new_unit)
+                            {
+                                /*
+                                 * GCC cross-type merge: if the new field's storage
+                                 * unit is larger than the current one, and ALL bits
+                                 * (previously accumulated + incoming) fit inside it,
+                                 * absorb the old content into the new unit instead
+                                 * of flushing a separate unit to `size`.
+                                 */
+                                bool merged = false;
+                                if (!msvc_target &&
+                                    bf_bits_used > 0 &&
+                                    storage_bits > bf_storage_bits &&
+                                    bf_bits_used + bit_width <= storage_bits)
+                                {
+                                    /* upgrade the open unit to the larger type */
+                                    /* align `size` for the upgraded unit */
+                                    if (!is_union && field_align > 0 && size % field_align != 0)
+                                        size += field_align - (size % field_align);
+                                    bf_storage_bits = storage_bits;
+                                    merged = true;
+                                }
+
+                                if (!merged)
+                                {
+                                    /* flush the previous storage unit */
+                                    if (bf_bits_used > 0 && !is_union)
+                                        size += bf_storage_bits / 8;
+
+                                    /* align `size` for the new storage unit */
+                                    if (!is_union && field_align > 0 && size % field_align != 0)
+                                        size += field_align - (size % field_align);
+
+                                    bf_storage_bits = storage_bits;
+                                    bf_bits_used    = 0;
+                                }
+                            }
+                            bf_bits_used += (size_t)bit_width;
+                        }
+                    }
+                    else if (md->declarator)
+                    {
+                        /*
+                         * Normal (non-bitfield) member.
+                         * First flush any open bitfield storage unit.
+                         */
+                        if (bf_bits_used > 0)
+                        {
+                            if (!is_union)
+                                size += bf_storage_bits / 8;
+                            bf_bits_used    = 0;
+                            bf_storage_bits = 0;
+                        }
+
+                        size_t align = type_get_alignof(&md->declarator->type, target);
 
                         if (align > maxalign)
-                        {
                             maxalign = align;
-                        }
-                        if (size % align != 0)
-                        {
+
+                        if (!is_union && size % align != 0)
                             size += align - (size % align);
-                        }
+
                         size_t item_size = 0;
                         sizeof_result = type_get_sizeof(&md->declarator->type, &item_size, target);
                         switch (sizeof_result)
@@ -2095,8 +2369,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                             break;
 
                         case SIZEOF_RESULT_INCOMPLETE:
-                            
-                            /* handle C99 flexive array members */
+                            /* handle C99 flexible array members */
                             if (md->next == NULL && d->next == NULL)
                             {
                                 if (type_get_category(&md->declarator->type) == TYPE_CATEGORY_ARRAY)
@@ -2108,7 +2381,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                                       };
                                     */
                                     sizeof_result = SIZEOF_RESULT_OK;
-                                    item_size = 0;                                    
+                                    item_size = 0;
                                 }
                             }
                             else
@@ -2138,6 +2411,15 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
             }
             else if (d->specifier_qualifier_list)
             {
+                /* Flush any open bitfield storage unit before an anonymous struct/union */
+                if (bf_bits_used > 0)
+                {
+                    if (!is_union)
+                        size += bf_storage_bits / 8;
+                    bf_bits_used    = 0;
+                    bf_storage_bits = 0;
+                }
+
                 if (d->specifier_qualifier_list->struct_or_union_specifier)
                 {
                     struct type t = { 0 };
@@ -2148,13 +2430,11 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                     size_t align = type_get_alignof(&t, target);
 
                     if (align > maxalign)
-                    {
                         maxalign = align;
-                    }
-                    if (size % align != 0)
-                    {
+
+                    if (!is_union && size % align != 0)
                         size += align - (size % align);
-                    }
+
                     size_t item_size = 0;
 
                     sizeof_result = type_get_sizeof(&t, &item_size, target);
@@ -2185,6 +2465,23 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
             }
             d = d->next;
         }
+
+        /* Flush any trailing open bitfield storage unit */
+        if (bf_bits_used > 0)
+        {
+            if (is_union)
+            {
+                /* For a union, the bitfield storage unit contributes to the max size */
+                size_t unit_bytes = bf_storage_bits / 8;
+                if (unit_bytes > size)
+                    size = unit_bytes;
+            }
+            else
+            {
+                size += bf_storage_bits / 8;
+            }
+        }
+
         if (maxalign != 0)
         {
             if (size % maxalign != 0)
@@ -2210,6 +2507,8 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
 size_t type_get_alignof(const struct type* p_type, enum target target);
 size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, enum target target)
 {
+    const bool msvc_target = (target == TARGET_X86_MSVC || target == TARGET_X64_MSVC);
+
     size_t align = 0;
     struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
     while (d)
@@ -2219,18 +2518,59 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
             struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
             while (md)
             {
-                if (md->declarator)
+                if (md->declarator && !md->constant_expression)
                 {
+                    /*
+                     * Normal (non-bitfield) member: always contributes to alignment
+                     * on both GCC and MSVC.
+                     */
                     size_t temp_align = type_get_alignof(&md->declarator->type, target);
                     if (temp_align > align)
-                    {
                         align = temp_align;
+                }
+                else if (md->declarator && md->constant_expression)
+                {
+                    /*
+                     * Named bitfield member.
+                     *
+                     * GCC (struct and union): the storage-unit type always contributes
+                     * to alignment, matching a normal member of that type.
+                     *
+                     * MSVC struct: bitfields contribute their storage-unit type alignment.
+                     *   struct ExactFit { unsigned int a:8; b:8; c:8; d:8; };
+                     *   alignof(ExactFit) == 4   (alignment of unsigned int)
+                     *
+                     * MSVC union: bitfields do NOT contribute to alignment.
+                     * A union whose members are all bitfields gets alignof == 1 on MSVC.
+                     *   union BitUnion { unsigned int lo:16; unsigned int hi:16; };
+                     *   sizeof(BitUnion)  == 4   (one int storage unit)
+                     *   alignof(BitUnion) == 1   (MSVC) vs 4 (GCC)
+                     */
+                    const bool is_union =
+                        (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
+                    if (!msvc_target || !is_union)
+                    {
+                        size_t temp_align = type_get_alignof(&md->declarator->type, target);
+                        if (temp_align > align)
+                            align = temp_align;
+                    }
+                    /* MSVC union: skip — bitfields do not affect union alignment */
+                }
+                else if (md->constant_expression)
+                {
+                    /*
+                     * Unnamed bitfield (e.g. "int : 3;" or "int : 0;").
+                     * GCC counts the storage-unit type toward alignment.
+                     * MSVC ignores unnamed bitfields for alignment purposes.
+                     */
+                    if (!msvc_target)
+                    {
+                        size_t storage_align = get_platform(target)->int_n_bits / 8;
+                        if (storage_align > align)
+                            align = storage_align;
                     }
                 }
-                else
-                {
-                    assert(false);
-                }
+                /* else: truly empty slot — nothing to contribute */
                 md = md->next;
             }
         }
@@ -2273,9 +2613,18 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
         }
         d = d->next;
     }
-    assert(align != 0);
+
+    /*
+     * If all members are bitfields and the target is MSVC, `align` is still 0
+     * here because bitfields were skipped. Fall back to 1 (minimum alignment).
+     * GCC always has at least one member contributing, so align > 0 there.
+     */
+    if (align == 0)
+        align = 1;
+
     return align;
 }
+
 
 size_t type_get_alignof(const struct type* p_type, enum target target)
 {
@@ -2461,6 +2810,10 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 {
     *size = 0; //out
 
+    /* sizeof applied to a bitfield member is ill-formed in C */
+    if (type_is_bitfield(p_type))
+        return SIZEOF_RESULT_BITFIELD;
+
     const enum type_category category = type_get_category(p_type);
 
     if (category == TYPE_CATEGORY_POINTER)
@@ -2545,6 +2898,10 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 
     assert(category == TYPE_CATEGORY_ITSELF);
 
+    if (p_type->array_num_elements > 0)
+    {
+        //sizeof aplied to bitfield
+    }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
