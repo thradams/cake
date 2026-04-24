@@ -251,6 +251,16 @@ struct type
     //Expression used as array size. Can be constant or not constant (VLA)
     const struct expression* _Opt p_array_num_elements_expression;    
     /*
+      id/number of local variable to store the vm
+    */
+    int vm_dim_id;
+    
+    /*
+      This is the function where the vm type variable exists
+    */
+    struct declarator* _Opt p_current_function_opt;
+
+    /*
     * array_num_elements is zero when p_array_num_elements_expression is null
     * or not constant
     * also stores bit field size if type is bitfield

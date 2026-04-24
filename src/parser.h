@@ -131,6 +131,11 @@ struct parser_ctx
     unsigned int unique_tag_id;
 
     /*
+      Used to generated id to vm dimension variables
+    */
+    unsigned int vm_dim_id;
+
+    /*
        Generate tag names for anonymous structs
     */
     int anonymous_struct_count;

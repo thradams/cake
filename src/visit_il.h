@@ -38,11 +38,7 @@ struct d_visit_ctx
     */
     struct hash_map instantiated_function_literals;
     
-    /*
-     * maps the VM expression with the variable number that stores the result
-    */
-    struct hash_map vm_expression_to_dim_var;
-
+    
     struct osstream block_scope_declarators;
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;

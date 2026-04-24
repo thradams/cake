@@ -3781,6 +3781,9 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             p->array_num_elements = 0;
             p->p_array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
+            p->vm_dim_id = ctx->vm_dim_id++;
+            p->p_current_function_opt = ctx->p_current_function_opt;
+
             if (p->p_array_num_elements_expression)
             {
                 if (object_has_constant_value(&p->p_array_num_elements_expression->object))

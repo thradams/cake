@@ -745,37 +745,12 @@ enum object_type
 
     /* unsigned bitfield = TYPE_UNSIGNED_BITFIELD_1 (13) ... TYPE_UNSIGNED_BITFIELD_128 (140)*/
     
-    TYPE_UNSIGNED_BITFIELD_1, TYPE_UNSIGNED_BITFIELD_2, TYPE_UNSIGNED_BITFIELD_3, TYPE_UNSIGNED_BITFIELD_4, TYPE_UNSIGNED_BITFIELD_5, TYPE_UNSIGNED_BITFIELD_6, TYPE_UNSIGNED_BITFIELD_7, TYPE_UNSIGNED_BITFIELD_8, TYPE_UNSIGNED_BITFIELD_9, TYPE_UNSIGNED_BITFIELD_10,
-    TYPE_UNSIGNED_BITFIELD_11, TYPE_UNSIGNED_BITFIELD_12, TYPE_UNSIGNED_BITFIELD_13, TYPE_UNSIGNED_BITFIELD_14, TYPE_UNSIGNED_BITFIELD_15, TYPE_UNSIGNED_BITFIELD_16, TYPE_UNSIGNED_BITFIELD_17, TYPE_UNSIGNED_BITFIELD_18, TYPE_UNSIGNED_BITFIELD_19, TYPE_UNSIGNED_BITFIELD_20,
-    TYPE_UNSIGNED_BITFIELD_21, TYPE_UNSIGNED_BITFIELD_22, TYPE_UNSIGNED_BITFIELD_23, TYPE_UNSIGNED_BITFIELD_24, TYPE_UNSIGNED_BITFIELD_25, TYPE_UNSIGNED_BITFIELD_26, TYPE_UNSIGNED_BITFIELD_27, TYPE_UNSIGNED_BITFIELD_28, TYPE_UNSIGNED_BITFIELD_29, TYPE_UNSIGNED_BITFIELD_30,
-    TYPE_UNSIGNED_BITFIELD_31, TYPE_UNSIGNED_BITFIELD_32, TYPE_UNSIGNED_BITFIELD_33, TYPE_UNSIGNED_BITFIELD_34, TYPE_UNSIGNED_BITFIELD_35, TYPE_UNSIGNED_BITFIELD_36, TYPE_UNSIGNED_BITFIELD_37, TYPE_UNSIGNED_BITFIELD_38, TYPE_UNSIGNED_BITFIELD_39, TYPE_UNSIGNED_BITFIELD_40,
-    TYPE_UNSIGNED_BITFIELD_41, TYPE_UNSIGNED_BITFIELD_42, TYPE_UNSIGNED_BITFIELD_43, TYPE_UNSIGNED_BITFIELD_44, TYPE_UNSIGNED_BITFIELD_45, TYPE_UNSIGNED_BITFIELD_46, TYPE_UNSIGNED_BITFIELD_47, TYPE_UNSIGNED_BITFIELD_48, TYPE_UNSIGNED_BITFIELD_49, TYPE_UNSIGNED_BITFIELD_50,
-    TYPE_UNSIGNED_BITFIELD_51, TYPE_UNSIGNED_BITFIELD_52, TYPE_UNSIGNED_BITFIELD_53, TYPE_UNSIGNED_BITFIELD_54, TYPE_UNSIGNED_BITFIELD_55, TYPE_UNSIGNED_BITFIELD_56, TYPE_UNSIGNED_BITFIELD_57, TYPE_UNSIGNED_BITFIELD_58, TYPE_UNSIGNED_BITFIELD_59, TYPE_UNSIGNED_BITFIELD_60,
-    TYPE_UNSIGNED_BITFIELD_61, TYPE_UNSIGNED_BITFIELD_62, TYPE_UNSIGNED_BITFIELD_63, TYPE_UNSIGNED_BITFIELD_64, TYPE_UNSIGNED_BITFIELD_65, TYPE_UNSIGNED_BITFIELD_66, TYPE_UNSIGNED_BITFIELD_67, TYPE_UNSIGNED_BITFIELD_68, TYPE_UNSIGNED_BITFIELD_69, TYPE_UNSIGNED_BITFIELD_70,
-    TYPE_UNSIGNED_BITFIELD_71, TYPE_UNSIGNED_BITFIELD_72, TYPE_UNSIGNED_BITFIELD_73, TYPE_UNSIGNED_BITFIELD_74, TYPE_UNSIGNED_BITFIELD_75, TYPE_UNSIGNED_BITFIELD_76, TYPE_UNSIGNED_BITFIELD_77, TYPE_UNSIGNED_BITFIELD_78, TYPE_UNSIGNED_BITFIELD_79, TYPE_UNSIGNED_BITFIELD_80,
-    TYPE_UNSIGNED_BITFIELD_81, TYPE_UNSIGNED_BITFIELD_82, TYPE_UNSIGNED_BITFIELD_83, TYPE_UNSIGNED_BITFIELD_84, TYPE_UNSIGNED_BITFIELD_85, TYPE_UNSIGNED_BITFIELD_86, TYPE_UNSIGNED_BITFIELD_87, TYPE_UNSIGNED_BITFIELD_88, TYPE_UNSIGNED_BITFIELD_89, TYPE_UNSIGNED_BITFIELD_90,
-    TYPE_UNSIGNED_BITFIELD_91, TYPE_UNSIGNED_BITFIELD_92, TYPE_UNSIGNED_BITFIELD_93, TYPE_UNSIGNED_BITFIELD_94, TYPE_UNSIGNED_BITFIELD_95, TYPE_UNSIGNED_BITFIELD_96, TYPE_UNSIGNED_BITFIELD_97, TYPE_UNSIGNED_BITFIELD_98, TYPE_UNSIGNED_BITFIELD_99, TYPE_UNSIGNED_BITFIELD_100,
-    TYPE_UNSIGNED_BITFIELD_101, TYPE_UNSIGNED_BITFIELD_102, TYPE_UNSIGNED_BITFIELD_103, TYPE_UNSIGNED_BITFIELD_104, TYPE_UNSIGNED_BITFIELD_105, TYPE_UNSIGNED_BITFIELD_106, TYPE_UNSIGNED_BITFIELD_107, TYPE_UNSIGNED_BITFIELD_108, TYPE_UNSIGNED_BITFIELD_109, TYPE_UNSIGNED_BITFIELD_110,
-    TYPE_UNSIGNED_BITFIELD_111, TYPE_UNSIGNED_BITFIELD_112, TYPE_UNSIGNED_BITFIELD_113, TYPE_UNSIGNED_BITFIELD_114, TYPE_UNSIGNED_BITFIELD_115, TYPE_UNSIGNED_BITFIELD_116, TYPE_UNSIGNED_BITFIELD_117, TYPE_UNSIGNED_BITFIELD_118, TYPE_UNSIGNED_BITFIELD_119, TYPE_UNSIGNED_BITFIELD_120,
-    TYPE_UNSIGNED_BITFIELD_121, TYPE_UNSIGNED_BITFIELD_122, TYPE_UNSIGNED_BITFIELD_123, TYPE_UNSIGNED_BITFIELD_124, TYPE_UNSIGNED_BITFIELD_125, TYPE_UNSIGNED_BITFIELD_126, TYPE_UNSIGNED_BITFIELD_127, TYPE_UNSIGNED_BITFIELD_128,
+    TYPE_UNSIGNED_BITFIELD_1,
+    TYPE_UNSIGNED_BITFIELD_128 = (TYPE_UNSIGNED_BITFIELD_1 + 127),
 
-    /* signed bitfield = TYPE_SIGNED_BITFIELD_1(141) ... TYPE_SIGNED_BITFIELD_128 (268)*/
-    
-    TYPE_SIGNED_BITFIELD_1, TYPE_SIGNED_BITFIELD_2, TYPE_SIGNED_BITFIELD_3, TYPE_SIGNED_BITFIELD_4, TYPE_SIGNED_BITFIELD_5, TYPE_SIGNED_BITFIELD_6, TYPE_SIGNED_BITFIELD_7, TYPE_SIGNED_BITFIELD_8, TYPE_SIGNED_BITFIELD_9, TYPE_SIGNED_BITFIELD_10,
-    TYPE_SIGNED_BITFIELD_11, TYPE_SIGNED_BITFIELD_12, TYPE_SIGNED_BITFIELD_13, TYPE_SIGNED_BITFIELD_14, TYPE_SIGNED_BITFIELD_15, TYPE_SIGNED_BITFIELD_16, TYPE_SIGNED_BITFIELD_17, TYPE_SIGNED_BITFIELD_18, TYPE_SIGNED_BITFIELD_19, TYPE_SIGNED_BITFIELD_20,
-    TYPE_SIGNED_BITFIELD_21, TYPE_SIGNED_BITFIELD_22, TYPE_SIGNED_BITFIELD_23, TYPE_SIGNED_BITFIELD_24, TYPE_SIGNED_BITFIELD_25, TYPE_SIGNED_BITFIELD_26, TYPE_SIGNED_BITFIELD_27, TYPE_SIGNED_BITFIELD_28, TYPE_SIGNED_BITFIELD_29, TYPE_SIGNED_BITFIELD_30,
-    TYPE_SIGNED_BITFIELD_31, TYPE_SIGNED_BITFIELD_32, TYPE_SIGNED_BITFIELD_33, TYPE_SIGNED_BITFIELD_34, TYPE_SIGNED_BITFIELD_35, TYPE_SIGNED_BITFIELD_36, TYPE_SIGNED_BITFIELD_37, TYPE_SIGNED_BITFIELD_38, TYPE_SIGNED_BITFIELD_39, TYPE_SIGNED_BITFIELD_40,
-    TYPE_SIGNED_BITFIELD_41, TYPE_SIGNED_BITFIELD_42, TYPE_SIGNED_BITFIELD_43, TYPE_SIGNED_BITFIELD_44, TYPE_SIGNED_BITFIELD_45, TYPE_SIGNED_BITFIELD_46, TYPE_SIGNED_BITFIELD_47, TYPE_SIGNED_BITFIELD_48, TYPE_SIGNED_BITFIELD_49, TYPE_SIGNED_BITFIELD_50,
-    TYPE_SIGNED_BITFIELD_51, TYPE_SIGNED_BITFIELD_52, TYPE_SIGNED_BITFIELD_53, TYPE_SIGNED_BITFIELD_54, TYPE_SIGNED_BITFIELD_55, TYPE_SIGNED_BITFIELD_56, TYPE_SIGNED_BITFIELD_57, TYPE_SIGNED_BITFIELD_58, TYPE_SIGNED_BITFIELD_59, TYPE_SIGNED_BITFIELD_60,
-    TYPE_SIGNED_BITFIELD_61, TYPE_SIGNED_BITFIELD_62, TYPE_SIGNED_BITFIELD_63, TYPE_SIGNED_BITFIELD_64, TYPE_SIGNED_BITFIELD_65, TYPE_SIGNED_BITFIELD_66, TYPE_SIGNED_BITFIELD_67, TYPE_SIGNED_BITFIELD_68, TYPE_SIGNED_BITFIELD_69, TYPE_SIGNED_BITFIELD_70,
-    TYPE_SIGNED_BITFIELD_71, TYPE_SIGNED_BITFIELD_72, TYPE_SIGNED_BITFIELD_73, TYPE_SIGNED_BITFIELD_74, TYPE_SIGNED_BITFIELD_75, TYPE_SIGNED_BITFIELD_76, TYPE_SIGNED_BITFIELD_77, TYPE_SIGNED_BITFIELD_78, TYPE_SIGNED_BITFIELD_79, TYPE_SIGNED_BITFIELD_80,
-    TYPE_SIGNED_BITFIELD_81, TYPE_SIGNED_BITFIELD_82, TYPE_SIGNED_BITFIELD_83, TYPE_SIGNED_BITFIELD_84, TYPE_SIGNED_BITFIELD_85, TYPE_SIGNED_BITFIELD_86, TYPE_SIGNED_BITFIELD_87, TYPE_SIGNED_BITFIELD_88, TYPE_SIGNED_BITFIELD_89, TYPE_SIGNED_BITFIELD_90,
-    TYPE_SIGNED_BITFIELD_91, TYPE_SIGNED_BITFIELD_92, TYPE_SIGNED_BITFIELD_93, TYPE_SIGNED_BITFIELD_94, TYPE_SIGNED_BITFIELD_95, TYPE_SIGNED_BITFIELD_96, TYPE_SIGNED_BITFIELD_97, TYPE_SIGNED_BITFIELD_98, TYPE_SIGNED_BITFIELD_99, TYPE_SIGNED_BITFIELD_100,
-    TYPE_SIGNED_BITFIELD_101, TYPE_SIGNED_BITFIELD_102, TYPE_SIGNED_BITFIELD_103, TYPE_SIGNED_BITFIELD_104, TYPE_SIGNED_BITFIELD_105, TYPE_SIGNED_BITFIELD_106, TYPE_SIGNED_BITFIELD_107, TYPE_SIGNED_BITFIELD_108, TYPE_SIGNED_BITFIELD_109, TYPE_SIGNED_BITFIELD_110,
-    TYPE_SIGNED_BITFIELD_111, TYPE_SIGNED_BITFIELD_112, TYPE_SIGNED_BITFIELD_113, TYPE_SIGNED_BITFIELD_114, TYPE_SIGNED_BITFIELD_115, TYPE_SIGNED_BITFIELD_116, TYPE_SIGNED_BITFIELD_117, TYPE_SIGNED_BITFIELD_118, TYPE_SIGNED_BITFIELD_119, TYPE_SIGNED_BITFIELD_120,
-    TYPE_SIGNED_BITFIELD_121, TYPE_SIGNED_BITFIELD_122, TYPE_SIGNED_BITFIELD_123, TYPE_SIGNED_BITFIELD_124, TYPE_SIGNED_BITFIELD_125, TYPE_SIGNED_BITFIELD_126, TYPE_SIGNED_BITFIELD_127, TYPE_SIGNED_BITFIELD_128,
-
-    
+    /* signed bitfield = TYPE_SIGNED_BITFIELD_1(141) ... TYPE_SIGNED_BITFIELD_128 (268)*/    
+    TYPE_SIGNED_BITFIELD_1,
+    TYPE_SIGNED_BITFIELD_128 = (TYPE_SIGNED_BITFIELD_1 + 127),
 };
 
 
@@ -15495,6 +15470,16 @@ struct type
     //Expression used as array size. Can be constant or not constant (VLA)
     const struct expression* _Opt p_array_num_elements_expression;    
     /*
+      id/number of local variable to store the vm
+    */
+    int vm_dim_id;
+    
+    /*
+      This is the function where the vm type variable exists
+    */
+    struct declarator* _Opt p_current_function_opt;
+
+    /*
     * array_num_elements is zero when p_array_num_elements_expression is null
     * or not constant
     * also stores bit field size if type is bitfield
@@ -16334,6 +16319,11 @@ struct parser_ctx
        complete structs have unique ids
     */
     unsigned int unique_tag_id;
+
+    /*
+      Used to generated id to vm dimension variables
+    */
+    unsigned int vm_dim_id;
 
     /*
        Generate tag names for anonymous structs
@@ -22731,65 +22721,90 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 }
 
                 assert(p_scope != NULL);
-                if (p_scope->scope_level == 0)
-                {
-                    //file scope
-                }
-                else if ((p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
-                        (p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL))
-                {
-                    //file scope or thread
-                }
-                else if (ctx->p_current_function_scope_opt)
+                if (ctx->p_current_function_scope_opt)
                 {
                     bool b_type_is_function = type_is_function(&p_declarator->type);
-                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && !b_type_is_function)
+                    bool declarator_is_from_enclosing_function = false;
+
+                    if (p_scope->scope_level == 0)
                     {
-                        bool inside_current_function_scope = false;
+                        /*it is from file scope*/
+                        declarator_is_from_enclosing_function = false;
+                    }
+                    else
+                    {
+                        declarator_is_from_enclosing_function = false;
                         while (p_scope)
                         {
                             if (ctx->p_current_function_scope_opt == p_scope)
                             {
-                                inside_current_function_scope = true;
+                                /*it is from current function*/
+                                declarator_is_from_enclosing_function = false;
+                                break;
+                            }
+
+                            if (p_scope->scope_level < ctx->p_current_function_scope_opt->scope_level)
+                            {
+                                declarator_is_from_enclosing_function = true;
                                 break;
                             }
                             p_scope = p_scope->previous;
                         }
-                        if (!inside_current_function_scope)
-                        {
-                            /* see . dot and arrow -> */
-                            p_expression_node->lvalue_disabled = true;
+                    }
 
-                            if (type_is_constexpr(&p_declarator->type))
-                            {
-                                /*
-                                int main()
-                                {
-                                    constexpr int i = 2;
-                                    static int dup(int a) { return i * a; }
-                                    return dup(1);
-                                }
-                                */
-                            }
-                            else if (type_is_const(&p_declarator->type) &&
-                                 object_has_all_members_constants(&p_declarator->object))
-                            {
-                                /*
-                                    const int i = 2;
-                                    static int dup(int a) { return i * a; }
-                                */
-                            }
-                            else
-                            {
-                                compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                    if (eval_mode == EXPRESSION_EVAL_MODE_TYPE &&
+                        !b_type_is_function &&
+                        declarator_is_from_enclosing_function)
+                    {
+                        if (type_is_vm(&p_declarator->type))
+                        {
+                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
                                    ctx,
                                    p_expression_node->first_token,
                                    NULL,
-                                   "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                                   "expression is using a VM type from the enclosing function");
+                        }
+                    }
+
+                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
+                        !b_type_is_function &&
+                        declarator_is_from_enclosing_function &&
+                        !(p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                        !(p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL))
+                    {
+                        /* see . dot and arrow -> */
+                        p_expression_node->lvalue_disabled = true;
+
+                        if (type_is_constexpr(&p_declarator->type))
+                        {
+                            /*
+                            int main()
+                            {
+                                constexpr int i = 2;
+                                static int dup(int a) { return i * a; }
+                                return dup(1);
                             }
+                            */
+                        }
+                        else if (type_is_const(&p_declarator->type) &&
+                             object_has_all_members_constants(&p_declarator->object))
+                        {
+                            /*
+                                const int i = 2;
+                                static int dup(int a) { return i * a; }
+                            */
+                        }
+                        else
+                        {
+                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                               ctx,
+                               p_expression_node->first_token,
+                               NULL,
+                               "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
                         }
                     }
                 }
+
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
@@ -23576,7 +23591,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                  */
                                 if (type_is_bitfield(&p_member_declarator->declarator->type))
                                 {
-                                    p_expression_node_new->type.array_num_elements=
+                                    p_expression_node_new->type.array_num_elements =
                                         p_member_declarator->declarator->type.array_num_elements;
                                     p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
                                 }
@@ -23712,7 +23727,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                      */
                                     if (type_is_bitfield(&p_member_declarator->declarator->type))
                                     {
-                                        p_expression_node_new->type.array_num_elements=
+                                        p_expression_node_new->type.array_num_elements =
                                             p_member_declarator->declarator->type.array_num_elements;
                                         p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
                                     }
@@ -23924,10 +23939,10 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             }
             else
             {
-                compiler_diagnostic(C_ERROR_UNEXPECTED, 
-                    ctx, 
-                    p_expression_node->type_name->first_token, 
-                    NULL, 
+                compiler_diagnostic(C_ERROR_UNEXPECTED,
+                    ctx,
+                    p_expression_node->type_name->first_token,
+                    NULL,
                     "function literals must have 'static' storage qualifier");
             }
 
@@ -29802,7 +29817,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.14"
+#define CAKE_VERSION "0.13.16"
 
 
 
@@ -29849,11 +29864,7 @@ struct d_visit_ctx
     */
     struct hash_map instantiated_function_literals;
     
-    /*
-     * maps the VM expression with the variable number that stores the result
-    */
-    struct hash_map vm_expression_to_dim_var;
-
+    
     struct osstream block_scope_declarators;
     struct osstream add_this_before;
     struct osstream add_this_before_external_decl;
@@ -29933,6 +29944,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage);
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
+static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function);
 
 static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
 {
@@ -32060,6 +32072,45 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             struct function_declarator* pfuncdecl = declarator_find_function_declarator(p_declarator);
             if (pfuncdecl == NULL) throw;
 
+#if 0
+            /*
+            void func()
+            {    
+                //int n;
+                //typedef int (*T)[n];
+	            static void local(int n, int a[n]) {     
+        
+                }        
+            }*/
+
+            if (pfuncdecl->parameter_type_list_opt &&
+                pfuncdecl->parameter_type_list_opt->parameter_list)
+            {
+                struct parameter_declaration* _Opt p = pfuncdecl->parameter_type_list_opt->parameter_list->head;
+                while (p)
+                {
+                    if (trying_to_use_vm_type_from_enclosing_function(&p->declarator->type, ctx->p_current_function_opt))
+                    {
+                        /*
+                        void func()
+                        {
+                            int n;
+                            typedef int (*T)[n];
+                            static void local() {
+                                T b;
+                            }
+                        }
+                        */
+                        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                            p->declarator->first_token_opt, NULL,
+                            "trying to use VM type from enclosing function");
+                    }
+
+                    p = p->next;
+                }
+            }
+#endif
+
             struct scope* parameters_scope = &pfuncdecl->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
 
@@ -32253,6 +32304,65 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 }
 
 static bool declarator_has_vm_type(const struct declarator* p_declarator);
+
+
+static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function)
+{
+    const struct type* _Opt p = p_type;
+
+    while (p)
+    {
+        switch (p->category)
+        {
+        case TYPE_CATEGORY_ARRAY:
+            if (p->array_num_elements > 0)
+            {
+                /* constant size */
+            }
+            else if (p->p_array_num_elements_expression == NULL)
+            {
+                /* int [] */
+            }
+            else if (p->array_num_elements == 0 &&
+                     object_is_zero(&p->p_array_num_elements_expression->object))
+            {
+                /* not VM, int [0] , accepted in many compilers*/
+            }
+            else
+            {
+                if (p->p_current_function_opt &&
+                    p->p_current_function_opt != p_function)
+                {
+                    return true;
+                }
+                /* VM, int [expression] */
+                //return true;
+            }
+            break;
+
+        case TYPE_CATEGORY_FUNCTION:
+        {
+            struct param* _Opt pa = p->params.head;
+
+            while (pa)
+            {
+                if (trying_to_use_vm_type_from_enclosing_function(&pa->type, p_function))
+                    return true;
+
+                pa = pa->next;
+            }
+        }
+        break;
+
+        case TYPE_CATEGORY_ITSELF:
+        case TYPE_CATEGORY_POINTER:
+            break;
+        }
+
+        p = p->next;
+    }
+    return false;
+}
 
 struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers)
@@ -32788,6 +32898,23 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         p_init_declarator = NULL;
     }
 
+    if (p_init_declarator && trying_to_use_vm_type_from_enclosing_function(&p_init_declarator->p_declarator->type, ctx->p_current_function_opt))
+    {
+        /*
+        void func()
+        {
+            int n;
+            typedef int (*T)[n];
+            static void local() {
+                T b;
+            }
+        }
+        */
+        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+            p_init_declarator->p_declarator->first_token_opt, NULL,
+            "trying to use VM type from enclosing function");
+    }
+
     return p_init_declarator;
 }
 
@@ -33083,9 +33210,9 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
             if (type_is_bitfield(&p_typeof_specifier->typeof_specifier_argument->expression->type))
             {
                 compiler_diagnostic(C_ERROR_TYPEOF_BITFIELD,
-                    ctx, 
-                    p_typeof_specifier->typeof_specifier_argument->expression->first_token, 
-                    NULL, 
+                    ctx,
+                    p_typeof_specifier->typeof_specifier_argument->expression->first_token,
+                    NULL,
                     "typeof used in bit-field");
                 throw;
             }
@@ -33096,7 +33223,7 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
             if (type_is_bitfield(&p_typeof_specifier->typeof_specifier_argument->type_name->abstract_declarator->type))
             {
                 compiler_diagnostic(C_ERROR_TYPEOF_BITFIELD,
-                    ctx, 
+                    ctx,
                     p_typeof_specifier->typeof_specifier_argument->type_name->first_token,
                     NULL,
                     "typeof used in bit-field");
@@ -34317,7 +34444,7 @@ struct member_declarator* _Owner _Opt member_declarator(
             parser_match(ctx);
             p_member_declarator->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
-            long long bit_field_width = 
+            long long bit_field_width =
                 object_to_signed_long_long(&p_member_declarator->constant_expression->object);
 
             if (bit_field_width < 0)
@@ -34339,7 +34466,7 @@ struct member_declarator* _Owner _Opt member_declarator(
             }
 
             /* adjust the type to be bitfield */
-            p_member_declarator->declarator->type.array_num_elements = (size_t) bit_field_width;
+            p_member_declarator->declarator->type.array_num_elements = (size_t)bit_field_width;
             p_member_declarator->declarator->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
         }
     }
@@ -41136,6 +41263,7 @@ struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx)
      function_definition
      declaration
      */
+    ctx->vm_dim_id = 0; /*reset vm dim generator ids*/
     return function_definition_or_declaration(ctx);
 }
 
@@ -44681,19 +44809,9 @@ static void emit_line_directive(struct d_visit_ctx* ctx,
     ss_fprintf(oss, "#line %d \"%s\"\n", tk->line, tk->token_origin->lexeme);
 }
 
-struct vm_dim_snapshot
-{
-    struct expression* expr;
-    int snap_num;
-};
-static int vm_collect_dims(struct d_visit_ctx* ctx,
-                            const struct type* p_type,
-                            struct vm_dim_snapshot dims[],
-                            int max_dims);
 static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
                                     struct osstream* oss_body,
-                                    const struct vm_dim_snapshot dims[],
-                                    int dim_count);
+                                    const struct type* p_type);
 
 static void print_initializer(struct d_visit_ctx* ctx,
     struct osstream* oss,
@@ -44710,8 +44828,6 @@ void d_visit_ctx_destroy(_Dtor struct d_visit_ctx* ctx)
     hashmap_destroy(&ctx->structs_map);
     hashmap_destroy(&ctx->file_scope_declarator_map);
     hashmap_destroy(&ctx->instantiated_function_literals);
-    hashmap_destroy(&ctx->vm_expression_to_dim_var);
-
     ss_close(&ctx->block_scope_declarators);
     ss_close(&ctx->add_this_before);
     ss_close(&ctx->add_this_before_external_decl);
@@ -44955,7 +45071,7 @@ static void object_print_initialization_list(struct d_visit_ctx* ctx, struct oss
 static void d_visit_secondary_block(struct d_visit_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
 static void d_visit_init_declarator(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
 static void d_visit_init_declarator_list(struct d_visit_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
-static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
+static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Opt parameters_vars, struct osstream* _Opt parameters_init);
 static void d_visit_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
 static void assign_each_member_from_initialization(struct d_visit_ctx* ctx, struct osstream* ss, const struct object* object,
@@ -45278,20 +45394,6 @@ static const char* get_op_by_expression_type(enum expression_type type)
 static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 
-
-static bool vm_find_snap_num(struct d_visit_ctx* ctx, const struct expression* expr, size_t* num)
-{
-    char snap_key[64];
-    snprintf(snap_key, sizeof(snap_key), "%p", (void*)expr);
-    struct map_entry* _Opt p = hashmap_find(&ctx->vm_expression_to_dim_var, snap_key);
-    if (p == NULL)
-    {
-        return false;
-    }
-    *num = p->data.number;
-    return true;
-}
-
 static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
                                      struct osstream* oss,
                                      const struct type* p_type,
@@ -45308,17 +45410,9 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
 
         if (p_type->array_num_elements <= 0)
         {
-            size_t num = 0;
-            if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
-            {
-                if (oss->size > 0)
-                    ss_fprintf(oss, " * ");
-
-                char name[100] = { 0 };
-                generate_name(num, sizeof name, name);
-                ss_fprintf(oss, "%s", name);
-            }
-
+            if (oss->size > 0)
+                ss_fprintf(oss, " * ");
+            ss_fprintf(oss, "__vm%d", p_type->vm_dim_id);
             arraysize = 1;
         }
         else
@@ -45393,13 +45487,7 @@ static void vm_emit_countof_expr(struct d_visit_ctx* ctx,
     if (p_type->p_array_num_elements_expression != NULL &&
         p_type->array_num_elements <= 0)
     {
-        size_t num = 0;
-        if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
-        {
-            char name[100] = { 0 };
-            generate_name(num, sizeof name, name);
-            ss_fprintf(oss, "%s", name);
-        }
+        ss_fprintf(oss, "__vm%d", p_type->vm_dim_id);
     }
     else if (p_type->array_num_elements > 0)
     {
@@ -45488,42 +45576,6 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             return;
         }
     }
-#if 0
-
-    /*
-      VM types can be used inside the expression cast, sizeof, compound literal etc
-      Here we register these VM types
-    */
-    struct vm_dim_snapshot dims[50];
-
-    if (p_expression)
-    {
-        int dim_count = vm_collect_dims(ctx, &p_expression->type, dims, _Countof(dims));
-        if (dim_count > 0)
-            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
-    }
-
-    if (p_expression->left)
-    {
-        int dim_count = vm_collect_dims(ctx, &p_expression->left->type, dims, _Countof(dims));
-        if (dim_count > 0)
-            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
-    }
-    if (p_expression->right)
-    {
-        int dim_count = vm_collect_dims(ctx, &p_expression->right->type, dims, _Countof(dims));
-        if (dim_count > 0)
-            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
-    }
-
-    if (p_expression->type_name != NULL)
-    {
-        int dim_count = vm_collect_dims(ctx, &p_expression->type_name->type, dims, _Countof(dims));
-        if (dim_count > 0)
-            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, dims, dim_count);
-    }
-#endif
-
     ctx->address_of_argument = false;
 
     switch (p_expression->expression_type)
@@ -45939,13 +45991,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                     }
                     else
                     {
-                        size_t num;
-                        if (vm_find_snap_num(ctx, p_type->p_array_num_elements_expression, &num))
-                        {
-                            char name[100] = { 0 };
-                            generate_name(num, sizeof name, name);
-                            ss_fprintf(&offset_flat, " * %s", name);
-                        }
+                        ss_fprintf(&offset_flat, " * __vm%d", p_type->vm_dim_id);
                     }
                     p_type = p_type->next;
                 }
@@ -46038,7 +46084,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         const int current_indentation = ctx->indentation;
         ctx->indentation = 0;
         struct osstream function_literal_body = { 0 };
-        d_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement);
+        d_visit_compound_statement(ctx, &function_literal_body, p_expression->compound_statement, NULL, NULL);
         ctx->p_current_function_opt = p_current_function_opt;
         ctx->indentation = current_indentation;
 
@@ -46064,7 +46110,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             d_print_type(ctx, &lambda_sig, &p_expression->type, new_name, false);
 
             ss_fprintf(&ctx->add_this_before_external_decl, "static %s;\n", lambda_sig.c_str);
-            
+
             ss_fprintf(&ctx->add_this_after_external_decl, "\n");
             emit_line_directive(ctx, &ctx->add_this_after_external_decl, p_expression->first_token);
             ss_fprintf(&ctx->add_this_after_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
@@ -47171,7 +47217,7 @@ static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss,
 
     if (p_primary_block->compound_statement)
     {
-        d_visit_compound_statement(ctx, oss, p_primary_block->compound_statement);
+        d_visit_compound_statement(ctx, oss, p_primary_block->compound_statement, NULL, NULL);
     }
     else if (p_primary_block->iteration_statement)
     {
@@ -47330,7 +47376,12 @@ static void d_visit_block_item_list(struct d_visit_ctx* ctx, struct osstream* os
 }
 
 
-static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
+static void d_visit_compound_statement(struct d_visit_ctx* ctx,
+    struct osstream* oss,
+    struct compound_statement* p_compound_statement,
+    struct osstream* _Opt parameters_vars,
+    struct osstream* _Opt parameters_init
+)
 {
     bool is_local = ctx->is_local;
     ctx->is_local = true;
@@ -47361,9 +47412,21 @@ static void d_visit_compound_statement(struct d_visit_ctx* ctx, struct osstream*
     print_identation(ctx, oss);
     ss_fprintf(oss, "{\n");
 
+    if (parameters_vars && parameters_vars->size > 0)
+    {
+        ss_fprintf(oss, "%s", parameters_vars->c_str);
+        ss_fprintf(oss, "\n");
+    }
+
     if (ctx->block_scope_declarators.c_str)
     {
         ss_fprintf(oss, "%s", ctx->block_scope_declarators.c_str);
+        ss_fprintf(oss, "\n");
+    }
+
+    if (parameters_init && parameters_init->size > 0)
+    {
+        ss_fprintf(oss, "%s", parameters_init->c_str);
         ss_fprintf(oss, "\n");
     }
 
@@ -47448,51 +47511,6 @@ static void d_visit_compound_statement_2(const char* var_name, struct d_visit_ct
     ss_close(&block_scope_declarators);
     ss_close(&local);
 }
-
-
-static int vm_collect_dims(struct d_visit_ctx* ctx,
-                            const struct type* p_type,
-                            struct vm_dim_snapshot dims[],
-                            int max_dims)
-{
-    int count = 0;
-    const struct type* _Opt it = p_type;
-    while (it && count < max_dims)
-    {
-        if (it->category == TYPE_CATEGORY_ARRAY &&
-            it->p_array_num_elements_expression != NULL &&
-            !object_has_constant_value(&it->p_array_num_elements_expression->object))
-        {
-
-            char snap_key[64];
-            snprintf(snap_key, sizeof(snap_key), "%p", (void*)it->p_array_num_elements_expression);
-
-            size_t num;
-            bool r = vm_find_snap_num(ctx, it->p_array_num_elements_expression, &num);
-            if (r)
-            {
-                dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
-                dims[count].snap_num = (int)num;
-            }
-            else
-            {
-                int snap_num = ctx->cake_local_declarator_number++;
-                dims[count].expr = (struct expression*)it->p_array_num_elements_expression;
-                dims[count].snap_num = snap_num;
-
-                struct hash_item_set item = { 0 };
-                item.number = snap_num;
-                hashmap_set(&ctx->vm_expression_to_dim_var, snap_key, &item);
-                hash_item_set_destroy(&item);
-            }
-
-            count++;
-        }
-        it = it->next;
-    }
-    return count;
-}
-
 static void d_visit_function_body(struct d_visit_ctx* ctx,
     struct osstream* oss,
     const struct declarator* function_definition)
@@ -47504,7 +47522,6 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
         return;
     }
 
-    hashmap_remove_all(&ctx->vm_expression_to_dim_var);  /* reset */
     ctx->cake_local_declarator_number = 0; /* reset */
 
     int indentation = ctx->indentation;
@@ -47513,83 +47530,35 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     ctx->p_current_function_opt = function_definition;
 
 
-    struct vm_dim_snapshot all_dims[32];
-    int all_dim_count = 0;
-
     const struct type* _Opt func_type = &function_definition->type;
     while (func_type && func_type->category != TYPE_CATEGORY_FUNCTION)
         func_type = func_type->next;
 
+    struct osstream snaps = { 0 };
+
+    struct osstream bk = { 0 };
+    ss_swap(&bk, &ctx->block_scope_declarators);
+
     if (func_type != NULL)
     {
+        ctx->indentation++;
         struct param* _Opt pa = func_type->params.head;
-        while (pa && all_dim_count < _Countof(all_dims))
+        while (pa)
         {
             if (type_is_vm(&pa->type))
             {
-                struct vm_dim_snapshot dims[32];
-                int count = vm_collect_dims(ctx, &pa->type, dims, _Countof(dims));
-                for (int i = 0; i < count && all_dim_count < _Countof(dims); i++)
-                    all_dims[all_dim_count++] = dims[i];
+            vm_emit_snapshot_decls(ctx, &snaps, &pa->type);
             }
             pa = pa->next;
         }
+        ctx->indentation--;
     }
+    ss_swap(&bk, &ctx->block_scope_declarators);
 
-    if (all_dim_count == 0)
-    {
-        /* No VM params — normal path */
-        d_visit_compound_statement(ctx, oss, function_definition->function_body);
-    }
-    else
-    {
-        /*
-         * Capture the compound statement output into a temporary stream,
-         * then inject snapshot declarations right after the opening "{".
-         */
-        struct osstream body = { 0 };
-        d_visit_compound_statement(ctx, &body, function_definition->function_body);
-
-        /* Build snapshot lines:  "    int __v0 = (n);\n" */
-        struct osstream snaps = { 0 };
-        for (int i = 0; i < all_dim_count; i++)
-        {
-            print_identation_core(&snaps, 1);
-            char name[100] = { 0 };
-            generate_name(all_dims[i].snap_num, sizeof name, name);
-            ss_fprintf(&snaps, "%s %s = ", ctx->size_t_type_name, name);
-            d_visit_expression(ctx, &snaps, all_dims[i].expr);
-            ss_fprintf(&snaps, ";\n");
-        }
-        /*
-         * The body stream starts with "{\n".
-         * Inject snapshot lines right after that.
-         */
-        if (body.c_str && snaps.c_str)
-        {
-            const char* open_brace = "{\n";
-            size_t prefix_len = strlen(open_brace);
-            if (strncmp(body.c_str, open_brace, prefix_len) == 0)
-            {
-                ss_fprintf(oss, "{\n");
-                ss_fprintf(oss, "%s", snaps.c_str);
-                ss_fprintf(oss, "%s", body.c_str + prefix_len);
-            }
-            else
-            {
-                /* fallback: just append */
-                ss_fprintf(oss, "%s", body.c_str);
-            }
-        }
-        else if (body.c_str)
-        {
-            ss_fprintf(oss, "%s", body.c_str);
-        }
-
-        ss_close(&snaps);
-        ss_close(&body);
-    }
-
+    
+    d_visit_compound_statement(ctx, oss, function_definition->function_body,&bk, &snaps);
+    ss_close(&bk);
+    ss_close(&snaps);
     ctx->p_current_function_opt = previous_func;//restore
     ctx->indentation = indentation; //restore
 }
@@ -48924,25 +48893,28 @@ static void print_initializer(struct d_visit_ctx* ctx,
 
 static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
                                     struct osstream* oss_body,
-                                    const struct vm_dim_snapshot dims[],
-                                    int dim_count)
+                                    const struct type* p_type)
 {
-    for (int i = 0; i < dim_count; i++)
+    const struct type* _Opt it = p_type;
+    while (it)
     {
-        /* declaration hoisted to block top */
-        print_identation(ctx, &ctx->block_scope_declarators);
-        char name[100] = { 0 };
-        generate_name(dims[i].snap_num, sizeof name, name);
-        ss_fprintf(&ctx->block_scope_declarators,
-                   "%s %s;\n", ctx->size_t_type_name, name);
-
-        /* assignment emitted as a statement in the body */
-        print_identation(ctx, oss_body);
-        ss_fprintf(oss_body, "%s = ", name);
-        d_visit_expression(ctx, oss_body, dims[i].expr);
-        ss_fprintf(oss_body, ";\n");
+        if (it->category == TYPE_CATEGORY_ARRAY &&
+            it->p_array_num_elements_expression != NULL &&
+            !object_has_constant_value(&it->p_array_num_elements_expression->object))
+        {
+            /* declaration hoisted to block top */
+            print_identation(ctx, &ctx->block_scope_declarators);
+            char name[100] = { 0 };
+            snprintf(name, sizeof name, "__vm%d", it->vm_dim_id);
+            ss_fprintf(&ctx->block_scope_declarators, "%s %s;\n", ctx->size_t_type_name, name);
+            /* assignment emitted as a statement in the body */
+            print_identation(ctx, oss_body);
+            ss_fprintf(oss_body, "%s = ", name);
+            d_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
+            ss_fprintf(oss_body, ";\n");
+        }
+        it = it->next;
     }
-
 }
 
 
@@ -49028,9 +49000,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
 
         if (type_is_vm(decl_type))
         {
-            struct vm_dim_snapshot dims[50];
-            int dim_count = vm_collect_dims(ctx, decl_type, dims, _Countof(dims));
-            vm_emit_snapshot_decls(ctx, oss0, dims, dim_count);
+            vm_emit_snapshot_decls(ctx, oss0, decl_type);
 
             struct osstream ss = { 0 };
             print_identation(ctx, &ss);
@@ -49243,7 +49213,7 @@ static void d_print_struct(struct d_visit_ctx* ctx, struct osstream* ss, struct 
                     else
                     {
                         /* unnamed bitfields are allowed */
-                        char *name  = 
+                        char* name =
                             member_declarator->declarator->name_opt ?
                             member_declarator->declarator->name_opt->lexeme : "";
 
@@ -49557,7 +49527,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
         ss_fprintf(oss, "%s", declarations.c_str);
     }
 
-    
+
 
     if (ctx->memset_used)
     {
@@ -61800,6 +61770,9 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             p->array_num_elements = 0;
             p->p_array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
+            p->vm_dim_id = ctx->vm_dim_id++;
+            p->p_current_function_opt = ctx->p_current_function_opt;
+
             if (p->p_array_num_elements_expression)
             {
                 if (object_has_constant_value(&p->p_array_num_elements_expression->object))

@@ -76,6 +76,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage);
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
+static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function);
 
 static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
 {
@@ -2203,6 +2204,45 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             struct function_declarator* pfuncdecl = declarator_find_function_declarator(p_declarator);
             if (pfuncdecl == NULL) throw;
 
+#if 0
+            /*
+            void func()
+            {    
+                //int n;
+                //typedef int (*T)[n];
+	            static void local(int n, int a[n]) {     
+        
+                }        
+            }*/
+
+            if (pfuncdecl->parameter_type_list_opt &&
+                pfuncdecl->parameter_type_list_opt->parameter_list)
+            {
+                struct parameter_declaration* _Opt p = pfuncdecl->parameter_type_list_opt->parameter_list->head;
+                while (p)
+                {
+                    if (trying_to_use_vm_type_from_enclosing_function(&p->declarator->type, ctx->p_current_function_opt))
+                    {
+                        /*
+                        void func()
+                        {
+                            int n;
+                            typedef int (*T)[n];
+                            static void local() {
+                                T b;
+                            }
+                        }
+                        */
+                        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                            p->declarator->first_token_opt, NULL,
+                            "trying to use VM type from enclosing function");
+                    }
+
+                    p = p->next;
+                }
+            }
+#endif
+
             struct scope* parameters_scope = &pfuncdecl->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
 
@@ -2396,6 +2436,65 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 }
 
 static bool declarator_has_vm_type(const struct declarator* p_declarator);
+
+
+static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_type, struct declarator* p_function)
+{
+    const struct type* _Opt p = p_type;
+
+    while (p)
+    {
+        switch (p->category)
+        {
+        case TYPE_CATEGORY_ARRAY:
+            if (p->array_num_elements > 0)
+            {
+                /* constant size */
+            }
+            else if (p->p_array_num_elements_expression == NULL)
+            {
+                /* int [] */
+            }
+            else if (p->array_num_elements == 0 &&
+                     object_is_zero(&p->p_array_num_elements_expression->object))
+            {
+                /* not VM, int [0] , accepted in many compilers*/
+            }
+            else
+            {
+                if (p->p_current_function_opt &&
+                    p->p_current_function_opt != p_function)
+                {
+                    return true;
+                }
+                /* VM, int [expression] */
+                //return true;
+            }
+            break;
+
+        case TYPE_CATEGORY_FUNCTION:
+        {
+            struct param* _Opt pa = p->params.head;
+
+            while (pa)
+            {
+                if (trying_to_use_vm_type_from_enclosing_function(&pa->type, p_function))
+                    return true;
+
+                pa = pa->next;
+            }
+        }
+        break;
+
+        case TYPE_CATEGORY_ITSELF:
+        case TYPE_CATEGORY_POINTER:
+            break;
+        }
+
+        p = p->next;
+    }
+    return false;
+}
 
 struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers)
@@ -2931,6 +3030,23 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         p_init_declarator = NULL;
     }
 
+    if (p_init_declarator && trying_to_use_vm_type_from_enclosing_function(&p_init_declarator->p_declarator->type, ctx->p_current_function_opt))
+    {
+        /*
+        void func()
+        {
+            int n;
+            typedef int (*T)[n];
+            static void local() {
+                T b;
+            }
+        }
+        */
+        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+            p_init_declarator->p_declarator->first_token_opt, NULL,
+            "trying to use VM type from enclosing function");
+    }
+
     return p_init_declarator;
 }
 
@@ -3226,9 +3342,9 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
             if (type_is_bitfield(&p_typeof_specifier->typeof_specifier_argument->expression->type))
             {
                 compiler_diagnostic(C_ERROR_TYPEOF_BITFIELD,
-                    ctx, 
-                    p_typeof_specifier->typeof_specifier_argument->expression->first_token, 
-                    NULL, 
+                    ctx,
+                    p_typeof_specifier->typeof_specifier_argument->expression->first_token,
+                    NULL,
                     "typeof used in bit-field");
                 throw;
             }
@@ -3239,7 +3355,7 @@ struct typeof_specifier* _Owner _Opt  typeof_specifier(struct parser_ctx* ctx)
             if (type_is_bitfield(&p_typeof_specifier->typeof_specifier_argument->type_name->abstract_declarator->type))
             {
                 compiler_diagnostic(C_ERROR_TYPEOF_BITFIELD,
-                    ctx, 
+                    ctx,
                     p_typeof_specifier->typeof_specifier_argument->type_name->first_token,
                     NULL,
                     "typeof used in bit-field");
@@ -4460,7 +4576,7 @@ struct member_declarator* _Owner _Opt member_declarator(
             parser_match(ctx);
             p_member_declarator->constant_expression = constant_expression(ctx, true, EXPRESSION_EVAL_MODE_VALUE_AND_TYPE);
 
-            long long bit_field_width = 
+            long long bit_field_width =
                 object_to_signed_long_long(&p_member_declarator->constant_expression->object);
 
             if (bit_field_width < 0)
@@ -4482,7 +4598,7 @@ struct member_declarator* _Owner _Opt member_declarator(
             }
 
             /* adjust the type to be bitfield */
-            p_member_declarator->declarator->type.array_num_elements = (size_t) bit_field_width;
+            p_member_declarator->declarator->type.array_num_elements = (size_t)bit_field_width;
             p_member_declarator->declarator->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
         }
     }
@@ -11279,6 +11395,7 @@ struct declaration* _Owner _Opt external_declaration(struct parser_ctx* ctx)
      function_definition
      declaration
      */
+    ctx->vm_dim_id = 0; /*reset vm dim generator ids*/
     return function_definition_or_declaration(ctx);
 }
 

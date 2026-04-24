@@ -1279,65 +1279,90 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, enum e
                 }
 
                 assert(p_scope != NULL);
-                if (p_scope->scope_level == 0)
-                {
-                    //file scope
-                }
-                else if ((p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
-                        (p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL))
-                {
-                    //file scope or thread
-                }
-                else if (ctx->p_current_function_scope_opt)
+                if (ctx->p_current_function_scope_opt)
                 {
                     bool b_type_is_function = type_is_function(&p_declarator->type);
-                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE && !b_type_is_function)
+                    bool declarator_is_from_enclosing_function = false;
+
+                    if (p_scope->scope_level == 0)
                     {
-                        bool inside_current_function_scope = false;
+                        /*it is from file scope*/
+                        declarator_is_from_enclosing_function = false;
+                    }
+                    else
+                    {
+                        declarator_is_from_enclosing_function = false;
                         while (p_scope)
                         {
                             if (ctx->p_current_function_scope_opt == p_scope)
                             {
-                                inside_current_function_scope = true;
+                                /*it is from current function*/
+                                declarator_is_from_enclosing_function = false;
+                                break;
+                            }
+
+                            if (p_scope->scope_level < ctx->p_current_function_scope_opt->scope_level)
+                            {
+                                declarator_is_from_enclosing_function = true;
                                 break;
                             }
                             p_scope = p_scope->previous;
                         }
-                        if (!inside_current_function_scope)
-                        {
-                            /* see . dot and arrow -> */
-                            p_expression_node->lvalue_disabled = true;
+                    }
 
-                            if (type_is_constexpr(&p_declarator->type))
-                            {
-                                /*
-                                int main()
-                                {
-                                    constexpr int i = 2;
-                                    static int dup(int a) { return i * a; }
-                                    return dup(1);
-                                }
-                                */
-                            }
-                            else if (type_is_const(&p_declarator->type) &&
-                                 object_has_all_members_constants(&p_declarator->object))
-                            {
-                                /*
-                                    const int i = 2;
-                                    static int dup(int a) { return i * a; }
-                                */
-                            }
-                            else
-                            {
-                                compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                    if (eval_mode == EXPRESSION_EVAL_MODE_TYPE &&
+                        !b_type_is_function &&
+                        declarator_is_from_enclosing_function)
+                    {
+                        if (type_is_vm(&p_declarator->type))
+                        {
+                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
                                    ctx,
                                    p_expression_node->first_token,
                                    NULL,
-                                   "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                                   "expression is using a VM type from the enclosing function");
+                        }
+                    }
+
+                    if (eval_mode == EXPRESSION_EVAL_MODE_VALUE_AND_TYPE &&
+                        !b_type_is_function &&
+                        declarator_is_from_enclosing_function &&
+                        !(p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                        !(p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL))
+                    {
+                        /* see . dot and arrow -> */
+                        p_expression_node->lvalue_disabled = true;
+
+                        if (type_is_constexpr(&p_declarator->type))
+                        {
+                            /*
+                            int main()
+                            {
+                                constexpr int i = 2;
+                                static int dup(int a) { return i * a; }
+                                return dup(1);
                             }
+                            */
+                        }
+                        else if (type_is_const(&p_declarator->type) &&
+                             object_has_all_members_constants(&p_declarator->object))
+                        {
+                            /*
+                                const int i = 2;
+                                static int dup(int a) { return i * a; }
+                            */
+                        }
+                        else
+                        {
+                            compiler_diagnostic(C_ERROR_OUTER_SCOPE,
+                               ctx,
+                               p_expression_node->first_token,
+                               NULL,
+                               "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
                         }
                     }
                 }
+
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
@@ -2124,7 +2149,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                  */
                                 if (type_is_bitfield(&p_member_declarator->declarator->type))
                                 {
-                                    p_expression_node_new->type.array_num_elements=
+                                    p_expression_node_new->type.array_num_elements =
                                         p_member_declarator->declarator->type.array_num_elements;
                                     p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
                                 }
@@ -2260,7 +2285,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                      */
                                     if (type_is_bitfield(&p_member_declarator->declarator->type))
                                     {
-                                        p_expression_node_new->type.array_num_elements=
+                                        p_expression_node_new->type.array_num_elements =
                                             p_member_declarator->declarator->type.array_num_elements;
                                         p_expression_node_new->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_BITFIELD;
                                     }
@@ -2472,10 +2497,10 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             }
             else
             {
-                compiler_diagnostic(C_ERROR_UNEXPECTED, 
-                    ctx, 
-                    p_expression_node->type_name->first_token, 
-                    NULL, 
+                compiler_diagnostic(C_ERROR_UNEXPECTED,
+                    ctx,
+                    p_expression_node->type_name->first_token,
+                    NULL,
                     "function literals must have 'static' storage qualifier");
             }
 
