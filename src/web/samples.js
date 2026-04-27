@@ -666,8 +666,6 @@ sample["C99"][" __VA_ARGS__"] =
 
 #define MYLOG(FormatLiteral, ...)  fprintf (stderr, "%s(%u): " FormatLiteral "\\n", __FILE__, __LINE__, __VA_ARGS__)
 
-#pragma expand MYLOG
-
 int main()
 {
  MYLOG("Too many balloons %u", 42);
@@ -816,28 +814,36 @@ void test_reassign(int n)
     free(p);
 }
 
+void typedef_sample()
+{
+    int n = 1;
+    typedef int (*T)[n];
+    n = 2;
+    T b;
+    printf("%zu\\n", sizeof(*b)); // prints 4
+
+    n = 3;
+    T c;
+    printf("%zu\\n", sizeof(*c)); //prints 4
+}
+
 int main(void)
 {
-    printf("=== 1. 1-D VM pointer ===\\n");
     test_1d(5);
 
-    printf("=== 2. 2-D VM pointer ===\\n");
     test_2d(3, 4);
 
-    printf("=== 3. sizeof stability ===\\n");
     test_sizeof_stable(3, 4);
 
-    printf("=== 4. VM parameter ===\\n");
     test_vm_param(3, 4);
 
-    printf("=== 5. Multiple VM pointers ===\\n");
     test_multiple(4, 3);
 
-    printf("=== 6. Mixed constant/runtime dims ===\\n");
     test_mixed_dims(3);
 
-    printf("=== 7. Reassignment ===\\n");
     test_reassign(5);
+
+    typedef_sample();
 
     return 0;
 }

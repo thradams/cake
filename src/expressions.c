@@ -2534,11 +2534,16 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             type_destroy(&p_expression_node->type);
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
+            if (type_is_vm(&p_expression_node->type))
+            {
+                /* void f(int n) { (int [n]){}; } */
+                compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "compound literal cannot be of variable-length array type");
+            }
+
             int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
             if (er != 0)
             {
                 compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
-                throw;
             }
 
             const bool is_constant = type_is_const_or_constexpr(&p_expression_node->type);

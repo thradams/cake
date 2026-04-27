@@ -29817,7 +29817,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.16"
+#define CAKE_VERSION "0.13.17"
 
 
 
@@ -47547,7 +47547,7 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
         {
             if (type_is_vm(&pa->type))
             {
-            vm_emit_snapshot_decls(ctx, &snaps, &pa->type);
+                vm_emit_snapshot_decls(ctx, &snaps, &pa->type);
             }
             pa = pa->next;
         }
@@ -47555,8 +47555,8 @@ static void d_visit_function_body(struct d_visit_ctx* ctx,
     }
     ss_swap(&bk, &ctx->block_scope_declarators);
 
-    
-    d_visit_compound_statement(ctx, oss, function_definition->function_body,&bk, &snaps);
+
+    d_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
     ss_close(&bk);
     ss_close(&snaps);
     ctx->p_current_function_opt = previous_func;//restore
@@ -48902,16 +48902,43 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
             it->p_array_num_elements_expression != NULL &&
             !object_has_constant_value(&it->p_array_num_elements_expression->object))
         {
-            /* declaration hoisted to block top */
-            print_identation(ctx, &ctx->block_scope_declarators);
             char name[100] = { 0 };
-            snprintf(name, sizeof name, "__vm%d", it->vm_dim_id);
-            ss_fprintf(&ctx->block_scope_declarators, "%s %s;\n", ctx->size_t_type_name, name);
-            /* assignment emitted as a statement in the body */
-            print_identation(ctx, oss_body);
-            ss_fprintf(oss_body, "%s = ", name);
-            d_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
-            ss_fprintf(oss_body, ";\n");
+            snprintf(name, sizeof name, "__vm%d;", it->vm_dim_id);
+
+
+            if (strstr(ctx->block_scope_declarators.c_str, name) == 0)
+            {
+                /*
+                 TODO
+                 we could use something else to track this, instead of text search
+                 maybe a list, also if not used we could not emmit the variable
+                */
+                snprintf(name, sizeof name, "__vm%d", it->vm_dim_id);
+
+                /* declaration hoisted to block top */
+                print_identation(ctx, &ctx->block_scope_declarators);
+
+                ss_fprintf(&ctx->block_scope_declarators, "%s %s;\n", ctx->size_t_type_name, name);
+
+                /* assignment emitted as a statement in the body */
+                print_identation(ctx, oss_body);
+                ss_fprintf(oss_body, "%s = ", name);
+                d_visit_expression(ctx, oss_body, (struct expression*)it->p_array_num_elements_expression);
+                ss_fprintf(oss_body, ";\n");
+            }
+            else
+            {
+                /*Already there, happens with vm typedef*/
+                /*
+                int main(){
+                    int n = 1;
+                    typedef int (*T)[n];
+                    n = 2;
+                    T b;
+                    T c;
+                }
+                */
+            }
         }
         it = it->next;
     }
@@ -48935,7 +48962,10 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
     const bool is_function_body = p_init_declarator->p_declarator->function_body != NULL;
 
     if (is_typedef)
-        return;
+    {
+        if (!type_is_vm(&p_init_declarator->p_declarator->type))
+            return;
+    }
     const bool is_static = (storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
     const bool is_auto = (storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO);
 
@@ -49002,14 +49032,17 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
         {
             vm_emit_snapshot_decls(ctx, oss0, decl_type);
 
-            struct osstream ss = { 0 };
-            print_identation(ctx, &ss);
+            if (!is_typedef)
+            {
+                struct osstream ss = { 0 };
+                print_identation(ctx, &ss);
 
-            d_print_type(ctx, &ss, decl_type, var_name, false);
+                d_print_type(ctx, &ss, decl_type, var_name, false);
 
-            ss_fprintf(&ss, ";\n");
-            ss_fprintf(&ctx->block_scope_declarators, "%s", ss.c_str);
-            ss_close(&ss);
+                ss_fprintf(&ss, ";\n");
+                ss_fprintf(&ctx->block_scope_declarators, "%s", ss.c_str);
+                ss_close(&ss);
+            }
 
             /* 3. Initializer (e.g. = malloc(sizeof *p) — sizeof rewritten) */
             if (p_init_declarator->initializer)
@@ -49519,7 +49552,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     if (ctx->memset_used)
     {
         ss_fprintf(oss,
-              "static void %s(void *dest, int ch, %s count);\n", ctx->memset_function_name, ctx->size_t_type_name);
+              "static void * %s(void *dest, int ch, %s count);\n", ctx->memset_function_name, ctx->size_t_type_name);
     }
 
     if (declarations.c_str)
@@ -49533,18 +49566,22 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
     {
         ss_fprintf(oss, "\n");
         ss_fprintf(oss,
-              "static void %s(void *dest, int ch, %s count)\n"
-              "{\n"
-              "    unsigned char *ptr;\n"
-              "\n"
-              "    ptr = (unsigned char*)dest;\n"
-              "    while (count-- > 0)\n"
-              "    {\n"
-              "       *ptr++ = 0;\n"
-              "    }\n"
-              "}\n\n",
-             ctx->memset_function_name,
-             ctx->size_t_type_name);
+                "static void * %s(void *ptr, int value, %s count)\n"
+                "{\n"
+                "    unsigned char *p;\n"
+                "    unsigned char v;\n"
+                "\n"
+                "    p = (unsigned char *) ptr;\n"
+                "    v = (unsigned char) value;\n"
+                "    while (count--)\n"
+                "    {\n"
+                "        *p++ = v;\n"
+                "    }\n"
+                "\n"
+                "    return ptr;\n"
+                "}\n",
+                ctx->memset_function_name,
+                ctx->size_t_type_name);
     }
 
     if (ctx->memcpy_used)
