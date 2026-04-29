@@ -247,17 +247,10 @@ int main(){
 Currently restrict is being removed on the generated code.
 
 
-###  C99 Variably-Modified (VM) types
+###  C99 Variably-Modified (VM) types and VLAs
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
 
-In C99/C23, there are two related but distinct concepts:
-
-- **VLA objects** (`int a[n]`) - a local array whose storage is allocated on the stack at runtime. Optional in C11/C23 (controlled by `__STDC_NO_VLA__`).
-- **VM types** (`int (*p)[n]`) - any type derived from a runtime-sized array, including pointers to VLAs. **Mandatory** in C23 even when `__STDC_NO_VLA__` is defined.
-
-Cake supports **VM types** and converts them to C89-compatible code.
-Cake does **not** support VLA objects.
 
 #### VM type pointer declarations
 
@@ -276,6 +269,40 @@ int main() {
 }
 ```
 <button onclick="Try(this)">try</button>
+
+
+```c
+
+/*
+VLA with 2D function parameter
+*/
+#include <stdio.h>
+
+void print_matrix(int rows, int cols, int m[rows][cols]) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            printf("%d ", m[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+int main(void) {
+    int r = 2, c = 3;
+
+    int m[r][c]; // VLA
+
+    for (int i = 0; i < r; i++)
+        for (int j = 0; j < c; j++)
+            m[i][j] = i * c + j;
+
+    print_matrix(r, c, m);
+    return 0;
+}
+
+```
+<button onclick="Try(this)">try</button>
+
 
 
 ### C99 Flexible array members

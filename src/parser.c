@@ -1769,20 +1769,20 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             {
                 const enum storage_class_specifier_flags old_flags =
                     p_declaration_specifiers->storage_class_specifier_flags;
-                
+
                 const enum storage_class_specifier_flags new_flags =
                     p_declaration_specifier->storage_class_specifier->flags;
 
                 if ((old_flags & STORAGE_SPECIFIER_TYPEDEF && new_flags & STORAGE_SPECIFIER_STATIC)
-                    ||(old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
+                    || (old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
                 {
                     /*typedef + static*/
                     compiler_diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
-                        ctx, 
+                        ctx,
                         p_declaration_specifier->storage_class_specifier->token,
-                        NULL, 
+                        NULL,
                         "typedef and static cannot be used together.");
-                }                                               
+                }
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
             else if (p_declaration_specifier->function_specifier)
@@ -2223,12 +2223,12 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 #if 0
             /*
             void func()
-            {    
+            {
                 //int n;
                 //typedef int (*T)[n];
-	            static void local(int n, int a[n]) {     
-        
-                }        
+                static void local(int n, int a[n]) {
+
+                }
             }*/
 
             if (pfuncdecl->parameter_type_list_opt &&
@@ -3063,13 +3063,28 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             "trying to use VM type from enclosing function");
     }
 
-    if (ctx->scopes.tail->scope_level == 0 &&
-        p_init_declarator && 
+    if (p_init_declarator &&
         type_is_vm(&p_init_declarator->p_declarator->type))
     {
-        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
-            p_init_declarator->p_declarator->first_token_opt, NULL,
-            "variably modified type declaration not allowed at file scope");
+        if (ctx->scopes.tail->scope_level == 0)
+        {
+            compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                p_init_declarator->p_declarator->first_token_opt, NULL,
+                "variably modified type declaration not allowed at file scope");
+        }
+
+        if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+        {
+            if (type_is_vla(&p_init_declarator->p_declarator->type))
+            {
+                /*
+                  void f(int n) { static int a[n]; }
+                */
+                compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                 p_init_declarator->p_declarator->first_token_opt, NULL,
+                 "storage size of '%s' isn't constant", p_init_declarator->p_declarator->name_opt->lexeme);
+            }
+        }
     }
 
     return p_init_declarator;

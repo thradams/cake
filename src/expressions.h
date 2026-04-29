@@ -128,6 +128,8 @@ enum expression_type
     CONDITIONAL_EXPRESSION,
 };
 
+bool is_primary_expression(enum expression_type t);
+
 struct argument_expression_list
 {
     /*

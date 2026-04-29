@@ -49,6 +49,28 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
 struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
 
+bool is_primary_expression(enum expression_type t)
+{
+    switch (t)
+    {
+    case PRIMARY_EXPRESSION_ENUMERATOR:
+    case PRIMARY_EXPRESSION_DECLARATOR:
+    case PRIMARY_EXPRESSION_STRING_LITERAL:
+    case PRIMARY_EXPRESSION__FUNC__:
+    case PRIMARY_EXPRESSION_CHAR_LITERAL:
+    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
+    case PRIMARY_EXPRESSION_GENERIC:
+    case PRIMARY_EXPRESSION_NUMBER:
+    case PRIMARY_EXPRESSION_PARENTHESIS:
+    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+        return true;
+    
+    default:
+        break;
+    }
+    return false;
+}
+
 static int compare_function_arguments(struct parser_ctx* ctx,
                                       struct type* p_type,
                                       struct argument_expression_list* p_argument_expression_list)
@@ -2850,7 +2872,7 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
     if (e != SIZEOF_RESULT_OK)
         return -1;
 
-    return (int) (pointer_value + offset_of);
+    return (int)(pointer_value + offset_of);
 }
 
 struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)

@@ -3,6 +3,11 @@
  *
  * Compile on Windows:
  *   MSVC  :  cl install.c
+ *   Debugging on windows:
+ *   cl /Zi install.c
+ *   devenv /DebugExe  install.exe
+ *
+ *
  *   MinGW :  gcc install.c -o install.exe          (x64)
  *            gcc -m32 install.c -o install32.exe   (x86)
  *
@@ -52,7 +57,8 @@
 /*  Install configuration                                               */
 /* ------------------------------------------------------------------ */
 
-#define APP_DIR_NAME  "cake"
+#define APP_DIR_NAME "cake"
+#define APP_DIR_NAME_VERSION  "cake\\" CAKE_VERSION
 
 /*
  * Install entries: { "source", "dest_subfolder", recursive, exec_bit }
@@ -589,14 +595,13 @@ static int clean_directory(const char* dir)
 /*
  * is_app_path_entry()
  *   Returns 1 if 'token' looks like a previous install of this app,
- *   i.e. it ends with \APP_DIR_NAME regardless of which Program Files
- *   variant (x64 or x86) it came from.
+ *
  */
 static int is_app_path_entry(const char* token)
 {
     /* Match both:
      *   C:\Program Files\cake
-     *   C:\Program Files (x86)\cake
+     *   C:\Program Files (x86)\cake\0.13.10
      * by checking that the last component equals APP_DIR_NAME.
      */
     size_t tlen = strlen(token);
@@ -626,8 +631,11 @@ static int is_app_path_entry(const char* token)
 static int rebuild_path_without_app(const char* src,
                                     char* dst,
                                     size_t      dst_size,
-                                    const char* target_dir)
+                                    const char* target_dir,
+    int *bExist)
 {
+    *bExist = 0;
+
     const char* p = src;
     int         removed = 0;
     dst[0] = '\0';
@@ -646,14 +654,22 @@ static int rebuild_path_without_app(const char* src,
         /* Drop stale app entries AND the current target (re-added later).
          * The current target is silently stripped here and re-appended at
          * the end – no message, because it is not being removed. */
-        if (is_app_path_entry(token))
+        if (_strnicmp(token, target_dir, MAX_PATH) == 0)
         {
-            if (_strnicmp(token, target_dir, MAX_PATH) != 0)
-            {
-                printf("  [REMOVED] %s\n", token);
-                removed++;   /* only count genuinely stale entries */
-            }
-            /* current target: silently drop here, re-added below */
+            /* Keep this entry */
+            if (dst[0] != '\0') strncat(dst, ";", dst_size - strlen(dst) - 1);
+            strncat(dst, token, dst_size - strlen(dst) - 1);
+            *bExist = 1;
+        }
+        else if (_strnicmp(token, "C:\\Program Files\\cake", sizeof("C:\\Program Files\\cake")-1) == 0)
+        {
+            printf("  [REMOVED] %s\n", token);
+            removed++;   /* only count genuinely stale entries */
+        }
+        else if (_strnicmp(token, "C:\\Program Files (x86)\\cake", sizeof("C:\\Program Files (x86)\\cake")-1) == 0)
+        {
+            printf("  [REMOVED] %s\n", token);
+            removed++;   /* only count genuinely stale entries */
         }
         else
         {
@@ -710,34 +726,18 @@ static void add_to_system_path(const char* target_dir)
 
     /* ---- Scan: show what will be removed / kept ------------------- */
     printf("  Scanning for stale %s entries...\n\n", APP_DIR_NAME);
-
-    /* Check if current target is already present BEFORE rebuilding */
-    {
-        const char* p = old_path;
-        size_t tlen = strlen(target_dir);
-        while (*p)
-        {
-            const char* end = strchr(p, ';');
-            size_t seg_len = end ? (size_t)(end - p) : strlen(p);
-            if (seg_len == tlen && _strnicmp(p, target_dir, tlen) == 0)
-            {
-                needs_add = 0; break;
-            }
-            if (!end) break;
-            p = end + 1;
-        }
-    }
-
+    int bExist = 0;
     removed = rebuild_path_without_app(old_path, new_path,
                                        data_size + MAX_PATH + 4,
-                                       target_dir);
+                                       target_dir,
+                                       &bExist);
 
     if (removed > 0)
         printf("\n  %d stale PATH entry(s) will be removed.\n", removed);
     else
         printf("  No stale entries found.\n");
 
-    if (!needs_add && removed == 0)
+    if (bExist && removed == 0)
     {
         printf("  PATH already contains the correct entry:\n    %s\n"
                "  No changes needed.\n\n", target_dir);
@@ -746,7 +746,7 @@ static void add_to_system_path(const char* target_dir)
 
     /* ---- Confirm with user --------------------------------------- */
     printf("\n");
-    if (removed > 0 && needs_add)
+    if (removed > 0 && !bExist)
         printf("  Will remove stale entry(s) and add:\n    %s\n\n", target_dir);
     else if (removed > 0)
         printf("  Will remove stale entry(s) only.\n\n");
@@ -760,7 +760,7 @@ static void add_to_system_path(const char* target_dir)
     }
 
     /* ---- Append current target_dir ------------------------------ */
-    if (needs_add)
+    if (!bExist)
     {
         size_t l = strlen(new_path);
         if (l > 0 && new_path[l - 1] != ';') { new_path[l] = ';'; new_path[l + 1] = '\0'; }
@@ -793,15 +793,15 @@ static void add_to_system_path(const char* target_dir)
 
 /*
  * is_app_path_entry_linux()
- *   Returns 1 if the token ends with /APP_DIR_NAME,
+ *   Returns 1 if the token ends with /APP_DIR_NAME_VERSION,
  *   covering any prefix (/usr/local, /opt, custom INSTALL_PREFIX).
  */
 static int is_app_path_entry_linux(const char* token)
 {
     size_t tlen = strlen(token);
-    size_t alen = strlen(APP_DIR_NAME);
+    size_t alen = strlen(APP_DIR_NAME_VERSION);
     if (tlen < alen) return 0;
-    if (strcmp(token + tlen - alen, APP_DIR_NAME) != 0) return 0;
+    if (strcmp(token + tlen - alen, APP_DIR_NAME_VERSION) != 0) return 0;
     if (tlen > alen && token[tlen - alen - 1] != '/') return 0;
     return 1;
 }
@@ -944,9 +944,7 @@ int main(void)
         if (!GetEnvironmentVariableA(PROGFILES_VAR, prog_files, sizeof prog_files))
             strncpy(prog_files, PROGFILES_FB, sizeof prog_files - 1);
 
-        printf("  Build architecture : %s\n", ARCH_LABEL);
-        printf("  Program Files path : %s\n\n", prog_files);
-        snprintf(target_dir, sizeof target_dir, "%s\\%s", prog_files, APP_DIR_NAME);
+        snprintf(target_dir, sizeof target_dir, "%s\\%s", prog_files, APP_DIR_NAME_VERSION);
     }
 #else
     /*
@@ -957,11 +955,12 @@ int main(void)
     {
         const char* prefix = getenv("INSTALL_PREFIX");
         if (!prefix) prefix = "/usr/local";
-        snprintf(target_dir, sizeof target_dir, "%s/%s", prefix, APP_DIR_NAME);
+        snprintf(target_dir, sizeof target_dir, "%s/%s", prefix, APP_DIR_NAME_VERSION);
     }
 #endif
 
-    printf("  Target directory   : %s\n\n", target_dir);
+    printf("  Install path:\n");
+    printf("  %s\n\n", target_dir);
 
     /* ---- 2. Check / create root install directory ----------------- */
     {
@@ -996,8 +995,8 @@ int main(void)
     }
     else
     {
-        printf("The directory already exists.\n");
-        if (!ask_yes_no("Override / reinstall?"))
+        printf(" The directory already exists.\n");
+        if (!ask_yes_no(" Override / reinstall?"))
         {
             printf("\nInstallation cancelled.\n");
             return 0;

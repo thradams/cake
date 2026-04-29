@@ -1223,7 +1223,18 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             {
                 if (offset_flat.size > 0)
                     ss_fprintf(&offset_flat, " + ");
-                d_visit_expression(ctx, &offset_flat, expr->right);
+
+                if (is_primary_expression(expr->right->expression_type))
+                {
+                    d_visit_expression(ctx, &offset_flat, expr->right);
+                }
+                else
+                {
+                    ss_fprintf(&offset_flat, "(");
+                    d_visit_expression(ctx, &offset_flat, expr->right);
+                    ss_fprintf(&offset_flat, ")");
+                }
+
 
                 struct type* p_type = expr->left->type.next;
                 while (type_is_array(p_type))
@@ -4164,6 +4175,7 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
 
                 ss_fprintf(&ctx->block_scope_declarators, "%s %s;\n", ctx->size_t_type_name, name);
 
+                emit_line_directive(ctx, oss_body, it->p_array_num_elements_expression->first_token);
                 /* assignment emitted as a statement in the body */
                 print_identation(ctx, oss_body);
                 ss_fprintf(oss_body, "%s = ", name);
@@ -4302,7 +4314,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
                     
                     emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
                     print_identation(ctx, oss0);
-                    ss_fprintf(oss0, "%s = %s%s; /*vla storage*/\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
+                    ss_fprintf(oss0, "%s = %s%s;\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
                     ss_close(&ssz);
                 }
                 else

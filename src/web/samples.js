@@ -388,6 +388,17 @@ int main(void) {
 }
 `;
 
+sample["C99"]["VMT cast"] =
+`
+int main()
+{
+   int n = 1;
+   int a[n];
+    n = 2;
+   auto p = (int(*)[n]) & a;
+   sizeof(* p); //8
+}
+`;
 
 sample["C99"]["VM Types"] =
 `

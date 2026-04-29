@@ -57,7 +57,7 @@
 <a href="#toc_7">C99 restrict pointers</a>
 </li>
 <li>
-<a href="#toc_8">C99 Variably-Modified (VM) types</a>
+<a href="#toc_8">C99 Variably-Modified (VM) types and VLAs</a>
 </li>
 <li>
 <a href="#toc_9">C99 Flexible array members</a>
@@ -524,19 +524,9 @@ int main(){
 
 <p>Currently restrict is being removed on the generated code.</p>
 
-<h3 id="toc_8">C99 Variably-Modified (VM) types</h3>
+<h3 id="toc_8">C99 Variably-Modified (VM) types and VLAs</h3>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm</a></p>
-
-<p>In C99/C23, there are two related but distinct concepts:</p>
-
-<ul>
-<li><strong>VLA objects</strong> (<code>int a[n]</code>) - a local array whose storage is allocated on the stack at runtime. Optional in C11/C23 (controlled by <code>__STDC_NO_VLA__</code>).</li>
-<li><strong>VM types</strong> (<code>int (*p)[n]</code>) - any type derived from a runtime-sized array, including pointers to VLAs. <strong>Mandatory</strong> in C23 even when <code>__STDC_NO_VLA__</code> is defined.</li>
-</ul>
-
-<p>Cake supports <strong>VM types</strong> and converts them to C89-compatible code.
-Cake does <strong>not</strong> support VLA objects.</p>
 
 <h4>VM type pointer declarations</h4>
 
@@ -552,6 +542,38 @@ int main() {
 
     free(p);
 }
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<pre><code class="language-c">
+/*
+VLA with 2D function parameter
+*/
+#include &lt;stdio.h&gt;
+
+void print_matrix(int rows, int cols, int m[rows][cols]) {
+    for (int i = 0; i &lt; rows; i++) {
+        for (int j = 0; j &lt; cols; j++) {
+            printf(&quot;%d &quot;, m[i][j]);
+        }
+        printf(&quot;\n&quot;);
+    }
+}
+
+int main(void) {
+    int r = 2, c = 3;
+
+    int m[r][c]; // VLA
+
+    for (int i = 0; i &lt; r; i++)
+        for (int j = 0; j &lt; c; j++)
+            m[i][j] = i * c + j;
+
+    print_matrix(r, c, m);
+    return 0;
+}
+
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>

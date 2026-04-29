@@ -16056,6 +16056,8 @@ enum expression_type
     CONDITIONAL_EXPRESSION,
 };
 
+bool is_primary_expression(enum expression_type t);
+
 struct argument_expression_list
 {
     /*
@@ -21492,6 +21494,28 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx, enum expressio
 struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode);
 
 
+bool is_primary_expression(enum expression_type t)
+{
+    switch (t)
+    {
+    case PRIMARY_EXPRESSION_ENUMERATOR:
+    case PRIMARY_EXPRESSION_DECLARATOR:
+    case PRIMARY_EXPRESSION_STRING_LITERAL:
+    case PRIMARY_EXPRESSION__FUNC__:
+    case PRIMARY_EXPRESSION_CHAR_LITERAL:
+    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
+    case PRIMARY_EXPRESSION_GENERIC:
+    case PRIMARY_EXPRESSION_NUMBER:
+    case PRIMARY_EXPRESSION_PARENTHESIS:
+    case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
+        return true;
+    
+    default:
+        break;
+    }
+    return false;
+}
+
 static int compare_function_arguments(struct parser_ctx* ctx,
                                       struct type* p_type,
                                       struct argument_expression_list* p_argument_expression_list)
@@ -24293,7 +24317,7 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
     if (e != SIZEOF_RESULT_OK)
         return -1;
 
-    return (int) (pointer_value + offset_of);
+    return (int)(pointer_value + offset_of);
 }
 
 struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
@@ -29833,7 +29857,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.18"
+#define CAKE_VERSION "0.13.20"
 
 
 
@@ -31653,20 +31677,20 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             {
                 const enum storage_class_specifier_flags old_flags =
                     p_declaration_specifiers->storage_class_specifier_flags;
-                
+
                 const enum storage_class_specifier_flags new_flags =
                     p_declaration_specifier->storage_class_specifier->flags;
 
                 if ((old_flags & STORAGE_SPECIFIER_TYPEDEF && new_flags & STORAGE_SPECIFIER_STATIC)
-                    ||(old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
+                    || (old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
                 {
                     /*typedef + static*/
                     compiler_diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
-                        ctx, 
+                        ctx,
                         p_declaration_specifier->storage_class_specifier->token,
-                        NULL, 
+                        NULL,
                         "typedef and static cannot be used together.");
-                }                                               
+                }
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
             else if (p_declaration_specifier->function_specifier)
@@ -32107,12 +32131,12 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 #if 0
             /*
             void func()
-            {    
+            {
                 //int n;
                 //typedef int (*T)[n];
-	            static void local(int n, int a[n]) {     
-        
-                }        
+                static void local(int n, int a[n]) {
+
+                }
             }*/
 
             if (pfuncdecl->parameter_type_list_opt &&
@@ -32947,13 +32971,28 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             "trying to use VM type from enclosing function");
     }
 
-    if (ctx->scopes.tail->scope_level == 0 &&
-        p_init_declarator && 
+    if (p_init_declarator &&
         type_is_vm(&p_init_declarator->p_declarator->type))
     {
-        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
-            p_init_declarator->p_declarator->first_token_opt, NULL,
-            "variably modified type declaration not allowed at file scope");
+        if (ctx->scopes.tail->scope_level == 0)
+        {
+            compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                p_init_declarator->p_declarator->first_token_opt, NULL,
+                "variably modified type declaration not allowed at file scope");
+        }
+
+        if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+        {
+            if (type_is_vla(&p_init_declarator->p_declarator->type))
+            {
+                /*
+                  void f(int n) { static int a[n]; }
+                */
+                compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                 p_init_declarator->p_declarator->first_token_opt, NULL,
+                 "storage size of '%s' isn't constant", p_init_declarator->p_declarator->name_opt->lexeme);
+            }
+        }
     }
 
     return p_init_declarator;
@@ -46033,7 +46072,18 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
             {
                 if (offset_flat.size > 0)
                     ss_fprintf(&offset_flat, " + ");
-                d_visit_expression(ctx, &offset_flat, expr->right);
+
+                if (is_primary_expression(expr->right->expression_type))
+                {
+                    d_visit_expression(ctx, &offset_flat, expr->right);
+                }
+                else
+                {
+                    ss_fprintf(&offset_flat, "(");
+                    d_visit_expression(ctx, &offset_flat, expr->right);
+                    ss_fprintf(&offset_flat, ")");
+                }
+
 
                 struct type* p_type = expr->left->type.next;
                 while (type_is_array(p_type))
@@ -48974,6 +49024,7 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
 
                 ss_fprintf(&ctx->block_scope_declarators, "%s %s;\n", ctx->size_t_type_name, name);
 
+                emit_line_directive(ctx, oss_body, it->p_array_num_elements_expression->first_token);
                 /* assignment emitted as a statement in the body */
                 print_identation(ctx, oss_body);
                 ss_fprintf(oss_body, "%s = ", name);
