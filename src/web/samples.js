@@ -302,12 +302,92 @@ int main()
 
 `;
 
-sample["C99"]["VLA"] =
+sample["C99"]["VLA I"] =
 `
- void f(int n) {
-      int a[n];
- }
+#include <stdio.h>
+
+int main(void) {
+    int a = 3, b = 4;
+
+    int size = a * b; // runtime expression
+    int arr[size];    // VLA
+
+    for (int i = 0; i < size; i++) {
+        arr[i] = i;
+    }
+
+    printf("Size = %d\\n", size);
+    for (int i = 0; i < size; i++) {
+        printf("%d ", arr[i]);
+    }
+    printf("\\n");
+
+    return 0;
+}
 `;
+
+sample["C99"]["VLA II"] =
+`
+/*
+  VLA inside a block (lifetime demonstration)
+*/
+
+#include <stdio.h>
+
+int main(void) {
+    int n = 3;
+
+    printf("Before block\\n");
+
+    {
+        int arr[n]; // VLA with block scope
+
+        for (int i = 0; i < n; i++) {
+            arr[i] = i * i;
+        }
+
+        printf("Inside block:\\n");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", arr[i]);
+        }
+        printf("\\n");
+    }
+
+    printf("After block\\n");
+    return 0;
+}
+`;
+
+sample["C99"]["VLA III"] =
+`
+/*
+VLA with 2D function parameter
+*/
+#include <stdio.h>
+
+void print_matrix(int rows, int cols, int m[rows][cols]) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            printf("%d ", m[i][j]);
+        }
+        printf("\\n");
+    }
+}
+
+int main(void) {
+    int r = 2, c = 3;
+
+    int m[r][c]; // VLA
+
+    for (int i = 0; i < r; i++)
+        for (int j = 0; j < c; j++)
+            m[i][j] = i * c + j;
+
+    print_matrix(r, c, m);
+    return 0;
+}
+`;
+
 
 sample["C99"]["VM Types"] =
 `
