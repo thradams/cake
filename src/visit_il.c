@@ -1188,7 +1188,19 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        if (type_is_vm(&p_expression->left->type))
+        /*
+           We need to check if A is VM,
+              A[i0][i1][i2]...[ik]
+           if it is we have a [flat_index]
+        */
+
+        struct expression* expr0 = p_expression;
+        while (expr0 && expr0->expression_type == POSTFIX_ARRAY)
+        {
+            expr0 = expr0->left;
+        }
+
+        if (expr0 && type_is_vm(&expr0->type))
         {
             /*
                A[i0][i1][i2]...[ik]
@@ -4137,7 +4149,8 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
             snprintf(name, sizeof name, "__vm%d;", it->vm_dim_id);
 
 
-            if (strstr(ctx->block_scope_declarators.c_str, name) == 0)
+            if (ctx->block_scope_declarators.c_str == NULL ||
+                strstr(ctx->block_scope_declarators.c_str, name) == 0)
             {
                 /*
                  TODO
@@ -4268,7 +4281,34 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
                 struct osstream ss = { 0 };
                 print_identation(ctx, &ss);
 
-                d_print_type(ctx, &ss, decl_type, var_name, false);
+                if (type_is_vla(decl_type))
+                {
+                    struct type t1 = get_array_item_type(decl_type);
+
+                    while (type_is_array(&t1))
+                    {
+                        struct type t0;
+                        t0 = get_array_item_type(&t1);
+                        type_swap(&t0, &t1);
+                        type_destroy(&t0);
+                    }
+
+                    struct type t2 = type_add_pointer(&t1, ctx->options.null_checks_enabled);
+                    d_print_type(ctx, &ss, &t2, var_name, false);
+                    type_destroy(&t1);
+                    type_destroy(&t2);
+                    struct osstream ssz = { 0 };
+                    vm_emit_sizeof_expr(ctx, &ssz, decl_type);
+                    
+                    emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
+                    print_identation(ctx, oss0);
+                    ss_fprintf(oss0, "%s = %s%s; /*vla storage*/\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
+                    ss_close(&ssz);
+                }
+                else
+                {
+                    d_print_type(ctx, &ss, decl_type, var_name, false);
+                }
 
                 ss_fprintf(&ss, ";\n");
                 ss_fprintf(&ctx->block_scope_declarators, "%s", ss.c_str);

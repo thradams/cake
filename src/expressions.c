@@ -2802,6 +2802,57 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     return 0; //ok
 }
 
+/*
+  returns >= 0 if the expression is offset pattern
+  This expression is an exeption for constant-expression rules
+*/
+static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expression)
+{
+    /*
+         offsetof pattern evaluated at compile time
+
+         Sample:
+         & ((struct { int i; int i2; }*)0)->i2
+
+         & (((struct { int i; int i2; }*)0)->i2)
+
+         If the pointer has a constant value, we compute the member's
+         offset and then add it to that constant value that is generally zero.
+  */
+    struct expression* _Owner _Opt right = p_expression->right;
+
+    /* skip extra parenthesis */
+    while (right && right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
+    {
+        right = right->right;
+    }
+
+    if (right == NULL)
+        return -1;
+
+    if (right->expression_type != POSTFIX_ARROW)
+        return -1;
+
+    if (!object_has_constant_value(&right->left->object))
+        return -1;
+
+    const unsigned long long pointer_value = object_to_unsigned_long_long(&right->left->object);
+
+    struct type struct_type = type_remove_pointer(&right->left->type);
+    if (!type_is_struct_or_union(&struct_type))
+        return -1;
+
+    size_t offset_of = 0;
+    enum sizeof_result e = type_get_offsetof(&struct_type,
+                                            right->last_token->lexeme /*member identifier*/,
+                                            &offset_of,
+                                            ctx->options.target);
+    if (e != SIZEOF_RESULT_OK)
+        return -1;
+
+    return (int) (pointer_value + offset_of);
+}
+
 struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
@@ -3002,53 +3053,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 */
                 new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
 
-                if (new_expression->right->expression_type == POSTFIX_ARROW &&
-                    object_has_constant_value(&new_expression->right->left->object))
+
+                int offsetof_value = is_offsetof_pattern(ctx, new_expression->right);
+                if (offsetof_value >= 0)
                 {
-                    /*
-                     offsetof pattern evaluated at compile time
-
-                     Sample:
-                     & ((struct { int i; int i2; }*)0)->i2
-
-                     If the pointer has a constant value, we compute the member's
-                     offset and then add it to that constant value that is generally zero.
-                    */
-
-                    const unsigned long long pointer_value =
-                        object_to_unsigned_long_long(&new_expression->right->left->object);
-
-                    struct type struct_type = type_remove_pointer(&new_expression->right->left->type);
-                    if (type_is_struct_or_union(&struct_type))
-                    {
-                        size_t offset_of;
-                        enum sizeof_result e =
-                            type_get_offsetof(&struct_type,
-                                new_expression->right->last_token->lexeme /*member identifier*/,
-                                &offset_of,
-                                ctx->options.target);
-                        switch (e)
-                        {
-                        case SIZEOF_RESULT_OK:
-                            new_expression->object = object_make_size_t(ctx->options.target, pointer_value + offset_of);
-                            break;
-                        case SIZEOF_RESULT_OVERLOW:
-                        case SIZEOF_RESULT_RUNTIME:
-                        case SIZEOF_RESULT_INCOMPLETE:
-                        case SIZEOF_RESULT_FUNCTION:
-                            break;
-                        case SIZEOF_RESULT_BITFIELD:
-                            /*
-                             * offsetof applied to a bitfield is undefined behaviour in C.
-                             * We silently leave the object unset (not a compile-time constant)
-                             * rather than emitting a wrong value.
-                             */
-                            break;
-                        }
-                    }
-                    type_destroy(&struct_type);
+                    new_expression->object = object_make_size_t(ctx->options.target, offsetof_value);
                 }
-
 
                 if (new_expression->right->lvalue_disabled)
                 {

@@ -444,7 +444,19 @@ const char* target_get_predefined_macros(enum target e)
 };
 
 
-
+const char* target_get_alloca(enum target e)
+{
+    switch (e)
+    {
+    case TARGET_X86_X64_GCC: return "__builtin_alloca";
+    case TARGET_X86_MSVC:    return "_alloca";
+    case TARGET_X64_MSVC:    return "_alloca";
+    case TARGET_CCU8:        return "__builtin_alloca";
+    case TARGET_LCCU16:      return "__builtin_alloca";
+    case TARGET_CATALINA:    return "__builtin_alloca";
+    }
+    return "";
+}
 const char* target_get_builtins(enum target e)
 {
     switch (e)

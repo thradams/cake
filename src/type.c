@@ -994,6 +994,9 @@ bool type_is_vm(const struct type* p_type)
 {
     const struct type* _Opt p = p_type;
 
+    if (p->category == TYPE_CATEGORY_FUNCTION)
+        return false;
+
     while (p)
     {
         switch (p->category)
@@ -1020,19 +1023,6 @@ bool type_is_vm(const struct type* p_type)
             break;
 
         case TYPE_CATEGORY_FUNCTION:
-        {
-            struct param* _Opt pa = p->params.head;
-
-            while (pa)
-            {
-                if (type_is_vm(&pa->type))
-                    return true;
-
-                pa = pa->next;
-            }
-        }
-        break;
-
         case TYPE_CATEGORY_ITSELF:
         case TYPE_CATEGORY_POINTER:
             break;

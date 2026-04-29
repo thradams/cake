@@ -1767,6 +1767,22 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             }
             else if (p_declaration_specifier->storage_class_specifier)
             {
+                const enum storage_class_specifier_flags old_flags =
+                    p_declaration_specifiers->storage_class_specifier_flags;
+                
+                const enum storage_class_specifier_flags new_flags =
+                    p_declaration_specifier->storage_class_specifier->flags;
+
+                if ((old_flags & STORAGE_SPECIFIER_TYPEDEF && new_flags & STORAGE_SPECIFIER_STATIC)
+                    ||(old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
+                {
+                    /*typedef + static*/
+                    compiler_diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
+                        ctx, 
+                        p_declaration_specifier->storage_class_specifier->token,
+                        NULL, 
+                        "typedef and static cannot be used together.");
+                }                                               
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
             else if (p_declaration_specifier->function_specifier)
@@ -2980,14 +2996,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 break;
 
             case SIZEOF_RESULT_RUNTIME:
-
+#if 0
                 compiler_diagnostic(C_ERROR_STORAGE_SIZE,
                     ctx,
                     p_init_declarator->p_declarator->name_opt,
                     NULL,
                     "'%s' vla is not suported",
                     p_init_declarator->p_declarator->name_opt->lexeme);
-
+#endif
                 break;
 
             case SIZEOF_RESULT_INCOMPLETE:
@@ -3045,6 +3061,15 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
             p_init_declarator->p_declarator->first_token_opt, NULL,
             "trying to use VM type from enclosing function");
+    }
+
+    if (ctx->scopes.tail->scope_level == 0 &&
+        p_init_declarator && 
+        type_is_vm(&p_init_declarator->p_declarator->type))
+    {
+        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+            p_init_declarator->p_declarator->first_token_opt, NULL,
+            "variably modified type declaration not allowed at file scope");
     }
 
     return p_init_declarator;

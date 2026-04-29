@@ -104,6 +104,7 @@ int parse_target(const char* targetstr, enum target* target);
 void print_target_options();
 const char* target_get_predefined_macros(enum target e);
 const char* target_get_builtins(enum target e);
+const char* target_get_alloca(enum target e);
 
 
 long long target_signed_max(enum  target target, enum object_type type);

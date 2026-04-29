@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>file.c</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>file.c -test-mode</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)../src/</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommand>
     </LocalDebuggerCommand>
-    <LocalDebuggerCommandArgumentsHistory>-line-directives parser.c|-line-directives file.c|token.c|token.c hashmap.c console.c tokenizer.c|file.c|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory>token.c hashmap.c console.c tokenizer.c|file.c|C:\Users\thiago\source\repos\cake_private\tests\unit-tests\parser_countof.c|C:\Users\thiago\source\repos\cake_private\tests\unit-tests\parser_countof.c -test-mode|file.c -test-mode|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
     <LocalDebuggerCommandArguments>-selftest</LocalDebuggerCommandArguments>
@@ -32,5 +32,8 @@
     <LocalDebuggerCommandArguments>flow_object.c -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\src\</LocalDebuggerWorkingDirectory>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ShowAllFiles>false</ShowAllFiles>
   </PropertyGroup>
 </Project>

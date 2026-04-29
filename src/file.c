@@ -1,6 +1,8 @@
-//error: compound literal cannot be of variable-length array type
-void f(int n){
-    (int [n]){};
-}
-   
 
+void f(int n, int a[n][2])
+{
+    for (int i = 0; i < n; i++)
+    {
+        a[i][2];        
+    }
+}

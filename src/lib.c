@@ -825,6 +825,7 @@ int parse_target(const char* targetstr, enum target* target);
 void print_target_options();
 const char* target_get_predefined_macros(enum target e);
 const char* target_get_builtins(enum target e);
+const char* target_get_alloca(enum target e);
 
 
 long long target_signed_max(enum  target target, enum object_type type);
@@ -23976,11 +23977,16 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             type_destroy(&p_expression_node->type);
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
+            if (type_is_vm(&p_expression_node->type))
+            {
+                /* void f(int n) { (int [n]){}; } */
+                compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "compound literal cannot be of variable-length array type");
+            }
+
             int er = make_object(&p_expression_node->type, &p_expression_node->object, ctx->options.target);
             if (er != 0)
             {
                 compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "incomplete struct/union type");
-                throw;
             }
 
             const bool is_constant = type_is_const_or_constexpr(&p_expression_node->type);
@@ -24239,6 +24245,57 @@ static int check_sizeof_argument(struct parser_ctx* ctx,
     return 0; //ok
 }
 
+/*
+  returns >= 0 if the expression is offset pattern
+  This expression is an exeption for constant-expression rules
+*/
+static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expression)
+{
+    /*
+         offsetof pattern evaluated at compile time
+
+         Sample:
+         & ((struct { int i; int i2; }*)0)->i2
+
+         & (((struct { int i; int i2; }*)0)->i2)
+
+         If the pointer has a constant value, we compute the member's
+         offset and then add it to that constant value that is generally zero.
+  */
+    struct expression* _Owner _Opt right = p_expression->right;
+
+    /* skip extra parenthesis */
+    while (right && right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
+    {
+        right = right->right;
+    }
+
+    if (right == NULL)
+        return -1;
+
+    if (right->expression_type != POSTFIX_ARROW)
+        return -1;
+
+    if (!object_has_constant_value(&right->left->object))
+        return -1;
+
+    const unsigned long long pointer_value = object_to_unsigned_long_long(&right->left->object);
+
+    struct type struct_type = type_remove_pointer(&right->left->type);
+    if (!type_is_struct_or_union(&struct_type))
+        return -1;
+
+    size_t offset_of = 0;
+    enum sizeof_result e = type_get_offsetof(&struct_type,
+                                            right->last_token->lexeme /*member identifier*/,
+                                            &offset_of,
+                                            ctx->options.target);
+    if (e != SIZEOF_RESULT_OK)
+        return -1;
+
+    return (int) (pointer_value + offset_of);
+}
+
 struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum expression_eval_mode eval_mode)
 {
     /*
@@ -24439,53 +24496,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, enum exp
                 */
                 new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
 
-                if (new_expression->right->expression_type == POSTFIX_ARROW &&
-                    object_has_constant_value(&new_expression->right->left->object))
+
+                int offsetof_value = is_offsetof_pattern(ctx, new_expression->right);
+                if (offsetof_value >= 0)
                 {
-                    /*
-                     offsetof pattern evaluated at compile time
-
-                     Sample:
-                     & ((struct { int i; int i2; }*)0)->i2
-
-                     If the pointer has a constant value, we compute the member's
-                     offset and then add it to that constant value that is generally zero.
-                    */
-
-                    const unsigned long long pointer_value =
-                        object_to_unsigned_long_long(&new_expression->right->left->object);
-
-                    struct type struct_type = type_remove_pointer(&new_expression->right->left->type);
-                    if (type_is_struct_or_union(&struct_type))
-                    {
-                        size_t offset_of;
-                        enum sizeof_result e =
-                            type_get_offsetof(&struct_type,
-                                new_expression->right->last_token->lexeme /*member identifier*/,
-                                &offset_of,
-                                ctx->options.target);
-                        switch (e)
-                        {
-                        case SIZEOF_RESULT_OK:
-                            new_expression->object = object_make_size_t(ctx->options.target, pointer_value + offset_of);
-                            break;
-                        case SIZEOF_RESULT_OVERLOW:
-                        case SIZEOF_RESULT_RUNTIME:
-                        case SIZEOF_RESULT_INCOMPLETE:
-                        case SIZEOF_RESULT_FUNCTION:
-                            break;
-                        case SIZEOF_RESULT_BITFIELD:
-                            /*
-                             * offsetof applied to a bitfield is undefined behaviour in C.
-                             * We silently leave the object unset (not a compile-time constant)
-                             * rather than emitting a wrong value.
-                             */
-                            break;
-                        }
-                    }
-                    type_destroy(&struct_type);
+                    new_expression->object = object_make_size_t(ctx->options.target, offsetof_value);
                 }
-
 
                 if (new_expression->right->lvalue_disabled)
                 {
@@ -29817,7 +29833,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.17"
+#define CAKE_VERSION "0.13.18"
 
 
 
@@ -31635,6 +31651,22 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             }
             else if (p_declaration_specifier->storage_class_specifier)
             {
+                const enum storage_class_specifier_flags old_flags =
+                    p_declaration_specifiers->storage_class_specifier_flags;
+                
+                const enum storage_class_specifier_flags new_flags =
+                    p_declaration_specifier->storage_class_specifier->flags;
+
+                if ((old_flags & STORAGE_SPECIFIER_TYPEDEF && new_flags & STORAGE_SPECIFIER_STATIC)
+                    ||(old_flags & STORAGE_SPECIFIER_STATIC && new_flags & STORAGE_SPECIFIER_TYPEDEF))
+                {
+                    /*typedef + static*/
+                    compiler_diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
+                        ctx, 
+                        p_declaration_specifier->storage_class_specifier->token,
+                        NULL, 
+                        "typedef and static cannot be used together.");
+                }                                               
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
             else if (p_declaration_specifier->function_specifier)
@@ -32848,14 +32880,14 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 break;
 
             case SIZEOF_RESULT_RUNTIME:
-
+#if 0
                 compiler_diagnostic(C_ERROR_STORAGE_SIZE,
                     ctx,
                     p_init_declarator->p_declarator->name_opt,
                     NULL,
                     "'%s' vla is not suported",
                     p_init_declarator->p_declarator->name_opt->lexeme);
-
+#endif
                 break;
 
             case SIZEOF_RESULT_INCOMPLETE:
@@ -32913,6 +32945,15 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
             p_init_declarator->p_declarator->first_token_opt, NULL,
             "trying to use VM type from enclosing function");
+    }
+
+    if (ctx->scopes.tail->scope_level == 0 &&
+        p_init_declarator && 
+        type_is_vm(&p_init_declarator->p_declarator->type))
+    {
+        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+            p_init_declarator->p_declarator->first_token_opt, NULL,
+            "variably modified type declaration not allowed at file scope");
     }
 
     return p_init_declarator;
@@ -45957,7 +45998,19 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
         assert(p_expression->right != NULL);
 
-        if (type_is_vm(&p_expression->left->type))
+        /*
+           We need to check if A is VM,
+              A[i0][i1][i2]...[ik]
+           if it is we have a [flat_index]
+        */
+
+        struct expression* expr0 = p_expression;
+        while (expr0 && expr0->expression_type == POSTFIX_ARRAY)
+        {
+            expr0 = expr0->left;
+        }
+
+        if (expr0 && type_is_vm(&expr0->type))
         {
             /*
                A[i0][i1][i2]...[ik]
@@ -48906,7 +48959,8 @@ static void vm_emit_snapshot_decls(struct d_visit_ctx* ctx,
             snprintf(name, sizeof name, "__vm%d;", it->vm_dim_id);
 
 
-            if (strstr(ctx->block_scope_declarators.c_str, name) == 0)
+            if (ctx->block_scope_declarators.c_str == NULL ||
+                strstr(ctx->block_scope_declarators.c_str, name) == 0)
             {
                 /*
                  TODO
@@ -49037,7 +49091,34 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
                 struct osstream ss = { 0 };
                 print_identation(ctx, &ss);
 
-                d_print_type(ctx, &ss, decl_type, var_name, false);
+                if (type_is_vla(decl_type))
+                {
+                    struct type t1 = get_array_item_type(decl_type);
+
+                    while (type_is_array(&t1))
+                    {
+                        struct type t0;
+                        t0 = get_array_item_type(&t1);
+                        type_swap(&t0, &t1);
+                        type_destroy(&t0);
+                    }
+
+                    struct type t2 = type_add_pointer(&t1, ctx->options.null_checks_enabled);
+                    d_print_type(ctx, &ss, &t2, var_name, false);
+                    type_destroy(&t1);
+                    type_destroy(&t2);
+                    struct osstream ssz = { 0 };
+                    vm_emit_sizeof_expr(ctx, &ssz, decl_type);
+                    
+                    emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
+                    print_identation(ctx, oss0);
+                    ss_fprintf(oss0, "%s = %s%s; /*vla storage*/\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
+                    ss_close(&ssz);
+                }
+                else
+                {
+                    d_print_type(ctx, &ss, decl_type, var_name, false);
+                }
 
                 ss_fprintf(&ss, ";\n");
                 ss_fprintf(&ctx->block_scope_declarators, "%s", ss.c_str);
@@ -57977,7 +58058,19 @@ const char* target_get_predefined_macros(enum target e)
 };
 
 
-
+const char* target_get_alloca(enum target e)
+{
+    switch (e)
+    {
+    case TARGET_X86_X64_GCC: return "__builtin_alloca";
+    case TARGET_X86_MSVC:    return "_alloca";
+    case TARGET_X64_MSVC:    return "_alloca";
+    case TARGET_CCU8:        return "__builtin_alloca";
+    case TARGET_LCCU16:      return "__builtin_alloca";
+    case TARGET_CATALINA:    return "__builtin_alloca";
+    }
+    return "";
+}
 const char* target_get_builtins(enum target e)
 {
     switch (e)
@@ -59020,6 +59113,9 @@ bool type_is_vm(const struct type* p_type)
 {
     const struct type* _Opt p = p_type;
 
+    if (p->category == TYPE_CATEGORY_FUNCTION)
+        return false;
+
     while (p)
     {
         switch (p->category)
@@ -59046,19 +59142,6 @@ bool type_is_vm(const struct type* p_type)
             break;
 
         case TYPE_CATEGORY_FUNCTION:
-        {
-            struct param* _Opt pa = p->params.head;
-
-            while (pa)
-            {
-                if (type_is_vm(&pa->type))
-                    return true;
-
-                pa = pa->next;
-            }
-        }
-        break;
-
         case TYPE_CATEGORY_ITSELF:
         case TYPE_CATEGORY_POINTER:
             break;
