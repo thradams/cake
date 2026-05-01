@@ -650,8 +650,19 @@ struct marker
 };
 
 void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format);
+void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool color_enabled);
 
-void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool  color_enabled);
+struct osstream;
+
+void ss_print_position(struct osstream* ss,
+                       const char* _Opt path,
+                       int line, int col,
+                       bool visual_studio_ouput_format,
+                       bool color_enabled);
+
+void ss_print_line_and_token(struct osstream* ss,
+                             struct marker* p_marker,
+                             bool color_enabled);
 
 struct stream
 {
@@ -2316,37 +2327,88 @@ void print_tokens_html(struct token* p_token)
     }
     printf("\n</pre>");
 }
-
-void print_position(const char* _Opt path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
+void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool color_enabled)
 {
-    if (path == NULL) 
-        path = "";
-
-    if (visual_studio_ouput_format)
-    {
-        //MSVC format
-        print_path(path, true /*full path*/);
-        printf("(%d,%d): ", line, col);
-    }
-    else
-    {
-        if (color_enabled)
-        {
-            printf(WHITE);
-        }
-        print_path(path, false /*full path*/);
-
-        //GCC format
-        if (color_enabled)
-            printf(WHITE ":%d:%d: ", line, col);
-        else
-            printf(":%d:%d: ", line, col);
-    }
+    struct osstream ss = { 0 };
+    ss_print_position(&ss,
+                       path,
+                       line, col,
+                       msvc_format,
+                       color_enabled);
+    puts(ss.c_str);
+    ss_close(&ss);
 }
 
 void print_line_and_token(struct marker* p_marker, bool color_enabled)
 {
+    struct osstream ss = { 0 };
+    ss_print_line_and_token(&ss, p_marker, color_enabled);
+    puts(ss.c_str);
+    ss_close(&ss);
+}
 
+static void ss_print_path(struct osstream* ss, const char* path, bool fullpath)
+{
+    const char* p = path;
+
+    if (!fullpath)
+    {
+        const char* _Opt last = NULL;
+        while (*p)
+        {
+            if (*p == '/' || *p == '\\')
+                last = p;
+            p++;
+        }
+        p = last ? last + 1 : path;
+    }
+
+    while (*p)
+    {
+#ifdef _WIN32
+        if (*p == '/')
+            ss_fprintf(ss, "\\");
+        else
+            ss_fprintf(ss, "%c", *p);
+#else
+        ss_fprintf(ss, "%c", *p);
+#endif
+        p++;
+    }
+}
+
+void ss_print_position(struct osstream* ss,
+                       const char* _Opt path,
+                       int line, int col,
+                       bool visual_studio_ouput_format,
+                       bool color_enabled)
+{
+    if (path == NULL)
+        path = "";
+
+    if (visual_studio_ouput_format)
+    {
+        ss_print_path(ss, path, true /*full path*/);
+        ss_fprintf(ss, "(%d,%d): ", line, col);
+    }
+    else
+    {
+        if (color_enabled)
+            ss_fprintf(ss, WHITE);
+
+        ss_print_path(ss, path, false /*full path*/);
+
+        if (color_enabled)
+            ss_fprintf(ss, WHITE ":%d:%d: ", line, col);
+        else
+            ss_fprintf(ss, ":%d:%d: ", line, col);
+    }
+}
+
+void ss_print_line_and_token(struct osstream* ss,
+                             struct marker* p_marker,
+                             bool color_enabled)
+{
     try
     {
         const struct token* _Opt p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
@@ -2357,20 +2419,18 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
         const int line = p_marker->line;
 
         if (color_enabled)
-            printf(COLOR_RESET);
+            ss_fprintf(ss, COLOR_RESET);
 
         char nbuffer[20] = { 0 };
         int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
-        printf(" %s |", nbuffer);
+        ss_fprintf(ss, " %s |", nbuffer);
 
-
-        //lets find the begin of line
+        /* find the begin of line */
         const struct token* p_line_begin = p_token;
         while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE && p_line_begin->prev->type != TK_PRAGMA_END))
         {
             p_line_begin = p_line_begin->prev;
         }
-
 
         const struct token* _Opt p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
         const struct token* _Opt p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
@@ -2378,12 +2438,10 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
         if (p_token_begin == NULL)
             throw;
 
-
-        //only expand macros if the error is inside
         const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
         if (color_enabled)
-            printf(LIGHTBLUE);
+            ss_fprintf(ss, LIGHTBLUE);
 
         const struct token* _Opt p_item = p_line_begin;
         while (p_item)
@@ -2392,17 +2450,17 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
             {
                 if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
                 {
-                    printf(DARKGRAY);
+                    ss_fprintf(ss, DARKGRAY);
                 }
                 else if (p_item->type >= TK_KEYWORD_AUTO &&
                          p_item->type <= TK_KEYWORD_IS_INTEGRAL)
                 {
-                    printf(BLUE);
+                    ss_fprintf(ss, BLUE);
                 }
                 else if (p_item->type == TK_COMMENT ||
                          p_item->type == TK_LINE_COMMENT)
                 {
-                    printf(YELLOW);
+                    ss_fprintf(ss, YELLOW);
                 }
             }
 
@@ -2414,7 +2472,7 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                 {
                     while (*p && *p != '\n' && *p != '\r')
                     {
-                        putc(*p, stdout);
+                        ss_fprintf(ss, "%c", *p);
                         p++;
                     }
                 }
@@ -2422,32 +2480,30 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                 {
                     while (*p)
                     {
-                        putc(*p, stdout);
+                        ss_fprintf(ss, "%c", *p);
                         p++;
                     }
                 }
             }
 
             if (color_enabled)
-            {
-                printf(COLOR_RESET);
-            }
+                ss_fprintf(ss, COLOR_RESET);
 
             if (p_item->type == TK_NEWLINE)
                 break;
 
-            if (p_item->type == TK_PRAGMA_END) /*similar of newline*/
+            if (p_item->type == TK_PRAGMA_END)
                 break;
 
             p_item = p_item->next;
         }
 
         if (color_enabled)
-            printf(COLOR_RESET);
+            ss_fprintf(ss, COLOR_RESET);
 
-        if (p_item == NULL) printf("\n");
+        if (p_item == NULL) ss_fprintf(ss, "\n");
 
-        printf(" %*s |", n, " ");
+        ss_fprintf(ss, " %*s |", n, " ");
         bool complete = false;
         int start_col = 1;
         int end_col = 1;
@@ -2458,7 +2514,7 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
             if (p_item == p_token_begin)
             {
                 if (color_enabled)
-                    printf(LIGHTGREEN);
+                    ss_fprintf(ss, LIGHTGREEN);
                 onoff = true;
                 end_col = start_col;
             }
@@ -2468,22 +2524,17 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                 const char* p = p_item->lexeme;
                 while (*p)
                 {
-
                     if (onoff)
                     {
-                        putc('~', stdout);
+                        ss_fprintf(ss, "~");
                         end_col++;
                     }
                     else
                     {
                         if (*p == '\t')
-                        {
-                            putc(*p, stdout);
-                        }
+                            ss_fprintf(ss, "\t");
                         else
-                        {
-                            putc(' ', stdout);
-                        }
+                            ss_fprintf(ss, " ");
 
                         if (!complete) start_col++;
                     }
@@ -2499,16 +2550,16 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                 complete = true;
                 onoff = false;
                 if (color_enabled)
-                    printf(COLOR_RESET);
+                    ss_fprintf(ss, COLOR_RESET);
             }
 
             p_item = p_item->next;
         }
 
         if (color_enabled)
-            printf(COLOR_RESET);
+            ss_fprintf(ss, COLOR_RESET);
 
-        printf("\n");
+        ss_fprintf(ss, "\n");
         p_marker->start_col = start_col;
         p_marker->end_col = end_col;
     }
@@ -2807,7 +2858,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
             //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
             stream_match(stream);
         }
-        
+
         while (is_digit(stream))
         {
             if (!is_octal_digit(stream))
@@ -3057,7 +3108,7 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         case '"':
             *out_value = '"';
             break;
-        
+
         case '\n': //line slicing inside string
             break;
 
@@ -16241,7 +16292,7 @@ struct report
     bool test_mode;
     int test_failed;
     int test_succeeded;
-    
+
     /*
       direct commands like -autoconfig doesnt use report
     */
@@ -16264,6 +16315,41 @@ struct label_list
 struct label_list_item* _Opt label_list_find(struct label_list* list, const char* label_name);
 void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem);
 void label_list_clear(struct label_list* list);
+
+
+struct diagnostic_item;
+
+struct diagnostic_queue
+{
+    struct diagnostic_item* _Owner _Opt head;
+    struct diagnostic_item* _Opt        tail;    
+    int count;
+};
+
+struct diagnostic_item
+{
+    int                line;
+    enum diagnostic_id id;
+    char* _Owner _Opt  text;
+    char* _Owner _Opt  sarif_text;
+
+    bool               is_error;
+    bool               is_warning;
+    bool               is_note;
+    bool               is_location;
+
+    struct diagnostic_queue children; /* W_LOCATION entries */
+
+    struct diagnostic_item* _Owner _Opt next;
+};
+
+void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e);
+void diagnostic_queue_flush(struct diagnostic_queue* q, const struct parser_ctx* ctx);
+bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id);
+void diagnostic_queue_destroy(struct diagnostic_queue* q);
+
+#define LINT_IDS_MAX 32
+int parse_diagnostic_suppression(const char* comment_lexeme, int ids[LINT_IDS_MAX]);
 
 
 struct parser_ctx
@@ -16317,7 +16403,7 @@ struct parser_ctx
     bool inside_generic_association;
 
     int label_id; /*generates unique ids for labels*/
-    
+
     /*
        complete structs have unique ids
     */
@@ -16334,6 +16420,9 @@ struct parser_ctx
     int anonymous_struct_count;
 
     struct report* p_report;
+
+
+    struct diagnostic_queue diagnostic_queue;
 
 };
 
@@ -16825,7 +16914,7 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier);
 
-const struct enumerator* _Opt find_enumerator_by_value(struct parser_ctx* ctx , const struct enum_specifier* p_enum_specifier, const struct object* object);
+const struct enumerator* _Opt find_enumerator_by_value(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* object);
 
 struct member_declaration_list
 {
@@ -16989,7 +17078,7 @@ struct declarator
        final declarator type (after auto, typeof etc)
     */
     struct type type;
-    
+
     /*
       used in code generation to indicate when the declarator was renamed
     */
@@ -17396,7 +17485,7 @@ struct defer_statement
     */
     struct token* first_token;
     struct token* last_token;
-    struct unlabeled_statement * _Owner unlabeled_statement;
+    struct unlabeled_statement* _Owner unlabeled_statement;
 };
 
 void defer_statement_delete(struct defer_statement* _Owner _Opt p);
@@ -17425,7 +17514,7 @@ struct try_statement
     /*
       __try: (msvc extension)
        "__try" secondary-block
-       "__finally" secondary-block 
+       "__finally" secondary-block
        "__except(expression)" secondary-block
     */
     struct secondary_block* _Owner secondary_block;
@@ -17443,8 +17532,8 @@ void try_statement_delete(struct try_statement* _Owner _Opt p);
 
 struct asm_statement
 {
-    struct token * p_first_token;
-    struct token * p_last_token;
+    struct token* p_first_token;
+    struct token* p_last_token;
 };
 
 struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx);
@@ -17667,7 +17756,7 @@ struct primary_block
 
     struct compound_statement* _Owner _Opt compound_statement;
     struct selection_statement* _Owner _Opt selection_statement;
-    struct iteration_statement* _Owner _Opt iteration_statement;    
+    struct iteration_statement* _Owner _Opt iteration_statement;
     struct try_statement* _Owner _Opt try_statement;
     struct asm_statement* _Owner _Opt asm_statement;
 };
@@ -17792,17 +17881,17 @@ struct attribute
 
     standard-attribute:
       identifier
-     
+
     attribute-prefixed-token:
       attribute-prefix :: identifier
-    
+
     attribute-prefix:
       identifier
     */
 
     enum msvc_declspec_flags msvc_declspec_flags;
     enum attribute_flags  attributes_flags;
-    struct attribute_argument_clause* _Owner attribute_argument_clause;    
+    struct attribute_argument_clause* _Owner attribute_argument_clause;
     struct token* _Opt attribute_token;
     struct token* _Opt attribute_prefix;
     struct attribute* _Owner _Opt next;
@@ -17931,14 +18020,14 @@ struct ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
-    
+
     /* tags and variables from file scope */
     struct scope file_scope;
 };
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
-struct ast get_ast_with_flags(int argc, const char **argv, const char* filename, const char* source, struct report* report);
+struct ast get_ast_with_flags(int argc, const char** argv, const char* filename, const char* source, struct report* report);
 void ast_destroy(_Dtor struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
@@ -17964,7 +18053,6 @@ void warn_unrecognized_warnings(struct parser_ctx* ctx,
     struct diagnostic_id_stack* stack,
     struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence,
     struct diagnostic_id_stack* _Opt p_diagnostic_id_stack);
-
 
 
 #include <math.h>
@@ -29857,7 +29945,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.20"
+#define CAKE_VERSION "0.13.22"
 
 
 
@@ -30117,10 +30205,163 @@ void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx)
     assert(ctx->label_list.head == NULL);
     assert(ctx->label_list.tail == NULL);
 
+    diagnostic_queue_destroy(&ctx->diagnostic_queue);
+
     if (ctx->sarif_file)
     {
         fclose(ctx->sarif_file);
     }
+}
+
+static void diagnostic_print(const struct diagnostic_item* e,
+                             const struct parser_ctx* ctx)
+{
+    if (e->is_error)
+        ctx->p_report->error_count++;
+    else if (e->is_warning)
+        ctx->p_report->warnings_count++;
+    else if (e->is_note)
+        ctx->p_report->info_count++;
+
+    if (e->text)
+        fputs(e->text, stdout);
+
+    if (ctx->sarif_file && e->sarif_text)
+    {
+        if (ctx->sarif_entries > 0)
+            fprintf(ctx->sarif_file, "   ,\n");
+        ((struct parser_ctx*)ctx)->sarif_entries++;
+        fputs(e->sarif_text, ctx->sarif_file);
+    }
+
+    const struct diagnostic_item* _Opt child = e->children.head;
+    while (child)
+    {
+        diagnostic_print(child, ctx);
+        child = child->next;
+    }
+}
+
+/* Free one entry and all its children. next must already be detached. */
+static void diagnostic_free(struct diagnostic_item* _Owner e)
+{
+    struct diagnostic_item* _Owner _Opt child = e->children.head;
+    while (child)
+    {
+        struct diagnostic_item* _Owner _Opt next_child = child->next;
+        child->next = NULL;
+        free(child->text);
+        free(child->sarif_text);
+        free(child);
+        child = next_child;
+    }
+    free(e->text);
+    free(e->sarif_text);
+    free(e);
+}
+
+void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e)
+{
+    if (q->tail)
+        q->tail->next = e;
+    else
+        q->head = e;
+    q->tail = e;    
+    q->count++;
+}
+
+void diagnostic_queue_flush(struct diagnostic_queue* db, const struct parser_ctx* ctx)
+{
+    struct diagnostic_item* _Owner _Opt it = db->head;
+    while (it)
+    {
+        diagnostic_print(it, ctx);
+
+        struct diagnostic_item* _Owner _Opt next = it->next;
+        it->next = NULL;
+        diagnostic_free(it);
+        it = next;
+    }
+    db->head = NULL;
+    db->tail = NULL;    
+    db->count = 0;
+}
+
+bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id)
+{
+    struct diagnostic_item* _Opt prev = NULL;
+    struct diagnostic_item* _Opt it = q->head;
+    while (it)
+    {
+        if (it->id == id)
+        {
+            if (prev)
+                prev->next = it->next;
+            else
+                q->head = it->next;
+
+            if (q->tail == it)
+                q->tail = prev;
+
+            it->next = NULL;
+            diagnostic_free(it);
+            q->count--;
+            return true;
+        }
+        prev = it;
+        it = it->next;
+    }
+    return false;
+}
+
+int parse_diagnostic_suppression(const char* p, int ids[LINT_IDS_MAX])
+{
+    /* skip comment delimiter */
+    if (p[0] == '/' && p[1] == '/')      p += 2;
+    else if (p[0] == '/' && p[1] == '*') p += 2;
+
+    /* skip spaces */
+    while (*p == ' ' || *p == '\t') p++;
+
+    /* must start with "lint" followed by a space or tab */
+    if (!(p[0] == 'l' && p[1] == 'i' && p[2] == 'n' && p[3] == 't' &&
+        (p[4] == ' ' || p[4] == '\t')))
+        return 0;
+
+    p += 4;
+
+    int count = 0;
+    while (*p && count < LINT_IDS_MAX)
+    {
+        while (*p == ' ' || *p == '\t' || *p == ',') p++;
+
+        if (*p >= '0' && *p <= '9')
+        {
+            int id = 0;
+            while (*p >= '0' && *p <= '9')
+                id = id * 10 + (*p++ - '0');
+            ids[count++] = id;
+        }
+        else
+        {
+            break;
+        }
+    }
+    return count;
+}
+
+void diagnostic_queue_destroy(struct diagnostic_queue* db)
+{
+    struct diagnostic_item* _Owner _Opt it = db->head;
+    while (it)
+    {
+        struct diagnostic_item* _Owner _Opt next = it->next;
+        it->next = NULL;
+        diagnostic_free(it);
+        it = next;
+    }
+    db->head = NULL;
+    db->tail = NULL;    
 }
 
 static void stringfy(const char* input, char* json_str_message, int output_size)
@@ -30229,7 +30470,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
 
     if (is_error)
     {
-        ctx->p_report->error_count++;
+        /* counted at print time */
     }
     else if (is_location)
     {
@@ -30241,8 +30482,6 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         {
             return false;
         }
-
-        ctx->p_report->warnings_count++;
     }
     else if (is_note)
     {
@@ -30251,8 +30490,6 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         {
             return false;
         }
-
-        ctx->p_report->info_count++;
     }
     else
     {
@@ -30268,123 +30505,149 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
             func_name = "unnamed";
     }
 
+    /* format the user message */
     char buffer[200] = { 0 };
-
-    print_position(marker.file, marker.line,
-        marker.start_col,
-        ctx->options.visual_studio_ouput_format,
-        color_enabled);
-
-
     va_list args = { 0 };
     va_start(args, fmt);
-    /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
+    struct diagnostic_queue* db = &((struct parser_ctx*)ctx)->diagnostic_queue;
+
+    /* flush the current group when the line changes */
+    if (db->count > 5)
+    {
+        diagnostic_queue_flush(db, ctx);
+    }
+
+    struct diagnostic_item* _Owner e = calloc(1, sizeof * e);
+    if (e == NULL) return false;
+
+    e->line = marker.line;
+    e->id = w;
+    e->is_error = is_error;
+    e->is_warning = is_warning;
+    e->is_note = is_note;
+    e->is_location = is_location;
+    e->next = NULL;
+
+    /* build the complete formatted stdout text */
+    struct osstream ss = { 0 };
+
+    ss_print_position(&ss, marker.file, marker.line, marker.start_col,
+                      ctx->options.visual_studio_ouput_format, color_enabled);
 
     if (ctx->options.visual_studio_ouput_format)
     {
-        if (is_error)
-            printf("error %d: ", w);
-        else if (is_warning)
-            printf("warning %d: ", w);
-        else if (is_note)
-            printf("note: ");
-        else if (is_location)
-            printf(": ");
-
-        printf("%s", buffer);
+        if (is_error)          ss_fprintf(&ss, "error %d: ", w);
+        else if (is_warning)   ss_fprintf(&ss, "warning %d: ", w);
+        else if (is_note)      ss_fprintf(&ss, "note: ");
+        else if (is_location)  ss_fprintf(&ss, ": ");
+        ss_fprintf(&ss, "%s", buffer);
     }
     else
     {
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error " WHITE "%d: %s" COLOR_RESET, w, buffer);
+                ss_fprintf(&ss, LIGHTRED "error " WHITE "%d: %s" COLOR_RESET, w, buffer);
             else
-                printf("error "        "%d: %s", w, buffer);
+                ss_fprintf(&ss, "error %d: %s", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning " WHITE "%d: %s" COLOR_RESET, w, buffer);
+                ss_fprintf(&ss, LIGHTMAGENTA "warning " WHITE "%d: %s" COLOR_RESET, w, buffer);
             else
-                printf("warning "  "%d: %s", w, buffer);
+                ss_fprintf(&ss, "warning %d: %s", w, buffer);
         }
         else if (is_note || is_location)
         {
             if (color_enabled)
-                printf(LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, buffer);
+                ss_fprintf(&ss, LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, buffer);
             else
-                printf("note: " "%s", buffer);
+                ss_fprintf(&ss, "note: %s", buffer);
         }
     }
 
-    printf("\n");
-    print_line_and_token(&marker, color_enabled);
+    ss_fprintf(&ss, "\n");
 
+    struct marker m = marker; /* ss_print_line_and_token writes start/end col back */
+    ss_print_line_and_token(&ss, &m, color_enabled);
 
+    e->text = ss.c_str;
+    ss.c_str = NULL;
+    ss_close(&ss);
+
+    /* build the complete SARIF entry text (separator + sarif_entries handled at flush) */
     if (ctx->sarif_file)
     {
+        char sarif_message[200] = { 0 };
+        stringfy(buffer, sarif_message, sizeof sarif_message);
 
-        char json_str_message[200] = { 0 };
-        stringfy(buffer, json_str_message, sizeof json_str_message);
+        struct osstream sarif_ss = { 0 };
 
-        if (ctx->sarif_entries > 0)
-        {
-            fprintf(ctx->sarif_file, "   ,\n");
-        }
+        ss_fprintf(&sarif_ss, "   {\n");
+        ss_fprintf(&sarif_ss, "     \"ruleId\":\"C%d\",\n", w);
 
-        ((struct parser_ctx*)ctx)->sarif_entries++;
+        if (is_error)        ss_fprintf(&sarif_ss, "     \"level\":\"error\",\n");
+        else if (is_warning) ss_fprintf(&sarif_ss, "     \"level\":\"warning\",\n");
+        else if (is_note)    ss_fprintf(&sarif_ss, "     \"level\":\"note\",\n");
 
-        fprintf(ctx->sarif_file, "   {\n");
-        fprintf(ctx->sarif_file, "     \"ruleId\":\"C%d\",\n", w);
+        ss_fprintf(&sarif_ss, "     \"message\": {\n");
+        ss_fprintf(&sarif_ss, "            \"text\": \"%s\"\n", sarif_message);
+        ss_fprintf(&sarif_ss, "      },\n");
+        ss_fprintf(&sarif_ss, "      \"locations\": [\n");
+        ss_fprintf(&sarif_ss, "       {\n");
+        ss_fprintf(&sarif_ss, "       \"physicalLocation\": {\n");
+        ss_fprintf(&sarif_ss, "             \"artifactLocation\": {\n");
+        ss_fprintf(&sarif_ss, "                 \"uri\": \"file:///%s\"\n", m.file);
+        ss_fprintf(&sarif_ss, "              },\n");
+        ss_fprintf(&sarif_ss, "              \"region\": {\n");
+        ss_fprintf(&sarif_ss, "                  \"startLine\": %d,\n", m.line);
+        ss_fprintf(&sarif_ss, "                  \"startColumn\": %d,\n", m.start_col);
+        ss_fprintf(&sarif_ss, "                  \"endLine\": %d,\n", m.line);
+        ss_fprintf(&sarif_ss, "                  \"endColumn\": %d\n", m.end_col);
+        ss_fprintf(&sarif_ss, "               }\n");
+        ss_fprintf(&sarif_ss, "         },\n");
+        ss_fprintf(&sarif_ss, "         \"logicalLocations\": [\n");
+        ss_fprintf(&sarif_ss, "          {\n");
+        ss_fprintf(&sarif_ss, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
+        ss_fprintf(&sarif_ss, "              \"decoratedName\": \"%s\",\n", func_name);
+        ss_fprintf(&sarif_ss, "              \"kind\": \"%s\"\n", "function");
+        ss_fprintf(&sarif_ss, "          }\n");
+        ss_fprintf(&sarif_ss, "         ]\n");
+        ss_fprintf(&sarif_ss, "       }\n");
+        ss_fprintf(&sarif_ss, "     ]\n");
+        ss_fprintf(&sarif_ss, "   }\n");
 
-        if (is_error)
-            fprintf(ctx->sarif_file, "     \"level\":\"error\",\n");
-        else if (is_warning)
-            fprintf(ctx->sarif_file, "     \"level\":\"warning\",\n");
-        else if (is_note)
-            fprintf(ctx->sarif_file, "     \"level\":\"note\",\n");
-
-        fprintf(ctx->sarif_file, "     \"message\": {\n");
-        fprintf(ctx->sarif_file, "            \"text\": \"%s\"\n", json_str_message);
-        fprintf(ctx->sarif_file, "      },\n");
-        fprintf(ctx->sarif_file, "      \"locations\": [\n");
-        fprintf(ctx->sarif_file, "       {\n");
-
-        fprintf(ctx->sarif_file, "       \"physicalLocation\": {\n");
-
-        fprintf(ctx->sarif_file, "             \"artifactLocation\": {\n");
-        fprintf(ctx->sarif_file, "                 \"uri\": \"file:///%s\"\n", marker.file);
-        fprintf(ctx->sarif_file, "              },\n");
-
-        fprintf(ctx->sarif_file, "              \"region\": {\n");
-        fprintf(ctx->sarif_file, "                  \"startLine\": %d,\n", marker.line);
-        fprintf(ctx->sarif_file, "                  \"startColumn\": %d,\n", marker.start_col);
-        fprintf(ctx->sarif_file, "                  \"endLine\": %d,\n", marker.line);
-        fprintf(ctx->sarif_file, "                  \"endColumn\": %d\n", marker.end_col);
-        fprintf(ctx->sarif_file, "               }\n");
-        fprintf(ctx->sarif_file, "         },\n");
-
-        fprintf(ctx->sarif_file, "         \"logicalLocations\": [\n");
-        fprintf(ctx->sarif_file, "          {\n");
-
-        fprintf(ctx->sarif_file, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
-        fprintf(ctx->sarif_file, "              \"decoratedName\": \"%s\",\n", func_name);
-
-        fprintf(ctx->sarif_file, "              \"kind\": \"%s\"\n", "function");
-        fprintf(ctx->sarif_file, "          }\n");
-
-        fprintf(ctx->sarif_file, "         ]\n");
-
-        fprintf(ctx->sarif_file, "       }\n");
-        fprintf(ctx->sarif_file, "     ]\n");
-
-        fprintf(ctx->sarif_file, "   }\n");
+        e->sarif_text = sarif_ss.c_str;
+        sarif_ss.c_str = NULL;
+        ss_close(&sarif_ss);
     }
 
-    return 1;
+    if (is_location)
+    {
+        /*
+         * W_LOCATION is a child of the previous diagnostic.
+         * Attach it to the tail entry's child queue regardless of line.
+         */
+        if (db->tail)
+        {
+            diagnostic_queue_add(&db->tail->children, e);
+        }
+        else
+        {
+            /* no parent yet — treat as a top-level entry */
+            diagnostic_queue_add(db, e);
+        }
+    }
+    else
+    {
+        diagnostic_queue_add(db, e);
+    }
+
+    return is_error || is_warning || is_note;
 }
 
 void print_scope(struct scope_list* e)
@@ -31336,6 +31599,38 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
     {
+        if (ctx->current->type == TK_LINE_COMMENT ||
+            ctx->current->type == TK_COMMENT)
+        {
+            int ids[LINT_IDS_MAX];
+            int count = parse_diagnostic_suppression(ctx->current->lexeme, ids);
+            for (int i = 0; i < count; i++)
+            {
+                if (get_diagnostic_phase(ids[i]) != 2)
+                {
+                    if (!diagnostic_queue_remove(&ctx->diagnostic_queue,
+                        ctx->current->line,
+                        (enum diagnostic_id)ids[i]))
+                    {
+                        ids[i] = -ids[i];                        
+                    }
+                }                
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                if (ids[i] < 0)
+                {
+                    compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
+                                               ctx,
+                                               ctx->current,
+                                               NULL,
+                                               "diagnostic '%d' not recognized",
+                                               -ids[i]);
+                }
+            }
+        }
+
         if (ctx->current)
             ctx->current = ctx->current->next;
     }
@@ -32981,7 +33276,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 "variably modified type declaration not allowed at file scope");
         }
 
-        if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+
+        if ((p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
+            (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN))
         {
             if (type_is_vla(&p_init_declarator->p_declarator->type))
             {
@@ -41383,6 +41680,8 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         *berror = true;
     }
 
+    diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
+
     if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
     {
         struct declaration* _Opt it = declaration_list.head;
@@ -41398,6 +41697,8 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             /* visiting the function again; restore the same diagnostic state */
             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
             it = it->next;
+
+            diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
         }
     }
 
@@ -49163,7 +49464,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
                     
                     emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
                     print_identation(ctx, oss0);
-                    ss_fprintf(oss0, "%s = %s%s; /*vla storage*/\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
+                    ss_fprintf(oss0, "%s = %s%s;\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
                     ss_close(&ssz);
                 }
                 else
@@ -53422,7 +53723,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
 static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
 struct true_false_set;
-static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* a);
+static void flow_visit_full_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* a);
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement);
 static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier);
@@ -54078,7 +54379,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             if (p_init_declarator->initializer->assignment_expression)
             {
                 struct true_false_set a = { 0 };
-                flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression, &a);
+                flow_visit_full_expression(ctx, p_init_declarator->initializer->assignment_expression, &a);
                 true_false_set_destroy(&a);
             }
             else
@@ -54316,7 +54617,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_selection_statement->condition->expression)
     {
         flow_check_pointer_used_as_bool(ctx, p_selection_statement->condition->expression);
-        flow_visit_expression(ctx, p_selection_statement->condition->expression, &true_false_set);
+        flow_visit_full_expression(ctx, p_selection_statement->condition->expression, &true_false_set);
     }
 
     if (p_selection_statement->condition &&
@@ -54334,7 +54635,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         assert(p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt != NULL);
         hidden_expression.first_token = p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt;
         hidden_expression.last_token = hidden_expression.first_token;
-        flow_visit_expression(ctx, &hidden_expression, &true_false_set);
+        flow_visit_full_expression(ctx, &hidden_expression, &true_false_set);
     }
 
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
@@ -54569,7 +54870,7 @@ static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initialize
     if (p_initializer->assignment_expression)
     {
         struct true_false_set a = { 0 };
-        flow_visit_expression(ctx, p_initializer->assignment_expression, &a);
+        flow_visit_full_expression(ctx, p_initializer->assignment_expression, &a);
         true_false_set_destroy(&a);
     }
     else if (p_initializer->braced_initializer)
@@ -54593,7 +54894,7 @@ static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct gene
     if (p_generic_selection->expression)
     {
         struct true_false_set a = { 0 };
-        flow_visit_expression(ctx, p_generic_selection->expression, &a);
+        flow_visit_full_expression(ctx, p_generic_selection->expression, &a);
         true_false_set_destroy(&a);
     }
 }
@@ -54624,7 +54925,7 @@ static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
 
             {
                 struct true_false_set a2 = { 0 };
-                flow_visit_expression(ctx, p_current_argument->expression, &a2);
+                flow_visit_full_expression(ctx, p_current_argument->expression, &a2);
                 true_false_set_destroy(&a2);
             }
 
@@ -55006,6 +55307,60 @@ static void flow_expression_bind(struct flow_visit_ctx* ctx,
         flow_expression_bind(ctx, p_expression->right, p_param_list, p_argument_expression_list);
 }
 
+static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* pTokenStart)
+{
+    const int search_ahead_max = 3; /* we don't search forever */
+
+    int search_count = 0;
+    struct token* pToken = pTokenStart;
+
+    while (pToken)
+    {
+        if (pToken->type == TK_LINE_COMMENT || pToken->type == TK_COMMENT)
+        {
+            int ids[LINT_IDS_MAX];
+            int count = parse_diagnostic_suppression(pToken->lexeme, ids);
+
+            for (int i = 0; i < count; i++)
+            {
+                if (get_diagnostic_phase(ids[i]) == 2)
+                {
+                    if (!diagnostic_queue_remove(&ctx->ctx->diagnostic_queue, pToken->line, (enum diagnostic_id)ids[i]))
+                    {
+                        ids[i] = -ids[i];
+                    }
+                }
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                if (ids[i] < 0)
+                {
+                    compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
+                                               ctx->ctx,
+                                               pToken,
+                                               NULL,
+                                               "diagnostic '%d' not recognized",
+                                               -ids[i]);
+                }
+            }
+        }
+        if (search_count > search_ahead_max)
+        {
+            break;
+        }
+        search_count++;
+        pToken = pToken->next;
+    }
+}
+
+static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set);
+
+static void flow_visit_full_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
+{
+    flow_visit_expression(ctx, p_expression, expr_true_false_set);
+    check_dianostic_suppression(ctx, p_expression->last_token);
+}
 
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
 {
@@ -55834,7 +56189,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             for (int i = 0; i < left_set.size; i++)
             {
-                struct true_false_set_item item5 = {0};
+                struct true_false_set_item item5 = { 0 };
                 item5.p_expression = left_set.data[i].p_expression;
                 item5.true_branch_state |= (left_set.data[i].true_branch_state | left_set.data[i].false_branch_state);
                 item5.false_branch_state |= left_set.data[i].false_branch_state;
@@ -56048,7 +56403,7 @@ static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct e
 
     struct true_false_set d = { 0 };
     if (p_expression_statement->expression_opt)
-        flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
+        flow_visit_full_expression(ctx, p_expression_statement->expression_opt, &d);
 
 
     warn_unrecognized_warnings(ctx->ctx,
@@ -56066,6 +56421,8 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
     flow_visit_block_item_list(ctx, &p_compound_statement->block_item_list);
     flow_exit_block_visit_defer_list(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
     flow_defer_list_set_end_of_lifetime(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
+
+    check_dianostic_suppression(ctx, p_compound_statement->last_token);
 }
 
 static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -56078,7 +56435,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     if (p_iteration_statement->expression1)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     }
 
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -56106,7 +56463,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
     }
 
 
-    true_false_set_destroy(&true_false_set);
+    true_false_set_destroy(&true_false_set);    
 }
 
 static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -56142,7 +56499,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     //We do a visit but this is not conclusive..so we ignore warnings
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
-    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
+    flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
 
 
     true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
@@ -56154,7 +56511,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     {
         struct true_false_set true_false_set2 = { 0 };
-        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
         true_false_set_destroy(&true_false_set2);
     }
 
@@ -56227,13 +56584,13 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     if (p_iteration_statement->expression0)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression0, &d);
     }
 
     if (p_iteration_statement->expression1)
     {
         flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
-        flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &d);
     }
 
     //TODO we need to merge states inside loops
@@ -56248,7 +56605,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     if (p_iteration_statement->expression2)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression2, &d);
     }
     const bool b_secondary_block_ends_with_jump =
         secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
@@ -56312,7 +56669,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
             if (p_jump_statement->expression_opt)
             {
                 struct true_false_set d = { 0 };
-                flow_visit_expression(ctx, p_jump_statement->expression_opt, &d);
+                flow_visit_full_expression(ctx, p_jump_statement->expression_opt, &d);
                 true_false_set_destroy(&d);
             }
 
@@ -56653,7 +57010,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     struct true_false_set a = { 0 };
-    flow_visit_expression(ctx, p_static_assert_declaration->constant_expression, &a);
+    flow_visit_full_expression(ctx, p_static_assert_declaration->constant_expression, &a);
 
     ctx->expression_is_not_evaluated = t2; //restore
 
@@ -56815,7 +57172,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
         if (p_direct_declarator->array_declarator->assignment_expression)
         {
             struct true_false_set a = { 0 };
-            flow_visit_expression(ctx, p_direct_declarator->array_declarator->assignment_expression, &a);
+            flow_visit_full_expression(ctx, p_direct_declarator->array_declarator->assignment_expression, &a);
             true_false_set_destroy(&a);
         }
 
@@ -57002,7 +57359,7 @@ static void flow_visit_enumerator(struct flow_visit_ctx* ctx, struct enumerator*
 {
     struct true_false_set a = { 0 };
     if (p_enumerator->constant_expression_opt)
-        flow_visit_expression(ctx, p_enumerator->constant_expression_opt, &a);
+        flow_visit_full_expression(ctx, p_enumerator->constant_expression_opt, &a);
     true_false_set_destroy(&a);
 }
 

@@ -3676,7 +3676,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
 static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
 struct true_false_set;
-static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* a);
+static void flow_visit_full_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* a);
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement);
 static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier);
@@ -4332,7 +4332,7 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
             if (p_init_declarator->initializer->assignment_expression)
             {
                 struct true_false_set a = { 0 };
-                flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression, &a);
+                flow_visit_full_expression(ctx, p_init_declarator->initializer->assignment_expression, &a);
                 true_false_set_destroy(&a);
             }
             else
@@ -4570,7 +4570,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_selection_statement->condition->expression)
     {
         flow_check_pointer_used_as_bool(ctx, p_selection_statement->condition->expression);
-        flow_visit_expression(ctx, p_selection_statement->condition->expression, &true_false_set);
+        flow_visit_full_expression(ctx, p_selection_statement->condition->expression, &true_false_set);
     }
 
     if (p_selection_statement->condition &&
@@ -4588,7 +4588,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         assert(p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt != NULL);
         hidden_expression.first_token = p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt;
         hidden_expression.last_token = hidden_expression.first_token;
-        flow_visit_expression(ctx, &hidden_expression, &true_false_set);
+        flow_visit_full_expression(ctx, &hidden_expression, &true_false_set);
     }
 
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
@@ -4823,7 +4823,7 @@ static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initialize
     if (p_initializer->assignment_expression)
     {
         struct true_false_set a = { 0 };
-        flow_visit_expression(ctx, p_initializer->assignment_expression, &a);
+        flow_visit_full_expression(ctx, p_initializer->assignment_expression, &a);
         true_false_set_destroy(&a);
     }
     else if (p_initializer->braced_initializer)
@@ -4847,7 +4847,7 @@ static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct gene
     if (p_generic_selection->expression)
     {
         struct true_false_set a = { 0 };
-        flow_visit_expression(ctx, p_generic_selection->expression, &a);
+        flow_visit_full_expression(ctx, p_generic_selection->expression, &a);
         true_false_set_destroy(&a);
     }
 }
@@ -4878,7 +4878,7 @@ static void flow_compare_function_arguments(struct flow_visit_ctx* ctx,
 
             {
                 struct true_false_set a2 = { 0 };
-                flow_visit_expression(ctx, p_current_argument->expression, &a2);
+                flow_visit_full_expression(ctx, p_current_argument->expression, &a2);
                 true_false_set_destroy(&a2);
             }
 
@@ -5260,6 +5260,60 @@ static void flow_expression_bind(struct flow_visit_ctx* ctx,
         flow_expression_bind(ctx, p_expression->right, p_param_list, p_argument_expression_list);
 }
 
+static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token* pTokenStart)
+{
+    const int search_ahead_max = 3; /* we don't search forever */
+
+    int search_count = 0;
+    struct token* pToken = pTokenStart;
+
+    while (pToken)
+    {
+        if (pToken->type == TK_LINE_COMMENT || pToken->type == TK_COMMENT)
+        {
+            int ids[LINT_IDS_MAX];
+            int count = parse_diagnostic_suppression(pToken->lexeme, ids);
+
+            for (int i = 0; i < count; i++)
+            {
+                if (get_diagnostic_phase(ids[i]) == 2)
+                {
+                    if (!diagnostic_queue_remove(&ctx->ctx->diagnostic_queue, pToken->line, (enum diagnostic_id)ids[i]))
+                    {
+                        ids[i] = -ids[i];
+                    }
+                }
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                if (ids[i] < 0)
+                {
+                    compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
+                                               ctx->ctx,
+                                               pToken,
+                                               NULL,
+                                               "diagnostic '%d' not recognized",
+                                               -ids[i]);
+                }
+            }
+        }
+        if (search_count > search_ahead_max)
+        {
+            break;
+        }
+        search_count++;
+        pToken = pToken->next;
+    }
+}
+
+static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set);
+
+static void flow_visit_full_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
+{
+    flow_visit_expression(ctx, p_expression, expr_true_false_set);
+    check_dianostic_suppression(ctx, p_expression->last_token);
+}
 
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct true_false_set* expr_true_false_set)
 {
@@ -6088,7 +6142,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             for (int i = 0; i < left_set.size; i++)
             {
-                struct true_false_set_item item5 = {0};
+                struct true_false_set_item item5 = { 0 };
                 item5.p_expression = left_set.data[i].p_expression;
                 item5.true_branch_state |= (left_set.data[i].true_branch_state | left_set.data[i].false_branch_state);
                 item5.false_branch_state |= left_set.data[i].false_branch_state;
@@ -6302,7 +6356,7 @@ static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct e
 
     struct true_false_set d = { 0 };
     if (p_expression_statement->expression_opt)
-        flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
+        flow_visit_full_expression(ctx, p_expression_statement->expression_opt, &d);
 
 
     warn_unrecognized_warnings(ctx->ctx,
@@ -6320,6 +6374,8 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
     flow_visit_block_item_list(ctx, &p_compound_statement->block_item_list);
     flow_exit_block_visit_defer_list(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
     flow_defer_list_set_end_of_lifetime(ctx, &p_compound_statement->defer_list, p_compound_statement->last_token);
+
+    check_dianostic_suppression(ctx, p_compound_statement->last_token);
 }
 
 static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -6332,7 +6388,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     if (p_iteration_statement->expression1)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
     }
 
     flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -6360,7 +6416,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
     }
 
 
-    true_false_set_destroy(&true_false_set);
+    true_false_set_destroy(&true_false_set);    
 }
 
 static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -6396,7 +6452,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     //We do a visit but this is not conclusive..so we ignore warnings
     diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
-    flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set);
+    flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set);
 
 
     true_false_set_set_objects_to_true_branch(ctx, &true_false_set, nullable_enabled);
@@ -6408,7 +6464,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     {
         struct true_false_set true_false_set2 = { 0 };
-        flow_visit_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &true_false_set2);
         true_false_set_destroy(&true_false_set2);
     }
 
@@ -6481,13 +6537,13 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     if (p_iteration_statement->expression0)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression0, &d);
     }
 
     if (p_iteration_statement->expression1)
     {
         flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
-        flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression1, &d);
     }
 
     //TODO we need to merge states inside loops
@@ -6502,7 +6558,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     if (p_iteration_statement->expression2)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
+        flow_visit_full_expression(ctx, p_iteration_statement->expression2, &d);
     }
     const bool b_secondary_block_ends_with_jump =
         secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
@@ -6566,7 +6622,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
             if (p_jump_statement->expression_opt)
             {
                 struct true_false_set d = { 0 };
-                flow_visit_expression(ctx, p_jump_statement->expression_opt, &d);
+                flow_visit_full_expression(ctx, p_jump_statement->expression_opt, &d);
                 true_false_set_destroy(&d);
             }
 
@@ -6907,7 +6963,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     struct true_false_set a = { 0 };
-    flow_visit_expression(ctx, p_static_assert_declaration->constant_expression, &a);
+    flow_visit_full_expression(ctx, p_static_assert_declaration->constant_expression, &a);
 
     ctx->expression_is_not_evaluated = t2; //restore
 
@@ -7069,7 +7125,7 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
         if (p_direct_declarator->array_declarator->assignment_expression)
         {
             struct true_false_set a = { 0 };
-            flow_visit_expression(ctx, p_direct_declarator->array_declarator->assignment_expression, &a);
+            flow_visit_full_expression(ctx, p_direct_declarator->array_declarator->assignment_expression, &a);
             true_false_set_destroy(&a);
         }
 
@@ -7256,7 +7312,7 @@ static void flow_visit_enumerator(struct flow_visit_ctx* ctx, struct enumerator*
 {
     struct true_false_set a = { 0 };
     if (p_enumerator->constant_expression_opt)
-        flow_visit_expression(ctx, p_enumerator->constant_expression_opt, &a);
+        flow_visit_full_expression(ctx, p_enumerator->constant_expression_opt, &a);
     true_false_set_destroy(&a);
 }
 

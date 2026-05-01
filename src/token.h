@@ -316,8 +316,19 @@ struct marker
 };
 
 void print_line_and_token(struct marker* p_marker, bool visual_studio_ouput_format);
+void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool color_enabled);
 
-void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool  color_enabled);
+struct osstream;
+
+void ss_print_position(struct osstream* ss,
+                       const char* _Opt path,
+                       int line, int col,
+                       bool visual_studio_ouput_format,
+                       bool color_enabled);
+
+void ss_print_line_and_token(struct osstream* ss,
+                             struct marker* p_marker,
+                             bool color_enabled);
 
 struct stream
 {

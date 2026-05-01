@@ -209,10 +209,163 @@ void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx)
     assert(ctx->label_list.head == NULL);
     assert(ctx->label_list.tail == NULL);
 
+    diagnostic_queue_destroy(&ctx->diagnostic_queue);
+
     if (ctx->sarif_file)
     {
         fclose(ctx->sarif_file);
     }
+}
+
+static void diagnostic_print(const struct diagnostic_item* e,
+                             const struct parser_ctx* ctx)
+{
+    if (e->is_error)
+        ctx->p_report->error_count++;
+    else if (e->is_warning)
+        ctx->p_report->warnings_count++;
+    else if (e->is_note)
+        ctx->p_report->info_count++;
+
+    if (e->text)
+        fputs(e->text, stdout);
+
+    if (ctx->sarif_file && e->sarif_text)
+    {
+        if (ctx->sarif_entries > 0)
+            fprintf(ctx->sarif_file, "   ,\n");
+        ((struct parser_ctx*)ctx)->sarif_entries++;
+        fputs(e->sarif_text, ctx->sarif_file);
+    }
+
+    const struct diagnostic_item* _Opt child = e->children.head;
+    while (child)
+    {
+        diagnostic_print(child, ctx);
+        child = child->next;
+    }
+}
+
+/* Free one entry and all its children. next must already be detached. */
+static void diagnostic_free(struct diagnostic_item* _Owner e)
+{
+    struct diagnostic_item* _Owner _Opt child = e->children.head;
+    while (child)
+    {
+        struct diagnostic_item* _Owner _Opt next_child = child->next;
+        child->next = NULL;
+        free(child->text);
+        free(child->sarif_text);
+        free(child);
+        child = next_child;
+    }
+    free(e->text);
+    free(e->sarif_text);
+    free(e);
+}
+
+void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e)
+{
+    if (q->tail)
+        q->tail->next = e;
+    else
+        q->head = e;
+    q->tail = e;    
+    q->count++;
+}
+
+void diagnostic_queue_flush(struct diagnostic_queue* db, const struct parser_ctx* ctx)
+{
+    struct diagnostic_item* _Owner _Opt it = db->head;
+    while (it)
+    {
+        diagnostic_print(it, ctx);
+
+        struct diagnostic_item* _Owner _Opt next = it->next;
+        it->next = NULL;
+        diagnostic_free(it);
+        it = next;
+    }
+    db->head = NULL;
+    db->tail = NULL;    
+    db->count = 0;
+}
+
+bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id)
+{
+    struct diagnostic_item* _Opt prev = NULL;
+    struct diagnostic_item* _Opt it = q->head;
+    while (it)
+    {
+        if (it->id == id)
+        {
+            if (prev)
+                prev->next = it->next;
+            else
+                q->head = it->next;
+
+            if (q->tail == it)
+                q->tail = prev;
+
+            it->next = NULL;
+            diagnostic_free(it);
+            q->count--;
+            return true;
+        }
+        prev = it;
+        it = it->next;
+    }
+    return false;
+}
+
+int parse_diagnostic_suppression(const char* p, int ids[LINT_IDS_MAX])
+{
+    /* skip comment delimiter */
+    if (p[0] == '/' && p[1] == '/')      p += 2;
+    else if (p[0] == '/' && p[1] == '*') p += 2;
+
+    /* skip spaces */
+    while (*p == ' ' || *p == '\t') p++;
+
+    /* must start with "lint" followed by a space or tab */
+    if (!(p[0] == 'l' && p[1] == 'i' && p[2] == 'n' && p[3] == 't' &&
+        (p[4] == ' ' || p[4] == '\t')))
+        return 0;
+
+    p += 4;
+
+    int count = 0;
+    while (*p && count < LINT_IDS_MAX)
+    {
+        while (*p == ' ' || *p == '\t' || *p == ',') p++;
+
+        if (*p >= '0' && *p <= '9')
+        {
+            int id = 0;
+            while (*p >= '0' && *p <= '9')
+                id = id * 10 + (*p++ - '0');
+            ids[count++] = id;
+        }
+        else
+        {
+            break;
+        }
+    }
+    return count;
+}
+
+void diagnostic_queue_destroy(struct diagnostic_queue* db)
+{
+    struct diagnostic_item* _Owner _Opt it = db->head;
+    while (it)
+    {
+        struct diagnostic_item* _Owner _Opt next = it->next;
+        it->next = NULL;
+        diagnostic_free(it);
+        it = next;
+    }
+    db->head = NULL;
+    db->tail = NULL;    
 }
 
 static void stringfy(const char* input, char* json_str_message, int output_size)
@@ -321,7 +474,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
 
     if (is_error)
     {
-        ctx->p_report->error_count++;
+        /* counted at print time */
     }
     else if (is_location)
     {
@@ -333,8 +486,6 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         {
             return false;
         }
-
-        ctx->p_report->warnings_count++;
     }
     else if (is_note)
     {
@@ -343,8 +494,6 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         {
             return false;
         }
-
-        ctx->p_report->info_count++;
     }
     else
     {
@@ -360,123 +509,149 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
             func_name = "unnamed";
     }
 
+    /* format the user message */
     char buffer[200] = { 0 };
-
-    print_position(marker.file, marker.line,
-        marker.start_col,
-        ctx->options.visual_studio_ouput_format,
-        color_enabled);
-
-
     va_list args = { 0 };
     va_start(args, fmt);
-    /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
+    struct diagnostic_queue* db = &((struct parser_ctx*)ctx)->diagnostic_queue;
+
+    /* flush the current group when the line changes */
+    if (db->count > 5)
+    {
+        diagnostic_queue_flush(db, ctx);
+    }
+
+    struct diagnostic_item* _Owner e = calloc(1, sizeof * e);
+    if (e == NULL) return false;
+
+    e->line = marker.line;
+    e->id = w;
+    e->is_error = is_error;
+    e->is_warning = is_warning;
+    e->is_note = is_note;
+    e->is_location = is_location;
+    e->next = NULL;
+
+    /* build the complete formatted stdout text */
+    struct osstream ss = { 0 };
+
+    ss_print_position(&ss, marker.file, marker.line, marker.start_col,
+                      ctx->options.visual_studio_ouput_format, color_enabled);
 
     if (ctx->options.visual_studio_ouput_format)
     {
-        if (is_error)
-            printf("error %d: ", w);
-        else if (is_warning)
-            printf("warning %d: ", w);
-        else if (is_note)
-            printf("note: ");
-        else if (is_location)
-            printf(": ");
-
-        printf("%s", buffer);
+        if (is_error)          ss_fprintf(&ss, "error %d: ", w);
+        else if (is_warning)   ss_fprintf(&ss, "warning %d: ", w);
+        else if (is_note)      ss_fprintf(&ss, "note: ");
+        else if (is_location)  ss_fprintf(&ss, ": ");
+        ss_fprintf(&ss, "%s", buffer);
     }
     else
     {
         if (is_error)
         {
             if (color_enabled)
-                printf(LIGHTRED "error " WHITE "%d: %s" COLOR_RESET, w, buffer);
+                ss_fprintf(&ss, LIGHTRED "error " WHITE "%d: %s" COLOR_RESET, w, buffer);
             else
-                printf("error "        "%d: %s", w, buffer);
+                ss_fprintf(&ss, "error %d: %s", w, buffer);
         }
         else if (is_warning)
         {
             if (color_enabled)
-                printf(LIGHTMAGENTA "warning " WHITE "%d: %s" COLOR_RESET, w, buffer);
+                ss_fprintf(&ss, LIGHTMAGENTA "warning " WHITE "%d: %s" COLOR_RESET, w, buffer);
             else
-                printf("warning "  "%d: %s", w, buffer);
+                ss_fprintf(&ss, "warning %d: %s", w, buffer);
         }
         else if (is_note || is_location)
         {
             if (color_enabled)
-                printf(LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, buffer);
+                ss_fprintf(&ss, LIGHTCYAN "note: " WHITE "%s" COLOR_RESET, buffer);
             else
-                printf("note: " "%s", buffer);
+                ss_fprintf(&ss, "note: %s", buffer);
         }
     }
 
-    printf("\n");
-    print_line_and_token(&marker, color_enabled);
+    ss_fprintf(&ss, "\n");
 
+    struct marker m = marker; /* ss_print_line_and_token writes start/end col back */
+    ss_print_line_and_token(&ss, &m, color_enabled);
 
+    e->text = ss.c_str;
+    ss.c_str = NULL;
+    ss_close(&ss);
+
+    /* build the complete SARIF entry text (separator + sarif_entries handled at flush) */
     if (ctx->sarif_file)
     {
+        char sarif_message[200] = { 0 };
+        stringfy(buffer, sarif_message, sizeof sarif_message);
 
-        char json_str_message[200] = { 0 };
-        stringfy(buffer, json_str_message, sizeof json_str_message);
+        struct osstream sarif_ss = { 0 };
 
-        if (ctx->sarif_entries > 0)
-        {
-            fprintf(ctx->sarif_file, "   ,\n");
-        }
+        ss_fprintf(&sarif_ss, "   {\n");
+        ss_fprintf(&sarif_ss, "     \"ruleId\":\"C%d\",\n", w);
 
-        ((struct parser_ctx*)ctx)->sarif_entries++;
+        if (is_error)        ss_fprintf(&sarif_ss, "     \"level\":\"error\",\n");
+        else if (is_warning) ss_fprintf(&sarif_ss, "     \"level\":\"warning\",\n");
+        else if (is_note)    ss_fprintf(&sarif_ss, "     \"level\":\"note\",\n");
 
-        fprintf(ctx->sarif_file, "   {\n");
-        fprintf(ctx->sarif_file, "     \"ruleId\":\"C%d\",\n", w);
+        ss_fprintf(&sarif_ss, "     \"message\": {\n");
+        ss_fprintf(&sarif_ss, "            \"text\": \"%s\"\n", sarif_message);
+        ss_fprintf(&sarif_ss, "      },\n");
+        ss_fprintf(&sarif_ss, "      \"locations\": [\n");
+        ss_fprintf(&sarif_ss, "       {\n");
+        ss_fprintf(&sarif_ss, "       \"physicalLocation\": {\n");
+        ss_fprintf(&sarif_ss, "             \"artifactLocation\": {\n");
+        ss_fprintf(&sarif_ss, "                 \"uri\": \"file:///%s\"\n", m.file);
+        ss_fprintf(&sarif_ss, "              },\n");
+        ss_fprintf(&sarif_ss, "              \"region\": {\n");
+        ss_fprintf(&sarif_ss, "                  \"startLine\": %d,\n", m.line);
+        ss_fprintf(&sarif_ss, "                  \"startColumn\": %d,\n", m.start_col);
+        ss_fprintf(&sarif_ss, "                  \"endLine\": %d,\n", m.line);
+        ss_fprintf(&sarif_ss, "                  \"endColumn\": %d\n", m.end_col);
+        ss_fprintf(&sarif_ss, "               }\n");
+        ss_fprintf(&sarif_ss, "         },\n");
+        ss_fprintf(&sarif_ss, "         \"logicalLocations\": [\n");
+        ss_fprintf(&sarif_ss, "          {\n");
+        ss_fprintf(&sarif_ss, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
+        ss_fprintf(&sarif_ss, "              \"decoratedName\": \"%s\",\n", func_name);
+        ss_fprintf(&sarif_ss, "              \"kind\": \"%s\"\n", "function");
+        ss_fprintf(&sarif_ss, "          }\n");
+        ss_fprintf(&sarif_ss, "         ]\n");
+        ss_fprintf(&sarif_ss, "       }\n");
+        ss_fprintf(&sarif_ss, "     ]\n");
+        ss_fprintf(&sarif_ss, "   }\n");
 
-        if (is_error)
-            fprintf(ctx->sarif_file, "     \"level\":\"error\",\n");
-        else if (is_warning)
-            fprintf(ctx->sarif_file, "     \"level\":\"warning\",\n");
-        else if (is_note)
-            fprintf(ctx->sarif_file, "     \"level\":\"note\",\n");
-
-        fprintf(ctx->sarif_file, "     \"message\": {\n");
-        fprintf(ctx->sarif_file, "            \"text\": \"%s\"\n", json_str_message);
-        fprintf(ctx->sarif_file, "      },\n");
-        fprintf(ctx->sarif_file, "      \"locations\": [\n");
-        fprintf(ctx->sarif_file, "       {\n");
-
-        fprintf(ctx->sarif_file, "       \"physicalLocation\": {\n");
-
-        fprintf(ctx->sarif_file, "             \"artifactLocation\": {\n");
-        fprintf(ctx->sarif_file, "                 \"uri\": \"file:///%s\"\n", marker.file);
-        fprintf(ctx->sarif_file, "              },\n");
-
-        fprintf(ctx->sarif_file, "              \"region\": {\n");
-        fprintf(ctx->sarif_file, "                  \"startLine\": %d,\n", marker.line);
-        fprintf(ctx->sarif_file, "                  \"startColumn\": %d,\n", marker.start_col);
-        fprintf(ctx->sarif_file, "                  \"endLine\": %d,\n", marker.line);
-        fprintf(ctx->sarif_file, "                  \"endColumn\": %d\n", marker.end_col);
-        fprintf(ctx->sarif_file, "               }\n");
-        fprintf(ctx->sarif_file, "         },\n");
-
-        fprintf(ctx->sarif_file, "         \"logicalLocations\": [\n");
-        fprintf(ctx->sarif_file, "          {\n");
-
-        fprintf(ctx->sarif_file, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
-        fprintf(ctx->sarif_file, "              \"decoratedName\": \"%s\",\n", func_name);
-
-        fprintf(ctx->sarif_file, "              \"kind\": \"%s\"\n", "function");
-        fprintf(ctx->sarif_file, "          }\n");
-
-        fprintf(ctx->sarif_file, "         ]\n");
-
-        fprintf(ctx->sarif_file, "       }\n");
-        fprintf(ctx->sarif_file, "     ]\n");
-
-        fprintf(ctx->sarif_file, "   }\n");
+        e->sarif_text = sarif_ss.c_str;
+        sarif_ss.c_str = NULL;
+        ss_close(&sarif_ss);
     }
 
-    return 1;
+    if (is_location)
+    {
+        /*
+         * W_LOCATION is a child of the previous diagnostic.
+         * Attach it to the tail entry's child queue regardless of line.
+         */
+        if (db->tail)
+        {
+            diagnostic_queue_add(&db->tail->children, e);
+        }
+        else
+        {
+            /* no parent yet — treat as a top-level entry */
+            diagnostic_queue_add(db, e);
+        }
+    }
+    else
+    {
+        diagnostic_queue_add(db, e);
+    }
+
+    return is_error || is_warning || is_note;
 }
 
 void print_scope(struct scope_list* e)
@@ -1428,6 +1603,38 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
     {
+        if (ctx->current->type == TK_LINE_COMMENT ||
+            ctx->current->type == TK_COMMENT)
+        {
+            int ids[LINT_IDS_MAX];
+            int count = parse_diagnostic_suppression(ctx->current->lexeme, ids);
+            for (int i = 0; i < count; i++)
+            {
+                if (get_diagnostic_phase(ids[i]) != 2)
+                {
+                    if (!diagnostic_queue_remove(&ctx->diagnostic_queue,
+                        ctx->current->line,
+                        (enum diagnostic_id)ids[i]))
+                    {
+                        ids[i] = -ids[i];                        
+                    }
+                }                
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                if (ids[i] < 0)
+                {
+                    compiler_diagnostic(W_WARNING_DID_NOT_HAPPEN,
+                                               ctx,
+                                               ctx->current,
+                                               NULL,
+                                               "diagnostic '%d' not recognized",
+                                               -ids[i]);
+                }
+            }
+        }
+
         if (ctx->current)
             ctx->current = ctx->current->next;
     }
@@ -3073,7 +3280,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 "variably modified type declaration not allowed at file scope");
         }
 
-        if (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+
+        if ((p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) ||
+            (p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN))
         {
             if (type_is_vla(&p_init_declarator->p_declarator->type))
             {
@@ -11475,6 +11684,8 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
         *berror = true;
     }
 
+    diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
+
     if (ctx->p_report->error_count == 0 && ctx->options.flow_analysis)
     {
         struct declaration* _Opt it = declaration_list.head;
@@ -11490,6 +11701,8 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             /* visiting the function again; restore the same diagnostic state */
             ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index] = before_function_diagnostics;
             it = it->next;
+
+            diagnostic_queue_flush(&ctx->diagnostic_queue, ctx);
         }
     }
 

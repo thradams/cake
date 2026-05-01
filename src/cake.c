@@ -2341,31 +2341,14 @@ void print_path(char * path);
 
 void print_position(char * path, int line, int col, unsigned char  visual_studio_ouput_format, unsigned char  color_enabled)
 {
-    if (path == 0)
-    {
-        path = "";
-    }
-    if (visual_studio_ouput_format)
-    {
-        print_path(path);
-        printf("(%d,%d): ", line, col);
-    }
-    else
-    {
-        if (color_enabled)
-        {
-            printf("\x1b[97m");
-        }
-        print_path(path);
-        if (color_enabled)
-        {
-            printf("\x1b[97m:%d:%d: ", line, col);
-        }
-        else
-        {
-            printf(":%d:%d: ", line, col);
-        }
-    }
+    struct osstream ss = { 0 };
+    ss_print_position(&ss,
+                       path,
+                       line, col,
+                       visual_studio_ouput_format,
+                       color_enabled);
+    fputs(ss.c_str());
+    ss_close(&ss);
 }
 
 
@@ -2373,192 +2356,10 @@ int __cdecl putc(int _Character, struct _iobuf * _Stream);
 
 void print_line_and_token(struct marker * p_marker, unsigned char  color_enabled)
 {
-    if (1) /*try*/
-    {
-        struct token * p_token;
-        int line;
-        char nbuffer[20];
-        int n;
-        struct token * p_line_begin;
-        struct token * p_token_begin;
-        struct token * p_token_end;
-        unsigned char  expand_macro;
-        struct token * p_item;
-        unsigned char  complete;
-        int start_col;
-        int end_col;
-        unsigned char  onoff;
-
-        p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
-        if (p_token == 0)
-        {
-            goto __L0; /* throw */
-        }
-        line = p_marker->line;
-        if (color_enabled)
-        {
-            printf("\x1b[0m");
-        }
-        _cake_zmem(&nbuffer, 20);
-        n = snprintf(nbuffer, 20, "%d", line);
-        printf(" %s |", nbuffer);
-        p_line_begin = p_token;
-        while (p_line_begin->prev && (p_line_begin->prev->type != 10 && p_line_begin->prev->type != 8998 && p_line_begin->prev->type != 129))
-        {
-            p_line_begin = p_line_begin->prev;
-        }
-        p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
-        p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
-        if (p_token_begin == 0)
-        {
-            goto __L0; /* throw */
-        }
-        expand_macro = ((p_token_begin->flags & 2) != 0);
-        if (color_enabled)
-        {
-            printf("\x1b[34;1m");
-        }
-        p_item = p_line_begin;
-        while (p_item)
-        {
-            if (color_enabled)
-            {
-                if (p_item->flags & 2)
-                {
-                    printf("\x1b[90m");
-                }
-                else
-                {
-                    if (p_item->type >= 8999 && p_item->type <= 9100)
-                    {
-                        printf("\x1b[34m");
-                    }
-                    else
-                    {
-                        if (p_item->type == 133 || p_item->type == 132)
-                        {
-                            printf("\x1b[93m");
-                        }
-                    }
-                }
-            }
-            if (!(p_item->flags & 2) || expand_macro)
-            {
-                char * p;
-
-                p = p_item->lexeme;
-                if (p_item->type == 132)
-                {
-                    while (*p && *p != 10 && *p != 13)
-                    {
-                        putc(*p, (__acrt_iob_func(1)));
-                        p++;
-                    }
-                }
-                else
-                {
-                    while (*p)
-                    {
-                        putc(*p, (__acrt_iob_func(1)));
-                        p++;
-                    }
-                }
-            }
-            if (color_enabled)
-            {
-                printf("\x1b[0m");
-            }
-            if (p_item->type == 10)
-            {
-                break;
-            }
-            if (p_item->type == 129)
-            {
-                break;
-            }
-            p_item = p_item->next;
-        }
-        if (color_enabled)
-        {
-            printf("\x1b[0m");
-        }
-        if (p_item == 0)
-        {
-            printf("\n");
-        }
-        printf(" %*s |", n, " ");
-        complete = 0;
-        start_col = 1;
-        end_col = 1;
-        onoff = 0;
-        p_item = p_line_begin;
-        while (p_item)
-        {
-            if (p_item == p_token_begin)
-            {
-                if (color_enabled)
-                {
-                    printf("\x1b[92m");
-                }
-                onoff = 1;
-                end_col = start_col;
-            }
-            if (!(p_item->flags & 2) || expand_macro)
-            {
-                char * p;
-
-                p = p_item->lexeme;
-                while (*p)
-                {
-                    if (onoff)
-                    {
-                        putc(126, (__acrt_iob_func(1)));
-                        end_col++;
-                    }
-                    else
-                    {
-                        if (*p == 9)
-                        {
-                            putc(*p, (__acrt_iob_func(1)));
-                        }
-                        else
-                        {
-                            putc(32, (__acrt_iob_func(1)));
-                        }
-                        if (!complete)
-                        {
-                            start_col++;
-                        }
-                    }
-                    p++;
-                }
-            }
-            if (p_item->type == 10)
-            {
-                break;
-            }
-            if (p_item == p_token_end)
-            {
-                complete = 1;
-                onoff = 0;
-                if (color_enabled)
-                {
-                    printf("\x1b[0m");
-                }
-            }
-            p_item = p_item->next;
-        }
-        if (color_enabled)
-        {
-            printf("\x1b[0m");
-        }
-        printf("\n");
-        p_marker->start_col = start_col;
-        p_marker->end_col = end_col;
-    }
-    else __L0: /*catch*/ 
-    {
-    }
+    struct osstream ss = { 0 };
+    ss_print_line_and_token(&ss, p_marker, color_enabled);
+    fputs(ss.c_str());
+    ss_close(&ss);
 }
 
 

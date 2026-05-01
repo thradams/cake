@@ -48,7 +48,7 @@ struct report
     bool test_mode;
     int test_failed;
     int test_succeeded;
-    
+
     /*
       direct commands like -autoconfig doesnt use report
     */
@@ -71,6 +71,41 @@ struct label_list
 struct label_list_item* _Opt label_list_find(struct label_list* list, const char* label_name);
 void label_list_push(struct label_list* list, struct label_list_item* _Owner pitem);
 void label_list_clear(struct label_list* list);
+
+
+struct diagnostic_item;
+
+struct diagnostic_queue
+{
+    struct diagnostic_item* _Owner _Opt head;
+    struct diagnostic_item* _Opt        tail;    
+    int count;
+};
+
+struct diagnostic_item
+{
+    int                line;
+    enum diagnostic_id id;
+    char* _Owner _Opt  text;
+    char* _Owner _Opt  sarif_text;
+
+    bool               is_error;
+    bool               is_warning;
+    bool               is_note;
+    bool               is_location;
+
+    struct diagnostic_queue children; /* W_LOCATION entries */
+
+    struct diagnostic_item* _Owner _Opt next;
+};
+
+void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e);
+void diagnostic_queue_flush(struct diagnostic_queue* q, const struct parser_ctx* ctx);
+bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id);
+void diagnostic_queue_destroy(struct diagnostic_queue* q);
+
+#define LINT_IDS_MAX 32
+int parse_diagnostic_suppression(const char* comment_lexeme, int ids[LINT_IDS_MAX]);
 
 
 struct parser_ctx
@@ -124,7 +159,7 @@ struct parser_ctx
     bool inside_generic_association;
 
     int label_id; /*generates unique ids for labels*/
-    
+
     /*
        complete structs have unique ids
     */
@@ -141,6 +176,9 @@ struct parser_ctx
     int anonymous_struct_count;
 
     struct report* p_report;
+
+
+    struct diagnostic_queue diagnostic_queue;
 
 };
 
@@ -632,7 +670,7 @@ void enum_specifier_delete(struct enum_specifier* _Owner _Opt p);
 const struct enum_specifier* _Opt get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 enum type_specifier_flags get_enum_type_specifier_flags(const struct enum_specifier* p_enum_specifier);
 
-const struct enumerator* _Opt find_enumerator_by_value(struct parser_ctx* ctx , const struct enum_specifier* p_enum_specifier, const struct object* object);
+const struct enumerator* _Opt find_enumerator_by_value(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* object);
 
 struct member_declaration_list
 {
@@ -796,7 +834,7 @@ struct declarator
        final declarator type (after auto, typeof etc)
     */
     struct type type;
-    
+
     /*
       used in code generation to indicate when the declarator was renamed
     */
@@ -1203,7 +1241,7 @@ struct defer_statement
     */
     struct token* first_token;
     struct token* last_token;
-    struct unlabeled_statement * _Owner unlabeled_statement;
+    struct unlabeled_statement* _Owner unlabeled_statement;
 };
 
 void defer_statement_delete(struct defer_statement* _Owner _Opt p);
@@ -1232,7 +1270,7 @@ struct try_statement
     /*
       __try: (msvc extension)
        "__try" secondary-block
-       "__finally" secondary-block 
+       "__finally" secondary-block
        "__except(expression)" secondary-block
     */
     struct secondary_block* _Owner secondary_block;
@@ -1250,8 +1288,8 @@ void try_statement_delete(struct try_statement* _Owner _Opt p);
 
 struct asm_statement
 {
-    struct token * p_first_token;
-    struct token * p_last_token;
+    struct token* p_first_token;
+    struct token* p_last_token;
 };
 
 struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx);
@@ -1474,7 +1512,7 @@ struct primary_block
 
     struct compound_statement* _Owner _Opt compound_statement;
     struct selection_statement* _Owner _Opt selection_statement;
-    struct iteration_statement* _Owner _Opt iteration_statement;    
+    struct iteration_statement* _Owner _Opt iteration_statement;
     struct try_statement* _Owner _Opt try_statement;
     struct asm_statement* _Owner _Opt asm_statement;
 };
@@ -1599,17 +1637,17 @@ struct attribute
 
     standard-attribute:
       identifier
-     
+
     attribute-prefixed-token:
       attribute-prefix :: identifier
-    
+
     attribute-prefix:
       identifier
     */
 
     enum msvc_declspec_flags msvc_declspec_flags;
     enum attribute_flags  attributes_flags;
-    struct attribute_argument_clause* _Owner attribute_argument_clause;    
+    struct attribute_argument_clause* _Owner attribute_argument_clause;
     struct token* _Opt attribute_token;
     struct token* _Opt attribute_prefix;
     struct attribute* _Owner _Opt next;
@@ -1738,14 +1776,14 @@ struct ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
-    
+
     /* tags and variables from file scope */
     struct scope file_scope;
 };
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
-struct ast get_ast_with_flags(int argc, const char **argv, const char* filename, const char* source, struct report* report);
+struct ast get_ast_with_flags(int argc, const char** argv, const char* filename, const char* source, struct report* report);
 void ast_destroy(_Dtor struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 

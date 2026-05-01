@@ -881,37 +881,88 @@ void print_tokens_html(struct token* p_token)
     }
     printf("\n</pre>");
 }
-
-void print_position(const char* _Opt path, int line, int col, bool visual_studio_ouput_format, bool  color_enabled)
+void print_position(const char* _Opt path, int line, int col, bool msvc_format, bool color_enabled)
 {
-    if (path == NULL) 
-        path = "";
-
-    if (visual_studio_ouput_format)
-    {
-        //MSVC format
-        print_path(path, true /*full path*/);
-        printf("(%d,%d): ", line, col);
-    }
-    else
-    {
-        if (color_enabled)
-        {
-            printf(WHITE);
-        }
-        print_path(path, false /*full path*/);
-
-        //GCC format
-        if (color_enabled)
-            printf(WHITE ":%d:%d: ", line, col);
-        else
-            printf(":%d:%d: ", line, col);
-    }
+    struct osstream ss = { 0 };
+    ss_print_position(&ss,
+                       path,
+                       line, col,
+                       msvc_format,
+                       color_enabled);
+    puts(ss.c_str);
+    ss_close(&ss);
 }
 
 void print_line_and_token(struct marker* p_marker, bool color_enabled)
 {
+    struct osstream ss = { 0 };
+    ss_print_line_and_token(&ss, p_marker, color_enabled);
+    puts(ss.c_str);
+    ss_close(&ss);
+}
 
+static void ss_print_path(struct osstream* ss, const char* path, bool fullpath)
+{
+    const char* p = path;
+
+    if (!fullpath)
+    {
+        const char* _Opt last = NULL;
+        while (*p)
+        {
+            if (*p == '/' || *p == '\\')
+                last = p;
+            p++;
+        }
+        p = last ? last + 1 : path;
+    }
+
+    while (*p)
+    {
+#ifdef _WIN32
+        if (*p == '/')
+            ss_fprintf(ss, "\\");
+        else
+            ss_fprintf(ss, "%c", *p);
+#else
+        ss_fprintf(ss, "%c", *p);
+#endif
+        p++;
+    }
+}
+
+void ss_print_position(struct osstream* ss,
+                       const char* _Opt path,
+                       int line, int col,
+                       bool visual_studio_ouput_format,
+                       bool color_enabled)
+{
+    if (path == NULL)
+        path = "";
+
+    if (visual_studio_ouput_format)
+    {
+        ss_print_path(ss, path, true /*full path*/);
+        ss_fprintf(ss, "(%d,%d): ", line, col);
+    }
+    else
+    {
+        if (color_enabled)
+            ss_fprintf(ss, WHITE);
+
+        ss_print_path(ss, path, false /*full path*/);
+
+        if (color_enabled)
+            ss_fprintf(ss, WHITE ":%d:%d: ", line, col);
+        else
+            ss_fprintf(ss, ":%d:%d: ", line, col);
+    }
+}
+
+void ss_print_line_and_token(struct osstream* ss,
+                             struct marker* p_marker,
+                             bool color_enabled)
+{
     try
     {
         const struct token* _Opt p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
@@ -922,20 +973,18 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
         const int line = p_marker->line;
 
         if (color_enabled)
-            printf(COLOR_RESET);
+            ss_fprintf(ss, COLOR_RESET);
 
         char nbuffer[20] = { 0 };
         int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
-        printf(" %s |", nbuffer);
+        ss_fprintf(ss, " %s |", nbuffer);
 
-
-        //lets find the begin of line
+        /* find the begin of line */
         const struct token* p_line_begin = p_token;
         while (p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE && p_line_begin->prev->type != TK_PRAGMA_END))
         {
             p_line_begin = p_line_begin->prev;
         }
-
 
         const struct token* _Opt p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
         const struct token* _Opt p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
@@ -943,12 +992,10 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
         if (p_token_begin == NULL)
             throw;
 
-
-        //only expand macros if the error is inside
         const bool expand_macro = p_token_begin->flags & TK_FLAG_MACRO_EXPANDED;
 
         if (color_enabled)
-            printf(LIGHTBLUE);
+            ss_fprintf(ss, LIGHTBLUE);
 
         const struct token* _Opt p_item = p_line_begin;
         while (p_item)
@@ -957,17 +1004,17 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
             {
                 if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
                 {
-                    printf(DARKGRAY);
+                    ss_fprintf(ss, DARKGRAY);
                 }
                 else if (p_item->type >= TK_KEYWORD_AUTO &&
                          p_item->type <= TK_KEYWORD_IS_INTEGRAL)
                 {
-                    printf(BLUE);
+                    ss_fprintf(ss, BLUE);
                 }
                 else if (p_item->type == TK_COMMENT ||
                          p_item->type == TK_LINE_COMMENT)
                 {
-                    printf(YELLOW);
+                    ss_fprintf(ss, YELLOW);
                 }
             }
 
@@ -979,7 +1026,7 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                 {
                     while (*p && *p != '\n' && *p != '\r')
                     {
-                        putc(*p, stdout);
+                        ss_fprintf(ss, "%c", *p);
                         p++;
                     }
                 }
@@ -987,32 +1034,30 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                 {
                     while (*p)
                     {
-                        putc(*p, stdout);
+                        ss_fprintf(ss, "%c", *p);
                         p++;
                     }
                 }
             }
 
             if (color_enabled)
-            {
-                printf(COLOR_RESET);
-            }
+                ss_fprintf(ss, COLOR_RESET);
 
             if (p_item->type == TK_NEWLINE)
                 break;
 
-            if (p_item->type == TK_PRAGMA_END) /*similar of newline*/
+            if (p_item->type == TK_PRAGMA_END)
                 break;
 
             p_item = p_item->next;
         }
 
         if (color_enabled)
-            printf(COLOR_RESET);
+            ss_fprintf(ss, COLOR_RESET);
 
-        if (p_item == NULL) printf("\n");
+        if (p_item == NULL) ss_fprintf(ss, "\n");
 
-        printf(" %*s |", n, " ");
+        ss_fprintf(ss, " %*s |", n, " ");
         bool complete = false;
         int start_col = 1;
         int end_col = 1;
@@ -1023,7 +1068,7 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
             if (p_item == p_token_begin)
             {
                 if (color_enabled)
-                    printf(LIGHTGREEN);
+                    ss_fprintf(ss, LIGHTGREEN);
                 onoff = true;
                 end_col = start_col;
             }
@@ -1033,22 +1078,17 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                 const char* p = p_item->lexeme;
                 while (*p)
                 {
-
                     if (onoff)
                     {
-                        putc('~', stdout);
+                        ss_fprintf(ss, "~");
                         end_col++;
                     }
                     else
                     {
                         if (*p == '\t')
-                        {
-                            putc(*p, stdout);
-                        }
+                            ss_fprintf(ss, "\t");
                         else
-                        {
-                            putc(' ', stdout);
-                        }
+                            ss_fprintf(ss, " ");
 
                         if (!complete) start_col++;
                     }
@@ -1064,16 +1104,16 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
                 complete = true;
                 onoff = false;
                 if (color_enabled)
-                    printf(COLOR_RESET);
+                    ss_fprintf(ss, COLOR_RESET);
             }
 
             p_item = p_item->next;
         }
 
         if (color_enabled)
-            printf(COLOR_RESET);
+            ss_fprintf(ss, COLOR_RESET);
 
-        printf("\n");
+        ss_fprintf(ss, "\n");
         p_marker->start_col = start_col;
         p_marker->end_col = end_col;
     }
@@ -1372,7 +1412,7 @@ enum token_type parse_number_core(struct stream* stream, char suffix[4], _Ctor c
             //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3319.htm
             stream_match(stream);
         }
-        
+
         while (is_digit(stream))
         {
             if (!is_octal_digit(stream))
@@ -1622,7 +1662,7 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
         case '"':
             *out_value = '"';
             break;
-        
+
         case '\n': //line slicing inside string
             break;
 
