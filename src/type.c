@@ -1040,7 +1040,7 @@ bool type_is_bitfield(const struct type* p_type)
 
 int type_get_bitfield_width(const struct type* p_type)
 {
-    return p_type->array_num_elements;
+    return (int) p_type->array_num_elements;
 }
 
 /*

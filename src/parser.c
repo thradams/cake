@@ -270,7 +270,7 @@ void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _O
         q->tail->next = e;
     else
         q->head = e;
-    q->tail = e;    
+    q->tail = e;
     q->count++;
 }
 
@@ -287,7 +287,7 @@ void diagnostic_queue_flush(struct diagnostic_queue* db, const struct parser_ctx
         it = next;
     }
     db->head = NULL;
-    db->tail = NULL;    
+    db->tail = NULL;
     db->count = 0;
 }
 
@@ -365,7 +365,7 @@ void diagnostic_queue_destroy(struct diagnostic_queue* db)
         it = next;
     }
     db->head = NULL;
-    db->tail = NULL;    
+    db->tail = NULL;
 }
 
 static void stringfy(const char* input, char* json_str_message, int output_size)
@@ -1616,9 +1616,9 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
                         ctx->current->line,
                         (enum diagnostic_id)ids[i]))
                     {
-                        ids[i] = -ids[i];                        
+                        ids[i] = -ids[i];
                     }
-                }                
+                }
             }
 
             for (int i = 0; i < count; i++)
@@ -2927,45 +2927,79 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
             if (p_init_declarator->initializer->braced_initializer)
             {
-                if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+                if (type_is_vla(&p_init_declarator->p_declarator->type))
                 {
-                    compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
-                    throw;
+                    const char* name2 = p_init_declarator->p_declarator->name_opt ?
+                        p_init_declarator->p_declarator->name_opt->lexeme : "";
+                    make_object_with_member_designator(&p_init_declarator->p_declarator->type,
+                         &p_init_declarator->p_declarator->object, name2, ctx->options.target);
+
+
+                    if (braced_initializer_is_empty(p_init_declarator->initializer->braced_initializer))
+                    {
+                        //ok
+                        object_default_initialization(&p_init_declarator->p_declarator->object, false);
+                    }
+                    else
+                    {
+                        compiler_diagnostic(C_ERROR_INVALID_VLA_INITIALIZATION,
+                        ctx,
+                        p_init_declarator->p_declarator->first_token_opt,
+                        NULL,
+                        "variable-sized object may not be initialized except with an empty initializer");
+                        throw;
+                    }
                 }
-
-
-                int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, ctx->options.target);
-                if (er != 0)
+                else
                 {
-                    compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
-                    throw;
+                    if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+                    {
+                        compiler_diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
+                        throw;
+                    }
+
+
+                    int er = make_object(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object, ctx->options.target);
+                    if (er != 0)
+                    {
+                        compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "incomplete struct/union type");
+                        throw;
+                    }
+
+                    const bool is_constant =
+                        type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
+
+                    if (initializer_init_new(ctx,
+                        &p_init_declarator->p_declarator->type,
+                        &p_init_declarator->p_declarator->object,
+                        p_init_declarator->initializer,
+                        is_constant,
+                        requires_constant_initialization) != 0)
+                    {
+                        throw;
+                    }
+
+                    /*
+                       this code is requiring the num_of_element adjustment
+                       char s[]={ "123" };
+                       static_assert(sizeof(s) == 4);
+                    */
+                    p_init_declarator->p_declarator->object.type.array_num_elements =
+                        p_init_declarator->p_declarator->type.array_num_elements;
                 }
-
-
-
-                const bool is_constant =
-                    type_is_const_or_constexpr(&p_init_declarator->p_declarator->type);
-
-                if (initializer_init_new(ctx,
-                    &p_init_declarator->p_declarator->type,
-                    &p_init_declarator->p_declarator->object,
-                    p_init_declarator->initializer,
-                    is_constant,
-                    requires_constant_initialization) != 0)
-                {
-                    throw;
-                }
-
-                /*
-                   this code is requiring the num_of_element adjustment
-                   char s[]={ "123" };
-                   static_assert(sizeof(s) == 4);
-                */
-                p_init_declarator->p_declarator->object.type.array_num_elements =
-                    p_init_declarator->p_declarator->type.array_num_elements;
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
+                if (type_is_vla(&p_init_declarator->p_declarator->type))
+                {
+                    compiler_diagnostic(C_ERROR_INVALID_VLA_INITIALIZATION,
+                           ctx,
+                           p_init_declarator->p_declarator->first_token_opt,
+                           NULL,
+                           "variable-sized object may not be initialized except with an empty initializer");
+                    throw;
+                }
+
                 if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
                     const unsigned long long array_size_elements = p_init_declarator->p_declarator->type.array_num_elements;
@@ -4837,7 +4871,7 @@ struct member_declarator* _Owner _Opt member_declarator(
                 "bitfield with must be zero or positive.");
             }
 
-            if (bit_field_width > sz)
+            if (bit_field_width > (long long)sz)
             {
                 compiler_diagnostic(C_ERROR_STORAGE_SIZE,
                 ctx,
@@ -7460,6 +7494,11 @@ void braced_initializer_delete(struct braced_initializer* _Owner _Opt p)
         initializer_list_delete(p->initializer_list);
         free(p);
     }
+}
+
+bool braced_initializer_is_empty(const struct braced_initializer* p_braced_initializer)
+{
+    return p_braced_initializer->initializer_list == NULL;
 }
 
 struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx)

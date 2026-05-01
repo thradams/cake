@@ -4311,10 +4311,27 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
                     type_destroy(&t2);
                     struct osstream ssz = { 0 };
                     vm_emit_sizeof_expr(ctx, &ssz, decl_type);
-                    
+
                     emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
                     print_identation(ctx, oss0);
                     ss_fprintf(oss0, "%s = %s%s;\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
+                    
+                    if (p_init_declarator->initializer && 
+                        p_init_declarator->initializer->braced_initializer &&
+                        braced_initializer_is_empty(p_init_declarator->initializer->braced_initializer))
+                    {
+                        struct osstream sizeof_expression = {0};
+                        vm_emit_sizeof_expr(ctx,
+                                &sizeof_expression,
+                                &p_init_declarator->p_declarator->type);                        
+                        print_identation_core(oss0, ctx->indentation);
+                        ss_fprintf(oss0, "%s(&%s, 0, %s);\n",
+                        ctx->memset_function_name,
+                        var_name,
+                        sizeof_expression.c_str);
+                        ctx->memset_used = true;
+                        ss_close(&sizeof_expression);
+                    }
                     ss_close(&ssz);
                 }
                 else
@@ -4896,7 +4913,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
          to produce minimal #line directives, so we perform an extra step
          to remove unnecessary ones.
          */
-        oss->size = clean_line_directives(oss->c_str);
+        oss->size = (int)clean_line_directives(oss->c_str);
     }
 
     ss_close(&declarations);

@@ -1,11 +1,4 @@
-#pragma safety enable
-
-
-int* _Owner  get();
-
-void f()
-{
-    int* _Owner _Opt p = 0;
-    p = get();
-} //lint 29
-
+void main() {
+  int n = 50;
+  char name2[n] = {{0}};//"Ross";
+}

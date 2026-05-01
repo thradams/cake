@@ -7006,7 +7006,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             e = parse_string_state(p_static_assert_declaration->string_literal_opt->lexeme, &is_invalid);
         if (is_invalid)
         {
-            compiler_diagnostic(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+            compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
         }
         else
         {
@@ -7019,7 +7019,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
                 if (e != p_obj->current.state)
                 {
-                    compiler_diagnostic(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
+                    compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
                     if (p_static_assert_declaration->string_literal_opt)
                         printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
                     printf("current  :");
@@ -7031,7 +7031,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             {
                 if (e != FLOW_OBJECT_STATE_NOT_APPLICABLE)
                 {
-                    compiler_diagnostic(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
+                    compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
                 }
             }
 

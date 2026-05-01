@@ -1044,6 +1044,7 @@ struct braced_initializer
 
 struct braced_initializer* _Owner _Opt braced_initializer(struct parser_ctx* ctx);
 void braced_initializer_delete(struct braced_initializer* _Owner _Opt p);
+bool braced_initializer_is_empty(const struct braced_initializer* p_braced_initializer);
 
 struct type_specifier_qualifier
 {
