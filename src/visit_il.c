@@ -4325,7 +4325,7 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
                                 &sizeof_expression,
                                 &p_init_declarator->p_declarator->type);                        
                         print_identation_core(oss0, ctx->indentation);
-                        ss_fprintf(oss0, "%s(&%s, 0, %s);\n",
+                        ss_fprintf(oss0, "%s(%s, 0, %s);\n",
                         ctx->memset_function_name,
                         var_name,
                         sizeof_expression.c_str);
