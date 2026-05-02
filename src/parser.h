@@ -297,7 +297,7 @@ struct static_assert_declaration
 
       extension:
       "static_debug" ( constant-expression ) ;
-      "static_set" ( constant-expression , string-literal) ;
+      "override_state" ( constant-expression , string-literal) ;
     */
 
     struct token* first_token;

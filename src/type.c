@@ -396,7 +396,7 @@ struct type type_lvalue_conversion(const struct type* p_type, bool nullchecks_en
      */
     if (type_is_bitfield(&t))
     {
-        t.array_num_elements= 0;
+        t.array_num_elements = 0;
         t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
         type_integer_promotion(&t);
     }
@@ -1040,7 +1040,7 @@ bool type_is_bitfield(const struct type* p_type)
 
 int type_get_bitfield_width(const struct type* p_type)
 {
-    return (int) p_type->array_num_elements;
+    return (int)p_type->array_num_elements;
 }
 
 /*
@@ -1054,7 +1054,8 @@ bool type_is_unnamed_bitfield(const struct type* p_type)
 }
 
 
-bool type_is_decimal128(const struct type* p_type){
+bool type_is_decimal128(const struct type* p_type)
+{
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_DECIMAL128;
 }
@@ -1877,22 +1878,22 @@ struct type type_dup(const struct type* p_type)
             *p_new = *p;
 
             //actually I was not the _Owner of p_new->next
-            static_set(p_new->next, "uninitialized");
+            override_state(p_new->next, "uninitialized");
             p_new->next = NULL;
 
             if (p->name_opt)
             {
                 //actually p_new->name_opt was not mine..
-                static_set(p_new->name_opt, "uninitialized");
+                override_state(p_new->name_opt, "uninitialized");
                 p_new->name_opt = strdup(p->name_opt);
             }
 
             if (p->category == TYPE_CATEGORY_FUNCTION)
             {
                 //actually p_new->params.head  p_new->params.tail and was not mine..
-                static_set(p_new->params.head, "uninitialized");
+                override_state(p_new->params.head, "uninitialized");
                 p_new->params.head = NULL;
-                static_set(p_new->params.tail, "uninitialized");
+                override_state(p_new->params.tail, "uninitialized");
                 p_new->params.tail = NULL;
 
                 struct param* _Opt p_param = p->params.head;
@@ -1953,7 +1954,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
         /* bitfield packing state — mirrors get_sizeof_struct exactly */
         size_t bf_storage_bits = 0;
-        size_t bf_bits_used    = 0;
+        size_t bf_bits_used = 0;
 
         struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
         while (d)
@@ -1989,7 +1990,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                             field_type_size = get_platform(target)->int_n_bits / 8;
                         }
 
-                        size_t field_align  = field_type_size;
+                        size_t field_align = field_type_size;
                         size_t storage_bits = field_type_size * 8;
 
                         if (field_align > maxalign)
@@ -2002,7 +2003,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                             {
                                 if (!is_union)
                                     size += bf_storage_bits / 8;
-                                bf_bits_used    = 0;
+                                bf_bits_used = 0;
                                 bf_storage_bits = 0;
                             }
                         }
@@ -2034,7 +2035,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                                     if (!is_union && field_align > 0 && size % field_align != 0)
                                         size += field_align - (size % field_align);
                                     bf_storage_bits = storage_bits;
-                                    bf_bits_used    = 0;
+                                    bf_bits_used = 0;
                                 }
                             }
 
@@ -2056,7 +2057,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                         {
                             if (!is_union)
                                 size += bf_storage_bits / 8;
-                            bf_bits_used    = 0;
+                            bf_bits_used = 0;
                             bf_storage_bits = 0;
                         }
 
@@ -2107,7 +2108,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                 {
                     if (!is_union)
                         size += bf_storage_bits / 8;
-                    bf_bits_used    = 0;
+                    bf_bits_used = 0;
                     bf_storage_bits = 0;
                 }
 
@@ -2188,7 +2189,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
          * added to `size`.
          */
         size_t bf_storage_bits = 0;
-        size_t bf_bits_used    = 0;
+        size_t bf_bits_used = 0;
 
         struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
         while (d)
@@ -2227,8 +2228,8 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                             field_type_size = get_platform(target)->int_n_bits / 8;
                         }
 
-                        size_t field_align    = field_type_size;
-                        size_t storage_bits   = field_type_size * 8;
+                        size_t field_align = field_type_size;
+                        size_t storage_bits = field_type_size * 8;
 
                         if (field_align > maxalign)
                             maxalign = field_align;
@@ -2244,7 +2245,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                             {
                                 if (!is_union)
                                     size += bf_storage_bits / 8;
-                                bf_bits_used    = 0;
+                                bf_bits_used = 0;
                                 bf_storage_bits = 0;
                             }
                         }
@@ -2318,7 +2319,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                                         size += field_align - (size % field_align);
 
                                     bf_storage_bits = storage_bits;
-                                    bf_bits_used    = 0;
+                                    bf_bits_used = 0;
                                 }
                             }
                             bf_bits_used += (size_t)bit_width;
@@ -2334,7 +2335,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         {
                             if (!is_union)
                                 size += bf_storage_bits / 8;
-                            bf_bits_used    = 0;
+                            bf_bits_used = 0;
                             bf_storage_bits = 0;
                         }
 
@@ -2406,7 +2407,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                 {
                     if (!is_union)
                         size += bf_storage_bits / 8;
-                    bf_bits_used    = 0;
+                    bf_bits_used = 0;
                     bf_storage_bits = 0;
                 }
 
@@ -3313,10 +3314,7 @@ bool enum_specifier_is_same(struct enum_specifier* _Opt a, struct enum_specifier
     return a == NULL && b == NULL;
 }
 
-
-static bool type_is_same_core(const struct type* a,
-                              const struct type* b,
-                              bool compare_qualifiers)
+bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
 {
     const struct type* _Opt pa = a;
     const struct type* _Opt pb = b;
@@ -3324,10 +3322,14 @@ static bool type_is_same_core(const struct type* a,
     while (pa && pb)
     {
         if (pa->array_num_elements != pb->array_num_elements)
+        {
             return false;
+        }
 
         if (pa->category != pb->category)
+        {
             return false;
+        }
 
         if (pa->enum_specifier &&
             pb->enum_specifier &&
@@ -3446,14 +3448,125 @@ static bool type_is_same_core(const struct type* a,
     return pa == NULL && pb == NULL;
 }
 
-bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers)
-{
-    return type_is_same_core(a, b, compare_qualifiers);
-}
-
 bool type_is_compatible(const struct type* a, const struct type* b)
 {
-    return type_is_same_core(a, b, false);
+    const struct type* _Opt pa = a;
+    const struct type* _Opt pb = b;
+
+    while (pa && pb)
+    {
+        if (pa->has_static_array_size &&
+            pb->has_static_array_size &&
+            pa->array_num_elements != pb->array_num_elements)
+        {
+            return false;
+        }
+
+        if (pa->category != pb->category)
+        {
+            //array pointer are compatible
+//            return false;
+        }
+
+        if (pa->enum_specifier &&
+            pb->enum_specifier &&
+            get_complete_enum_specifier(pa->enum_specifier) !=
+            get_complete_enum_specifier(pb->enum_specifier))
+        {
+            return false;
+        }
+
+
+        if (pa->enum_specifier && !pb->enum_specifier)
+        {
+            //TODO enum with types
+            //enum  x int
+           //return false;
+        }
+
+        if (!pa->enum_specifier && pb->enum_specifier)
+        {
+            //TODO enum with types
+            //int x enum
+            //return false;
+        }
+
+        //if (pa->name_opt != pb->name_opt) return false;
+        if (pa->has_static_array_size != pb->has_static_array_size)
+            return false;
+
+        if (pa->category == TYPE_CATEGORY_FUNCTION)
+        {
+
+            if (pa->params.is_var_args != pb->params.is_var_args)
+            {
+                return false;
+            }
+
+            if (pa->params.is_void != pb->params.is_void)
+            {
+                return false;
+            }
+
+            if (!pa->params.is_void && !pb->params.is_void)
+            {
+                struct param* _Opt p_param_a = pa->params.head;
+                struct param* _Opt p_param_b = pb->params.head;
+                while (p_param_a && p_param_b)
+                {
+                    if (!type_is_compatible(&p_param_a->type, &p_param_b->type))
+                    {
+                        return false;
+                    }
+                    p_param_a = p_param_a->next;
+                    p_param_b = p_param_b->next;
+                }
+                if (p_param_a != NULL || p_param_b != NULL)
+                {
+                    return false;
+                }
+            }
+        }
+
+        if (pa->struct_or_union_specifier &&
+            pb->struct_or_union_specifier)
+        {
+
+            if (pa->struct_or_union_specifier->complete_struct_or_union_specifier_indirection !=
+                pb->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
+            {
+                //this should work but it is not...
+            }
+
+            if (strcmp(pa->struct_or_union_specifier->tag_name, pb->struct_or_union_specifier->tag_name) != 0)
+            {
+                return false;
+            }
+        }
+
+        enum type_specifier_flags a_flags = pa->type_specifier_flags;
+        enum type_specifier_flags b_flags = pb->type_specifier_flags;
+
+        if ((a_flags & TYPE_SPECIFIER_CHAR) == 0)
+        {
+            a_flags &= ~TYPE_SPECIFIER_SIGNED;
+        }
+
+        if ((b_flags & TYPE_SPECIFIER_CHAR) == 0)
+        {
+            b_flags &= ~TYPE_SPECIFIER_SIGNED;
+        }
+
+        if (a_flags != b_flags)
+        {
+            return false;
+        }
+
+
+        pa = pa->next;
+        pb = pb->next;
+    }
+    return pa == NULL && pb == NULL;
 }
 
 void type_clear(struct type* a)
@@ -3993,9 +4106,9 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
                                             NULL,
                                             "function returning VM type");
                         return false;
-                    }    
+                    }
                     p2 = p2->next;
-                }                
+                }
             }
         }
         else if (p->category == TYPE_CATEGORY_ITSELF &&
@@ -4008,9 +4121,9 @@ static bool is_valid_type(struct parser_ctx* ctx, struct token* _Opt p_token, co
                                         "invalid type");
             return false;
         }
-        
+
         if (p)
-          p = p->next;
+            p = p->next;
     }
 
     return true;

@@ -19,11 +19,11 @@ struct X {
 
 int main() {   
    struct X * _Owner x = malloc(sizeof * x);
-   static_state(x, "null | not-null ");
+   assert_state(x, "null | not-null ");
 
-   static_state(x->p1, "uninitialized");
-   static_state(x->i, "uninitialized");
-   static_state(x->pY, "uninitialized");
+   assert_state(x->p1, "uninitialized");
+   assert_state(x->i, "uninitialized");
+   assert_state(x->pY, "uninitialized");
    free(x);
 }
 

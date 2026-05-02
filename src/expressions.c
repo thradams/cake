@@ -7006,7 +7006,7 @@ void check_assigment(struct parser_ctx* ctx,
 
 
 
-        if (!type_is_same(&b_type_lvalue, &a_type_lvalue, false))
+        if (!type_is_compatible(&b_type_lvalue, &a_type_lvalue))
         {
             type_print(&b_type_lvalue, ctx->options.target);
             type_print(&a_type_lvalue, ctx->options.target);

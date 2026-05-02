@@ -1203,6 +1203,8 @@ enum token_type is_keyword(const char* text, enum target target)
             return TK_KEYWORD_ASSERT; /* extension */
         if (strcmp("asm", text) == 0)
             return TK_KEYWORD__ASM;
+        if (strcmp("assert_state", text) == 0)
+            return TK_KEYWORD_STATIC_STATE;
         break;
 
     case 'b':
@@ -1278,6 +1280,8 @@ enum token_type is_keyword(const char* text, enum target target)
     case 'o':
         if (strcmp("offsetof", text) == 0)
             return TK_KEYWORD_GCC__BUILTIN_OFFSETOF;
+        if (strcmp("override_state", text) == 0)
+            return TK_KEYWORD_STATIC_SET;
         break;
 
     case 'l':
@@ -1312,11 +1316,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("static_debug", text) == 0)
             return TK_KEYWORD_CAKE_STATIC_DEBUG;
         if (strcmp("static_debug_ex", text) == 0)
-            return TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
-        if (strcmp("static_state", text) == 0)
-            return TK_KEYWORD_STATIC_STATE;
-        if (strcmp("static_set", text) == 0)
-            return TK_KEYWORD_STATIC_SET;
+            return TK_KEYWORD_CAKE_STATIC_DEBUG_EX;                
         break;
 
     case 't':

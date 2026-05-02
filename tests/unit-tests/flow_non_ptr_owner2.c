@@ -11,7 +11,7 @@ int main()
   fd = socket();
   if (fd < 0)
   {
-     static_set(fd, "null");   
+     override_state(fd, "null");   
      return 1;
   }
   close(fd);

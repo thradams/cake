@@ -7,10 +7,10 @@ void g()
     const char* _Opt s1 = f();    
     if (s1 && strcmp(s1, "a")==0)
     {
-        static_state(s1, "not-null");        
+        assert_state(s1, "not-null");        
     }
     else
     {        
-        static_state(s1, "null not-null");
+        assert_state(s1, "null not-null");
     }
 }

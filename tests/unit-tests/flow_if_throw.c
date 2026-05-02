@@ -16,7 +16,7 @@ int main()
     }
     catch
     {
-        static_state(i, "not-zero");
+        assert_state(i, "not-zero");
     }
-    static_state(i, "zero | not-zero");
+    assert_state(i, "zero | not-zero");
 }

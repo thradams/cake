@@ -248,7 +248,7 @@ int struct_entry_list_reserve(struct struct_entry_list* p, int n)
 
         void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
-        static_set(p->data, "moved");
+        override_state(p->data, "moved");
         p->data = pnew;
         p->capacity = n;
     }
@@ -4765,9 +4765,7 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
 
     ctx->print_qualifiers = false; //TODO not ready yet..
 
-    ss_fprintf(oss, "/* Cake %s */\n", get_platform(ctx->options.target)->name);
-    //    ss_fprintf(oss, "#line 1 \"%s\"\n", ctx->ast.token_list.tail->token_origin->lexeme);
-
+    ss_fprintf(oss, "/* Cake " CAKE_VERSION " %s */\n", get_platform(ctx->options.target)->name);
 
     ctx->indentation = 0;
 

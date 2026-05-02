@@ -13,5 +13,5 @@ int main()
 {
     struct X x = { 0 };
     f(&x);
-    static_state(x.p, "null");
+    assert_state(x.p, "null");
 }

@@ -1034,15 +1034,15 @@ void f(int a[_Owner])
 </ul>
 
 <p>We can print these states using the <strong>static_debug</strong> declaration.
-We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. </p>
+We can also assert the variable is at a certain state using the <strong>assert_state</strong> declaration. </p>
 
-<p><strong>Sample - Usage of static_state and static_debug</strong></p>
+<p><strong>Sample - Usage of assert_state and static_debug</strong></p>
 
 <pre><code class="language-c">#pragma safety enable
 
 int main() {
   int a;   
-  static_state(a, &quot;uninitialized&quot;); //checks a state  
+  assert_state(a, &quot;uninitialized&quot;); //checks a state  
   static_debug(a);                  //prints &#39;a&#39; state 
 }
 </code></pre>
@@ -1298,7 +1298,7 @@ With _Dtor, the object is initialized as input and uninitialized as output.</p>
 
 int main() {
  void * _Owner _Opt p = nullptr;   
- static_state(p, &quot;null&quot;); 
+ assert_state(p, &quot;null&quot;); 
 }
 </code></pre>
 
@@ -1323,7 +1323,7 @@ int main() {
 <p>The <strong>not-null</strong> state indicates that the object is initialized and referencing an object.</p>
 
 <p>The final state is combination of possibilities like <strong>null</strong> and <strong>not-null</strong>. 
-We can check possible combinations using <code>static_state</code>.  </p>
+We can check possible combinations using <code>assert_state</code>.  </p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -1333,9 +1333,9 @@ int main()
 {
    void * _Owner _Opt p = malloc(1);
    if (p) {
-     static_state(p, &quot;not-null&quot;);
+     assert_state(p, &quot;not-null&quot;);
    }      
-   static_state(p, &quot;null | not-null&quot;);
+   assert_state(p, &quot;null | not-null&quot;);
    free(p);
 }
 </code></pre>
@@ -1351,7 +1351,7 @@ int main()
 <pre><code class="language-c">int main()
 {
    int i = 0;
-   static_state(i, &quot;zero&quot;);   
+   assert_state(i, &quot;zero&quot;);   
 }
 </code></pre>
 
@@ -1366,19 +1366,19 @@ The compiler does not know the semantics for types that are not pointers.</p>
 
 <p>This is the state when variables leave the scope or when objects are moved.</p>
 
-<h4>static_set</h4>
+<h4>override_state</h4>
 
-<p>We can use <strong>static_set</strong> to override states.
+<p>We can use <strong>override_state</strong> to override states.
 In the next sample, we annotate that server_socket is null, which doesn&#39;t mean it 
 is zero but indicates that it is not holding any resources and 
 is safe to return without calling close.</p>
 
-<p><strong>Sample - Usage of static_set</strong></p>
+<p><strong>Sample - Usage of override_state</strong></p>
 
 <pre><code class="language-c">  _Owner int server_socket =
      socket(AF_INET, SOCK_STREAM, 0);
   if (server_socket &lt; 0) {  
-     static_set(server_socket, &quot;null&quot;);
+     override_state(server_socket, &quot;null&quot;);
      return;
   }  
  /*...*/
@@ -1391,7 +1391,7 @@ is safe to return without calling close.</p>
 
 int main() {   
     int i = f();
-    static_state(i, &quot;zero | not-zero&quot;);
+    assert_state(i, &quot;zero | not-zero&quot;);
 }
 </code></pre>
 
@@ -1404,7 +1404,7 @@ int main() {
 
 <p>In the declaration of <code>realloc</code>, we are not moving the ptr. The reason for that is because the <code>ptr</code> may or may not be moved. If the function returns NULL, <code>ptr</code> was not moved. </p>
 
-<p><strong>Sample - Using static_set with realloc</strong></p>
+<p><strong>Sample - Using override_state with realloc</strong></p>
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -1419,7 +1419,7 @@ int main()
   if (p2 != 0)
   {
      // if p2 != 0 it  means p was moved
-     static_set(p, &quot;moved&quot;);
+     override_state(p, &quot;moved&quot;);
      p = p2;
   }    
   free(p);

@@ -15,7 +15,7 @@ int main() {
     {
       p1 = p2;
     }
-    static_state(p2, "moved");
+    assert_state(p2, "moved");
     free(p1);
     return 0;
 }

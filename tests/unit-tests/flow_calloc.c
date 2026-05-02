@@ -19,14 +19,14 @@ struct X {
 
 int main() {   
    struct X * _Owner x = calloc(1,sizeof * x);
-   static_state(x, "null | not-null ");
+   assert_state(x, "null | not-null ");
 
-   static_state(x->p1, "null ");
-   static_state(x->i, "zero");
-   static_state(x->pY, "null");
-   static_state(x->pY->p0, "");
-   static_state(x->pY->p2, "");
-   static_state(x->pY->i2, "");   
+   assert_state(x->p1, "null ");
+   assert_state(x->i, "zero");
+   assert_state(x->pY, "null");
+   assert_state(x->pY->p0, "");
+   assert_state(x->pY->p2, "");
+   assert_state(x->pY->i2, "");   
    free(x);
 }
 

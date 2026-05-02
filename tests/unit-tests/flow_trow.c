@@ -7,7 +7,7 @@ int f(int condition)
         int * _Owner _Opt p2 = p;
 
         //p is still null here because null pointers are not moved.
-        static_state(p, "null");
+        assert_state(p, "null");
 
         if (condition) throw;
         p = 0;
@@ -16,5 +16,5 @@ int f(int condition)
     {
     }
     
-    static_state(p, "null");
+    assert_state(p, "null");
 }

@@ -95,7 +95,7 @@ float strtof(char const* _String, char** _Opt _EndPtr);
 #define _Dtor
 #define _View
 #define static_debug(x)
-#define static_set(x, s)
+#define override_state(x, s)
 #endif
 
 #endif

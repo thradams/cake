@@ -9,10 +9,10 @@ void f1()
 {
     void * _Owner _Opt p = malloc(1);
     if (p) {
-      static_state(p, "not-null ");
+      assert_state(p, "not-null ");
     }
 
-    static_state(p, "null | not-null ");
+    assert_state(p, "null | not-null ");
     free(p);
 }
 
@@ -20,11 +20,11 @@ void f2(int condition)
 {
     void * _Owner _Opt  p = malloc(1);
     if (condition) {
-      static_state(p, "null | not-null ");
+      assert_state(p, "null | not-null ");
     }
 
-    static_state(p, "null | not-null ");
-    static_set(p, "null");
+    assert_state(p, "null | not-null ");
+    override_state(p, "null");
 }
 
 void f3(int condition)
@@ -38,7 +38,7 @@ void f3(int condition)
        free(p);
     }
 
-    static_state(p, "uninitialized");
+    assert_state(p, "uninitialized");
 }
 
 void f4(int condition)
@@ -52,8 +52,8 @@ void f4(int condition)
        free(p);
     }
 
-    static_state(p, "uninitialized  null | not-null ");
-    static_set(p, "null");
+    assert_state(p, "uninitialized  null | not-null ");
+    override_state(p, "null");
 }
 
 
@@ -68,8 +68,8 @@ void f5(int condition)
 
     }
 
-    static_state(p, "uninitialized null | not-null ");
-    static_set(p, "null");
+    assert_state(p, "uninitialized null | not-null ");
+    override_state(p, "null");
 }
 
 void f6(int condition)
@@ -81,5 +81,5 @@ void f6(int condition)
        return;
     }
 
-    static_state(p, "null ");
+    assert_state(p, "null ");
 }

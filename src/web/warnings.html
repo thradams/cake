@@ -372,7 +372,7 @@
 <a href="#toc_112">1060 static_assert failed</a>
 </li>
 <li>
-<a href="#toc_113">1070 static_set error</a>
+<a href="#toc_113">1070 override_state error</a>
 </li>
 <li>
 <a href="#toc_114">1080 Static-state analysis failed</a>
@@ -1726,7 +1726,7 @@ double a; //error C1020: conflicting types for &#39;a&#39; (int)
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_113">1070 static_set error</h3>
+<h3 id="toc_113">1070 override_state error</h3>
 
 <pre><code class="language-c">int main()
 {  
@@ -1744,7 +1744,7 @@ int f();
 
 int main() {   
     int i = f();
-    static_state(i, &quot;not-zero&quot;); //error C1080: static_state failed
+    assert_state(i, &quot;not-zero&quot;); //error C1080: assert_state failed
 } 
 </code></pre>
 

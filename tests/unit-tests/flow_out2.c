@@ -25,9 +25,9 @@ int main()
     struct X x = {0};
     f(&x);
 
-    static_state(x.p1, "null ");
-    static_state(x.i, "zero");
-    static_state(x.pY, "null ");
+    assert_state(x.p1, "null ");
+    assert_state(x.i, "zero");
+    assert_state(x.pY, "null ");
 
     destroy(&x);
 }

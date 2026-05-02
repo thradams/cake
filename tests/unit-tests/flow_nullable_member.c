@@ -21,10 +21,10 @@ int main()
 {
     struct X x;
     x = f();
-    static_state(x.text, "not-null ");
-    static_state(x.p1, "not-null ");
-    static_state(x.i, "zero | not-zero");
-    static_state(x.pY, "null | not-null");
-    static_state(x.pY->p0, "not-null ");    
+    assert_state(x.text, "not-null ");
+    assert_state(x.p1, "not-null ");
+    assert_state(x.i, "zero | not-zero");
+    assert_state(x.pY, "null | not-null");
+    assert_state(x.pY->p0, "not-null ");    
     destroy(&x);
 }

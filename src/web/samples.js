@@ -2494,7 +2494,7 @@ int main() {
 
 `;
 
-sample["Static Analysis"]["static_state/static_debug"] =
+sample["Static Analysis"]["assert_state/static_debug"] =
     `
 #pragma safety enable
 
@@ -2505,11 +2505,11 @@ int main() {
    void * _Owner  _Opt p = malloc(1);
    if (p)
    {
-     static_state(p, "not-null"); 
+     assert_state(p, "not-null"); 
      free(p);
-     static_state(p, "uninitialized"); 
+     assert_state(p, "uninitialized"); 
    }
-   static_state(p, "null | uninitialized"); 
+   assert_state(p, "null | uninitialized"); 
    static_debug(p);
 }
 
@@ -2795,7 +2795,7 @@ int int_array_reserve(struct int_array* p, int n)
 
         void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
-        static_set(p->data, "moved");
+        override_state(p->data, "moved");
         p->data = pnew;
         p->capacity = n;
     }
@@ -2873,7 +2873,7 @@ int main()
 }
 `;
 
-sample["Static Analysis"]["static_set/realloc"] =
+sample["Static Analysis"]["override_state/realloc"] =
     `
 #pragma safety enable
 
@@ -2888,7 +2888,7 @@ void f()
     if (p2 != 0)
     {
        /*overriding flow analysis*/
-       static_set(p, "moved");
+       override_state(p, "moved");
        p = p2;
     }
     free(p);
@@ -2926,7 +2926,7 @@ int main()
    mtx_t mtx;
    if (mtx_init(&mtx, mtx_plain) != thrd_success)
    {
-      static_set(mtx, "uninitialized");
+      override_state(mtx, "uninitialized");
       return;
    }
    mtx_destroy(&mtx);   
@@ -2946,7 +2946,7 @@ int main()
   fd = socket();
   if (fd < 0)
   {
-     static_set(fd, "null");
+     override_state(fd, "null");
      return 1;
   }
   close(fd);

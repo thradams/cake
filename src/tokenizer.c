@@ -6305,8 +6305,8 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
         /*extension compile time functions*/
     case TK_KEYWORD_CAKE_STATIC_DEBUG: return "static_debugex"; /*extension*/
     case TK_KEYWORD_CAKE_STATIC_DEBUG_EX: return "static_debug_ex"; /*extension*/
-    case TK_KEYWORD_STATIC_STATE: return "static_state"; /*extension*/
-    case TK_KEYWORD_STATIC_SET: return "static_set"; /*extension*/
+    case TK_KEYWORD_STATIC_STATE: return "assert_state"; /*extension*/
+    case TK_KEYWORD_STATIC_SET: return "override_state"; /*extension*/
 
         /*https://en.cppreference.com/w/cpp/header/type_traits*/
 

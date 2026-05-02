@@ -1,5 +1,5 @@
 #pragma safety enable
 void f(int  * _Opt p)
 {
-  static_state(p, "null | not-null");
+  assert_state(p, "null | not-null");
 }

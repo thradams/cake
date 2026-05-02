@@ -31,221 +31,335 @@
 <h1>Cake - C23 and Beyond</h1>
 <ul>
 <li>
-<a href="#toc_0">Cake Static Analysis</a>
-</li>
-<li>
-<a href="#toc_1">Concepts</a>
+<a href="#toc_0">Cake Static Analysis — Ownership &amp; Nullable Pointers</a>
 <ul>
 <li>
-<a href="#toc_2">Nullable Pointers</a>
+<a href="#toc_1">Introduction</a>
 </li>
 <li>
-<a href="#toc_3">Object lifetime checks</a>
-</li>
-</ul>
-</li>
-<li>
-<a href="#toc_4">Flow analysis</a>
+<a href="#toc_2">Chapter 1: Nullable Pointers</a>
 <ul>
 <li>
-<a href="#toc_5">assert is a built-in function</a>
+<a href="#toc_3">The <code>_Opt</code> Qualifier</a>
+</li>
+<li>
+<a href="#toc_4">Enabling Nullable Rules: <code>#pragma nullable</code></a>
+</li>
+<li>
+<a href="#toc_5">Example 1: Assigning null to a Non-Nullable Pointer</a>
+</li>
+<li>
+<a href="#toc_6">Example 2: Converting Non-Nullable to Nullable</a>
+</li>
+<li>
+<a href="#toc_7">Example 3: Nullable Pointer to a Non-Nullable Parameter</a>
+</li>
+<li>
+<a href="#toc_8">Helping the Analyzer with <code>assert()</code></a>
+</li>
+<li>
+<a href="#toc_9">Non-Nullable Initialization</a>
+</li>
+<li>
+<a href="#toc_10">Using <code>malloc()</code> and <code>calloc()</code> with Structs</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_6">Limitations</a>
+<a href="#toc_11">Chapter 2: Object Lifetime and Ownership</a>
+<ul>
+<li>
+<a href="#toc_12">Enabling Ownership Checks</a>
 </li>
 <li>
-<a href="#toc_7">Code transition Strategy</a>
+<a href="#toc_13">Owner References and the <code>_Owner</code> Qualifier</a>
 </li>
 <li>
-<a href="#toc_8">References</a>
+<a href="#toc_14">The Two Core Ownership Rules</a>
+</li>
+<li>
+<a href="#toc_15">Additional Owner Rules</a>
+</li>
+<li>
+<a href="#toc_16">Non-Pointer Owner References</a>
+</li>
+<li>
+<a href="#toc_17">View References</a>
+</li>
+<li>
+<a href="#toc_18">The <code>_View</code> qualifier.</a>
+</li>
+<li>
+<a href="#toc_19">Deleting Owner Pointers</a>
 </li>
 </ul>
-<p>Last Updated 5 December 2025</p>
+</li>
+<li>
+<a href="#toc_20">Chapter 3: Destructors and Constructors</a>
+<ul>
+<li>
+<a href="#toc_21">The <code>[[dtor]]</code> Contract Attribute</a>
+</li>
+<li>
+<a href="#toc_22">The <code>[[ctor]]</code> Contract Attribute</a>
+</li>
+<li>
+<a href="#toc_23"><code>[[dtor]]</code> vs <code>[[ctor]]</code> — Summary</a>
+</li>
+<li>
+<a href="#toc_24">Qualifiers in Arrays</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_25">Chapter 4: Flow Analysis and Object States</a>
+<ul>
+<li>
+<a href="#toc_26">Enabling Flow Analysis</a>
+</li>
+<li>
+<a href="#toc_27">The State Model</a>
+</li>
+<li>
+<a href="#toc_28">Inspecting State with <code>assert_state</code> and <code>static_debug</code></a>
+</li>
+<li>
+<a href="#toc_29">Uninitialized State</a>
+</li>
+<li>
+<a href="#toc_30">Moved State</a>
+</li>
+<li>
+<a href="#toc_31">Null and Not-Null States</a>
+</li>
+<li>
+<a href="#toc_32">Overriding State with <code>override_state</code></a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_33">Chapter 5: Known Limitations</a>
+<ul>
+<li>
+<a href="#toc_34">Correlated Conditions</a>
+</li>
+<li>
+<a href="#toc_35">State Relationships After Branching</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_36">Chapter 6: Code Transition Strategy</a>
+</li>
+<li>
+<a href="#toc_37">Quick Reference</a>
+<ul>
+<li>
+<a href="#toc_38">Qualifiers</a>
+</li>
+<li>
+<a href="#toc_39">Pragmas</a>
+</li>
+<li>
+<a href="#toc_40">Built-in Intrinsics</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_41">References</a>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="toc_0">Cake Static Analysis — Ownership &amp; Nullable Pointers</h1>
 
-<h2 id="toc_0">Cake Static Analysis</h2>
+<p><em>Last Updated: May 2026</em></p>
 
-<p>Cake provides a set of annotations and extended qualifiers that are recognized by 
-  the static analyzer. 
-  With ownership qualifiers, it is possible to achieve the same or even stronger guarantees 
-  than those provided by C++ RAII. It also introduces the concept of nullable pointers, 
-  which helps express when a pointer may be null and prevents mistakes such as 
-  accidentally dereferencing a null pointer.</p>
+<p>A hands-on guide to Cake&#39;s ownership qualifiers and nullable pointer semantics - with working examples, 
+enforced rules, and an incremental migration strategy for existing codebases.</p>
 
-<h2 id="toc_1">Concepts</h2>
+<hr>
 
-<h3 id="toc_2">Nullable Pointers</h3>
+<h2 id="toc_1">Introduction</h2>
 
-<p>A nullable pointer is a pointer that can be set to null, indicating that it doesn&#39;t reference any object.  </p>
+<p>Cake provides a set of annotations and extended qualifiers recognized 
+by its static analyzer. With ownership qualifiers, you can achieve the 
+same guarantees as C++ RAII and often stronger ones. 
+Cake also introduces nullable pointer semantics, making it explicit 
+when a pointer may be null and preventing mistakes like accidentally 
+dereferencing a null pointer.</p>
 
-<p>The qualifier <code>_Opt</code> explicitly indicates when a pointer is nullable, while the absence of the qualifier implies that a pointer is non-nullable. </p>
+<p>This manual walks you through each concept with working code examples, 
+explains the rules enforced by the analyzer, and shows you how to adopt 
+these features incrementally in an existing codebase.</p>
 
-<p>This qualifier is placed after  <code>*</code> in the same way as <code>const</code>.</p>
+<hr>
 
-<p>The declaration</p>
+<h2 id="toc_2">Chapter 1: Nullable Pointers</h2>
+
+<h3 id="toc_3">The <code>_Opt</code> Qualifier</h3>
+
+<p>The qualifier <code>_Opt</code> explicitly marks a pointer as nullable. 
+The absence of <code>_Opt</code> means the pointer is non-nullable. 
+Like <code>const</code>, the qualifier is placed after the <code>*</code>.</p>
+
+<p>For example, the following declaration says that <code>strdup()</code> accepts a non-nullable pointer and returns a nullable one:</p>
 
 <pre><code class="language-c">char * _Opt strdup(const char * src);
 </code></pre>
 
-<p>says that <code>strdup</code> is a function that expects a non nullable pointer as argument and returns a nullable pointer.</p>
+<p>A pointer without <code>_Opt</code> is always assumed to be non-nullable.</p>
 
-<p>Since the absence of the <code>_Opt</code> qualifier indicates that the pointer is non-nullable, 
-existing code will naturally conflict with the new rules, as some unqualified pointers in the 
-existing code can be nullable; they simply are not reviewed yet.</p>
+<hr>
 
-<p>The directive <code>#pragma nullable enable/disable</code> can be used during the process of upgrading code. </p>
+<h3 id="toc_4">Enabling Nullable Rules: <code>#pragma nullable</code></h3>
 
-<p><code>#pragma nullable enable</code> means that the new rules apply, while <code>#pragma nullable disable</code> indicates that all pointers 
-are nullable. Similar approach has been used in C# [1].</p>
+<p>Because existing C code was not written with nullability in mind, Cake provides a pragma to control when the new rules apply:</p>
 
-<p>It is important to note that, although the semantics change, this only affects static analysis; 
-the runtime behavior remains unchanged.</p>
+<pre><code class="language-c">// new rules apply: absence of _Opt = non-nullable
+#pragma nullable enable   
 
-<p>New rules for pointer compatibility automatically arise, guided by the objective of improving safety.</p>
-
-<h4>Example 1: Warning for Non-Nullable Pointers</h4>
-
-<pre><code class="language-c">#pragma nullable enable  
-
-int main(){
-  int * p = nullptr; // warning
-}
+// Unannotated source: all unqualified pointers are nullable
+#pragma nullable disable  
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+<p>This lets you migrate code incrementally enabling the rules file-by-file or region-by-region. 
+Only static analysis behavior changes; the runtime behavior of your program is unaffected.</p>
 
-<p>In this example, <code>p</code> is a non-nullable pointer, since the rules are in effect 
-after <code>#pragma nullable enable</code> and the pointer is not qualified with <code>_Opt</code>.  </p>
+<hr>
 
-<p>Assign <code>p</code> to <code>nullptr</code> will generate a warning, because <code>p</code> is non nullable.</p>
+<h3 id="toc_5">Example 1: Assigning null to a Non-Nullable Pointer</h3>
 
-<h4>Example 2: Converting Non-Nullable to Nullable</h4>
-
-<p>The conversion from a non-nullable pointer to a nullable one is allowed, as shown below:</p>
+<p>Once nullable rules are enabled, assigning <code>nullptr</code> to an unqualified pointer generates a warning:</p>
 
 <pre><code class="language-c">#pragma nullable enable
 
-char * get_name();
-
-int main(){
-  char * _Opt s = get_name(); 
+int main() {
+  int * p = nullptr;  /* warning: p is non-nullable */
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h4>Example 3: Diagnostic for Nullable to Non-Nullable Conversion</h4>
+<hr>
 
-<p>Consider the following case:</p>
+<h3 id="toc_6">Example 2: Converting Non-Nullable to Nullable</h3>
 
-<pre><code class="language-c">#pragma nullable enable  
-  
-char * _Opt strdup(const char * src);  
- 
-void f(char *s);  
+<p>Assigning a non-nullable pointer to a nullable variable is always safe and explicitly allowed:</p>
 
-int main()
-{  
-   char * _Opt s1 = strdup(&quot;a&quot;);
-   f(s1); // warning
-} 
+<pre><code class="language-c">#pragma nullable enable
+
+char * get_name();   // returns non-nullable
+
+int main() {
+  char * _Opt s = get_name();  // ok: widening to nullable
+}
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>In this scenario, <code>s1</code> is declared as nullable, but <code>f</code> expects a non-nullable argument. 
-This triggers a warning, as the nullable pointer <code>s1</code> could potentially be null when passed to <code>f</code>. 
-To remove this warning, a null check is required:</p>
+<hr>
 
-<pre><code class="language-c">#pragma nullable enable  
-  
-char * _Opt strdup(const char * src);  
- 
-void f(char *s);  
+<h3 id="toc_7">Example 3: Nullable Pointer to a Non-Nullable Parameter</h3>
 
-int main()
-{  
-   char * _Opt s1 = strdup(&quot;a&quot;);
-   if (s1) 
-      f(s1); // ok
-} 
+<p>Narrowing from nullable to non-nullable requires a null check. 
+Without one, the analyzer warns you:</p>
+
+<pre><code class="language-c">#pragma nullable enable
+
+char * _Opt strdup(const char * src);
+void f(char *s);   // s is non-nullable
+
+int main() {
+  char * _Opt s1 = strdup(&quot;a&quot;);
+  f(s1);  /* warning: s1 may be null */
+}
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>This verification relies on flow analysis, which ensures that the potential nullability of pointers is
-checked before being passed to functions or assigned to non-nullable variables.</p>
+<p>To fix this, add a null check before the call:</p>
 
-<p>In some cases, the compiler may need a help. Consider this sample.</p>
+<pre><code class="language-c">  if (s1)
+    f(s1);  // ok: flow analysis confirms s1 is not null here
+</code></pre>
+
+<p>Cake uses flow analysis to track possible nullability through branches.
+Once you check a pointer, the analyzer knows it is non-null inside the guarded block.</p>
+
+<hr>
+
+<h3 id="toc_8">Helping the Analyzer with <code>assert()</code></h3>
+
+<p>Because Cake&#39;s analysis is not inter-procedural, 
+it cannot infer postconditions from called functions. </p>
+
+<p>When the analyzer cannot determine a pointer&#39;s state on its own, you can hint with <code>assert()</code>:</p>
 
 <pre><code class="language-c">#pragma safety enable
 
-struct X {
-    int * _Opt data;
-};
+struct X { int * _Opt data; };
 
-bool is_empty(struct X * p)
-{
+bool is_empty(struct X * p) {
     return p-&gt;data == nullptr;
 }
 
-void f(struct X * p) 
-{
+void f(struct X * p) {
    if (!is_empty(p)) {
-      assert(p-&gt;data != nullptr);
-      *p-&gt;data = 1;
+      assert(p-&gt;data != nullptr);  // hint to the analyzer
+      *p-&gt;data = 1;               // ok
    }
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>When <code>is_empty(p)</code> is true <code>p-&gt;data</code> is null; otherwise not null. 
-Since the analysis is not inter-procedural, the compiler does not have this information. 
-Adding an assertion will lead the flow analysis to assume that <code>p-&gt;data</code> is not null and 
-removes the warning.</p>
+<p>From a flow analysis perspective, <code>assert(expr)</code> is equivalent to <code>if (!(expr)) exit(1);</code>.</p>
 
-<p>The problem with this approach is the distance between the location that imposes the postcondition and the assert. 
-If <code>is_empty</code> changes, it could potentially invalidate the assert on the caller&#39;s side. 
-Although a runtime check is in place, it is not as safe as a compile-time check because it may occur 
-within a rarely used branch, allowing the bug to remain inactive.</p>
+<blockquote>
+<p><strong>Note:</strong> Be cautious: the problem with this approach is the separation between where the postcondition is established and where the assert is placed. If <code>is_empty</code> changes, it may invalidate the caller&#39;s assert.</p>
 
-<p>For this reason, a &#39;contract&#39; approach is also being developed in Cake with the objective of moving
-the assert close to function <code>is_empty</code>.</p>
+<p><strong>Note:</strong> A contract-based approach (postconditions declared alongside the function) is under development and will eventually replace the need for remote <code>assert()</code> hints.</p>
+</blockquote>
 
-<p>The advantage of contracts, as mentioned earlier, is that the postconditions are 
-located in a single place. This is useful not only to avoid code repetition but 
-also because assertions function as unproven statements at compile time, 
-which are assumed to be true and may be dangerous if they are out of sync 
-with the implementation.
-On the other hand, placing the contracts alongside the function declaration 
-keeps the contract closer to its implementation. </p>
+<hr>
 
-<h4>Non nullable members initialization</h4>
+<h3 id="toc_9">Non-Nullable Initialization</h3>
 
-<p>Non-nullable member initialization has similarities to const member initialization.
-One difference is that const members cannot be changed after declaration even if the 
-declaration does not initialize it.</p>
+<p>Non-nullable pointers can be initialized with <code>{}</code>, meaning they are set to zero; however, 
+they are still in an invalid state despite having a value. 
+This is very similar to being uninitialized. For instance:</p>
 
-<p>For instance:</p>
+<pre><code class="language-c">#pragma nullable enable
 
-<pre><code class="language-c">struct X { const int i; };
-int main(){
+struct X { char * text; };
+
+struct X f() {
     struct X x;
-    x.i = 1; //error
+    return x;  // warning: returning uninitialized &#39;x.text&#39;
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>The non-nullable on the other hand can transitioning from uninitialized to non-null.</p>
+<p>Compare with:</p>
+
+<pre><code class="language-c">struct X f() {
+    struct X x = {};
+    return x;  // warning: returning possible null pointer &#39;x.text&#39;
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>In both cases, the object is in an invalid state. In the first case, <code>x.text</code> is uninitialized (it has no defined value). 
+In the second case, <code>x.text</code> is initialized to zero (null), which is a defined value but still invalid for a non-nullable pointer.</p>
 
 <pre><code class="language-c">#pragma nullable enable
 
 char * _Opt strdup(const char * src);  
 
-struct X {  char * text; };  
+struct X { char * text; };  
 
 void f() {  
    char * _Opt s = strdup(&quot;a&quot;);
@@ -258,58 +372,16 @@ void f() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>The non-nullable pointer can also transition from null-uninitialized to non-null. 
-The null-uninitialized state is invalid for non-nullable pointers, just as the 
-uninitialized state is for any pointer.</p>
+<hr>
 
-<pre><code class="language-c">#pragma nullable enable
+<h3 id="toc_10">Using <code>malloc()</code> and <code>calloc()</code> with Structs</h3>
 
-char * _Opt strdup(const char * src);  
+<p>Cake understands the built-in semantics of <code>malloc()</code> and <code>calloc()</code>:</p>
 
-struct X {  char * text; };  
-
-void f() {  
-   char * _Opt s = strdup(&quot;a&quot;);
-   if (s == nullptr)
-     return;
-   struct X x = {};
-   x.text = s; //ok
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>How do we know when the object is fully constructed?
-We don&#39;t need to.  Attempting to read an uninitialized or null-uninitialized 
-or partially initialized object will result in a warning.</p>
-
-<p>For instance.</p>
-
-<pre><code class="language-c">#pragma nullable enable
-
-struct X {  char * text; };  
-
-struct X f() {  
-   struct X x;
-   return x; //warning 30: returning an uninitialized &#39;x.text&#39; object
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<pre><code class="language-c">#pragma nullable enable
-
-struct X {  char * text; };  
-
-struct X f() {  
-   struct X x = {};
-   return x;  //warning 35: returning a possible null pointer &#39;x.text&#39; to non-nullable pointer
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p><code>malloc</code> has a built-in semantics indicating the object is uninitialized. </p>
+<ul>
+<li><strong><code>malloc()</code></strong> — returns an uninitialized block; members must be assigned before use.</li>
+<li><strong><code>calloc()</code></strong> — returns a zero-initialized block; non-nullable members start as null and must be assigned before passing to functions expecting non-nullable pointers.</li>
+</ul>
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -332,8 +404,6 @@ void f() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p><code>calloc</code> has a built in semantics indicating the object is zero-initialized. (This can be an attribute in the future)</p>
-
 <pre><code class="language-c">#pragma safety enable  
 
 char * _Opt strdup(const char * src);  
@@ -352,573 +422,277 @@ void f() {
       f0(pX); //warning 33: non-nullable pointer &#39;pX.text&#39; may be null          
    }
 }
-
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>In some cases it may be useful to make the non-nullable members as nullable. 
-Applying <code>_Opt</code> qualifier to structs makes all members nullable.</p>
+<hr>
 
-<p>For instance, the previous calloc sample can be written as.</p>
+<h2 id="toc_11">Chapter 2: Object Lifetime and Ownership</h2>
 
-<pre><code class="language-c">#pragma nullable enable
+<p>Object lifetime as the portion of program execution during which storage 
+is reserved for that object. Cake&#39;s ownership system gives you compile-time enforcement 
+of these rules.</p>
 
-char * _Opt strdup(const char * src);  
-void * _Opt calloc(unsigned int n, unsigned int sz);
+<h3 id="toc_12">Enabling Ownership Checks</h3>
 
-struct X {  char * text; };  
+<pre><code class="language-c">// enables lifetime checks
+#pragma ownership enable  
 
-void f() {     
-   _Opt struct X * _Opt pX = calloc(1, sizeof *pX); //ok
-   if (pX)
-   {
-      char * _Opt s = strdup(&quot;a&quot;);
-      if (s != nullptr){
-        pX-&gt;text = s; //ok
-      }     
-   }
-}
-
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>Adding the <code>_Opt</code> qualifier in front of <code>struct X</code> (as in <code>_Opt struct X x;</code>) is analogous to 
-changing the type of <code>x</code> from:</p>
-
-<pre><code class="language-c">struct X { char * text; };
-</code></pre>
-
-<p>to:</p>
-
-<pre><code class="language-c">struct X { char * _Opt text; };
-</code></pre>
-
-<p>This can be compared to the addition of the <code>const</code> qualifier. 
-For example:</p>
-
-<pre><code class="language-c">const struct X x;
-</code></pre>
-
-<p>The type of <code>x</code> in this case is similar of to changing from:</p>
-
-<pre><code class="language-c">struct X { char * text; };
-</code></pre>
-
-<p>to:</p>
-
-<pre><code class="language-c">struct X { char * const text; };
-</code></pre>
-
-<p>We will discuss later another situation involving the <code>_View</code> qualifier that works as anti-owner qualifier.</p>
-
-<h4>mutable</h4>
-
-<p>In the same way we removed the implicit non-nullable  qualifier, we also could remove the const qualifier. 
-The anti-const qualifier could be named as <code>mutable</code>.</p>
-
-<p>For instance:</p>
-
-<pre><code class="language-c">struct X { char * const text; };
-</code></pre>
-
-<p>The declaration</p>
-
-<pre><code class="language-c">mutable struct X x; 
-</code></pre>
-
-<p>could be similar of having the type of <code>x</code> as:</p>
-
-<pre><code class="language-c">struct X { char * text; };
+// equivalent to: nullable enable + ownership enable
+#pragma safety enable      
 </code></pre>
 
 <blockquote>
-<p>OBS: mutable qualifier is not implemented in Cake. </p>
+<p><strong>Note:</strong> <code>_Owner</code> qualifiers are parsed even when ownership is disabled, but have no effect. Use <code>#pragma safety enable</code> as a shorthand for both features.</p>
 </blockquote>
 
-<h3 id="toc_3">Object lifetime checks</h3>
+<hr>
 
-<p>From the C23 standard:</p>
+<h3 id="toc_13">Owner References and the <code>_Owner</code> Qualifier</h3>
 
-<p>&quot;The <em>lifetime</em> of an object is the portion of program execution during which storage is guaranteed
-to be reserved for it. An object exists, has a constant address, and retains its last-stored value
-throughout its lifetime) If an object is referred to outside of its lifetime, the <strong>behavior is undefined</strong>&quot;</p>
+<p>An <strong>owner reference</strong> is an object that manages the lifetime of the thing it references. The most common form is an <strong>owner pointer</strong> — a pointer to a heap-allocated object that is responsible for freeing it.</p>
 
-<p>To conceptually manage the storage and object lifetime we will use the concept of ownership.</p>
-
-<h4>Owner references</h4>
-
-<p>An <strong>owner reference</strong> is an object referencing another object and managing its lifetime. </p>
-
-<p>The most common type of owner reference are pointers to <em>allocated</em> objects.  We can call then just <strong>owner pointers</strong>.  </p>
-
-<p><strong>Sample - Owner Pointer to FILE</strong></p>
+<p>Declare an owner pointer by adding <code>_Owner</code> after the <code>*</code>:</p>
 
 <pre><code class="language-c">#pragma safety enable
 
-#include &lt;stdio.h&gt;
-
-int main()
-{
-    FILE *_Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-    if (f)
-    {
-       fclose(f);
-    }
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdio.h&gt;
-
-int main()
-{
-    FILE *_Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-    if (f)
-    {
-       // fclose(f);
-    }
-} // warning 
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<blockquote>
-<p>Object lifetime checks are enabled with the <code>#pragma ownership enable</code>.<br>
-Qualifiers like <code>_Owner</code> can be used when ownership is disabled but they are ignored.</p>
-
-<p><code>#pragma safety enable</code> is equivalent of <code>#pragma nullable enable</code> + <code>#pragma ownership enable</code></p>
-</blockquote>
-
-<p>Sample:  </p>
-
-<p>If the programmer incorrectly assumes that <code>fclose</code> accepts NULL.</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdio.h&gt;
-
-int main()
-{
-    FILE * _Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-    if (f)
-    {
-    }
-    // warning 35: passing a possible null pointer &#39;f&#39; to non-nullable pointer parameter
-    fclose(f);
-}    
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p><strong>Rule:</strong> An <strong>owner reference</strong> is always the unique owner of the referenced object. As a consequence when owner references are copied the ownership is transferred.</p>
-
-<p><strong>Rule:</strong> Before the end of its lifetime, owner references must move the ownership of the objects they own.</p>
-
-<p>The cake ownership model does not have the concept of a destroyed object. Instead, everything is viewed as a transformation, where the object is broken into 
-smaller parts and those parts are moved.</p>
-
-<p>Sample</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdio.h&gt;
-
-int main()
-{
-    FILE * _Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-    FILE * _Owner _Opt f2 = f; /*MOVED*/
-    if (f2)
-       fclose(f2); /*MOVED*/
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>Invoking a function <code>fclose</code> is analogous to assignment of the argument <code>f2</code>, resulting in the transfer of ownership of <code>f2</code> to the function parameter.  </p>
-
-<p>Sample - Declaration of fopen and fclose</p>
-
-<pre><code class="language-c">FILE * _Owner _Opt fopen( const char *filename, const char *mode );
+FILE * _Owner _Opt fopen( const char *filename, const char *mode );
 void fclose(FILE * _Owner p); /*p is not nullable*/
-</code></pre>
-
-<h4>Non-pointer owner references</h4>
-
-<p>We can have other types of <strong>owner references</strong>.   </p>
-
-<p>For instance, Berkeley sockets use an integer to identify the socket.</p>
-
-<p>Sample</p>
-
-<pre><code class="language-c"> _Owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
- /*...*/
- close(server_socket);
-</code></pre>
-
-<blockquote>
-<p>Note: The location and usage of the qualifier _Owner is similar to the const qualifier. For pointers, it goes after *, and for this socket sample, it can be before int. The _Owner qualifier belongs to the object (memory)that holds the reference.</p>
-</blockquote>
-
-<p>When a struct or union have at least one owner object we can say the struct is a owner object too.</p>
-
-<p><strong>Rule:</strong> Owner objects cannot be discarded.</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdio.h&gt;
-
-int main() {  
-  fopen(&quot;file.txt&quot;, &quot;r&quot;); //warning   
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p><strong>Rule:</strong> A non-owner object cannot be copied to a owner object.</p>
-
-<p><strong>Rule:</strong> The null pointer constant can be used to initialize owner objects.</p>
-
-<p><strong>Sample</strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-typedef int T;
-  
-T * f(); /*returning non owner*/  
-
-int main() {  
-   T * _Owner p = f();      //ERROR   
-   T * _Owner _Opt _p2 = 0; //OK
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<h4>View references</h4>
-
-<p>A <strong>view reference</strong> is an object referencing another object without managing its lifetime. </p>
-
-<p><strong>Rule:</strong> The lifetime of the referenced object must be longer than the lifetime of the view reference.</p>
-
-<p>Sample:</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-struct X
-{
-    int i;
-};
-
-int main(){
-
-  struct X * _Opt p = nullptr;
-  {
-    struct X x = {};
-    p = &amp;x;
-  }
-  p-&gt;i = 1; //warning
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>The most common view references are pointers called <strong>view pointers</strong>. </p>
-
-<p>The view qualifier is not necessary for pointers, since it&#39;s the default behavior. 
-(The usage of _View in pointers  are forbidden to avoid the propagation of more than one style)</p>
-
-<p>When an owner object is copied to a view object, the ownership is not transferred.</p>
-
-<p><strong>Sample</strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdio.h&gt;
-
-void use_file(FILE * f) {}
 
 int main() {
     FILE * _Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-    if (f) {
-        use_file(f); //ownership of f is not moved
-        fclose(f);
+    if (f)
+        fclose(f);  // ownership is transferred to fclose
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>If you comment out <code>fclose()</code>, the analyzer warns that <code>f</code> leaves scope without its ownership being transferred:</p>
+
+<pre><code class="language-c">} // warning: &#39;f&#39; leaves scope with an owned resource
+</code></pre>
+
+<hr>
+
+<h3 id="toc_14">The Two Core Ownership Rules</h3>
+
+<blockquote>
+<p><strong>Rule:</strong> An owner reference is always the unique owner of the referenced object. Copying an owner reference transfers ownership to the destination.</p>
+
+<p><strong>Rule:</strong> Before the end of its lifetime, an owner reference must move ownership of the objects it owns.</p>
+</blockquote>
+
+<p>Ownership transfer happens through assignment or by passing the owner as a function argument. Calling <code>fclose(f)</code> is exactly like assigning <code>f</code> to <code>fclose</code>&#39;s parameter — the callee takes ownership:</p>
+
+<pre><code class="language-c">FILE * _Owner _Opt f2 = f;  // ownership transferred: f is now &#39;moved&#39;
+if (f2) fclose(f2);         // f2&#39;s ownership transferred to fclose
+</code></pre>
+
+<hr>
+
+<h3 id="toc_15">Additional Owner Rules</h3>
+
+<blockquote>
+<p><strong>Rule:</strong> Owner objects cannot be discarded. Calling <code>fopen()</code> and ignoring the return value is an error.</p>
+</blockquote>
+
+<pre><code class="language-c">fopen(&quot;file.txt&quot;, &quot;r&quot;);  // warning: discarding owner return value
+</code></pre>
+
+<blockquote>
+<p><strong>Rule:</strong> A non-owner object cannot be copied to an owner object.</p>
+
+<p><strong>Rule:</strong> The null pointer constant can be used to initialize owner objects (it represents an empty owner).</p>
+</blockquote>
+
+<hr>
+
+<h3 id="toc_16">Non-Pointer Owner References</h3>
+
+<p>Ownership is not limited to pointers. Berkeley sockets, for example, use an integer file descriptor. You can mark any type as an owner:</p>
+
+<pre><code class="language-c">_Owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+/* ... */
+close(server_socket);
+</code></pre>
+
+<blockquote>
+<p><strong>Note:</strong> The <code>_Owner</code> qualifier belongs to the storage holding the reference, not to the pointed-to type. Its placement follows the same rules as <code>const</code>.</p>
+</blockquote>
+
+<hr>
+
+<h3 id="toc_17">View References</h3>
+
+<p>A <strong>view reference</strong> accesses an object without managing its lifetime. Regular (non-<code>_Owner</code>) pointers are view references by default. The <code>_View</code> qualifier is used on struct types, not on pointer declarations.</p>
+
+<blockquote>
+<p><strong>Rule:</strong> The lifetime of the referenced object must exceed the lifetime of the view reference.</p>
+</blockquote>
+
+<p>The analyzer detects when a view pointer outlives what it points to:</p>
+
+<pre><code class="language-c">int main()
+{
+    struct X * _Opt p = nullptr;
+
+    {
+        struct X x = {};
+        p = &amp;x;
+    }
+
+    p-&gt;i = 1;  // warning: &#39;x&#39; lifetime ended
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<hr>
+
+<h3 id="toc_18">The <code>_View</code> qualifier.</h3>
+
+<p>The <code>_View</code> qualifier enables assignment without ownership transfer. 
+A <code>_View</code> object does not own the resource.</p>
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { char * _Owner _Opt text; };
+
+void f(_View struct X x) { /* read-only access, no ownership */ }
+void free(void* _Owner _Opt p);
+
+int main() {
+    struct X x = {};
+    f(x); /* not moved */
+    
+    _View struct X x2 = x; /* not moved */
+
+    free(x.text);   /* x is the owner */
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<hr>
+
+<h3 id="toc_19">Deleting Owner Pointers</h3>
+
+<p>Owner pointers take responsibility for both the pointed-to object and its storage. 
+A common pattern is to implement a <code>delete</code> function that releases both:</p>
+
+<pre><code class="language-c">#pragma safety enable
+#include &lt;stdlib.h&gt;
+
+struct X { char * _Owner text; };
+
+void x_delete(struct X * _Owner _Opt p) {
+  if (p) {
+    free(p-&gt;text);
+    free(p); /* storage */
+  }
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<blockquote>
+<p><strong>Note:</strong> <code>void * _Owner</code>  owns <em>only the storage</em>.</p>
+
+<p><strong>Note:</strong> Converting <code>T * _Owner</code> to <code>void * _Owner</code> requires the pointed-to object to be empty first. This is how the analyzer distinguishes between moving the object and moving only the raw storage.</p>
+</blockquote>
+
+<hr>
+
+<h2 id="toc_20">Chapter 3: Destructors and Constructors</h2>
+
+<h3 id="toc_21">The <code>[[dtor]]</code> Contract Attribute</h3>
+
+<p><code>[[dtor]]</code> tells the analyzer that the function will move out all owner contents of the pointed-to struct, leaving it uninitialized. The compiler also verifies that the implementation fulfills this contract.</p>
+
+<pre><code class="language-c">#pragma safety enable
+#include &lt;stdlib.h&gt;
+
+struct X { char * _Owner _Opt text; };
+
+void x_destroy([[dtor]] struct X * x) {
+    free(x-&gt;text);  // moves x-&gt;text; contract fulfilled
+}
+
+int main() {
+    struct X x = {};
+    /* ... */
+    x_destroy(&amp;x);  // contents of x are now moved
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>You can build a <code>delete</code> function on top of <code>x_destroy</code>:</p>
+
+<pre><code class="language-c">void x_delete(_Opt struct X * _Owner _Opt p) {
+    if (p) {
+        x_destroy(p);  // moves *p&#39;s contents
+        free(p);       // releases storage
     }
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+<hr>
 
-<p>When a <strong>_View</strong> qualifier is used in structs, it makes all members as view objects. </p>
+<h3 id="toc_22">The <code>[[ctor]]</code> Contract Attribute</h3>
 
-<p><strong>Sample - A view parameter</strong></p>
+<p><code>[[ctor]]</code> is the inverse of <code>[[dtor]]</code>. It tells the analyzer that the function expects an <strong>uninitialized</strong> object as input and initializes it on return. This is the pattern for init-style functions.</p>
 
 <pre><code class="language-c">#pragma safety enable
-
 #include &lt;stdlib.h&gt;
 
-struct X {   
-  char * _Owner _Opt text;   
-};  
+struct X { char * _Owner _Opt text; };
 
-void f(_View struct X x) { /*...*/ }  
+
+int init([[ctor]] struct X *p, const char * text) {
+    p-&gt;text = strdup(text);  // safe: p-&gt;text is uninitialized
+}
 
 int main() {
-    struct X x = {};
-    f(x); /*NOT MOVED*/    
+    struct X x;
+    init(&amp;x, &quot;hello&quot;);  // x is fully initialized after this
     free(x.text);
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<blockquote>
-<p>Note: It is interesting to compare against const qualifier. While const adds a qualifier &quot;const&quot; &quot;_View&quot; removes the qualifier &quot;_Owner&quot;.</p>
-</blockquote>
-
-<h4>Returning a pointer to a view object</h4>
-
-<p><strong>Rule:</strong> We cannot return a view pointer to objects with automatic storage duration from the function scope.</p>
+<p>Contrast this with a setter, which operates on an already-initialized object and must free the old value first:</p>
 
 <pre><code class="language-c">#pragma safety enable
-
-int * f()
-{
-   int a = 1;
-   return &amp;a; //ERROR
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>But we can return a view pointer to objects with static, thread and allocated duration.</p>
-
-<p>Sample:</p>
-
-<pre><code class="language-c">static int a = 1;
-int * f()
-{   
-   return &amp;a; // OK
-}  
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>We can return view pointers to objects pointed by parameters because they are from one scope above.  We cannot return the address of the parameters.</p>
-
-<pre><code class="language-c">int * f2(int *p) {
-   return p; //OK
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>Now consider:</p>
-
-<pre><code class="language-c">#include &lt;stdio.h&gt;
-
-int * max(int * p1, int * p2) {  
- return *p1 &gt; *p2 ? p1 : p2;
-}
-
-int main(){  
-   int * p = NULL;
-   int a  = 1;
-   {
-      int b = 2;
-      p = max(&amp;a,  &amp;b);
-   }
-   printf(&quot;%d&quot;, *p);
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>Examining the implementation reveals that the returned view pointer&#39;s lifetime can be that of either &#39;a&#39; or &#39;b&#39;.</p>
-
-<p>This check is missing at cake but the idea is to make <code>a</code> and <code>b</code> suspects. Considering the lifetime of <code>b</code> smaller than <code>p</code> then the programmer needs to tell the compiler that <code>p</code> cannot be <code>b</code>. For instance <code>assert(p != &amp;b);</code>.<br>
-But the programmer will not do that in this code. The expectation is that code naturally will avoid this kind of situation using the returned object in a limited scope.
-When objects with static storage duration are returned we don&#39;t need to check suspects as well.  This is not implemented yet but one alternative is to use <code>char * static</code> to inform <em>&quot;pointer to static storage duration object&quot;</em>.</p>
-
-<h4>Deleting Owner Pointers</h4>
-
-<p><strong>Owner pointers</strong> take on the responsibility of owning the pointed object and its associated storage, treating them as distinct entities.</p>
-
-<p>A common practice is to implement a delete function to release both resources.</p>
-
-<p><strong>Sample - Implementing the delete function</strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
 #include &lt;stdlib.h&gt;
 
-struct X {
-  char * _Owner text; 
-};
+struct X { char * _Owner _Opt text; };
 
-void x_delete(struct X * _Owner _Opt p) { 
-  if (p) {
-    free(p-&gt;text); 
-    free(p);
-  }
-}
-
-int main() {
-   _Opt struct X * _Owner _Opt pX = calloc(1, sizeof * pX);
-   if (pX) {
-     /*...*/;
-     x_delete( pX); 
-   }
- } 
-
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>The differentiation of object and storage ownership is given by the <code>void *</code> conversion.  Moving <code>void*</code> implies that only the storage without any object on it is being moved.</p>
-
-<h4>Conversion from <code>T * _Owner</code> to <code>void * _Owner</code></h4>
-
-<p><strong>Rule:</strong> Assignment or cast from <code>T * _Owner</code> to <code>void * _Owner</code> requires the pointed object T to be empty.</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-struct X {
-    char * _Owner text;
-};
-
-struct X * _Owner make();
-
-int main(){
-   void * _Owner _Opt p = nullptr;
-   struct X * _Owner pX = make();
-   p = pX; //warning
-}
-
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>When the object is created on the stack, we can implement a destructor.</p>
-
-<p><strong>Sample - Implementing a destructor</strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdlib.h&gt;
-
-struct X {
-    char * _Owner _Opt text;
-};  
-
-void x_destroy(struct X x) {
-    free(x.text);
-}  
-
-int main() {
-    struct X x = {};
-    /*...*/
-    x_destroy(x); /*x is moved*/
+int set(struct X *p, const char * text) {
+    // old value must be released
+    //free(p-&gt;text);
+    p-&gt;text = strdup(text);
 }
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>However in C, structs are typically passed by pointer rather than by value. </p>
+<hr>
 
-<h4>[[dtor]] contract attribute</h4>
+<h3 id="toc_23"><code>[[dtor]]</code> vs <code>[[ctor]]</code> — Summary</h3>
 
-<p>[[dtor]] attribute tells the static analyzer that the object will have all its 
-contents moved, and the contents that are owner references will 
-become uninitialized.</p>
+<p>Think of them as describing the state of the object before and after the call:</p>
 
-<p>The compiler also needs to ensure that this contract is fulfilled in 
-the implementation.</p>
+<p><code>[[ctor]]</code> — the input must be uninitialized or moved; the function&#39;s job is to fully initialize it.</p>
 
-<p>The next sample illustrates how to implement a destructor 
-using a [[dtor]] annotation.</p>
+<p><code>[[dtor]]</code> — the input must be fully initialized; the function&#39;s job is to move out all owner contents, leaving the object uninitialized.</p>
 
-<p>** Sample - Implementing a destructor using <code>[[dtor]]</code> **</p>
+<hr>
 
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdlib.h&gt;
-
-struct X {
-    char * _Owner _Opt text;
-};
-
-void x_destroy( [[dtor]] struct X * x) {
-    free(x-&gt;text);    
-    
-    /*
-      destroy must fulfill the contract of 
-      moving all contents of struct x
-    */
-}
-
-int main() {
-    struct X x = {};
-    
-    /*
-      more code...
-    */
-
-    x_destroy(&amp;x);
-    
-    /*
-     The contents of the object x were moved
-    */
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>Obs: [[ctor]] in cake is similar of _Out  in Microsoft SAL</p>
-
-<p><strong>Sample - Using <code>x_destroy</code> to implement <code>x_delete</code></strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdlib.h&gt;
-
-struct X {
-  char * _Owner _Opt text; 
-};
-
-void x_destroy( [[dtor]] struct X * x) { 
-  free(x-&gt;text); 
-}
-
-void x_delete(_Opt struct X * _Owner _Opt p) { 
-  if (p) {
-    x_destroy(p);
-    
-    /*
-     contents of *p where moved
-    */
-
-    free(p);
-  }
-}
-
-int main() {
-   struct X * _Opt _Owner pX = calloc(1, sizeof * pX);
-   if (pX) {
-     /*...*/;
-     x_delete(pX); 
-   }
- } 
-
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<h4>Qualifiers in Arrays</h4>
+<h3 id="toc_24">Qualifiers in Arrays</h3>
 
 <p>In C, array types in arguments are pointers. This characteristics is preserved.</p>
 
@@ -932,542 +706,228 @@ void f(int a[_Owner])
 {
   free(a);
 }
-</code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+</code></pre>
 
 <p>But I think this is quite uncommon.</p>
 
-<h2 id="toc_4">Flow analysis</h2>
+<h2 id="toc_25">Chapter 4: Flow Analysis and Object States</h2>
 
-<p>Flow analysis is the core feature that enables the nullable and lifetime checks.</p>
+<p>Flow analysis is the foundation of Cake&#39;s nullable and ownership checks. 
+It tracks the possible states of every variable at every point in your program.</p>
 
-<p>The compiler flag <code>-fanalyzer</code> activates the flow analysis that works a secondary pass.</p>
+<h3 id="toc_26">Enabling Flow Analysis</h3>
 
-<p>Flow analysis  also can be enabled/disable with pragma</p>
-
-<pre><code class="language-c">#pragma flow enable
+<pre><code class="language-c">#pragma flow enable    // standalone
+#pragma safety enable  // enables flow automatically
+// or compile with: -fanalyzer
 </code></pre>
 
-<p>When pragma safety, nullable or ownership are enabled, they enable flow as well.</p>
+<hr>
 
-<p>To check the nullable and ownership rules, the compiler use these states:</p>
+<h3 id="toc_27">The State Model</h3>
 
-<ul>
-<li>nothing</li>
-<li>uninitialized</li>
-<li>moved</li>
-<li>null</li>
-<li>not-null</li>
-<li>zero</li>
-<li>not-zero</li>
-<li>lifetime-ended</li>
-</ul>
+<p>The analyzer tracks the following states for each variable:</p>
 
-<p>We can print these states using the <strong>static_debug</strong> declaration.
-We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. </p>
+<p><code>uninitialized</code> — the variable has been declared but not yet assigned a value.</p>
 
-<p><strong>Sample - Usage of static_state and static_debug</strong></p>
+<p><code>moved</code> — ownership was transferred to another variable or passed into a function call.</p>
+
+<p><code>null</code> — the pointer is null, or the owner holds no resource.</p>
+
+<p><code>not-null</code> — the pointer is known to reference a live object.</p>
+
+<p><code>zero</code> — the value of a non-pointer object is zero. This is distinct from <code>null</code> because, for non-pointer owners like sockets, zero does not necessarily mean &quot;no resource&quot;.</p>
+
+<p><code>not-zero</code> — the value of a non-pointer object is non-zero.</p>
+
+<p><code>lifetime-ended</code> — the object the pointer was referencing has gone out of scope.</p>
+
+<hr>
+
+<h3 id="toc_28">Inspecting State with <code>assert_state</code> and <code>static_debug</code></h3>
+
+<p>Use these built-in declarations to inspect or assert variable states during development:</p>
 
 <pre><code class="language-c">#pragma safety enable
 
 int main() {
-  int a;   
-  static_state(a, &quot;uninitialized&quot;); //checks a state  
-  static_debug(a);                  //prints &#39;a&#39; state 
+    int a;
+    assert_state(a, &quot;uninitialized&quot;);  // asserts the current state at compile time
+    static_debug(a);                   // prints state to compiler output
 }
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+<p>String literals are used because states like <code>&quot;uninitialized&quot;</code> and <code>&quot;moved&quot;</code> have no runtime representation.</p>
 
-<p>The literal string has been chosen because some states, such as &#39;uninitialized&#39; and &#39;moved,&#39; 
-do not have a memory representation or a constant value for comparison.</p>
+<hr>
 
-<h4>Uninitialized state</h4>
+<h3 id="toc_29">Uninitialized State</h3>
 
-<p>The <strong>uninitialized</strong> state is state of local variables that are declared but not initialized. </p>
+<p>Reading an uninitialized variable triggers a warning. This also applies after a move:</p>
 
-<p>Flow analysis must  ensure that we don&#39;t read uninitialized objects.</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-int printf(const char* restrict format, ...);
-
-void f(int condition) {
-   int i;
-   if (condition) 
-    i = 0;
-   printf(&quot;%d&quot;, i); //warning i may be uninitialized
-}
+<pre><code class="language-c">int * _Owner p = f();
+free(p);   // p is now uninitialized (moved into free)
+free(p);   // warning: p is uninitialized
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+<hr>
 
-<p>The other situation were variables becomes `<strong>uninitialized</strong> is when moving ownership to function parameters. </p>
+<h3 id="toc_30">Moved State</h3>
 
-<p>This prevents bugs like double free or use after free.</p>
+<p>When you assign an owner to another owner in local scope, the source enters the moved state. The analyzer knows the pointed-to object is still valid but the source no longer owns it:</p>
 
-<pre><code class="language-c">#pragma safety enable
-
-int * _Owner f();
-void free(void * _Owner _Opt p);
-
-int main() {   
-   int * _Owner p = f();
-   free(p);
-   free(p); //warning p is uninitialized
-}
+<pre><code class="language-c">int * _Owner p = f();
+int * _Owner _Opt p2 = 0;
+p2 = p;       // p is now &#39;moved&#39;
+free(p);      // warning: p was moved
+free(p2);     // ok
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+<hr>
 
-<h4>Moved state</h4>
+<h3 id="toc_31">Null and Not-Null States</h3>
 
-<p>The <strong>moved</strong> state is similar to the <em>uninitialized</em> state, and does not have a representation on runtime memory.  </p>
+<p>After a null check, the analyzer refines the state inside each branch:</p>
 
-<p>The difference is that the moved state is used when moving local variables. For pointers, the moved state implies that the pointer was not-null. </p>
-
-<p><strong>Sample - local scope moves</strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-int * _Owner f();
-void free(void * _Owner _Opt p);
-
-int main() {   
-   int * _Owner p = f();
-   int * _Owner _Opt p2 = 0;
-   p2 = p; // p moved to p2  
-  
-   //compiler knows that *p still valid  
-
-   free(p); //warning p was moved
-
-   free(p2); //ok
+<pre><code class="language-c">void * _Owner _Opt p = malloc(1);
+if (p) {
+    assert_state(p, &quot;not-null&quot;);     // ok inside the check
 }
+assert_state(p, &quot;null | not-null&quot;); // outside: could be either
+free(p);
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+<hr>
 
-<h4>[[ctor]] contract attribute</h4>
+<h3 id="toc_32">Overriding State with <code>override_state</code></h3>
 
-<p>A common scenario where uninitialized objects are utilized 
-is when a pointer to an uninitialized object is passed to an &quot;init&quot; function.</p>
+<p>Sometimes the analyzer cannot determine the correct state — for example, when a non-pointer owner (like a socket) uses a sentinel value such as <code>-1</code> to represent &quot;no resource&quot;. Use <code>override_state()</code> to assert the correct state explicitly:</p>
 
-<p>This situation is addressed by the contract attribute [[ctor]].</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdlib.h&gt;
-#include &lt;string.h&gt;
-
-struct X {
-  char * _Owner _Opt text;
-};
-
-int init( [[ctor]] struct X *p)
-{
-  p-&gt;text = strdup(&quot;a&quot;);
-  
-  /*
-     The implementation must fulfill the contract and 
-     initialize all members of x
-  */
-
+<pre><code class="language-c">_Owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+if (server_socket &lt; 0) {
+    override_state(server_socket, &quot;null&quot;);  // no resource; safe to return
+    return;
 }
-
-int main() {   
-  struct X x;
-  init(&amp;x);  
-
-  /*
-     x is fully initialized
-  */
-
-  free(x.text);
-}  
-
+/* ... */
+close(server_socket);
 </code></pre>
 
-<p><button onclick="Try(this)">try</button></p>
+<p><code>override_state</code> is also needed with <code>realloc()</code>, whose ownership semantics depend on the return value:</p>
 
-<p>With the [[ctor]] contract attribute, caller is informed that the argument must be uninitialized.</p>
-
-<p>The implementation is aware that it can safely override the contents of the 
-object <code>p-&gt;text</code> without causing a memory leak.</p>
+<pre><code class="language-c">void * _Owner _Opt p2 = realloc(p, 2);
+if (p2 != 0) {
+    override_state(p, &quot;moved&quot;);  // realloc moved p on success
+    p = p2;
+}
+free(p);
+</code></pre>
 
 <blockquote>
-<p>Note: There is no explicit &quot;initialized&quot; state. When referring to initialized objects, it means the state is neither &quot;moved&quot; nor &quot;uninitialized.&quot;.</p>
+<p><strong>Note</strong> Note: <code>override_state</code> is a dangerous function and should be avoided. Before using it, consider alternatives such as warning suppression or assert.</p>
 </blockquote>
 
-<p><strong>Rule:</strong> All objects passed as arguments must be initialized and all objects reachable must be initialized.</p>
+<hr>
 
-<p><strong>Rule:</strong> By default, the parameters of a function are considered initialized. The exception is created with [[ctor]] attribute.</p>
+<h2 id="toc_33">Chapter 5: Known Limitations</h2>
 
-<p><strong>Rule:</strong> We cannot pass initialized objects, or reachable initialized objects to [[ctor]] annotated object.</p>
+<p>Cake&#39;s flow analysis is not intra-procedural ; it does not trace relationships across function call 
+boundaries or between separate branches that share the same underlying condition. 
+This leads to a small number of false positives in certain patterns.</p>
 
-<p>For instance, at set implementation we need free text before assignment.</p>
+<h3 id="toc_34">Correlated Conditions</h3>
 
-<pre><code class="language-c">#pragma safety enable
+<p>If the same condition governs two separate branches, the analyzer may warn inside the second branch because it has forgotten the correlation:</p>
 
-#include &lt;stdlib.h&gt;
-#include &lt;string.h&gt;
-
-struct X {
-  char * _Owner _Opt text;
-};
-
-int init([[ctor]] struct X *p, const char * text)
-{
-   p-&gt;text = strdup(text); //safe
-}
-
-int set(struct X *p, const char * text)
-{
-  free(p-&gt;text); //necessary
-  p-&gt;text = strdup(text);
-}
-
-int main() {   
-  struct X x;
-  init(&amp;x, &quot;text1&quot;);
-  set(&amp;x, &quot;text2&quot;);   
-  free(x.text);
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p><strong>Rule:</strong> Function never returns uninitialized objects or reachable uninitialized objects.</p>
-
-<p><strong>Rule:</strong> Non owner objects accessible with parameters cannot leave scope with uninitialized/moved objects.</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;string.h&gt;
-#include &lt;stdlib.h&gt;
-
-struct X {
-  char * _Owner _Opt name;
-};
-
-void x_destroy( [[dtor]] struct X * p) {
-  free(p-&gt;name); 
-}
-
-struct Y {
-   struct X x;
-};
-
-void f(struct Y * p) {   
-   x_destroy(&amp;p-&gt;x); //breaking the rule
-}
-  
-int main() {
-   struct Y  y = {};
-   y.x.name = strdup(&quot;a&quot;);
-   f(&amp;y);
-   free(y.x.name);
-}  
-
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>Sample of swap if fine because at end of scopes objects are not uninitialized/moved.</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdlib.h&gt;
-
-struct X
-{
-  char * _Owner _Opt name;
-};
-
-void x_destroy( [[dtor]] struct X * p)
-{
-  free(p-&gt;name); 
-}
-
-void x_swap(struct X * a, struct X * b) {
-  struct X temp = *a;
-  *a = *b;
-  *b = temp;
-} //ok
-  
-int main() {
-   struct X x1 = {};
-   struct X x2 = {};
-  
-   x_swap(&amp;x1, &amp;x2);
-  
-   x_destroy(&amp;x1);
-   x_destroy(&amp;x2);
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>I later realized that C# has an out parameter, which is similar in 
-many ways. For example, both Cake and C# assume the argument is 
-initialized independently of the result.</p>
-
-<p><a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out">https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out</a></p>
-
-<p>The [[dtor]] is the inverse of [[ctor]].
-With [[dtor]], the object is uninitialized as input and initialized as output.
-With [[ctor]], the object is initialized as input and uninitialized as output.</p>
-
-<p>C# also has attributes to especify other compile time contracts.
-<a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis">https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis</a></p>
-
-<h4>Null and Not-Null state</h4>
-
-<p>The <strong>null</strong> state means that pointers/objects are empty, In other words, not referencing any object. </p>
-
-<p><strong>Sample - Null state</strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-int main() {
- void * _Owner _Opt p = nullptr;   
- static_state(p, &quot;null&quot;); 
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p><strong>Rule:</strong> Before assignment, owner objects, must be empty or uninitialized.
-The state must be null or uninitialized/moved.</p>
-
-<p>Sample</p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdio.h&gt;
-int main() {
-  FILE * _Owner _Opt file = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-  file = fopen(&quot;file.txt&quot;, &quot;r&quot;); //warning
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>The <strong>not-null</strong> state indicates that the object is initialized and referencing an object.</p>
-
-<p>The final state is combination of possibilities like <strong>null</strong> and <strong>not-null</strong>. 
-We can check possible combinations using <code>static_state</code>.  </p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;stdlib.h&gt;
-
-int main()
-{
-   void * _Owner _Opt p = malloc(1);
-   if (p) {
-     static_state(p, &quot;not-null&quot;);
-   }      
-   static_state(p, &quot;null | not-null&quot;);
-   free(p);
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<h4>Zero and Not-Zero state</h4>
-
-<p>The <strong>zero</strong> state is used for non-pointer objects to complement and support uninitialized checks.</p>
-
-<p><strong>Sample - The zero state</strong></p>
-
-<pre><code class="language-c">int main()
-{
-   int i = 0;
-   static_state(i, &quot;zero&quot;);   
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p><strong>Zero</strong> and <strong>null</strong> are different states.
-This difference is necessary because, for non-pointers like the socket sample, 
-0 does not necessarily means null. 
-The compiler does not know the semantics for types that are not pointers.</p>
-
-<h4>lifetime-ended state</h4>
-
-<p>This is the state when variables leave the scope or when objects are moved.</p>
-
-<h4>static_set</h4>
-
-<p>We can use <strong>static_set</strong> to override states.
-In the next sample, we annotate that server_socket is null, which doesn&#39;t mean it 
-is zero but indicates that it is not holding any resources and 
-is safe to return without calling close.</p>
-
-<p><strong>Sample - Usage of static_set</strong></p>
-
-<pre><code class="language-c">  _Owner int server_socket =
-     socket(AF_INET, SOCK_STREAM, 0);
-  if (server_socket &lt; 0) {  
-     static_set(server_socket, &quot;null&quot;);
-     return;
-  }  
- /*...*/
- close(server_socket);
-</code></pre>
-
-<p>The <strong>not-zero</strong> state is used in non-pointers objects to indicate the value is not zero.</p>
-
-<pre><code class="language-c">int f();
-
-int main() {   
-    int i = f();
-    static_state(i, &quot;zero | not-zero&quot;);
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<p>Now let&#39;s consider <code>realloc</code> function.</p>
-
-<pre><code class="language-c">void * _Owner _Opt realloc( void * _Opt ptr, size_t new_size ); 
-</code></pre>
-
-<p>In the declaration of <code>realloc</code>, we are not moving the ptr. The reason for that is because the <code>ptr</code> may or may not be moved. If the function returns NULL, <code>ptr</code> was not moved. </p>
-
-<p><strong>Sample - Using static_set with realloc</strong></p>
-
-<pre><code class="language-c">#pragma safety enable
-
-void* _Owner _Opt malloc(unsigned int size);
-void* _Owner _Opt realloc(void* _Opt ptr, unsigned int size);
-void free(void* _Owner _Opt p);
-
-int main()
-{
-  void * _Owner _Opt p = malloc(1);
-  void * _Owner _Opt p2 = realloc(p, 2);
-  if (p2 != 0)
-  {
-     // if p2 != 0 it  means p was moved
-     static_set(p, &quot;moved&quot;);
-     p = p2;
-  }    
-  free(p);
-}
-
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<h3 id="toc_5">assert is a built-in function</h3>
-
-<p>Consider the following example of a linked list, where each node has a pointer to the next node. 
-The next pointer of the tail of the list should always point to null, 
-unless there is a bug. However, the compiler does not inherently know 
-that <code>list-&gt;tail-&gt;next</code> is null. By using <code>assert</code>, we can inform the compiler of this expectation,
-while also providing a runtime check for potential logic errors.</p>
-
-<p><strong>Listing 22 shows the usage of assert.</strong> </p>
-
-<pre><code class="language-c">#pragma safety enable
-
-#include &lt;string.h&gt;
-#include &lt;stdlib.h&gt;
-
-struct node {
- char * _Owner text;
- struct node* _Owner _Opt next;
-};
-
-struct list {
-  struct node * _Owner _Opt head;
-  struct node * _Opt tail;
-};
-
-void list_append(struct list* list, struct node* _Owner node)
-{
-  if (list-&gt;head == NULL) 
-  {
-     list-&gt;head = node;
-  }
-  else
-  {      
-
-     //list-&gt;tail is not null. (becuase it is only null if head is also null)
-     assert(list-&gt;tail != 0);         
-
-     //next is always null becuase it is the last node
-     assert(list-&gt;tail-&gt;next == 0);
-
-     list-&gt;tail-&gt;next = node;
-   }
-   list-&gt;tail = node;
-}
-</code></pre>
-
-<p><button onclick="Try(this)">try</button></p>
-
-<h2 id="toc_6">Limitations</h2>
-
-<p>While Cake tracks possible states, such as maybe-null, it does not track 
-the origin or relationships between these states. </p>
-
-<p>For instance, in the following example, Cake does not understand that the pointer cannot be null.</p>
-
-<pre><code class="language-c">int f(int c)
-{
-    int i =0;
+<pre><code class="language-c">int f(int c) {
+    int i = 0;
     int * _Opt p = 0;
-    
-    if (c &gt; 2)
-      p = &amp;i;
-
-    if (c &gt; 2)
-      i = *p; //warning: dereference a NULL object
+    if (c &gt; 2) p = &amp;i;
+    if (c &gt; 2) i = *p;  // warning: possible null dereference
 }
 </code></pre>
 
-<p>In the following example, Cake recognizes that the pointed object is &#39;maybe deleted.&#39; 
-However, if the object is deleted, it doesn’t matter because the pointer is null. 
-These relationships between states are not tracked.</p>
+<blockquote>
+<p><strong>Workaround:</strong> Combine the two <code>if</code> blocks into one, or add <code>assert(p != 0)</code> before the dereference.</p>
+</blockquote>
 
-<pre><code class="language-c">#pragma safety enable
-#include &lt;stdlib.h&gt;
+<hr>
 
-int * _Owner _Opt f(int c){
-  int * _Owner _Opt p = malloc(sizeof * p);
-  try {
-         if (c) throw;
-  }
-  catch {
-      free(p);
-      p = nullptr;
-  }
-  return p; //warning: lifetime ended &#39;p&#39;
+<h3 id="toc_35">State Relationships After Branching</h3>
+
+<p>When an owner is freed in one branch and set to null, the analyzer may still report it as possibly having a lifetime-ended state in a later check:</p>
+
+<pre><code class="language-c">int * _Owner _Opt f(int c) {
+    int * _Owner _Opt p = malloc(sizeof *p);
+    try { if (c) throw; }
+    catch { free(p); p = nullptr; }
+    return p;  // warning: possible lifetime-ended &#39;p&#39;
 }
 </code></pre>
 
-<p>To address these issues, I am considering a new algorithm.</p>
+<p>These are implementation constraints, not flaws in the ownership model itself.</p>
 
-<p>Please note that this is an implementation detail and is not related to the ownership 
-rules themselves.</p>
+<hr>
 
-<h2 id="toc_7">Code transition Strategy</h2>
+<h2 id="toc_36">Chapter 6: Code Transition Strategy</h2>
 
-<p>A header <code>safe.h</code> can define all cake extensions as empty macros.</p>
+<p>Adopting Cake&#39;s static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:</p>
 
-<h2 id="toc_8">References</h2>
+<ol>
+<li><p><strong>Create <code>safe.h</code></strong> — define all Cake extensions (<code>_Owner</code>, <code>_Opt</code>, <code>_View</code>, <code>[[dtor]]</code>, <code>[[ctor]]</code>, <code>assert_state</code>, <code>override_state</code>, <code>static_debug</code>) as empty macros. This lets your code compile cleanly with a standard C compiler before you begin annotating.</p></li>
+<li><p><strong>Enable nullable rules one file at a time</strong> — add <code>#pragma nullable enable</code> to one translation unit, fix its warnings, then move to the next.</p></li>
+<li><p><strong>Enable ownership rules</strong> — once nullable warnings are clean in a file, add <code>#pragma ownership enable</code> (or <code>#pragma safety enable</code>).</p></li>
+<li><p><strong>Annotate signatures progressively</strong> — add <code>_Owner</code>, <code>_Opt</code>, <code>[[ctor]]</code>, and <code>[[dtor]]</code> as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.</p></li>
+</ol>
 
-<p>[1] <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a>,</p>
+<hr>
 
-<p><a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies?source=recommendations</a></p>
+<h2 id="toc_37">Quick Reference</h2>
 
-<p><a href="https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates">https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates</a></p>
+<h3 id="toc_38">Qualifiers</h3>
 
-<p>Microsoft SAL
-<a href="https://learn.microsoft.com/en-us/cpp/code-quality/understanding-sal?view=msvc-170">https://learn.microsoft.com/en-us/cpp/code-quality/understanding-sal?view=msvc-170</a></p>
+<p><code>_Opt</code> — the pointer may be null (nullable). Without this qualifier, a pointer is treated as non-nullable when nullable rules are enabled.</p>
+
+<p><code>_Owner</code> — the reference manages the lifetime of the object it references. Ownership is transferred on assignment or when passed to a function.</p>
+
+<p><code>_View</code> on struct — strips <code>_Owner</code> from all members for the duration of that variable&#39;s scope. Used to pass an owner struct without transferring ownership.</p>
+
+<p><code>[[ctor]]</code> — the parameter must be uninitialized on entry; the function is responsible for initializing it before returning.</p>
+
+<p><code>[[dtor]]</code> — the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning.</p>
+
+<hr>
+
+<h3 id="toc_39">Pragmas</h3>
+
+<p><code>#pragma nullable enable</code> / <code>#pragma nullable disable</code> — toggles non-nullable enforcement. When enabled, any pointer without <code>_Opt</code> is treated as non-nullable.</p>
+
+<p><code>#pragma ownership enable</code> — enables owner reference lifetime checks.</p>
+
+<p><code>#pragma safety enable</code> — enables both nullable and ownership checks at once. Equivalent to combining both pragmas above.</p>
+
+<p><code>#pragma flow enable</code> — enables flow analysis without enabling nullable or ownership rules.</p>
+
+<hr>
+
+<h3 id="toc_40">Built-in Intrinsics</h3>
+
+<p><code>assert_state(var, &quot;state&quot;)</code> — asserts that <code>var</code> is currently in the given state. Useful for verifying your understanding of what the analyzer tracks at a given point.</p>
+
+<p><code>static_debug(var)</code> — prints <code>var</code>&#39;s current state to the compiler output. Use this to explore what the analyzer knows about a variable.</p>
+
+<p><code>override_state(var, &quot;state&quot;)</code> — overrides <code>var</code>&#39;s state in the analyzer. Use this when the analyzer cannot infer the correct state on its own, such as after <code>realloc()</code> or when working with non-pointer owners.</p>
+
+<hr>
+
+<h2 id="toc_41">References</h2>
+
+<ul>
+<li>C# Nullable References: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a></li>
+<li>C# Nullable Migration Strategies: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies</a></li>
+<li>TypeScript Type Predicates: <a href="https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates">https://www.typescriptlang.org/docs/handbook/advanced-types.html#using-type-predicates</a></li>
+<li>Microsoft SAL: <a href="https://learn.microsoft.com/en-us/cpp/code-quality/understanding-sal">https://learn.microsoft.com/en-us/cpp/code-quality/understanding-sal</a></li>
+<li>C# <code>out</code> parameter: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out">https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/out</a></li>
+<li>C# Nullable Analysis Attributes: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis">https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis</a></li>
+</ul>
 </article></body></html>

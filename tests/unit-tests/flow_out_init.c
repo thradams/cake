@@ -9,8 +9,8 @@ struct X {
 };
 void init(_Ctor struct X* px)
 {
-    static_state(px, "not-null");
-    static_state(px->s, "uninitialized");
+    assert_state(px, "not-null");
+    assert_state(px->s, "uninitialized");
     px->s = strdup("a");
 }
 

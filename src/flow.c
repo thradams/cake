@@ -337,7 +337,7 @@ int objects_view_reserve(struct flow_objects_view* p, int n)
         void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
 
-        static_set(p->data, "moved"); //p->data was moved to pnew
+        override_state(p->data, "moved"); //p->data was moved to pnew
 
         p->data = pnew;
         p->capacity = n;
@@ -448,7 +448,7 @@ int objects_reserve(struct flow_objects* p, int n)
         void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
 
-        static_set(p->data, "moved"); //p->data was moved to pnew
+        override_state(p->data, "moved"); //p->data was moved to pnew
 
         p->data = pnew;
         p->capacity = n;
@@ -3737,7 +3737,7 @@ static int true_false_set_reserve(struct true_false_set* p, int n)
         void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL)
             return ENOMEM;
-        static_set(p->data, "moved");
+        override_state(p->data, "moved");
         p->data = pnew;
         p->capacity = n;
     }
@@ -7019,7 +7019,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
                 if (e != p_obj->current.state)
                 {
-                    compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
+                    compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "assert_state failed");
                     if (p_static_assert_declaration->string_literal_opt)
                         printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
                     printf("current  :");
@@ -7031,7 +7031,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             {
                 if (e != FLOW_OBJECT_STATE_NOT_APPLICABLE)
                 {
-                    compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "static_state failed");
+                    compiler_diagnostic(C_FLOW_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, NULL, "assert_state failed");
                 }
             }
 

@@ -13,6 +13,6 @@ void f()
         exit(1);
     }
     
-    static_state(s, "not-null");
+    assert_state(s, "not-null");
     free(s);
 }

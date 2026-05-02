@@ -1149,7 +1149,7 @@ int main()
 ```
 <button onclick="Try(this)">try</button>
 
-### 1070 static_set error
+### 1070 override_state error
 ```c
 int main()
 {  
@@ -1167,7 +1167,7 @@ int f();
 
 int main() {   
     int i = f();
-    static_state(i, "not-zero"); //error C1080: static_state failed
+    assert_state(i, "not-zero"); //error C1080: assert_state failed
 } 
 ```
 

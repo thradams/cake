@@ -9,11 +9,11 @@ void free(void* _Owner _Opt p);
 int main()
 {
     struct X* _Owner _Opt p = calloc(1, 1);
-    static_state(p, "null | not-null ");
+    assert_state(p, "null | not-null ");
     if (p)
     {
-    static_state(p->i, "zero");
-    static_state(p->p, "null");
+    assert_state(p->i, "zero");
+    assert_state(p->p, "null");
     }
     free(p);
 }

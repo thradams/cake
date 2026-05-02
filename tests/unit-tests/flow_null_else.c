@@ -13,5 +13,5 @@ void f5()
        return;
     }
     
-    static_state(p, "null ");    
+    assert_state(p, "null ");    
 }

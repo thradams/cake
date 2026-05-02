@@ -12,11 +12,11 @@ void free(void *_Owner _Opt p);
 int main()
 {
     struct X *_Owner _Opt p = malloc(1, 1);
-    static_state(p, "null | not-null ");
+    assert_state(p, "null | not-null ");
     if (p)
     {
-        static_state(p->i, "uninitialized");
-        static_state(p->p, "uninitialized");
+        assert_state(p->i, "uninitialized");
+        assert_state(p->p, "uninitialized");
     }
     free(p);
 }

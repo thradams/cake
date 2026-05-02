@@ -18,7 +18,7 @@ struct X* _Owner _Opt F(int i)
             struct X* _Owner p2 = calloc(1, sizeof * p2);
             if (p2)
             {
-              static_set(*p2, "zero");
+              override_state(*p2, "zero");
                 p1 = p2;
             }
             break;

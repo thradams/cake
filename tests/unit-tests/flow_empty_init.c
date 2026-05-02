@@ -16,9 +16,9 @@ struct X {
 
 int main() {   
    _Opt struct X x = {};   
-   static_state(x.text, "null");
-   static_state(x.p1, "null");
-   static_state(x.i, "zero");
-   static_state(x.pY, "null");
+   assert_state(x.text, "null");
+   assert_state(x.p1, "null");
+   assert_state(x.i, "zero");
+   assert_state(x.pY, "null");
 }
 

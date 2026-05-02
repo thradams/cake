@@ -10003,9 +10003,9 @@ char *get_diagnostic_friendly_token_name(int tk)
             __L141: /*case 9088*/ 
             return "static_debug_ex";
             __L142: /*case 9089*/ 
-            return "static_state";
+            return "assert_state";
             __L143: /*case 9090*/ 
-            return "static_set";
+            return "override_state";
             __L144: /*case 9091*/ 
             return "IS_POINTER";
             __L145: /*case 9092*/ 
@@ -23641,11 +23641,11 @@ int is_keyword(char * text, int target)
             {
                 return 9088;
             }
-            if (strcmp("static_state", text) == 0)
+            if (strcmp("assert_state", text) == 0)
             {
                 return 9089;
             }
-            if (strcmp("static_set", text) == 0)
+            if (strcmp("override_state", text) == 0)
             {
                 return 9090;
             }
@@ -47529,7 +47529,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
                 {
                     if (e != p_obj->current.state)
                     {
-                        compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0, "static_state failed");
+                        compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0, "assert_state failed");
                         if (p_static_assert_declaration->string_literal_opt)
                         {
                             printf("expected :%s\n", p_static_assert_declaration->string_literal_opt->lexeme);
@@ -47543,7 +47543,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx * ctx, st
                 {
                     if (e != 0)
                     {
-                        compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0, "static_state failed");
+                        compiler_diagnostic(1080, ctx->ctx, p_static_assert_declaration->first_token, 0, "assert_state failed");
                     }
                 }
                 if (p_obj && p_obj->is_temporary)
