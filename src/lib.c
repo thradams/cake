@@ -24091,7 +24091,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             type_destroy(&p_expression_node->type);
             p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
-            if (type_is_vm(&p_expression_node->type))
+            if (type_is_vla(&p_expression_node->type))
             {
                 /* void f(int n) { (int [n]){}; } */
                 compiler_diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, p_expression_node->first_token, NULL, "compound literal cannot be of variable-length array type");
@@ -29947,7 +29947,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.26"
+#define CAKE_VERSION "0.13.27"
 
 
 
@@ -46598,12 +46598,13 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         if (p_expression->type_name != NULL &&
             type_is_vm(&p_expression->type_name->type))
         {
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
             ss_fprintf(oss, "(");
-            vm_emit_sizeof_expr(ctx, oss, &p_expression->type_name->type);
+                vm_emit_sizeof_expr(ctx, oss, &p_expression->type_name->type);
             ss_fprintf(oss, ")");
         }
         else
-        {
+        {   
             object_print_value(oss, &p_expression->object, ctx->options.target);
         }
         break;
@@ -46622,6 +46623,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         else if (p_expression->type_name != NULL &&
                  type_is_vm(&p_expression->type_name->type))
         {
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type_name->type);
             vm_emit_countof_expr(ctx, oss, &p_expression->type_name->type);
         }
         else
@@ -46770,6 +46772,12 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         assert(p_expression->left != NULL);
 
         struct osstream local2 = { 0 };
+        
+        if (type_is_vm(&p_expression->type))
+        {
+            vm_emit_snapshot_decls(ctx, &ctx->add_this_before, &p_expression->type);
+        }
+
         d_print_type(ctx, &local2, &p_expression->type, NULL, false);
         ss_fprintf(oss, "(%s)", local2.c_str);
         ss_close(&local2);
@@ -48353,7 +48361,7 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
 
             if (vm)
             {
-                ss_fprintf(ss, "1");
+                ss_fprintf(ss, "");
             }
             else
             {
@@ -49467,15 +49475,15 @@ static void d_visit_init_declarator(struct d_visit_ctx* ctx,
                     emit_line_directive(ctx, oss0, p_init_declarator->p_declarator->first_token_opt);
                     print_identation(ctx, oss0);
                     ss_fprintf(oss0, "%s = %s%s;\n", var_name, target_get_alloca(ctx->options.target), ssz.c_str);
-                    
-                    if (p_init_declarator->initializer && 
+
+                    if (p_init_declarator->initializer &&
                         p_init_declarator->initializer->braced_initializer &&
                         braced_initializer_is_empty(p_init_declarator->initializer->braced_initializer))
                     {
-                        struct osstream sizeof_expression = {0};
+                        struct osstream sizeof_expression = { 0 };
                         vm_emit_sizeof_expr(ctx,
                                 &sizeof_expression,
-                                &p_init_declarator->p_declarator->type);                        
+                                &p_init_declarator->p_declarator->type);
                         print_identation_core(oss0, ctx->indentation);
                         ss_fprintf(oss0, "%s(%s, 0, %s);\n",
                         ctx->memset_function_name,

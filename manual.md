@@ -1491,6 +1491,19 @@ Cake provides compile-time type introspection functions that return boolean inte
 
 **`_is_function(T)`** — true for function types
 
+```c
+int main()
+{
+  static_assert(_is_function(main));
+  int a[10];
+  static_assert(_is_array(a));
+  int (*b)[2];
+  static_assert(_is_pointer(b));
+}
+```
+
+<button onclick="Try(this)">try</button>
+
 
 ### 11.7 Object Lifetime Checks (Ownership)
 

@@ -1,7 +1,11 @@
-void f(int n) 
+#include <stdio.h>
+int main()
 {
-    static void local(int n, int (*a)[n])
-    { 
-        typeof(*a) b; 
-    }
+    int n = 1;
+    printf("%zu ", sizeof(int [n++]));
+
+    printf("%zu ", sizeof(int [n++]));
+
+    printf("%zu ", sizeof(int [n++]));
+
 }

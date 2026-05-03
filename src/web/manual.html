@@ -1810,6 +1810,18 @@ expressions involving addresses.</p>
 
 <p><strong><code>_is_function(T)</code></strong> — true for function types</p>
 
+<pre><code class="language-c">int main()
+{
+  static_assert(_is_function(main));
+  int a[10];
+  static_assert(_is_array(a));
+  int (*b)[2];
+  static_assert(_is_pointer(b));
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_94">11.7 Object Lifetime Checks (Ownership)</h3>
 
 <p>Cake includes a static analysis system for tracking object ownership and lifetime, activated with <code>#pragma safety enable</code> or <code>-fanalyzer</code>.</p>

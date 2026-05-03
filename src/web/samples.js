@@ -390,14 +390,87 @@ int main(void) {
 
 sample["C99"]["VMT cast"] =
 `
+#include <stdio.h>
+void test()
+{
+   int n = 1;
+   typeof(int(*)[n++]) a;
+   (int(*)[n++]) 0;
+   (int(*)[n++]) 0;
+   printf("%d", n);
+}
+//4
+
 int main()
 {
+   test();
+
    int n = 1;
    int a[n];
     n = 2;
    auto p = (int(*)[n]) & a;
    sizeof(* p); //8
 }
+`;
+
+sample["C99"]["sizeof(VMT)"] =
+`
+
+#include <stdio.h>
+
+void sizeof_sample()
+{
+    int n = 1;
+    printf("%zu ", sizeof(int [n++]));
+
+    printf("%zu ", sizeof(int [n++]));
+
+    printf("%zu ", sizeof(int [n++]));
+    
+    printf("\\n");
+}
+
+void countof_sample()
+{
+    int n = 1;
+    printf("%zu ", _Countof(int [n++]));
+
+    printf("%zu ", _Countof(int [n++]));
+
+    printf("%zu ", _Countof(int [n++]));
+    
+    printf("\\n");
+}
+
+int main(){
+    sizeof_sample();
+    countof_sample();
+}
+
+// 4 8 12 
+// 1 2 3
+
+`;
+
+sample["C99"]["typeof(VMT)"] =
+`
+#include <stdio.h>
+int main()
+{
+    int n = 1;
+    typeof(int (*)[n++]) p1;
+    typeof(int (*)[n++]) p2;
+    typeof(int (*)[n++]) p3;
+    
+    printf("%zu ", _Countof(*p1));
+
+    printf("%zu ", _Countof(*p2));
+
+    printf("%zu ", _Countof(*p3));
+    
+    printf("\\n");
+}
+//1 2 3
 `;
 
 sample["C99"]["VM Types"] =
