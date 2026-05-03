@@ -211,6 +211,26 @@ Treat string literals as `const char[]` rather than `char[]`.
 **`-style=<name>`**  
 Set the naming-style convention used by style warnings (`-w011`). Available styles: `cake`, `gnu`, `microsoft`.
 
+### 4.7 Using cake inside Visual Studio
+Use cake as Custom Build Tool for a specific file.c
+
+- Command line: `cake -sarif -sarif-path "$(SolutionDir).sarif" -line-directives -msvc-output file.c`
+- Ouputs: `x86/file.c`
+- Add Ouput to item type: `C/C++ Compiler`
+
+Then you can run/debug normally.
+
+It also can be used as external tool for static analysis:
+
+- Command: `cake.exe`
+- Arguments: `-msvc-output -no-output -sarif -sarif-path "$(SolutionDir).sarif"  $(ItemPath)`
+- Initial directory: `$(ItemDir)`
+- [x] Use output window
+
+### 4.8 Using cake inside Visual Studio Code
+*TODO*
+
+
 ---
 
 ## 5. Output
@@ -284,7 +304,6 @@ c:\project\
     └── other\
         └── file2.c
 ```
-
 
 ---
 
@@ -645,12 +664,18 @@ Uses `__declspec(align(n))` in MSVC output and `__attribute__((aligned(n)))` in 
 
 C23 formally separates two concepts previously bundled in C99:
 
-**VLA objects** (`int a[n]`) remain **optional** in C23. Implementations defining `__STDC_NO_VLA__` do not support them. Cake reports a compile-time error for VLA object declarations and suggests using a VM type pointer instead.
+**VLA objects** (`int a[n]`) remain **optional** in C23. 
+Implementations defining `__STDC_NO_VLA__` do not support them. 
 
-**VM types** (`int (*p)[n]`) are **mandatory** in all conforming C23 implementations. Cake fully supports VM type pointers, parameters, and `sizeof` expressions, and translates them to C89-compatible output.
+Cake implements VLA, and it is allocated on the stack using `alloca`. 
+The use of VLA is discouraged.
+
+
+**VM types** (`int (*p)[n]`) are **mandatory** in all conforming C23 implementations. 
+Cake supports VM type pointers and translates them to C89-compatible output.
 
 ```c
-/* VM type pointer — mandatory in C23 */
+/* VM type pointer - mandatory in C23 */
 void foo(int n, double (*x)[n]) {
     (*x)[0] = 1.0;
 }
@@ -703,7 +728,7 @@ int f(int) {   /* unnamed parameter is valid */
 ```
 <button onclick="Try(this)">try</button>
 
-> **Note:** Cake currently generates a placeholder name in the C89 output.
+> **Note:** TODO add placeholder name in the C89 output.
 
 Reference: https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf
 
@@ -763,6 +788,8 @@ int main() {
 }
 ```
 <button onclick="Try(this)">try</button>
+
+> **Note** Empty initializer can be used initialize VLAs
 
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2900.htm
 
@@ -829,6 +856,8 @@ int main() {
 ```
 <button onclick="Try(this)">try</button>
 
+> **Note** TODO Missing some details.
+
 Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 
 ### 9.15 Attributes (`[[...]]`)
@@ -893,6 +922,8 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 #  warning Header found
 #endif
 ```
+<button onclick="Try(this)">try</button>
+
 
 ### 9.17 `#warning` Directive
 
@@ -909,7 +940,6 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
 
 ### 9.18 `#embed` Directive
 
-*Partially implemented.*
 
 ```c
 #include <stdio.h>
@@ -924,6 +954,8 @@ int main() {
 ```
 
 <button onclick="Try(this)">try</button>
+
+> **Note** Some details are not implemented yet.
 
 ### 9.19 `#elifdef` / `#elifndef`
 
@@ -962,7 +994,7 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm
 
 ### 9.21 `_BitInt(N)` — Bit-Precise Integers
 
-*TODO*
+**Not implemented yet**
 
 ```c
 int main() {
@@ -1131,14 +1163,27 @@ A declaration can appear in the initializer clause of an `if` statement, scoping
 ```c
 #include <stdio.h>
 
-int main() {
-    if (FILE* f = fopen("file.txt", "r"); f) {
-        fclose(f);
-    }
+int main()
+{
+   
+   FILE* f0;
+   if ( f0 = fopen("file.txt", "r"))
+   {
+     /*...*/
+     fclose(f0);
+   }
+   
+   if (FILE* f = fopen("file.txt", "r"); f)
+   {
+     /*...*/
+     fclose(f);
+   }
 
-    if (FILE* f = fopen("file.txt", "r")) {
-        fclose(f);
-    }
+   if (FILE* f = fopen("file.txt", "r"))
+   {    
+     /*...*/
+     fclose(f);
+   }
 }
 ```
 <button onclick="Try(this)">try</button>
@@ -1147,15 +1192,13 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3388.htm
 
 ### 10.7 `typename` in `_Generic`
 
-Allows type names as the controlling expression in `_Generic`. This feature originated in Cake and was subsequently adopted into C2Y.
+Allows type names as the controlling expression in `_Generic`.
 
 ```c
 int main() {
     const int* const p;
     static_assert(_Generic(p, const int*: 1));
 
-    /* Cake extension: type name as controlling expression */
-    static_assert(_Generic(int, int: 1));
     static_assert(_Generic(typeof(p), const int* const: 1));
 }
 ```
@@ -1220,7 +1263,9 @@ Reference: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm
 
 ### 10.12 Elvis Operator (`?:`)
 
-The Elvis operator is a shorthand for the ternary operator where the middle operand is omitted. When the condition is truthy, it is returned; otherwise the right-hand operand is returned. The condition is evaluated exactly once.
+The Elvis operator is a shorthand for the ternary operator where the middle 
+operand is omitted. When the condition is truthy, it is returned; 
+otherwise the right-hand operand is returned. The condition is evaluated exactly once.
 
 ```
 a ?: b
@@ -1277,7 +1322,8 @@ Reference: https://www.open-std.org/JTC1/SC22/WG14/www/docs/n3804.txt
 
 ### 11.1 Built-in `assert`
 
-In Cake, `assert` is a built-in statement rather than a macro. The flow analyzer treats `assert` as a state selector: it narrows the set of possible program states, exactly as an `if` condition would, but without introducing a new scope.
+In Cake, `assert` is a built-in statement rather than a macro because flow analysis need it even in release builds.
+The effect of `assert(expression)` is equivalent of `if (!(expression)) exit(1);`.
 
 ```c
 void list_push_back(struct list* list, struct item* _Owner p_item)
@@ -1296,47 +1342,14 @@ void list_push_back(struct list* list, struct item* _Owner p_item)
 <button onclick="Try(this)">try</button>
 
 
-
-`assert` is not a blind suppressor. When static analysis can prove the assertion is always false, it is a diagnostic:
-
-```c
-int i = 0;
-assert(i != 0);   /* diagnostic: condition is always false */
-```
-
-The difference between `assert` and `if` for flow narrowing:
-
-```c
-void f(int* _Opt p) {
-    if (p != NULL) {
-        /* p is non-null inside this block only */
-    }
-}
-
-void f2(int* _Opt p) {
-    assert(p != NULL);
-    /* p is assumed non-null from here to end of function — no new scope */
-}
-```
-
 To disable this built-in behavior and use a standard macro instead, pass `-disable-assert`.
 
 ### 11.2 `try` / `throw` / `catch`
 
-Cake provides a structured local-jump mechanism for error handling. `try`/`catch` is explicitly a **local** jump — it cannot propagate across function boundaries. This is by design.
+Cake provides a structured local-jump mechanism for error handling. `try`/`catch` is explicitly a **local** 
+jump - it cannot propagate across function boundaries. This is by design.
 
-**Grammar:**
 
-```
-try-statement:
-    try secondary-block
-    try secondary-block catch secondary-block
-
-jump-statement:
-    throw ;
-```
-
-The `catch` block is optional. `throw` transfers control to the end of the nearest enclosing `try` block.
 
 ```c
 extern int error;
@@ -1354,6 +1367,7 @@ int main() {
     }
 }
 ```
+> **Note** The `catch` block is optional. `throw` transfers control to the end of the nearest enclosing `try` block.
 
 <button onclick="Try(this)">try</button>
 
@@ -1369,7 +1383,6 @@ Cake source code uses macros to emulate this feature.
 
 ### 11.3 Checked Expressions (`!` operator)
 
-**Grammar:**
 
 ```
 checked-expression:
@@ -1377,7 +1390,10 @@ checked-expression:
     assignment-expression !
 ```
 
-The `!` postfix operator evaluates its operand. If the result compares equal to zero (or is a null pointer), control transfers to the nearest enclosing `catch` block. Otherwise the value is returned unchanged. Applicable to any scalar expression.
+The `!` postfix operator evaluates its operand. 
+If the result compares equal to zero (or is a null pointer), control transfers to 
+the nearest enclosing `catch` block. 
+Otherwise the value is returned unchanged. Applicable to any scalar expression.
 
 ```c
 int f(void);
@@ -1417,9 +1433,12 @@ int main() {
 
 <button onclick="Try(this)">try</button>
 
+> **Note** this is a very experimental feature
+
 ### 11.4 `#pragma dir`
 
-Adds a path to the list of directories searched for include files. This is the pragma used in `cakeconf.h` to declare system and project include directories.
+Adds a path to the list of directories searched for include files. 
+This is the pragma used in `cakeconf.h` to declare system and project include directories.
 
 ```c
 #pragma dir "C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/cppwinrt"
@@ -1428,7 +1447,9 @@ Adds a path to the list of directories searched for include files. This is the p
 
 ### 11.5 `offsetof` Operator
 
-In Cake, `offsetof` is a built-in operator rather than a macro. This allows its use in constant expressions and avoids the undefined behavior associated with traditional macro implementations.
+In Cake, `offsetof` is a built-in operator rather than a macro.  Similar of GCC `__builtin_offsetof`.
+This allows its use in constant expressions and avoids the undefined 
+behavior associated with traditional macro implementations.
 
 ```c
 #include <stdio.h>
@@ -1491,7 +1512,6 @@ Cake defines the following macros:
 #define __CAKE__          202311L
 #define __STDC_VERSION__  202311L
 ```
-
 
 ---
 

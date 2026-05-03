@@ -1,4 +1,7 @@
-void main() {
-  int n = 50;
-  char name2[n] = {{0}};//"Ross";
+void f(int n) 
+{
+    static void local(int n, int (*a)[n])
+    { 
+        typeof(*a) b; 
+    }
 }

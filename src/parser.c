@@ -2427,45 +2427,6 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             struct function_declarator* pfuncdecl = declarator_find_function_declarator(p_declarator);
             if (pfuncdecl == NULL) throw;
 
-#if 0
-            /*
-            void func()
-            {
-                //int n;
-                //typedef int (*T)[n];
-                static void local(int n, int a[n]) {
-
-                }
-            }*/
-
-            if (pfuncdecl->parameter_type_list_opt &&
-                pfuncdecl->parameter_type_list_opt->parameter_list)
-            {
-                struct parameter_declaration* _Opt p = pfuncdecl->parameter_type_list_opt->parameter_list->head;
-                while (p)
-                {
-                    if (trying_to_use_vm_type_from_enclosing_function(&p->declarator->type, ctx->p_current_function_opt))
-                    {
-                        /*
-                        void func()
-                        {
-                            int n;
-                            typedef int (*T)[n];
-                            static void local() {
-                                T b;
-                            }
-                        }
-                        */
-                        compiler_diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
-                            p->declarator->first_token_opt, NULL,
-                            "trying to use VM type from enclosing function");
-                    }
-
-                    p = p->next;
-                }
-            }
-#endif
-
             struct scope* parameters_scope = &pfuncdecl->parameters_scope;
             scope_list_push(&ctx->scopes, parameters_scope);
 
