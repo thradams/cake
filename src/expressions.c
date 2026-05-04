@@ -64,7 +64,7 @@ bool is_primary_expression(enum expression_type t)
     case PRIMARY_EXPRESSION_PARENTHESIS:
     case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
         return true;
-    
+
     default:
         break;
     }
@@ -4044,6 +4044,9 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
     */
 
     struct expression* _Owner _Opt p_expression_node = NULL;
+    struct storage_class_specifiers* _Opt _Owner p_storage_class_specifiers = NULL;
+    struct type_name* _Opt _Owner p_type_name = NULL;
+
     try
     {
         if (ctx->current == NULL)
@@ -4052,9 +4055,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
             throw;
         }
 
-        struct storage_class_specifiers* p_storage_class_specifiers = NULL;
         struct token* _Opt open_parenthesis_token = ctx->current;
-        struct type_name* p_type_name = NULL;
+
         if (ctx->current->type == '(')
         {
             /*
@@ -4075,8 +4077,10 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                     */
                     p_storage_class_specifiers = storage_class_specifiers(ctx);
                     p_type_name = type_name(ctx);
-                    if (p_type_name == NULL) throw;
-                    if (parser_match_tk(ctx, ')') != 0) throw;
+                    if (p_type_name == NULL)
+                        throw;
+                    if (parser_match_tk(ctx, ')') != 0)
+                        throw;
                 }
                 else if (first_of_type_name_token(ctx /*only to typedef*/, token_ahead))
                 {
@@ -4109,7 +4113,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
 
                 p_expression_node->first_token = open_parenthesis_token;
                 p_expression_node->expression_type = CAST_EXPRESSION;
-                p_expression_node->type_name = p_type_name; /*moved*/
+                p_expression_node->type_name = p_type_name; /*MOVED*/
                 p_type_name = NULL;
 
                 p_expression_node->type = type_dup(&p_expression_node->type_name->type);
@@ -4123,10 +4127,13 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                 // Thinking it was a cast expression was a mistake... 
                 // because the { appeared then it is a compound literal which is a postfix.
                 p_expression_node = postfix_expression_compound_func_literal(ctx,
-                    p_type_name /*MOVED*/,
+                    p_type_name                /*MOVED*/,
                     p_storage_class_specifiers /*MOVED*/,
                     open_parenthesis_token,
                     eval_mode);
+                
+                p_type_name = NULL;                /*MOVED*/
+                p_storage_class_specifiers = NULL; /*MOVED*/
 
                 if (p_expression_node == NULL) throw;
             }
@@ -4293,6 +4300,11 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
         expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
+
+    assert(p_type_name == NULL);
+    assert(p_storage_class_specifiers == NULL);
+    type_name_delete(p_type_name);
+    storage_class_specifiers_delete(p_storage_class_specifiers);
 
     return p_expression_node;
 }

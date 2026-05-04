@@ -977,7 +977,7 @@ static int strtoargv(char* s, int n, const char* argv[/*n*/])
             break;
         argv[argvc] = p;
         argvc++;
-        while (*p != ' ' && *p != '\0') //error in cake static analysis
+        while (*p != ' ' && *p != '\0') //lint 28 (error in cake static analysis, #431)
             p++;
         if (*p == 0)
             break;

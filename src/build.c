@@ -137,6 +137,9 @@ int main()
 
     HEADER("Build tools");
 
+    execute_cmd(CC " server.c " CC_OUTPUT("cakeserver.exe"));
+    execute_cmd(CC " install.c " CC_OUTPUT("install.exe"));
+
     echo_chdir("./tools");
 
     execute_cmd(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " CC_OUTPUT("../maketest.exe"));

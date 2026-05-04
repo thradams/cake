@@ -28,6 +28,7 @@ void free(void* _Owner _Opt ptr);
 void* _Owner _Opt malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 char* _Owner _Opt strdup(const char* src);
+char* _Opt strstr(const char* str, const char* substr);
 
 inline char* _Opt strrchr(char const *  _String, int _Ch);
 

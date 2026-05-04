@@ -8,3 +8,4 @@
 #pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.26100.0//shared/"
 #pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.26100.0//winrt/"
 #pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.26100.0//cppwinrt/"
+#pragma dir "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um/"

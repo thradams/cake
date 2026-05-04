@@ -102,6 +102,9 @@ static const InstallEntry INSTALL_ENTRIES[] = {
     { "cake",           "",      0 , 1},
 #endif
     { "cakeconf.h",        "",   0 , 0},
+    { "cakeserver.exe",        "",   0 , 0},
+    { "server.js",        "",   0 , 0},
+    { "index.html",        "",   0 , 0},
     { "web",        "web", 1 , 0},   /* recursive: copies entire plugins\ tree */
 };
 #define INSTALL_ENTRIES_COUNT  (sizeof(INSTALL_ENTRIES) / sizeof(INSTALL_ENTRIES[0]))

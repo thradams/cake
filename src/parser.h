@@ -102,7 +102,7 @@ struct diagnostic_item
 void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e);
 void diagnostic_queue_flush(struct diagnostic_queue* q, const struct parser_ctx* ctx);
 bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id);
-void diagnostic_queue_destroy(struct diagnostic_queue* q);
+void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
 
 #define LINT_IDS_MAX 32
 int parse_diagnostic_suppression(const char* comment_lexeme, int ids[LINT_IDS_MAX]);
@@ -841,7 +841,7 @@ struct declarator
     bool declarator_renamed;
 };
 
-struct function_declarator* declarator_find_function_declarator(const struct declarator* p_declarator);
+struct function_declarator* _Opt declarator_find_function_declarator(const struct declarator* p_declarator);
 const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p);
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);

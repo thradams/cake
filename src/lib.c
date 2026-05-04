@@ -39,6 +39,7 @@ void free(void* _Owner _Opt ptr);
 void* _Owner _Opt malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 char* _Owner _Opt strdup(const char* src);
+char* _Opt strstr(const char* str, const char* substr);
 
 inline char* _Opt strrchr(char const *  _String, int _Ch);
 
@@ -16347,7 +16348,7 @@ struct diagnostic_item
 void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e);
 void diagnostic_queue_flush(struct diagnostic_queue* q, const struct parser_ctx* ctx);
 bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnostic_id id);
-void diagnostic_queue_destroy(struct diagnostic_queue* q);
+void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
 
 #define LINT_IDS_MAX 32
 int parse_diagnostic_suppression(const char* comment_lexeme, int ids[LINT_IDS_MAX]);
@@ -17086,7 +17087,7 @@ struct declarator
     bool declarator_renamed;
 };
 
-struct function_declarator* declarator_find_function_declarator(const struct declarator* p_declarator);
+struct function_declarator* _Opt declarator_find_function_declarator(const struct declarator* p_declarator);
 const struct declarator* _Opt declarator_get_innert_function_declarator(const struct declarator* p);
 
 const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
@@ -21599,7 +21600,7 @@ bool is_primary_expression(enum expression_type t)
     case PRIMARY_EXPRESSION_PARENTHESIS:
     case PRIMARY_EXPRESSION_STATEMENT_EXPRESSION:
         return true;
-    
+
     default:
         break;
     }
@@ -25579,6 +25580,9 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
     */
 
     struct expression* _Owner _Opt p_expression_node = NULL;
+    struct storage_class_specifiers* _Opt _Owner p_storage_class_specifiers = NULL;
+    struct type_name* _Opt _Owner p_type_name = NULL;
+
     try
     {
         if (ctx->current == NULL)
@@ -25587,9 +25591,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
             throw;
         }
 
-        struct storage_class_specifiers* p_storage_class_specifiers = NULL;
         struct token* _Opt open_parenthesis_token = ctx->current;
-        struct type_name* p_type_name = NULL;
+
         if (ctx->current->type == '(')
         {
             /*
@@ -25610,8 +25613,10 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                     */
                     p_storage_class_specifiers = storage_class_specifiers(ctx);
                     p_type_name = type_name(ctx);
-                    if (p_type_name == NULL) throw;
-                    if (parser_match_tk(ctx, ')') != 0) throw;
+                    if (p_type_name == NULL)
+                        throw;
+                    if (parser_match_tk(ctx, ')') != 0)
+                        throw;
                 }
                 else if (first_of_type_name_token(ctx /*only to typedef*/, token_ahead))
                 {
@@ -25644,7 +25649,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
 
                 p_expression_node->first_token = open_parenthesis_token;
                 p_expression_node->expression_type = CAST_EXPRESSION;
-                p_expression_node->type_name = p_type_name; /*moved*/
+                p_expression_node->type_name = p_type_name; /*MOVED*/
                 p_type_name = NULL;
 
                 p_expression_node->type = type_dup(&p_expression_node->type_name->type);
@@ -25658,10 +25663,13 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
                 // Thinking it was a cast expression was a mistake... 
                 // because the { appeared then it is a compound literal which is a postfix.
                 p_expression_node = postfix_expression_compound_func_literal(ctx,
-                    p_type_name /*MOVED*/,
+                    p_type_name                /*MOVED*/,
                     p_storage_class_specifiers /*MOVED*/,
                     open_parenthesis_token,
                     eval_mode);
+                
+                p_type_name = NULL;                /*MOVED*/
+                p_storage_class_specifiers = NULL; /*MOVED*/
 
                 if (p_expression_node == NULL) throw;
             }
@@ -25828,6 +25836,11 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, enum expr
         expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
+
+    assert(p_type_name == NULL);
+    assert(p_storage_class_specifiers == NULL);
+    type_name_delete(p_type_name);
+    storage_class_specifiers_delete(p_storage_class_specifiers);
 
     return p_expression_node;
 }
@@ -30201,7 +30214,7 @@ void scope_list_pop(struct scope_list* list)
     p->previous = NULL;
 }
 
-void parser_ctx_destroy(_Opt _Dtor struct parser_ctx* ctx)
+void parser_ctx_destroy(_Dtor struct parser_ctx* ctx)
 {
     label_list_clear(&ctx->label_list);
     assert(ctx->label_list.head == NULL);
@@ -30245,29 +30258,37 @@ static void diagnostic_print(const struct diagnostic_item* e,
 }
 
 /* Free one entry and all its children. next must already be detached. */
-static void diagnostic_free(struct diagnostic_item* _Owner e)
+static void diagnostic_free(struct diagnostic_item* _Owner _Opt e)
 {
-    struct diagnostic_item* _Owner _Opt child = e->children.head;
-    while (child)
+    if (e)
     {
-        struct diagnostic_item* _Owner _Opt next_child = child->next;
-        child->next = NULL;
-        free(child->text);
-        free(child->sarif_text);
-        free(child);
-        child = next_child;
+        struct diagnostic_item* _Owner _Opt child = e->children.head;
+        while (child)
+        {
+            struct diagnostic_item* _Owner _Opt next_child = child->next;
+            child->next = NULL;
+            diagnostic_free(child);
+            child = next_child;
+        }
+        assert(e->next == NULL);
+        free(e->text);
+        free(e->sarif_text);
+        free(e);
     }
-    free(e->text);
-    free(e->sarif_text);
-    free(e);
 }
 
 void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e)
 {
     if (q->tail)
+    {
+        assert(q->tail->next == NULL);
         q->tail->next = e;
+    }
     else
+    {
+        assert(q->head == NULL);
         q->head = e;
+    }
     q->tail = e;
     q->count++;
 }
@@ -30298,9 +30319,13 @@ bool diagnostic_queue_remove(struct diagnostic_queue* q, int line, enum diagnost
         if (it->id == id)
         {
             if (prev)
+            {
                 prev->next = it->next;
+            }
             else
+            {
                 q->head = it->next;
+            }
 
             if (q->tail == it)
                 q->tail = prev;
@@ -30352,7 +30377,7 @@ int parse_diagnostic_suppression(const char* p, int ids[LINT_IDS_MAX])
     return count;
 }
 
-void diagnostic_queue_destroy(struct diagnostic_queue* db)
+void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* db)
 {
     struct diagnostic_item* _Owner _Opt it = db->head;
     while (it)
@@ -30512,7 +30537,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
     va_list args = { 0 };
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
+    va_end(args); //lint 33 35
 
     struct diagnostic_queue* db = &((struct parser_ctx*)ctx)->diagnostic_queue;
 
@@ -30522,7 +30547,7 @@ _Bool compiler_diagnostic(enum diagnostic_id w,
         diagnostic_queue_flush(db, ctx);
     }
 
-    struct diagnostic_item* _Owner e = calloc(1, sizeof * e);
+    struct diagnostic_item* _Opt _Owner e = calloc(1, sizeof * e);
     if (e == NULL) return false;
 
     e->line = marker.line;
@@ -31314,7 +31339,7 @@ enum token_type is_keyword(const char* text, enum target target)
         if (strcmp("static_debug", text) == 0)
             return TK_KEYWORD_CAKE_STATIC_DEBUG;
         if (strcmp("static_debug_ex", text) == 0)
-            return TK_KEYWORD_CAKE_STATIC_DEBUG_EX;                
+            return TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
         break;
 
     case 't':
@@ -31604,7 +31629,7 @@ static void parser_skip_blanks(struct parser_ctx* ctx)
         if (ctx->current->type == TK_LINE_COMMENT ||
             ctx->current->type == TK_COMMENT)
         {
-            int ids[LINT_IDS_MAX];
+            int ids[LINT_IDS_MAX] = { 0 };
             int count = parse_diagnostic_suppression(ctx->current->lexeme, ids);
             for (int i = 0; i < count; i++)
             {
@@ -32422,7 +32447,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 throw;
             }
 
-            struct function_declarator* pfuncdecl = declarator_find_function_declarator(p_declarator);
+            struct function_declarator* _Opt pfuncdecl = declarator_find_function_declarator(p_declarator);
             if (pfuncdecl == NULL) throw;
 
             struct scope* parameters_scope = &pfuncdecl->parameters_scope;
@@ -32444,23 +32469,23 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             p_declaration->function_body = p_function_body;
             p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
-            if (p_declaration->init_declarator_list.head &&
+            if (p_declaration->init_declarator_list.head && 
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator &&
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
-                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
+                p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list) //lint 28 (reduntant check)
             {
                 check_unused_parameters(ctx, p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
             }
 
-            if (p_declaration->function_body)
+            if (p_declaration->function_body) //lint 28 (redundate check)
             {
                 /*
                    Now we have the function body, let's see if we had a previous
                    function body.
                 */
-                const char* func_name =
-                    p_declaration->init_declarator_list.head->p_declarator->name_opt->lexeme;
+                const char* func_name = p_declaration->init_declarator_list.head->p_declarator->name_opt ? 
+                    p_declaration->init_declarator_list.head->p_declarator->name_opt->lexeme : "";
 
                 struct scope* _Opt p_previous_scope = NULL;
                 struct declarator* _Opt p_previous_declarator = find_declarator(ctx, func_name, &p_previous_scope);
@@ -32468,7 +32493,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
                 {
                     p_previous_declarator->p_complete_declarator = p_declaration->init_declarator_list.head->p_declarator;
 
-                    struct scope* p_current_scope = ctx->scopes.tail;
+                    struct scope* _Opt p_current_scope = ctx->scopes.tail;
                     if (p_current_scope == p_previous_scope) //same function
                     {
                         if (p_previous_declarator->function_body)
@@ -32596,9 +32621,6 @@ struct init_declarator* _Owner init_declarator_add_ref(struct init_declarator* p
     return (struct init_declarator* _Owner)p;
 }
 
-
-void init_declarator_sink(struct init_declarator* _Owner _Opt p) {}
-
 void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 {
     if (p)
@@ -32606,8 +32628,7 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
         if (p->has_shared_ownership)
         {
             p->has_shared_ownership = false;
-            init_declarator_sink(p);
-            return;
+            return; //lint 29
         }
 
         initializer_delete(p->initializer);
@@ -33110,7 +33131,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         /*
            checking usage of [static ] other than in function arguments
         */
-        if (p_init_declarator->p_declarator)
+        if (p_init_declarator->p_declarator) //lint 28 (pointer always non null)
         {
             if (type_is_array(&p_init_declarator->p_declarator->type))
                 if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
@@ -33449,6 +33470,7 @@ void storage_class_specifiers_push(struct storage_class_specifiers* p,
         else
         {
             assert(p->tail != NULL);
+            assert(p->tail->next == NULL);
             p->tail->next = pnew;
             p->tail = pnew;
         }
@@ -36533,7 +36555,7 @@ struct array_declarator* _Owner _Opt array_declarator(struct direct_declarator* 
         }
 
         p_array_declarator->direct_declarator = p_direct_declarator;
-        p_direct_declarator = NULL; /*MOVED*/
+        p_direct_declarator = NULL; //lint 60, 25 MOVED
 
         if (parser_match_tk(ctx, '[') != 0)
             throw;
@@ -40659,8 +40681,9 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
                 p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail = NULL;
 
                 p_selection_statement->condition->p_declaration_specifiers =
-                    p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers;
-                p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers = NULL;
+                    p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers; /*MOVED*/
+                
+                p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers = NULL; /*MOVED*/
             }
 
 
@@ -43933,7 +43956,7 @@ static int strtoargv(char* s, int n, const char* argv[/*n*/])
             break;
         argv[argvc] = p;
         argvc++;
-        while (*p != ' ' && *p != '\0') //error in cake static analysis
+        while (*p != ' ' && *p != '\0') //lint 28 (error in cake static analysis, #431)
             p++;
         if (*p == 0)
             break;
