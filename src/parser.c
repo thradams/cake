@@ -2013,7 +2013,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 p_declaration_specifiers->alignment_specifier_flags |= p_declaration_specifier->alignment_specifier->flags;
             }
 
-            declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
+            declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier); //lint 33
 
             if (p_declaration_specifiers->p_attribute_specifier_sequence == NULL)
             {
@@ -3474,7 +3474,7 @@ void storage_class_specifier_node_delete(struct storage_class_specifier_node* _O
 {
     if (p)
     {
-        //storage_class_specifier_destroy(p->storage_class_specifier);
+        assert(p->next == NULL);
         free(p);
     }
 }
@@ -8206,6 +8206,14 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
                 throw;
             }
+        }
+        else if (strcmp(p_pragma_token->lexeme, "comment") == 0)
+        {
+            //MSVC pragma comment
+        }
+        else if (strcmp(p_pragma_token->lexeme, "warning") == 0)
+        {
+            //MSVC pragma warning
         }
         else
         {

@@ -314,82 +314,11 @@ static void handle_list(SocketFd client, const char* query)
     db_free(&json);
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   parse_body  –  extract path, file, and content from JSON body.
-                  Returns 1 on success, 0 on failure.
-   Expected format: {"path":"...","file":"...","content":"..."}
-   ══════════════════════════════════════════════════════════════════════ */
-static int parse_body(const char* body,
-    char path[512], char file[512],
-    const char** content_start, size_t* content_len)
-{
-    sscanf(body,
-        "{\"path\":\"%511[^\"]\",\"file\":\"%511[^\"]\",",
-        path, file);
-
-    if (!is_safe(path) || !is_safe(file)) return 0;
-
-    const char* tag = "\"content\":\"";
-    const char* s = strstr(body, tag);
-    if (!s) return 0;
-    s += strlen(tag);
-
-    /* find closing unescaped quote */
-    const char* e = s;
-    while (*e)
-    {
-        if (*e == '"' && (e == s || *(e - 1) != '\\')) break;
-        e++;
-    }
-
-    *content_start = s;
-    *content_len = (size_t)(e - s);
-    return 1;
-}
 
 /* ══════════════════════════════════════════════════════════════════════
    compile_and_respond  –  run cake on full, send source + output
    ══════════════════════════════════════════════════════════════════════ */
 #define DELIM "\n=====CAKE" "-" "OUTPUT=====\n"
-
-static void compile_and_respond(SocketFd client, const char* full)
-{
-    char cmd[MAX_CMD_LEN];
-    snprintf(cmd, sizeof(cmd), "cake \"%s\" > output.txt", full);
-    system(cmd);
-
-    size_t src_len;
-    char* src = file_read_all(full, &src_len);
-    if (!src)
-    {
-        send_str(client, "text/plain", "Cannot read source file");
-        return;
-    }
-
-    size_t out_len;
-    char* out = file_read_all("output.txt", &out_len);
-    if (!out)
-    {
-        out = strdup("(no compiler output)");
-        out_len = out ? strlen(out) : 0;
-    }
-    if (!out) { free(src); return; }
-
-    size_t delim_len = strlen(DELIM);
-    size_t total = src_len + delim_len + out_len;
-    char* response = malloc(total + 1);
-    if (!response) { free(src); free(out); return; }
-
-    memcpy(response, src, src_len);
-    memcpy(response + src_len, DELIM, delim_len);
-    memcpy(response + src_len + delim_len, out, out_len);
-    response[total] = '\0';
-
-    send_response(client, "text/plain", response, total);
-    free(src);
-    free(out);
-    free(response);
-}
 
 /* ══════════════════════════════════════════════════════════════════════
    compile_only_and_respond  –  run cake on full, send compiler output only

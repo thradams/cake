@@ -93,7 +93,7 @@ struct hash_item_set
     struct init_declarator* _Owner _Opt p_init_declarator;
     struct macro* _Owner _Opt p_macro;
     struct struct_entry* _Owner _Opt p_struct_entry;
-    char* text;
+    char* _Owner _Opt text;
 };
 void hash_item_set_destroy(_Dtor struct hash_item_set* p);
 

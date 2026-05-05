@@ -2471,7 +2471,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
 struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct parser_ctx* ctx,
     struct type_name* _Owner p_type_name_par,
-    struct storage_class_specifiers* _Owner _Opt p_storage_class_specifiers,
+    struct storage_class_specifiers* _Owner _Opt p_storage_class_specifiers_,
     struct token* p_first_token,
     enum expression_eval_mode eval_mode)
 {
@@ -2493,7 +2493,9 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             throw;
 
         assert(p_expression_node->type_name == NULL);
-        p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers /*moved*/;
+        p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers_ /*moved*/;
+        p_storage_class_specifiers_ = NULL; /*MOVED*/
+
         p_expression_node->first_token = p_first_token;
 
         p_expression_node->type_name = p_type_name; /*MOVED*/
@@ -2510,9 +2512,9 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
                 throw;
             }
 
-            if (p_storage_class_specifiers)
+            if (p_expression_node->p_storage_class_specifiers)
             {
-                if (p_storage_class_specifiers->storage_class_specifier_flags != STORAGE_SPECIFIER_STATIC)
+                if (p_expression_node->p_storage_class_specifiers->storage_class_specifier_flags != STORAGE_SPECIFIER_STATIC)
                 {
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "only static is allowed");
                 }
@@ -2601,6 +2603,8 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
         expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
+
+    storage_class_specifiers_delete(p_storage_class_specifiers_);
     type_name_delete(p_type_name);
     return p_expression_node;
 }
@@ -2841,7 +2845,7 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
          If the pointer has a constant value, we compute the member's
          offset and then add it to that constant value that is generally zero.
   */
-    struct expression* _Owner _Opt right = p_expression->right;
+    struct expression* _Opt right = p_expression->right;
 
     /* skip extra parenthesis */
     while (right && right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
@@ -2862,7 +2866,10 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
 
     struct type struct_type = type_remove_pointer(&right->left->type);
     if (!type_is_struct_or_union(&struct_type))
+    {
+        type_destroy(&struct_type);
         return -1;
+    }
 
     size_t offset_of = 0;
     enum sizeof_result e = type_get_offsetof(&struct_type,
@@ -2870,8 +2877,12 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
                                             &offset_of,
                                             ctx->options.target);
     if (e != SIZEOF_RESULT_OK)
+    {
+        type_destroy(&struct_type);
         return -1;
+    }
 
+    type_destroy(&struct_type);
     return (int)(pointer_value + offset_of);
 }
 

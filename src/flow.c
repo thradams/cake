@@ -5265,13 +5265,13 @@ static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token
     const int search_ahead_max = 3; /* we don't search forever */
 
     int search_count = 0;
-    struct token* pToken = pTokenStart;
+    struct token* _Opt pToken = pTokenStart;
 
     while (pToken)
     {
         if (pToken->type == TK_LINE_COMMENT || pToken->type == TK_COMMENT)
         {
-            int ids[LINT_IDS_MAX];
+            int ids[LINT_IDS_MAX] = { 0 };
             int count = parse_diagnostic_suppression(pToken->lexeme, ids);
 
             for (int i = 0; i < count; i++)
@@ -5419,6 +5419,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
+                    char object_name[100] = { 0 };
+                    object_get_name(&p_expression->left->type, p_object, object_name, sizeof object_name);
+
                     struct marker marker = { 0 };
                     marker.p_token_begin = p_expression->left->first_token;
                     marker.p_token_end = p_expression->left->last_token;
@@ -5426,7 +5429,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             ctx->ctx,
                             NULL,
                             &marker,
-                           "pointer may be null");
+                           "pointer '%s' may be null", object_name);
                 }
             }
             else if (flow_object_can_be_uninitialized(p_object))
@@ -5543,10 +5546,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             struct argument_expression* _Opt p_argument_expression = p_expression->argument_expression_list.head;
 
             if (p_expression->left->declarator->direct_declarator &&
+                p_expression->left->declarator->direct_declarator->function_declarator &&
                 p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt)
             {
                 struct parameter_declaration* _Opt p_parameter =
                     p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+
                 while (p_parameter && p_argument_expression)
                 {
                     if (p_parameter->declarator)
@@ -6342,6 +6347,15 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+        break;
+    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+    case UNARY_EXPRESSION_CONSTEVAL:
+        break;
+
     }
 }
 
@@ -6416,7 +6430,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
     }
 
 
-    true_false_set_destroy(&true_false_set);    
+    true_false_set_destroy(&true_false_set);
 }
 
 static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -6503,7 +6517,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     ctx->break_join_state = old_break_join_state;
     true_false_set_destroy(&true_false_set);
 }
-
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     /*
@@ -6574,7 +6587,6 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     true_false_set_destroy(&d);
 }
-
 
 static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {

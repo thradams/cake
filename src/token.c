@@ -613,8 +613,8 @@ struct token* _Owner _Opt clone_token(struct token* p)
     }
 
     *token = *p;
-    token->lexeme = lexeme;
-    token->next = NULL;
+    token->lexeme = lexeme; //lint 29
+    token->next = NULL; //lint 29
     token->prev = NULL;
 
     return token;
@@ -1513,7 +1513,7 @@ const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned
     if (s[0] < 0x80)
     {
         *c = s[0];
-        assert(*c >= 0x0000 && *c <= 0x007F);
+        assert(*c <= 0x007F);
         next = s + 1;
     }
     else if ((s[0] & 0xe0) == 0xc0)

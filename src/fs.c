@@ -215,8 +215,6 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
       letter that isn't valid or can't be found, or if the length of the
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wflow-not-null"
     char* _Opt p = _fullpath(resolved_path, path, FS_MAX_PATH);
     if (p)
     {
@@ -228,7 +226,6 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
             p2++;
         }
     }
-#pragma CAKE diagnostic pop
 
     return p;
 }
@@ -334,7 +331,7 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
-    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize);
+    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize); 
     return r;
 }
 

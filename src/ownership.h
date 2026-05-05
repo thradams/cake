@@ -34,6 +34,13 @@ inline char* _Opt strrchr(char const *  _String, int _Ch);
 
 #ifdef _WIN32
 __inline int __cdecl snprintf(_Ctor char* const _Buffer, size_t  const _BufferCount, char const* const _Format, ...);
+
+char* _Opt _fullpath(
+   char* _Opt absPath,
+   const char* relPath,
+   size_t maxLength
+);
+
 #else
 
 int snprintf(

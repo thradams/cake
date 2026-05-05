@@ -72,7 +72,7 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 
     size = vsnprintf(stream->c_str + stream->size, stream->capacity - stream->size, fmt, tmpa);
 
-    va_end(tmpa);
+    va_end(tmpa); //lint 35 33
 
 #pragma CAKE diagnostic pop
 
@@ -118,7 +118,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
     va_list args = { 0 };
     va_start(args, fmt);
     int size = ss_vafprintf(stream, fmt, args);
-    va_end(args);
+    va_end(args); //lint 35 33
 
 #pragma CAKE diagnostic pop
 

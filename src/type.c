@@ -1471,27 +1471,23 @@ bool type_is_empty(const struct type* p_type)
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled)
 {
-    struct type r = type_dup(p_type);
     try
     {
-        //waiting test
-        //if (type_is_empty(&r)) throw;
-
         struct type* _Owner _Opt p = calloc(1, sizeof(struct type));
         if (p == NULL) throw;
-
-        *p = r;
-        r = (struct type){ 0 };
-        r.next = p;
-        r.category = TYPE_CATEGORY_POINTER;
-
-
-        r.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
+        struct type r0 = type_dup(p_type);
+        *p = r0;
+        struct type r2 = {0};
+        r2.next = p;
+        r2.category = TYPE_CATEGORY_POINTER;
+        r2.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
+        return r2;
     }
     catch
     {
     }
 
+    struct type r = {0};
     return r;
 }
 
@@ -1983,7 +1979,11 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
                             sizeof_result = type_get_sizeof(&tmp, &field_type_size, target);
                             if (sizeof_result != SIZEOF_RESULT_OK)
+                            {
+                                type_destroy(&tmp);
                                 throw;
+                            }
+                            type_destroy(&tmp);
                         }
                         else
                         {
@@ -2356,6 +2356,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         case SIZEOF_RESULT_OVERLOW:
                         case SIZEOF_RESULT_RUNTIME:
                         case SIZEOF_RESULT_FUNCTION:
+                        case SIZEOF_RESULT_BITFIELD:
                             throw;
                             break;
 
@@ -4182,7 +4183,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             struct type nt =
                 type_dup(&p_typedef_declarator->type);
 
-            free((void*)nt.name_opt);
+            free((void* _Owner)nt.name_opt);
             nt.name_opt = NULL;
             if (pdeclarator->name_opt)
             {

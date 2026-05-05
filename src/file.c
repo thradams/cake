@@ -1,11 +1,19 @@
-#include <stdio.h>
+#pragma safety enable
+
+struct X { struct X* next; };
+struct X* _Opt f();
+
 int main()
 {
-    int n = 1;
-    printf("%zu ", sizeof(int [n++]));
+    struct X* _Opt p = f();
+    for (; p != 0; p = p->next)
+    {
+        *p = 1;
+    }
 
-    printf("%zu ", sizeof(int [n++]));
 
-    printf("%zu ", sizeof(int [n++]));
-
+    for (struct X* _Opt p2 = f(); p2 != 0; p2 = p->next)
+    {
+        *p2 = 1;
+    }
 }

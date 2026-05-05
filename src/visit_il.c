@@ -29,7 +29,7 @@
 
 static void emit_line_directive(struct d_visit_ctx* ctx,
                                 struct osstream* oss,
-                                const struct token* tk)
+                                const struct token* _Opt tk)
 {
     if (!ctx->options.line_directives)
         return;
@@ -87,7 +87,7 @@ static void generate_name(int n, int sz, char* out)
 
 int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_name, int sz, char new_name[])
 {
-    struct map_entry* it =
+    struct map_entry* _Opt it =
         hashmap_find(&ctx->ast.file_scope.variables, current_name);
     while (it)
     {
@@ -96,7 +96,7 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sz, "%s%d", current_name, i);
-                struct map_entry* it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                struct map_entry* _Opt it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
@@ -130,9 +130,9 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
 
 int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
-    char new_name[200];
+    char new_name[200] = {0};
     const char* current_name = p_init_declarator->p_declarator->name_opt->lexeme;
-    struct map_entry* it =
+    struct map_entry* _Opt it =
         hashmap_find(&ctx->ast.file_scope.variables, current_name);
     while (it)
     {
@@ -141,7 +141,7 @@ int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct in
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sizeof(new_name), "%s%d", current_name, i);
-                struct map_entry* it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                struct map_entry* _Opt it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
@@ -686,7 +686,7 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
         return SIZEOF_RESULT_OK;
     }
     assert(p_type->next == NULL);
-    size_t sz2;
+    size_t sz2 = 0;
     enum sizeof_result r = type_get_sizeof(p_type, &sz2, target);
     *size = sz2;
     assert(r != SIZEOF_RESULT_RUNTIME);
@@ -1194,7 +1194,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
            if it is we have a [flat_index]
         */
 
-        struct expression* expr0 = p_expression;
+        struct expression* _Opt expr0 = p_expression;
         while (expr0 && expr0->expression_type == POSTFIX_ARRAY)
         {
             expr0 = expr0->left;
@@ -1218,9 +1218,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
             struct osstream offset_flat = { 0 };
 
-            struct expression* expr = p_expression;
-            while (expr->expression_type == POSTFIX_ARRAY)
+            struct expression* _Opt expr = p_expression;
+            while (expr && expr->expression_type == POSTFIX_ARRAY)
             {
+                assert(expr->right != NULL);
                 if (offset_flat.size > 0)
                     ss_fprintf(&offset_flat, " + ");
 
@@ -1236,8 +1237,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 }
 
 
-                struct type* p_type = expr->left->type.next;
-                while (type_is_array(p_type))
+                struct type* _Opt p_type = expr->left->type.next;
+                while (p_type && type_is_array(p_type))
                 {
                     if (p_type->array_num_elements > 0)
                     {
@@ -1481,6 +1482,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case UNARY_EXPRESSION_CONSTEVAL:
+        assert(p_expression->right != NULL);
         d_visit_expression(ctx, oss, p_expression->right);
         break;
 
@@ -2433,7 +2435,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
 static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
-    struct try_statement* p_old_try_statement = ctx->p_current_try_statement;
+    struct try_statement* _Opt p_old_try_statement = ctx->p_current_try_statement;
     ctx->p_current_try_statement = p_try_statement;
     print_identation(ctx, oss);
 
@@ -2496,7 +2498,7 @@ static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss,
     else if (p_primary_block->asm_statement)
     {
         print_identation(ctx, oss);
-        struct token* p = p_primary_block->asm_statement->p_first_token;
+        struct token* _Opt p = p_primary_block->asm_statement->p_first_token;
         while (p)
         {
             ss_fprintf(oss, "%s", p->lexeme);
@@ -2512,9 +2514,8 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
 {
     if (p_unlabeled_statement->primary_block)
     {
-        if (p_unlabeled_statement->primary_block)
-        {
-            struct token* tk = NULL;
+
+            struct token* _Opt tk = NULL;
             if (p_unlabeled_statement->primary_block->compound_statement)
                 tk = p_unlabeled_statement->primary_block->compound_statement->first_token;
             else if (p_unlabeled_statement->primary_block->iteration_statement)
@@ -2528,7 +2529,6 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
             {
                 emit_line_directive(ctx, oss, tk);
             }
-        }
 
         d_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
     }
@@ -3183,9 +3183,9 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
         break;
         case TYPE_CATEGORY_ARRAY:
         {
-            const struct type* it = p_type;
+            const struct type* _Opt it = p_type;
             bool vm = false;
-            while (it->category == TYPE_CATEGORY_ARRAY)
+            while (it && it->category == TYPE_CATEGORY_ARRAY)
             {
                 if (it->array_num_elements <= 0)
                 {
@@ -3791,7 +3791,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                     }
                     else
                     {
-                        size_t sz2;
+                        size_t sz2 = 0;
                         enum sizeof_result r = type_get_sizeof(&object->p_init_expression->type, &sz2, ctx->options.target);
                         if (r != SIZEOF_RESULT_OK) r = 0; //throw;
 
@@ -4006,7 +4006,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                                int b[2] = a;
                              }
                             */
-                            size_t sz2;
+                            size_t sz2 = 0;
                             enum sizeof_result r = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz2, ctx->options.target);
                             if (r != SIZEOF_RESULT_OK) throw;
 
@@ -4654,7 +4654,7 @@ void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct
 
 static int parse_line_directive(const char* src,
                                 int* line_num,
-                                const char** filename,
+                                const char* _Opt * filename,
                                 size_t* fname_len)
 {
     const char* p = src;
@@ -4709,7 +4709,7 @@ size_t clean_line_directives(char* buf)
         if (*r == '\n') r++;
 
         int dir_line_num = 0;
-        const char* dir_fname = NULL;
+        const char* _Opt dir_fname = NULL;
         size_t dir_fname_len = 0;
 
         char saved = line_start[line_len];
@@ -4733,7 +4733,7 @@ size_t clean_line_directives(char* buf)
 
             if (line_needed || file_needed)
             {
-                char directive[600];
+                char directive[600] = {0};
                 size_t dlen;
                 if (file_needed)
                 {
@@ -4919,7 +4919,8 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
          to produce minimal #line directives, so we perform an extra step
          to remove unnecessary ones.
          */
-        oss->size = (int)clean_line_directives(oss->c_str);
+        if (oss->c_str)
+           oss->size = (int)clean_line_directives(oss->c_str);
     }
 
     ss_close(&declarations);

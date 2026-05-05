@@ -72,7 +72,7 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
     case TAG_TYPE_STRUCT_ENTRY:
         struct_entry_delete(p->data.p_struct_entry);
         break;
-    
+
     case TAG_TYPE_TEXT:
         free(p->data.p_text);
         break;
@@ -239,10 +239,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         type = TAG_TYPE_NUMBER;
         p = (void*)item->number;
     }
-    // else
-    // {
-     //    assert(false);
-     //}
+    
 
     try
     {
@@ -257,86 +254,87 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
             if (map->table == NULL) throw;
         }
 
-        if (map->table != NULL)
+        unsigned int hash = string_hash(key);
+        int index = hash % map->capacity;
+
+        struct map_entry* _Opt pentry = map->table[index];
+
+        for (; pentry != NULL; pentry = pentry->next)
         {
-            unsigned int hash = string_hash(key);
-            int index = hash % map->capacity;
-
-            struct map_entry* _Opt pentry = map->table[index];
-
-            for (; pentry != NULL; pentry = pentry->next)
+            if (pentry->hash == hash && strcmp(pentry->key, key) == 0)
             {
-                if (pentry->hash == hash && strcmp(pentry->key, key) == 0)
-                {
-                    break;
-                }
+                break;
+            }
+        }
+
+        if (pentry == NULL)
+        {
+            struct map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
+            if (p_new_entry == NULL) throw;
+
+            p_new_entry->hash = hash;
+
+            p_new_entry->data.p_declarator = (void*)p;
+
+            p_new_entry->type = type;
+
+            char* _Opt _Owner temp_key = strdup(key);
+            if (temp_key == NULL)
+            {
+                map_entry_delete(p_new_entry);
+                throw;
             }
 
-            if (pentry == NULL)
+            p_new_entry->key = temp_key;
+            p_new_entry->next = map->table[index];
+            map->table[index] = p_new_entry;
+            map->size++;
+            result = 0;
+        }
+        else
+        {
+            switch (pentry->type)
             {
-                struct map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
-                if (p_new_entry == NULL) throw;
+            case TAG_TYPE_NUMBER:break;
 
-                p_new_entry->hash = hash;
+            case TAG_TYPE_ENUM_SPECIFIER:
+                assert(pentry->data.p_enum_specifier != NULL);
+                item->p_enum_specifier = pentry->data.p_enum_specifier;
+                break;
+            case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
+                assert(pentry->data.p_struct_or_union_specifier != NULL);
+                item->p_struct_or_union_specifier = pentry->data.p_struct_or_union_specifier;
+                break;
 
-                p_new_entry->data.p_declarator = (void*)p;
-
-                p_new_entry->type = type;
-
-                char* _Opt _Owner temp_key = strdup(key);
-                if (temp_key == NULL)
-                {
-                    map_entry_delete(p_new_entry);
-                    throw;
-                }
-
-                p_new_entry->key = temp_key;
-                p_new_entry->next = map->table[index];
-                map->table[index] = p_new_entry;
-                map->size++;
-                result = 0;
+            case TAG_TYPE_ENUMERATOR:
+                assert(pentry->data.p_enumerator != NULL);
+                item->p_enumerator = pentry->data.p_enumerator;
+                break;
+            case TAG_TYPE_DECLARATOR:
+                assert(pentry->data.p_declarator != NULL);
+                item->p_declarator = pentry->data.p_declarator;
+                break;
+            case TAG_TYPE_INIT_DECLARATOR:
+                assert(pentry->data.p_init_declarator != NULL);
+                item->p_init_declarator = pentry->data.p_init_declarator;
+                break;
+            case TAG_TYPE_MACRO:
+                assert(pentry->data.p_macro != NULL);
+                item->p_macro = pentry->data.p_macro;
+                break;
+            case TAG_TYPE_STRUCT_ENTRY:
+                assert(pentry->data.p_struct_entry != NULL);
+                item->p_struct_entry = pentry->data.p_struct_entry;
+                break;
+            case TAG_TYPE_TEXT:
+                assert(pentry->data.p_struct_entry != NULL);
+                item->text = pentry->data.p_text;
+                break;
             }
-            else
-            {
-                switch (pentry->type)
-                {
-                case TAG_TYPE_NUMBER:break;
 
-                case TAG_TYPE_ENUM_SPECIFIER:
-                    assert(pentry->data.p_enum_specifier != NULL);
-                    item->p_enum_specifier = pentry->data.p_enum_specifier;
-                    break;
-                case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
-                    assert(pentry->data.p_struct_or_union_specifier != NULL);
-                    item->p_struct_or_union_specifier = pentry->data.p_struct_or_union_specifier;
-                    break;
-
-                case TAG_TYPE_ENUMERATOR:
-                    assert(pentry->data.p_enumerator != NULL);
-                    item->p_enumerator = pentry->data.p_enumerator;
-                    break;
-                case TAG_TYPE_DECLARATOR:
-                    assert(pentry->data.p_declarator != NULL);
-                    item->p_declarator = pentry->data.p_declarator;
-                    break;
-                case TAG_TYPE_INIT_DECLARATOR:
-                    assert(pentry->data.p_init_declarator != NULL);
-                    item->p_init_declarator = pentry->data.p_init_declarator;
-                    break;
-                case TAG_TYPE_MACRO:
-                    assert(pentry->data.p_macro != NULL);
-                    item->p_macro = pentry->data.p_macro;
-                    break;
-                case TAG_TYPE_STRUCT_ENTRY:
-                    assert(pentry->data.p_struct_entry != NULL);
-                    item->p_struct_entry = pentry->data.p_struct_entry;
-                    break;
-                }
-
-                result = 1;
-                pentry->data.p_declarator = (void*)p;
-                pentry->type = type;
-            }
+            result = 1;
+            pentry->data.p_declarator = (void*)p;
+            pentry->type = type;
         }
     }
     catch

@@ -1828,7 +1828,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         Conversion from !w4 to -> [[cake::w4]]
                     */
                     struct token_list list2 = tokenizer(ctx, "[[cake::wN]]", "", level, 0);
-                    struct token* p_new_token = token_list_pop_front_get(&list2);
+                    struct token* _Owner _Opt p_new_token = token_list_pop_front_get(&list2);
                     token_delete(p_new_token);
                     p_new_token = token_list_pop_front_get(&list2);
                     while (p_new_token)
@@ -5373,9 +5373,10 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
             struct token_list list3 = copy_replacement_list_core(ctx, &r, true);
             token_list_swap(&list3, &r);
-            free((void*)result);
+            free((void* _Owner)result);
             token_list_destroy(&list2);
             token_list_destroy(&list3);
+            token_list_destroy(&r0);
         }
 
     }

@@ -45,6 +45,13 @@ inline char* _Opt strrchr(char const *  _String, int _Ch);
 
 #ifdef _WIN32
 __inline int __cdecl snprintf(_Ctor char* const _Buffer, size_t  const _BufferCount, char const* const _Format, ...);
+
+char* _Opt _fullpath(
+   char* _Opt absPath,
+   const char* relPath,
+   size_t maxLength
+);
+
 #else
 
 int snprintf(
@@ -327,7 +334,7 @@ struct hash_item_set
     struct init_declarator* _Owner _Opt p_init_declarator;
     struct macro* _Owner _Opt p_macro;
     struct struct_entry* _Owner _Opt p_struct_entry;
-    char* text;
+    char* _Owner _Opt text;
 };
 void hash_item_set_destroy(_Dtor struct hash_item_set* p);
 
@@ -2061,8 +2068,8 @@ struct token* _Owner _Opt clone_token(struct token* p)
     }
 
     *token = *p;
-    token->lexeme = lexeme;
-    token->next = NULL;
+    token->lexeme = lexeme; //lint 29
+    token->next = NULL; //lint 29
     token->prev = NULL;
 
     return token;
@@ -2961,7 +2968,7 @@ const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Ctor unsigned
     if (s[0] < 0x80)
     {
         *c = s[0];
-        assert(*c >= 0x0000 && *c <= 0x007F);
+        assert(*c <= 0x007F);
         next = s + 1;
     }
     else if ((s[0] & 0xe0) == 0xc0)
@@ -3219,7 +3226,7 @@ void map_entry_delete(struct map_entry* _Owner _Opt p)
     case TAG_TYPE_STRUCT_ENTRY:
         struct_entry_delete(p->data.p_struct_entry);
         break;
-    
+
     case TAG_TYPE_TEXT:
         free(p->data.p_text);
         break;
@@ -3386,10 +3393,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         type = TAG_TYPE_NUMBER;
         p = (void*)item->number;
     }
-    // else
-    // {
-     //    assert(false);
-     //}
+    
 
     try
     {
@@ -3404,86 +3408,87 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
             if (map->table == NULL) throw;
         }
 
-        if (map->table != NULL)
+        unsigned int hash = string_hash(key);
+        int index = hash % map->capacity;
+
+        struct map_entry* _Opt pentry = map->table[index];
+
+        for (; pentry != NULL; pentry = pentry->next)
         {
-            unsigned int hash = string_hash(key);
-            int index = hash % map->capacity;
-
-            struct map_entry* _Opt pentry = map->table[index];
-
-            for (; pentry != NULL; pentry = pentry->next)
+            if (pentry->hash == hash && strcmp(pentry->key, key) == 0)
             {
-                if (pentry->hash == hash && strcmp(pentry->key, key) == 0)
-                {
-                    break;
-                }
+                break;
+            }
+        }
+
+        if (pentry == NULL)
+        {
+            struct map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
+            if (p_new_entry == NULL) throw;
+
+            p_new_entry->hash = hash;
+
+            p_new_entry->data.p_declarator = (void*)p;
+
+            p_new_entry->type = type;
+
+            char* _Opt _Owner temp_key = strdup(key);
+            if (temp_key == NULL)
+            {
+                map_entry_delete(p_new_entry);
+                throw;
             }
 
-            if (pentry == NULL)
+            p_new_entry->key = temp_key;
+            p_new_entry->next = map->table[index];
+            map->table[index] = p_new_entry;
+            map->size++;
+            result = 0;
+        }
+        else
+        {
+            switch (pentry->type)
             {
-                struct map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
-                if (p_new_entry == NULL) throw;
+            case TAG_TYPE_NUMBER:break;
 
-                p_new_entry->hash = hash;
+            case TAG_TYPE_ENUM_SPECIFIER:
+                assert(pentry->data.p_enum_specifier != NULL);
+                item->p_enum_specifier = pentry->data.p_enum_specifier;
+                break;
+            case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
+                assert(pentry->data.p_struct_or_union_specifier != NULL);
+                item->p_struct_or_union_specifier = pentry->data.p_struct_or_union_specifier;
+                break;
 
-                p_new_entry->data.p_declarator = (void*)p;
-
-                p_new_entry->type = type;
-
-                char* _Opt _Owner temp_key = strdup(key);
-                if (temp_key == NULL)
-                {
-                    map_entry_delete(p_new_entry);
-                    throw;
-                }
-
-                p_new_entry->key = temp_key;
-                p_new_entry->next = map->table[index];
-                map->table[index] = p_new_entry;
-                map->size++;
-                result = 0;
+            case TAG_TYPE_ENUMERATOR:
+                assert(pentry->data.p_enumerator != NULL);
+                item->p_enumerator = pentry->data.p_enumerator;
+                break;
+            case TAG_TYPE_DECLARATOR:
+                assert(pentry->data.p_declarator != NULL);
+                item->p_declarator = pentry->data.p_declarator;
+                break;
+            case TAG_TYPE_INIT_DECLARATOR:
+                assert(pentry->data.p_init_declarator != NULL);
+                item->p_init_declarator = pentry->data.p_init_declarator;
+                break;
+            case TAG_TYPE_MACRO:
+                assert(pentry->data.p_macro != NULL);
+                item->p_macro = pentry->data.p_macro;
+                break;
+            case TAG_TYPE_STRUCT_ENTRY:
+                assert(pentry->data.p_struct_entry != NULL);
+                item->p_struct_entry = pentry->data.p_struct_entry;
+                break;
+            case TAG_TYPE_TEXT:
+                assert(pentry->data.p_struct_entry != NULL);
+                item->text = pentry->data.p_text;
+                break;
             }
-            else
-            {
-                switch (pentry->type)
-                {
-                case TAG_TYPE_NUMBER:break;
 
-                case TAG_TYPE_ENUM_SPECIFIER:
-                    assert(pentry->data.p_enum_specifier != NULL);
-                    item->p_enum_specifier = pentry->data.p_enum_specifier;
-                    break;
-                case TAG_TYPE_STRUCT_OR_UNION_SPECIFIER:
-                    assert(pentry->data.p_struct_or_union_specifier != NULL);
-                    item->p_struct_or_union_specifier = pentry->data.p_struct_or_union_specifier;
-                    break;
-
-                case TAG_TYPE_ENUMERATOR:
-                    assert(pentry->data.p_enumerator != NULL);
-                    item->p_enumerator = pentry->data.p_enumerator;
-                    break;
-                case TAG_TYPE_DECLARATOR:
-                    assert(pentry->data.p_declarator != NULL);
-                    item->p_declarator = pentry->data.p_declarator;
-                    break;
-                case TAG_TYPE_INIT_DECLARATOR:
-                    assert(pentry->data.p_init_declarator != NULL);
-                    item->p_init_declarator = pentry->data.p_init_declarator;
-                    break;
-                case TAG_TYPE_MACRO:
-                    assert(pentry->data.p_macro != NULL);
-                    item->p_macro = pentry->data.p_macro;
-                    break;
-                case TAG_TYPE_STRUCT_ENTRY:
-                    assert(pentry->data.p_struct_entry != NULL);
-                    item->p_struct_entry = pentry->data.p_struct_entry;
-                    break;
-                }
-
-                result = 1;
-                pentry->data.p_declarator = (void*)p;
-                pentry->type = type;
-            }
+            result = 1;
+            pentry->data.p_declarator = (void*)p;
+            pentry->type = type;
         }
     }
     catch
@@ -5573,7 +5578,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         Conversion from !w4 to -> [[cake::w4]]
                     */
                     struct token_list list2 = tokenizer(ctx, "[[cake::wN]]", "", level, 0);
-                    struct token* p_new_token = token_list_pop_front_get(&list2);
+                    struct token* _Owner _Opt p_new_token = token_list_pop_front_get(&list2);
                     token_delete(p_new_token);
                     p_new_token = token_list_pop_front_get(&list2);
                     while (p_new_token)
@@ -9118,9 +9123,10 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
             struct token_list list3 = copy_replacement_list_core(ctx, &r, true);
             token_list_swap(&list3, &r);
-            free((void*)result);
+            free((void* _Owner)result);
             token_list_destroy(&list2);
             token_list_destroy(&list3);
+            token_list_destroy(&r0);
         }
 
     }
@@ -11802,7 +11808,7 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 
     size = vsnprintf(stream->c_str + stream->size, stream->capacity - stream->size, fmt, tmpa);
 
-    va_end(tmpa);
+    va_end(tmpa); //lint 35 33
 
 #pragma CAKE diagnostic pop
 
@@ -11848,7 +11854,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
     va_list args = { 0 };
     va_start(args, fmt);
     int size = ss_vafprintf(stream, fmt, args);
-    va_end(args);
+    va_end(args); //lint 35 33
 
 #pragma CAKE diagnostic pop
 
@@ -12060,8 +12066,6 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
       letter that isn't valid or can't be found, or if the length of the
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignored "-Wflow-not-null"
     char* _Opt p = _fullpath(resolved_path, path, FS_MAX_PATH);
     if (p)
     {
@@ -12073,7 +12077,6 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
             p2++;
         }
     }
-#pragma CAKE diagnostic pop
 
     return p;
 }
@@ -12179,7 +12182,7 @@ int copy_folder(const char* from, const char* to)
 #ifdef _WIN32
 int get_self_path(char* buffer, int maxsize)
 {
-    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize);
+    DWORD r = GetModuleFileNameA(NULL, buffer, maxsize); 
     return r;
 }
 
@@ -19412,8 +19415,7 @@ int object_set(
                     !type_is_pointer_or_array(&p_init_expression->type) &&
                     !type_is_function(&p_init_expression->type))
                 {
-                    struct token* _Opt tk = p_init_expression ?
-                        p_init_expression->first_token : ctx->current;
+                    struct token* _Opt tk = p_init_expression->first_token;
 
                     compiler_diagnostic(C_ERROR_REQUIRES_COMPILE_TIME_VALUE,
                         ctx,
@@ -19682,9 +19684,9 @@ struct object object_dup(const struct object* src)
         result.p_ref = src->p_ref;
         result.next = NULL;
 
-        for (struct object* p = src->members.head; p; p = p->next)
+        for (struct object* _Opt p = src->members.head; p; p = p->next)
         {
-            struct object* pnew = calloc(1, sizeof * pnew);
+            struct object* _Opt _Owner pnew = calloc(1, sizeof * pnew);
             if (pnew == NULL) throw;
             *pnew = object_dup(p);
             object_list_push(&result.members, pnew);
@@ -20939,7 +20941,7 @@ struct object object_div(enum target target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        r.value.host_long_double = a0.value.host_long_double / b0.value.host_long_double;
+        r.value.host_long_double = a0.value.host_long_double / b0.value.host_long_double; //lint 36 div by zero, we want it here
         r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
 
     default:
@@ -21028,7 +21030,7 @@ struct object object_mod(enum target target,
 
 int object_is_equal(enum target target, const struct object* a, const struct object* b)
 {
-    char message[200];
+    char message[200]= {0};
     struct object r = object_equal(target, a, b, message);
     int i = r.value.host_long_long != 0;
     object_destroy(&r);
@@ -21037,7 +21039,7 @@ int object_is_equal(enum target target, const struct object* a, const struct obj
 
 int object_is_not_equal(enum target target, const struct object* a, const struct object* b)
 {
-    char message[200];
+    char message[200] = {0};
     struct object r = object_not_equal(target, a, b, message);
     int i = r.value.host_long_long != 0;
     object_destroy(&r);
@@ -21047,7 +21049,7 @@ int object_is_not_equal(enum target target, const struct object* a, const struct
 
 int object_is_greater_than_or_equal(enum target target, const struct object* a, const struct object* b)
 {
-    char message[200];
+    char message[200]= {0};
     struct object r = object_greater_than_or_equal(target, a, b, message);
     int i = r.value.host_long_long != 0;
     object_destroy(&r);
@@ -21056,7 +21058,7 @@ int object_is_greater_than_or_equal(enum target target, const struct object* a, 
 
 int object_is_smaller_than_or_equal(enum target target, const struct object* a, const struct object* b)
 {
-    char message[200];
+    char message[200]= {0};
     struct object r = object_smaller_than_or_equal(target, a, b, message);
     int i = r.value.host_long_long != 0;
     object_destroy(&r);
@@ -24007,7 +24009,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
 struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct parser_ctx* ctx,
     struct type_name* _Owner p_type_name_par,
-    struct storage_class_specifiers* _Owner _Opt p_storage_class_specifiers,
+    struct storage_class_specifiers* _Owner _Opt p_storage_class_specifiers_,
     struct token* p_first_token,
     enum expression_eval_mode eval_mode)
 {
@@ -24029,7 +24031,9 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
             throw;
 
         assert(p_expression_node->type_name == NULL);
-        p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers /*moved*/;
+        p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers_ /*moved*/;
+        p_storage_class_specifiers_ = NULL; /*MOVED*/
+
         p_expression_node->first_token = p_first_token;
 
         p_expression_node->type_name = p_type_name; /*MOVED*/
@@ -24046,9 +24050,9 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
                 throw;
             }
 
-            if (p_storage_class_specifiers)
+            if (p_expression_node->p_storage_class_specifiers)
             {
-                if (p_storage_class_specifiers->storage_class_specifier_flags != STORAGE_SPECIFIER_STATIC)
+                if (p_expression_node->p_storage_class_specifiers->storage_class_specifier_flags != STORAGE_SPECIFIER_STATIC)
                 {
                     compiler_diagnostic(C_ERROR_UNEXPECTED, ctx, p_expression_node->type_name->first_token, NULL, "only static is allowed");
                 }
@@ -24137,6 +24141,8 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
         expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
+
+    storage_class_specifiers_delete(p_storage_class_specifiers_);
     type_name_delete(p_type_name);
     return p_expression_node;
 }
@@ -24377,7 +24383,7 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
          If the pointer has a constant value, we compute the member's
          offset and then add it to that constant value that is generally zero.
   */
-    struct expression* _Owner _Opt right = p_expression->right;
+    struct expression* _Opt right = p_expression->right;
 
     /* skip extra parenthesis */
     while (right && right->expression_type == PRIMARY_EXPRESSION_PARENTHESIS)
@@ -24398,7 +24404,10 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
 
     struct type struct_type = type_remove_pointer(&right->left->type);
     if (!type_is_struct_or_union(&struct_type))
+    {
+        type_destroy(&struct_type);
         return -1;
+    }
 
     size_t offset_of = 0;
     enum sizeof_result e = type_get_offsetof(&struct_type,
@@ -24406,8 +24415,12 @@ static int is_offsetof_pattern(struct parser_ctx* ctx, struct expression* p_expr
                                             &offset_of,
                                             ctx->options.target);
     if (e != SIZEOF_RESULT_OK)
+    {
+        type_destroy(&struct_type);
         return -1;
+    }
 
+    type_destroy(&struct_type);
     return (int)(pointer_value + offset_of);
 }
 
@@ -29960,7 +29973,7 @@ void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declarati
 
 //#pragma once
 
-#define CAKE_VERSION "0.13.27"
+#define CAKE_VERSION "0.13.28"
 
 
 
@@ -32024,7 +32037,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 p_declaration_specifiers->alignment_specifier_flags |= p_declaration_specifier->alignment_specifier->flags;
             }
 
-            declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
+            declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier); //lint 33
 
             if (p_declaration_specifiers->p_attribute_specifier_sequence == NULL)
             {
@@ -33485,7 +33498,7 @@ void storage_class_specifier_node_delete(struct storage_class_specifier_node* _O
 {
     if (p)
     {
-        //storage_class_specifier_destroy(p->storage_class_specifier);
+        assert(p->next == NULL);
         free(p);
     }
 }
@@ -38217,6 +38230,14 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 compiler_diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected enable/disable");
                 throw;
             }
+        }
+        else if (strcmp(p_pragma_token->lexeme, "comment") == 0)
+        {
+            //MSVC pragma comment
+        }
+        else if (strcmp(p_pragma_token->lexeme, "warning") == 0)
+        {
+            //MSVC pragma warning
         }
         else
         {
@@ -45204,7 +45225,7 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 static void emit_line_directive(struct d_visit_ctx* ctx,
                                 struct osstream* oss,
-                                const struct token* tk)
+                                const struct token* _Opt tk)
 {
     if (!ctx->options.line_directives)
         return;
@@ -45262,7 +45283,7 @@ static void generate_name(int n, int sz, char* out)
 
 int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_name, int sz, char new_name[])
 {
-    struct map_entry* it =
+    struct map_entry* _Opt it =
         hashmap_find(&ctx->ast.file_scope.variables, current_name);
     while (it)
     {
@@ -45271,7 +45292,7 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sz, "%s%d", current_name, i);
-                struct map_entry* it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                struct map_entry* _Opt it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
@@ -45305,9 +45326,9 @@ int generate_file_scope_new_name(struct d_visit_ctx* ctx, const char* current_na
 
 int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
-    char new_name[200];
+    char new_name[200] = {0};
     const char* current_name = p_init_declarator->p_declarator->name_opt->lexeme;
-    struct map_entry* it =
+    struct map_entry* _Opt it =
         hashmap_find(&ctx->ast.file_scope.variables, current_name);
     while (it)
     {
@@ -45316,7 +45337,7 @@ int rename_file_scope_declarator_if_necessary(struct d_visit_ctx* ctx, struct in
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sizeof(new_name), "%s%d", current_name, i);
-                struct map_entry* it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
+                struct map_entry* _Opt it2 = hashmap_find(&ctx->ast.file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
@@ -45861,7 +45882,7 @@ static enum sizeof_result vm_emit_sizeof_expr_core(struct d_visit_ctx* ctx,
         return SIZEOF_RESULT_OK;
     }
     assert(p_type->next == NULL);
-    size_t sz2;
+    size_t sz2 = 0;
     enum sizeof_result r = type_get_sizeof(p_type, &sz2, target);
     *size = sz2;
     assert(r != SIZEOF_RESULT_RUNTIME);
@@ -46369,7 +46390,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
            if it is we have a [flat_index]
         */
 
-        struct expression* expr0 = p_expression;
+        struct expression* _Opt expr0 = p_expression;
         while (expr0 && expr0->expression_type == POSTFIX_ARRAY)
         {
             expr0 = expr0->left;
@@ -46393,9 +46414,10 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
 
             struct osstream offset_flat = { 0 };
 
-            struct expression* expr = p_expression;
-            while (expr->expression_type == POSTFIX_ARRAY)
+            struct expression* _Opt expr = p_expression;
+            while (expr && expr->expression_type == POSTFIX_ARRAY)
             {
+                assert(expr->right != NULL);
                 if (offset_flat.size > 0)
                     ss_fprintf(&offset_flat, " + ");
 
@@ -46411,8 +46433,8 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
                 }
 
 
-                struct type* p_type = expr->left->type.next;
-                while (type_is_array(p_type))
+                struct type* _Opt p_type = expr->left->type.next;
+                while (p_type && type_is_array(p_type))
                 {
                     if (p_type->array_num_elements > 0)
                     {
@@ -46656,6 +46678,7 @@ static void d_visit_expression(struct d_visit_ctx* ctx, struct osstream* oss, st
         break;
 
     case UNARY_EXPRESSION_CONSTEVAL:
+        assert(p_expression->right != NULL);
         d_visit_expression(ctx, oss, p_expression->right);
         break;
 
@@ -47608,7 +47631,7 @@ static void d_visit_selection_statement(struct d_visit_ctx* ctx, struct osstream
 
 static void d_visit_try_statement(struct d_visit_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
-    struct try_statement* p_old_try_statement = ctx->p_current_try_statement;
+    struct try_statement* _Opt p_old_try_statement = ctx->p_current_try_statement;
     ctx->p_current_try_statement = p_try_statement;
     print_identation(ctx, oss);
 
@@ -47671,7 +47694,7 @@ static void d_visit_primary_block(struct d_visit_ctx* ctx, struct osstream* oss,
     else if (p_primary_block->asm_statement)
     {
         print_identation(ctx, oss);
-        struct token* p = p_primary_block->asm_statement->p_first_token;
+        struct token* _Opt p = p_primary_block->asm_statement->p_first_token;
         while (p)
         {
             ss_fprintf(oss, "%s", p->lexeme);
@@ -47687,9 +47710,8 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
 {
     if (p_unlabeled_statement->primary_block)
     {
-        if (p_unlabeled_statement->primary_block)
-        {
-            struct token* tk = NULL;
+
+            struct token* _Opt tk = NULL;
             if (p_unlabeled_statement->primary_block->compound_statement)
                 tk = p_unlabeled_statement->primary_block->compound_statement->first_token;
             else if (p_unlabeled_statement->primary_block->iteration_statement)
@@ -47703,7 +47725,6 @@ static void d_visit_unlabeled_statement(struct d_visit_ctx* ctx, struct osstream
             {
                 emit_line_directive(ctx, oss, tk);
             }
-        }
 
         d_visit_primary_block(ctx, oss, p_unlabeled_statement->primary_block);
     }
@@ -48358,9 +48379,9 @@ static void d_print_type_core(struct d_visit_ctx* ctx,
         break;
         case TYPE_CATEGORY_ARRAY:
         {
-            const struct type* it = p_type;
+            const struct type* _Opt it = p_type;
             bool vm = false;
-            while (it->category == TYPE_CATEGORY_ARRAY)
+            while (it && it->category == TYPE_CATEGORY_ARRAY)
             {
                 if (it->array_num_elements <= 0)
                 {
@@ -48966,7 +48987,7 @@ static void assign_each_member_from_initialization(struct d_visit_ctx* ctx,
                     }
                     else
                     {
-                        size_t sz2;
+                        size_t sz2 = 0;
                         enum sizeof_result r = type_get_sizeof(&object->p_init_expression->type, &sz2, ctx->options.target);
                         if (r != SIZEOF_RESULT_OK) r = 0; //throw;
 
@@ -49181,7 +49202,7 @@ static void print_initializer(struct d_visit_ctx* ctx,
                                int b[2] = a;
                              }
                             */
-                            size_t sz2;
+                            size_t sz2 = 0;
                             enum sizeof_result r = type_get_sizeof(&p_init_declarator->p_declarator->type, &sz2, ctx->options.target);
                             if (r != SIZEOF_RESULT_OK) throw;
 
@@ -49829,7 +49850,7 @@ void d_print_structs(struct d_visit_ctx* ctx, struct osstream* ss, struct struct
 
 static int parse_line_directive(const char* src,
                                 int* line_num,
-                                const char** filename,
+                                const char* _Opt * filename,
                                 size_t* fname_len)
 {
     const char* p = src;
@@ -49884,7 +49905,7 @@ size_t clean_line_directives(char* buf)
         if (*r == '\n') r++;
 
         int dir_line_num = 0;
-        const char* dir_fname = NULL;
+        const char* _Opt dir_fname = NULL;
         size_t dir_fname_len = 0;
 
         char saved = line_start[line_len];
@@ -49908,7 +49929,7 @@ size_t clean_line_directives(char* buf)
 
             if (line_needed || file_needed)
             {
-                char directive[600];
+                char directive[600] = {0};
                 size_t dlen;
                 if (file_needed)
                 {
@@ -50094,7 +50115,8 @@ void d_visit(struct d_visit_ctx* ctx, struct osstream* oss)
          to produce minimal #line directives, so we perform an extra step
          to remove unnecessary ones.
          */
-        oss->size = (int)clean_line_directives(oss->c_str);
+        if (oss->c_str)
+           oss->size = (int)clean_line_directives(oss->c_str);
     }
 
     ss_close(&declarations);
@@ -55360,13 +55382,13 @@ static void check_dianostic_suppression(struct flow_visit_ctx* ctx, struct token
     const int search_ahead_max = 3; /* we don't search forever */
 
     int search_count = 0;
-    struct token* pToken = pTokenStart;
+    struct token* _Opt pToken = pTokenStart;
 
     while (pToken)
     {
         if (pToken->type == TK_LINE_COMMENT || pToken->type == TK_COMMENT)
         {
-            int ids[LINT_IDS_MAX];
+            int ids[LINT_IDS_MAX] = { 0 };
             int count = parse_diagnostic_suppression(pToken->lexeme, ids);
 
             for (int i = 0; i < count; i++)
@@ -55514,6 +55536,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
                 else
                 {
+                    char object_name[100] = { 0 };
+                    object_get_name(&p_expression->left->type, p_object, object_name, sizeof object_name);
+
                     struct marker marker = { 0 };
                     marker.p_token_begin = p_expression->left->first_token;
                     marker.p_token_end = p_expression->left->last_token;
@@ -55521,7 +55546,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             ctx->ctx,
                             NULL,
                             &marker,
-                           "pointer may be null");
+                           "pointer '%s' may be null", object_name);
                 }
             }
             else if (flow_object_can_be_uninitialized(p_object))
@@ -55638,10 +55663,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             struct argument_expression* _Opt p_argument_expression = p_expression->argument_expression_list.head;
 
             if (p_expression->left->declarator->direct_declarator &&
+                p_expression->left->declarator->direct_declarator->function_declarator &&
                 p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt)
             {
                 struct parameter_declaration* _Opt p_parameter =
                     p_expression->left->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+
                 while (p_parameter && p_argument_expression)
                 {
                     if (p_parameter->declarator)
@@ -56437,6 +56464,15 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_START:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_END:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_COPY:
+    case UNARY_EXPRESSION_GCC__BUILTIN_VA_ARG:
+        break;
+    case UNARY_EXPRESSION_GCC__BUILTIN_OFFSETOF:
+    case UNARY_EXPRESSION_CONSTEVAL:
+        break;
+
     }
 }
 
@@ -56511,7 +56547,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
     }
 
 
-    true_false_set_destroy(&true_false_set);    
+    true_false_set_destroy(&true_false_set);
 }
 
 static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -56598,7 +56634,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     ctx->break_join_state = old_break_join_state;
     true_false_set_destroy(&true_false_set);
 }
-
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     /*
@@ -56669,7 +56704,6 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     true_false_set_destroy(&d);
 }
-
 
 static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
@@ -58493,6 +58527,9 @@ int target_get_num_of_bits(enum target target, enum object_type type)
 
     case TYPE_LONG_DOUBLE:
         return get_platform(target)->long_double_n_bits;
+    
+    default:
+        break;
     }
 
     assert(false);
@@ -60046,27 +60083,23 @@ bool type_is_empty(const struct type* p_type)
 
 struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled)
 {
-    struct type r = type_dup(p_type);
     try
     {
-        //waiting test
-        //if (type_is_empty(&r)) throw;
-
         struct type* _Owner _Opt p = calloc(1, sizeof(struct type));
         if (p == NULL) throw;
-
-        *p = r;
-        r = (struct type){ 0 };
-        r.next = p;
-        r.category = TYPE_CATEGORY_POINTER;
-
-
-        r.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
+        struct type r0 = type_dup(p_type);
+        *p = r0;
+        struct type r2 = {0};
+        r2.next = p;
+        r2.category = TYPE_CATEGORY_POINTER;
+        r2.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
+        return r2;
     }
     catch
     {
     }
 
+    struct type r = {0};
     return r;
 }
 
@@ -60558,7 +60591,11 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
                             sizeof_result = type_get_sizeof(&tmp, &field_type_size, target);
                             if (sizeof_result != SIZEOF_RESULT_OK)
+                            {
+                                type_destroy(&tmp);
                                 throw;
+                            }
+                            type_destroy(&tmp);
                         }
                         else
                         {
@@ -60931,6 +60968,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         case SIZEOF_RESULT_OVERLOW:
                         case SIZEOF_RESULT_RUNTIME:
                         case SIZEOF_RESULT_FUNCTION:
+                        case SIZEOF_RESULT_BITFIELD:
                             throw;
                             break;
 
@@ -62757,7 +62795,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             struct type nt =
                 type_dup(&p_typedef_declarator->type);
 
-            free((void*)nt.name_opt);
+            free((void* _Owner)nt.name_opt);
             nt.name_opt = NULL;
             if (pdeclarator->name_opt)
             {
