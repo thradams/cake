@@ -6,7 +6,66 @@ var model = {};
 
 var on_edited_timer = -1; // setTimeout(myGreeting, 3000);
 
-function validate(model) {
+// Pattern: filename:line:col:   e.g. main.c:17:11:
+var OUTPUT_LOCATION_RE = /^([^\s:]+\.c(?:pp)?):(\d+):(\d+):/;
+
+// Sets the output element's HTML and wraps each line in a <div>.
+// Lines matching file:line:col: become clickable and jump the editor.
+// htmlContent must already be the final HTML (ANSI colors converted, etc.)
+function setOutputHtml(htmlContent)
+{
+    var element = document.getElementById('output');
+    if (!element) return;
+
+    var lines = htmlContent.split('\n');
+    var result = '';
+    var tmp = document.createElement('span');
+
+    for (var i = 0; i < lines.length; i++)
+    {
+        var lineHtml = lines[i];
+
+        // Extract plain text to test for file:line:col pattern
+        tmp.innerHTML = lineHtml;
+        var plainText = tmp.textContent || tmp.innerText || '';
+        var match = OUTPUT_LOCATION_RE.exec(plainText);
+
+        if (match)
+        {
+            var lineNum = parseInt(match[2], 10);
+            var colNum = parseInt(match[3], 10);
+            result += '<div class="output-line output-location"'
+                + ' data-line="' + lineNum + '"'
+                + ' data-col="' + colNum + '"'
+                + ' title="Go to line ' + lineNum + ', col ' + colNum + '">'
+                + lineHtml + '</div>';
+        } else
+        {
+            result += '<div class="output-line">' + lineHtml + '</div>';
+        }
+    }
+
+    element.innerHTML = result;
+    element.scrollTop = element.scrollHeight;
+
+    // Single delegated listener - safe to reassign each render
+    element.onclick = function (e)
+    {
+        var div = e.target.closest('.output-location');
+        if (!div) return;
+        var ln = parseInt(div.getAttribute('data-line'), 10);
+        var col = parseInt(div.getAttribute('data-col'), 10);
+        if (inputEditor && inputEditor.revealLineInCenter)
+        {
+            inputEditor.revealLineInCenter(ln);
+            inputEditor.setPosition({ lineNumber: ln, column: col });
+            inputEditor.focus();
+        }
+    };
+}
+
+function validate(model)
+{
 
     /*we parse the ouput to create markers*/
     let ouput = document.getElementById("output").innerText;
@@ -14,27 +73,33 @@ function validate(model) {
 
     const markers = [];
 
-    for (var i = 0; i < ouputlines.length; i++) {
+    for (var i = 0; i < ouputlines.length; i++)
+    {
         /*
          we need to parse this
          c:/main.c:17:11: warning: returning an uninitialized 'x.name' object [-Wanalyzer-maybe-uninitialized]
          17 |   return xxx;
             |          ^~~     
         */
-        if (ouputlines[i].search("main.c:") == 0) {
+        if (ouputlines[i].search("main.c:") == 0)
+        {
             let line_start = 0;
             let start_col = 0;
             let end_col = 0;
             let marks = ouputlines[i + 2];
-            for (var k = 0; k < marks.length; k++) {
-                if (marks.charAt(k) == "|") {
+            for (var k = 0; k < marks.length; k++)
+            {
+                if (marks.charAt(k) == "|")
+                {
                     line_start = k;
                 }
-                if (marks.charAt(k) == "^" || marks.charAt(k) == "~") {
+                if (marks.charAt(k) == "^" || marks.charAt(k) == "~")
+                {
                     start_col = k;
                     end_col = k;
                     k++;
-                    while (marks.charAt(k) == "~") {
+                    while (marks.charAt(k) == "~")
+                    {
                         end_col++;
                         k++;
                     }
@@ -69,7 +134,8 @@ function validate(model) {
     monaco.editor.setModelMarkers(model, "owner", markers);
 }
 
-function ReportIssue() {
+function ReportIssue()
+{
     var source = inputEditor.getValue();
     var generates = outputEditor.getValue();
 
@@ -89,11 +155,13 @@ function ReportIssue() {
 
     window.open(link, '_blank');
 }
-function Share() {
-     var sharelink = document.getElementById("sharelink");
+function Share()
+{
+    var sharelink = document.getElementById("sharelink");
 
     // Toggle off if already visible
-    if (sharelink.style.display === "block") {
+    if (sharelink.style.display === "block")
+    {
         sharelink.style.display = "none";
         return;
     }
@@ -111,40 +179,42 @@ function Share() {
     sharelink.select();
 
     // Hide when it loses focus
-    sharelink.onblur = function () {
+    sharelink.onblur = function ()
+    {
         sharelink.style.display = "none";
     };
 }
 
-function OnSwap() {
+function OnSwap()
+{
     var temp = inputEditor.getValue();
     inputEditor.setValue(outputEditor.getValue());
     outputEditor.setValue(temp);
 }
 
-function Run() {
-    document.getElementById("output").value = "";
-    var http = new XMLHttpRequest();
+function Run()
+{
+    var element = document.getElementById('output');
+    if (element) element.innerHTML = "";
 
+    var http = new XMLHttpRequest();
     http.open("POST", "https://coliru.stacked-crooked.com/compile", false);
     http.send(JSON.stringify({ "cmd": "gcc  -std=c89 -x c main.cpp && ./a.out", "src": outputEditor.getValue() }));
     var text = http.response;
     if (text.length == 0)
         text = "coliru compilation ok";
     text = "\x1b[37m" + text;
-    var element = document.getElementById('output');
     var convert = new Filter();
-    text = convert.toHtml(text);
-    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-    if (element) {
-        element.innerHTML = text + "\n";
-        element.scrollTop = element.scrollHeight; // focus on bottom
-    }
+    // toHtml produces colored HTML; pass it directly to setOutputHtml
+    var coloredHtml = convert.toHtml(text);
+    setOutputHtml(coloredHtml);
 }
 
 
-function OnCompileButton() {
-    document.getElementById("output").value = "";
+function OnCompileButton()
+{
+    var element = document.getElementById('output');
+    if (element) element.innerHTML = "";
     outputEditor.setValue("");
     var outputLanguage = -2;// document.getElementById("outtype").value;
 
@@ -156,29 +226,39 @@ function OnCompileButton() {
     if (outputLanguage == 0)
         options += " -E";
 
-
     var source = inputEditor.getValue();
     var ot = CompileText(options, source);
 
-    if (model) {
+    // CompileText writes plain text into #output; read it back as HTML then re-render clickable
+    var rawHtml = element ? element.innerHTML : "";
+
+    if (model)
+    {
         validate(model);
     }
+
+    // Re-render with clickable lines (colors from CompileText are already in innerHTML)
+    setOutputHtml(rawHtml);
+
     outputEditor.setValue(ot);
 }
 
-function OnChangeSelectionSample(index) {
+function OnChangeSelectionSample(index)
+{
     var area = document.getElementById("samples").value;
     var source = sample[area][index];
     inputEditor.setValue(source, -1);
     outputEditor.setValue("");
 }
 
-function OnChangeSelection(index) {
+function OnChangeSelection(index)
+{
     var samples = sample[index];
     var se2 = document.getElementById("sample");
     se2.innerText = "";
 
-    for (var i in samples) {
+    for (var i in samples)
+    {
         var o = document.createElement('option');
         o.textContent = i;
         o.value = i;
@@ -187,17 +267,20 @@ function OnChangeSelection(index) {
     OnChangeSelectionSample(Object.keys(sample[index])[0]);
 }
 
-function OnTimerAfterChanges() {
+function OnTimerAfterChanges()
+{
     clearTimeout(on_edited_timer);
     on_edited_timer = -1;
     OnCompileButton();
 }
 
-function OnLoad() {
+function OnLoad()
+{
 
     var se = document.getElementById("samples");
 
-    for (var area in sample) {
+    for (var area in sample)
+    {
         var o = document.createElement('option');
         o.textContent = area;
         o.value = area;
@@ -250,7 +333,8 @@ function OnLoad() {
     clearTimeout(on_edited_timer);
     on_edited_timer = setTimeout(OnTimerAfterChanges, 500);
 
-    model.onDidChangeContent(() => {
+    model.onDidChangeContent(() =>
+    {
         //https://microsoft.github.io/monaco-editor/typedoc/interfaces/editor.ITextModel.html#setValue.setValue-1
         //var source = inputEditor.getValue();
         //model.setValue(source);
@@ -269,8 +353,10 @@ function OnLoad() {
     const urlParams = new URLSearchParams(window.location.search);
 
     var to = urlParams.get('to');
-    if (to) {
-        try {
+    if (to)
+    {
+        try
+        {
             to = decodeURI(to);
             //document.getElementById("outtype").value = to;
         }
@@ -278,15 +364,18 @@ function OnLoad() {
     }
 
     var options = urlParams.get('options');
-    if (options) {
-        try {
+    if (options)
+    {
+        try
+        {
             options = decodeURI(options);
             document.getElementById("options").value = options;
         } catch { }
     }
 
     var code = urlParams.get('code');
-    if (code) {
+    if (code)
+    {
         code = atob(decodeURIComponent(code));
         inputEditor.setValue(code);
         //Not ready to call
